@@ -1,9 +1,8 @@
 import { neon } from '@neondatabase/serverless';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 const sql = neon(process.env.DATABASE_URL!);
 
-// Veritabanındaki "participants" tablosunun beklenen yapısı
 type ParticipantRow = {
   id: number;
   wallet_address: string;
@@ -19,13 +18,12 @@ type ParticipantRow = {
 };
 
 export async function GET(
-  req: Request,
-  { params }: { params: { wallet: string } }
+  req: NextRequest,
+  context: { params: { wallet: string } }
 ) {
   try {
-    const wallet = params.wallet;
+    const wallet = context.params.wallet;
 
-    // TypeScript’e rows tipinin ParticipantRow olduğunu söylüyoruz
     const { rows }: { rows: ParticipantRow[] } = await sql`
       SELECT * FROM participants WHERE wallet_address = ${wallet} LIMIT 1;
     `;
