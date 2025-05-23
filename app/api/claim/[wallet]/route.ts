@@ -1,8 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 import { NextRequest, NextResponse } from 'next/server';
 
-export const dynamic = 'force-dynamic';
-
 const sql = neon(process.env.DATABASE_URL!);
 
 type ParticipantRow = {
@@ -21,16 +19,16 @@ type ParticipantRow = {
 
 export async function GET(
   req: NextRequest,
-  context: { params: { wallet: string } }
+  { params }: { params: Promise<{ wallet: string }> }
 ) {
   try {
-    const wallet = context.params.wallet;
+    const { wallet } = await params;
 
     const result = await sql`
       SELECT * FROM participants WHERE wallet_address = ${wallet} LIMIT 1;
     `;
-    const rows = result as ParticipantRow[];
 
+    const rows = result as unknown as ParticipantRow[];
     if (rows.length === 0) {
       return NextResponse.json(
         { success: false, error: 'No data found' },
