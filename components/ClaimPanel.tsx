@@ -5,7 +5,17 @@ import { useEffect, useState } from 'react';
 
 export default function ClaimPanel() {
   const { publicKey } = useWallet();
-  const [data, setData] = useState<any>(null);
+  type ClaimData = {
+    wallet_address: string;
+    token_amount: number;
+    token_symbol: string;
+    id: number;
+    claimable_amount: number;
+    claimed: boolean;
+  };
+  
+  const [data, setData] = useState<ClaimData | null>(null);
+  
   const [loading, setLoading] = useState(false);
   const [claiming, setClaiming] = useState(false);
   const [claimed, setClaimed] = useState(false);

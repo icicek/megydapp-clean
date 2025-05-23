@@ -13,8 +13,8 @@ export async function GET() {
     `;
     const value = rows[0]?.value ?? 'false';
     return NextResponse.json({ success: true, value });
-  } catch (err) {
-    return NextResponse.json({ success: false, error: 'Config read error' }, { status: 500 });
+  } catch {
+    console.error("Claim config error");
   }
 }
 
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     `;
 
     return NextResponse.json({ success: true });
-  } catch (err) {
-    return NextResponse.json({ success: false, error: 'Config update error' }, { status: 500 });
+  } catch {
+    console.error("Claim config error");
   }
 }

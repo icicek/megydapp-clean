@@ -1,8 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+
+const [isProcessing, setIsProcessing] = useState(false);
+
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-import { Connection, PublicKey } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 import {
   getAssociatedTokenAddress,
   getAccount,
@@ -111,6 +114,8 @@ export default function CoincarneForm() {
   const handleConfirm = async () => {
     if (!amount || !selectedToken || !publicKey) return;
 
+    setIsProcessing(true);
+
     const lastNum = parseInt(localStorage.getItem('lastCoincarnator') || '100', 10);
     const newNumber = lastNum + 1;
     setParticipantNumber(newNumber);
@@ -135,6 +140,8 @@ export default function CoincarneForm() {
       setConfirmed(true);
     } catch (err) {
       console.error('❌ Error sending to backend:', err);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -172,11 +179,15 @@ export default function CoincarneForm() {
           </select>
 
           <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-            <DialogContent className="bg-gray-900 border border-white rounded-2xl p-6 w-full max-w-md text-center">
-              {selectedToken && !confirmed ? (
-                <>
+          <DialogContent className="bg-gray-900 border border-white rounded-2xl p-6 w-full max-w-md text-center">
+            {isProcessing ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <img src="/icons/hourglass.svg" className="w-10 h-10 mb-4 animate-spin" alt="Coincarnating..." />
+                <p className="text-white text-lg font-semibold">🕒 Coincarnating...</p>
+              </div>
+            ) : selectedToken && !confirmed ? (
+              <>
                   <h2 className="text-xl font-bold mb-4">Coincarnate {selectedToken.symbol}</h2>
-
                   {availableAmount !== null && (
                     <p className="text-sm text-gray-400 mb-2">
                       Available: {availableAmount.toFixed(4)} {selectedToken.symbol}
@@ -203,54 +214,54 @@ export default function CoincarneForm() {
                   >
                     Confirm Coincarnation
                   </button>
-                </>
-              ) : (
-                <>
-                  <h2 className="text-xl font-bold mb-4">🎉 Coincarnation Complete</h2>
-                  <p className="text-sm text-yellow-400 mb-2">
-                    ✅ {amount} {selectedToken?.symbol} registered successfully.
-                  </p>
-                  <p className="text-sm text-cyan-400 mb-4">
-                    👻 Coincarnator #{participantNumber}
-                  </p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-xl font-bold mb-4">🎉 Coincarnation Complete</h2>
+                    <p className="text-sm text-yellow-400 mb-2">
+                      ✅ {amount} {selectedToken?.symbol} registered successfully.
+                    </p>
+                    <p className="text-sm text-cyan-400 mb-4">
+                      👻 Coincarnator #{participantNumber}
+                    </p>
 
-                  <div className="space-y-2 mt-4">
-                    <button
-                      onClick={() => {
-                        setModalOpen(false);
-                        setSelectedToken(null);
-                        setAmount('');
-                        setAvailableAmount(null);
-                        setConfirmed(false);
-                        setParticipantNumber(null);
-                      }}
-                      className="w-full py-2 rounded-xl bg-gray-700 hover:bg-gray-600"
-                    >
-                      🔁 Recoincarnate
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        window.location.href = '/claim';
-                      }}
-                      className="w-full py-2 rounded-xl bg-blue-700 hover:bg-blue-600"
-                    >
-                      👤 Go to Profile
-                    </button>
-
-                    <a
-                      href={`https://twitter.com/intent/tweet?text=${generateTweetText()}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <button className="w-full py-2 rounded-xl bg-green-700 hover:bg-green-600">
-                        🐦 Share on X
+                    <div className="space-y-2 mt-4">
+                      <button
+                        onClick={() => {
+                          setModalOpen(false);
+                          setSelectedToken(null);
+                          setAmount('');
+                          setAvailableAmount(null);
+                          setConfirmed(false);
+                          setParticipantNumber(null);
+                        }}
+                        className="w-full py-2 rounded-xl bg-gray-700 hover:bg-gray-600"
+                      >
+                        🔁 Recoincarnate
                       </button>
-                    </a>
-                  </div>
-                </>
-              )}
-            </DialogContent>
+
+                      <button
+                        onClick={() => {
+                          window.location.href = '/claim';
+                        }}
+                        className="w-full py-2 rounded-xl bg-blue-700 hover:bg-blue-600"
+                      >
+                        👤 Go to Profile
+                      </button>
+
+                      <a
+                        href={`https://twitter.com/intent/tweet?text=${generateTweetText()}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <button className="w-full py-2 rounded-xl bg-green-700 hover:bg-green-600">
+                          🐦 Share on X
+                        </button>
+                      </a>
+                    </div>
+                  </>
+                )}
+              </DialogContent>
           </Dialog>
         </div>
       )}

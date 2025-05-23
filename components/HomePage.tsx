@@ -2,7 +2,6 @@
 
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { useEffect, useState } from 'react';
 
 export default function HomePage() {
   const { publicKey } = useWallet();
