@@ -24,10 +24,11 @@ export async function GET(
   try {
     const wallet = context.params.wallet;
 
-    const { rows }: { rows: ParticipantRow[] } = await sql`
+    const result = await sql`
       SELECT * FROM participants WHERE wallet_address = ${wallet} LIMIT 1;
     `;
 
+    const rows = result as unknown as ParticipantRow[];
     if (rows.length === 0) {
       return NextResponse.json(
         { success: false, error: 'No data found' },
