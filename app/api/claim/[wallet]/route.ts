@@ -19,10 +19,10 @@ type ParticipantRow = {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { wallet: string } }
+  context: { params: { wallet: string } }
 ) {
   try {
-    const wallet = params.wallet;
+    const wallet = context.params.wallet;
 
     const result = await sql`
       SELECT * FROM participants WHERE wallet_address = ${wallet} LIMIT 1;
