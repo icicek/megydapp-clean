@@ -19,16 +19,15 @@ type ParticipantRow = {
 
 export async function GET(
   req: NextRequest,
-  context: { params: { wallet: string } }
+  { params }: { params: { wallet: string } }
 ) {
   try {
-    const wallet = context.params.wallet;
+    const wallet = params.wallet;
 
     const result = await sql`
       SELECT * FROM participants WHERE wallet_address = ${wallet} LIMIT 1;
     `;
 
-    // Tipi burada dönüştürüyoruz (en güvenli ve uyumlu yöntem)
     const rows = result as ParticipantRow[];
 
     if (rows.length === 0) {
