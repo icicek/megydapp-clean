@@ -1,9 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-
-const [isProcessing, setIsProcessing] = useState(false);
-
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
 import {
@@ -37,6 +34,7 @@ export default function CoincarneForm() {
   const [availableAmount, setAvailableAmount] = useState<number | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [participantNumber, setParticipantNumber] = useState<number | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     const fetchTokens = async () => {

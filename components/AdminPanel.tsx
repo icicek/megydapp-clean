@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 
 export default function AdminPanel() {
   const [pool, setPool] = useState('');
-  const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [snapshotMessage, setSnapshotMessage] = useState<string | null>(null);
   const [claimOpen, setClaimOpen] = useState(false);
@@ -14,7 +13,6 @@ export default function AdminPanel() {
 
   useEffect(() => {
     const fetchConfig = async () => {
-      setLoading(true);
       try {
         const poolRes = await fetch('/api/admin/config/distribution_pool');
         const poolJson = await poolRes.json();
@@ -26,7 +24,6 @@ export default function AdminPanel() {
       } catch (err) {
         console.error('Config fetch error:', err);
       } finally {
-        setLoading(false);
       }
     };
 
