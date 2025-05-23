@@ -14,6 +14,7 @@
     "@solana/spl-token": "^0.4.13",
     "@solana/wallet-adapter-react-ui": "^0.9.38",
     "@solana/wallet-adapter-wallets": "^0.19.36",
+    "@vercel/postgres": "^0.10.0",
     "next": "15.3.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
