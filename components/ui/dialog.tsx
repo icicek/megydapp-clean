@@ -1,35 +1,33 @@
 'use client';
 
+import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { cn } from '@/lib/utils';
-import { X } from 'lucide-react';
 
-export const Dialog = DialogPrimitive.Root;
-export const DialogTrigger = DialogPrimitive.Trigger;
-export const DialogPortal = DialogPrimitive.Portal;
-export const DialogOverlay = DialogPrimitive.Overlay;
-export const DialogClose = DialogPrimitive.Close;
+interface DialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: React.ReactNode;
+}
 
-export function DialogContent({
-  className,
-  children,
-  ...props
-}: DialogPrimitive.DialogContentProps) {
+export function Dialog({ open, onOpenChange, children }: DialogProps) {
   return (
-    <DialogPortal>
-      <DialogOverlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-      <DialogPrimitive.Content
-        className={cn(
-          'fixed left-1/2 top-1/2 z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900',
-          className
-        )}
-        {...props}
-      >
-        {children}
-        <DialogClose className="absolute top-4 right-4 rounded-full p-1 hover:bg-neutral-200 dark:hover:bg-neutral-800">
-          <X className="h-5 w-5" />
-        </DialogClose>
-      </DialogPrimitive.Content>
-    </DialogPortal>
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>{children}</DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
+
+interface DialogContentProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export function DialogContent({ children, className = '' }: DialogContentProps) {
+  return (
+    <DialogPrimitive.Content
+      className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-50 shadow-lg ${className}`}
+    >
+      {children}
+    </DialogPrimitive.Content>
   );
 }
