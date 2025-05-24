@@ -8,13 +8,15 @@ const ADMIN_WALLET = process.env.ADMIN_WALLET?.toLowerCase();
 
 export async function GET() {
   try {
-    const { rows }: { rows: { value: string }[] } = await sql`
+    const result = await sql`
       SELECT value FROM config WHERE key = 'claim_open' LIMIT 1;
     `;
+    const rows = result as { value: string }[];
     const value = rows[0]?.value ?? 'false';
     return NextResponse.json({ success: true, value });
-  } catch {
-    console.error("Claim config error");
+  } catch (err) {
+    console.error("Claim config error:", err);
+    return NextResponse.json({ success: false, error: 'Internal error' }, { status: 500 });
   }
 }
 
@@ -33,7 +35,8 @@ export async function POST(req: Request) {
     `;
 
     return NextResponse.json({ success: true });
-  } catch {
-    console.error("Claim config error");
+  } catch (err) {
+    console.error("Claim config error:", err);
+    return NextResponse.json({ success: false, error: 'Internal error' }, { status: 500 });
   }
 }
