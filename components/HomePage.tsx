@@ -15,6 +15,12 @@ interface TokenInfo {
   logoURI?: string;
 }
 
+interface TokenMeta {
+  address: string;
+  symbol?: string;
+  logoURI?: string;
+}
+
 export default function HomePage() {
   const { publicKey, connected } = useWallet();
   const { connection } = useConnection();
@@ -46,10 +52,10 @@ export default function HomePage() {
           tokenListRaw.unshift({ mint: 'SOL', amount: solBalance / 1e9, symbol: 'SOL' });
         }
 
-        const tokenMetadata = await fetchSolanaTokenList();
+        const tokenMetadata: TokenMeta[] = await fetchSolanaTokenList();
         const enriched = tokenListRaw.map((token) => {
           if (token.mint === 'SOL') return token;
-          const metadata = tokenMetadata.find((t: any) => t.address === token.mint);
+          const metadata = tokenMetadata.find((t: TokenMeta) => t.address === token.mint);
           return {
             ...token,
             symbol: metadata?.symbol || undefined,
