@@ -83,12 +83,24 @@ export default function HomePage() {
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const mint = e.target.value;
+  
+    // SOL özel durumu
+    if (mint === 'SOL') {
+      const token = tokens.find((t) => t.mint === 'SOL');
+      if (token) {
+        setSelectedToken(token);
+        setShowModal(true);
+      }
+      return;
+    }
+  
+    // Diğer tokenler için normal durum
     const token = tokens.find((t) => t.mint === mint);
     if (token) {
       setSelectedToken(token);
       setShowModal(true);
     }
-  };
+  };  
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-10">
