@@ -4,12 +4,10 @@ import { useEffect, useState } from 'react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import { Connection } from '@solana/web3.js';
 import CoincarneModal from '@/components/CoincarneModal';
 import { fetchSolanaTokenList } from '@/lib/utils';
+import { connection } from '@/lib/solanaConnection';
 import StatsDisplay from '@/components/StatsDisplay';
-
-const connection = new Connection("https://mainnet.helius-rpc.com/?api-key=c43783fe-2860-4a7d-b835-aab54c98ccf0");
 
 interface TokenInfo {
   mint: string;
@@ -54,13 +52,7 @@ export default function HomePage() {
           tokenListRaw.unshift({ mint: 'SOL', amount: solBalance / 1e9, symbol: 'SOL' });
         }
 
-        let tokenMetadata: TokenMeta[] = [];
-        try {
-          tokenMetadata = await fetchSolanaTokenList();
-        } catch (err) {
-          console.error('⚠️ Token list fetch failed:', err);
-        }
-
+        const tokenMetadata: TokenMeta[] = await fetchSolanaTokenList();
         const enriched = tokenListRaw.map((token) => {
           if (token.mint === 'SOL') return token;
           const metadata = tokenMetadata.find((t: TokenMeta) => t.address === token.mint);
@@ -71,7 +63,7 @@ export default function HomePage() {
           };
         });
 
-        console.log('🎯 Final enriched tokens:', enriched); // 🔍 LOG
+        console.log('🎯 Final enriched tokens:', enriched);
         setTokens(enriched);
       } catch (err) {
         console.error('❌ Error fetching wallet tokens:', err);
@@ -79,40 +71,26 @@ export default function HomePage() {
     };
 
     fetchWalletTokens();
-  }, [publicKey, connected, connection]);
+  }, [publicKey, connected]);
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const mint = e.target.value;
-  
-    // SOL özel durumu
-    if (mint === 'SOL') {
-      const token = tokens.find((t) => t.mint === 'SOL');
-      if (token) {
-        setSelectedToken(token);
-        setShowModal(true);
-      }
-      return;
-    }
-  
-    // Diğer tokenler için normal durum
-    const token = tokens.find((t) => t.mint === mint);
+    const token = tokens.find((t) => t.mint === mint || (mint === 'SOL' && t.mint === 'SOL'));
     if (token) {
       setSelectedToken(token);
       setShowModal(true);
     }
-  };  
+  };
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-10">
       <h1 className="text-4xl font-bold mb-4">🚀 Coincarnation</h1>
       <WalletMultiButton />
 
-      {/* İstatistik */}
       <div className="mt-6 w-full max-w-md">
         <StatsDisplay />
       </div>
 
-      {/* From-To kutusu */}
       <div className="mt-10 w-full max-w-md bg-gray-900 p-6 rounded-lg text-center">
         <h2 className="text-lg mb-2">You give</h2>
         <div className="bg-gray-700 py-3 px-4 rounded text-white">
@@ -131,15 +109,12 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Dropdown */}
       {publicKey && (
         <div className="mt-6 w-full max-w-md">
           <h2 className="text-xl mb-2">Select a Token:</h2>
-
           {tokens.length === 0 && (
             <p className="text-red-500 mb-2">❗ Token listesi boş. Cüzdanda token olmayabilir veya bir hata oluşmuş olabilir.</p>
           )}
-
           <select
             className="w-full bg-gray-800 text-white p-3 rounded"
             defaultValue=""
@@ -157,7 +132,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Modal */}
       {showModal && selectedToken && (
         <CoincarneModal
           token={selectedToken}
