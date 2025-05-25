@@ -101,7 +101,7 @@ export default function CoincarneModal({ token, onClose }: CoincarneModalProps) 
       try {
         const json = JSON.parse(text);
         number = json.number;
-      } catch (_err) {
+      } catch {
         alert('⚠️ API did not return valid JSON. Please try again later.');
         return;
       }
