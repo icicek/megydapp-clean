@@ -82,11 +82,36 @@ export default function HomePage() {
       <h1 className="text-4xl font-bold mb-4">🚀 Coincarnation</h1>
       <WalletMultiButton />
 
-      {/* ✅ İstatistik ekranı buraya eklendi */}
+      {/* ✅ İstatistik ekranı */}
       <div className="mt-6 w-full max-w-md">
         <StatsDisplay />
       </div>
 
+      {/* ✅ From-To UI (her zaman görünür) */}
+      <div className="mt-10 w-full max-w-md bg-gray-900 p-6 rounded-lg text-center">
+        <h2 className="text-lg mb-2">You give</h2>
+        <div
+          onClick={() => {
+            if (!connected) return;
+          }}
+          className="bg-gray-700 py-3 px-4 rounded cursor-pointer"
+        >
+          {selectedToken ? (
+            <span>{selectedToken.symbol || selectedToken.mint.slice(0, 4)}</span>
+          ) : (
+            <span className="text-gray-400">Walking Deadcoins (memecoins, shitcoins...)</span>
+          )}
+        </div>
+
+        <div className="text-2xl my-4">↔️</div>
+
+        <h2 className="text-lg mb-2">You receive</h2>
+        <div className="bg-purple-700 text-white py-3 px-4 rounded">
+          $MEGY <span className="text-sm text-gray-300">(Future of Money)</span>
+        </div>
+      </div>
+
+      {/* ✅ Token listesi */}
       {publicKey && (
         <div className="mt-6 w-full max-w-md">
           <h2 className="text-xl mb-2">Your Tokens:</h2>
@@ -111,6 +136,7 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* ✅ Modal */}
       {showModal && selectedToken && (
         <CoincarneModal
           token={selectedToken}
