@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { useWallet, useConnection } from '@solana/wallet-adapter-react';
+import { useWallet } from '@solana/wallet-adapter-react';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { Connection } from '@solana/web3.js';
 import CoincarneModal from '@/components/CoincarneModal';
 import { fetchSolanaTokenList } from '@/lib/utils';
 import StatsDisplay from '@/components/StatsDisplay';
+
+const connection = new Connection("https://mainnet.helius-rpc.com/?api-key=c43783fe-2860-4a7d-b835-aab54c98ccf0");
 
 interface TokenInfo {
   mint: string;
@@ -23,7 +26,6 @@ interface TokenMeta {
 
 export default function HomePage() {
   const { publicKey, connected } = useWallet();
-  const { connection } = useConnection();
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showModal, setShowModal] = useState(false);
