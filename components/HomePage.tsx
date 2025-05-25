@@ -72,9 +72,13 @@ export default function HomePage() {
     fetchWalletTokens();
   }, [publicKey, connected, connection]);
 
-  const handleTokenClick = (token: TokenInfo) => {
-    setSelectedToken(token);
-    setShowModal(true);
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const mint = e.target.value;
+    const token = tokens.find((t) => t.mint === mint);
+    if (token) {
+      setSelectedToken(token);
+      setShowModal(true);
+    }
   };
 
   return (
@@ -82,20 +86,15 @@ export default function HomePage() {
       <h1 className="text-4xl font-bold mb-4">🚀 Coincarnation</h1>
       <WalletMultiButton />
 
-      {/* ✅ İstatistik ekranı */}
+      {/* İstatistik */}
       <div className="mt-6 w-full max-w-md">
         <StatsDisplay />
       </div>
 
-      {/* ✅ From-To UI (her zaman görünür) */}
+      {/* From-To kutusu */}
       <div className="mt-10 w-full max-w-md bg-gray-900 p-6 rounded-lg text-center">
         <h2 className="text-lg mb-2">You give</h2>
-        <div
-          onClick={() => {
-            if (!connected) return;
-          }}
-          className="bg-gray-700 py-3 px-4 rounded cursor-pointer"
-        >
+        <div className="bg-gray-700 py-3 px-4 rounded text-white">
           {selectedToken ? (
             <span>{selectedToken.symbol || selectedToken.mint.slice(0, 4)}</span>
           ) : (
@@ -111,32 +110,28 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ✅ Token listesi */}
+      {/* Dropdown */}
       {publicKey && (
         <div className="mt-6 w-full max-w-md">
-          <h2 className="text-xl mb-2">Your Tokens:</h2>
-          <div className="bg-gray-800 rounded p-4 space-y-2">
-            {tokens.length === 0 && <p className="text-sm text-gray-400">No tokens found</p>}
+          <h2 className="text-xl mb-2">Select a Token:</h2>
+          <select
+            className="w-full bg-gray-800 text-white p-3 rounded"
+            defaultValue=""
+            onChange={handleSelectChange}
+          >
+            <option value="" disabled>
+              -- Choose token to Coincarnate --
+            </option>
             {tokens.map((token, idx) => (
-              <div
-                key={idx}
-                onClick={() => handleTokenClick(token)}
-                className="cursor-pointer bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm flex justify-between items-center"
-              >
-                <div className="flex items-center space-x-2">
-                  {token.logoURI && (
-                    <img src={token.logoURI} alt={token.symbol} className="w-5 h-5 rounded-full" />
-                  )}
-                  <span>{token.symbol || token.mint.slice(0, 4) + '...'}</span>
-                </div>
-                <span>{token.amount.toFixed(4)}</span>
-              </div>
+              <option key={idx} value={token.mint}>
+                {token.symbol || token.mint.slice(0, 4)} — {token.amount.toFixed(4)}
+              </option>
             ))}
-          </div>
+          </select>
         </div>
       )}
 
-      {/* ✅ Modal */}
+      {/* Modal */}
       {showModal && selectedToken && (
         <CoincarneModal
           token={selectedToken}
