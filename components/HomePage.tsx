@@ -52,7 +52,13 @@ export default function HomePage() {
           tokenListRaw.unshift({ mint: 'SOL', amount: solBalance / 1e9, symbol: 'SOL' });
         }
 
-        const tokenMetadata = await fetchSolanaTokenList();
+        let tokenMetadata: TokenMeta[] = [];
+        try {
+          tokenMetadata = await fetchSolanaTokenList();
+        } catch (err) {
+          console.error('⚠️ Token list fetch failed:', err);
+        }
+
         const enriched = tokenListRaw.map((token) => {
           if (token.mint === 'SOL') return token;
           const metadata = tokenMetadata.find((t: TokenMeta) => t.address === token.mint);
@@ -63,9 +69,10 @@ export default function HomePage() {
           };
         });
 
+        console.log('🎯 Final enriched tokens:', enriched); // 🔍 LOG
         setTokens(enriched);
       } catch (err) {
-        console.error('Error fetching wallet tokens:', err);
+        console.error('❌ Error fetching wallet tokens:', err);
       }
     };
 
@@ -114,6 +121,11 @@ export default function HomePage() {
       {publicKey && (
         <div className="mt-6 w-full max-w-md">
           <h2 className="text-xl mb-2">Select a Token:</h2>
+
+          {tokens.length === 0 && (
+            <p className="text-red-500 mb-2">❗ Token listesi boş. Cüzdanda token olmayabilir veya bir hata oluşmuş olabilir.</p>
+          )}
+
           <select
             className="w-full bg-gray-800 text-white p-3 rounded"
             defaultValue=""
