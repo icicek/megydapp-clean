@@ -94,7 +94,18 @@ export default function CoincarneModal({ token, onClose }: CoincarneModalProps) 
         }),
       });
 
-      const { number } = await res.json();
+      const text = await res.text();
+      console.log('📦 Raw API Response:', text);
+
+      let number: number;
+      try {
+        const json = JSON.parse(text);
+        number = json.number;
+      } catch (err) {
+        alert('⚠️ API did not return valid JSON. Please try again later.');
+        return;
+      }
+
       const tokenSymbol = token.symbol || token.mint.slice(0, 4);
       const imageUrl = `/generated/coincarnator-${number}-${tokenSymbol}.png`;
 
@@ -109,7 +120,7 @@ export default function CoincarneModal({ token, onClose }: CoincarneModalProps) 
         alert(`❌ Transaction failed:\n${err.message}`);
       } else {
         alert('❌ Transaction failed');
-      }      
+      }
     } finally {
       setLoading(false);
     }
