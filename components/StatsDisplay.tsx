@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 
 export default function StatsDisplay() {
-  const [stats, setStats] = useState({ participantCount: 0, totalUsdValue: 0 });
+  const [stats, setStats] = useState<{ participantCount: number; totalUsdValue: number } | null>(null);
 
   useEffect(() => {
     async function fetchStats() {
@@ -18,9 +18,12 @@ export default function StatsDisplay() {
 
     fetchStats();
     const interval = setInterval(fetchStats, 10000); // 10 saniyede bir güncelle
-
     return () => clearInterval(interval);
   }, []);
+
+  if (!stats) {
+    return <p className="text-sm text-gray-400 mt-4">Loading stats...</p>;
+  }
 
   return (
     <div className="text-center mt-4">
