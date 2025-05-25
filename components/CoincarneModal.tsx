@@ -105,8 +105,11 @@ export default function CoincarneModal({ token, onClose }: CoincarneModalProps) 
       });
     } catch (err) {
       console.error('❌ TRANSACTION ERROR:', err);
-      alert(`❌ Transaction failed:\n${(err as any)?.message || err}`);
-      alert('❌ Transaction failed');
+      if (err instanceof Error) {
+        alert(`❌ Transaction failed:\n${err.message}`);
+      } else {
+        alert('❌ Transaction failed');
+      }      
     } finally {
       setLoading(false);
     }
