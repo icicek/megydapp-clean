@@ -52,7 +52,7 @@ export default function HomePage() {
           tokenListRaw.unshift({ mint: 'SOL', amount: solBalance / 1e9, symbol: 'SOL' });
         }
 
-        const tokenMetadata: TokenMeta[] = await fetchSolanaTokenList();
+        const tokenMetadata = await fetchSolanaTokenList();
         const enriched = tokenListRaw.map((token) => {
           if (token.mint === 'SOL') return token;
           const metadata = tokenMetadata.find((t: TokenMeta) => t.address === token.mint);
