@@ -79,41 +79,43 @@ export default function CoincarneModal({ token, onClose }: CoincarneModalProps) 
         signature = await sendTransaction(tx, connection);
       }
 
-      const res = await fetch('/api/coincarnation/record', {
+      const res = await fetch('/api/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          walletAddress: publicKey.toBase58(),
-          tokenSymbol: token.symbol || '',
-          tokenContract: token.mint,
+          wallet_address: publicKey?.toBase58() || '',
+          token_symbol: token.symbol || '',
+          token_contract: token.mint,
           network: 'solana',
-          tokenAmount: amountToSend,
-          usdValue: 0,
-          transactionSignature: signature,
-          userAgent: navigator.userAgent,
+          token_amount: amountToSend,
+          usd_value: 0,
+          transaction_signature: 'testsig',
+          user_agent: navigator.userAgent,
         }),
       });
 
       const text = await res.text();
-      console.log('📦 Raw API Response:', text);
+      console.log('📜 Raw API Response:', text);
 
-      let number: number;
+      let userNumber: number;
       try {
         const json = JSON.parse(text);
-        number = json.number;
+        userNumber = json.number; // ✅ burada tekrar "const" kullanma!
+        console.log('✅ TEST number from API:', userNumber);
       } catch {
         alert('⚠️ API did not return valid JSON. Please try again later.');
         return;
       }
 
       const tokenSymbol = token.symbol || token.mint.slice(0, 4);
-      const imageUrl = `/generated/coincarnator-${number}-${tokenSymbol}.png`;
+      const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbol}.png`;
 
       setResultData({
         tokenFrom: tokenSymbol,
-        number,
+        number: userNumber, // ✅ bu satırı düzelt
         imageUrl,
       });
+      
     } catch (err) {
       console.error('❌ TRANSACTION ERROR:', err);
       if (err instanceof Error) {
