@@ -99,7 +99,7 @@ export default function CoincarneModal({ token, onClose }: CoincarneModalProps) 
       let json;
       try {
         json = JSON.parse(text);
-      } catch (err) {
+      } catch {
         alert('⚠️ API did not return valid JSON. Please try again later.');
         return;
       }
