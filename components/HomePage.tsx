@@ -33,11 +33,14 @@ export default function HomePage() {
 
     const fetchWalletTokens = async () => {
       try {
+        console.log('🔑 Wallet Address:', publicKey.toBase58());
+
         const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
           programId: TOKEN_PROGRAM_ID,
         });
 
         const tokenListRaw: TokenInfo[] = [];
+
         for (const { account } of tokenAccounts.value) {
           const parsed = account.data.parsed;
           const mint = parsed.info.mint;
@@ -53,9 +56,10 @@ export default function HomePage() {
         }
 
         const tokenMetadata: TokenMeta[] = await fetchSolanaTokenList();
+
         const enriched = tokenListRaw.map((token) => {
           if (token.mint === 'SOL') return token;
-          const metadata = tokenMetadata.find((t: TokenMeta) => t.address === token.mint);
+          const metadata = tokenMetadata.find((t) => t.address === token.mint);
           return {
             ...token,
             symbol: metadata?.symbol || undefined,
@@ -63,10 +67,10 @@ export default function HomePage() {
           };
         });
 
-        console.log('🎯 Final enriched tokens:', enriched);
+        console.log('🎯 Token List:', enriched);
         setTokens(enriched);
       } catch (err) {
-        console.error('❌ Error fetching wallet tokens:', err);
+        console.error('❌ Error fetching tokens:', err);
       }
     };
 
@@ -113,7 +117,9 @@ export default function HomePage() {
         <div className="mt-6 w-full max-w-md">
           <h2 className="text-xl mb-2">Select a Token:</h2>
           {tokens.length === 0 && (
-            <p className="text-red-500 mb-2">❗ Token listesi boş. Cüzdanda token olmayabilir veya bir hata oluşmuş olabilir.</p>
+            <p className="text-red-500 mb-2">
+              ❗ Token listesi boş. Cüzdanda token olmayabilir veya bir hata oluşmuş olabilir.
+            </p>
           )}
           <select
             className="w-full bg-gray-800 text-white p-3 rounded"
