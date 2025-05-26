@@ -94,6 +94,13 @@ export default function CoincarneModal({ token, onClose }: CoincarneModalProps) 
         }),
       });
 
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('❌ API responded with error:', res.status, errorText);
+        alert(`❌ API error ${res.status}: ${errorText}`);
+        return;
+      }
+
       let json;
       try {
         json = await res.json();
