@@ -24,12 +24,14 @@ export async function POST(req: NextRequest) {
     const timestamp = new Date().toISOString();
     console.log('📦 Incoming data:', body);
 
+    // Katılımcıyı ekle (eğer yoksa)
     await sql`
       INSERT INTO participants (wallet_address)
       VALUES (${wallet_address})
       ON CONFLICT (wallet_address) DO NOTHING;
     `;
 
+    // Katkıyı kaydet
     await sql`
       INSERT INTO contributions (
         wallet_address,
@@ -54,15 +56,30 @@ export async function POST(req: NextRequest) {
       );
     `;
 
+    // Katılımcının ID’sini al
     const result = await sql`
       SELECT id FROM participants WHERE wallet_address = ${wallet_address}
     `;
+
     const number = result[0]?.id ?? 0;
     console.log('🎯 Participant ID:', number);
 
-    return NextResponse.json({ number });
+    // ✅ JSON formatında döndür
+    return NextResponse.json({
+      number,
+      success: true,
+      message: 'Coincarnation recorded successfully',
+    });
   } catch (error) {
     console.error('❌ Record API Error:', error);
-    return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
+
+    // ❌ JSON hata yanıtı döndür
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Server error',
+      },
+      { status: 500 }
+    );
   }
 }
