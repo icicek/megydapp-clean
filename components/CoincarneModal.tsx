@@ -104,11 +104,13 @@ export default function CoincarneModal({ token, onClose }: CoincarneModalProps) 
         number: userNumber,
         imageUrl,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ TRANSACTION ERROR:', err);
-      alert(`❌ Transaction failed:\n${err.message || 'Unknown error'}`);
-    } finally {
-      setLoading(false);
+      if (err instanceof Error) {
+        alert(`❌ Transaction failed:\n${err.message}`);
+      } else {
+        alert('❌ Transaction failed: Unknown error');
+      }
     }
   };
 
