@@ -52,7 +52,7 @@ export default function CoincarneModal({ token, onClose }: CoincarneModalProps) 
 
     try {
       setLoading(true);
-      let signature = '';
+      let signature: string;
 
       if (token.mint === 'SOL') {
         const tx = new Transaction().add(
@@ -79,50 +79,34 @@ export default function CoincarneModal({ token, onClose }: CoincarneModalProps) 
         signature = await sendTransaction(tx, connection);
       }
 
-      const res = await fetch('/api/test', {
+      const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          wallet_address: publicKey?.toBase58() || '',
+          wallet_address: publicKey.toBase58(),
           token_symbol: token.symbol || '',
           token_contract: token.mint,
           network: 'solana',
           token_amount: amountToSend,
           usd_value: 0,
-          transaction_signature: 'testsig',
+          transaction_signature: signature,
           user_agent: navigator.userAgent,
         }),
       });
 
-      const text = await res.text();
-      console.log('📜 Raw API Response:', text);
-
-      let userNumber: number;
-      try {
-        const json = JSON.parse(text);
-        userNumber = json.number; // ✅ burada tekrar "const" kullanma!
-        console.log('✅ TEST number from API:', userNumber);
-      } catch {
-        alert('⚠️ API did not return valid JSON. Please try again later.');
-        return;
-      }
-
+      const data = await res.json();
+      const userNumber = data?.number ?? 0;
       const tokenSymbol = token.symbol || token.mint.slice(0, 4);
       const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbol}.png`;
 
       setResultData({
         tokenFrom: tokenSymbol,
-        number: userNumber, // ✅ bu satırı düzelt
+        number: userNumber,
         imageUrl,
       });
-      
-    } catch (err) {
+    } catch (err: any) {
       console.error('❌ TRANSACTION ERROR:', err);
-      if (err instanceof Error) {
-        alert(`❌ Transaction failed:\n${err.message}`);
-      } else {
-        alert('❌ Transaction failed');
-      }
+      alert(`❌ Transaction failed:\n${err.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
