@@ -113,8 +113,8 @@ export default function CoincarneModal({ token, onClose }: CoincarneModalProps) 
       try {
         json = await res.json();
         console.log('✅ Parsed JSON:', json);
-      } catch (e) {
-        console.error('❌ Failed to parse JSON:', e);
+      } catch {
+        console.error('❌ Failed to parse JSON.');
         alert('⚠️ API did not return valid JSON. Please try again later.');
         return;
       }
