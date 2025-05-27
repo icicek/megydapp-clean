@@ -22,16 +22,14 @@ export async function POST(req: NextRequest) {
     } = body;
 
     const timestamp = new Date().toISOString();
-    console.log('📦 Incoming data:', body);
+    console.log('📦 Body:', body);
 
-    // Katılımcıyı ekle (yoksa)
     await sql`
       INSERT INTO participants (wallet_address)
       VALUES (${wallet_address})
       ON CONFLICT (wallet_address) DO NOTHING;
     `;
 
-    // Katkıyı kaydet
     await sql`
       INSERT INTO contributions (
         wallet_address,
@@ -56,7 +54,6 @@ export async function POST(req: NextRequest) {
       );
     `;
 
-    // Katılımcı ID’sini al
     const result = await sql`
       SELECT id FROM participants WHERE wallet_address = ${wallet_address}
     `;
@@ -69,19 +66,14 @@ export async function POST(req: NextRequest) {
       number,
       message: '✅ Coincarnation recorded successfully',
     });
-  } catch (error) {
-    console.error('❌ Record API Error:', error);
+  } catch (error: any) {
+    console.error('❌ Record API Error:', error?.message || error);
     return NextResponse.json(
-      { success: false, error: 'Server error. Please try again later.' },
+      {
+        success: false,
+        error: error?.message || 'Unknown server error',
+      },
       { status: 500 }
     );
   }
-}
-
-// Diğer methodlara açık değil → açık mesaj ver
-export async function GET() {
-  return NextResponse.json(
-    { error: 'Method Not Allowed' },
-    { status: 405 }
-  );
 }
