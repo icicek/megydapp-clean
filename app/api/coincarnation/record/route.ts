@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
         network,
         token_amount,
         usd_value,
-        transaction_signiture,
+        transaction_signature,
         user_agent,
         timestamp
       ) VALUES (
