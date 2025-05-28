@@ -27,11 +27,10 @@ export default function CoincarnationResult({
 
   return (
     <div className="text-center p-4">
-      <h2 className="text-2xl font-bold mb-4">🎉 Success! Welcome, Coincarnator #{number}!
-      </h2>
+      <h2 className="text-2xl font-bold mb-4">🎉 Success! Welcome, Coincarnator #{number}!</h2>
 
       <img
-        src={imageUrl}
+        src={imageUrl || '/default-placeholder.png'}
         alt="Coincarnation Visual"
         className="mx-auto w-64 h-64 rounded-lg shadow-lg mb-4 object-contain"
       />
@@ -47,13 +46,13 @@ export default function CoincarnationResult({
           rel="noopener noreferrer"
           className="min-w-[140px] bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
         >
-          🗞 Share on X
+          🐦 Share on X
         </a>
         <button
           onClick={onRecoincarnate}
           className="min-w-[140px] bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition"
         >
-          ♲️ Recoincarnate
+          ♻️ Recoincarnate
         </button>
         <button
           onClick={onGoToProfile}
