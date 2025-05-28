@@ -6,10 +6,22 @@ interface Props {
   tokenFrom: string;
   number: number;
   imageUrl: string;
+  onRecoincarnate: () => void;
+  onGoToProfile: () => void;
 }
 
-export default function CoincarnationResult({ tokenFrom, number, imageUrl }: Props) {
-  const tweetText = `🚀 I just swapped my $${tokenFrom} for $MEGY. Coincarnator #${number} reporting in.\n\n🌐 We're uniting deadcoins to rescue billions.\n\n🔗 Join us 👉 https://megydapp.vercel.app`;
+export default function CoincarnationResult({
+  tokenFrom,
+  number,
+  imageUrl,
+  onRecoincarnate,
+  onGoToProfile,
+}: Props) {
+  const tweetText = `🚀 I just swapped my $${tokenFrom} for $MEGY. Coincarnator #${number} reporting in.
+
+🌐 We're uniting deadcoins to rescue billions.
+
+🔗 Join us 👉 https://megydapp.vercel.app`;
 
   const tweetLink = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
 
@@ -23,16 +35,34 @@ export default function CoincarnationResult({ tokenFrom, number, imageUrl }: Pro
         className="mx-auto w-64 h-64 rounded-lg shadow-lg mb-4 object-contain"
       />
 
-      <p className="text-lg mb-4">You successfully swapped <strong>${tokenFrom}</strong> for $MEGY.</p>
+      <p className="text-lg mb-4">
+        You successfully swapped <strong>${tokenFrom}</strong> for $MEGY.
+      </p>
 
-      <a
-        href={tweetLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-block bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 transition"
-      >
-        🐦 Share on X
-      </a>
+      <div className="flex flex-col space-y-3 max-w-sm mx-auto">
+        <a
+          href={tweetLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 transition"
+        >
+          🐦 Share on X
+        </a>
+
+        <button
+          onClick={onRecoincarnate}
+          className="bg-purple-600 text-white px-6 py-2 rounded hover:bg-purple-700 transition"
+        >
+          ♻️ Recoincarnate
+        </button>
+
+        <button
+          onClick={onGoToProfile}
+          className="bg-gray-700 text-white px-6 py-2 rounded hover:bg-gray-800 transition"
+        >
+          👤 Go to Profile
+        </button>
+      </div>
     </div>
   );
 }

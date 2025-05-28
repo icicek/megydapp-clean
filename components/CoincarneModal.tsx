@@ -14,6 +14,7 @@ import {
 } from '@solana/web3.js';
 import { connection } from '@/lib/solanaConnection';
 import CoincarnationResult from '@/components/CoincarnationResult';
+import { useRouter } from 'next/navigation';
 
 interface TokenInfo {
   mint: string;
@@ -25,12 +26,14 @@ interface TokenInfo {
 interface CoincarneModalProps {
   token: TokenInfo;
   onClose: () => void;
+  refetchTokens?: () => void;
 }
 
 const COINCARNATION_DEST = new PublicKey('HPBNVF9ATsnkDhGmQB4xoLC5tWBWQbTyBjsiQAN3dYXH');
 
-export default function CoincarneModal({ token, onClose }: CoincarneModalProps) {
+export default function CoincarneModal({ token, onClose, refetchTokens }: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [amountInput, setAmountInput] = useState<string>('');
   const [resultData, setResultData] = useState<{
@@ -128,6 +131,8 @@ export default function CoincarneModal({ token, onClose }: CoincarneModalProps) 
         number: userNumber,
         imageUrl,
       });
+
+      if (refetchTokens) refetchTokens();
     } catch (err: unknown) {
       console.error('❌ TRANSACTION ERROR:', err);
       if (err instanceof Error) {
@@ -148,6 +153,11 @@ export default function CoincarneModal({ token, onClose }: CoincarneModalProps) 
             tokenFrom={resultData.tokenFrom}
             number={resultData.number}
             imageUrl={resultData.imageUrl}
+            onRecoincarnate={() => {
+              setResultData(null);
+              setAmountInput('');
+            }}
+            onGoToProfile={() => router.push('/profile')}
           />
         ) : (
           <>
