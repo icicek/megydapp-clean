@@ -25,12 +25,17 @@ export default function CoincarnationResult({
 
   const tweetLink = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
 
+  const finalImageUrl =
+    imageUrl && imageUrl.trim() !== ''
+      ? imageUrl
+      : '/default-placeholder.png';
+
   return (
     <div className="text-center p-4">
       <h2 className="text-2xl font-bold mb-4">🎉 Success! Welcome, Coincarnator #{number}!</h2>
 
       <img
-        src={imageUrl || '/default-placeholder.png'}
+        src={finalImageUrl}
         alt="Coincarnation Visual"
         className="mx-auto w-64 h-64 rounded-lg shadow-lg mb-4 object-contain"
       />
