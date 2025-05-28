@@ -1,6 +1,6 @@
 import './globals.css';
 import { ReactNode } from 'react';
-import { WalletConnectionProvider } from '@/components/WalletConnectionProvider';
+import WalletConnectionProvider from '@/components/WalletConnectionProvider';
 
 export const metadata = {
   title: 'Coincarnation',
