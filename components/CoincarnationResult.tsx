@@ -27,7 +27,8 @@ export default function CoincarnationResult({
 
   return (
     <div className="text-center p-4">
-      <h2 className="text-2xl font-bold mb-4">🎉 Success! Welcome, Coincarnator #{number}!</h2>
+      <h2 className="text-2xl font-bold mb-4">🎉 Success! Welcome, Coincarnator #{number}!
+      </h2>
 
       <img
         src={imageUrl}
@@ -39,26 +40,24 @@ export default function CoincarnationResult({
         You successfully swapped <strong>${tokenFrom}</strong> for $MEGY.
       </p>
 
-      <div className="flex flex-col space-y-3 max-w-sm mx-auto">
+      <div className="flex flex-wrap justify-center gap-3 mt-6">
         <a
           href={tweetLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 transition"
+          className="min-w-[140px] bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
         >
-          🐦 Share on X
+          🗞 Share on X
         </a>
-
         <button
           onClick={onRecoincarnate}
-          className="bg-purple-600 text-white px-6 py-2 rounded hover:bg-purple-700 transition"
+          className="min-w-[140px] bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition"
         >
-          ♻️ Recoincarnate
+          ♲️ Recoincarnate
         </button>
-
         <button
           onClick={onGoToProfile}
-          className="bg-gray-700 text-white px-6 py-2 rounded hover:bg-gray-800 transition"
+          className="min-w-[140px] bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800 transition"
         >
           👤 Go to Profile
         </button>
