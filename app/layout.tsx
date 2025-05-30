@@ -8,11 +8,11 @@ export const metadata = {
   openGraph: {
     title: 'Coincarnation',
     description: 'Revive your deadcoins. Coincarnate them for $MEGY.',
-    url: 'https://megydapp.vercel.app',
+    url: 'https://megydapp-clean.vercel.app',
     siteName: 'Coincarnation',
     images: [
       {
-        url: '/og-image.png', // görsel buradaysa doğru
+        url: 'https://megydapp-clean.vercel.app/og-image.png', // görsel buradaysa doğru
         width: 1200,
         height: 630,
         alt: 'Coincarnation Promotional Visual',
@@ -25,7 +25,7 @@ export const metadata = {
     card: 'summary_large_image',
     title: 'Coincarnation',
     description: 'Trade your deadcoins for $MEGY and join the future.',
-    images: ['/og-image.png'],
+    images: ['https://megydapp-clean.vercel.app/og-image.png'],
   },
 };
 
