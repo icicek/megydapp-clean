@@ -38,7 +38,7 @@ export default function CoincarnationResult({
 
       <a href={tweetLink} target="_blank" rel="noopener noreferrer">
         <img
-          src={finalImageUrl}
+          src={`${finalImageUrl}?v=${Date.now()}`}
           alt="Share your victory"
           className="mx-auto w-64 h-64 rounded-lg shadow-lg mb-4 object-contain hover:opacity-90 transition"
         />
