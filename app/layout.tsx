@@ -12,7 +12,7 @@ export const metadata = {
     siteName: 'Coincarnation',
     images: [
       {
-        url: 'https://megydapp-clean.vercel.app/generated/og-image.png',
+        url: 'https://megydapp-clean.vercel.app/og-image.png',
         width: 1200,
         height: 630,
         alt: 'Coincarnation Promotional Visual',
@@ -25,7 +25,7 @@ export const metadata = {
     card: 'summary_large_image',
     title: 'Coincarnation',
     description: 'Trade your deadcoins for $MEGY and join the future.',
-    images: ['https://megydapp-clean.vercel.app/generated/og-image.png'],
+    images: ['https://megydapp-clean.vercel.app/og-image.png'],
   },
 };
 

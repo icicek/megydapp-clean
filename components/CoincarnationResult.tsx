@@ -26,9 +26,9 @@ export default function CoincarnationResult({
   const tweetLink = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
 
   const finalImageUrl =
-    imageUrl && imageUrl.includes('coincarnator')
+    typeof imageUrl === 'string' && imageUrl.includes('coincarnator')
       ? imageUrl
-      : '/generated/og-image.png';
+      : '/generated/result-share-image.png';
 
   return (
     <div className="text-center p-4">
