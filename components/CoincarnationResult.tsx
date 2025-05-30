@@ -17,10 +17,18 @@ export default function CoincarnationResult({
   onRecoincarnate,
   onGoToProfile,
 }: Props) {
-  const tweetText = `🚀 I just swapped my $${tokenFrom} for $MEGY. Coincarnator #${number} reporting in.\n\n🌐 We're uniting deadcoins to rescue billions.\n\n🔗 Join us 👉 https://megydapp-clean.vercel.app`;
+  const tweetText = `🚀 I just swapped my $${tokenFrom} for $MEGY. Coincarnator #${number} reporting in.
+
+🌐 We're uniting deadcoins to rescue billions.
+
+🔗 Join us 👉 https://megydapp-clean.vercel.app`;
+
   const tweetLink = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
 
-  const finalImageUrl = imageUrl.includes('coincarnator') ? imageUrl : '/generated/og-image.png';
+  const finalImageUrl =
+    imageUrl && imageUrl.includes('coincarnator')
+      ? imageUrl
+      : '/generated/og-image.png';
 
   return (
     <div className="text-center p-4">
