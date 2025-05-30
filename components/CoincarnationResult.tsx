@@ -17,18 +17,8 @@ export default function CoincarnationResult({
   onRecoincarnate,
   onGoToProfile,
 }: Props) {
-  const tweetText = `🚀 I just swapped my $${tokenFrom} for $MEGY. Coincarnator #${number} reporting in.
-
-🌐 We're uniting deadcoins to rescue billions.
-
-🔗 Join us 👉 https://megydapp-clean.vercel.app`;
-
+  const tweetText = `🚀 I just swapped my $${tokenFrom} for $MEGY. Coincarnator #${number} reporting in.\n\n🌐 We're uniting deadcoins to rescue billions.\n\n🔗 Join us → https://megydapp-clean.vercel.app`;
   const tweetLink = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
-
-  const finalImageUrl =
-    typeof imageUrl === 'string' && imageUrl.includes('coincarnator')
-      ? imageUrl
-      : '/result-share-image.png';
 
   return (
     <div className="text-center p-4">
@@ -36,19 +26,32 @@ export default function CoincarnationResult({
         🎉 Success! Welcome, Coincarnator #{number}!
       </h2>
 
-      <a href={tweetLink} target="_blank" rel="noopener noreferrer">
-        <img
-          src={`${finalImageUrl}?v=${Date.now()}`}
-          alt="Share your victory"
-          className="mx-auto w-64 h-64 rounded-lg shadow-lg mb-4 object-contain hover:opacity-90 transition"
-        />
+      <a
+        href={tweetLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block bg-black text-white rounded-lg shadow-lg p-6 hover:opacity-90 transition cursor-pointer"
+      >
+        <p className="text-xl font-extrabold text-blue-400 mb-2">COINCARNATION</p>
+        <p className="text-lg font-semibold text-purple-400 mb-1">UNITE DEADCOINS</p>
+        <p className="text-lg font-semibold text-yellow-400 mb-3">RESCUE BILLIONS</p>
+        <p className="text-2xl font-bold text-pink-500">👻 COINCARNATE NOW</p>
       </a>
 
-      <p className="text-lg mb-4">
+      <p className="text-lg mt-6 mb-4">
         You successfully swapped <strong>${tokenFrom}</strong> for $MEGY.
       </p>
 
-      <div className="flex justify-center gap-4 mt-6">
+      <div className="flex justify-center gap-4">
+        <a
+          href={tweetLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="min-w-[140px] bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
+        >
+          🕊️ Share on X
+        </a>
+
         <button
           onClick={onRecoincarnate}
           className="min-w-[140px] bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition"
