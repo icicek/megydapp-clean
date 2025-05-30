@@ -28,7 +28,7 @@ export default function CoincarnationResult({
   const finalImageUrl =
     typeof imageUrl === 'string' && imageUrl.includes('coincarnator')
       ? imageUrl
-      : '/generated/result-share-image.png';
+      : '/result-share-image.png';
 
   return (
     <div className="text-center p-4">
