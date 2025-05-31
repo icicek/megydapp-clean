@@ -147,7 +147,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="bg-gradient-to-br from-zinc-900 to-black text-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+      <DialogContent className="bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full shadow-[0_0_30px_5px_rgba(255,0,255,0.3)] backdrop-blur-xl border border-pink-500/30 relative">
         {resultData ? (
           <CoincarnationResult
             tokenFrom={resultData.tokenFrom}
@@ -161,10 +161,12 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
           />
         ) : (
           <>
+            <p className="text-xs text-pink-400 text-center mb-2 tracking-wide uppercase">
+              🚨 Exclusive Coincarnation Portal
+            </p>
             <h2 className="text-2xl font-bold text-center mb-3">
               🔥 Coincarnate {token.symbol || token.mint.slice(0, 4)}
             </h2>
-
             <p className="text-sm text-gray-400 text-center mb-2">
               Balance: {token.amount.toFixed(4)} {token.symbol || token.mint.slice(0, 4)}
             </p>
@@ -195,17 +197,17 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
             <button
               onClick={handleSend}
               disabled={loading || !amountInput}
-              className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition-all duration-150 shadow-lg"
+              className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 hover:scale-105 text-black font-extrabold py-3 rounded-xl transition-all duration-200 shadow-xl border-2 border-white"
             >
-              {loading ? 'Processing...' : `Coincarnate ${token.symbol || 'Token'}`}
+              {loading ? '🔥 Yükleniyor...' : `🚀 Coincarnate ${token.symbol || 'Token'} Now`}
             </button>
 
             <button
               onClick={onClose}
-              className="mt-3 w-full text-sm text-gray-400 hover:text-white"
+              className="mt-3 w-full text-sm text-red-500 hover:text-white transition-all duration-150"
               disabled={loading}
             >
-              Cancel
+              ❌ Geride Kal
             </button>
           </>
         )}
