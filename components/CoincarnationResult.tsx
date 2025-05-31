@@ -32,9 +32,9 @@ export default function CoincarnationResult({
         rel="noopener noreferrer"
         className="block max-w-sm mx-auto bg-black rounded-lg p-4 hover:opacity-90 transition border border-gray-700"
       >
-        <div className="text-blue-400 font-bold text-xl">COINCARNATION</div>
-        <div className="text-purple-400 font-semibold">UNITE DEADCOINS</div>
-        <div className="text-yellow-400 font-semibold">RESCUE BILLIONS</div>
+        <div className="text-blue-400 font-bold text-xl">SHARE</div>
+        <div className="text-purple-400 font-semibold">YOUR VICTORY</div>
+        <div className="text-yellow-400 font-semibold">MILLIONS ARE WAITING</div>
         <div className="mt-2 text-pink-500 font-bold bg-white/10 inline-block px-4 py-2 rounded mt-4">
           🐦 SHARE ON X
         </div>
