@@ -200,7 +200,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
               disabled={loading || !amountInput}
               className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 hover:scale-105 text-black font-extrabold py-3 rounded-xl transition-all duration-200 shadow-xl border-2 border-white"
             >
-              {loading ? '🔥 Yükleniyor...' : `🚀 Coincarnate ${token.symbol || 'Token'} Now`}
+              {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate ${token.symbol || 'Token'} Now`}
             </button>
 
             <button
