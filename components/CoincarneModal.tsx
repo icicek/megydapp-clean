@@ -147,7 +147,8 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full shadow-[0_0_30px_5px_rgba(255,0,255,0.3)] backdrop-blur-xl border border-pink-500/30 relative">
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" />
+      <DialogContent className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full shadow-[0_0_30px_5px_rgba(255,0,255,0.3)] border border-pink-500/30">
         {resultData ? (
           <CoincarnationResult
             tokenFrom={resultData.tokenFrom}
@@ -207,7 +208,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
               className="mt-3 w-full text-sm text-red-500 hover:text-white transition-all duration-150"
               disabled={loading}
             >
-              ❌ Geride Kal
+              ❌ Not Interested in Global Synergy
             </button>
           </>
         )}
