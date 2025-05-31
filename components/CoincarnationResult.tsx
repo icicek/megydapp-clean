@@ -32,10 +32,10 @@ export default function CoincarnationResult({
         rel="noopener noreferrer"
         className="block bg-black text-white rounded-lg shadow-lg p-6 hover:opacity-90 transition cursor-pointer"
       >
-        <p className="text-xl font-extrabold text-blue-400 mb-2">COINCARNATION</p>
-        <p className="text-lg font-semibold text-purple-400 mb-1">UNITE DEADCOINS</p>
-        <p className="text-lg font-semibold text-yellow-400 mb-3">RESCUE BILLIONS</p>
-        <p className="text-2xl font-bold text-pink-500">👻 COINCARNATE NOW</p>
+        <p className="text-xl font-extrabold text-blue-400 mb-2">SHARE</p>
+        <p className="text-lg font-semibold text-purple-400 mb-1">YOUR</p>
+        <p className="text-lg font-semibold text-yellow-400 mb-3">VICTORY</p>
+        <p className="text-2xl font-bold text-pink-500">👻 Share on X</p>
       </a>
 
       <p className="text-lg mt-6 mb-4">
