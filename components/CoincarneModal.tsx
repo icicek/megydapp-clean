@@ -147,7 +147,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="bg-black text-white rounded-xl p-6 max-w-md w-full">
+      <DialogContent className="bg-gradient-to-br from-zinc-900 to-black text-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
         {resultData ? (
           <CoincarnationResult
             tokenFrom={resultData.tokenFrom}
@@ -161,16 +161,19 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
           />
         ) : (
           <>
-            <h2 className="text-xl font-bold mb-4">🔥 Coincarnate Your Token</h2>
-            <p className="text-sm text-gray-400 mb-1">
+            <h2 className="text-2xl font-bold text-center mb-3">
+              🔥 Coincarnate {token.symbol || token.mint.slice(0, 4)}
+            </h2>
+
+            <p className="text-sm text-gray-400 text-center mb-2">
               Balance: {token.amount.toFixed(4)} {token.symbol || token.mint.slice(0, 4)}
             </p>
 
-            <div className="flex space-x-3 my-3">
+            <div className="grid grid-cols-4 gap-2 mb-4">
               {[25, 50, 75, 100].map((p) => (
                 <button
                   key={p}
-                  className="bg-purple-700 hover:bg-purple-800 px-3 py-2 rounded text-sm"
+                  className="bg-gradient-to-br from-purple-600 to-pink-500 hover:opacity-90 text-white font-semibold py-2 rounded-lg shadow"
                   onClick={() => handlePercentage(p)}
                   disabled={loading}
                 >
@@ -185,14 +188,14 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
               value={amountInput}
               onChange={(e) => setAmountInput(e.target.value)}
               placeholder="Enter amount"
-              className="w-full bg-gray-800 text-white p-3 rounded mb-4"
+              className="w-full bg-zinc-800 text-white p-3 rounded-lg border border-zinc-600 focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4"
               disabled={loading}
             />
 
             <button
               onClick={handleSend}
               disabled={loading || !amountInput}
-              className="bg-green-600 hover:bg-green-700 w-full py-3 rounded text-lg font-semibold"
+              className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition-all duration-150 shadow-lg"
             >
               {loading ? 'Processing...' : `Coincarnate ${token.symbol || 'Token'}`}
             </button>
