@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useWallet } from '@solana/wallet-adapter-react';
 import {
@@ -56,6 +56,28 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
     try {
       setLoading(true);
       let signature: string;
+      let usdValue = 0;
+
+      // 🔹 Fiyatı CoinGecko üzerinden çek
+      try {
+        const priceRes = await fetch(
+          `https://api.coingecko.com/api/v3/simple/token_price/solana?contract_addresses=${token.mint}&vs_currencies=usd`
+        );
+        const priceJson = await priceRes.json();
+        const priceData = Object.values(priceJson)[0] as { usd?: number };
+        const price = priceData?.usd;
+        if (price) usdValue = amountToSend * price;
+        else console.warn('💸 Price data not found for token:', token.mint);
+      } catch (error) {
+        console.warn('💸 Failed to fetch price from CoinGecko:', error);
+      }
+
+      // 🔹 Referans kodu URL'den alınır
+      let referralCode = null;
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        referralCode = params.get('ref');
+      }
 
       if (token.mint === 'SOL') {
         const tx = new Transaction().add(
@@ -91,7 +113,8 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
           token_contract: token.mint,
           network: 'solana',
           token_amount: amountToSend,
-          usd_value: 0,
+          usd_value: usdValue,
+          referral_code: referralCode,
           transaction_signature: signature,
           user_agent: navigator.userAgent,
         }),
