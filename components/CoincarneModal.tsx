@@ -59,7 +59,11 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
       setLoading(true);
       let signature: string;
       const usdValue = await getUsdValue(token, amountToSend);
-      const referralCode = searchParams.get('ref');
+      let referralCode = null;
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        referralCode = params.get('ref');
+      }
 
       if (token.mint === 'SOL') {
         const tx = new Transaction().add(
