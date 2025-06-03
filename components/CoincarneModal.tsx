@@ -60,16 +60,22 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
 
       // 🔹 Fiyatı CoinGecko üzerinden çek
       try {
-        const priceRes = await fetch(
-          `https://api.coingecko.com/api/v3/simple/token_price/solana?contract_addresses=${token.mint}&vs_currencies=usd`
-        );
-        const priceJson = await priceRes.json();
-        const priceData = Object.values(priceJson)[0] as { usd?: number };
-        const price = priceData?.usd;
-        console.log('🧾 CoinGecko price JSON:', priceJson);
-        console.log('💵 Extracted USD price:', price);
-        if (price) usdValue = amountToSend * price;
-        else console.warn('💸 Price data not found for token:', token.mint);
+        if (token.symbol?.toUpperCase() === 'SOL') {
+          const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd`);
+          const priceJson = await priceRes.json();
+          const price = priceJson.solana?.usd;
+          if (price) usdValue = amountToSend * price;
+          else console.warn('💸 SOL price not found!');
+        } else {
+          const priceRes = await fetch(
+            `https://api.coingecko.com/api/v3/simple/token_price/solana?contract_addresses=${token.mint}&vs_currencies=usd`
+          );
+          const priceJson = await priceRes.json();
+          const priceData = Object.values(priceJson)[0] as { usd?: number };
+          const price = priceData?.usd;
+          if (price) usdValue = amountToSend * price;
+          else console.warn('💸 Price data not found for token:', token.mint);
+        }
       } catch (error) {
         console.warn('💸 Failed to fetch price from CoinGecko:', error);
       }
