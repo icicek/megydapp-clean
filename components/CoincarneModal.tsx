@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useWallet } from '@solana/wallet-adapter-react';
 import {
@@ -26,23 +26,31 @@ interface TokenInfo {
 
 interface CoincarneModalProps {
   token: TokenInfo;
-  referralCode?: string | null;
   onClose: () => void;
   refetchTokens?: () => void;
 }
 
 const COINCARNATION_DEST = new PublicKey('HPBNVF9ATsnkDhGmQB4xoLC5tWBWQbTyBjsiQAN3dYXH');
 
-export default function CoincarneModal({ token, referralCode, onClose, refetchTokens }: CoincarneModalProps) {
+export default function CoincarneModal({ token, onClose, refetchTokens }: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [amountInput, setAmountInput] = useState<string>('');
+  const [referralCode, setReferralCode] = useState<string | null>(null);
   const [resultData, setResultData] = useState<{
     tokenFrom: string;
     number: number;
     imageUrl: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const code = localStorage.getItem('referralCode');
+      setReferralCode(code);
+      console.log('📣 Referral code stored:', code);
+    }
+  }, []);
 
   const handlePercentage = (percent: number) => {
     const calculated = (token.amount * percent) / 100;
