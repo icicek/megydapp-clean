@@ -28,14 +28,14 @@ export default function HomePage() {
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showModal, setShowModal] = useState(false);
 
-  // ✅ Referral Code Yakalama
+  // ✅ Referral code yakalama ve kaydetme
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const ref = params.get('ref');
-      if (ref && !localStorage.getItem('referralCode')) {
+      if (ref) {
         localStorage.setItem('referralCode', ref);
-        console.log('🎯 Referral code stored:', ref);
+        console.log('✅ Referral code stored:', ref);
       }
     }
   }, []);
