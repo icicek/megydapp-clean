@@ -14,7 +14,7 @@ import {
 } from '@solana/web3.js';
 import { connection } from '@/lib/solanaConnection';
 import CoincarnationResult from '@/components/CoincarnationResult';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import getUsdValue from '@/app/api/utils/getUsdValue';
 
 interface TokenInfo {
@@ -35,8 +35,6 @@ const COINCARNATION_DEST = new PublicKey('HPBNVF9ATsnkDhGmQB4xoLC5tWBWQbTyBjsiQA
 export default function CoincarneModal({ token, onClose, refetchTokens }: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
   const router = useRouter();
-  const searchParams = useSearchParams();
-
   const [loading, setLoading] = useState(false);
   const [amountInput, setAmountInput] = useState<string>('');
   const [resultData, setResultData] = useState<{
@@ -59,10 +57,11 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
       setLoading(true);
       let signature: string;
       const usdValue = await getUsdValue(token, amountToSend);
+
+      // ✅ Referral code from localStorage
       let referralCode = null;
       if (typeof window !== 'undefined') {
-        const params = new URLSearchParams(window.location.search);
-        referralCode = params.get('ref');
+        referralCode = localStorage.getItem('referralCode');
       }
 
       if (token.mint === 'SOL') {
