@@ -66,6 +66,8 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
         const priceJson = await priceRes.json();
         const priceData = Object.values(priceJson)[0] as { usd?: number };
         const price = priceData?.usd;
+        console.log('🧾 CoinGecko price JSON:', priceJson);
+        console.log('💵 Extracted USD price:', price);
         if (price) usdValue = amountToSend * price;
         else console.warn('💸 Price data not found for token:', token.mint);
       } catch (error) {
