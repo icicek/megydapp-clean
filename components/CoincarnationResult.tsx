@@ -41,7 +41,7 @@ export default function CoincarnationResult({
       </a>
 
       <p className="text-lg mt-6 mb-4">
-        You successfully swapped <strong>${tokenFrom}</strong> for $MEGY.
+        You successfully coincarnated <strong>${tokenFrom}</strong> for $MEGY.
       </p>
 
       <div className="flex justify-center gap-4 mt-4">

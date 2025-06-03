@@ -58,26 +58,36 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
       let signature: string;
       let usdValue = 0;
 
-      // 🔹 Fiyatı CoinGecko üzerinden çek
+      // 🔹 Fiyatı Jupiter + CoinGecko üzerinden hibrit şekilde çek
       try {
-        if (token.symbol?.toUpperCase() === 'SOL') {
-          const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd`);
-          const priceJson = await priceRes.json();
-          const price = priceJson.solana?.usd;
-          if (price) usdValue = amountToSend * price;
-          else console.warn('💸 SOL price not found!');
+        // 1️⃣ Jupiter üzerinden USD fiyatını almaya çalış
+        const jupRes = await fetch(`https://price.jup.ag/v4/price?ids=${token.mint}`);
+        const jupJson = await jupRes.json();
+        const jupPrice = jupJson.data?.[token.mint]?.price;
+
+        if (jupPrice) {
+          usdValue = amountToSend * jupPrice;
         } else {
-          const priceRes = await fetch(
-            `https://api.coingecko.com/api/v3/simple/token_price/solana?contract_addresses=${token.mint}&vs_currencies=usd`
-          );
-          const priceJson = await priceRes.json();
-          const priceData = Object.values(priceJson)[0] as { usd?: number };
-          const price = priceData?.usd;
-          if (price) usdValue = amountToSend * price;
-          else console.warn('💸 Price data not found for token:', token.mint);
+          // 2️⃣ Jupiter başarısızsa CoinGecko üzerinden dene
+          if (token.symbol?.toUpperCase() === 'SOL') {
+            const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd`);
+            const priceJson = await priceRes.json();
+            const price = priceJson.solana?.usd;
+            if (price) usdValue = amountToSend * price;
+            else console.warn('💸 SOL price not found (CoinGecko fallback)');
+          } else {
+            const priceRes = await fetch(
+              `https://api.coingecko.com/api/v3/simple/token_price/solana?contract_addresses=${token.mint}&vs_currencies=usd`
+            );
+            const priceJson = await priceRes.json();
+            const priceData = Object.values(priceJson)[0] as { usd?: number };
+            const price = priceData?.usd;
+            if (price) usdValue = amountToSend * price;
+            else console.warn('💸 Price data not found on CoinGecko for token:', token.mint);
+          }
         }
       } catch (error) {
-        console.warn('💸 Failed to fetch price from CoinGecko:', error);
+        console.warn('💸 Failed to fetch price from both Jupiter and CoinGecko:', error);
       }
 
       // 🔹 Referans kodu URL'den alınır
