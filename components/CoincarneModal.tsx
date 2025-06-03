@@ -26,13 +26,14 @@ interface TokenInfo {
 
 interface CoincarneModalProps {
   token: TokenInfo;
+  referralCode?: string | null;
   onClose: () => void;
   refetchTokens?: () => void;
 }
 
 const COINCARNATION_DEST = new PublicKey('HPBNVF9ATsnkDhGmQB4xoLC5tWBWQbTyBjsiQAN3dYXH');
 
-export default function CoincarneModal({ token, onClose, refetchTokens }: CoincarneModalProps) {
+export default function CoincarneModal({ token, referralCode, onClose, refetchTokens }: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -57,12 +58,6 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
       setLoading(true);
       let signature: string;
       const usdValue = await getUsdValue(token, amountToSend);
-
-      // ✅ Referral code from localStorage
-      let referralCode = null;
-      if (typeof window !== 'undefined') {
-        referralCode = localStorage.getItem('referralCode');
-      }
 
       if (token.mint === 'SOL') {
         const tx = new Transaction().add(

@@ -28,8 +28,8 @@ export default function HomePage() {
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showModal, setShowModal] = useState(false);
 
-  // ✅ Referral code yakalama ve kaydetme
   useEffect(() => {
+    // ✅ Save referral code on initial load
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const ref = params.get('ref');
@@ -45,13 +45,9 @@ export default function HomePage() {
 
     const fetchWalletTokens = async () => {
       try {
-        console.log('🔑 Wallet Address:', publicKey.toBase58());
-
         const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
           programId: TOKEN_PROGRAM_ID,
         });
-
-        console.log('📦 Raw Token Accounts:', tokenAccounts.value);
 
         const tokenListRaw: TokenInfo[] = [];
 
@@ -64,17 +60,12 @@ export default function HomePage() {
           }
         }
 
-        console.log('📃 SPL Token List (raw):', tokenListRaw);
-
         const solBalance = await connection.getBalance(publicKey);
-        console.log('💰 SOL Balance:', solBalance / 1e9);
-
         if (solBalance > 0) {
           tokenListRaw.unshift({ mint: 'SOL', amount: solBalance / 1e9, symbol: 'SOL' });
         }
 
         const tokenMetadata: TokenMeta[] = await fetchSolanaTokenList();
-        console.log('📚 Token Metadata fetched:', tokenMetadata.length);
 
         const enriched = tokenListRaw.map((token) => {
           if (token.mint === 'SOL') return token;
@@ -86,7 +77,6 @@ export default function HomePage() {
           };
         });
 
-        console.log('🎯 Final enriched token list:', enriched);
         setTokens(enriched);
       } catch (err) {
         console.error('❌ Error fetching wallet tokens:', err);
