@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useWallet } from '@solana/wallet-adapter-react';
 import {
@@ -15,6 +15,7 @@ import {
 import { connection } from '@/lib/solanaConnection';
 import CoincarnationResult from '@/components/CoincarnationResult';
 import { useRouter } from 'next/navigation';
+import getUsdValue from '@/app/api/utils/getUsdValue';
 
 interface TokenInfo {
   mint: string;
@@ -49,48 +50,14 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
 
   const handleSend = async () => {
     if (!publicKey || !amountInput) return;
-
     const amountToSend = parseFloat(amountInput);
     if (isNaN(amountToSend) || amountToSend <= 0) return;
 
     try {
       setLoading(true);
       let signature: string;
-      let usdValue = 0;
+      const usdValue = await getUsdValue(token, amountToSend);
 
-      // 🔹 Fiyatı Jupiter + CoinGecko üzerinden hibrit şekilde çek
-      try {
-        // 1️⃣ Jupiter üzerinden USD fiyatını almaya çalış
-        const jupRes = await fetch(`https://price.jup.ag/v4/price?ids=${token.mint}`);
-        const jupJson = await jupRes.json();
-        const jupPrice = jupJson.data?.[token.mint]?.price;
-
-        if (jupPrice) {
-          usdValue = amountToSend * jupPrice;
-        } else {
-          // 2️⃣ Jupiter başarısızsa CoinGecko üzerinden dene
-          if (token.symbol?.toUpperCase() === 'SOL') {
-            const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd`);
-            const priceJson = await priceRes.json();
-            const price = priceJson.solana?.usd;
-            if (price) usdValue = amountToSend * price;
-            else console.warn('💸 SOL price not found (CoinGecko fallback)');
-          } else {
-            const priceRes = await fetch(
-              `https://api.coingecko.com/api/v3/simple/token_price/solana?contract_addresses=${token.mint}&vs_currencies=usd`
-            );
-            const priceJson = await priceRes.json();
-            const priceData = Object.values(priceJson)[0] as { usd?: number };
-            const price = priceData?.usd;
-            if (price) usdValue = amountToSend * price;
-            else console.warn('💸 Price data not found on CoinGecko for token:', token.mint);
-          }
-        }
-      } catch (error) {
-        console.warn('💸 Failed to fetch price from both Jupiter and CoinGecko:', error);
-      }
-
-      // 🔹 Referans kodu URL'den alınır
       let referralCode = null;
       if (typeof window !== 'undefined') {
         const params = new URLSearchParams(window.location.search);
@@ -110,14 +77,8 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
         const mint = new PublicKey(token.mint);
         const fromATA = await getAssociatedTokenAddress(mint, publicKey);
         const toATA = await getAssociatedTokenAddress(mint, COINCARNATION_DEST);
-
         const tx = new Transaction().add(
-          createTransferInstruction(
-            fromATA,
-            toATA,
-            publicKey,
-            Math.floor(amountToSend * 1e6)
-          )
+          createTransferInstruction(fromATA, toATA, publicKey, Math.floor(amountToSend * 1e6))
         );
         signature = await sendTransaction(tx, connection);
       }
@@ -138,49 +99,16 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
         }),
       });
 
-      if (!res.ok) {
-        let errorMessage = `Unknown API error ${res.status}`;
-        try {
-          const errorJson = await res.json();
-          errorMessage = errorJson.error || errorMessage;
-        } catch (e) {
-          const errorText = await res.text();
-          errorMessage = errorText || errorMessage;
-        }
-
-        console.error('❌ API responded with error:', res.status, errorMessage);
-        alert(`❌ API error ${res.status}: ${errorMessage}`);
-        return;
-      }
-
-      let json;
-      try {
-        json = await res.json();
-        console.log('✅ Parsed JSON:', json);
-      } catch {
-        console.error('❌ Failed to parse JSON.');
-        alert('⚠️ API did not return valid JSON. Please try again later.');
-        return;
-      }
-
+      const json = await res.json();
       const userNumber = json?.number ?? 0;
       const tokenSymbol = token.symbol || token.mint.slice(0, 4);
       const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbol}.png`;
 
-      setResultData({
-        tokenFrom: tokenSymbol,
-        number: userNumber,
-        imageUrl,
-      });
-
+      setResultData({ tokenFrom: tokenSymbol, number: userNumber, imageUrl });
       if (refetchTokens) refetchTokens();
-    } catch (err: unknown) {
+    } catch (err) {
       console.error('❌ TRANSACTION ERROR:', err);
-      if (err instanceof Error) {
-        alert(`❌ Transaction failed:\n${err.message}`);
-      } else {
-        alert('❌ Transaction failed: Unknown error');
-      }
+      alert(`❌ Transaction failed. Check console for details.`);
     } finally {
       setLoading(false);
     }
