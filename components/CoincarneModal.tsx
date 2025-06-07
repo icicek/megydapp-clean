@@ -47,8 +47,10 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const code = localStorage.getItem('referralCode');
-      setReferralCode(code);
-      console.log('📣 Referral code stored:', code);
+      if (code) {
+        setReferralCode(code);
+        console.log('📣 Referral code loaded:', code);
+      }
     }
   }, []);
 
@@ -120,7 +122,11 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
   return (
     <Dialog open onOpenChange={onClose}>
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" />
-      <DialogContent className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full shadow-[0_0_30px_5px_rgba(255,0,255,0.3)] border border-pink-500/30">
+      <DialogContent
+        className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full shadow-[0_0_30px_5px_rgba(255,0,255,0.3)] border border-pink-500/30"
+        aria-describedby="coincarnation-description"
+      >
+
         {resultData ? (
           <CoincarnationResult
             tokenFrom={resultData.tokenFrom}
@@ -134,7 +140,10 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
           />
         ) : (
           <>
-            <p className="text-xs text-pink-400 text-center mb-2 tracking-wide uppercase">
+            <p
+              id="coincarnation-description"
+              className="text-xs text-pink-400 text-center mb-2 tracking-wide uppercase"
+            >
               🚨 Exclusive Coincarnation Portal
             </p>
             <h2 className="text-2xl font-bold text-center mb-3">

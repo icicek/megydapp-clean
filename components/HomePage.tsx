@@ -29,13 +29,13 @@ export default function HomePage() {
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
-    // ✅ Save referral code on initial load
+    // ✅ Save referral code from query to localStorage
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const ref = params.get('ref');
       if (ref) {
         localStorage.setItem('referralCode', ref);
-        console.log('✅ Referral code stored:', ref);
+        console.log('📣 Referral code stored:', ref);
       }
     }
   }, []);
@@ -136,7 +136,7 @@ export default function HomePage() {
             onChange={handleSelectChange}
           >
             <option value="" disabled>
-              -- Choose token to Coincarnate --
+              👉 Select a token to Coincarnate
             </option>
             {tokens.map((token, idx) => (
               <option key={idx} value={token.mint}>
