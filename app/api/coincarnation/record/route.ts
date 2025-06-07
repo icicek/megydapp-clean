@@ -66,6 +66,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 🧪 VERİLERİ INSERT ÖNCESİ LOG'LA
+    console.log('📤 Contribution insert payload:', {
+      wallet_address,
+      token_symbol,
+      token_contract,
+      network,
+      token_amount,
+      usd_value,
+      transaction_signature,
+      user_agent,
+      timestamp,
+      referral_code: userReferralCode,
+      referrer_wallet: referrerWallet,
+    });
+
     // ➕ Katkıyı kaydet
     await sql`
       INSERT INTO contributions (
@@ -108,7 +123,7 @@ export async function POST(req: NextRequest) {
       message: '✅ Coincarnation recorded successfully',
     });
   } catch (error: any) {
-    console.error('❌ Record API Error:', error?.message || error);
+    console.error('❌ Record API Error:', error); // Tüm hata nesnesini logla
     return NextResponse.json(
       { success: false, error: error?.message || 'Unknown server error' },
       { status: 500 }
