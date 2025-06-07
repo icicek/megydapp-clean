@@ -125,7 +125,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
       }
   
       const json = await res.json();
-      console.log('🧾 Backend response:', json);
+      console.log('🧾 Backend response:', JSON.stringify(json, null, 2));
   
       const userNumber = json?.number ?? 0;
       const tokenSymbol = token.symbol || token.mint.slice(0, 4);
