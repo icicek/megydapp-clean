@@ -74,12 +74,12 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
     if (isNaN(amountToSend) || amountToSend <= 0) return;
-
+  
     try {
       setLoading(true);
       let signature: string;
       const usdValue = await getUsdValue(token, amountToSend);
-
+  
       if (token.mint === 'SOL') {
         const tx = new Transaction().add(
           SystemProgram.transfer({
@@ -98,7 +98,9 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
         );
         signature = await sendTransaction(tx, connection);
       }
-
+  
+      console.log('📤 Sending to backend with referral_code:', referralCode);
+  
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -114,12 +116,21 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
           user_agent: navigator.userAgent,
         }),
       });
-
+  
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('❌ Backend error response:', errorText);
+        alert('❌ Backend Error. Check console.');
+        return;
+      }
+  
       const json = await res.json();
+      console.log('🧾 Backend response:', json);
+  
       const userNumber = json?.number ?? 0;
       const tokenSymbol = token.symbol || token.mint.slice(0, 4);
       const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbol}.png`;
-
+  
       setResultData({ tokenFrom: tokenSymbol, number: userNumber, imageUrl });
       if (refetchTokens) refetchTokens();
     } catch (err) {
@@ -128,7 +139,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
     } finally {
       setLoading(false);
     }
-  };
+  };  
 
   return (
     <Dialog open onOpenChange={onClose}>
