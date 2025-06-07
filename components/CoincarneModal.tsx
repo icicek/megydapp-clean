@@ -46,10 +46,21 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const code = localStorage.getItem('referralCode');
-      if (code) {
-        setReferralCode(code);
-        console.log('📣 Referral code loaded:', code);
+      const urlParams = new URLSearchParams(window.location.search);
+      const refFromUrl = urlParams.get('ref');
+
+      if (refFromUrl) {
+        // Eğer URL'de ref varsa localStorage'a yaz
+        localStorage.setItem('referralCode', refFromUrl);
+        setReferralCode(refFromUrl);
+        console.log('✅ Referral code captured from URL:', refFromUrl);
+      } else {
+        // URL'de yoksa, localStorage'dan al
+        const storedCode = localStorage.getItem('referralCode');
+        if (storedCode) {
+          setReferralCode(storedCode);
+          console.log('📣 Referral code loaded from localStorage:', storedCode);
+        }
       }
     }
   }, []);
