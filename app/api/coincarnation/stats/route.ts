@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
-import { sql } from '@vercel/postgres';
+import { neon } from '@neondatabase/serverless';
+
+const sql = neon(process.env.DATABASE_URL!);
 
 export async function GET() {
   try {
-    const { rows: participantRows } = await sql`SELECT COUNT(*) AS count FROM participants`;
-    const { rows: usdRows } = await sql`SELECT COALESCE(SUM(usd_value), 0) AS sum FROM contributions`;
+    const participantResult = await sql`SELECT COUNT(*) AS count FROM participants`;
+    const usdResult = await sql`SELECT COALESCE(SUM(usd_value), 0) AS sum FROM contributions`;
 
-    const participantCount = parseInt(participantRows[0].count || '0', 10);
-    const totalUsdValue = parseFloat(usdRows[0].sum || '0');
+    const participantCount = parseInt(participantResult[0].count || '0', 10);
+    const totalUsdValue = parseFloat(usdResult[0].sum || '0');
 
     return NextResponse.json({ participantCount, totalUsdValue });
   } catch (error) {
