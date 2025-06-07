@@ -74,8 +74,9 @@ export async function POST(req: NextRequest) {
       referrer_wallet: referrerWallet,
     });
 
+    let insertResult;
     try {
-      const insertResult = await sql`
+      insertResult = await sql`
         INSERT INTO contributions (
           wallet_address,
           token_symbol,
@@ -100,9 +101,9 @@ export async function POST(req: NextRequest) {
           ${timestamp},
           ${userReferralCode},
           ${referrerWallet}
-        );
+        ) RETURNING *;
       `;
-      console.log('✅ INSERT result:', insertResult);
+      console.log('✅ INSERT result (with RETURNING):', insertResult);
     } catch (insertError: any) {
       console.error('❌ Contribution INSERT failed:', insertError);
     }
