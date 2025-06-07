@@ -54,6 +54,16 @@ export async function POST(req: NextRequest) {
     } else {
       // ✅ Daha önce kayıtlı ise onun referral_code bilgisini al
       userReferralCode = existing[0].referral_code;
+
+      // ❗️Referral kodu boşsa, şimdi üret ve güncelle
+      if (!userReferralCode) {
+        userReferralCode = generateReferralCode();
+        await sql`
+          UPDATE participants
+          SET referral_code = ${userReferralCode}
+          WHERE wallet_address = ${wallet_address}
+        `;
+      }
     }
 
     // ➕ Katkıyı kaydet
