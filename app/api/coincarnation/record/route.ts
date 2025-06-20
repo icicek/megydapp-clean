@@ -44,13 +44,13 @@ export async function POST(req: NextRequest) {
           referrerWallet = ref[0].wallet_address;
           console.log('🔁 referrerWallet matched:', referrerWallet);
         } else {
-          console.log('⚠️ referral_code is invalid or self-referencing');
+          console.log('⚠️ referral_code invalid or self-referencing');
         }
       }
 
       await sql`
-        INSERT INTO participants (wallet_address, referral_code)
-        VALUES (${wallet_address}, ${userReferralCode})
+        INSERT INTO participants (wallet_address, referral_code, referrer_wallet)
+        VALUES (${wallet_address}, ${userReferralCode}, ${referrerWallet})
       `;
     } else {
       userReferralCode = existing[0].referral_code;
