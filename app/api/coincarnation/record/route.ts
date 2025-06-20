@@ -40,7 +40,12 @@ export async function POST(req: NextRequest) {
         const ref = await sql`
           SELECT wallet_address FROM participants WHERE referral_code = ${referral_code}
         `;
-        referrerWallet = ref[0]?.wallet_address || null;
+        if (ref.length > 0 && ref[0].wallet_address !== wallet_address) {
+          referrerWallet = ref[0].wallet_address;
+          console.log('🔁 referrerWallet matched:', referrerWallet);
+        } else {
+          console.log('⚠️ referral_code is invalid or self-referencing');
+        }
       }
 
       await sql`
@@ -74,9 +79,8 @@ export async function POST(req: NextRequest) {
       referrer_wallet: referrerWallet,
     });
 
-    let insertResult;
     try {
-      insertResult = await sql`
+      const insertResult = await sql`
         INSERT INTO contributions (
           wallet_address,
           token_symbol,
