@@ -158,8 +158,9 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
               setResultData(null);
               setAmountInput('');
             }}
-            onGoToProfile={() => router.push('/profile')}
+            onGoToProfile={() => router.push('/claim')}
           />
+        
         ) : (
           <>
             <p

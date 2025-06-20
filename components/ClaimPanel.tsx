@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 
 export default function ClaimPanel() {
   const { publicKey } = useWallet();
+
   type ClaimData = {
     wallet_address: string;
     token_amount: number;
@@ -12,10 +13,10 @@ export default function ClaimPanel() {
     id: number;
     claimable_amount: number;
     claimed: boolean;
+    referral_count: number; // Yeni alan
   };
-  
+
   const [data, setData] = useState<ClaimData | null>(null);
-  
   const [loading, setLoading] = useState(false);
   const [claiming, setClaiming] = useState(false);
   const [claimed, setClaimed] = useState(false);
@@ -52,7 +53,7 @@ export default function ClaimPanel() {
   }, [publicKey]);
 
   const handleClaim = async () => {
-    if (!publicKey) return;
+    if (!publicKey || !data) return;
     setClaiming(true);
     setMessage(null);
 
@@ -66,13 +67,11 @@ export default function ClaimPanel() {
       const json = await res.json();
 
       if (json.success) {
-        // Örnek veriler - sistemden dönen gerçek değerlerle değiştirebilirsin
-        const tx_signature = json.tx_signature || 'mock-tx-signature'; // backend'den dönebilir
+        const tx_signature = json.tx_signature || 'mock-tx-signature';
         const destination = publicKey.toBase58();
         const claim_amount = data.claimable_amount;
         const sol_fee_paid = true;
 
-        // ✅ Claim işlemini DB'ye kaydet
         await fetch('/api/claim/record', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -120,6 +119,9 @@ export default function ClaimPanel() {
 
           <p className="text-sm text-gray-400 mb-1">Coincarnator #:</p>
           <p className="text-yellow-400 mb-3">{data.id}</p>
+
+          <p className="text-sm text-gray-400 mb-1">Referrals Brought:</p>
+          <p className="text-pink-400 mb-3">{data.referral_count}</p>
 
           <p className="text-sm text-gray-400 mb-1">Claimable $MEGY:</p>
           <p className="text-purple-400 mb-6">{data.claimable_amount}</p>

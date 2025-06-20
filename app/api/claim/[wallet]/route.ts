@@ -24,11 +24,11 @@ export async function GET(
   try {
     const { wallet } = await params;
 
-    const result = await sql`
+    const participantResult = await sql`
       SELECT * FROM participants WHERE wallet_address = ${wallet} LIMIT 1;
     `;
 
-    const rows = result as unknown as ParticipantRow[];
+    const rows = participantResult as unknown as ParticipantRow[];
     if (rows.length === 0) {
       return NextResponse.json(
         { success: false, error: 'No data found' },
@@ -36,7 +36,20 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ success: true, data: rows[0] });
+    // Referral count: kaç kişi bu cüzdanı referral olarak girmiş
+    const referralResult = await sql`
+      SELECT COUNT(*) FROM contributions WHERE referrer_wallet = ${wallet};
+    `;
+
+    const referral_count = parseInt((referralResult[0] as any).count || '0', 10);
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...rows[0],
+        referral_count
+      }
+    });
   } catch (err) {
     console.error('Error fetching claim data:', err);
     return NextResponse.json(

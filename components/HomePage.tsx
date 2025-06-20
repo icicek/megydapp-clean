@@ -8,6 +8,7 @@ import CoincarneModal from '@/components/CoincarneModal';
 import { fetchSolanaTokenList } from '@/lib/utils';
 import { connection } from '@/lib/solanaConnection';
 import StatsDisplay from '@/components/StatsDisplay';
+import { useRouter } from 'next/navigation';
 
 interface TokenInfo {
   mint: string;
@@ -27,6 +28,7 @@ export default function HomePage() {
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     // ✅ Save referral code from query to localStorage
@@ -99,6 +101,15 @@ export default function HomePage() {
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-10">
       <h1 className="text-4xl font-bold mb-4">🚀 Coincarnation</h1>
       <WalletMultiButton />
+
+      {publicKey && (
+        <button
+          onClick={() => router.push('/claim')}
+          className="mt-4 bg-purple-700 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg shadow-lg transition-all duration-200"
+        >
+          👤 Go to Profile
+        </button>
+      )}
 
       <div className="mt-6 w-full max-w-md">
         <StatsDisplay />
