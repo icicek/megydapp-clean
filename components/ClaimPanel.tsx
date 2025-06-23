@@ -230,7 +230,12 @@ export default function ClaimPanel() {
                   <tr key={index} className="border-t border-zinc-700 hover:bg-zinc-800">
                     <td className="px-4 py-2 font-medium">{tx.token_symbol}</td>
                     <td className="px-4 py-2">{tx.token_amount}</td>
-                    <td className="px-4 py-2">${tx.usd_value.toFixed(2)}</td>
+                    <td className="px-4 py-2">
+                      {typeof tx.usd_value === 'number'
+                        ? `$${tx.usd_value.toFixed(2)}`
+                        : `$${Number(tx.usd_value || 0).toFixed(2)}`}
+                    </td>
+
                     <td className="px-4 py-2">{formatDate(tx.timestamp)}</td>
                     <td className="px-4 py-2 text-center">
                       <a
