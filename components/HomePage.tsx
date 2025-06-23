@@ -8,7 +8,6 @@ import CoincarneModal from '@/components/CoincarneModal';
 import { fetchSolanaTokenList } from '@/lib/utils';
 import { connection } from '@/lib/solanaConnection';
 import StatsDisplay from '@/components/StatsDisplay';
-import { useRouter } from 'next/navigation';
 
 interface TokenInfo {
   mint: string;
@@ -28,10 +27,8 @@ export default function HomePage() {
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const router = useRouter();
 
   useEffect(() => {
-    // ✅ Save referral code from query to localStorage
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const ref = params.get('ref');
@@ -102,15 +99,6 @@ export default function HomePage() {
       <h1 className="text-4xl font-bold mb-4">🚀 Coincarnation</h1>
       <WalletMultiButton />
 
-      {publicKey && (
-        <button
-          onClick={() => router.push('/claim')}
-          className="mt-4 bg-purple-700 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg shadow-lg transition-all duration-200"
-        >
-          👤 Go to Profile
-        </button>
-      )}
-
       <div className="mt-6 w-full max-w-md">
         <StatsDisplay />
       </div>
@@ -166,6 +154,17 @@ export default function HomePage() {
             setShowModal(false);
           }}
         />
+      )}
+
+      {publicKey && (
+        <div className="mt-6">
+          <button
+            onClick={() => window.location.href = '/profile'}
+            className="bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold py-3 px-6 rounded-xl shadow hover:scale-105 transition-all duration-200"
+          >
+            🧾 Go to Profile
+          </button>
+        </div>
       )}
     </div>
   );

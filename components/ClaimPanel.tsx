@@ -13,12 +13,15 @@ export default function ClaimPanel() {
     id: number;
     claimable_amount: number;
     claimed: boolean;
-    referral_count: number; // Yeni alan
+    referral_count: number;
+    total_usd_contributed: number;
+    total_token_contributed: number;
+    total_coins_contributed: number;
   };
 
   const [data, setData] = useState<ClaimData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [claiming, setClaiming] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
   const [claimed, setClaimed] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [claimOpen, setClaimOpen] = useState(true);
@@ -54,7 +57,7 @@ export default function ClaimPanel() {
 
   const handleClaim = async () => {
     if (!publicKey || !data) return;
-    setClaiming(true);
+    setIsClaiming(true);
     setMessage(null);
 
     try {
@@ -76,7 +79,7 @@ export default function ClaimPanel() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            wallet_address: publicKey.toBase58(),
+            wallet_address: destination,
             claim_amount,
             destination,
             tx_signature,
@@ -93,7 +96,7 @@ export default function ClaimPanel() {
       console.error('Claim request failed:', err);
       setMessage('❌ Internal error');
     } finally {
-      setClaiming(false);
+      setIsClaiming(false);
     }
   };
 
@@ -105,8 +108,6 @@ export default function ClaimPanel() {
         <p className="text-yellow-400">Please connect your wallet.</p>
       ) : loading ? (
         <p className="text-blue-400">Loading claim data...</p>
-      ) : !claimOpen ? (
-        <p className="text-red-400">Claiming is currently disabled by the admin.</p>
       ) : data ? (
         <>
           <p className="text-sm text-gray-400 mb-1">Wallet:</p>
@@ -123,19 +124,32 @@ export default function ClaimPanel() {
           <p className="text-sm text-gray-400 mb-1">Referrals Brought:</p>
           <p className="text-pink-400 mb-3">{data.referral_count}</p>
 
+          <p className="text-sm text-gray-400 mb-1">Total USD Contributed:</p>
+          <p className="text-orange-400 mb-3">${data.total_usd_contributed.toFixed(2)}</p>
+
+          <p className="text-sm text-gray-400 mb-1">Total Tokens Contributed:</p>
+          <p className="text-lime-400 mb-3">{data.total_token_contributed.toFixed(4)}</p>
+
+          <p className="text-sm text-gray-400 mb-1">Total Coins Contributed:</p>
+          <p className="text-fuchsia-400 mb-3">{data.total_coins_contributed}</p>
+
           <p className="text-sm text-gray-400 mb-1">Claimable $MEGY:</p>
           <p className="text-purple-400 mb-6">{data.claimable_amount}</p>
 
           {claimed ? (
             <p className="text-green-400 font-bold">✅ Already claimed</p>
-          ) : (
+          ) : claimOpen ? (
             <button
               onClick={handleClaim}
-              disabled={claiming || data.claimable_amount <= 0}
+              disabled={isClaiming || data.claimable_amount <= 0}
               className="mt-4 w-full bg-purple-600 hover:bg-purple-700 py-2 rounded-xl font-bold disabled:opacity-50"
             >
-              {claiming ? 'Claiming...' : 'Claim Now'}
+              {isClaiming ? 'Claiming...' : 'Claim Now'}
             </button>
+          ) : (
+            <p className="mt-4 text-yellow-400 text-center text-sm">
+              ⚠️ Claiming is currently disabled by the admin. You will be able to claim when the window opens.
+            </p>
           )}
 
           {message && <p className="mt-4 text-sm">{message}</p>}
