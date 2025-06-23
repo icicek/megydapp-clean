@@ -6,25 +6,16 @@ import { useEffect, useState } from 'react';
 export default function ClaimPanel() {
   const { publicKey } = useWallet();
 
-  type ClaimData = {
-    wallet_address: string;
-    token_amount: number;
-    token_symbol: string;
-    id: number;
-    claimable_amount: number;
-    claimed: boolean;
-    referral_count: number;
-    total_usd_contributed: number | null;
-    total_token_contributed: number | null;
-    total_coins_contributed: number | null;
-  };
-
-  const [data, setData] = useState<ClaimData | null>(null);
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [claimed, setClaimed] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [claimOpen, setClaimOpen] = useState(true);
+  const [globalStats, setGlobalStats] = useState<{
+    totalUsd: number;
+    totalParticipants: number;
+  }>({ totalUsd: 0, totalParticipants: 0 });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -32,18 +23,30 @@ export default function ClaimPanel() {
       setLoading(true);
 
       try {
-        const claimStatus = await fetch('/api/admin/config/claim_open');
-        const statusJson = await claimStatus.json();
-        setClaimOpen(statusJson.success && statusJson.value === 'true');
+        const [claimStatusRes, userRes, globalRes] = await Promise.all([
+          fetch('/api/admin/config/claim_open'),
+          fetch(`/api/claim/${publicKey.toBase58()}`),
+          fetch('/api/coincarnation/stats'),
+        ]);
 
-        const res = await fetch(`/api/claim/${publicKey.toBase58()}`);
-        const json = await res.json();
+        const claimStatus = await claimStatusRes.json();
+        const userData = await userRes.json();
+        const globalData = await globalRes.json();
 
-        if (json.success) {
-          setData(json.data);
-          setClaimed(json.data.claimed);
+        setClaimOpen(claimStatus.success && claimStatus.value === 'true');
+
+        if (userData.success) {
+          setData(userData.data);
+          setClaimed(userData.data.claimed);
         } else {
           setData(null);
+        }
+
+        if (globalData.success) {
+          setGlobalStats({
+            totalUsd: globalData.totalUsd,
+            totalParticipants: globalData.totalParticipants,
+          });
         }
       } catch (err) {
         console.error('Claim fetch error:', err);
@@ -64,7 +67,7 @@ export default function ClaimPanel() {
       const res = await fetch('/api/claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet: publicKey.toBase58() })
+        body: JSON.stringify({ wallet: publicKey.toBase58() }),
       });
 
       const json = await res.json();
@@ -83,8 +86,8 @@ export default function ClaimPanel() {
             claim_amount,
             destination,
             tx_signature,
-            sol_fee_paid
-          })
+            sol_fee_paid,
+          }),
         });
 
         setClaimed(true);
@@ -100,69 +103,83 @@ export default function ClaimPanel() {
     }
   };
 
-  return (
-    <div className="bg-zinc-900 text-white p-6 rounded-2xl max-w-xl w-full mx-auto border border-zinc-700 shadow-lg">
-      <h2 className="text-3xl font-extrabold text-center mb-6 tracking-tight">🎁 Claim Your $MEGY</h2>
+  if (!publicKey) {
+    return <p className="text-center text-yellow-400">🔌 Please connect your wallet to view your claim profile.</p>;
+  }
 
-      {!publicKey ? (
-        <p className="text-yellow-400 text-center">🔌 Please connect your wallet to view your profile.</p>
-      ) : loading ? (
-        <p className="text-blue-400 text-center">⏳ Loading your claim data...</p>
-      ) : data ? (
-        <div className="space-y-5">
-          <div className="grid grid-cols-2 gap-4">
-            <InfoCard label="Wallet" value={shortenAddress(data.wallet_address)} color="green" />
-            <InfoCard label="Token" value={`${data.token_amount} ${data.token_symbol}`} color="cyan" />
-            <InfoCard label="Coincarnator #" value={`#${data.id}`} color="yellow" />
-            <InfoCard label="Referrals" value={data.referral_count.toString()} color="pink" />
-            <InfoCard label="USD Value" value={`$${data.total_usd_contributed?.toFixed(2) || '0.00'}`} color="orange" />
-            <InfoCard label="Tokens Sent" value={data.total_token_contributed?.toFixed(4) || '0.0000'} color="lime" />
-            <InfoCard label="Coins Contributed" value={data.total_coins_contributed?.toString() || '0'} color="fuchsia" />
-            <InfoCard label="Claimable" value={`${data.claimable_amount} $MEGY`} color="purple" />
-          </div>
+  if (loading) {
+    return <p className="text-center text-blue-400">⏳ Loading your claim data...</p>;
+  }
+
+  if (!data) {
+    return <p className="text-center text-red-400">❌ No Coincarnation record found for this wallet.</p>;
+  }
+
+  const personalRatio = globalStats.totalUsd > 0
+    ? (data.total_usd_contributed / globalStats.totalUsd) * 100
+    : 0;
+
+  return (
+    <div className="bg-zinc-900 text-white p-6 rounded-2xl max-w-4xl w-full mx-auto border border-zinc-700 shadow-lg space-y-10">
+      <h2 className="text-3xl font-extrabold text-center tracking-tight mb-2">🎁 Claim Panel</h2>
+
+      {/* 👤 Kişisel Bilgiler */}
+      <section>
+        <h3 className="text-xl font-semibold mb-3">👤 Personal Info</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <Info label="Wallet Address" value={shorten(data.wallet_address)} />
+          <Info label="Coincarnator No" value={`#${data.id}`} />
+          <Info label="Referral Code" value={data.referral_code || '-'} />
+          <Info label="Referrals Brought" value={data.referral_count?.toString() || '0'} />
+          <Info label="Total USD Contributed" value={`$${data.total_usd_contributed?.toFixed(2) || '0.00'}`} />
+          <Info label="Coins Contributed" value={data.total_coins_contributed?.toString() || '0'} />
+        </div>
+      </section>
+
+      {/* 🧾 Claim ve İstatistikler */}
+      <section>
+        <h3 className="text-xl font-semibold mb-3">📊 Claim & Stats</h3>
+        <div className="bg-zinc-800 rounded-xl p-5 border border-zinc-600 space-y-3 text-sm">
+          <p>🌐 Total Coincarnation Size: <span className="text-green-400 font-medium">${globalStats.totalUsd.toLocaleString()}</span></p>
+          <p>🙋 Total Participants: <span className="text-blue-400 font-medium">{globalStats.totalParticipants}</span></p>
+          <p>📈 Your Share: <span className="text-yellow-400 font-medium">{personalRatio.toFixed(2)}%</span> of total</p>
+          <p className="mt-2">🎯 Claimable $MEGY: <span className="text-purple-400 font-bold text-lg">{data.claimable_amount}</span></p>
+          <p className="text-gray-400 italic text-xs">
+            ⏳ This amount is not final. Your claim will be locked in after Coincarnation ends.
+          </p>
 
           {claimed ? (
-            <p className="text-green-400 font-bold text-center">✅ Already Claimed</p>
+            <p className="text-green-400 font-semibold mt-3">✅ Already claimed</p>
           ) : claimOpen ? (
             <button
               onClick={handleClaim}
               disabled={isClaiming || data.claimable_amount <= 0}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:scale-105 transition-all text-white font-bold py-3 rounded-xl disabled:opacity-50"
+              className="mt-4 w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:scale-105 transition-all text-white font-bold py-3 rounded-xl disabled:opacity-50"
             >
               {isClaiming ? '🚀 Claiming...' : '🎉 Claim Now'}
             </button>
           ) : (
-            <p className="text-yellow-400 text-center font-medium">
-              ⚠️ Claiming is currently closed. Please check back later.
+            <p className="text-yellow-400 font-medium mt-3">
+              ⚠️ Claiming is currently closed. You will be able to claim when the window opens.
             </p>
           )}
 
-          {message && <p className="text-center mt-4 text-sm">{message}</p>}
+          {message && <p className="mt-4 text-center">{message}</p>}
         </div>
-      ) : (
-        <p className="text-red-400 text-center">❌ No Coincarnation record found for this wallet.</p>
-      )}
+      </section>
     </div>
   );
 }
 
-function InfoCard({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string;
-  color: string;
-}) {
+function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className={`bg-zinc-800 border-l-4 border-${color}-500 p-4 rounded-lg`}>
-      <p className="text-xs text-zinc-400">{label}</p>
-      <p className={`text-${color}-300 font-semibold text-sm mt-1 break-all`}>{value}</p>
+    <div className="bg-zinc-800 p-4 rounded-lg border border-zinc-700">
+      <p className="text-xs text-gray-400">{label}</p>
+      <p className="font-semibold text-white mt-1 break-all">{value}</p>
     </div>
   );
 }
 
-function shortenAddress(address: string) {
-  return address.slice(0, 6) + '...' + address.slice(-4);
+function shorten(addr: string) {
+  return addr.slice(0, 6) + '...' + addr.slice(-4);
 }
