@@ -3,20 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const sql = neon(process.env.DATABASE_URL!);
 
-type ParticipantRow = {
-  id: number;
-  wallet_address: string;
-  token_symbol: string;
-  token_contract: string;
-  network: string;
-  token_amount: number;
-  usd_value: number;
-  transaction_signiture: string;
-  timestamp: string;
-  claimable_amount: number;
-  claimed: boolean;
-};
-
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ wallet: string }> }
@@ -24,33 +10,53 @@ export async function GET(
   try {
     const { wallet } = await params;
 
+    // 1. Participant verisini çek
     const participantResult = await sql`
       SELECT * FROM participants WHERE wallet_address = ${wallet} LIMIT 1;
     `;
-    const rows = participantResult as unknown as ParticipantRow[];
-
-    if (rows.length === 0) {
+    if (participantResult.length === 0) {
       return NextResponse.json(
         { success: false, error: 'No participant data found' },
         { status: 404 }
       );
     }
+    const participant = participantResult[0];
 
+    // 2. Referrals sayısı
     const referralResult = await sql`
       SELECT COUNT(*) FROM contributions WHERE referrer_wallet = ${wallet};
     `;
     const referral_count = parseInt((referralResult[0] as any).count || '0', 10);
 
-    const contributionsResult = await sql`
-      SELECT * FROM contributions WHERE wallet_address = ${wallet} ORDER BY timestamp DESC;
+    // 3. Toplam katkılar
+    const totalStatsResult = await sql`
+      SELECT 
+        COALESCE(SUM(usd_value), 0) AS total_usd_contributed,
+        COUNT(*) AS total_coins_contributed
+      FROM contributions
+      WHERE wallet_address = ${wallet};
+    `;
+    const { total_usd_contributed, total_coins_contributed } = totalStatsResult[0] as any;
+
+    // 4. İşlem listesi
+    const transactionsResult = await sql`
+      SELECT token_symbol, token_amount, usd_value, timestamp
+      FROM contributions
+      WHERE wallet_address = ${wallet}
+      ORDER BY timestamp DESC;
     `;
 
     return NextResponse.json({
       success: true,
       data: {
-        ...rows[0],
+        id: participant.id,
+        wallet_address: participant.wallet_address,
+        referral_code: participant.referral_code || null,
+        claimed: participant.claimed || false,
         referral_count,
-        transactions: contributionsResult, // ✅ Kritik düzeltme burada
+        total_usd_contributed: parseFloat(total_usd_contributed),
+        total_coins_contributed: parseInt(total_coins_contributed, 10),
+        transactions: transactionsResult,
       },
     });
   } catch (err) {
