@@ -14,9 +14,9 @@ export default function ClaimPanel() {
     claimable_amount: number;
     claimed: boolean;
     referral_count: number;
-    total_usd_contributed: number;
-    total_token_contributed: number;
-    total_coins_contributed: number;
+    total_usd_contributed: number | null;
+    total_token_contributed: number | null;
+    total_coins_contributed: number | null;
   };
 
   const [data, setData] = useState<ClaimData | null>(null);
@@ -125,13 +125,19 @@ export default function ClaimPanel() {
           <p className="text-pink-400 mb-3">{data.referral_count}</p>
 
           <p className="text-sm text-gray-400 mb-1">Total USD Contributed:</p>
-          <p className="text-orange-400 mb-3">${data.total_usd_contributed.toFixed(2)}</p>
+          <p className="text-orange-400 mb-3">
+            ${data.total_usd_contributed != null ? data.total_usd_contributed.toFixed(2) : '0.00'}
+          </p>
 
           <p className="text-sm text-gray-400 mb-1">Total Tokens Contributed:</p>
-          <p className="text-lime-400 mb-3">{data.total_token_contributed.toFixed(4)}</p>
+          <p className="text-lime-400 mb-3">
+            {data.total_token_contributed != null ? data.total_token_contributed.toFixed(4) : '0.0000'}
+          </p>
 
           <p className="text-sm text-gray-400 mb-1">Total Coins Contributed:</p>
-          <p className="text-fuchsia-400 mb-3">{data.total_coins_contributed}</p>
+          <p className="text-fuchsia-400 mb-3">
+            {data.total_coins_contributed != null ? data.total_coins_contributed : '0'}
+          </p>
 
           <p className="text-sm text-gray-400 mb-1">Claimable $MEGY:</p>
           <p className="text-purple-400 mb-6">{data.claimable_amount}</p>
