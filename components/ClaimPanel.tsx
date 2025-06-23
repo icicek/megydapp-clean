@@ -239,15 +239,23 @@ export default function ClaimPanel() {
                       {tx.timestamp ? formatDate(tx.timestamp) : 'N/A'}
                     </td>
                     <td className="px-4 py-2 text-center">
-                    <a
-                      href={`https://twitter.com/intent/tweet?text=I just Coincarnated $${tx.token_symbol} into $MEGY ⚡️%0A#Coincarnation is real — revive your losses now!%0AJoin us → https://coincarnation.com`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
-                    >
-                      Share on X
-                    </a>
-
+                      {(() => {
+                        const tweetText = encodeURIComponent(
+                          `I just Coincarnated $${tx.token_symbol} into $MEGY ⚡️\n` +
+                          `#Coincarnation is real — revive your losses now!\n` +
+                          `Join us → https://coincarnation.com`
+                        );
+                        return (
+                          <a
+                            href={`https://twitter.com/intent/tweet?text=${tweetText}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
+                          >
+                            Share on X
+                          </a>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}
