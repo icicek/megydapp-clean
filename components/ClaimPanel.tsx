@@ -74,7 +74,6 @@ export default function ClaimPanel() {
 
     try {
       const destination = useAltAddress ? altAddress.trim() : publicKey.toBase58();
-
       const res = await fetch('/api/claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -149,14 +148,12 @@ export default function ClaimPanel() {
       <section>
         <h3 className="text-xl font-semibold mb-3">📊 Claim & Statistics</h3>
 
-        {/* Global Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <StatBox label="Total Contribution Size" value={`$${globalStats.totalUsd.toLocaleString()}`} color="green" />
           <StatBox label="Total Participants" value={`${globalStats.totalParticipants}`} color="blue" />
           <StatBox label="Your Share" value={`${(shareRatio * 100).toFixed(2)}%`} color="yellow" />
         </div>
 
-        {/* Claimable Amount */}
         <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 mb-4 text-center">
           <p className="text-sm text-gray-400 mb-1">🎯 Claimable $MEGY</p>
           <p className="text-2xl font-extrabold text-purple-400">
@@ -167,7 +164,6 @@ export default function ClaimPanel() {
           </p>
         </div>
 
-        {/* Claim Form */}
         <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 space-y-4">
           <p className="text-sm font-medium text-gray-300">Claim To Address</p>
 
@@ -255,12 +251,10 @@ export default function ClaimPanel() {
           <p className="text-gray-400 text-sm mt-2">You haven’t Coincarnated anything yet.</p>
         )}
       </section>
-
     </div>
   );
 }
 
-// Info box
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-zinc-800 p-4 rounded-lg border border-zinc-700">
@@ -270,12 +264,19 @@ function Info({ label, value }: { label: string; value: string }) {
   );
 }
 
-// Stats box
-function StatBox({ label, value, color }: { label: string; value: string; color: string }) {
+const colorMap = {
+  green: 'text-green-300 border-green-500',
+  blue: 'text-blue-300 border-blue-500',
+  yellow: 'text-yellow-300 border-yellow-500',
+};
+
+function StatBox({ label, value, color }: { label: string; value: string; color: 'green' | 'blue' | 'yellow' }) {
+  const classNames = colorMap[color] || 'text-white border-white';
+
   return (
-    <div className={`bg-zinc-800 border-l-4 border-${color}-500 p-4 rounded-lg`}>
+    <div className={`bg-zinc-800 border-l-4 ${classNames} p-4 rounded-lg`}>
       <p className="text-xs text-zinc-400">{label}</p>
-      <p className={`text-${color}-300 font-semibold text-sm mt-1`}>{value}</p>
+      <p className="font-semibold text-sm mt-1">{value}</p>
     </div>
   );
 }
@@ -283,6 +284,7 @@ function StatBox({ label, value, color }: { label: string; value: string; color:
 function shorten(addr: string) {
   return addr.slice(0, 6) + '...' + addr.slice(-4);
 }
+
 function formatDate(dateStr: string) {
   const date = new Date(dateStr);
   return date.toLocaleDateString(undefined, {
