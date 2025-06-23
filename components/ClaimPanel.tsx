@@ -212,6 +212,50 @@ export default function ClaimPanel() {
           {message && <p className="text-center mt-3 text-sm">{message}</p>}
         </div>
       </section>
+
+      {/* 📜 Contribution History */}
+      <section>
+        <h3 className="text-xl font-semibold mt-10 mb-3">📜 Contribution History</h3>
+
+        {data.transactions?.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm text-left border border-zinc-700 rounded-xl overflow-hidden">
+              <thead className="bg-zinc-800 text-gray-300">
+                <tr>
+                  <th className="px-4 py-2">Asset</th>
+                  <th className="px-4 py-2">Amount</th>
+                  <th className="px-4 py-2">USD Value</th>
+                  <th className="px-4 py-2">Date</th>
+                  <th className="px-4 py-2 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...data.transactions].reverse().map((tx: any, index: number) => (
+                  <tr key={index} className="border-t border-zinc-700 hover:bg-zinc-800">
+                    <td className="px-4 py-2 font-medium">{tx.token_symbol}</td>
+                    <td className="px-4 py-2">{tx.token_amount}</td>
+                    <td className="px-4 py-2">${tx.usd_value.toFixed(2)}</td>
+                    <td className="px-4 py-2">{formatDate(tx.timestamp)}</td>
+                    <td className="px-4 py-2 text-center">
+                      <a
+                        href={`https://twitter.com/intent/tweet?text=I just Coincarnated $${tx.token_symbol} for $MEGY! Join the revival ⚡️ https://megydapp.vercel.app`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
+                      >
+                        Share on X
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-gray-400 text-sm mt-2">You haven’t Coincarnated anything yet.</p>
+        )}
+      </section>
+
     </div>
   );
 }
@@ -238,4 +282,12 @@ function StatBox({ label, value, color }: { label: string; value: string; color:
 
 function shorten(addr: string) {
   return addr.slice(0, 6) + '...' + addr.slice(-4);
+}
+function formatDate(dateStr: string) {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
