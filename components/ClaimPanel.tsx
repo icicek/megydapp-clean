@@ -235,17 +235,19 @@ export default function ClaimPanel() {
                         ? `$${tx.usd_value.toFixed(2)}`
                         : `$${Number(tx.usd_value || 0).toFixed(2)}`}
                     </td>
-
-                    <td className="px-4 py-2">{formatDate(tx.timestamp)}</td>
+                    <td className="px-4 py-2">
+                      {tx.timestamp ? formatDate(tx.timestamp) : 'N/A'}
+                    </td>
                     <td className="px-4 py-2 text-center">
-                      <a
-                        href={`https://twitter.com/intent/tweet?text=I just Coincarnated $${tx.token_symbol} for $MEGY! Join the revival ⚡️ https://megydapp.vercel.app`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
-                      >
-                        Share on X
-                      </a>
+                    <a
+                      href={`https://twitter.com/intent/tweet?text=I just Coincarnated $${tx.token_symbol} into $MEGY ⚡️%0A#Coincarnation is real — revive your losses now!%0AJoin us → https://coincarnation.com`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
+                    >
+                      Share on X
+                    </a>
+
                     </td>
                   </tr>
                 ))}
