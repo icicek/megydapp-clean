@@ -240,11 +240,17 @@ export default function ClaimPanel() {
                     </td>
                     <td className="px-4 py-2 text-center">
                       {(() => {
+                        const referral = data.referral_code;
+                        const referralLink = referral
+                          ? `https://coincarnation.com?r=${referral}`
+                          : 'https://coincarnation.com';
+
                         const tweetText = encodeURIComponent(
                           `I just Coincarnated $${tx.token_symbol} into $MEGY ⚡️\n` +
                           `#Coincarnation is real — revive your losses now!\n` +
-                          `Join us → https://coincarnation.com`
+                          `Join us → ${referralLink}`
                         );
+
                         return (
                           <a
                             href={`https://twitter.com/intent/tweet?text=${tweetText}`}
