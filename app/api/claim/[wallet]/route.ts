@@ -50,7 +50,7 @@ export async function GET(
       data: {
         ...rows[0],
         referral_count,
-        contributions: contributionsResult,
+        transactions: contributionsResult, // ✅ Kritik düzeltme burada
       },
     });
   } catch (err) {
