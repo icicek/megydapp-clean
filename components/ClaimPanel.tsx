@@ -101,68 +101,68 @@ export default function ClaimPanel() {
   };
 
   return (
-    <div className="bg-gray-900 text-white p-6 rounded-xl w-full max-w-md border border-gray-700 text-center">
-      <h2 className="text-2xl font-bold mb-4">🎁 Your Claim</h2>
+    <div className="bg-zinc-900 text-white p-6 rounded-2xl max-w-xl w-full mx-auto border border-zinc-700 shadow-lg">
+      <h2 className="text-3xl font-extrabold text-center mb-6 tracking-tight">🎁 Claim Your $MEGY</h2>
 
       {!publicKey ? (
-        <p className="text-yellow-400">Please connect your wallet.</p>
+        <p className="text-yellow-400 text-center">🔌 Please connect your wallet to view your profile.</p>
       ) : loading ? (
-        <p className="text-blue-400">Loading claim data...</p>
+        <p className="text-blue-400 text-center">⏳ Loading your claim data...</p>
       ) : data ? (
-        <>
-          <p className="text-sm text-gray-400 mb-1">Wallet:</p>
-          <p className="text-green-400 mb-3">{data.wallet_address}</p>
-
-          <p className="text-sm text-gray-400 mb-1">Token:</p>
-          <p className="text-cyan-400 mb-3">
-            {data.token_amount} {data.token_symbol}
-          </p>
-
-          <p className="text-sm text-gray-400 mb-1">Coincarnator #:</p>
-          <p className="text-yellow-400 mb-3">{data.id}</p>
-
-          <p className="text-sm text-gray-400 mb-1">Referrals Brought:</p>
-          <p className="text-pink-400 mb-3">{data.referral_count}</p>
-
-          <p className="text-sm text-gray-400 mb-1">Total USD Contributed:</p>
-          <p className="text-orange-400 mb-3">
-            ${data.total_usd_contributed != null ? data.total_usd_contributed.toFixed(2) : '0.00'}
-          </p>
-
-          <p className="text-sm text-gray-400 mb-1">Total Tokens Contributed:</p>
-          <p className="text-lime-400 mb-3">
-            {data.total_token_contributed != null ? data.total_token_contributed.toFixed(4) : '0.0000'}
-          </p>
-
-          <p className="text-sm text-gray-400 mb-1">Total Coins Contributed:</p>
-          <p className="text-fuchsia-400 mb-3">
-            {data.total_coins_contributed != null ? data.total_coins_contributed : '0'}
-          </p>
-
-          <p className="text-sm text-gray-400 mb-1">Claimable $MEGY:</p>
-          <p className="text-purple-400 mb-6">{data.claimable_amount}</p>
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-4">
+            <InfoCard label="Wallet" value={shortenAddress(data.wallet_address)} color="green" />
+            <InfoCard label="Token" value={`${data.token_amount} ${data.token_symbol}`} color="cyan" />
+            <InfoCard label="Coincarnator #" value={`#${data.id}`} color="yellow" />
+            <InfoCard label="Referrals" value={data.referral_count.toString()} color="pink" />
+            <InfoCard label="USD Value" value={`$${data.total_usd_contributed?.toFixed(2) || '0.00'}`} color="orange" />
+            <InfoCard label="Tokens Sent" value={data.total_token_contributed?.toFixed(4) || '0.0000'} color="lime" />
+            <InfoCard label="Coins Contributed" value={data.total_coins_contributed?.toString() || '0'} color="fuchsia" />
+            <InfoCard label="Claimable" value={`${data.claimable_amount} $MEGY`} color="purple" />
+          </div>
 
           {claimed ? (
-            <p className="text-green-400 font-bold">✅ Already claimed</p>
+            <p className="text-green-400 font-bold text-center">✅ Already Claimed</p>
           ) : claimOpen ? (
             <button
               onClick={handleClaim}
               disabled={isClaiming || data.claimable_amount <= 0}
-              className="mt-4 w-full bg-purple-600 hover:bg-purple-700 py-2 rounded-xl font-bold disabled:opacity-50"
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:scale-105 transition-all text-white font-bold py-3 rounded-xl disabled:opacity-50"
             >
-              {isClaiming ? 'Claiming...' : 'Claim Now'}
+              {isClaiming ? '🚀 Claiming...' : '🎉 Claim Now'}
             </button>
           ) : (
-            <p className="mt-4 text-yellow-400 text-center text-sm">
-              ⚠️ Claiming is currently disabled by the admin. You will be able to claim when the window opens.
+            <p className="text-yellow-400 text-center font-medium">
+              ⚠️ Claiming is currently closed. Please check back later.
             </p>
           )}
 
-          {message && <p className="mt-4 text-sm">{message}</p>}
-        </>
+          {message && <p className="text-center mt-4 text-sm">{message}</p>}
+        </div>
       ) : (
-        <p className="text-red-400">No Coincarnation record found for this wallet.</p>
+        <p className="text-red-400 text-center">❌ No Coincarnation record found for this wallet.</p>
       )}
     </div>
   );
+}
+
+function InfoCard({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color: string;
+}) {
+  return (
+    <div className={`bg-zinc-800 border-l-4 border-${color}-500 p-4 rounded-lg`}>
+      <p className="text-xs text-zinc-400">{label}</p>
+      <p className={`text-${color}-300 font-semibold text-sm mt-1 break-all`}>{value}</p>
+    </div>
+  );
+}
+
+function shortenAddress(address: string) {
+  return address.slice(0, 6) + '...' + address.slice(-4);
 }

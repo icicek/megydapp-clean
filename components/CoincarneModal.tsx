@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useWallet } from '@solana/wallet-adapter-react';
 import {
   getAssociatedTokenAddress,
@@ -50,12 +50,10 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
       const refFromUrl = urlParams.get('ref');
 
       if (refFromUrl) {
-        // Eğer URL'de ref varsa localStorage'a yaz
         localStorage.setItem('referralCode', refFromUrl);
         setReferralCode(refFromUrl);
         console.log('✅ Referral code captured from URL:', refFromUrl);
       } else {
-        // URL'de yoksa, localStorage'dan al
         const storedCode = localStorage.getItem('referralCode');
         if (storedCode) {
           setReferralCode(storedCode);
@@ -74,12 +72,12 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
     if (isNaN(amountToSend) || amountToSend <= 0) return;
-  
+
     try {
       setLoading(true);
       let signature: string;
       const usdValue = await getUsdValue(token, amountToSend);
-  
+
       if (token.mint === 'SOL') {
         const tx = new Transaction().add(
           SystemProgram.transfer({
@@ -98,9 +96,9 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
         );
         signature = await sendTransaction(tx, connection);
       }
-  
+
       console.log('📤 Sending to backend with referral_code:', referralCode);
-  
+
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -116,21 +114,21 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
           user_agent: navigator.userAgent,
         }),
       });
-  
+
       if (!res.ok) {
         const errorText = await res.text();
         console.error('❌ Backend error response:', errorText);
         alert('❌ Backend Error. Check console.');
         return;
       }
-  
+
       const json = await res.json();
       console.log('🧾 Backend response:', JSON.stringify(json, null, 2));
-  
+
       const userNumber = json?.number ?? 0;
       const tokenSymbol = token.symbol || token.mint.slice(0, 4);
       const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbol}.png`;
-  
+
       setResultData({ tokenFrom: tokenSymbol, number: userNumber, imageUrl });
       if (refetchTokens) refetchTokens();
     } catch (err) {
@@ -139,7 +137,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
     } finally {
       setLoading(false);
     }
-  };  
+  };
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -148,6 +146,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
         className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full shadow-[0_0_30px_5px_rgba(255,0,255,0.3)] border border-pink-500/30"
         aria-describedby="coincarnation-description"
       >
+        <DialogTitle className="sr-only">Coincarnation Modal</DialogTitle>
 
         {resultData ? (
           <CoincarnationResult
@@ -160,7 +159,6 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
             }}
             onGoToProfile={() => router.push('/claim')}
           />
-        
         ) : (
           <>
             <p
