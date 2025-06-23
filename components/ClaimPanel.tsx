@@ -18,6 +18,7 @@ export default function ClaimPanel() {
     totalUsd: 0,
     totalParticipants: 0,
   });
+  const [distributionPool, setDistributionPool] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -25,15 +26,17 @@ export default function ClaimPanel() {
       setLoading(true);
 
       try {
-        const [claimStatusRes, userRes, globalRes] = await Promise.all([
+        const [claimStatusRes, userRes, globalRes, poolRes] = await Promise.all([
           fetch('/api/admin/config/claim_open'),
           fetch(`/api/claim/${publicKey.toBase58()}`),
           fetch('/api/coincarnation/stats'),
+          fetch('/api/admin/config/distribution_pool'),
         ]);
 
         const claimStatus = await claimStatusRes.json();
         const userData = await userRes.json();
         const globalData = await globalRes.json();
+        const poolData = await poolRes.json();
 
         setClaimOpen(claimStatus.success && claimStatus.value === 'true');
 
@@ -49,6 +52,10 @@ export default function ClaimPanel() {
             totalUsd: globalData.totalUsd,
             totalParticipants: globalData.totalParticipants,
           });
+        }
+
+        if (poolData.success) {
+          setDistributionPool(poolData.value);
         }
       } catch (err) {
         console.error('Claim fetch error:', err);
@@ -78,7 +85,7 @@ export default function ClaimPanel() {
 
       if (json.success) {
         const tx_signature = json.tx_signature || 'mock-tx-signature';
-        const claim_amount = data.claimable_amount;
+        const claim_amount = claimableMegy;
         const sol_fee_paid = true;
 
         await fetch('/api/claim/record', {
@@ -118,9 +125,8 @@ export default function ClaimPanel() {
     return <p className="text-center text-red-400">❌ No Coincarnation record found for this wallet.</p>;
   }
 
-  const personalRatio = globalStats.totalUsd > 0
-    ? (data.total_usd_contributed / globalStats.totalUsd) * 100
-    : 0;
+  const shareRatio = globalStats.totalUsd > 0 ? (data.total_usd_contributed / globalStats.totalUsd) : 0;
+  const claimableMegy = Math.floor(shareRatio * distributionPool);
 
   return (
     <div className="bg-zinc-900 text-white p-6 rounded-2xl max-w-4xl w-full mx-auto border border-zinc-700 shadow-lg space-y-10">
@@ -147,15 +153,17 @@ export default function ClaimPanel() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <StatBox label="Total Contribution Size" value={`$${globalStats.totalUsd.toLocaleString()}`} color="green" />
           <StatBox label="Total Participants" value={`${globalStats.totalParticipants}`} color="blue" />
-          <StatBox label="Your Share" value={`${personalRatio.toFixed(2)}%`} color="yellow" />
+          <StatBox label="Your Share" value={`${(shareRatio * 100).toFixed(2)}%`} color="yellow" />
         </div>
 
         {/* Claimable Amount */}
         <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 mb-4 text-center">
           <p className="text-sm text-gray-400 mb-1">🎯 Claimable $MEGY</p>
-          <p className="text-2xl font-extrabold text-purple-400">{data.claimable_amount}</p>
+          <p className="text-2xl font-extrabold text-purple-400">
+            {claimableMegy.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </p>
           <p className="text-xs text-gray-400 italic mt-2">
-            ⚠️ This amount is not final. It may change depending on global participation.
+            ⚠️ This amount is estimated. Final value depends on total participation and will be locked at the end of Coincarnation.
           </p>
         </div>
 
@@ -190,7 +198,7 @@ export default function ClaimPanel() {
           ) : claimOpen ? (
             <button
               onClick={handleClaim}
-              disabled={isClaiming || data.claimable_amount <= 0}
+              disabled={isClaiming || claimableMegy <= 0}
               className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:scale-105 transition-all text-white font-bold py-3 rounded-xl disabled:opacity-50"
             >
               {isClaiming ? '🚀 Claiming...' : '🎉 Claim Now'}
