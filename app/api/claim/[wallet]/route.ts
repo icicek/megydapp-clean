@@ -1,19 +1,11 @@
 import { neon } from '@neondatabase/serverless';
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 const sql = neon(process.env.DATABASE_URL!);
 
-// ✅ Manuel olarak context tipini tanımlıyoruz
-interface Params {
-  params: {
-    wallet: string;
-  };
-}
-
 export async function GET(
-  req: NextRequest,
-  context: Params
+  req,
+  context
 ) {
   const wallet = context.params.wallet;
 
