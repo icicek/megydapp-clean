@@ -5,11 +5,11 @@ const sql = neon(process.env.DATABASE_URL!);
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { wallet: string } }
+  context: { params: { wallet: string } }
 ) {
-  try {
-    const { wallet } = params;
+  const wallet = context.params.wallet;
 
+  try {
     const participantResult = await sql`
       SELECT * FROM participants WHERE wallet_address = ${wallet} LIMIT 1;
     `;
