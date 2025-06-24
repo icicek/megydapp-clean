@@ -1,15 +1,23 @@
-import { neon } from '@neondatabase/serverless';
 import { NextRequest, NextResponse } from 'next/server';
+import { neon } from '@neondatabase/serverless';
 
 const sql = neon(process.env.DATABASE_URL!);
 
+// ✅ Doğru tipleme
+type Context = {
+  params: {
+    wallet: string;
+  };
+};
+
 export async function GET(
   req: NextRequest,
-  context: { params: { wallet: string } }
+  { params }: Context
 ) {
-  const wallet = context.params.wallet;
+  const wallet = params.wallet;
 
   try {
+    // 1. Katılımcı verisi
     const participantResult = await sql`
       SELECT * FROM participants WHERE wallet_address = ${wallet} LIMIT 1;
     `;
@@ -22,11 +30,13 @@ export async function GET(
 
     const participant = participantResult[0];
 
+    // 2. Referral sayısı
     const referralResult = await sql`
       SELECT COUNT(*) FROM contributions WHERE referrer_wallet = ${wallet};
     `;
     const referral_count = parseInt((referralResult[0] as any).count || '0', 10);
 
+    // 3. Toplam USD ve coin katkısı
     const totalStatsResult = await sql`
       SELECT 
         COALESCE(SUM(usd_value), 0) AS total_usd_contributed,
@@ -36,6 +46,7 @@ export async function GET(
     `;
     const { total_usd_contributed, total_coins_contributed } = totalStatsResult[0] as any;
 
+    // 4. Tüm işlemler
     const transactionsResult = await sql`
       SELECT token_symbol, token_amount, usd_value, timestamp
       FROM contributions
@@ -43,8 +54,10 @@ export async function GET(
       ORDER BY timestamp DESC;
     `;
 
+    // 5. CorePoint bilgisi
     const core_point = participant.core_point !== undefined ? Number(participant.core_point) : 0;
 
+    // ✅ API yanıtı
     return NextResponse.json({
       success: true,
       data: {
