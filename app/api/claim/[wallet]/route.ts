@@ -46,6 +46,9 @@ export async function GET(
       ORDER BY timestamp DESC;
     `;
 
+    // 5. CorePoint verisini ekle (varsa)
+    const core_point = participant.core_point !== undefined ? Number(participant.core_point) : 0;
+
     return NextResponse.json({
       success: true,
       data: {
@@ -57,6 +60,7 @@ export async function GET(
         total_usd_contributed: parseFloat(total_usd_contributed),
         total_coins_contributed: parseInt(total_coins_contributed, 10),
         transactions: transactionsResult,
+        core_point, // ✅ Eklenen alan
       },
     });
   } catch (err) {

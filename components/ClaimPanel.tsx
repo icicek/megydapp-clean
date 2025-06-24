@@ -246,9 +246,9 @@ export default function ClaimPanel() {
                           : 'https://coincarnation.com';
 
                         const tweetText = encodeURIComponent(
-                          `I just Coincarnated $${tx.token_symbol} into $MEGY ⚡️\n` +
-                          `#Coincarnation is real — revive your losses now!\n` +
-                          `Join us → ${referralLink}`
+                          `I just coincarnated $${tx.token_symbol} into $MEGY ⚡️\n` +
+                          `The crypto resurrection has begun.\n` +
+                          `Join the revival → ${referralLink}`
                         );
 
                         return (
@@ -271,6 +271,23 @@ export default function ClaimPanel() {
         ) : (
           <p className="text-gray-400 text-sm mt-2">You haven’t Coincarnated anything yet.</p>
         )}
+      </section>
+
+      {/* 💠 Personal Value Currency */}
+      <section>
+        <h3 className="text-xl font-semibold mt-10 mb-3">💠 Personal Value Currency</h3>
+        <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-5 text-sm text-gray-300 leading-relaxed">
+          <p className="mb-2">
+            You are building your own Personal Value Currency (PVC), also known as <span className="font-bold text-white">CorePoint</span>.
+          </p>
+          <p className="mb-2">
+            Every Coincarnation, referral, and public share increases your CorePoint score. This evolving value will soon unlock privileges,
+            governance rights, and profit shares within the ecosystem.
+          </p>
+          <p className="italic text-gray-400">
+            🚧 PVC features are under development. Stay tuned for the next evolution of your value.
+          </p>
+        </div>
       </section>
     </div>
   );
