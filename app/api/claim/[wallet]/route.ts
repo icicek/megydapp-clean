@@ -5,12 +5,11 @@ const sql = neon(process.env.DATABASE_URL!);
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ wallet: string }> }
+  { params }: { params: { wallet: string } }
 ) {
   try {
-    const { wallet } = await params;
+    const { wallet } = params;
 
-    // 1. Participant verisini çek
     const participantResult = await sql`
       SELECT * FROM participants WHERE wallet_address = ${wallet} LIMIT 1;
     `;
@@ -20,15 +19,14 @@ export async function GET(
         { status: 404 }
       );
     }
+
     const participant = participantResult[0];
 
-    // 2. Referrals sayısı
     const referralResult = await sql`
       SELECT COUNT(*) FROM contributions WHERE referrer_wallet = ${wallet};
     `;
     const referral_count = parseInt((referralResult[0] as any).count || '0', 10);
 
-    // 3. Toplam katkılar
     const totalStatsResult = await sql`
       SELECT 
         COALESCE(SUM(usd_value), 0) AS total_usd_contributed,
@@ -38,7 +36,6 @@ export async function GET(
     `;
     const { total_usd_contributed, total_coins_contributed } = totalStatsResult[0] as any;
 
-    // 4. İşlem listesi
     const transactionsResult = await sql`
       SELECT token_symbol, token_amount, usd_value, timestamp
       FROM contributions
@@ -46,7 +43,6 @@ export async function GET(
       ORDER BY timestamp DESC;
     `;
 
-    // 5. CorePoint verisini ekle (varsa)
     const core_point = participant.core_point !== undefined ? Number(participant.core_point) : 0;
 
     return NextResponse.json({
@@ -60,7 +56,7 @@ export async function GET(
         total_usd_contributed: parseFloat(total_usd_contributed),
         total_coins_contributed: parseInt(total_coins_contributed, 10),
         transactions: transactionsResult,
-        core_point, // ✅ Eklenen alan
+        core_point,
       },
     });
   } catch (err) {
