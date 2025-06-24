@@ -276,19 +276,23 @@ export default function ClaimPanel() {
       {/* 💠 Personal Value Currency */}
       <section>
         <h3 className="text-xl font-semibold mt-10 mb-3">💠 Personal Value Currency</h3>
-        <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-5 text-sm text-gray-300 leading-relaxed">
-          <p className="mb-2">
-            You are building your own Personal Value Currency (PVC), also known as <span className="font-bold text-white">CorePoint</span>.
-          </p>
-          <p className="mb-2">
-            Every Coincarnation, referral, and public share increases your CorePoint score. This evolving value will soon unlock privileges,
-            governance rights, and profit shares within the ecosystem.
+        <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-5 text-sm text-gray-300 leading-relaxed space-y-3">
+          <div className="text-center">
+            <p className="text-gray-400 text-xs mb-1">Your current CorePoint</p>
+            <p className="text-3xl font-bold text-white">
+            {Number(data.core_point || 0).toFixed(1)}
+            </p>
+          </div>
+          <p>
+            Your Personal Value Currency (PVC) reflects your unique contribution to the Coincarnation movement.
+            Referrals, shares, and Coincarnations grow your CorePoint score.
           </p>
           <p className="italic text-gray-400">
-            🚧 PVC features are under development. Stay tuned for the next evolution of your value.
+            🚧 PVC utility features are coming soon. Your CorePoint will define your rank, perks, and influence.
           </p>
         </div>
       </section>
+
     </div>
   );
 }
