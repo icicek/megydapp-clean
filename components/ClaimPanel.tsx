@@ -149,7 +149,7 @@ export default function ClaimPanel() {
           <h3 className="text-blue-400 text-sm font-semibold uppercase mb-4 tracking-wide">
             👤 Personal Info
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full max-w-md mx-auto">
             <Info label="Wallet Address" value={shorten(data.wallet_address)} />
             <Info label="Coincarnator No" value={`#${data.id}`} />
             <Info label="Referral Code" value={data.referral_code || '-'} />
@@ -196,7 +196,9 @@ export default function ClaimPanel() {
             <p className="text-sm font-medium text-gray-300">Claim To Address</p>
 
             {!useAltAddress ? (
-              <p className="text-green-400 text-sm font-mono">{publicKey?.toBase58()}</p>
+              <p className="text-green-400 text-sm font-mono break-all bg-zinc-900 p-2 rounded">
+              {publicKey?.toBase58()}
+            </p>            
             ) : (
               <input
                 type="text"
@@ -330,7 +332,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
-          className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 mb-10"
+          className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 mb-10 shadow-lg space-y-6"
         >
           <h3 className="text-pink-400 text-sm font-semibold uppercase mb-4 tracking-wide">
             💠 Personal Value Currency
@@ -366,7 +368,7 @@ export default function ClaimPanel() {
                 <p className="font-bold text-white mt-1">{data.core_point_breakdown.referrals?.toFixed(1) || '0.0'}</p>
 
                 {data.referral_code && (
-                  <div className="absolute top-3 right-3 flex space-x-2">
+                  <div className="absolute top-3 right-3 flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0">
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(data.referral_code);
