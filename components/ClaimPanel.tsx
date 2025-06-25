@@ -222,7 +222,12 @@ export default function ClaimPanel() {
           {message && <p className="text-center mt-3 text-sm">{message}</p>}
         </div>
 
-        <div className="mt-6 text-center">
+        <motion.div
+          className="mt-6 text-center"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.7 }}
+        >
           <button
             onClick={() => window.location.href = '/'}
             className="bg-gradient-to-r from-pink-500 to-yellow-500 hover:scale-105 transition-all text-white font-bold py-3 px-6 rounded-xl text-sm shadow-lg mb-3"
@@ -230,9 +235,9 @@ export default function ClaimPanel() {
             🔁 Recoincarnate
           </button>
           <p className="text-xs text-gray-400 italic">
-            Want to contribute more? Return to the homepage and Coincarne again.
+            Want to contribute more? Return to the homepage and coincarne again.
           </p>
-        </div>
+        </motion.div>
 
       </motion.section>
 
