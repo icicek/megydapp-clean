@@ -283,6 +283,18 @@ export default function ClaimPanel() {
               {Number(data.core_point || 0).toFixed(1)}
             </p>
           </div>
+          
+          {typeof data.pvc_share === 'number' && (
+            <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-lg text-center mt-4">
+              <p className="text-gray-400 text-sm mb-1">🌐 Your Share in the PVC Ecosystem</p>
+              <p className="text-xl font-bold text-green-300">
+                {(data.pvc_share * 100).toFixed(2)}%
+              </p>
+              <p className="text-xs text-gray-400 mt-1 italic">
+                This is your relative CorePoint share across the ecosystem. It defines your influence and reward eligibility.
+              </p>
+            </div>
+          )}
 
           {/* 🎯 Breakdown of CorePoint if available */}
           {data.core_point_breakdown ? (
