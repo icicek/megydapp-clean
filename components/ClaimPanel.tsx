@@ -348,26 +348,28 @@ export default function ClaimPanel() {
                 <p className="text-gray-400">📣 Referrals</p>
                 <p className="font-bold text-white mt-1">{data.core_point_breakdown.referrals?.toFixed(1) || '0.0'}</p>
 
-                {/* 🔗 Referral Actions */}
                 {data.referral_code && (
                   <div className="absolute top-3 right-3 flex space-x-2">
+                    {/* ✅ Copy Button */}
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(data.referral_code);
                         setCopied(true);
                         setTimeout(() => setCopied(false), 2000);
                       }}
-                      className="bg-zinc-800 hover:bg-zinc-700 text-xs text-white px-2 py-1 rounded"
+                      className="bg-zinc-800 hover:bg-zinc-700 text-xs text-white px-3 py-1 rounded"
                     >
-                      Copy
+                      Copy ref.
                     </button>
+
+                    {/* 🔗 Share Button */}
                     <a
-                      href={`https://twitter.com/intent/tweet?text=Join%20the%20Coincarnation%20rebirth%20with%20my%20code:%20${data.referral_code}%20🔥%0Ahttps://coincarnation.com?r=${data.referral_code}`}
+                      href={`https://twitter.com/intent/tweet?text=Join%20the%20Coincarnation%20rebirth%20with%20my%20referral%20code:%20${data.referral_code}%20🔥%0Ahttps://coincarnation.com?r=${data.referral_code}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="bg-blue-600 hover:bg-blue-700 text-xs text-white px-2 py-1 rounded"
+                      className="bg-blue-600 hover:bg-blue-700 text-xs text-white px-3 py-1 rounded"
                     >
-                      X
+                      Share 🔗
                     </a>
                   </div>
                 )}
@@ -376,6 +378,7 @@ export default function ClaimPanel() {
                   <p className="absolute top-14 right-3 text-green-400 text-xs font-semibold">✅ Copied!</p>
                 )}
               </div>
+
               <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-lg">
                 <p className="text-gray-400">🐦 Social Shares</p>
                 <p className="font-bold text-white mt-1">{data.core_point_breakdown.shares?.toFixed(1) || '0.0'}</p>
