@@ -10,7 +10,7 @@ const DEADCOIN_WEIGHT = 100;
 
 export async function GET(req: NextRequest) {
   try {
-    // URL'den cüzdan adresini al
+    // Cüzdan adresini URL'den al
     const wallet = req.nextUrl.pathname.match(/\/claim\/([^/]+)/)?.[1];
 
     if (!wallet) {
@@ -64,11 +64,25 @@ export async function GET(req: NextRequest) {
       ORDER BY timestamp DESC;
     `;
 
-    // CorePoint dinamik hesaplama
+    // Kendi CorePoint puanı
     const core_point =
       parseFloat(total_usd_contributed) * USD_CONTRIBUTION_WEIGHT +
       referral_count * REFERRAL_WEIGHT +
       uniqueDeadcoinCount * DEADCOIN_WEIGHT;
+
+    // Tüm sistemdeki toplam CorePoint
+    const totalCorePointResult = await sql`
+      SELECT SUM(
+        COALESCE(
+          (SELECT SUM(usd_value) FROM contributions WHERE wallet_address = p.wallet_address) * ${USD_CONTRIBUTION_WEIGHT}
+          + (SELECT COUNT(*) FROM contributions WHERE referrer_wallet = p.wallet_address) * ${REFERRAL_WEIGHT}
+          + (SELECT COUNT(DISTINCT token_contract) FROM contributions WHERE wallet_address = p.wallet_address AND usd_value = 0) * ${DEADCOIN_WEIGHT}
+        , 0)
+      ) AS total_core_point
+      FROM participants p;
+    `;
+    const total_core_point = parseFloat(totalCorePointResult[0].total_core_point || 0);
+    const pvc_share = total_core_point > 0 ? core_point / total_core_point : 0;
 
     return NextResponse.json({
       success: true,
@@ -82,11 +96,13 @@ export async function GET(req: NextRequest) {
         total_coins_contributed: parseInt(total_coins_contributed, 10),
         transactions: transactionsResult,
         core_point,
+        total_core_point,
+        pvc_share,
         core_point_breakdown: {
           coincarnations: parseFloat(total_usd_contributed) * USD_CONTRIBUTION_WEIGHT,
           referrals: referral_count * REFERRAL_WEIGHT,
           deadcoins: uniqueDeadcoinCount * DEADCOIN_WEIGHT,
-          shares: 0, // ileride sosyal medya katkısı eklenirse burası güncellenebilir
+          shares: 0, // İleride sosyal katkı eklersen güncellenebilir
         },
       },
     });
