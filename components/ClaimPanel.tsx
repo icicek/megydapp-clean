@@ -280,9 +280,32 @@ export default function ClaimPanel() {
           <div className="text-center">
             <p className="text-gray-400 text-xs mb-1">Your current CorePoint</p>
             <p className="text-3xl font-bold text-white">
-            {Number(data.core_point || 0).toFixed(1)}
+              {Number(data.core_point || 0).toFixed(1)}
             </p>
           </div>
+
+          {/* 🎯 Breakdown of CorePoint if available */}
+          {data.core_point_breakdown ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 text-sm">
+              <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-lg">
+                <p className="text-gray-400">🪙 Coincarnation Contributions</p>
+                <p className="font-bold text-white mt-1">{data.core_point_breakdown.coincarnations?.toFixed(1) || '0.0'}</p>
+              </div>
+              <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-lg">
+                <p className="text-gray-400">📣 Referrals</p>
+                <p className="font-bold text-white mt-1">{data.core_point_breakdown.referrals?.toFixed(1) || '0.0'}</p>
+              </div>
+              <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-lg">
+                <p className="text-gray-400">🐦 Social Shares</p>
+                <p className="font-bold text-white mt-1">{data.core_point_breakdown.shares?.toFixed(1) || '0.0'}</p>
+              </div>
+              <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-lg">
+                <p className="text-gray-400">💀 Deadcoins Bonus</p>
+                <p className="font-bold text-white mt-1">{data.core_point_breakdown.deadcoins?.toFixed(1) || '0.0'}</p>
+              </div>
+            </div>
+          ) : null}
+
           <p>
             Your Personal Value Currency (PVC) reflects your unique contribution to the Coincarnation movement.
             Referrals, shares, and Coincarnations grow your CorePoint score.
@@ -292,7 +315,6 @@ export default function ClaimPanel() {
           </p>
         </div>
       </section>
-
     </div>
   );
 }
