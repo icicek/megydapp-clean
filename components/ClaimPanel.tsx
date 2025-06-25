@@ -149,7 +149,7 @@ export default function ClaimPanel() {
           <h3 className="text-blue-400 text-sm font-semibold uppercase mb-4 tracking-wide">
             👤 Personal Info
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <Info label="Wallet Address" value={shorten(data.wallet_address)} />
             <Info label="Coincarnator No" value={`#${data.id}`} />
             <Info label="Referral Code" value={data.referral_code || '-'} />
@@ -176,7 +176,7 @@ export default function ClaimPanel() {
             📊 Claim & Statistics
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
             <StatBox label="Total Contribution Size" value={`$${globalStats.totalUsd.toLocaleString()}`} color="green" />
             <StatBox label="Total Participants" value={`${globalStats.totalParticipants}`} color="blue" />
             <StatBox label="Your Share" value={`${(shareRatio * 100).toFixed(2)}%`} color="yellow" />
@@ -192,7 +192,7 @@ export default function ClaimPanel() {
             </p>
           </div>
 
-          <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 space-y-4">
+          <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 space-y-6">
             <p className="text-sm font-medium text-gray-300">Claim To Address</p>
 
             {!useAltAddress ? (
@@ -266,8 +266,8 @@ export default function ClaimPanel() {
           </h3>
 
           {data.transactions?.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm text-left border border-zinc-700 rounded-xl overflow-hidden">
+            <div className="w-full overflow-x-auto rounded-xl border border-zinc-700">
+              <table className="min-w-[600px] w-full text-sm text-left bg-zinc-900">
                 <thead className="bg-zinc-800 text-gray-300">
                   <tr>
                     <th className="px-4 py-2">Asset</th>
