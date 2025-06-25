@@ -169,8 +169,11 @@ export default function ClaimPanel() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
+        className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 mb-8"
       >
-        <h3 className="text-xl font-semibold mb-3">📊 Claim & Statistics</h3>
+        <h3 className="text-blue-400 text-sm font-semibold uppercase mb-4 tracking-wide">
+          📊 Claim & Statistics
+        </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <StatBox label="Total Contribution Size" value={`$${globalStats.totalUsd.toLocaleString()}`} color="green" />
@@ -248,7 +251,6 @@ export default function ClaimPanel() {
             Want to contribute more? Return to the homepage and coincarne again.
           </p>
         </motion.div>
-
       </motion.section>
 
       {/* 📜 Contribution History */}
@@ -256,8 +258,11 @@ export default function ClaimPanel() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.3 }}
+        className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 mb-8"
       >
-        <h3 className="text-xl font-semibold mt-10 mb-3">📜 Contribution History</h3>
+        <h3 className="text-yellow-400 text-sm font-semibold uppercase mb-4 tracking-wide">
+          📜 Contribution History
+        </h3>
 
         {data.transactions?.length > 0 ? (
           <div className="overflow-x-auto">
@@ -324,81 +329,81 @@ export default function ClaimPanel() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.4 }}
+        className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 mb-10"
       >
-        <h3 className="text-xl font-semibold mt-10 mb-3">💠 Personal Value Currency</h3>
-        <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-5 text-sm text-gray-300 leading-relaxed space-y-3">
-          <div className="text-center">
-            <p className="text-gray-400 text-xs mb-1">Your current CorePoint</p>
-            <p className="text-3xl font-bold text-white">
-              {Number(data.core_point || 0).toFixed(1)}
+        <h3 className="text-pink-400 text-sm font-semibold uppercase mb-4 tracking-wide">
+          💠 Personal Value Currency
+        </h3>
+
+        <div className="text-center mb-6">
+          <p className="text-gray-400 text-xs mb-1">Your current CorePoint</p>
+          <p className="text-4xl font-bold text-white">
+            {Number(data.core_point || 0).toFixed(1)}
+          </p>
+        </div>
+
+        {typeof data.pvc_share === 'number' && (
+          <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg text-center mb-6">
+            <p className="text-gray-400 text-sm mb-1">🌐 Your Share in the PVC Ecosystem</p>
+            <p className="text-xl font-bold text-green-300">
+              {(data.pvc_share * 100).toFixed(2)}%
+            </p>
+            <p className="text-xs text-gray-400 mt-1 italic">
+              This is your relative CorePoint share across the ecosystem. It defines your influence and reward eligibility.
             </p>
           </div>
+        )}
 
-          {typeof data.pvc_share === 'number' && (
-            <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-lg text-center mt-4">
-              <p className="text-gray-400 text-sm mb-1">🌐 Your Share in the PVC Ecosystem</p>
-              <p className="text-xl font-bold text-green-300">
-                {(data.pvc_share * 100).toFixed(2)}%
-              </p>
-              <p className="text-xs text-gray-400 mt-1 italic">
-                This is your relative CorePoint share across the ecosystem. It defines your influence and reward eligibility.
-              </p>
+        {data.core_point_breakdown && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mb-6">
+            <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg">
+              <p className="text-gray-400">🪙 Coincarnation Contributions</p>
+              <p className="font-bold text-white mt-1">{data.core_point_breakdown.coincarnations?.toFixed(1) || '0.0'}</p>
             </div>
-          )}
+            <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg relative">
+              <p className="text-gray-400">📣 Referrals</p>
+              <p className="font-bold text-white mt-1">{data.core_point_breakdown.referrals?.toFixed(1) || '0.0'}</p>
 
-          {/* 🎯 Breakdown of CorePoint if available */}
-          {data.core_point_breakdown ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 text-sm">
-              <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-lg">
-                <p className="text-gray-400">🪙 Coincarnation Contributions</p>
-                <p className="font-bold text-white mt-1">{data.core_point_breakdown.coincarnations?.toFixed(1) || '0.0'}</p>
-              </div>
-              <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-lg relative">
-                <p className="text-gray-400">📣 Referrals</p>
-                <p className="font-bold text-white mt-1">{data.core_point_breakdown.referrals?.toFixed(1) || '0.0'}</p>
+              {data.referral_code && (
+                <div className="absolute top-3 right-3 flex space-x-2">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(data.referral_code);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className="bg-zinc-700 hover:bg-zinc-600 text-xs text-white px-2 py-1 rounded"
+                  >
+                    Copy ref.
+                  </button>
 
-                {data.referral_code && (
-                  <div className="absolute top-3 right-3 flex space-x-2">
-                    {/* ✅ Copy Button */}
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(data.referral_code);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
-                      }}
-                      className="bg-zinc-800 hover:bg-zinc-700 text-xs text-white px-3 py-1 rounded"
-                    >
-                      Copy ref.
-                    </button>
+                  <a
+                    href={`https://twitter.com/intent/tweet?text=Join%20the%20Coincarnation%20rebirth%20with%20my%20referral%20code:%20${data.referral_code}%20🔥%0Ahttps://coincarnation.com?r=${data.referral_code}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-blue-600 hover:bg-blue-700 text-xs text-white px-2 py-1 rounded"
+                  >
+                    Share
+                  </a>
+                </div>
+              )}
 
-                    {/* 🔗 Share Button */}
-                    <a
-                      href={`https://twitter.com/intent/tweet?text=Join%20the%20Coincarnation%20rebirth%20with%20my%20referral%20code:%20${data.referral_code}%20🔥%0Ahttps://coincarnation.com?r=${data.referral_code}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-blue-600 hover:bg-blue-700 text-xs text-white px-3 py-1 rounded"
-                    >
-                      Share 🔗
-                    </a>
-                  </div>
-                )}
-
-                {copied && (
-                  <p className="absolute top-14 right-3 text-green-400 text-xs font-semibold">✅ Copied!</p>
-                )}
-              </div>
-
-              <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-lg">
-                <p className="text-gray-400">🐦 Social Shares</p>
-                <p className="font-bold text-white mt-1">{data.core_point_breakdown.shares?.toFixed(1) || '0.0'}</p>
-              </div>
-              <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-lg">
-                <p className="text-gray-400">💀 Deadcoins Bonus</p>
-                <p className="font-bold text-white mt-1">{data.core_point_breakdown.deadcoins?.toFixed(1) || '0.0'}</p>
-              </div>
+              {copied && (
+                <p className="absolute top-14 right-3 text-green-400 text-xs font-semibold">✅ Copied!</p>
+              )}
             </div>
-          ) : null}
+            <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg">
+              <p className="text-gray-400">🐦 Social Shares</p>
+              <p className="font-bold text-white mt-1">{data.core_point_breakdown.shares?.toFixed(1) || '0.0'}</p>
+            </div>
+            <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg">
+              <p className="text-gray-400">💀 Deadcoins Bonus</p>
+              <p className="font-bold text-white mt-1">{data.core_point_breakdown.deadcoins?.toFixed(1) || '0.0'}</p>
+            </div>
+          </div>
+        )}
 
+        <div className="text-gray-300 text-sm space-y-2">
           <p>
             Your Personal Value Currency (PVC) reflects your unique contribution to the Coincarnation movement.
             Referrals, shares, and Coincarnations grow your CorePoint score.
