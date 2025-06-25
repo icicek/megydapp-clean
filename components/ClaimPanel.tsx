@@ -225,15 +225,15 @@ export default function ClaimPanel() {
         <div className="mt-6 text-center">
           <button
             onClick={() => window.location.href = '/'}
-            className="bg-gradient-to-r from-pink-500 to-yellow-500 hover:scale-105 transition-all text-white font-bold py-3 px-6 rounded-xl text-sm shadow-lg"
+            className="bg-gradient-to-r from-pink-500 to-yellow-500 hover:scale-105 transition-all text-white font-bold py-3 px-6 rounded-xl text-sm shadow-lg mb-3"
           >
-            🔁 Recoincarnate 
+            🔁 Recoincarnate
           </button>
-          <p className="text-xs text-gray-400 mt-2 italic">
-            
+          <p className="text-xs text-gray-400 italic">
             Want to contribute more? Return to the homepage and Coincarne again.
           </p>
         </div>
+
       </motion.section>
 
       {/* 📜 Contribution History */}
