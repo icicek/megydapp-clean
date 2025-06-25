@@ -2,6 +2,7 @@
 
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 
 export default function ClaimPanel() {
   const { publicKey } = useWallet();
@@ -128,7 +129,12 @@ export default function ClaimPanel() {
   const claimableMegy = Math.floor(shareRatio * distributionPool);
 
   return (
-    <div className="bg-zinc-900 text-white p-6 rounded-2xl max-w-4xl w-full mx-auto border border-zinc-700 shadow-lg space-y-10">
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: 'easeOut' }}
+      className="bg-zinc-900 text-white p-6 rounded-2xl max-w-4xl w-full mx-auto border border-zinc-700 shadow-lg space-y-10"
+    >
       <h2 className="text-3xl font-extrabold text-center tracking-tight mb-2">🎁 Claim Panel</h2>
 
       {/* 👤 Personal Info */}
@@ -283,7 +289,7 @@ export default function ClaimPanel() {
               {Number(data.core_point || 0).toFixed(1)}
             </p>
           </div>
-          
+
           {typeof data.pvc_share === 'number' && (
             <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-lg text-center mt-4">
               <p className="text-gray-400 text-sm mb-1">🌐 Your Share in the PVC Ecosystem</p>
@@ -327,7 +333,7 @@ export default function ClaimPanel() {
           </p>
         </div>
       </section>
-    </div>
+    </motion.div>
   );
 }
 
