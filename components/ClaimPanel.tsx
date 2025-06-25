@@ -138,7 +138,11 @@ export default function ClaimPanel() {
       <h2 className="text-3xl font-extrabold text-center tracking-tight mb-2">🎁 Claim Panel</h2>
 
       {/* 👤 Personal Info */}
-      <section>
+      <motion.section
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.1 }}
+      >
         <h3 className="text-xl font-semibold mb-3">👤 Personal Info</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <Info label="Wallet Address" value={shorten(data.wallet_address)} />
@@ -148,10 +152,14 @@ export default function ClaimPanel() {
           <Info label="Total USD Contributed" value={`$${data.total_usd_contributed?.toFixed(2) || '0.00'}`} />
           <Info label="Coins Contributed" value={data.total_coins_contributed?.toString() || '0'} />
         </div>
-      </section>
+      </motion.section>
 
       {/* 📊 Claim & Stats */}
-      <section>
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
         <h3 className="text-xl font-semibold mb-3">📊 Claim & Statistics</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -213,10 +221,14 @@ export default function ClaimPanel() {
 
           {message && <p className="text-center mt-3 text-sm">{message}</p>}
         </div>
-      </section>
+      </motion.section>
 
       {/* 📜 Contribution History */}
-      <section>
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+      >
         <h3 className="text-xl font-semibold mt-10 mb-3">📜 Contribution History</h3>
 
         {data.transactions?.length > 0 ? (
@@ -277,10 +289,14 @@ export default function ClaimPanel() {
         ) : (
           <p className="text-gray-400 text-sm mt-2">You haven’t Coincarnated anything yet.</p>
         )}
-      </section>
+      </motion.section>
 
       {/* 💠 Personal Value Currency */}
-      <section>
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+      >
         <h3 className="text-xl font-semibold mt-10 mb-3">💠 Personal Value Currency</h3>
         <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-5 text-sm text-gray-300 leading-relaxed space-y-3">
           <div className="text-center">
@@ -332,7 +348,7 @@ export default function ClaimPanel() {
             🚧 PVC utility features are coming soon. Your CorePoint will define your rank, perks, and influence.
           </p>
         </div>
-      </section>
+      </motion.section>
     </motion.div>
   );
 }
