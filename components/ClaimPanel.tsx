@@ -145,14 +145,30 @@ export default function ClaimPanel() {
       transition={{ duration: 0.5, delay: 0.1 }}
       >
         <h3 className="text-xl font-semibold mb-3">👤 Personal Info</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <Info label="Wallet Address" value={shorten(data.wallet_address)} />
-          <Info label="Coincarnator No" value={`#${data.id}`} />
-          <Info label="Referral Code" value={data.referral_code || '-'} />
-          <Info label="Referrals Brought" value={data.referral_count?.toString() || '0'} />
-          <Info label="Total USD Contributed" value={`$${data.total_usd_contributed?.toFixed(2) || '0.00'}`} />
-          <Info label="Coins Contributed" value={data.total_coins_contributed?.toString() || '0'} />
-        </div>
+        <section className="bg-zinc-900 rounded-xl p-6 shadow-md border-l-4 border-blue-500 mb-10">
+          <div className="inline-block bg-blue-600 text-white text-xs px-2 py-1 rounded-full mb-4">
+            👤 Personal Info
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-gray-400">Wallet</p>
+              <p className="break-all font-mono">{publicKey?.toBase58()}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-400">Coincarnator #</p>
+              <p className="font-bold">{data?.id}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-400">Referral Code</p>
+              <p className="font-mono">{data?.referral_code || 'None'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-400">Referrals</p>
+              <p className="font-bold">{data?.referral_count}</p>
+            </div>
+          </div>
+        </section>
       </motion.section>
 
       {/* 📊 Claim & Stats */}
