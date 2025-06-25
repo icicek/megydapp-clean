@@ -8,13 +8,18 @@ const USD_CONTRIBUTION_WEIGHT = 100;
 const REFERRAL_WEIGHT = 50;
 const DEADCOIN_WEIGHT = 100;
 
-export async function GET(
-  req: NextRequest,
-  context: { params: { wallet: string } }
-) {
-  const wallet = context.params.wallet;
-
+export async function GET(req: NextRequest) {
   try {
+    // URL'den cüzdan adresini al
+    const wallet = req.nextUrl.pathname.match(/\/claim\/([^/]+)/)?.[1];
+
+    if (!wallet) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid wallet path' },
+        { status: 400 }
+      );
+    }
+
     // Katılımcı bilgisi
     const participantResult = await sql`
       SELECT * FROM participants WHERE wallet_address = ${wallet} LIMIT 1;
@@ -65,27 +70,26 @@ export async function GET(
       referral_count * REFERRAL_WEIGHT +
       uniqueDeadcoinCount * DEADCOIN_WEIGHT;
 
-      return NextResponse.json({
-        success: true,
-        data: {
-          id: participant.id,
-          wallet_address: participant.wallet_address,
-          referral_code: participant.referral_code || null,
-          claimed: participant.claimed || false,
-          referral_count,
-          total_usd_contributed: parseFloat(total_usd_contributed),
-          total_coins_contributed: parseInt(total_coins_contributed, 10),
-          transactions: transactionsResult,
-          core_point,
-          core_point_breakdown: {
-            coincarnations: parseFloat(total_usd_contributed) * USD_CONTRIBUTION_WEIGHT,
-            referrals: referral_count * REFERRAL_WEIGHT,
-            deadcoins: uniqueDeadcoinCount * DEADCOIN_WEIGHT,
-            shares: 0, // şu an eklenmemiş ama gelecekte eklersen bu alan hazır olur
-          },
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: participant.id,
+        wallet_address: participant.wallet_address,
+        referral_code: participant.referral_code || null,
+        claimed: participant.claimed || false,
+        referral_count,
+        total_usd_contributed: parseFloat(total_usd_contributed),
+        total_coins_contributed: parseInt(total_coins_contributed, 10),
+        transactions: transactionsResult,
+        core_point,
+        core_point_breakdown: {
+          coincarnations: parseFloat(total_usd_contributed) * USD_CONTRIBUTION_WEIGHT,
+          referrals: referral_count * REFERRAL_WEIGHT,
+          deadcoins: uniqueDeadcoinCount * DEADCOIN_WEIGHT,
+          shares: 0, // ileride sosyal medya katkısı eklenirse burası güncellenebilir
         },
-      });
-      
+      },
+    });
   } catch (err) {
     console.error('Error fetching claim data:', err);
     return NextResponse.json(
