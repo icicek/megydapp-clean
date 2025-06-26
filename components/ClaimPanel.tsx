@@ -192,7 +192,7 @@ export default function ClaimPanel() {
             </p>
           </div>
 
-          <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 space-y-6">
+          <div className="bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-4 sm:px-4 sm:py-5 space-y-6">
             <p className="text-sm font-medium text-gray-300">Claim To Address</p>
 
             {!useAltAddress ? (
@@ -332,7 +332,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
-          className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 mb-10 shadow-lg space-y-6"
+          className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-4 sm:px-4 sm:py-5 mb-10"
         >
           <h3 className="text-pink-400 text-sm font-semibold uppercase mb-4 tracking-wide">
             💠 Personal Value Currency
