@@ -423,9 +423,9 @@ export default function ClaimPanel() {
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-zinc-800 p-4 rounded-lg border border-zinc-700">
-      <p className="text-xs text-gray-400">{label}</p>
-      <p className="font-semibold text-white mt-1 break-all">{value}</p>
+    <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 min-h-[100px] flex flex-col justify-between">
+      <p className="text-gray-400 text-sm mb-1">{label}</p>
+      <p className="text-white font-medium text-sm break-words">{value}</p>
     </div>
   );
 }
