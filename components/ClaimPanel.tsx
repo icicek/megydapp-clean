@@ -149,7 +149,7 @@ export default function ClaimPanel() {
           <h3 className="text-blue-400 text-sm font-semibold uppercase mb-4 tracking-wide">
             👤 Personal Info
           </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full max-w-md mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full max-w-5xl mx-auto">
             <Info label="Wallet Address" value={shorten(data.wallet_address)} />
             <Info label="Coincarnator No" value={`#${data.id}`} />
             <Info label="Referral Code" value={data.referral_code || '-'} />
