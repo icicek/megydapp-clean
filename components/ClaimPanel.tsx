@@ -152,7 +152,22 @@ export default function ClaimPanel() {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full">
             <Info label="Wallet Address" value={shorten(data.wallet_address)} />
             <Info label="Coincarnator No" value={`#${data.id}`} />
-            <Info label="Referral Code" value={data.referral_code || '-'} />
+            <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 min-h-[100px] flex flex-col justify-between">
+              <p className="text-gray-400 text-sm mb-1">Referral Code</p>
+              <div className="flex items-center justify-between">
+                <p className="text-white font-medium text-sm break-words">{data.referral_code || '-'}</p>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(data.referral_code);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="ml-2 text-xs bg-zinc-700 hover:bg-zinc-600 text-white px-2 py-1 rounded"
+                >
+                  Copy code
+                </button>
+              </div>
+            </div>
             <Info label="Referrals Brought" value={data.referral_count?.toString() || '0'} />
             <Info
               label="Total USD Contributed"
