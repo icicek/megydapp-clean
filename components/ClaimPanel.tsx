@@ -144,7 +144,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-2 py-4 sm:px-3 sm:py-5 mb-5"
+          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-4 sm:px-6 sm:py-5 mb-5 shadow-md"
         >
           <h3 className="text-blue-400 text-sm font-semibold uppercase mb-4 tracking-wide">
             👤 Personal Info
@@ -170,7 +170,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-2 sm:px-3 py-4 sm:py-5 mb-5"
+          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 sm:px-6 py-4 sm:py-5 mb-5 shadow-md"
         >
           <h3 className="text-blue-400 text-sm font-semibold uppercase mb-4 tracking-wide">
             📊 Claim & Statistics
@@ -261,7 +261,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-2 py-4 sm:px-3 sm:py-5 mb-5"
+          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-4 sm:px-6 sm:py-5 mb-5 shadow-md"
         >
           <h3 className="text-yellow-400 text-sm font-semibold uppercase mb-4 tracking-wide">
             📜 Contribution History
@@ -332,7 +332,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
-          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-2 py-4 sm:px-3 sm:py-5 mb-5"
+          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-4 sm:px-6 sm:py-5 mb-5 shadow-md"
         >
           <h3 className="text-pink-400 text-sm font-semibold uppercase mb-4 tracking-wide">
             💠 Personal Value Currency
