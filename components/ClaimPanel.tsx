@@ -170,7 +170,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-4 sm:px-4 sm:py-5 mb-3"
+          className="bg-zinc-900 border border-zinc-700 rounded-xl px-1 sm:px-2 py-4 sm:py-5 mb-3"
         >
           <h3 className="text-blue-400 text-sm font-semibold uppercase mb-4 tracking-wide">
             📊 Claim & Statistics
