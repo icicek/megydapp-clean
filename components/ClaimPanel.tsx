@@ -152,7 +152,8 @@ export default function ClaimPanel() {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full">
             <Info label="Wallet Address" value={shorten(data.wallet_address)} />
             <Info label="Coincarnator No" value={`#${data.id}`} />
-            <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 min-h-[100px] flex flex-col justify-between">
+
+            <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 min-h-[100px] flex flex-col justify-between relative">
               <p className="text-gray-400 text-sm mb-1">Referral Code</p>
               <div className="flex items-center justify-between">
                 <p className="text-white font-medium text-sm break-words">{data.referral_code || '-'}</p>
@@ -167,7 +168,12 @@ export default function ClaimPanel() {
                   Copy code
                 </button>
               </div>
+
+              {copied && (
+                <p className="absolute top-14 right-3 text-green-400 text-xs font-semibold">✅ Copied!</p>
+              )}
             </div>
+
             <Info label="Referrals Brought" value={data.referral_count?.toString() || '0'} />
             <Info
               label="Total USD Contributed"
@@ -386,17 +392,18 @@ export default function ClaimPanel() {
                   <div className="absolute top-3 right-3 flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0">
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(data.referral_code);
+                        const link = `https://coincarnation.com/?r=${data.referral_code}`;
+                        navigator.clipboard.writeText(link);
                         setCopied(true);
                         setTimeout(() => setCopied(false), 2000);
                       }}
                       className="bg-zinc-700 hover:bg-zinc-600 text-xs text-white px-2 py-1 rounded"
                     >
-                      Copy ref.
+                      Copy link
                     </button>
 
                     <a
-                      href={`https://twitter.com/intent/tweet?text=Join%20the%20Coincarnation%20rebirth%20with%20my%20referral%20code:%20${data.referral_code}%20🔥%0Ahttps://coincarnation.com?r=${data.referral_code}`}
+                      href={`https://twitter.com/intent/tweet?text=Join%20the%20Coincarnation%20rebirth%20with%20my%20referral%20code:%20${data.referral_code}%20🔥%0Ahttps://coincarnation.com/?r=${data.referral_code}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="bg-blue-600 hover:bg-blue-700 text-xs text-white px-2 py-1 rounded"
