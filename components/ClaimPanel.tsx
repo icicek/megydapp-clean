@@ -130,12 +130,12 @@ export default function ClaimPanel() {
   const claimableMegy = Math.floor(shareRatio * distributionPool);
 
   return (
-    <div className="bg-zinc-950 min-h-screen py-10 px-2 sm:px-3 md:px-6 lg:px-8 text-white">
+    <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="bg-zinc-900 text-white p-6 rounded-2xl max-w-4xl w-full mx-auto border border-zinc-700 shadow-lg space-y-10"
+        className="bg-zinc-900 text-white p-6 rounded-2xl max-w-4xl w-full mx-auto border border-zinc-700 shadow-lg space-y-5"
       >
         <h2 className="text-3xl font-extrabold text-center tracking-tight mb-2">🎁 Claim Panel</h2>
 
