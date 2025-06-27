@@ -135,7 +135,7 @@ export default function ClaimPanel() {
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="bg-zinc-900 text-white p-6 rounded-2xl max-w-6xl w-full mx-auto border border-zinc-700 shadow-lg space-y-5"
+        className="bg-zinc-900 text-white p-6 rounded-2xl max-w-6xl w-full mx-auto border border-zinc-700 shadow-lg space-y-10"
       >
         <h2 className="text-3xl font-extrabold text-center tracking-tight mb-2">🎁 Claim Panel</h2>
 
@@ -144,7 +144,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="bg-zinc-900 border border-zinc-700 rounded-xl px-2 py-4 sm:px-3 sm:py-5 mb-5"
+          className="bg-zinc-900 border border-zinc-700 rounded-xl px-1 py-4 sm:px-3 sm:py-5 mb-5"
         >
           <h3 className="text-blue-400 text-sm font-semibold uppercase mb-4 tracking-wide">
             👤 Personal Info
