@@ -170,7 +170,7 @@ export default function ClaimPanel() {
               </div>
 
               {copied && (
-                <p className="absolute top-24 right-3 text-green-400 text-xs font-semibold">✅ Copied!</p>
+                <p className="absolute top-10 right-3 text-green-400 text-xs font-semibold">✅ Copied!</p>
               )}
             </div>
 
@@ -414,7 +414,7 @@ export default function ClaimPanel() {
                 )}
 
                 {copied && (
-                  <p className="absolute top-15 right-3 text-green-400 text-xs font-semibold">✅ Copied!</p>
+                  <p className="absolute top-18 right-3 text-green-400 text-xs font-semibold">✅ Copied!</p>
                 )}
               </div>
               <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg">
