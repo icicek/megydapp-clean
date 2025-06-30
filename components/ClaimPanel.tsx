@@ -182,6 +182,7 @@ export default function ClaimPanel() {
               label="Coins Contributed"
               value={data.total_coins_contributed?.toString() || '0'}
             />
+            <Info label="Referral Deadcoins" value={data.referral_deadcoin_count?.toString() || '0'} />
           </div>
         </motion.section>
 
