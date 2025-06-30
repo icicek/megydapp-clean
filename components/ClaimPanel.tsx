@@ -21,6 +21,38 @@ export default function ClaimPanel() {
   });
   const [distributionPool, setDistributionPool] = useState(0);
   const [copied, setCopied] = useState(false);
+  const handleShare = async () => {
+    if (!publicKey) return;
+  
+    const wallet_address = publicKey.toBase58();
+  
+    // Tweet içeriği
+    const tweetText = encodeURIComponent(`I just revived my walking deadcoins through #Coincarnation and earned $MEGY 💥🔥
+  Join the revolution at https://megydapp.vercel.app`);
+    const tweetURL = `https://twitter.com/intent/tweet?text=${tweetText}`;
+  
+    // Yeni sekmede tweet penceresi aç
+    window.open(tweetURL, '_blank');
+  
+    // API'ye gönder
+    try {
+      const res = await fetch('/api/share/record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet_address }),
+      });
+  
+      const data = await res.json();
+      if (data.success) {
+        console.log('✅ First-time share rewarded with +30 CorePoints');
+        // İstersen burada frontend state güncellenebilir
+      } else {
+        console.log('ℹ️ Already shared before or failed');
+      }
+    } catch (err) {
+      console.error('❌ Share request failed:', err);
+    }
+  };  
 
   useEffect(() => {
     const fetchData = async () => {
@@ -313,29 +345,36 @@ export default function ClaimPanel() {
                         {tx.timestamp ? formatDate(tx.timestamp) : 'N/A'}
                       </td>
                       <td className="px-4 py-2 text-center">
-                        {(() => {
-                          const referral = data.referral_code;
-                          const referralLink = referral
-                            ? `https://coincarnation.com?r=${referral}`
-                            : 'https://coincarnation.com';
+                        <button
+                          onClick={async () => {
+                            const referral = data.referral_code;
+                            const referralLink = referral
+                              ? `https://coincarnation.com?r=${referral}`
+                              : 'https://coincarnation.com';
 
-                          const tweetText = encodeURIComponent(
-                            `I just coincarnated $${tx.token_symbol} into $MEGY ⚡️\n` +
-                            `The crypto resurrection has begun.\n` +
-                            `Join the revival → ${referralLink}`
-                          );
+                            const tweetText = encodeURIComponent(
+                              `I just coincarnated $${tx.token_symbol} into $MEGY ⚡️\n` +
+                              `The crypto resurrection has begun.\n` +
+                              `Join the revival → ${referralLink}`
+                            );
 
-                          return (
-                            <a
-                              href={`https://twitter.com/intent/tweet?text=${tweetText}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
-                            >
-                              Share on X
-                            </a>
-                          );
-                        })()}
+                            const tweetURL = `https://twitter.com/intent/tweet?text=${tweetText}`;
+                            window.open(tweetURL, '_blank');
+
+                            try {
+                              await fetch('/api/share/record', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ wallet_address: publicKey?.toBase58() }),
+                              });
+                            } catch (err) {
+                              console.error('❌ Share API error:', err);
+                            }
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
+                        >
+                          Share on X
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -427,6 +466,11 @@ export default function ClaimPanel() {
               <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg">
                 <p className="text-gray-400">🐦 Social Shares</p>
                 <p className="font-bold text-white mt-1">{data.core_point_breakdown.shares?.toFixed(1) || '0.0'} pts</p>
+                {data.core_point_breakdown.shares > 0 && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    +{data.core_point_breakdown.shares} pts from shares
+                  </p>
+                )}
               </div>
               <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg">
                 <p className="text-gray-400">💀 Deadcoins Bonus</p>

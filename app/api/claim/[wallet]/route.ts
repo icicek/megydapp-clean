@@ -9,6 +9,7 @@ const REFERRAL_PERSON_WEIGHT = 100;
 const REFERRAL_USD_WEIGHT = 50;
 const DEADCOIN_WEIGHT = 100;
 const REFERRAL_DEADCOIN_WEIGHT = 100;
+const SHARE_ON_X_WEIGHT = 30;
 
 export async function GET(req: NextRequest) {
   try {
@@ -81,13 +82,28 @@ export async function GET(req: NextRequest) {
       ORDER BY timestamp DESC;
     `;
 
+    // Share on X: kullanıcı daha önce paylaşmış mı?
+    const shareOnceResult = await sql`
+      SELECT COUNT(*) FROM shares WHERE wallet_address = ${wallet};
+    `;
+    const has_shared = parseInt(shareOnceResult[0].count || '0', 10) > 0;
+    const share_points = has_shared ? SHARE_ON_X_WEIGHT : 0;
+
+    // Share kaydı var mı?
+    const shareCheck = await sql`
+      SELECT COUNT(*) FROM shares WHERE wallet_address = ${wallet};
+    `;
+    const hasShared = parseInt((shareCheck[0] as any).count || '0', 10) > 0;
+    const sharePoint = hasShared ? 30 : 0;
+
     // Kendi CorePoint puanı
     const core_point =
       parseFloat(total_usd_contributed) * USD_CONTRIBUTION_WEIGHT +
       referral_count * REFERRAL_PERSON_WEIGHT +
       referral_usd_contributions * REFERRAL_USD_WEIGHT +
       uniqueDeadcoinCount * DEADCOIN_WEIGHT +
-      referral_deadcoin_count * REFERRAL_DEADCOIN_WEIGHT;
+      referral_deadcoin_count * REFERRAL_DEADCOIN_WEIGHT +
+      sharePoint;
 
     // Tüm sistemdeki toplam CorePoint
     const totalCorePointResult = await sql`
@@ -98,6 +114,7 @@ export async function GET(req: NextRequest) {
           + (SELECT SUM(usd_value) FROM contributions WHERE referrer_wallet = p.wallet_address) * ${REFERRAL_USD_WEIGHT}
           + (SELECT COUNT(DISTINCT token_contract) FROM contributions WHERE wallet_address = p.wallet_address AND usd_value = 0) * ${DEADCOIN_WEIGHT}
           + (SELECT COUNT(DISTINCT token_contract) FROM contributions WHERE referrer_wallet = p.wallet_address AND usd_value = 0) * ${REFERRAL_DEADCOIN_WEIGHT}
+          + (SELECT CASE WHEN EXISTS (SELECT 1 FROM shares WHERE wallet_address = p.wallet_address) THEN ${SHARE_ON_X_WEIGHT} ELSE 0 END)
         , 0)
       ) AS total_core_point
       FROM participants p;
@@ -128,8 +145,8 @@ export async function GET(req: NextRequest) {
             referral_usd_contributions * REFERRAL_USD_WEIGHT +
             referral_deadcoin_count * REFERRAL_DEADCOIN_WEIGHT,
           deadcoins: uniqueDeadcoinCount * DEADCOIN_WEIGHT,
-          shares: 0,
-        },
+          shares: sharePoint,
+        },        
       },
     });
   } catch (err) {
