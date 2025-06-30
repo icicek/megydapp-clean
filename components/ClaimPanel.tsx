@@ -381,7 +381,7 @@ export default function ClaimPanel() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mb-6">
               <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg">
                 <p className="text-gray-400">🪙 Coincarnation Contributions</p>
-                <p className="font-bold text-white mt-1">{data.core_point_breakdown.coincarnations?.toFixed(1) || '0.0'}</p>
+                <p className="font-bold text-white mt-1">{data.core_point_breakdown.coincarnations?.toFixed(1) || '0.0'} pts</p>
               </div>
               <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg relative">
                 <p className="text-gray-400 text-sm">📣 Referrals</p>
@@ -426,11 +426,11 @@ export default function ClaimPanel() {
 
               <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg">
                 <p className="text-gray-400">🐦 Social Shares</p>
-                <p className="font-bold text-white mt-1">{data.core_point_breakdown.shares?.toFixed(1) || '0.0'}</p>
+                <p className="font-bold text-white mt-1">{data.core_point_breakdown.shares?.toFixed(1) || '0.0'} pts</p>
               </div>
               <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg">
                 <p className="text-gray-400">💀 Deadcoins Bonus</p>
-                <p className="font-bold text-white mt-1">{data.core_point_breakdown.deadcoins?.toFixed(1) || '0.0'}</p>
+                <p className="font-bold text-white mt-1">{data.core_point_breakdown.deadcoins?.toFixed(1) || '0.0'} pts</p>
               </div>
             </div>
           )}
