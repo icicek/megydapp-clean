@@ -8,6 +8,7 @@ const USD_CONTRIBUTION_WEIGHT = 100;
 const REFERRAL_PERSON_WEIGHT = 100;
 const REFERRAL_USD_WEIGHT = 50;
 const DEADCOIN_WEIGHT = 100;
+const REFERRAL_DEADCOIN_WEIGHT = 100;
 
 export async function GET(req: NextRequest) {
   try {
@@ -46,6 +47,14 @@ export async function GET(req: NextRequest) {
     `;
     const referral_usd_contributions = parseFloat(referralUsdResult[0].referral_usd_contributions || 0);
 
+    // Referans deadcoin sayısı
+    const referralDeadcoinResult = await sql`
+      SELECT COUNT(DISTINCT token_contract) AS referral_deadcoins
+      FROM contributions
+      WHERE referrer_wallet = ${wallet} AND usd_value = 0;
+    `;
+    const referral_deadcoin_count = parseInt(referralDeadcoinResult[0].referral_deadcoins || '0', 10);
+
     // USD katkı ve toplam token sayısı
     const totalStatsResult = await sql`
       SELECT 
@@ -56,7 +65,7 @@ export async function GET(req: NextRequest) {
     `;
     const { total_usd_contributed, total_coins_contributed } = totalStatsResult[0] as any;
 
-    // Eşsiz deadcoin kontrat adresleri
+    // Eşsiz deadcoin kontrat adresleri (kişinin kendi yaptığı)
     const deadcoinResult = await sql`
       SELECT DISTINCT token_contract
       FROM contributions
@@ -77,7 +86,8 @@ export async function GET(req: NextRequest) {
       parseFloat(total_usd_contributed) * USD_CONTRIBUTION_WEIGHT +
       referral_count * REFERRAL_PERSON_WEIGHT +
       referral_usd_contributions * REFERRAL_USD_WEIGHT +
-      uniqueDeadcoinCount * DEADCOIN_WEIGHT;
+      uniqueDeadcoinCount * DEADCOIN_WEIGHT +
+      referral_deadcoin_count * REFERRAL_DEADCOIN_WEIGHT;
 
     // Tüm sistemdeki toplam CorePoint
     const totalCorePointResult = await sql`
@@ -87,6 +97,7 @@ export async function GET(req: NextRequest) {
           + (SELECT COUNT(*) FROM contributions WHERE referrer_wallet = p.wallet_address) * ${REFERRAL_PERSON_WEIGHT}
           + (SELECT SUM(usd_value) FROM contributions WHERE referrer_wallet = p.wallet_address) * ${REFERRAL_USD_WEIGHT}
           + (SELECT COUNT(DISTINCT token_contract) FROM contributions WHERE wallet_address = p.wallet_address AND usd_value = 0) * ${DEADCOIN_WEIGHT}
+          + (SELECT COUNT(DISTINCT token_contract) FROM contributions WHERE referrer_wallet = p.wallet_address AND usd_value = 0) * ${REFERRAL_DEADCOIN_WEIGHT}
         , 0)
       ) AS total_core_point
       FROM participants p;
@@ -103,6 +114,7 @@ export async function GET(req: NextRequest) {
         claimed: participant.claimed || false,
         referral_count,
         referral_usd_contributions,
+        referral_deadcoin_count,
         total_usd_contributed: parseFloat(total_usd_contributed),
         total_coins_contributed: parseInt(total_coins_contributed, 10),
         transactions: transactionsResult,
@@ -113,7 +125,8 @@ export async function GET(req: NextRequest) {
           coincarnations: parseFloat(total_usd_contributed) * USD_CONTRIBUTION_WEIGHT,
           referrals:
             referral_count * REFERRAL_PERSON_WEIGHT +
-            referral_usd_contributions * REFERRAL_USD_WEIGHT,
+            referral_usd_contributions * REFERRAL_USD_WEIGHT +
+            referral_deadcoin_count * REFERRAL_DEADCOIN_WEIGHT,
           deadcoins: uniqueDeadcoinCount * DEADCOIN_WEIGHT,
           shares: 0,
         },

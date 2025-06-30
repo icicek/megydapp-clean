@@ -392,8 +392,10 @@ export default function ClaimPanel() {
                 {/* Detay gösterimi */}
                 <p className="text-xs text-gray-400 mt-1">
                   {data.referral_count} person x 100 + ${data.referral_usd_contributions?.toFixed(2)} x 50
+                  {typeof data.referral_deadcoin_count === 'number' && data.referral_deadcoin_count > 0 && (
+                    <> + {data.referral_deadcoin_count} referral deadcoins x 100</>
+                  )}
                 </p>
-
                 {/* Referral paylaşım kutusu */}
                 {data.referral_code && (
                   <div className="absolute top-3 right-3 flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0">
@@ -434,7 +436,6 @@ export default function ClaimPanel() {
               </div>
             </div>
           )}
-
           <div className="text-gray-300 text-sm space-y-2">
             <p>
               Your Personal Value Currency (PVC) reflects your unique contribution to the Coincarnation movement.
