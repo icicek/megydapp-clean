@@ -392,9 +392,7 @@ export default function ClaimPanel() {
                 {/* Detay gösterimi */}
                 <p className="text-xs text-gray-400 mt-1">
                   {data.referral_count} person x 100 + ${data.referral_usd_contributions?.toFixed(2)} x 50
-                  {typeof data.referral_deadcoin_count === 'number' && data.referral_deadcoin_count > 0 && (
-                    <> + {data.referral_deadcoin_count} referral deadcoins x 100</>
-                  )}
+                  + {data.referral_deadcoin_count} referral deadcoins x 100
                 </p>
                 {/* Referral paylaşım kutusu */}
                 {data.referral_code && (
