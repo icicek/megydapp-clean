@@ -384,15 +384,22 @@ export default function ClaimPanel() {
                 <p className="font-bold text-white mt-1">{data.core_point_breakdown.coincarnations?.toFixed(1) || '0.0'}</p>
               </div>
               <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg relative">
-                <p className="text-gray-400">📣 Referrals</p>
-                <p className="font-bold text-white mt-1">{data.core_point_breakdown.referrals?.toFixed(1) || '0.0'}</p>
+                <p className="text-gray-400 text-sm">📣 Referrals</p>
+                <p className="font-bold text-white mt-1">
+                  {data.core_point_breakdown.referrals?.toFixed(1) || '0.0'} pts
+                </p>
 
+                {/* Detay gösterimi */}
+                <p className="text-xs text-gray-400 mt-1">
+                  {data.referral_count} person x 100 + ${data.referral_usd_contributions?.toFixed(2)} x 50
+                </p>
+
+                {/* Referral paylaşım kutusu */}
                 {data.referral_code && (
                   <div className="absolute top-3 right-3 flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0">
                     <button
                       onClick={() => {
-                        const link = `https://coincarnation.com/?r=${data.referral_code}`;
-                        navigator.clipboard.writeText(link);
+                        navigator.clipboard.writeText(`https://coincarnation.com?r=${data.referral_code}`);
                         setCopied(true);
                         setTimeout(() => setCopied(false), 2000);
                       }}
@@ -400,9 +407,8 @@ export default function ClaimPanel() {
                     >
                       Copy link
                     </button>
-
                     <a
-                      href={`https://twitter.com/intent/tweet?text=Join%20the%20Coincarnation%20rebirth%20with%20my%20referral%20code:%20${data.referral_code}%20🔥%0Ahttps://coincarnation.com/?r=${data.referral_code}`}
+                      href={`https://twitter.com/intent/tweet?text=Join%20the%20Coincarnation%20rebirth%20with%20my%20referral%20code!%20🔥%0Ahttps://coincarnation.com?r=${data.referral_code}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="bg-blue-600 hover:bg-blue-700 text-xs text-white px-2 py-1 rounded"
@@ -412,10 +418,12 @@ export default function ClaimPanel() {
                   </div>
                 )}
 
+                {/* Bildirim */}
                 {copied && (
-                  <p className="absolute top-15 right-3 text-green-400 text-xs font-semibold">✅ Copied!</p>
+                  <p className="absolute top-14 right-3 text-green-400 text-xs font-semibold">✅ Copied!</p>
                 )}
               </div>
+
               <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg">
                 <p className="text-gray-400">🐦 Social Shares</p>
                 <p className="font-bold text-white mt-1">{data.core_point_breakdown.shares?.toFixed(1) || '0.0'}</p>
