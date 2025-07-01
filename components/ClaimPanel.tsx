@@ -482,7 +482,40 @@ export default function ClaimPanel() {
             </div>
           )}
 
-          <div className="text-gray-300 text-sm space-y-2">
+          {/* 🔍 Contribution Breakdown (Yeni görsel grid) */}
+          <div className="mt-10">
+            <h4 className="text-indigo-400 text-sm font-semibold uppercase mb-4 tracking-wide">
+              🔍 Contribution Breakdown
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <ContributionCard
+                icon="🪙"
+                title="Coincarnations"
+                points={data.core_point_breakdown.coincarnations}
+                description="Earned from converting your deadcoins into $MEGY"
+              />
+              <ContributionCard
+                icon="📣"
+                title="Referrals"
+                points={data.core_point_breakdown.referrals}
+                description="Earned from people you invited and their deadcoins"
+              />
+              <ContributionCard
+                icon="🐦"
+                title="Shares"
+                points={data.core_point_breakdown.shares}
+                description="Earned by sharing Coincarnation on X"
+              />
+              <ContributionCard
+                icon="💀"
+                title="Deadcoins Bonus"
+                points={data.core_point_breakdown.deadcoins}
+                description="Extra reward for rescuing zero-value coins"
+              />
+            </div>
+          </div>
+
+          <div className="text-gray-300 text-sm space-y-2 mt-10">
             <p>
               CorePoint defines your Personal Value Currency (PVC). It's built from your actions: Coincarnations, referrals, shares, and more.
             </p>
@@ -533,4 +566,26 @@ function formatDate(dateStr: string) {
     month: 'short',
     day: 'numeric',
   });
+}
+function ContributionCard({
+  icon,
+  title,
+  points,
+  description,
+}: {
+  icon: string;
+  title: string;
+  points: number;
+  description: string;
+}) {
+  return (
+    <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 flex flex-col justify-between hover:bg-zinc-700 transition">
+      <div className="flex items-center space-x-3 mb-2">
+        <span className="text-2xl">{icon}</span>
+        <h4 className="text-sm font-semibold text-white">{title}</h4>
+      </div>
+      <p className="text-white text-lg font-bold mb-1">{points?.toFixed(1) || '0.0'} pts</p>
+      <p className="text-xs text-gray-400">{description}</p>
+    </div>
+  );
 }
