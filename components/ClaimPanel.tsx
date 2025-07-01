@@ -471,44 +471,48 @@ export default function ClaimPanel() {
               </div>
             </div>
           )}
-
-          {/* 🔍 Contribution Breakdown (Updated with full explanations) */}
-          <div className="mt-10">
-            <h4 className="text-indigo-400 text-sm font-semibold uppercase mb-4 tracking-wide">
-              🔍 Contribution Breakdown
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              <ContributionCard
-                icon="🪙"
-                title="Coincarnations"
-                points={data.core_point_breakdown.coincarnations}
-                description="100 pts per $1 value contributed via deadcoins"
-              />
-              <ContributionCard
-                icon="📣"
-                title="Referrals"
-                points={data.core_point_breakdown.referrals}
-                description={`${data.referral_count} person x 100 + $${data.referral_usd_contributions?.toFixed(2)} x 50 + ${data.referral_deadcoin_count} deadcoins x 100`}
-              />
-              <ContributionCard
-                icon="🐦"
-                title="Shares"
-                points={data.core_point_breakdown.shares}
-                description="Each unique share gives +30 CorePoints (only once)"
-              />
-              <ContributionCard
-                icon="💀"
-                title="Deadcoins Bonus"
-                points={data.core_point_breakdown.deadcoins}
-                description="Extra 100 pts for each deadcoin revived (USD = 0)"
-              />
-            </div>
-          </div>
           {data.core_point_breakdown && (
-            <div className="mt-10">
-              <CorePointChart data={data.core_point_breakdown} />
-            </div>
+            <>
+              {/* Chart first */}
+              <div className="mt-10">
+                <CorePointChart data={data.core_point_breakdown} />
+              </div>
+
+              {/* Then contribution cards */}
+              <div className="mt-10">
+                <h4 className="text-indigo-400 text-sm font-semibold uppercase mb-4 tracking-wide">
+                  🔍 Contribution Breakdown
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                  <ContributionCard
+                    icon="🪙"
+                    title="Coincarnations"
+                    points={data.core_point_breakdown.coincarnations}
+                    description="100 pts per $1 value contributed via deadcoins"
+                  />
+                  <ContributionCard
+                    icon="📣"
+                    title="Referrals"
+                    points={data.core_point_breakdown.referrals}
+                    description={`${data.referral_count} person x 100 + $${data.referral_usd_contributions?.toFixed(2)} x 50 + ${data.referral_deadcoin_count} deadcoins x 100`}
+                  />
+                  <ContributionCard
+                    icon="🐦"
+                    title="Shares"
+                    points={data.core_point_breakdown.shares}
+                    description="Each unique share gives +30 CorePoints (only once)"
+                  />
+                  <ContributionCard
+                    icon="💀"
+                    title="Deadcoins Bonus"
+                    points={data.core_point_breakdown.deadcoins}
+                    description="Extra 100 pts for each deadcoin revived (USD = 0)"
+                  />
+                </div>
+              </div>
+            </>
           )}
+          {/* Final PVC info section */}
           <div className="text-gray-300 text-sm space-y-2 mt-10">
             <p>
               CorePoint defines your Personal Value Currency (PVC). It's built from your actions: Coincarnations, referrals, shares, and more.
