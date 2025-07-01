@@ -6,7 +6,7 @@ const COLORS = ['#a855f7', '#3b82f6', '#10b981', '#ef4444'];
 
 export default function CorePointChart({ data }: { data: any }) {
   const total =
-    data.coincarnation + data.referrals + data.shares + data.deadcoins || 0;
+    data.coincarnations + data.referrals + data.shares + data.deadcoins || 0;
 
   const chartData = [
     { name: 'Coincarnation', value: data.coincarnations, color: COLORS[0] },
@@ -16,7 +16,7 @@ export default function CorePointChart({ data }: { data: any }) {
   ];
 
   return (
-    <div className="w-full h-[350px] sm:h-[380px] md:h-[420px] bg-zinc-900 rounded-xl border border-zinc-700 p-4">
+    <div className="w-full h-[300px] sm:h-[360px] md:h-[400px] lg:h-[450px] bg-zinc-900 rounded-xl border border-zinc-700 p-4">
       <h4 className="text-sm font-semibold text-indigo-400 mb-4">
         📊 CorePoint Contribution Chart
       </h4>
@@ -27,10 +27,10 @@ export default function CorePointChart({ data }: { data: any }) {
             data={chartData}
             dataKey="value"
             nameKey="name"
-            cx="50%" 
-            cy="45%" 
+            cx="50%"
+            cy="45%"
             innerRadius="40%"
-            outerRadius="80%" 
+            outerRadius="80%"
             paddingAngle={3}
           >
             {chartData.map((entry, index) => (
@@ -46,12 +46,19 @@ export default function CorePointChart({ data }: { data: any }) {
         </PieChart>
       </ResponsiveContainer>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-gray-300 mt-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-gray-300 mt-4">
         {chartData.map((item, index) => (
-          <div key={index} className="flex items-center space-x-2">
-            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></span>
-            <span>{item.name}</span>
-            <span className="ml-auto font-bold text-white">{item.value.toFixed(1)} pts</span>
+          <div key={index} className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <span
+                className="w-3 h-3 min-w-[12px] min-h-[12px] rounded-full border border-white"
+                style={{ backgroundColor: item.color }}
+              ></span>
+              <span>{item.name}</span>
+            </div>
+            <span className="text-white font-bold whitespace-nowrap">
+              {item.value.toFixed(1)} pts
+            </span>
           </div>
         ))}
       </div>
