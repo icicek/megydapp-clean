@@ -9,7 +9,7 @@ export default function CorePointChart({ data }: { data: any }) {
     data.coincarnation + data.referrals + data.shares + data.deadcoins || 0;
 
   const chartData = [
-    { name: 'Coincarnation', value: data.coincarnation, color: COLORS[0] },
+    { name: 'Coincarnation', value: data.coincarnations, color: COLORS[0] },
     { name: 'Referrals', value: data.referrals, color: COLORS[1] },
     { name: 'Shares', value: data.shares, color: COLORS[2] },
     { name: 'Deadcoins', value: data.deadcoins, color: COLORS[3] },
