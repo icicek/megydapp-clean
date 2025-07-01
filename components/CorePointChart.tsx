@@ -27,8 +27,10 @@ export default function CorePointChart({ data }: { data: any }) {
             data={chartData}
             dataKey="value"
             nameKey="name"
-            innerRadius={50}
-            outerRadius={80}
+            cx="50%" 
+            cy="50%" 
+            innerRadius="40%"
+            outerRadius="70%" 
             paddingAngle={3}
           >
             {chartData.map((entry, index) => (
