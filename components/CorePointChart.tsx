@@ -13,12 +13,24 @@ export default function CorePointChart({ data }: { data: any }) {
   const total =
     data.coincarnation + data.referrals + data.shares + data.deadcoins || 0;
 
-    const chartData = [
-        { name: 'Coincarnation', value: 50, color: COLORS[0] },
-        { name: 'Referrals', value: 30, color: COLORS[1] },
-        { name: 'Shares', value: 15, color: COLORS[2] },
-        { name: 'Deadcoins', value: 5, color: COLORS[3] },
-      ];
+  const chartData = [
+    { name: 'Coincarnation', value: data.coincarnation, color: COLORS[0] },
+    { name: 'Referrals', value: data.referrals, color: COLORS[1] },
+    { name: 'Shares', value: data.shares, color: COLORS[2] },
+    { name: 'Deadcoins', value: data.deadcoins, color: COLORS[3] },
+  ];
+
+  // Eğer toplam katkı puanı sıfırsa, grafik yerine bilgi mesajı göster
+  if (total === 0) {
+    return (
+      <div className="w-full bg-zinc-900 rounded-xl border border-zinc-700 p-4 text-center text-sm text-gray-400">
+        <h4 className="text-sm font-semibold text-indigo-400 mb-4">
+          📊 CorePoint Contribution Chart
+        </h4>
+        <p>No CorePoints yet. Start contributing to see your impact!</p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full bg-zinc-900 rounded-xl border border-zinc-700 p-4">
