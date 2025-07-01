@@ -479,7 +479,7 @@ export default function ClaimPanel() {
               </div>
 
               {/* Then contribution cards */}
-              <div className="mt-30 sm:mt-16">
+              <div className="mt-40 sm:mt-20">
                 <h4 className="text-indigo-400 text-sm font-semibold uppercase mb-4 tracking-wide">
                   🔍 Contribution Breakdown
                 </h4>
