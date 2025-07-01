@@ -29,36 +29,34 @@ export default function CorePointChart({ data }: { data: any }) {
 
       {/* Grafik alanı */}
       <div style={{ width: '100%', height: 280, backgroundColor: 'red', border: '1px solid white' }}>
-        <ResponsiveContainer>
-          <PieChart>
+        
+      <div className="w-full flex justify-center">
+        <PieChart width={280} height={280}>
             <Pie
-              data={chartData}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="45%"
-              innerRadius="40%"
-              outerRadius="70%"
-              paddingAngle={3}
+            data={chartData}
+            dataKey="value"
+            nameKey="name"
+            cx="50%"
+            cy="45%"
+            innerRadius="40%"
+            outerRadius="70%"
+            paddingAngle={3}
             >
-              {chartData.map((entry, index) => (
+            {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
+            ))}
             </Pie>
             <Tooltip
-              contentStyle={{
+            contentStyle={{
                 backgroundColor: '#1f2937',
                 borderColor: '#374151',
-              }}
-              formatter={(value: number) =>
-                `${value.toFixed(1)} pts (${(
-                  (value / total) *
-                  100
-                ).toFixed(1)}%)`
-              }
+            }}
+            formatter={(value: number) =>
+                `${value.toFixed(1)} pts (${((value / total) * 100).toFixed(1)}%)`
+            }
             />
-          </PieChart>
-        </ResponsiveContainer>
+        </PieChart>
+        </div>
       </div>
 
       {/* Etiketler */}
