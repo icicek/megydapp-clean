@@ -10,8 +10,11 @@ import {
 const COLORS = ['#a855f7', '#3b82f6', '#10b981', '#ef4444'];
 
 export default function CorePointChart({ data }: { data: any }) {
-  const total =
-    data.coincarnation + data.referrals + data.shares + data.deadcoins || 0;
+  const hasData =
+    data.coincarnation > 0 ||
+    data.referrals > 0 ||
+    data.shares > 0 ||
+    data.deadcoins > 0;
 
   const chartData = [
     { name: 'Coincarnation', value: data.coincarnation, color: COLORS[0] },
@@ -20,8 +23,7 @@ export default function CorePointChart({ data }: { data: any }) {
     { name: 'Deadcoins', value: data.deadcoins, color: COLORS[3] },
   ];
 
-  // Eğer toplam katkı puanı sıfırsa, grafik yerine bilgi mesajı göster
-  if (total === 0) {
+  if (!hasData) {
     return (
       <div className="w-full bg-zinc-900 rounded-xl border border-zinc-700 p-4 text-center text-sm text-gray-400">
         <h4 className="text-sm font-semibold text-indigo-400 mb-4">
@@ -31,6 +33,9 @@ export default function CorePointChart({ data }: { data: any }) {
       </div>
     );
   }
+
+  const total =
+    data.coincarnation + data.referrals + data.shares + data.deadcoins || 0;
 
   return (
     <div className="w-full bg-zinc-900 rounded-xl border border-zinc-700 p-4">
