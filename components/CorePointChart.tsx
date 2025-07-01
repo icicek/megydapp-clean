@@ -1,6 +1,6 @@
 'use client';
 
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip } from 'recharts';
 
 const COLORS = ['#a855f7', '#3b82f6', '#10b981', '#ef4444'];
 
@@ -21,31 +21,29 @@ export default function CorePointChart({ data }: { data: any }) {
         📊 CorePoint Contribution Chart
       </h4>
 
-      <div className="h-[240px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={chartData}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="50%"
-              innerRadius="40%"
-              outerRadius="70%"
-              paddingAngle={3}
-            >
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-            </Pie>
-            <Tooltip
-              contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151' }}
-              formatter={(value: number) =>
-                `${value.toFixed(1)} pts (${((value / total) * 100).toFixed(1)}%)`
-              }
-            />
-          </PieChart>
-        </ResponsiveContainer>
+      <div className="flex justify-center items-center" style={{ minHeight: 240 }}>
+        <PieChart width={200} height={200}>
+          <Pie
+            data={chartData}
+            dataKey="value"
+            nameKey="name"
+            cx="50%"
+            cy="50%"
+            innerRadius={50}
+            outerRadius={80}
+            paddingAngle={3}
+          >
+            {chartData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Pie>
+          <Tooltip
+            contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151' }}
+            formatter={(value: number) =>
+              `${value.toFixed(1)} pts (${((value / total) * 100).toFixed(1)}%)`
+            }
+          />
+        </PieChart>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-gray-300 mt-4 px-4">
