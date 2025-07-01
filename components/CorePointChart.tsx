@@ -21,8 +21,9 @@ export default function CorePointChart({ data }: { data: any }) {
         📊 CorePoint Contribution Chart
       </h4>
 
-      <div className="flex justify-center items-center" style={{ minHeight: 240 }}>
-        <PieChart width={200} height={200}>
+      {/* Grafik yüksekliği sabit, overflow sorunu yok */}
+      <div className="w-full flex justify-center items-center">
+        <PieChart width={220} height={220}>
           <Pie
             data={chartData}
             dataKey="value"
@@ -46,6 +47,7 @@ export default function CorePointChart({ data }: { data: any }) {
         </PieChart>
       </div>
 
+      {/* Açıklamalar grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-gray-300 mt-4 px-4">
         {chartData.map((item, index) => (
           <div key={index} className="flex items-center space-x-2">
