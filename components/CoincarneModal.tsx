@@ -97,8 +97,6 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
         signature = await sendTransaction(tx, connection);
       }
 
-      console.log('📤 Sending to backend with referral_code:', referralCode);
-
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -123,8 +121,6 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
       }
 
       const json = await res.json();
-      console.log('🧾 Backend response:', JSON.stringify(json, null, 2));
-
       const userNumber = json?.number ?? 0;
       const tokenSymbol = token.symbol || token.mint.slice(0, 4);
       const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbol}.png`;
@@ -136,6 +132,19 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
       alert(`❌ Transaction failed. Check console for details.`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!publicKey) return;
+    try {
+      await fetch('/api/share/record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet_address: publicKey.toBase58() }),
+      });
+    } catch (err) {
+      console.error('❌ Share tracking failed:', err);
     }
   };
 
@@ -158,7 +167,17 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
               setAmountInput('');
             }}
             onGoToProfile={() => router.push('/claim')}
-          />
+          >
+            <a
+              href={`https://twitter.com/intent/tweet?text=I just coincarnated $${resultData.tokenFrom} into $MEGY ⚡️\nJoin the revival → https://coincarnation.com`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={handleShare}
+              className="mt-4 inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+            >
+              Share on X
+            </a>
+          </CoincarnationResult>
         ) : (
           <>
             <p

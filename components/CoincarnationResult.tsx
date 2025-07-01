@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { ReactNode } from 'react';
 
 interface Props {
   tokenFrom: string;
@@ -8,6 +8,7 @@ interface Props {
   imageUrl: string;
   onRecoincarnate: () => void;
   onGoToProfile: () => void;
+  children?: ReactNode; // 👈 Burayı ekliyoruz
 }
 
 export default function CoincarnationResult({
@@ -16,6 +17,7 @@ export default function CoincarnationResult({
   imageUrl,
   onRecoincarnate,
   onGoToProfile,
+  children, // 👈 Burayı da alıyoruz
 }: Props) {
   const tweetText = `🚀 I just swapped my $${tokenFrom} for $MEGY. Coincarnator #${number} reporting in.\n\n🌐 We're uniting deadcoins to rescue billions.\n\n🔗 Join us 👉 https://megydapp-clean.vercel.app`;
   const tweetLink = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
@@ -39,6 +41,9 @@ export default function CoincarnationResult({
           🐦 SHARE ON X
         </div>
       </a>
+
+      {/* 👇 Bu kısım sayesinde dışarıdan gelen buton da görünür */}
+      {children && <div className="mt-4">{children}</div>}
 
       <p className="text-lg mt-6 mb-4">
         You successfully coincarnated <strong>${tokenFrom}</strong> for $MEGY.
