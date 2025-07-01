@@ -385,7 +385,6 @@ export default function ClaimPanel() {
             <p className="text-gray-400 text-sm mt-2">You haven’t Coincarnated anything yet.</p>
           )}
         </motion.section>
-
         {/* 💠 Personal Value Currency */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
@@ -420,20 +419,20 @@ export default function ClaimPanel() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mb-6">
               <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg">
                 <p className="text-gray-400">🪙 Coincarnation Contributions</p>
-                <p className="font-bold text-white mt-1">{data.core_point_breakdown.coincarnations?.toFixed(1) || '0.0'} pts</p>
+                <p className="font-bold text-white mt-1">
+                  {data.core_point_breakdown.coincarnations?.toFixed(1) || '0.0'} pts
+                </p>
               </div>
               <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg relative">
                 <p className="text-gray-400 text-sm">📣 Referrals</p>
                 <p className="font-bold text-white mt-1">
                   {data.core_point_breakdown.referrals?.toFixed(1) || '0.0'} pts
                 </p>
-
-                {/* Detay gösterimi */}
                 <p className="text-xs text-gray-400 mt-1">
                   {data.referral_count} person x 100 + ${data.referral_usd_contributions?.toFixed(2)} x 50
                   + {data.referral_deadcoin_count} referral deadcoins x 100
                 </p>
-                {/* Referral paylaşım kutusu */}
+
                 {data.referral_code && (
                   <div className="absolute top-3 right-3 flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0">
                     <button
@@ -457,7 +456,6 @@ export default function ClaimPanel() {
                   </div>
                 )}
 
-                {/* Bildirim */}
                 {copied && (
                   <p className="absolute top-14 right-3 text-green-400 text-xs font-semibold">✅ Copied!</p>
                 )}
@@ -465,26 +463,31 @@ export default function ClaimPanel() {
 
               <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg">
                 <p className="text-gray-400">🐦 Social Shares</p>
-                <p className="font-bold text-white mt-1">{data.core_point_breakdown.shares?.toFixed(1) || '0.0'} pts</p>
+                <p className="font-bold text-white mt-1">
+                  {data.core_point_breakdown.shares?.toFixed(1) || '0.0'} pts
+                </p>
                 {data.core_point_breakdown.shares > 0 && (
                   <p className="text-xs text-gray-400 mt-1">
                     +{data.core_point_breakdown.shares} pts from shares
                   </p>
                 )}
               </div>
+
               <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg">
                 <p className="text-gray-400">💀 Deadcoins Bonus</p>
-                <p className="font-bold text-white mt-1">{data.core_point_breakdown.deadcoins?.toFixed(1) || '0.0'} pts</p>
+                <p className="font-bold text-white mt-1">
+                  {data.core_point_breakdown.deadcoins?.toFixed(1) || '0.0'} pts
+                </p>
               </div>
             </div>
           )}
+
           <div className="text-gray-300 text-sm space-y-2">
             <p>
-              Your Personal Value Currency (PVC) reflects your unique contribution to the Coincarnation movement.
-              Referrals, shares, and Coincarnations grow your CorePoint score.
+              CorePoint defines your Personal Value Currency (PVC). It's built from your actions: Coincarnations, referrals, shares, and more.
             </p>
             <p className="italic text-gray-400">
-              🚧 PVC utility features are coming soon. Your CorePoint will define your rank, perks, and influence.
+              🚧 PVC utility features are coming soon. Your CorePoint will define your rank, perks, and influence in the Coincarnation ecosystem.
             </p>
           </div>
         </motion.section>
