@@ -1,6 +1,12 @@
 'use client';
 
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 
 const COLORS = ['#a855f7', '#3b82f6', '#10b981', '#ef4444'];
 
@@ -21,18 +27,17 @@ export default function CorePointChart({ data }: { data: any }) {
         📊 CorePoint Contribution Chart
       </h4>
 
-      {/* Grafik alanı */}
-      <div className="w-full h-[240px] sm:h-[320px] md:h-[400px] lg:h-[450px]">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="w-full flex flex-col items-center">
+        <ResponsiveContainer width="100%" height={240}>
           <PieChart>
             <Pie
               data={chartData}
               dataKey="value"
               nameKey="name"
-              cx="50%" 
-              cy="45%" 
+              cx="50%"
+              cy="45%"
               innerRadius="40%"
-              outerRadius="80%" 
+              outerRadius="80%"
               paddingAngle={3}
             >
               {chartData.map((entry, index) => (
@@ -40,26 +45,31 @@ export default function CorePointChart({ data }: { data: any }) {
               ))}
             </Pie>
             <Tooltip
-              contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151' }}
+              contentStyle={{
+                backgroundColor: '#1f2937',
+                borderColor: '#374151',
+              }}
               formatter={(value: number) =>
                 `${value.toFixed(1)} pts (${((value / total) * 100).toFixed(1)}%)`
               }
             />
           </PieChart>
         </ResponsiveContainer>
-      </div>
 
-      {/* Etiketler */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-gray-300 mt-4">
-        {chartData.map((item, index) => (
-          <div key={index} className="flex items-center space-x-2">
-            <span
-              className="w-3 h-3 min-w-[12px] min-h-[12px] rounded-full"
-              style={{ backgroundColor: item.color }}
-            ></span>
-            <span className="whitespace-nowrap">{item.name}</span>
-          </div>
-        ))}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-gray-300 mt-4 w-full">
+          {chartData.map((item, index) => (
+            <div
+              key={index}
+              className="flex items-center space-x-2 whitespace-nowrap"
+            >
+              <span
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: item.color }}
+              ></span>
+              <span>{item.name}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
