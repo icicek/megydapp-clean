@@ -21,32 +21,35 @@ export default function CorePointChart({ data }: { data: any }) {
         📊 CorePoint Contribution Chart
       </h4>
 
-      <ResponsiveContainer width="100%" height={240}>
-        <PieChart>
-          <Pie
-            data={chartData}
-            dataKey="value"
-            nameKey="name"
-            cx="50%" 
-            cy="45%" 
-            innerRadius="40%"
-            outerRadius="80%" 
-            paddingAngle={3}
-          >
-            {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
-            ))}
-          </Pie>
-          <Tooltip
-            contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151' }}
-            formatter={(value: number) =>
-              `${value.toFixed(1)} pts (${((value / total) * 100).toFixed(1)}%)`
-            }
-          />
-        </PieChart>
-      </ResponsiveContainer>
+      {/* Grafik alanı */}
+      <div className="w-full h-[240px] sm:h-[320px] md:h-[400px] lg:h-[450px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={chartData}
+              dataKey="value"
+              nameKey="name"
+              cx="50%" 
+              cy="45%" 
+              innerRadius="40%"
+              outerRadius="80%" 
+              paddingAngle={3}
+            >
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.color} />
+              ))}
+            </Pie>
+            <Tooltip
+              contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151' }}
+              formatter={(value: number) =>
+                `${value.toFixed(1)} pts (${((value / total) * 100).toFixed(1)}%)`
+              }
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
 
-      {/* Legend */}
+      {/* Etiketler */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-gray-300 mt-4">
         {chartData.map((item, index) => (
           <div key={index} className="flex items-center space-x-2">
