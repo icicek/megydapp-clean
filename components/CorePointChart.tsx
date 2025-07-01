@@ -16,12 +16,12 @@ export default function CorePointChart({ data }: { data: any }) {
   ];
 
   return (
-    <div className="w-full h-[280px] sm:h-[360px] md:h-[400px] lg:h-[450px] bg-zinc-900 rounded-xl border border-zinc-700 p-4">
+    <div className="w-full bg-zinc-900 rounded-xl border border-zinc-700 p-4">
       <h4 className="text-sm font-semibold text-indigo-400 mb-4">
         📊 CorePoint Contribution Chart
       </h4>
 
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height={240}>
         <PieChart>
           <Pie
             data={chartData}
