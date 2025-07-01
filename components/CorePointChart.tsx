@@ -28,7 +28,7 @@ export default function CorePointChart({ data }: { data: any }) {
       </h4>
 
       {/* Grafik alanı */}
-      <div className="h-[280px] sm:h-[360px] md:h-[400px] lg:h-[450px]">
+      <div className="w-full min-h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
