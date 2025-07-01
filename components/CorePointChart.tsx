@@ -10,6 +10,12 @@ import {
 const COLORS = ['#a855f7', '#3b82f6', '#10b981', '#ef4444'];
 
 export default function CorePointChart({ data }: { data: any }) {
+  // Veri yoksa (henüz yüklenmemişse) hiçbir şey gösterme
+  if (!data) {
+    return null;
+  }
+
+  // En az bir kategori > 0 mı?
   const hasData =
     data.coincarnation > 0 ||
     data.referrals > 0 ||
