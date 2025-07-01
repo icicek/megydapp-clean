@@ -482,7 +482,7 @@ export default function ClaimPanel() {
             </div>
           )}
 
-          {/* 🔍 Contribution Breakdown (Yeni görsel grid) */}
+          {/* 🔍 Contribution Breakdown (Updated with full explanations) */}
           <div className="mt-10">
             <h4 className="text-indigo-400 text-sm font-semibold uppercase mb-4 tracking-wide">
               🔍 Contribution Breakdown
@@ -492,25 +492,25 @@ export default function ClaimPanel() {
                 icon="🪙"
                 title="Coincarnations"
                 points={data.core_point_breakdown.coincarnations}
-                description="Earned from converting your deadcoins into $MEGY"
+                description="100 pts per $1 value contributed via deadcoins"
               />
               <ContributionCard
                 icon="📣"
                 title="Referrals"
                 points={data.core_point_breakdown.referrals}
-                description="Earned from people you invited and their deadcoins"
+                description={`${data.referral_count} person x 100 + $${data.referral_usd_contributions?.toFixed(2)} x 50 + ${data.referral_deadcoin_count} deadcoins x 100`}
               />
               <ContributionCard
                 icon="🐦"
                 title="Shares"
                 points={data.core_point_breakdown.shares}
-                description="Earned by sharing Coincarnation on X"
+                description="Each unique share gives +30 CorePoints (only once)"
               />
               <ContributionCard
                 icon="💀"
                 title="Deadcoins Bonus"
                 points={data.core_point_breakdown.deadcoins}
-                description="Extra reward for rescuing zero-value coins"
+                description="Extra 100 pts for each deadcoin revived (USD = 0)"
               />
             </div>
           </div>
