@@ -6,10 +6,10 @@ const COLORS = ['#a855f7', '#3b82f6', '#10b981', '#ef4444'];
 
 export default function CorePointChart({ data }: { data: any }) {
   const total =
-    data.coincarnations + data.referrals + data.shares + data.deadcoins || 0;
+    data.coincarnation + data.referrals + data.shares + data.deadcoins || 0;
 
   const chartData = [
-    { name: 'Coincarnations', value: data.coincarnations, color: COLORS[0] },
+    { name: 'Coincarnation', value: data.coincarnation, color: COLORS[0] },
     { name: 'Referrals', value: data.referrals, color: COLORS[1] },
     { name: 'Shares', value: data.shares, color: COLORS[2] },
     { name: 'Deadcoins', value: data.deadcoins, color: COLORS[3] },
