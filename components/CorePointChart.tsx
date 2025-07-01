@@ -16,7 +16,7 @@ export default function CorePointChart({ data }: { data: any }) {
   ];
 
   return (
-    <div className="w-full h-72 sm:h-80 md:h-96 bg-zinc-900 rounded-xl border border-zinc-700 p-4">
+    <div className="w-full h-[350px] sm:h-[380px] md:h-[420px] bg-zinc-900 rounded-xl border border-zinc-700 p-4">
       <h4 className="text-sm font-semibold text-indigo-400 mb-4">
         📊 CorePoint Contribution Chart
       </h4>
@@ -28,9 +28,9 @@ export default function CorePointChart({ data }: { data: any }) {
             dataKey="value"
             nameKey="name"
             cx="50%" 
-            cy="50%" 
+            cy="45%" 
             innerRadius="40%"
-            outerRadius="70%" 
+            outerRadius="80%" 
             paddingAngle={3}
           >
             {chartData.map((entry, index) => (
