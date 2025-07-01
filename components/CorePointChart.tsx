@@ -5,7 +5,6 @@ import {
   Pie,
   Cell,
   Tooltip,
-  ResponsiveContainer,
 } from 'recharts';
 
 const COLORS = ['#a855f7', '#3b82f6', '#10b981', '#ef4444'];
@@ -28,11 +27,9 @@ export default function CorePointChart({ data }: { data: any }) {
       </h4>
 
       {/* Grafik alanı */}
-      <div style={{ width: '100%', height: 280, backgroundColor: 'red', border: '1px solid white' }}>
-        
       <div className="w-full flex justify-center">
         <PieChart width={280} height={280}>
-            <Pie
+          <Pie
             data={chartData}
             dataKey="value"
             nameKey="name"
@@ -41,22 +38,21 @@ export default function CorePointChart({ data }: { data: any }) {
             innerRadius="40%"
             outerRadius="70%"
             paddingAngle={3}
-            >
+          >
             {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
+              <Cell key={`cell-${index}`} fill={entry.color} />
             ))}
-            </Pie>
-            <Tooltip
+          </Pie>
+          <Tooltip
             contentStyle={{
-                backgroundColor: '#1f2937',
-                borderColor: '#374151',
+              backgroundColor: '#1f2937',
+              borderColor: '#374151',
             }}
             formatter={(value: number) =>
-                `${value.toFixed(1)} pts (${((value / total) * 100).toFixed(1)}%)`
+              `${value.toFixed(1)} pts (${((value / total) * 100).toFixed(1)}%)`
             }
-            />
+          />
         </PieChart>
-        </div>
       </div>
 
       {/* Etiketler */}
