@@ -28,8 +28,8 @@ export default function CorePointChart({ data }: { data: any }) {
       </h4>
 
       {/* Grafik alanı */}
-      <div className="w-full min-h-[280px]">
-        <ResponsiveContainer width="100%" height="100%">
+      <div style={{ width: '100%', height: 280 }}>
+        <ResponsiveContainer>
           <PieChart>
             <Pie
               data={chartData}
