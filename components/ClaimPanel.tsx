@@ -3,6 +3,7 @@
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import CorePointChart from './CorePointChart'; 
 
 export default function ClaimPanel() {
   const { publicKey } = useWallet();
@@ -428,10 +429,6 @@ export default function ClaimPanel() {
                 <p className="font-bold text-white mt-1">
                   {data.core_point_breakdown.referrals?.toFixed(1) || '0.0'} pts
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
-                  {data.referral_count} person x 100 + ${data.referral_usd_contributions?.toFixed(2)} x 50
-                  + {data.referral_deadcoin_count} referral deadcoins x 100
-                </p>
 
                 {data.referral_code && (
                   <div className="absolute top-3 right-3 flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0">
@@ -460,19 +457,12 @@ export default function ClaimPanel() {
                   <p className="absolute top-14 right-3 text-green-400 text-xs font-semibold">✅ Copied!</p>
                 )}
               </div>
-
               <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg">
                 <p className="text-gray-400">🐦 Social Shares</p>
                 <p className="font-bold text-white mt-1">
                   {data.core_point_breakdown.shares?.toFixed(1) || '0.0'} pts
                 </p>
-                {data.core_point_breakdown.shares > 0 && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    +{data.core_point_breakdown.shares} pts from shares
-                  </p>
-                )}
               </div>
-
               <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg">
                 <p className="text-gray-400">💀 Deadcoins Bonus</p>
                 <p className="font-bold text-white mt-1">
@@ -514,7 +504,11 @@ export default function ClaimPanel() {
               />
             </div>
           </div>
-
+          {data.core_point_breakdown && (
+            <div className="mt-10">
+              <CorePointChart data={data.core_point_breakdown} />
+            </div>
+          )}
           <div className="text-gray-300 text-sm space-y-2 mt-10">
             <p>
               CorePoint defines your Personal Value Currency (PVC). It's built from your actions: Coincarnations, referrals, shares, and more.
