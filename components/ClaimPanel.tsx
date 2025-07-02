@@ -9,6 +9,12 @@ export default function ClaimPanel() {
   const { publicKey } = useWallet();
 
   const [data, setData] = useState<any>(null);
+  const deadcoinContracts = new Set(
+    data?.contributions
+      ?.filter((tx: any) => tx.usd_value === 0)
+      ?.map((tx: any) => tx.token_contract)
+  );
+  const deadcoinsRevived = deadcoinContracts.size;  
   const [loading, setLoading] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [claimed, setClaimed] = useState(false);
@@ -212,8 +218,8 @@ export default function ClaimPanel() {
               value={`$${data.total_usd_contributed?.toFixed(2) || '0.00'}`}
             />
             <Info
-              label="Coins Contributed"
-              value={data.total_coins_contributed?.toString() || '0'}
+              label="Deadcoins Revived"
+              value={deadcoinsRevived.toString()}
             />
           </div>
         </motion.section>
