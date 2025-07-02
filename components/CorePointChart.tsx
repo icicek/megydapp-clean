@@ -11,7 +11,7 @@ import {
 export default function CorePointChart({ data }: { data: any }) {
   if (!data) return null;
 
-  // 🔒 Sayısal güvenlik ve doğru alan adları
+  // Sayısal güvenlik ve doğru alan adları
   const c = Number(data.coincarnations) || 0;
   const r = Number(data.referrals) || 0;
   const s = Number(data.shares) || 0;
@@ -46,7 +46,7 @@ export default function CorePointChart({ data }: { data: any }) {
       </h4>
 
       {/* Grafik alanı */}
-      <div className="w-full" style={{ height: 300 }}>
+      <div className="w-full" style={{ height: 240 }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -77,11 +77,11 @@ export default function CorePointChart({ data }: { data: any }) {
       </div>
 
       {/* Etiketler */}
-      <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs text-gray-300 mt-4 mb-2 px-4">
+      <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs text-gray-300 mt-4 mb-1 px-4">
         {chartData.map((item, index) => (
-          <div key={index} className="flex items-center space-x-2">
+          <div key={index} className="flex items-center space-x-2 shrink-0">
             <span
-              className="w-3 h-3 rounded-full"
+              className="min-w-[12px] min-h-[12px] w-3 h-3 rounded-full shrink-0"
               style={{ backgroundColor: item.color }}
             ></span>
             <span>{item.name}</span>
