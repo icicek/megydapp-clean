@@ -9,7 +9,12 @@ import {
 } from 'recharts';
 
 export default function CorePointChart({ data }: { data: any }) {
-  if (!data) return null;
+    return (
+        <div className="text-xs text-red-500">
+          DEBUG: {JSON.stringify(data)}
+        </div>
+      );      
+  console.log('📱 CorePointChart data:', data);
 
   // Güvenli sayısal dönüşüm
   const c = Number(data.coincarnation) || 0;
