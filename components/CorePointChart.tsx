@@ -9,15 +9,10 @@ import {
 } from 'recharts';
 
 export default function CorePointChart({ data }: { data: any }) {
-    return (
-        <div className="text-xs text-red-500">
-          DEBUG: {JSON.stringify(data)}
-        </div>
-      );      
-  console.log('📱 CorePointChart data:', data);
+  if (!data) return null;
 
-  // Güvenli sayısal dönüşüm
-  const c = Number(data.coincarnation) || 0;
+  // 🔧 Doğru alan adlarını kullandık
+  const c = Number(data.coincarnations) || 0;
   const r = Number(data.referrals) || 0;
   const s = Number(data.shares) || 0;
   const d = Number(data.deadcoins) || 0;
