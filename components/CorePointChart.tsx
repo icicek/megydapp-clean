@@ -11,7 +11,7 @@ import {
 export default function CorePointChart({ data }: { data: any }) {
   if (!data) return null;
 
-  // 🔧 Doğru alan adlarını kullandık
+  // 🔒 Sayısal güvenlik ve doğru alan adları
   const c = Number(data.coincarnations) || 0;
   const r = Number(data.referrals) || 0;
   const s = Number(data.shares) || 0;
@@ -28,7 +28,7 @@ export default function CorePointChart({ data }: { data: any }) {
 
   if (!hasData) {
     return (
-      <div className="w-full bg-zinc-900 rounded-xl border border-zinc-700 p-4 text-center text-sm text-gray-400">
+      <div className="w-full bg-zinc-900 rounded-xl border border-zinc-700 p-4 text-center text-sm text-gray-400 mb-2">
         <h4 className="text-sm font-semibold text-indigo-400 mb-4">
           📊 CorePoint Contribution Chart
         </h4>
@@ -40,11 +40,12 @@ export default function CorePointChart({ data }: { data: any }) {
   const total = c + r + s + d;
 
   return (
-    <div className="w-full bg-zinc-900 rounded-xl border border-zinc-700 p-4">
+    <div className="w-full bg-zinc-900 rounded-xl border border-zinc-700 p-4 mb-2">
       <h4 className="text-sm font-semibold text-indigo-400 mb-4">
         📊 CorePoint Contribution Chart
       </h4>
 
+      {/* Grafik alanı */}
       <div className="w-full" style={{ height: 300 }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -53,7 +54,7 @@ export default function CorePointChart({ data }: { data: any }) {
               dataKey="value"
               nameKey="name"
               cx="50%"
-              cy="45%"
+              cy="50%"
               innerRadius="40%"
               outerRadius="70%"
               paddingAngle={3}
@@ -75,7 +76,8 @@ export default function CorePointChart({ data }: { data: any }) {
         </ResponsiveContainer>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-xs text-gray-300 mt-4 px-4">
+      {/* Etiketler */}
+      <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs text-gray-300 mt-4 mb-2 px-4">
         {chartData.map((item, index) => (
           <div key={index} className="flex items-center space-x-2">
             <span
