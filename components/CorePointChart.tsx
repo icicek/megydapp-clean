@@ -45,7 +45,7 @@ export default function CorePointChart({ data }: { data: any }) {
         📊 CorePoint Contribution Chart
       </h4>
 
-      <div className="w-full" style={{ height: 360 }}>
+      <div className="w-full" style={{ height: 300 }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -75,7 +75,7 @@ export default function CorePointChart({ data }: { data: any }) {
         </ResponsiveContainer>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-gray-300 mt-4 px-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-xs text-gray-300 mt-4 px-4">
         {chartData.map((item, index) => (
           <div key={index} className="flex items-center space-x-2">
             <span
