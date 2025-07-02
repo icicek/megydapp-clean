@@ -5,32 +5,12 @@ import {
   Pie,
   Cell,
   Tooltip,
+  ResponsiveContainer,
 } from 'recharts';
-import { useEffect, useState } from 'react';
 
 const COLORS = ['#a855f7', '#3b82f6', '#10b981', '#ef4444'];
 
 export default function CorePointChart({ data }: { data: any }) {
-  const [chartWidth, setChartWidth] = useState(280);
-
-  useEffect(() => {
-    // Ekran boyutuna göre grafik genişliğini ayarla
-    const updateWidth = () => {
-      const screenWidth = window.innerWidth;
-      if (screenWidth < 400) {
-        setChartWidth(200);
-      } else if (screenWidth < 768) {
-        setChartWidth(240);
-      } else {
-        setChartWidth(280);
-      }
-    };
-
-    updateWidth();
-    window.addEventListener('resize', updateWidth);
-    return () => window.removeEventListener('resize', updateWidth);
-  }, []);
-
   if (!data) return null;
 
   const hasData =
@@ -67,32 +47,34 @@ export default function CorePointChart({ data }: { data: any }) {
       </h4>
 
       {/* Grafik alanı */}
-      <div className="w-full flex justify-center">
-        <PieChart width={chartWidth} height={chartWidth}>
-          <Pie
-            data={chartData}
-            dataKey="value"
-            nameKey="name"
-            cx="50%"
-            cy="45%"
-            innerRadius="40%"
-            outerRadius="70%"
-            paddingAngle={3}
-          >
-            {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
-            ))}
-          </Pie>
-          <Tooltip
-            contentStyle={{
-              backgroundColor: '#1f2937',
-              borderColor: '#374151',
-            }}
-            formatter={(value: number) =>
-              `${value.toFixed(1)} pts (${((value / total) * 100).toFixed(1)}%)`
-            }
-          />
-        </PieChart>
+      <div className="w-full" style={{ height: 360 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={chartData}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="45%"
+              innerRadius="40%"
+              outerRadius="70%"
+              paddingAngle={3}
+            >
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.color} />
+              ))}
+            </Pie>
+            <Tooltip
+              contentStyle={{
+                backgroundColor: '#1f2937',
+                borderColor: '#374151',
+              }}
+              formatter={(value: number) =>
+                `${value.toFixed(1)} pts (${((value / total) * 100).toFixed(1)}%)`
+              }
+            />
+          </PieChart>
+        </ResponsiveContainer>
       </div>
 
       {/* Etiketler */}
