@@ -8,22 +8,22 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-const COLORS = ['#a855f7', '#3b82f6', '#10b981', '#ef4444'];
-
 export default function CorePointChart({ data }: { data: any }) {
   if (!data) return null;
 
-  const hasData =
-    data.coincarnation > 0 ||
-    data.referrals > 0 ||
-    data.shares > 0 ||
-    data.deadcoins > 0;
+  // Güvenli sayısal dönüşüm
+  const c = Number(data.coincarnation) || 0;
+  const r = Number(data.referrals) || 0;
+  const s = Number(data.shares) || 0;
+  const d = Number(data.deadcoins) || 0;
+
+  const hasData = c > 0 || r > 0 || s > 0 || d > 0;
 
   const chartData = [
-    { name: 'Coincarnation', value: data.coincarnation, color: COLORS[0] },
-    { name: 'Referrals', value: data.referrals, color: COLORS[1] },
-    { name: 'Shares', value: data.shares, color: COLORS[2] },
-    { name: 'Deadcoins', value: data.deadcoins, color: COLORS[3] },
+    { name: 'Coincarnation', value: c, color: '#a855f7' },
+    { name: 'Referrals', value: r, color: '#3b82f6' },
+    { name: 'Shares', value: s, color: '#10b981' },
+    { name: 'Deadcoins', value: d, color: '#ef4444' },
   ];
 
   if (!hasData) {
@@ -37,8 +37,7 @@ export default function CorePointChart({ data }: { data: any }) {
     );
   }
 
-  const total =
-    data.coincarnation + data.referrals + data.shares + data.deadcoins || 0;
+  const total = c + r + s + d;
 
   return (
     <div className="w-full bg-zinc-900 rounded-xl border border-zinc-700 p-4">
@@ -46,7 +45,6 @@ export default function CorePointChart({ data }: { data: any }) {
         📊 CorePoint Contribution Chart
       </h4>
 
-      {/* Grafik alanı */}
       <div className="w-full" style={{ height: 360 }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -77,7 +75,6 @@ export default function CorePointChart({ data }: { data: any }) {
         </ResponsiveContainer>
       </div>
 
-      {/* Etiketler */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-gray-300 mt-4 px-4">
         {chartData.map((item, index) => (
           <div key={index} className="flex items-center space-x-2">
