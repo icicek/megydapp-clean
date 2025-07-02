@@ -6,16 +6,33 @@ import {
   Cell,
   Tooltip,
 } from 'recharts';
+import { useEffect, useState } from 'react';
 
 const COLORS = ['#a855f7', '#3b82f6', '#10b981', '#ef4444'];
 
 export default function CorePointChart({ data }: { data: any }) {
-  // Veri yoksa (henüz yüklenmemişse) hiçbir şey gösterme
-  if (!data) {
-    return null;
-  }
+  const [chartWidth, setChartWidth] = useState(280);
 
-  // En az bir kategori > 0 mı?
+  useEffect(() => {
+    // Ekran boyutuna göre grafik genişliğini ayarla
+    const updateWidth = () => {
+      const screenWidth = window.innerWidth;
+      if (screenWidth < 400) {
+        setChartWidth(200);
+      } else if (screenWidth < 768) {
+        setChartWidth(240);
+      } else {
+        setChartWidth(280);
+      }
+    };
+
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
+
+  if (!data) return null;
+
   const hasData =
     data.coincarnation > 0 ||
     data.referrals > 0 ||
@@ -51,7 +68,7 @@ export default function CorePointChart({ data }: { data: any }) {
 
       {/* Grafik alanı */}
       <div className="w-full flex justify-center">
-        <PieChart width={280} height={280}>
+        <PieChart width={chartWidth} height={chartWidth}>
           <Pie
             data={chartData}
             dataKey="value"
