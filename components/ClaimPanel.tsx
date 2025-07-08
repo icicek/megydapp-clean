@@ -4,6 +4,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import CorePointChart from './CorePointChart'; 
+import Leaderboard from './Leaderboard';
 
 export default function ClaimPanel() {
   const { publicKey } = useWallet();
@@ -568,6 +569,8 @@ export default function ClaimPanel() {
               🚧 PVC utility features are coming soon. Your CorePoint will define your rank, perks, and influence in the Coincarnation ecosystem.
             </p>
           </div>
+          {/* 🌍 Global Leaderboard */}
+          <Leaderboard />
         </motion.section>
       </motion.div>
     </div>
