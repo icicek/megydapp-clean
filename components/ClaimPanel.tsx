@@ -14,7 +14,8 @@ export default function ClaimPanel() {
       ?.filter((tx: any) => tx.usd_value === 0)
       ?.map((tx: any) => tx.token_contract)
   );
-  const deadcoinsRevived = deadcoinContracts.size;  
+  const deadcoinsRevived = deadcoinContracts.size;
+  const [claimAmount, setClaimAmount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [claimed, setClaimed] = useState(false);
@@ -109,37 +110,43 @@ export default function ClaimPanel() {
   }, [publicKey]);
 
   const handleClaim = async () => {
-    if (!publicKey || !data) return;
+    if (!publicKey || !data || claimAmount <= 0) {
+      setMessage('❌ Please enter a valid claim amount.');
+      return;
+    }
+  
     setIsClaiming(true);
     setMessage(null);
-
+  
     try {
       const destination = useAltAddress ? altAddress.trim() : publicKey.toBase58();
       const res = await fetch('/api/claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet: destination }),
+        body: JSON.stringify({
+          wallet: destination,
+          amount: claimAmount,
+        }),
       });
-
+  
       const json = await res.json();
-
+  
       if (json.success) {
         const tx_signature = json.tx_signature || 'mock-tx-signature';
-        const claim_amount = claimableMegy;
         const sol_fee_paid = true;
-
+  
         await fetch('/api/claim/record', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             wallet_address: destination,
-            claim_amount,
+            claim_amount: claimAmount,
             destination,
             tx_signature,
             sol_fee_paid,
           }),
         });
-
+  
         setClaimed(true);
         setMessage('✅ Claim successful!');
       } else {
@@ -151,7 +158,7 @@ export default function ClaimPanel() {
     } finally {
       setIsClaiming(false);
     }
-  };
+  };  
 
   if (!publicKey) {
     return <p className="text-center text-yellow-400">🔌 Please connect your wallet to view your claim profile.</p>;
@@ -224,7 +231,7 @@ export default function ClaimPanel() {
           </div>
         </motion.section>
 
-        {/* 📊 Claim & Stats */}
+        {/* 📊 Claim & Statistics */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -256,8 +263,8 @@ export default function ClaimPanel() {
 
             {!useAltAddress ? (
               <p className="text-green-400 text-sm font-mono break-all bg-zinc-900 p-2 rounded">
-              {publicKey?.toBase58()}
-            </p>            
+                {publicKey?.toBase58()}
+              </p>
             ) : (
               <input
                 type="text"
@@ -278,12 +285,45 @@ export default function ClaimPanel() {
               <span>I want to claim to a different address</span>
             </label>
 
+            {claimOpen && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2 text-xs text-gray-300 font-medium">
+                  <button
+                    className="bg-zinc-700 px-2 py-1 rounded hover:bg-zinc-600 transition"
+                    onClick={() => setClaimAmount(Math.floor(claimableMegy * 0.25))}
+                  >
+                    %25
+                  </button>
+                  <button
+                    className="bg-zinc-700 px-2 py-1 rounded hover:bg-zinc-600 transition"
+                    onClick={() => setClaimAmount(Math.floor(claimableMegy * 0.5))}
+                  >
+                    %50
+                  </button>
+                  <button
+                    className="bg-zinc-700 px-2 py-1 rounded hover:bg-zinc-600 transition"
+                    onClick={() => setClaimAmount(Math.floor(claimableMegy * 1.0))}
+                  >
+                    %100
+                  </button>
+                </div>
+
+                <input
+                  type="number"
+                  value={claimAmount}
+                  onChange={(e) => setClaimAmount(Number(e.target.value))}
+                  placeholder="Enter amount to claim"
+                  className="w-full bg-zinc-900 border border-zinc-600 p-2 rounded-md text-sm text-white"
+                />
+              </div>
+            )}
+
             {claimed ? (
               <p className="text-green-400 font-semibold text-center mt-4">✅ Already claimed</p>
             ) : claimOpen ? (
               <button
                 onClick={handleClaim}
-                disabled={isClaiming || claimableMegy <= 0}
+                disabled={isClaiming || claimAmount <= 0 || claimAmount > claimableMegy}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:scale-105 transition-all text-white font-bold py-3 rounded-xl disabled:opacity-50"
               >
                 {isClaiming ? '🚀 Claiming...' : '🎉 Claim Now'}
@@ -314,6 +354,7 @@ export default function ClaimPanel() {
             </p>
           </motion.div>
         </motion.section>
+
 
         {/* 📜 Contribution History */}
         <motion.section
