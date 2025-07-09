@@ -14,6 +14,7 @@ export default function Leaderboard() {
   const [data, setData] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRank, setUserRank] = useState<number | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
@@ -48,6 +49,8 @@ export default function Leaderboard() {
   const shorten = (address: string) =>
     `${address.slice(0, 4)}...${address.slice(-4)}`;
 
+  const visibleData = showAll ? data : data.slice(0, 10);
+
   return (
     <div className="mt-10 border border-pink-500/30 rounded-2xl p-6 bg-gradient-to-br from-black/50 to-zinc-900/70 shadow-lg backdrop-blur-xl">
       <h2 className="text-xl font-bold mb-4 text-white">🌍 Global Leaderboard</h2>
@@ -64,8 +67,9 @@ export default function Leaderboard() {
               </tr>
             </thead>
             <tbody>
-              {data.map((entry, index) => {
+              {visibleData.map((entry, index) => {
                 const isUser = publicKey?.toBase58() === entry.wallet_address;
+                const realIndex = data.indexOf(entry);
                 return (
                   <tr
                     key={entry.wallet_address}
@@ -74,13 +78,13 @@ export default function Leaderboard() {
                     }`}
                   >
                     <td className="py-2 px-4">
-                      {index === 0
+                      {realIndex === 0
                         ? '🥇'
-                        : index === 1
+                        : realIndex === 1
                         ? '🥈'
-                        : index === 2
+                        : realIndex === 2
                         ? '🥉'
-                        : index + 1}
+                        : realIndex + 1}
                     </td>
                     <td className="py-2 px-4">
                       {shorten(entry.wallet_address)}
@@ -94,6 +98,18 @@ export default function Leaderboard() {
               })}
             </tbody>
           </table>
+
+          {/* Show All Button */}
+          {!showAll && data.length > 10 && (
+            <div className="text-center mt-4">
+              <button
+                onClick={() => setShowAll(true)}
+                className="text-sm text-pink-400 hover:text-pink-300 underline transition"
+              >
+                Show All
+              </button>
+            </div>
+          )}
 
           {/* Eğer kullanıcı ilk 50'de yoksa */}
           {userRank && (
