@@ -76,7 +76,7 @@ export default function Leaderboard() {
                       isUser ? 'bg-yellow-500/10 font-bold' : ''
                     }`}
                   >
-                    <td className="py-2 px-4">
+                    <td className="py-2 px-4 text-center">
                       {realIndex === 0
                         ? '🥇'
                         : realIndex === 1
@@ -85,7 +85,7 @@ export default function Leaderboard() {
                         ? '🥉'
                         : realIndex + 1}
                     </td>
-                    <td className="py-2 px-4">
+                    <td className="py-2 px-4 text-center">
                       {shorten(entry.wallet_address)}
                       {isUser && (
                         <span className="ml-2 text-yellow-400">← You</span>
