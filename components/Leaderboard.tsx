@@ -60,9 +60,9 @@ export default function Leaderboard() {
             <table className="min-w-[500px] text-sm text-white w-full max-w-4xl">
             <thead>
               <tr className="text-center border-b border-white/10">
-                <th className="py-2 px-4">Rank</th>
-                <th className="py-2 px-4">Wallet</th>
-                <th className="py-2 px-4">CorePoint</th>
+                <th className="py-2 px-4 text-center">Rank</th>
+                <th className="py-2 px-4 text-center">Wallet</th>
+                <th className="py-2 px-4 text-center">CorePoint</th>
               </tr>
             </thead>
             <tbody>
