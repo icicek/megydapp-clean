@@ -57,7 +57,7 @@ export default function Leaderboard() {
         <p className="text-white">Loading...</p>
       ) : (
         <div className="overflow-x-auto flex justify-center">
-          <table className="min-w-[500px] w-full max-w-4xl text-sm text-white text-center table-fixed">
+          <table className="min-w-[400px] w-full max-w-4xl text-sm text-white text-center table-auto">
             <thead>
               <tr className="text-center border-b border-white/10 bg-zinc-800/60 backdrop-blur-sm">
                 <th className="py-2 px-4 text-center">Rank</th>
