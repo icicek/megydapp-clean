@@ -24,7 +24,6 @@ export default function Leaderboard() {
         if (json.success) {
           setData(json.leaderboard);
 
-          // Kullanıcı listede yoksa, rank API'sini çağır
           if (
             publicKey &&
             !json.leaderboard.some((entry: LeaderboardEntry) => entry.wallet_address === publicKey.toBase58())
@@ -57,10 +56,10 @@ export default function Leaderboard() {
       {loading ? (
         <p className="text-white">Loading...</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-[500px] text-sm text-white">
+        <div className="overflow-x-auto flex justify-center">
+            <table className="min-w-[500px] text-sm text-white w-full max-w-4xl">
             <thead>
-              <tr className="text-left border-b border-white/10">
+              <tr className="text-center border-b border-white/10">
                 <th className="py-2 px-4">Rank</th>
                 <th className="py-2 px-4">Wallet</th>
                 <th className="py-2 px-4">CorePoint</th>
@@ -92,7 +91,7 @@ export default function Leaderboard() {
                         <span className="ml-2 text-yellow-400">← You</span>
                       )}
                     </td>
-                    <td className="py-2 px-4">{entry.core_point}</td>
+                    <td className="py-2 px-4">{Number(entry.core_point).toFixed(3)}</td>
                   </tr>
                 );
               })}
@@ -111,12 +110,24 @@ export default function Leaderboard() {
             </div>
           )}
 
-          {/* Eğer kullanıcı ilk 50'de yoksa */}
+          {/* User Rank */}
           {userRank && (
-            <p className="text-center text-sm text-zinc-400 mt-6">
-              You are currently ranked{' '}
-              <span className="text-white font-bold">#{userRank}</span> in the ecosystem.
-            </p>
+            <>
+              <p className="text-center text-sm text-zinc-400 mt-6">
+                You are currently ranked{' '}
+                <span className="text-white font-bold">#{userRank}</span> in the ecosystem.
+              </p>
+              <div className="text-center mt-2">
+                <a
+                  href={`https://twitter.com/intent/tweet?text=I’m ranked #%23${userRank}%20in%20the%20Coincarnation%20ecosystem!%20🔥%0AJoin%20me%20→%20https://coincarnation.com`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block text-sm text-blue-400 hover:text-blue-300 underline transition"
+                >
+                  Share your rank on X
+                </a>
+              </div>
+            </>
           )}
         </div>
       )}
