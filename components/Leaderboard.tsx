@@ -51,15 +51,15 @@ export default function Leaderboard() {
   const visibleData = showAll ? data : data.slice(0, 10);
 
   return (
-<div className="mt-10 border border-pink-500/20 rounded-2xl p-6 bg-gradient-to-br from-zinc-900/70 to-black/80 shadow-xl backdrop-blur-lg">
+    <div className="mt-10 border border-pink-500/20 rounded-2xl p-6 bg-gradient-to-br from-zinc-900/70 to-black/80 shadow-xl backdrop-blur-lg">
       <h2 className="text-xl font-bold mb-4 text-white">🌍 Global Leaderboard</h2>
       {loading ? (
         <p className="text-white">Loading...</p>
       ) : (
         <div className="overflow-x-auto flex justify-center">
-            <table className="min-w-[500px] w-full max-w-4xl text-sm text-white text-center table-fixed">
+          <table className="min-w-[500px] w-full max-w-4xl text-sm text-white text-center table-fixed">
             <thead>
-            <tr className="text-center border-b border-white/10 bg-zinc-800/60 backdrop-blur-sm">
+              <tr className="text-center border-b border-white/10 bg-zinc-800/60 backdrop-blur-sm">
                 <th className="py-2 px-4 text-center">Rank</th>
                 <th className="py-2 px-4 text-center">Wallet</th>
                 <th className="py-2 px-4 text-center">CorePoint</th>
@@ -70,20 +70,20 @@ export default function Leaderboard() {
                 const isUser = publicKey?.toBase58() === entry.wallet_address;
                 const realIndex = data.indexOf(entry);
                 return (
-                    <tr
-                        key={entry.wallet_address}
-                        className={`border-b border-white/5 transition duration-200 ${
-                        isUser
-                            ? 'bg-yellow-500/10 font-bold'
-                            : realIndex === 0
-                            ? 'bg-amber-800/20'
-                            : realIndex === 1
-                            ? 'bg-gray-700/20'
-                            : realIndex === 2
-                            ? 'bg-orange-600/10'
-                            : 'hover:bg-white/5'
-                        }`}
-                    >                  
+                  <tr
+                    key={entry.wallet_address}
+                    className={`border-b border-white/5 transition duration-200 ${
+                      isUser
+                        ? 'bg-yellow-500/10 font-bold'
+                        : realIndex === 0
+                        ? 'bg-amber-800/20'
+                        : realIndex === 1
+                        ? 'bg-gray-700/20'
+                        : realIndex === 2
+                        ? 'bg-orange-600/10'
+                        : 'hover:bg-white/5'
+                    }`}
+                  >
                     <td className="py-2 px-4 text-center">
                       {realIndex === 0
                         ? '🥇'
@@ -99,7 +99,9 @@ export default function Leaderboard() {
                         <span className="ml-2 text-yellow-400">← You</span>
                       )}
                     </td>
-                    <td className="py-2 px-4 text-center">{Number(entry.core_point).toFixed(3)}</td>
+                    <td className="py-2 px-4 text-center">
+                      {Number(entry.core_point).toFixed(3)}
+                    </td>
                   </tr>
                 );
               })}
