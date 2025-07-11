@@ -24,14 +24,22 @@ export default function Leaderboard() {
         if (json.success) {
           setData(json.leaderboard);
 
-          if (
-            publicKey &&
-            !json.leaderboard.some((entry: LeaderboardEntry) => entry.wallet_address === publicKey.toBase58())
-          ) {
-            const rankRes = await fetch(`/api/leaderboard/rank?wallet=${publicKey.toBase58()}`);
-            const rankJson = await rankRes.json();
-            if (rankJson.success) {
-              setUserRank(rankJson.rank);
+          if (publicKey) {
+            const userWallet = publicKey.toBase58();
+            const indexInTop = json.leaderboard.findIndex(
+              (entry: LeaderboardEntry) => entry.wallet_address === userWallet
+            );
+
+            if (indexInTop >= 0) {
+              setUserRank(indexInTop + 1);
+              console.log('👑 In top 10, rank =', indexInTop + 1);
+            } else {
+              const rankRes = await fetch(`/api/leaderboard/rank?wallet=${userWallet}`);
+              const rankJson = await rankRes.json();
+              if (rankJson.success) {
+                setUserRank(rankJson.rank);
+                console.log('🎯 Outside top 10, rank =', rankJson.rank);
+              }
             }
           }
         }
@@ -53,13 +61,12 @@ export default function Leaderboard() {
   return (
     <div className="mt-10 border border-pink-500/20 rounded-2xl p-6 bg-gradient-to-br from-zinc-900/70 to-black/80 shadow-xl backdrop-blur-lg">
       <h2 className="text-xl font-bold mb-4 text-white">🌍 Global Leaderboard</h2>
-
       {loading ? (
         <p className="text-white">Loading...</p>
       ) : (
         <>
-          <div className="w-full overflow-x-auto">
-            <table className="min-w-[360px] w-full max-w-3xl mx-auto text-sm text-white text-center table-auto">
+          <div className="w-full overflow-x-auto flex justify-center">
+            <table className="w-full max-w-3xl min-w-[360px] text-sm text-white text-center table-auto">
               <thead>
                 <tr className="text-center border-b border-white/10 bg-zinc-800/60 backdrop-blur-sm">
                   <th className="py-2 px-3 text-center">Rank</th>
@@ -123,24 +130,24 @@ export default function Leaderboard() {
             </div>
           )}
 
-          {/* User Rank Info + Share */}
-          {typeof userRank === 'number' && (
-            <div className="text-center mt-6 w-full">
-              <p className="text-sm text-zinc-400">
+          {/* User Rank */}
+          {userRank && (
+            <>
+              <p className="text-center text-sm text-zinc-400 mt-6">
                 You are currently ranked{' '}
                 <span className="text-white font-bold">#{userRank}</span> in the ecosystem.
               </p>
-              <div className="mt-2">
+              <div className="text-center mt-2">
                 <a
                   href={`https://twitter.com/intent/tweet?text=I’m ranked #%23${userRank}%20in%20the%20Coincarnation%20ecosystem!%20🔥%0AJoin%20me%20→%20https://coincarnation.com`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-block px-4 py-2 mt-2 bg-blue-600 text-white text-sm rounded-lg shadow hover:bg-blue-500 transition"
+                  className="inline-block text-sm text-blue-400 hover:text-blue-300 underline transition"
                 >
                   Share your rank on X
                 </a>
               </div>
-            </div>
+            </>
           )}
         </>
       )}
