@@ -124,7 +124,7 @@ export default function Leaderboard() {
           )}
 
           {/* User Rank Info + Share */}
-          {userRank != null && (
+          {typeof userRank === 'number' && (
             <div className="text-center mt-6 w-full">
               <p className="text-sm text-zinc-400">
                 You are currently ranked{' '}
