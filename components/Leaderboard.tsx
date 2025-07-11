@@ -57,13 +57,13 @@ export default function Leaderboard() {
         <p className="text-white">Loading...</p>
       ) : (
         <div className="w-full overflow-x-auto">
-          <div className="flex justify-center">
-            <table className="min-w-[480px] w-full max-w-3xl text-sm text-white text-center table-fixed">
+          <div className="min-w-full flex justify-center">
+            <table className="w-full min-w-[360px] max-w-3xl text-sm text-white text-center table-auto">
               <thead>
-                <tr className="text-center border-b border-white/10 bg-zinc-800/60 backdrop-blur-sm">
-                  <th className="py-2 px-3 w-[60px]">Rank</th>
-                  <th className="py-2 px-4 w-[160px]">Wallet</th>
-                  <th className="py-2 px-4 w-[100px]">CorePoint</th>
+                <tr className="border-b border-white/10 bg-zinc-800/60 backdrop-blur-sm">
+                  <th className="py-2 px-2 w-[60px]">Rank</th>
+                  <th className="py-2 px-2">Wallet</th>
+                  <th className="py-2 px-2">CorePoint</th>
                 </tr>
               </thead>
               <tbody>
@@ -85,7 +85,7 @@ export default function Leaderboard() {
                           : 'hover:bg-white/5'
                       }`}
                     >
-                      <td className="py-2 px-3">
+                      <td className="py-2 px-2">
                         {realIndex === 0
                           ? '🥇'
                           : realIndex === 1
@@ -94,13 +94,13 @@ export default function Leaderboard() {
                           ? '🥉'
                           : realIndex + 1}
                       </td>
-                      <td className="py-2 px-4">
+                      <td className="py-2 px-2">
                         {shorten(entry.wallet_address)}
                         {isUser && (
                           <span className="ml-2 text-yellow-400">← You</span>
                         )}
                       </td>
-                      <td className="py-2 px-4">
+                      <td className="py-2 px-2">
                         {Number(entry.core_point).toFixed(3)}
                       </td>
                     </tr>
