@@ -26,14 +26,9 @@ export default function Leaderboard() {
 
           if (
             publicKey &&
-            !json.leaderboard.some(
-              (entry: LeaderboardEntry) =>
-                entry.wallet_address === publicKey.toBase58()
-            )
+            !json.leaderboard.some((entry: LeaderboardEntry) => entry.wallet_address === publicKey.toBase58())
           ) {
-            const rankRes = await fetch(
-              `/api/leaderboard/rank?wallet=${publicKey.toBase58()}`
-            );
+            const rankRes = await fetch(`/api/leaderboard/rank?wallet=${publicKey.toBase58()}`);
             const rankJson = await rankRes.json();
             if (rankJson.success) {
               setUserRank(rankJson.rank);
@@ -57,29 +52,26 @@ export default function Leaderboard() {
 
   return (
     <div className="mt-10 border border-pink-500/20 rounded-2xl p-6 bg-gradient-to-br from-zinc-900/70 to-black/80 shadow-xl backdrop-blur-lg">
-      <h2 className="text-xl font-bold mb-4 text-white">
-        🌍 Global Leaderboard
-      </h2>
+      <h2 className="text-xl font-bold mb-4 text-white">🌍 Global Leaderboard</h2>
 
       {loading ? (
         <p className="text-white">Loading...</p>
       ) : (
         <>
+          {/* Table Scroll Wrapper */}
           <div className="w-full overflow-x-auto">
-            <table className="mx-auto w-full min-w-[480px] max-w-3xl table-fixed text-sm text-white text-center border-separate border-spacing-y-1">
+            <table className="w-full min-w-[360px] max-w-3xl mx-auto text-sm text-white text-center table-auto">
               <thead>
                 <tr className="border-b border-white/10 bg-zinc-800/60 backdrop-blur-sm">
-                  <th className="py-2 px-3 w-[70px]">Rank</th>
-                  <th className="py-2 px-3">Wallet</th>
-                  <th className="py-2 px-3">CorePoint</th>
+                  <th className="py-2 px-3 text-center">Rank</th>
+                  <th className="py-2 px-4 text-center">Wallet</th>
+                  <th className="py-2 px-4 text-center">CorePoint</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleData.map((entry, index) => {
-                  const isUser =
-                    publicKey?.toBase58() === entry.wallet_address;
+                  const isUser = publicKey?.toBase58() === entry.wallet_address;
                   const realIndex = data.indexOf(entry);
-
                   return (
                     <tr
                       key={entry.wallet_address}
@@ -95,7 +87,7 @@ export default function Leaderboard() {
                           : 'hover:bg-white/5'
                       }`}
                     >
-                      <td className="py-2 px-3 w-[70px]">
+                      <td className="py-2 px-3 text-center">
                         {realIndex === 0
                           ? '🥇'
                           : realIndex === 1
@@ -104,13 +96,13 @@ export default function Leaderboard() {
                           ? '🥉'
                           : realIndex + 1}
                       </td>
-                      <td className="py-2 px-3 font-mono">
+                      <td className="py-2 px-4 text-center">
                         {shorten(entry.wallet_address)}
                         {isUser && (
                           <span className="ml-2 text-yellow-400">← You</span>
                         )}
                       </td>
-                      <td className="py-2 px-3">
+                      <td className="py-2 px-4 text-center">
                         {Number(entry.core_point).toFixed(3)}
                       </td>
                     </tr>
@@ -120,6 +112,7 @@ export default function Leaderboard() {
             </table>
           </div>
 
+          {/* Show All Button */}
           {!showAll && data.length > 10 && (
             <div className="text-center mt-4">
               <button
@@ -131,14 +124,14 @@ export default function Leaderboard() {
             </div>
           )}
 
+          {/* User Rank Info + Share */}
           {userRank && (
-            <>
-              <p className="text-center text-sm text-zinc-400 mt-6">
+            <div className="text-center mt-6">
+              <p className="text-sm text-zinc-400">
                 You are currently ranked{' '}
-                <span className="text-white font-bold">#{userRank}</span> in the
-                ecosystem.
+                <span className="text-white font-bold">#{userRank}</span> in the ecosystem.
               </p>
-              <div className="text-center mt-2">
+              <div className="mt-2">
                 <a
                   href={`https://twitter.com/intent/tweet?text=I’m ranked #%23${userRank}%20in%20the%20Coincarnation%20ecosystem!%20🔥%0AJoin%20me%20→%20https://coincarnation.com`}
                   target="_blank"
@@ -148,7 +141,7 @@ export default function Leaderboard() {
                   Share your rank on X
                 </a>
               </div>
-            </>
+            </div>
           )}
         </>
       )}
