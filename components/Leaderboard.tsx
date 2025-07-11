@@ -60,69 +60,66 @@ export default function Leaderboard() {
       <h2 className="text-xl font-bold mb-4 text-white">
         🌍 Global Leaderboard
       </h2>
+
       {loading ? (
         <p className="text-white">Loading...</p>
       ) : (
         <>
           <div className="w-full overflow-x-auto">
-            <div className="min-w-full flex justify-center">
-              <table className="w-full min-w-[480px] table-fixed text-sm text-white text-center">
-                <thead>
-                  <tr className="border-b border-white/10 bg-zinc-800/60 backdrop-blur-sm">
-                    <th className="py-2 px-2 w-[60px]">Rank</th>
-                    <th className="py-2 px-3">Wallet</th>
-                    <th className="py-2 px-3">CorePoint</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleData.map((entry, index) => {
-                    const isUser =
-                      publicKey?.toBase58() === entry.wallet_address;
-                    const realIndex = data.indexOf(entry);
-                    return (
-                      <tr
-                        key={entry.wallet_address}
-                        className={`border-b border-white/5 transition duration-200 ${
-                          isUser
-                            ? 'bg-yellow-500/10 font-bold'
-                            : realIndex === 0
-                            ? 'bg-amber-800/20'
-                            : realIndex === 1
-                            ? 'bg-gray-700/20'
-                            : realIndex === 2
-                            ? 'bg-orange-600/10'
-                            : 'hover:bg-white/5'
-                        }`}
-                      >
-                        <td className="py-2 px-2 w-[60px] text-center">
-                          {realIndex === 0
-                            ? '🥇'
-                            : realIndex === 1
-                            ? '🥈'
-                            : realIndex === 2
-                            ? '🥉'
-                            : realIndex + 1}
-                        </td>
-                        <td className="py-2 px-3 font-mono text-center">
-                          {shorten(entry.wallet_address)}
-                          {isUser && (
-                            <span className="ml-2 text-yellow-400">
-                              ← You
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2 px-3 text-center">
-                          {Number(entry.core_point).toFixed(3)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <table className="mx-auto w-full min-w-[480px] max-w-3xl table-fixed text-sm text-white text-center border-separate border-spacing-y-1">
+              <thead>
+                <tr className="border-b border-white/10 bg-zinc-800/60 backdrop-blur-sm">
+                  <th className="py-2 px-3 w-[70px]">Rank</th>
+                  <th className="py-2 px-3">Wallet</th>
+                  <th className="py-2 px-3">CorePoint</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleData.map((entry, index) => {
+                  const isUser =
+                    publicKey?.toBase58() === entry.wallet_address;
+                  const realIndex = data.indexOf(entry);
+
+                  return (
+                    <tr
+                      key={entry.wallet_address}
+                      className={`border-b border-white/5 transition duration-200 ${
+                        isUser
+                          ? 'bg-yellow-500/10 font-bold'
+                          : realIndex === 0
+                          ? 'bg-amber-800/20'
+                          : realIndex === 1
+                          ? 'bg-gray-700/20'
+                          : realIndex === 2
+                          ? 'bg-orange-600/10'
+                          : 'hover:bg-white/5'
+                      }`}
+                    >
+                      <td className="py-2 px-3 w-[70px]">
+                        {realIndex === 0
+                          ? '🥇'
+                          : realIndex === 1
+                          ? '🥈'
+                          : realIndex === 2
+                          ? '🥉'
+                          : realIndex + 1}
+                      </td>
+                      <td className="py-2 px-3 font-mono">
+                        {shorten(entry.wallet_address)}
+                        {isUser && (
+                          <span className="ml-2 text-yellow-400">← You</span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3">
+                        {Number(entry.core_point).toFixed(3)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
 
-          {/* Show All Button */}
           {!showAll && data.length > 10 && (
             <div className="text-center mt-4">
               <button
@@ -134,7 +131,6 @@ export default function Leaderboard() {
             </div>
           )}
 
-          {/* User Rank */}
           {userRank && (
             <>
               <p className="text-center text-sm text-zinc-400 mt-6">
