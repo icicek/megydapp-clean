@@ -60,7 +60,7 @@ export default function Leaderboard() {
           <table className="min-w-[400px] w-full max-w-4xl text-sm text-white text-center table-auto">
             <thead>
               <tr className="text-center border-b border-white/10 bg-zinc-800/60 backdrop-blur-sm">
-                <th className="py-2 px-4 text-center">Rank</th>
+                <th className="py-2 px-2 text-center w-[80px]">Rank</th>
                 <th className="py-2 px-4 text-center">Wallet</th>
                 <th className="py-2 px-4 text-center">CorePoint</th>
               </tr>
@@ -84,7 +84,7 @@ export default function Leaderboard() {
                         : 'hover:bg-white/5'
                     }`}
                   >
-                    <td className="py-2 px-4 text-center">
+                    <td className="py-2 px-2 text-center">
                       {realIndex === 0
                         ? '🥇'
                         : realIndex === 1
