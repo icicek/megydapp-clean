@@ -57,14 +57,16 @@ export default function Leaderboard() {
 
   return (
     <div className="mt-10 border border-pink-500/20 rounded-2xl p-6 bg-gradient-to-br from-zinc-900/70 to-black/80 shadow-xl backdrop-blur-lg">
-      <h2 className="text-xl font-bold mb-4 text-white">🌍 Global Leaderboard</h2>
+      <h2 className="text-xl font-bold mb-4 text-white">
+        🌍 Global Leaderboard
+      </h2>
       {loading ? (
         <p className="text-white">Loading...</p>
       ) : (
         <>
           <div className="w-full overflow-x-auto">
             <div className="min-w-full flex justify-center">
-              <table className="min-w-[400px] max-w-3xl w-full text-sm text-white text-center table-auto whitespace-nowrap">
+              <table className="w-full min-w-[480px] table-fixed text-sm text-white text-center">
                 <thead>
                   <tr className="border-b border-white/10 bg-zinc-800/60 backdrop-blur-sm">
                     <th className="py-2 px-2 w-[60px]">Rank</th>
@@ -104,7 +106,9 @@ export default function Leaderboard() {
                         <td className="py-2 px-3 font-mono text-center">
                           {shorten(entry.wallet_address)}
                           {isUser && (
-                            <span className="ml-2 text-yellow-400">← You</span>
+                            <span className="ml-2 text-yellow-400">
+                              ← You
+                            </span>
                           )}
                         </td>
                         <td className="py-2 px-3 text-center">
@@ -135,7 +139,8 @@ export default function Leaderboard() {
             <>
               <p className="text-center text-sm text-zinc-400 mt-6">
                 You are currently ranked{' '}
-                <span className="text-white font-bold">#{userRank}</span> in the ecosystem.
+                <span className="text-white font-bold">#{userRank}</span> in the
+                ecosystem.
               </p>
               <div className="text-center mt-2">
                 <a
