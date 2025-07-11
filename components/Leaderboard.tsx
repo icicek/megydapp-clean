@@ -56,57 +56,59 @@ export default function Leaderboard() {
       {loading ? (
         <p className="text-white">Loading...</p>
       ) : (
-        <div className="w-full overflow-x-auto flex justify-center">
-          <table className="w-full max-w-3xl min-w-[360px] text-sm text-white text-center table-auto">
-            <thead>
-              <tr className="text-center border-b border-white/10 bg-zinc-800/60 backdrop-blur-sm">
-                <th className="py-2 px-3 text-center">Rank</th>
-                <th className="py-2 px-4 text-center">Wallet</th>
-                <th className="py-2 px-4 text-center">CorePoint</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleData.map((entry, index) => {
-                const isUser = publicKey?.toBase58() === entry.wallet_address;
-                const realIndex = data.indexOf(entry);
-                return (
-                  <tr
-                    key={entry.wallet_address}
-                    className={`border-b border-white/5 transition duration-200 ${
-                      isUser
-                        ? 'bg-yellow-500/10 font-bold'
-                        : realIndex === 0
-                        ? 'bg-amber-800/20'
-                        : realIndex === 1
-                        ? 'bg-gray-700/20'
-                        : realIndex === 2
-                        ? 'bg-orange-600/10'
-                        : 'hover:bg-white/5'
-                    }`}
-                  >
-                    <td className="py-2 px-3 text-center">
-                      {realIndex === 0
-                        ? '🥇'
-                        : realIndex === 1
-                        ? '🥈'
-                        : realIndex === 2
-                        ? '🥉'
-                        : realIndex + 1}
-                    </td>
-                    <td className="py-2 px-4 text-center">
-                      {shorten(entry.wallet_address)}
-                      {isUser && (
-                        <span className="ml-2 text-yellow-400">← You</span>
-                      )}
-                    </td>
-                    <td className="py-2 px-4 text-center">
-                      {Number(entry.core_point).toFixed(3)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="w-full overflow-x-auto">
+          <div className="flex justify-center">
+            <table className="min-w-[480px] w-full max-w-3xl text-sm text-white text-center table-fixed">
+              <thead>
+                <tr className="text-center border-b border-white/10 bg-zinc-800/60 backdrop-blur-sm">
+                  <th className="py-2 px-3 w-[60px]">Rank</th>
+                  <th className="py-2 px-4 w-[160px]">Wallet</th>
+                  <th className="py-2 px-4 w-[100px]">CorePoint</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleData.map((entry, index) => {
+                  const isUser = publicKey?.toBase58() === entry.wallet_address;
+                  const realIndex = data.indexOf(entry);
+                  return (
+                    <tr
+                      key={entry.wallet_address}
+                      className={`border-b border-white/5 transition duration-200 ${
+                        isUser
+                          ? 'bg-yellow-500/10 font-bold'
+                          : realIndex === 0
+                          ? 'bg-amber-800/20'
+                          : realIndex === 1
+                          ? 'bg-gray-700/20'
+                          : realIndex === 2
+                          ? 'bg-orange-600/10'
+                          : 'hover:bg-white/5'
+                      }`}
+                    >
+                      <td className="py-2 px-3">
+                        {realIndex === 0
+                          ? '🥇'
+                          : realIndex === 1
+                          ? '🥈'
+                          : realIndex === 2
+                          ? '🥉'
+                          : realIndex + 1}
+                      </td>
+                      <td className="py-2 px-4">
+                        {shorten(entry.wallet_address)}
+                        {isUser && (
+                          <span className="ml-2 text-yellow-400">← You</span>
+                        )}
+                      </td>
+                      <td className="py-2 px-4">
+                        {Number(entry.core_point).toFixed(3)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
           {/* Show All Button */}
           {!showAll && data.length > 10 && (
