@@ -58,10 +58,11 @@ export default function Leaderboard() {
         <p className="text-white">Loading...</p>
       ) : (
         <>
-          <div className="w-full overflow-x-auto flex justify-center">
-            <table className="w-full max-w-3xl min-w-[360px] text-sm text-white text-center table-auto">
+          {/* Table Scroll Wrapper */}
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[360px] max-w-3xl mx-auto text-sm text-white text-center table-auto">
               <thead>
-                <tr className="text-center border-b border-white/10 bg-zinc-800/60 backdrop-blur-sm">
+                <tr className="border-b border-white/10 bg-zinc-800/60 backdrop-blur-sm">
                   <th className="py-2 px-3 text-center">Rank</th>
                   <th className="py-2 px-4 text-center">Wallet</th>
                   <th className="py-2 px-4 text-center">CorePoint</th>
@@ -124,8 +125,8 @@ export default function Leaderboard() {
           )}
 
           {/* User Rank Info + Share */}
-          {userRank != null && (
-            <div className="text-center mt-6 w-full">
+          {userRank && (
+            <div className="text-center mt-6">
               <p className="text-sm text-zinc-400">
                 You are currently ranked{' '}
                 <span className="text-white font-bold">#{userRank}</span> in the ecosystem.
@@ -135,7 +136,7 @@ export default function Leaderboard() {
                   href={`https://twitter.com/intent/tweet?text=I’m ranked #%23${userRank}%20in%20the%20Coincarnation%20ecosystem!%20🔥%0AJoin%20me%20→%20https://coincarnation.com`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-block px-4 py-2 mt-2 bg-blue-600 text-white text-sm rounded-lg shadow hover:bg-blue-500 transition"
+                  className="inline-block text-sm text-blue-400 hover:text-blue-300 underline transition"
                 >
                   Share your rank on X
                 </a>
