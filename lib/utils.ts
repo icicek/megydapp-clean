@@ -1,4 +1,13 @@
-export async function fetchSolanaTokenList(): Promise<{ address: string; symbol?: string; logoURI?: string }[]> {
+export interface SolanaToken {
+  address: string;
+  symbol: string;
+  name?: string;
+  logoURI?: string;
+  decimals?: number;
+  tags?: string[];
+}
+
+export async function fetchSolanaTokenList(): Promise<SolanaToken[]> {
   try {
     const res = await fetch(
       'https://cdn.jsdelivr.net/gh/solana-labs/token-list@main/src/tokens/solana.tokenlist.json'

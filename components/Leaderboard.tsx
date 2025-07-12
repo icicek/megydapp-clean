@@ -56,7 +56,7 @@ export default function Leaderboard() {
 
   const visibleData = showAll ? data : data.slice(0, 10);
 
-  const tweetMessage = `Everyone says “hodl.”\nI said “revive.”\nNow I’m #${userRank} on the Coincarnation Leaderboard.\nWhat’s your excuse?\n→ https://coincarnation.com`;
+  const tweetMessage = `Everyone says “hodl.”\nI said “revive.”\nNow I’m #${userRank} on the #Coincarnation Leaderboard.\nWhat’s your excuse?\n→ https://coincarnation.com`;
 
   const tweetText = encodeURIComponent(tweetMessage);
   const tweetUrl = `https://twitter.com/intent/tweet?text=${tweetText}`;
