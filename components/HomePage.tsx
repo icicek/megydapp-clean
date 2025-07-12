@@ -94,6 +94,10 @@ export default function HomePage() {
     }
   };
 
+  const handleGoToProfile = () => {
+    window.location.href = '/profile';
+  };
+
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-10">
       <h1 className="text-4xl font-bold mb-4">🚀 Coincarnation</h1>
@@ -153,13 +157,14 @@ export default function HomePage() {
             setSelectedToken(null);
             setShowModal(false);
           }}
+          onGoToProfileRequest={handleGoToProfile} // ✅ burası eklendi
         />
       )}
 
       {publicKey && (
         <div className="mt-6">
           <button
-            onClick={() => window.location.href = '/profile'}
+            onClick={handleGoToProfile}
             className="bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold py-3 px-6 rounded-xl shadow hover:scale-105 transition-all duration-200"
           >
             🧾 Go to Profile

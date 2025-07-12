@@ -14,7 +14,6 @@ import {
 } from '@solana/web3.js';
 import { connection } from '@/lib/solanaConnection';
 import CoincarnationResult from '@/components/CoincarnationResult';
-import { useRouter } from 'next/navigation';
 import getUsdValue from '@/app/api/utils/getUsdValue';
 
 interface TokenInfo {
@@ -28,13 +27,13 @@ interface CoincarneModalProps {
   token: TokenInfo;
   onClose: () => void;
   refetchTokens?: () => void;
+  onGoToProfileRequest?: () => void; // ✅ Yeni prop
 }
 
 const COINCARNATION_DEST = new PublicKey('HPBNVF9ATsnkDhGmQB4xoLC5tWBWQbTyBjsiQAN3dYXH');
 
-export default function CoincarneModal({ token, onClose, refetchTokens }: CoincarneModalProps) {
+export default function CoincarneModal({ token, onClose, refetchTokens, onGoToProfileRequest }: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [amountInput, setAmountInput] = useState<string>('');
   const [referralCode, setReferralCode] = useState<string | null>(null);
@@ -44,14 +43,6 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
     imageUrl: string;
   } | null>(null);
 
-  const [redirectToClaim, setRedirectToClaim] = useState(false);
-
-  useEffect(() => {
-    if (redirectToClaim) {
-      router.push('/claim');
-    }
-  }, [redirectToClaim, router]);
-
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
@@ -60,12 +51,10 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
       if (refFromUrl) {
         localStorage.setItem('referralCode', refFromUrl);
         setReferralCode(refFromUrl);
-        console.log('✅ Referral code captured from URL:', refFromUrl);
       } else {
         const storedCode = localStorage.getItem('referralCode');
         if (storedCode) {
           setReferralCode(storedCode);
-          console.log('📣 Referral code loaded from localStorage:', storedCode);
         }
       }
     }
@@ -175,10 +164,12 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
               setAmountInput('');
             }}
             onGoToProfile={() => {
-              onClose();
-              setTimeout(() => {
-                setRedirectToClaim(true);
-              }, 250);
+              onClose(); // modalı kapat
+              if (onGoToProfileRequest) {
+                setTimeout(() => {
+                  onGoToProfileRequest(); // yönlendirme sinyali gönder
+                }, 100); // modal kapanana kadar bekle
+              }
             }}
           >
             <a
