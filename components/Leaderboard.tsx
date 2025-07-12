@@ -24,16 +24,19 @@ export default function Leaderboard() {
         if (json.success) {
           setData(json.leaderboard);
 
-          if (
-            publicKey &&
-            !json.leaderboard.some(
-              (entry: LeaderboardEntry) => entry.wallet_address === publicKey.toBase58()
-            )
-          ) {
-            const rankRes = await fetch(`/api/leaderboard/rank?wallet=${publicKey.toBase58()}`);
-            const rankJson = await rankRes.json();
-            if (rankJson.success) {
-              setUserRank(rankJson.rank);
+          if (publicKey) {
+            const base58 = publicKey.toBase58();
+            const indexInTop = json.leaderboard.findIndex(
+              (entry: LeaderboardEntry) => entry.wallet_address === base58
+            );
+            if (indexInTop !== -1) {
+              setUserRank(indexInTop + 1);
+            } else {
+              const rankRes = await fetch(`/api/leaderboard/rank?wallet=${base58}`);
+              const rankJson = await rankRes.json();
+              if (rankJson.success) {
+                setUserRank(rankJson.rank);
+              }
             }
           }
         }
