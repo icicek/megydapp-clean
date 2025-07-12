@@ -166,7 +166,12 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
               setResultData(null);
               setAmountInput('');
             }}
-            onGoToProfile={() => router.push('/claim')}
+            onGoToProfile={() => {
+              onClose(); // modalı kapat
+              setTimeout(() => {
+                router.push('/claim');
+              }, 300); // 300ms gecikmeyle yönlendir
+            }}            
           >
             <a
               href={`https://twitter.com/intent/tweet?text=I just coincarnated $${resultData.tokenFrom} into $MEGY ⚡️\nJoin the revival → https://coincarnation.com`}
