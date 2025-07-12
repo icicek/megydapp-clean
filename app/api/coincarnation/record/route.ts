@@ -26,6 +26,18 @@ export async function POST(req: NextRequest) {
     const timestamp = new Date().toISOString();
     console.log('📦 Incoming data:', body);
 
+    // 🚨 1. USD değeri kontrolü
+    if (usd_value === 0 && token_symbol?.toUpperCase() === 'SOL') {
+      console.error('❌ FATAL: SOL token reported with 0 USD value. Rejecting.');
+      return NextResponse.json(
+        { success: false, error: 'SOL cannot have zero USD value. Try again later.' },
+        { status: 400 }
+      );
+    }
+
+    // 💀 2. Deadcoin kontrolü
+    const isDeadcoin = usd_value === 0;
+
     const existing = await sql`
       SELECT * FROM participants WHERE wallet_address = ${wallet_address}
     `;
@@ -77,6 +89,7 @@ export async function POST(req: NextRequest) {
       timestamp,
       referral_code: userReferralCode,
       referrer_wallet: referrerWallet,
+      is_deadcoin: isDeadcoin,
     });
 
     try {
@@ -122,6 +135,7 @@ export async function POST(req: NextRequest) {
       number,
       referral_code: userReferralCode,
       message: '✅ Coincarnation recorded successfully',
+      is_deadcoin: isDeadcoin,
     });
   } catch (error: any) {
     console.error('❌ Record API Error:', error);
