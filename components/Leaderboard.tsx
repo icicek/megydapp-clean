@@ -55,11 +55,8 @@ export default function Leaderboard() {
 
   const visibleData = showAll ? data : data.slice(0, 10);
 
-  const tweetText = encodeURIComponent(
-    `Everyone says “hodl.”\nI said “revive.”\nNow I’m #${userRank} on the Coincarnation Leaderboard.\nWhat’s your excuse?\n→ https://coincarnation.com`
-  );  
-
-  const tweetUrl = `https://twitter.com/intent/tweet?text=${tweetText}`;
+  const tweetText = `I just earned my spot on the Coincarnation Leaderboard! 🚀\nRanked #${userRank} globally with unstoppable CorePower 💥\nCome and Coincarne with me → https://coincarnation.com`;
+  const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
 
   return (
     <div className="mt-10 border border-pink-500/20 rounded-2xl p-6 bg-gradient-to-br from-zinc-900/70 to-black/80 shadow-xl backdrop-blur-lg">
@@ -148,6 +145,17 @@ export default function Leaderboard() {
                   >
                     Share your rank on X
                   </a>
+                </div>
+                <div className="text-center mt-2">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(tweetText);
+                      alert('✅ Copied! Now paste this into your Twitter app and post it manually.');
+                    }}
+                    className="inline-block text-sm mt-2 px-4 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-md transition"
+                  >
+                    Copy Tweet Text
+                  </button>
                 </div>
               </>
             )}
