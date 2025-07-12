@@ -44,6 +44,14 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
     imageUrl: string;
   } | null>(null);
 
+  const [redirectToClaim, setRedirectToClaim] = useState(false);
+
+  useEffect(() => {
+    if (redirectToClaim) {
+      router.push('/claim');
+    }
+  }, [redirectToClaim, router]);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
@@ -167,11 +175,11 @@ export default function CoincarneModal({ token, onClose, refetchTokens }: Coinca
               setAmountInput('');
             }}
             onGoToProfile={() => {
-              onClose(); // modalı kapat
+              onClose();
               setTimeout(() => {
-                router.push('/claim');
-              }, 300); // 300ms gecikmeyle yönlendir
-            }}            
+                setRedirectToClaim(true);
+              }, 250);
+            }}
           >
             <a
               href={`https://twitter.com/intent/tweet?text=I just coincarnated $${resultData.tokenFrom} into $MEGY ⚡️\nJoin the revival → https://coincarnation.com`}
