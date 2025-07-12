@@ -15,6 +15,7 @@ export default function Leaderboard() {
   const [loading, setLoading] = useState(true);
   const [userRank, setUserRank] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
@@ -55,8 +56,20 @@ export default function Leaderboard() {
 
   const visibleData = showAll ? data : data.slice(0, 10);
 
-  const tweetText = `I just earned my spot on the Coincarnation Leaderboard! 🚀\nRanked #${userRank} globally with unstoppable CorePower 💥\nCome and Coincarne with me → https://coincarnation.com`;
-  const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
+  const tweetMessage = `Everyone says “hodl.”\nI said “revive.”\nNow I’m #${userRank} on the Coincarnation Leaderboard.\nWhat’s your excuse?\n→ https://coincarnation.com`;
+
+  const tweetText = encodeURIComponent(tweetMessage);
+  const tweetUrl = `https://twitter.com/intent/tweet?text=${tweetText}`;
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(tweetMessage);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Copy failed:', err);
+    }
+  };
 
   return (
     <div className="mt-10 border border-pink-500/20 rounded-2xl p-6 bg-gradient-to-br from-zinc-900/70 to-black/80 shadow-xl backdrop-blur-lg">
@@ -136,7 +149,7 @@ export default function Leaderboard() {
                   You are currently ranked{' '}
                   <span className="text-white font-bold">#{userRank}</span> in the ecosystem.
                 </p>
-                <div className="text-center mt-2">
+                <div className="text-center mt-2 space-y-1">
                   <a
                     href={tweetUrl}
                     target="_blank"
@@ -145,16 +158,12 @@ export default function Leaderboard() {
                   >
                     Share your rank on X
                   </a>
-                </div>
-                <div className="text-center mt-2">
+                  <br />
                   <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(tweetText);
-                      alert('✅ Copied! Now paste this into your Twitter app and post it manually.');
-                    }}
-                    className="inline-block text-sm mt-2 px-4 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-md transition"
+                    onClick={handleCopy}
+                    className="text-sm text-green-400 hover:text-green-300 underline transition"
                   >
-                    Copy Tweet Text
+                    {copied ? '✅ Copied! Now paste it into Twitter.' : 'Copy Tweet Text'}
                   </button>
                 </div>
               </>
