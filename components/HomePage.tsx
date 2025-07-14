@@ -184,9 +184,6 @@ export default function HomePage() {
 
         {/* Progress Bar */}
         <div className="mt-4">
-          <p className="text-sm text-gray-300 mb-1">
-            🌍 % of Fair Future Fund Revived
-          </p>
           <div className="w-full bg-gray-800 rounded-full h-4 overflow-hidden">
             <div
               className="h-4 bg-gradient-to-r from-yellow-800 via-green-500 to-yellow-300"
@@ -195,6 +192,9 @@ export default function HomePage() {
           </div>
           <p className="text-center text-xs text-gray-400 mt-1">
             {sharePercentage}%
+          </p>
+          <p className="text-sm text-gray-300 mb-1">
+            🌍 % of Fair Future Fund Revived
           </p>
         </div>
       </div>
