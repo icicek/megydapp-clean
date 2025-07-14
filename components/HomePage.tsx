@@ -34,7 +34,6 @@ export default function HomePage() {
       const ref = params.get('ref');
       if (ref) {
         localStorage.setItem('referralCode', ref);
-        console.log('📣 Referral code stored:', ref);
       }
     }
   }, []);
@@ -99,15 +98,23 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-10">
-      <h1 className="text-4xl font-bold mb-4">🚀 Coincarnation</h1>
-      <WalletMultiButton />
+    <div className="min-h-screen bg-black text-white flex flex-col items-center p-6 space-y-12">
 
-      <div className="mt-6 w-full max-w-md">
-        <StatsDisplay />
-      </div>
+      {/* HERO SECTION */}
+      <section className="text-center py-12 bg-gradient-to-br from-purple-800 via-black to-black w-full rounded-lg">
+        <h1 className="text-5xl font-extrabold mb-4">
+          Turn Deadcoins into a Fair Future.
+        </h1>
+        <p className="text-xl text-pink-400 mb-2">
+          This is not a swap. This is reincarnation.
+        </p>
+        <p className="text-sm text-gray-300 max-w-xl mx-auto">
+          Burning wealth inequality. One deadcoin at a time.
+        </p>
+      </section>
 
-      <div className="mt-10 w-full max-w-md bg-gray-900 p-6 rounded-lg text-center">
+      {/* SWAP SECTION */}
+      <div className="w-full max-w-md bg-gray-900 p-6 rounded-lg text-center">
         <h2 className="text-lg mb-2">You give</h2>
         <div className="bg-gray-700 py-3 px-4 rounded text-white">
           {selectedToken ? (
@@ -125,8 +132,14 @@ export default function HomePage() {
         </div>
       </div>
 
+      {/* STATS SECTION */}
+      <div className="w-full max-w-md">
+        <StatsDisplay />
+      </div>
+
+      {/* TOKEN SELECT */}
       {publicKey && (
-        <div className="mt-6 w-full max-w-md">
+        <div className="w-full max-w-md">
           <h2 className="text-xl mb-2">Select a Token:</h2>
           {tokens.length === 0 && (
             <p className="text-red-500 mb-2">
@@ -150,6 +163,7 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* MODAL */}
       {showModal && selectedToken && (
         <CoincarneModal
           token={selectedToken}
@@ -157,12 +171,13 @@ export default function HomePage() {
             setSelectedToken(null);
             setShowModal(false);
           }}
-          onGoToProfileRequest={handleGoToProfile} // ✅ burası eklendi
+          onGoToProfileRequest={handleGoToProfile}
         />
       )}
 
+      {/* PROFILE BUTTON */}
       {publicKey && (
-        <div className="mt-6">
+        <div>
           <button
             onClick={handleGoToProfile}
             className="bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold py-3 px-6 rounded-xl shadow hover:scale-105 transition-all duration-200"
