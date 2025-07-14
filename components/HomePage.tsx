@@ -114,8 +114,11 @@ export default function HomePage() {
       </section>
 
       {/* SWAP SECTION */}
-      <div className="w-full max-w-md bg-gray-900 p-6 rounded-lg text-center">
-        <h2 className="text-lg mb-2">You give</h2>
+      <div className="w-full max-w-md bg-gray-900 p-6 rounded-lg">
+        <h2 className="text-lg mb-1 text-left">You give</h2>
+        <p className="text-xs text-gray-400 text-left mb-2">
+          Walking Deadcoins, Memecoins, deadcoins...
+        </p>
 
         {publicKey ? (
           <select
@@ -136,10 +139,10 @@ export default function HomePage() {
           <p className="text-gray-400">Connect your wallet to see your tokens.</p>
         )}
 
-        <div className="text-2xl my-4">↔️</div>
+        <div className="text-2xl my-4 text-center">↔️</div>
 
-        <h2 className="text-lg mb-2">You receive</h2>
-        <div className="bg-purple-700 text-white py-3 px-4 rounded">
+        <h2 className="text-lg text-left mb-2">You receive</h2>
+        <div className="bg-purple-700 text-white py-3 px-4 rounded text-center">
           $MEGY <span className="text-sm text-gray-300">(Future of Money)</span>
         </div>
       </div>
