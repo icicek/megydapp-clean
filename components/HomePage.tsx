@@ -139,11 +139,19 @@ export default function HomePage() {
           <p className="text-sm text-gray-300 mt-2 text-left">🌍 Your personal contribution to the Fair Future Fund (% of total)</p>
         </div>
       </div>
-
-      <div className="w-full max-w-md">
-        <StatsDisplay />
+      <div className="mt-10 w-full max-w-2xl">
+        <h2 className="text-2xl font-bold text-center mb-6">🌐 Global Contribution Stats</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="bg-gradient-to-br from-purple-700 to-pink-500 p-4 rounded-lg text-center shadow-md">
+            <p className="text-sm text-gray-200 mb-1">Total Participants</p>
+            <p className="text-2xl font-bold text-white">{globalStats.totalParticipants.toLocaleString()}</p>
+          </div>
+          <div className="bg-gradient-to-br from-green-600 to-teal-400 p-4 rounded-lg text-center shadow-md">
+            <p className="text-sm text-gray-200 mb-1">Total USD Contributed</p>
+            <p className="text-2xl font-bold text-white">${globalStats.totalUsd.toLocaleString()}</p>
+          </div>
+        </div>
       </div>
-
       {showModal && selectedToken && (
         <CoincarneModal
           token={selectedToken}
