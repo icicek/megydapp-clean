@@ -152,7 +152,7 @@ export default function HomePage() {
       </section>
 
       {/* SWAP SECTION */}
-      <div className="w-full max-w-md bg-gray-900 p-6 rounded-lg">
+      <div className="w-full max-w-lg bg-gray-900 p-8 rounded-lg">
         <h2 className="text-lg mb-1 text-left">You give</h2>
         <p className="text-xs text-gray-400 text-left mb-2">
           Walking Deadcoins, Memecoins, deadcoins...
@@ -181,9 +181,10 @@ export default function HomePage() {
 
         <h2 className="text-lg text-left mb-2">You receive</h2>
         <p className="text-xs text-gray-400 text-left mb-2">$MEGY</p>
-        <div className="bg-purple-700 text-white py-3 px-4 rounded text-center mb-4">
-          $MEGY — the currency of the Fair Future Fund
-        </div>
+
+        <p className="text-center text-purple-300 mb-4">
+          $MEGY - the currency of the Fair Future Fund
+        </p>
 
         {/* Progress Bar */}
         <div className="mt-4">
@@ -196,7 +197,7 @@ export default function HomePage() {
               style={{ width: `${sharePercentage}%` }}
             />
           </div>
-          <p className="text-right text-xs text-gray-400 mt-1">
+          <p className="text-center text-xs text-gray-400 mt-1">
             {sharePercentage}%
           </p>
         </div>
