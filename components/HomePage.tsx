@@ -93,11 +93,11 @@ export default function HomePage() {
   const sharePercentage = (shareRatio * 100).toFixed(2);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-12">
+    <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
 
-      <section className="text-center py-12 w-full">
-        <h1 className="text-5xl font-extrabold mb-4">Turn Deadcoins into a Fair Future.</h1>
-        <p className="text-xl text-pink-400 mb-2">This is not a swap. This is reincarnation.</p>
+      <section className="text-center py-8 w-full">
+        <h1 className="text-4xl md:text-5xl font-extrabold mb-2">Turn Deadcoins into a Fair Future.</h1>
+        <p className="text-lg md:text-xl text-pink-400 mb-1">This is not a swap. This is reincarnation.</p>
         <p className="text-sm text-gray-300 max-w-xl mx-auto">Burning wealth inequality. One deadcoin at a time.</p>
       </section>
 
