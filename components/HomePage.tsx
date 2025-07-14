@@ -136,7 +136,7 @@ export default function HomePage() {
             </span>
           </div>
 
-          <p className="text-sm text-gray-300 mt-2 text-left">🌍 % of Fair Future Fund Revived</p>
+          <p className="text-sm text-gray-300 mt-2 text-left">🌍 Your personal contribution to the Fair Future Fund (% of total)</p>
         </div>
       </div>
 
