@@ -116,13 +116,25 @@ export default function HomePage() {
       {/* SWAP SECTION */}
       <div className="w-full max-w-md bg-gray-900 p-6 rounded-lg text-center">
         <h2 className="text-lg mb-2">You give</h2>
-        <div className="bg-gray-700 py-3 px-4 rounded text-white">
-          {selectedToken ? (
-            <span>{selectedToken.symbol || selectedToken.mint.slice(0, 4)}</span>
-          ) : (
-            <span className="text-gray-400">Walking Deadcoins (memecoins, shitcoins...)</span>
-          )}
-        </div>
+
+        {publicKey ? (
+          <select
+            className="w-full bg-gray-800 text-white p-3 rounded mb-4"
+            defaultValue=""
+            onChange={handleSelectChange}
+          >
+            <option value="" disabled>
+              👉 Select a token to Coincarnate
+            </option>
+            {tokens.map((token, idx) => (
+              <option key={idx} value={token.mint}>
+                {token.symbol || token.mint.slice(0, 4)} — {token.amount.toFixed(4)}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <p className="text-gray-400">Connect your wallet to see your tokens.</p>
+        )}
 
         <div className="text-2xl my-4">↔️</div>
 
@@ -136,32 +148,6 @@ export default function HomePage() {
       <div className="w-full max-w-md">
         <StatsDisplay />
       </div>
-
-      {/* TOKEN SELECT */}
-      {publicKey && (
-        <div className="w-full max-w-md">
-          <h2 className="text-xl mb-2">Select a Token:</h2>
-          {tokens.length === 0 && (
-            <p className="text-red-500 mb-2">
-              ❗ Token listesi boş. Cüzdanda token olmayabilir veya bir hata oluşmuş olabilir.
-            </p>
-          )}
-          <select
-            className="w-full bg-gray-800 text-white p-3 rounded"
-            defaultValue=""
-            onChange={handleSelectChange}
-          >
-            <option value="" disabled>
-              👉 Select a token to Coincarnate
-            </option>
-            {tokens.map((token, idx) => (
-              <option key={idx} value={token.mint}>
-                {token.symbol || token.mint.slice(0, 4)} — {token.amount.toFixed(4)}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
 
       {/* MODAL */}
       {showModal && selectedToken && (
