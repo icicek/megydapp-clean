@@ -95,13 +95,13 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-12">
 
-      <section className="text-center py-12 bg-gradient-to-br from-purple-800 via-black to-black w-full rounded-lg shadow-xl border border-pink-500">
+      <section className="text-center py-12 w-full">
         <h1 className="text-5xl font-extrabold mb-4">Turn Deadcoins into a Fair Future.</h1>
         <p className="text-xl text-pink-400 mb-2">This is not a swap. This is reincarnation.</p>
         <p className="text-sm text-gray-300 max-w-xl mx-auto">Burning wealth inequality. One deadcoin at a time.</p>
       </section>
 
-      <div className="w-full max-w-lg bg-gradient-to-br from-gray-900 via-zinc-800 to-gray-900 p-8 rounded-2xl border border-purple-700 shadow-2xl">
+      <div className="w-full max-w-5xl bg-gradient-to-br from-gray-900 via-zinc-800 to-gray-900 p-8 rounded-2xl border border-purple-700 shadow-2xl">
         <h2 className="text-lg mb-1 text-left">You give</h2>
         <p className="text-xs text-gray-400 text-left mb-2">Walking Deadcoins, Memecoins, deadcoins...</p>
 
