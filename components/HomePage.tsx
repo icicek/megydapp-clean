@@ -182,10 +182,6 @@ export default function HomePage() {
         <h2 className="text-lg text-left mb-2">You receive</h2>
         <p className="text-xs text-gray-400 text-left mb-2">$MEGY - the currency of the Fair Future Fund</p>
 
-        <p className="text-center text-purple-300 mb-4">
-          $MEGY - the currency of the Fair Future Fund
-        </p>
-
         {/* Progress Bar */}
         <div className="mt-4">
           <p className="text-sm text-gray-300 mb-1">
