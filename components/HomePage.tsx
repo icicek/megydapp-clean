@@ -27,6 +27,11 @@ export default function HomePage() {
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [globalStats, setGlobalStats] = useState({
+    totalUsd: 0,
+    totalParticipants: 0,
+  });
+  const [userContribution, setUserContribution] = useState(0);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -81,7 +86,36 @@ export default function HomePage() {
       }
     };
 
+    const fetchGlobalStats = async () => {
+      try {
+        const res = await fetch('/api/coincarnation/stats');
+        const data = await res.json();
+        if (data.success) {
+          setGlobalStats({
+            totalUsd: data.totalUsd,
+            totalParticipants: data.totalParticipants,
+          });
+        }
+      } catch (err) {
+        console.error('❌ Failed to fetch stats:', err);
+      }
+    };
+
+    const fetchUserContribution = async () => {
+      try {
+        const res = await fetch(`/api/claim/${publicKey.toBase58()}`);
+        const data = await res.json();
+        if (data.success) {
+          setUserContribution(data.data.total_usd_contributed);
+        }
+      } catch (err) {
+        console.error('❌ Failed to fetch user contribution:', err);
+      }
+    };
+
     fetchWalletTokens();
+    fetchGlobalStats();
+    fetchUserContribution();
   }, [publicKey, connected]);
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -96,6 +130,10 @@ export default function HomePage() {
   const handleGoToProfile = () => {
     window.location.href = '/profile';
   };
+
+  const shareRatio =
+    globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
+  const sharePercentage = (shareRatio * 100).toFixed(2);
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center p-6 space-y-12">
@@ -142,8 +180,25 @@ export default function HomePage() {
         <div className="text-2xl my-4 text-center">↔️</div>
 
         <h2 className="text-lg text-left mb-2">You receive</h2>
-        <div className="bg-purple-700 text-white py-3 px-4 rounded text-center">
-          $MEGY <span className="text-sm text-gray-300">(Future of Money)</span>
+        <p className="text-xs text-gray-400 text-left mb-2">$MEGY</p>
+        <div className="bg-purple-700 text-white py-3 px-4 rounded text-center mb-4">
+          $MEGY — the currency of the Fair Future Fund
+        </div>
+
+        {/* Progress Bar */}
+        <div className="mt-4">
+          <p className="text-sm text-gray-300 mb-1">
+            🌍 % of Fair Future Fund Revived
+          </p>
+          <div className="w-full bg-gray-800 rounded-full h-4 overflow-hidden">
+            <div
+              className="h-4 bg-gradient-to-r from-yellow-800 via-green-500 to-yellow-300"
+              style={{ width: `${sharePercentage}%` }}
+            />
+          </div>
+          <p className="text-right text-xs text-gray-400 mt-1">
+            {sharePercentage}%
+          </p>
         </div>
       </div>
 
