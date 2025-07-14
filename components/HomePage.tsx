@@ -27,19 +27,14 @@ export default function HomePage() {
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [globalStats, setGlobalStats] = useState({
-    totalUsd: 0,
-    totalParticipants: 0,
-  });
+  const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
   const [userContribution, setUserContribution] = useState(0);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const ref = params.get('ref');
-      if (ref) {
-        localStorage.setItem('referralCode', ref);
-      }
+      if (ref) localStorage.setItem('referralCode', ref);
     }
   }, []);
 
@@ -48,129 +43,73 @@ export default function HomePage() {
 
     const fetchWalletTokens = async () => {
       try {
-        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
-          programId: TOKEN_PROGRAM_ID,
-        });
-
-        const tokenListRaw: TokenInfo[] = [];
-
-        for (const { account } of tokenAccounts.value) {
+        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, { programId: TOKEN_PROGRAM_ID });
+        const tokenListRaw: TokenInfo[] = tokenAccounts.value.map(({ account }) => {
           const parsed = account.data.parsed;
-          const mint = parsed.info.mint;
-          const amount = parseFloat(parsed.info.tokenAmount.uiAmountString || '0');
-          if (amount > 0) {
-            tokenListRaw.push({ mint, amount });
-          }
-        }
+          return { mint: parsed.info.mint, amount: parseFloat(parsed.info.tokenAmount.uiAmountString || '0') };
+        }).filter(t => t.amount > 0);
 
         const solBalance = await connection.getBalance(publicKey);
-        if (solBalance > 0) {
-          tokenListRaw.unshift({ mint: 'SOL', amount: solBalance / 1e9, symbol: 'SOL' });
-        }
+        if (solBalance > 0) tokenListRaw.unshift({ mint: 'SOL', amount: solBalance / 1e9, symbol: 'SOL' });
 
         const tokenMetadata: TokenMeta[] = await fetchSolanaTokenList();
-
-        const enriched = tokenListRaw.map((token) => {
+        const enriched = tokenListRaw.map(token => {
           if (token.mint === 'SOL') return token;
-          const metadata = tokenMetadata.find((t) => t.address === token.mint);
-          return {
-            ...token,
-            symbol: metadata?.symbol || undefined,
-            logoURI: metadata?.logoURI || undefined,
-          };
+          const metadata = tokenMetadata.find(t => t.address === token.mint);
+          return { ...token, symbol: metadata?.symbol, logoURI: metadata?.logoURI };
         });
-
         setTokens(enriched);
-      } catch (err) {
-        console.error('❌ Error fetching wallet tokens:', err);
-      }
+      } catch (err) { console.error('❌ Error fetching wallet tokens:', err); }
     };
 
-    const fetchGlobalStats = async () => {
+    const fetchStats = async () => {
       try {
-        const res = await fetch('/api/coincarnation/stats');
-        const data = await res.json();
-        if (data.success) {
-          setGlobalStats({
-            totalUsd: data.totalUsd,
-            totalParticipants: data.totalParticipants,
-          });
-        }
-      } catch (err) {
-        console.error('❌ Failed to fetch stats:', err);
-      }
-    };
+        const [globalRes, userRes] = await Promise.all([
+          fetch('/api/coincarnation/stats'),
+          fetch(`/api/claim/${publicKey.toBase58()}`)
+        ]);
+        const globalData = await globalRes.json();
+        const userData = await userRes.json();
 
-    const fetchUserContribution = async () => {
-      try {
-        const res = await fetch(`/api/claim/${publicKey.toBase58()}`);
-        const data = await res.json();
-        if (data.success) {
-          setUserContribution(data.data.total_usd_contributed);
-        }
-      } catch (err) {
-        console.error('❌ Failed to fetch user contribution:', err);
-      }
+        if (globalData.success) setGlobalStats(globalData);
+        if (userData.success) setUserContribution(userData.data.total_usd_contributed);
+      } catch (err) { console.error('❌ Failed to fetch stats or user data:', err); }
     };
 
     fetchWalletTokens();
-    fetchGlobalStats();
-    fetchUserContribution();
+    fetchStats();
   }, [publicKey, connected]);
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const mint = e.target.value;
-    const token = tokens.find((t) => t.mint === mint || (mint === 'SOL' && t.mint === 'SOL'));
+    const token = tokens.find(t => t.mint === mint || (mint === 'SOL' && t.mint === 'SOL'));
     if (token) {
       setSelectedToken(token);
       setShowModal(true);
     }
   };
 
-  const handleGoToProfile = () => {
-    window.location.href = '/profile';
-  };
-
-  const shareRatio =
-    globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
+  const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
   const sharePercentage = (shareRatio * 100).toFixed(2);
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center p-6 space-y-12">
+    <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-12">
 
-      {/* HERO SECTION */}
-      <section className="text-center py-12 bg-gradient-to-br from-purple-800 via-black to-black w-full rounded-lg">
-        <h1 className="text-5xl font-extrabold mb-4">
-          Turn Deadcoins into a Fair Future.
-        </h1>
-        <p className="text-xl text-pink-400 mb-2">
-          This is not a swap. This is reincarnation.
-        </p>
-        <p className="text-sm text-gray-300 max-w-xl mx-auto">
-          Burning wealth inequality. One deadcoin at a time.
-        </p>
+      <section className="text-center py-12 bg-gradient-to-br from-purple-800 via-black to-black w-full rounded-lg shadow-xl border border-pink-500">
+        <h1 className="text-5xl font-extrabold mb-4">Turn Deadcoins into a Fair Future.</h1>
+        <p className="text-xl text-pink-400 mb-2">This is not a swap. This is reincarnation.</p>
+        <p className="text-sm text-gray-300 max-w-xl mx-auto">Burning wealth inequality. One deadcoin at a time.</p>
       </section>
 
-      {/* SWAP SECTION */}
-      <div className="w-full max-w-lg bg-gray-900 p-8 rounded-lg">
+      <div className="w-full max-w-lg bg-gradient-to-br from-gray-900 via-zinc-800 to-gray-900 p-8 rounded-2xl border border-purple-700 shadow-2xl">
         <h2 className="text-lg mb-1 text-left">You give</h2>
-        <p className="text-xs text-gray-400 text-left mb-2">
-          Walking Deadcoins, Memecoins, deadcoins...
-        </p>
+        <p className="text-xs text-gray-400 text-left mb-2">Walking Deadcoins, Memecoins, deadcoins...</p>
 
         {publicKey ? (
-          <select
-            className="w-full bg-gray-800 text-white p-3 rounded mb-4"
-            defaultValue=""
-            onChange={handleSelectChange}
-          >
-            <option value="" disabled>
-              👉 Select a token to Coincarnate
-            </option>
+          <select className="w-full bg-gray-800 text-white p-3 rounded mb-4 border border-gray-600" defaultValue="" onChange={handleSelectChange}>
+            <option value="" disabled>👉 Select a token to Coincarnate</option>
             {tokens.map((token, idx) => (
-              <option key={idx} value={token.mint}>
-                {token.symbol || token.mint.slice(0, 4)} — {token.amount.toFixed(4)}
-              </option>
+              <option key={idx} value={token.mint}>{token.symbol || token.mint.slice(0, 4)} — {token.amount.toFixed(4)}</option>
             ))}
           </select>
         ) : (
@@ -182,30 +121,25 @@ export default function HomePage() {
         <h2 className="text-lg text-left mb-2">You receive</h2>
         <p className="text-xs text-gray-400 text-left mb-2">$MEGY - the currency of the Fair Future Fund</p>
 
-        {/* Progress Bar */}
         <div className="mt-4">
-          <div className="w-full bg-gray-800 rounded-full h-6 overflow-hidden relative">
+          <div className="w-full bg-gray-800 rounded-full h-6 overflow-hidden relative border border-gray-600">
             <div
               className="h-6 bg-gradient-to-r from-yellow-800 via-green-500 to-yellow-300"
               style={{ width: `${sharePercentage}%` }}
             />
-            <span className="absolute inset-0 flex items-center justify-center text-xs text-yellow font-bold">
+            <span className="absolute inset-0 flex items-center justify-center text-xs text-yellow-200 font-bold">
               {sharePercentage}%
             </span>
           </div>
 
-          <p className="text-sm text-gray-300 mt-2 text-left">
-            🌍 % of Fair Future Fund Revived
-          </p>
+          <p className="text-sm text-gray-300 mt-2 text-left">🌍 % of Fair Future Fund Revived</p>
         </div>
       </div>
 
-      {/* STATS SECTION */}
       <div className="w-full max-w-md">
         <StatsDisplay />
       </div>
 
-      {/* MODAL */}
       {showModal && selectedToken && (
         <CoincarneModal
           token={selectedToken}
@@ -213,15 +147,14 @@ export default function HomePage() {
             setSelectedToken(null);
             setShowModal(false);
           }}
-          onGoToProfileRequest={handleGoToProfile}
+          onGoToProfileRequest={() => window.location.href = '/profile'}
         />
       )}
 
-      {/* PROFILE BUTTON */}
       {publicKey && (
         <div>
           <button
-            onClick={handleGoToProfile}
+            onClick={() => window.location.href = '/profile'}
             className="bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold py-3 px-6 rounded-xl shadow hover:scale-105 transition-all duration-200"
           >
             🧾 Go to Profile
