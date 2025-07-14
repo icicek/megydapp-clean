@@ -180,7 +180,7 @@ export default function HomePage() {
         <div className="text-2xl my-4 text-center">↔️</div>
 
         <h2 className="text-lg text-left mb-2">You receive</h2>
-        <p className="text-xs text-gray-400 text-left mb-2">$MEGY</p>
+        <p className="text-xs text-gray-400 text-left mb-2">$MEGY - the currency of the Fair Future Fund</p>
 
         <p className="text-center text-purple-300 mb-4">
           $MEGY - the currency of the Fair Future Fund
