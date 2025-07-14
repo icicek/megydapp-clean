@@ -184,16 +184,17 @@ export default function HomePage() {
 
         {/* Progress Bar */}
         <div className="mt-4">
-          <div className="w-full bg-gray-800 rounded-full h-4 overflow-hidden">
+          <div className="w-full bg-gray-800 rounded-full h-6 overflow-hidden relative">
             <div
-              className="h-4 bg-gradient-to-r from-yellow-800 via-green-500 to-yellow-300"
+              className="h-6 bg-gradient-to-r from-yellow-800 via-green-500 to-yellow-300"
               style={{ width: `${sharePercentage}%` }}
             />
+            <span className="absolute inset-0 flex items-center justify-center text-xs text-black font-bold">
+              {sharePercentage}%
+            </span>
           </div>
-          <p className="text-center text-xs text-gray-400 mt-1">
-            {sharePercentage}%
-          </p>
-          <p className="text-sm text-gray-300 mb-1">
+
+          <p className="text-sm text-gray-300 mt-2 text-center">
             🌍 % of Fair Future Fund Revived
           </p>
         </div>
