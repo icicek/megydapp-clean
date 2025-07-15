@@ -108,7 +108,7 @@ export default function HomePage() {
         className={`${cardBaseClasses} bg-gradient-to-br ${fromColor} ${toColor}`}
         style={{ borderColor: borderHex }}
       >
-        <div className="absolute inset-0 bg-black/90 backdrop-blur-md"></div>
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-md"></div>
         <div className="relative z-10">
           <p className="text-sm text-gray-200 mb-1">{title}</p>
           <p className="text-2xl font-bold text-white">{value}</p>
