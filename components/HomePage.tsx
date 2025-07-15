@@ -100,7 +100,7 @@ export default function HomePage() {
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
   const sharePercentage = (shareRatio * 100).toFixed(2);
 
-  const cardClasses = "p-6 rounded-xl text-center shadow-lg border transform transition-all duration-500 ease-in-out hover:scale-110 hover:rotate-1";
+  const cardClasses = "p-6 rounded-2xl text-center shadow-xl border-2 backdrop-blur-md bg-opacity-20 transform transition-all duration-500 ease-in-out hover:scale-110 hover:rotate-1 tracking-wide";
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
@@ -153,22 +153,22 @@ export default function HomePage() {
       <div className="mt-10 w-full max-w-5xl">
         <h2 className="text-2xl font-bold text-center mb-6">🌐 Global Contribution Stats</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className={`bg-gradient-to-br from-fuchsia-600 to-pink-500 border-fuchsia-800 ${cardClasses}`}>
+          <div className={`bg-gradient-to-br from-fuchsia-600 to-pink-500 bg-opacity-20 border-fuchsia-500 ${cardClasses}`}>
             <p className="text-sm text-gray-200 mb-1">Total Participants</p>
             <p className="text-2xl font-bold text-white">{globalStats.totalParticipants.toLocaleString()}</p>
           </div>
 
-          <div className={`bg-gradient-to-br from-emerald-500 to-teal-400 border-emerald-800 ${cardClasses}`}>
+          <div className={`bg-gradient-to-br from-emerald-500 to-teal-400 bg-opacity-20 border-emerald-500 ${cardClasses}`}>
             <p className="text-sm text-gray-200 mb-1">Total USD Contributed</p>
             <p className="text-2xl font-bold text-white">${globalStats.totalUsd.toLocaleString()}</p>
           </div>
 
-          <div className={`bg-gradient-to-br from-yellow-500 to-orange-400 border-yellow-700 ${cardClasses}`}>
+          <div className={`bg-gradient-to-br from-yellow-500 to-orange-400 bg-opacity-20 border-yellow-500 ${cardClasses}`}>
             <p className="text-sm text-gray-200 mb-1">Unique Deadcoins Revived</p>
             <p className="text-2xl font-bold text-white">{globalStats.uniqueDeadcoins}</p>
           </div>
 
-          <div className={`bg-gradient-to-br from-cyan-500 to-indigo-500 border-cyan-800 ${cardClasses}`}>
+          <div className={`bg-gradient-to-br from-cyan-500 to-indigo-500 bg-opacity-20 border-cyan-500 ${cardClasses}`}>
             <p className="text-sm text-gray-200 mb-1">Most Popular Deadcoin</p>
             <p className="text-2xl font-bold text-white">{globalStats.mostPopularDeadcoin}</p>
           </div>
