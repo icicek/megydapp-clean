@@ -121,10 +121,10 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
 
       <div className="w-full flex justify-end mt-2 mb-4">
-        <WalletMultiButton className="scale-90 md:scale-75"/>
+        <WalletMultiButton className="scale-90 md:scale-75" />
       </div>
 
-      <section className="text-center py-8 w-full">
+      <section className="text-center py-4 w-full">
         <h1 className="text-4xl md:text-5xl font-extrabold mb-2">Turn Deadcoins into a Fair Future.</h1>
         <p className="text-lg md:text-xl text-pink-400 mb-1">This is not a swap. This is reincarnation.</p>
         <p className="text-sm text-gray-300 max-w-xl mx-auto">Burning wealth inequality. One deadcoin at a time.</p>
@@ -211,14 +211,13 @@ export default function HomePage() {
       )}
 
       {publicKey && (
-        <div>
-          <button
-            onClick={() => window.location.href = '/profile'}
-            className="bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold py-3 px-6 rounded-xl shadow hover:scale-105 transition-all duration-200 mt-6"
-          >
-            🧾 Go to Profile
-          </button>
-        </div>
+        <button
+          onClick={() => window.location.href = '/profile'}
+          className="bg-gradient-to-r from-green-500 to-teal-500 hover:from-emerald-400 hover:to-cyan-400 text-white font-semibold py-3 px-6 rounded-xl shadow-green-500/50 hover:scale-110 hover:-translate-y-1 transition-all duration-300 flex items-center justify-center space-x-2 mt-6"
+        >
+          <span>🧾</span>
+          <span>Go to Profile</span>
+        </button>
       )}
     </div>
   );
