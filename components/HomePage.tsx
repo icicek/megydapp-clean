@@ -100,7 +100,19 @@ export default function HomePage() {
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
   const sharePercentage = (shareRatio * 100).toFixed(2);
 
-  const cardClasses = "p-6 rounded-2xl text-center shadow-xl border-2 backdrop-blur-md bg-opacity-20 transform transition-all duration-500 ease-in-out hover:scale-110 hover:rotate-1 tracking-wide";
+  const cardBaseClasses = "relative p-6 rounded-2xl text-center shadow-xl border-2 transform transition-all duration-500 ease-in-out hover:scale-110 hover:rotate-1 tracking-wide overflow-hidden";
+
+  function StatCard({ fromColor, toColor, borderColor, title, value }: any) {
+    return (
+      <div className={`${cardBaseClasses} bg-gradient-to-br ${fromColor} ${toColor} border-${borderColor}`}>
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm"></div>
+        <div className="relative z-10">
+          <p className="text-sm text-gray-200 mb-1">{title}</p>
+          <p className="text-2xl font-bold text-white">{value}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
@@ -153,25 +165,34 @@ export default function HomePage() {
       <div className="mt-10 w-full max-w-5xl">
         <h2 className="text-2xl font-bold text-center mb-6">🌐 Global Contribution Stats</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className={`bg-gradient-to-br from-fuchsia-600 to-pink-500 bg-opacity-20 border-fuchsia-500 ${cardClasses}`}>
-            <p className="text-sm text-gray-200 mb-1">Total Participants</p>
-            <p className="text-2xl font-bold text-white">{globalStats.totalParticipants.toLocaleString()}</p>
-          </div>
-
-          <div className={`bg-gradient-to-br from-emerald-500 to-teal-400 bg-opacity-20 border-emerald-500 ${cardClasses}`}>
-            <p className="text-sm text-gray-200 mb-1">Total USD Contributed</p>
-            <p className="text-2xl font-bold text-white">${globalStats.totalUsd.toLocaleString()}</p>
-          </div>
-
-          <div className={`bg-gradient-to-br from-yellow-500 to-orange-400 bg-opacity-20 border-yellow-500 ${cardClasses}`}>
-            <p className="text-sm text-gray-200 mb-1">Unique Deadcoins Revived</p>
-            <p className="text-2xl font-bold text-white">{globalStats.uniqueDeadcoins}</p>
-          </div>
-
-          <div className={`bg-gradient-to-br from-cyan-500 to-indigo-500 bg-opacity-20 border-cyan-500 ${cardClasses}`}>
-            <p className="text-sm text-gray-200 mb-1">Most Popular Deadcoin</p>
-            <p className="text-2xl font-bold text-white">{globalStats.mostPopularDeadcoin}</p>
-          </div>
+          <StatCard
+            fromColor="from-fuchsia-600"
+            toColor="to-pink-500"
+            borderColor="fuchsia-500"
+            title="Total Participants"
+            value={globalStats.totalParticipants.toLocaleString()}
+          />
+          <StatCard
+            fromColor="from-emerald-500"
+            toColor="to-teal-400"
+            borderColor="emerald-500"
+            title="Total USD Contributed"
+            value={`$${globalStats.totalUsd.toLocaleString()}`}
+          />
+          <StatCard
+            fromColor="from-yellow-500"
+            toColor="to-orange-400"
+            borderColor="yellow-500"
+            title="Unique Deadcoins Revived"
+            value={globalStats.uniqueDeadcoins}
+          />
+          <StatCard
+            fromColor="from-cyan-500"
+            toColor="to-indigo-500"
+            borderColor="cyan-500"
+            title="Most Popular Deadcoin"
+            value={globalStats.mostPopularDeadcoin}
+          />
         </div>
       </div>
 
