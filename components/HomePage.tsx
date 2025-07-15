@@ -132,8 +132,8 @@ export default function HomePage() {
       </section>
 
       {/* Wallet button - Mobile */}
-      <div className="w-full flex md:hidden justify-center my-4">
-        <WalletMultiButton className="w-full max-w-xs scale-100" />
+      <div className="w-full flex md:hidden justify-center my-2">
+        <WalletMultiButton className="w-full max-w-xs scale-75" />
       </div>
 
       <div className="w-full max-w-5xl bg-gradient-to-br from-gray-900 via-zinc-800 to-gray-900 p-8 rounded-2xl border border-purple-700 shadow-2xl">
