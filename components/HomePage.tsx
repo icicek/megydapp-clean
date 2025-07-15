@@ -104,8 +104,8 @@ export default function HomePage() {
 
   function StatCard({ fromColor, toColor, borderColor, title, value }: any) {
     return (
-      <div className={`${cardBaseClasses} bg-gradient-to-br ${fromColor} ${toColor} border-${borderColor}`}>
-        <div className="absolute inset-0 bg-black/50 backdrop-blur-md"></div>
+      <div className={`relative p-6 rounded-2xl text-center shadow-xl border border-${borderColor} transform transition-all duration-500 ease-in-out hover:scale-110 hover:rotate-1 tracking-wide overflow-hidden bg-gradient-to-br ${fromColor} ${toColor}`}>
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
         <div className="relative z-10">
           <p className="text-sm text-gray-200 mb-1">{title}</p>
           <p className="text-2xl font-bold text-white">{value}</p>
