@@ -105,14 +105,14 @@ export default function HomePage() {
   function StatCard({ fromColor, toColor, borderColor, title, value }: any) {
     return (
       <div className={`${cardBaseClasses} bg-gradient-to-br ${fromColor} ${toColor} border-${borderColor}`}>
-        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm"></div>
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-md"></div>
         <div className="relative z-10">
           <p className="text-sm text-gray-200 mb-1">{title}</p>
           <p className="text-2xl font-bold text-white">{value}</p>
         </div>
       </div>
     );
-  }
+  }  
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
