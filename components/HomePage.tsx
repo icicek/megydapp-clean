@@ -108,7 +108,7 @@ export default function HomePage() {
         className={`${cardBaseClasses} bg-gradient-to-br ${fromColor} ${toColor}`}
         style={{ borderColor: borderHex }}
       >
-        <div className="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-md"></div>
         <div className="relative z-10">
           <p className="text-sm text-gray-200 mb-1">{title}</p>
           <p className="text-2xl font-bold text-white">{value}</p>
@@ -120,8 +120,8 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
 
-      <div className="w-full flex justify-end">
-        <WalletMultiButton />
+      <div className="w-full flex justify-end mt-2 mb-4">
+        <WalletMultiButton className="scale-90 md:scale-75"/>
       </div>
 
       <section className="text-center py-8 w-full">
