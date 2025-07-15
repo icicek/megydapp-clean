@@ -151,22 +151,22 @@ export default function HomePage() {
       <div className="mt-10 w-full max-w-5xl">
         <h2 className="text-2xl font-bold text-center mb-6">🌐 Global Contribution Stats</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-purple-700 to-pink-500 p-4 rounded-lg text-center shadow-md">
+          <div className="bg-gradient-to-br from-purple-700 to-pink-500 p-6 rounded-xl text-center shadow-lg border border-purple-900 hover:scale-105 transform transition duration-300">
             <p className="text-sm text-gray-200 mb-1">Total Participants</p>
             <p className="text-2xl font-bold text-white">{globalStats.totalParticipants.toLocaleString()}</p>
           </div>
 
-          <div className="bg-gradient-to-br from-green-600 to-teal-400 p-4 rounded-lg text-center shadow-md">
+          <div className="bg-gradient-to-br from-green-600 to-teal-400 p-6 rounded-xl text-center shadow-lg border border-green-900 hover:scale-105 transform transition duration-300">
             <p className="text-sm text-gray-200 mb-1">Total USD Contributed</p>
             <p className="text-2xl font-bold text-white">${globalStats.totalUsd.toLocaleString()}</p>
           </div>
 
-          <div className="bg-gradient-to-br from-yellow-500 to-orange-400 p-4 rounded-lg text-center shadow-md">
+          <div className="bg-gradient-to-br from-yellow-500 to-orange-400 p-6 rounded-xl text-center shadow-lg border border-yellow-700 hover:scale-105 transform transition duration-300">
             <p className="text-sm text-gray-200 mb-1">Unique Deadcoins Revived</p>
             <p className="text-2xl font-bold text-white">{globalStats.uniqueDeadcoins}</p>
           </div>
 
-          <div className="bg-gradient-to-br from-blue-500 to-indigo-400 p-4 rounded-lg text-center shadow-md">
+          <div className="bg-gradient-to-br from-blue-500 to-indigo-400 p-6 rounded-xl text-center shadow-lg border border-blue-900 hover:scale-105 transform transition duration-300">
             <p className="text-sm text-gray-200 mb-1">Most Popular Deadcoin</p>
             <p className="text-2xl font-bold text-white">{globalStats.mostPopularDeadcoin}</p>
           </div>
@@ -188,7 +188,7 @@ export default function HomePage() {
         <div>
           <button
             onClick={() => window.location.href = '/profile'}
-            className="bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold py-3 px-6 rounded-xl shadow hover:scale-105 transition-all duration-200"
+            className="bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold py-3 px-6 rounded-xl shadow hover:scale-105 transition-all duration-200 mt-6"
           >
             🧾 Go to Profile
           </button>
