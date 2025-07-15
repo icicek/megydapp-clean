@@ -148,7 +148,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="mt-10 w-full max-w-2xl">
+      <div className="mt-10 w-full max-w-5xl">
         <h2 className="text-2xl font-bold text-center mb-6">🌐 Global Contribution Stats</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-gradient-to-br from-purple-700 to-pink-500 p-4 rounded-lg text-center shadow-md">
