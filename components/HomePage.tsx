@@ -100,11 +100,14 @@ export default function HomePage() {
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
   const sharePercentage = (shareRatio * 100).toFixed(2);
 
-  const cardBaseClasses = "relative p-6 rounded-2xl text-center shadow-xl border-2 transform transition-all duration-500 ease-in-out hover:scale-110 hover:rotate-1 tracking-wide overflow-hidden";
+  const cardBaseClasses = "relative p-6 rounded-2xl text-center shadow-xl border transform transition-all duration-500 ease-in-out hover:scale-110 hover:rotate-1 tracking-wide overflow-hidden";
 
-  function StatCard({ fromColor, toColor, borderColor, title, value }: any) {
+  function StatCard({ fromColor, toColor, borderHex, title, value }: any) {
     return (
-      <div className={`relative p-6 rounded-2xl text-center shadow-xl border border-${borderColor} transform transition-all duration-500 ease-in-out hover:scale-110 hover:rotate-1 tracking-wide overflow-hidden bg-gradient-to-br ${fromColor} ${toColor}`}>
+      <div
+        className={`${cardBaseClasses} bg-gradient-to-br ${fromColor} ${toColor}`}
+        style={{ borderColor: borderHex }}
+      >
         <div className="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
         <div className="relative z-10">
           <p className="text-sm text-gray-200 mb-1">{title}</p>
@@ -112,7 +115,7 @@ export default function HomePage() {
         </div>
       </div>
     );
-  }  
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
@@ -168,28 +171,28 @@ export default function HomePage() {
           <StatCard
             fromColor="from-fuchsia-600"
             toColor="to-pink-500"
-            borderColor="fuchsia-500"
+            borderHex="#C026D3"
             title="Total Participants"
             value={globalStats.totalParticipants.toLocaleString()}
           />
           <StatCard
             fromColor="from-emerald-500"
             toColor="to-teal-400"
-            borderColor="emerald-500"
+            borderHex="#10B981"
             title="Total USD Contributed"
             value={`$${globalStats.totalUsd.toLocaleString()}`}
           />
           <StatCard
             fromColor="from-yellow-500"
             toColor="to-orange-400"
-            borderColor="yellow-500"
+            borderHex="#EAB308"
             title="Unique Deadcoins Revived"
             value={globalStats.uniqueDeadcoins}
           />
           <StatCard
             fromColor="from-cyan-500"
             toColor="to-indigo-500"
-            borderColor="cyan-500"
+            borderHex="#06B6D4"
             title="Most Popular Deadcoin"
             value={globalStats.mostPopularDeadcoin}
           />
