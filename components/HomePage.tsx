@@ -121,7 +121,9 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
 
       <div className="w-full flex justify-end mt-2 mb-4">
-        <WalletMultiButton className="scale-90 md:scale-75" />
+        <div className="scale-75 md:scale-50">
+          <WalletMultiButton />
+        </div>
       </div>
 
       <section className="text-center py-4 w-full">
