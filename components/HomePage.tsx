@@ -120,10 +120,9 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
 
-      <div className="w-full flex justify-end mt-2 mb-4">
-        <div className="scale-75 md:scale-50">
-          <WalletMultiButton />
-        </div>
+      {/* Wallet button - Desktop */}
+      <div className="w-full hidden md:flex justify-end mt-2 mb-4">
+        <WalletMultiButton className="scale-90" />
       </div>
 
       <section className="text-center py-4 w-full">
@@ -131,6 +130,11 @@ export default function HomePage() {
         <p className="text-lg md:text-xl text-pink-400 mb-1">This is not a swap. This is reincarnation.</p>
         <p className="text-sm text-gray-300 max-w-xl mx-auto">Burning wealth inequality. One deadcoin at a time.</p>
       </section>
+
+      {/* Wallet button - Mobile */}
+      <div className="w-full flex md:hidden justify-center my-4">
+        <WalletMultiButton className="w-full max-w-xs scale-100" />
+      </div>
 
       <div className="w-full max-w-5xl bg-gradient-to-br from-gray-900 via-zinc-800 to-gray-900 p-8 rounded-2xl border border-purple-700 shadow-2xl">
         <h2 className="text-lg mb-1 text-left">You give</h2>
@@ -170,34 +174,10 @@ export default function HomePage() {
       <div className="mt-10 w-full max-w-5xl">
         <h2 className="text-2xl font-bold text-center mb-6">🌐 Global Contribution Stats</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            fromColor="from-fuchsia-600"
-            toColor="to-pink-500"
-            borderHex="#C026D3"
-            title="Total Participants"
-            value={globalStats.totalParticipants.toLocaleString()}
-          />
-          <StatCard
-            fromColor="from-emerald-500"
-            toColor="to-teal-400"
-            borderHex="#10B981"
-            title="Total USD Contributed"
-            value={`$${globalStats.totalUsd.toLocaleString()}`}
-          />
-          <StatCard
-            fromColor="from-yellow-500"
-            toColor="to-orange-400"
-            borderHex="#EAB308"
-            title="Unique Deadcoins Revived"
-            value={globalStats.uniqueDeadcoins}
-          />
-          <StatCard
-            fromColor="from-cyan-500"
-            toColor="to-indigo-500"
-            borderHex="#06B6D4"
-            title="Most Popular Deadcoin"
-            value={globalStats.mostPopularDeadcoin}
-          />
+          <StatCard fromColor="from-fuchsia-600" toColor="to-pink-500" borderHex="#C026D3" title="Total Participants" value={globalStats.totalParticipants.toLocaleString()} />
+          <StatCard fromColor="from-emerald-500" toColor="to-teal-400" borderHex="#10B981" title="Total USD Contributed" value={`$${globalStats.totalUsd.toLocaleString()}`} />
+          <StatCard fromColor="from-yellow-500" toColor="to-orange-400" borderHex="#EAB308" title="Unique Deadcoins Revived" value={globalStats.uniqueDeadcoins} />
+          <StatCard fromColor="from-cyan-500" toColor="to-indigo-500" borderHex="#06B6D4" title="Most Popular Deadcoin" value={globalStats.mostPopularDeadcoin} />
         </div>
       </div>
 
