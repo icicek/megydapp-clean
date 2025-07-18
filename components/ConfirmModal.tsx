@@ -31,7 +31,7 @@ export default function ConfirmModal({
         </DialogTitle>
 
         <p className="text-center mb-2">
-          You are about to Coincarne:
+          You are about to Coincarnate:
         </p>
         <p className="text-center text-xl font-bold mb-2">
           {amount} {tokenSymbol}
@@ -48,7 +48,7 @@ export default function ConfirmModal({
             onClick={onConfirm}
             className="flex-1 bg-green-500 hover:bg-green-600 text-black font-bold py-2 rounded-lg"
           >
-            Confirm & Coincarne Now
+            Confirm & Coincarnate Now
           </button>
           <button
             onClick={onCancel}
