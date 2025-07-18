@@ -3,43 +3,42 @@ import { neon } from '@neondatabase/serverless';
 
 const sql = neon(process.env.DATABASE_URL!);
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { mint: string } }
-) {
-  const { mint } = params;
-
+export async function POST(req: NextRequest) {
   try {
-    const rows = await sql`
-      SELECT 
-        mint, 
-        symbol,
-        status, 
-        redlist_date, 
-        deadcoin_votes, 
-        last_price, 
-        last_price_sources, 
-        last_price_updated
-      FROM tokens
+    const body = await req.json();
+    const { mint, status, redlist_date, admin_wallet } = body;
+
+    if (!mint || !status || !admin_wallet) {
+      return NextResponse.json(
+        { success: false, error: 'mint, status, and admin_wallet are required.' },
+        { status: 400 }
+      );
+    }
+
+    if (!['blacklist', 'redlist', 'whitelist', 'deadcoin'].includes(status)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid status value.' },
+        { status: 400 }
+      );
+    }
+
+    await sql`
+      UPDATE tokens
+      SET 
+        status = ${status},
+        redlist_date = ${status === 'redlist' ? redlist_date : null}
       WHERE mint = ${mint}
     `;
 
-    if (rows.length === 0) {
-      return NextResponse.json({
-        success: true,
-        data: null
-      });
-    }
-
     return NextResponse.json({
       success: true,
-      data: rows[0]
+      message: `Token ${mint} status updated to ${status}`
     });
 
   } catch (error) {
-    console.error('❌ Error fetching token status:', error);
+    console.error('❌ Admin token status update error:', error);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: 'Internal server error.' },
       { status: 500 }
     );
   }
