@@ -1,3 +1,5 @@
+import pythMapping from './pythMapping.json';
+
 interface TokenInfo {
   mint: string;
   symbol?: string;
@@ -13,7 +15,7 @@ export default async function getUsdValue(token: TokenInfo, amount: number): Pro
 
   // 1️⃣ CoinGecko
   try {
-    const isSol = token.symbol?.toUpperCase() === 'SOL' || token.mint === 'SOL';
+    const isSol = token.symbol?.toUpperCase() === 'SOL' || token.mint === 'So11111111111111111111111111111111111111112';
     if (isSol) {
       const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd`);
       const json = await res.json();
@@ -42,12 +44,20 @@ export default async function getUsdValue(token: TokenInfo, amount: number): Pro
   }
 
   // 3️⃣ Pyth Network
-  const pythPrice = await getPythPrice(token.mint);
-  if (pythPrice) prices.push({ price: pythPrice, source: 'Pyth Network' });
+  try {
+    const pythPrice = await getPythPrice(token.mint);
+    if (pythPrice) prices.push({ price: pythPrice, source: 'Pyth Network' });
+  } catch (e) {
+    console.warn('⚠️ Pyth price fetch failed:', e);
+  }
 
   // 4️⃣ DEX Pool
-  const dexPrice = await getDexPoolPrice(token.mint);
-  if (dexPrice) prices.push({ price: dexPrice, source: 'DEX Pool' });
+  try {
+    const dexPrice = await getDexPoolPrice(token.mint);
+    if (dexPrice) prices.push({ price: dexPrice, source: 'DEX Pool' });
+  } catch (e) {
+    console.warn('⚠️ DEX pool price fetch failed:', e);
+  }
 
   if (prices.length === 0) {
     console.warn(`⚠️ No price sources available for ${token.symbol || token.mint}.`);
@@ -70,7 +80,6 @@ export default async function getUsdValue(token: TokenInfo, amount: number): Pro
     return diffPercent <= 5;
   });
 
-  // Eğer 3+ fiyat varsa ama biri büyük sapma içeriyorsa onu eleyelim
   if (acceptedPrices.length >= 3) {
     acceptedPrices = acceptedPrices.filter(p => {
       const diffPercent = Math.abs((p.price - median) / median) * 100;
@@ -78,7 +87,6 @@ export default async function getUsdValue(token: TokenInfo, amount: number): Pro
     });
   }
 
-  // Eğer hiç fiyat kalmadıysa: Güvenilirlik sırasını uygula
   if (acceptedPrices.length === 0) {
     console.warn('⚠️ All prices deviated >5%. Using source priority fallback.');
     const priority = ['CoinGecko', 'Pyth Network', 'Jupiter', 'DEX Pool'];
@@ -104,21 +112,20 @@ export default async function getUsdValue(token: TokenInfo, amount: number): Pro
 //
 // -------- Pyth Price Fetching --------
 //
-const PYTH_FEED_MAPPING: Record<string, string> = {
-  // USDC örneği
-  'Es9vMFrzaCERaKJ1i8L3KxG1xHDWUPt6umcLbYtFBbV': '8GW7vTynJn9iSe1jycfbEmxfkzjswz4ZuqcZpYVcSbyD',
-  // Diğer mint adresleri ve feed ID'leri buraya eklenebilir
-};
-
 async function getPythPrice(mint: string): Promise<number | null> {
-  const feedId = PYTH_FEED_MAPPING[mint];
+  const feedId = (pythMapping as Record<string, string>)[mint];
   if (!feedId) {
-    console.warn(`⚠️ No Pyth price feed mapped for token mint: ${mint}`);
+    console.info(`ℹ️ No Pyth price feed mapped for token mint: ${mint}. Skipping Pyth.`);
     return null;
   }
 
   try {
     const res = await fetch(`https://hermes.pyth.network/v2/price_feed_ids/${feedId}`);
+    if (!res.ok) {
+      console.error(`❌ Pyth API returned status ${res.status} for mint: ${mint}`);
+      return null;
+    }
+
     const data = await res.json();
     const price = data?.price?.price;
 
