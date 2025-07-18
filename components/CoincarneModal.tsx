@@ -44,7 +44,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     imageUrl: string;
   } | null>(null);
 
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [usdValue, setUsdValue] = useState<number>(0);
   const [priceSources, setPriceSources] = useState<string[]>([]);
 
@@ -81,15 +81,54 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
 
       setUsdValue(usdValue);
       setPriceSources(sources.map((s) => s.source));
-      setShowConfirm(true);
+      setConfirmModalOpen(true);(true);
     } catch (err) {
       console.error('❌ Error preparing confirm modal:', err);
       alert('❌ Failed to prepare confirmation. Check console.');
     }
   };
+  const [tokenStatusData, setTokenStatusData] = useState<{
+    status: 'whitelist' | 'blacklist' | 'redlist' | 'deadcoin' | 'unknown';
+    redlistDate?: string;
+  }>({
+    status: 'unknown'
+  });  
+
+  const handleConfirmCoincarne = async () => {
+    setConfirmModalOpen(false); // modalı kapat
+    if (!publicKey || !amountInput) return;
+    const amountToSend = parseFloat(amountInput);
+    if (isNaN(amountToSend) || amountToSend <= 0) return;
+  
+    try {
+      setLoading(true);
+  
+      // ✅ Eğer token status 'unknown' ise, deadcoin vote API çağrısı
+      if (tokenStatusData.status === 'unknown') {
+        await fetch('/api/token/deadcoin-vote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mint: token.mint,
+            wallet_address: publicKey.toBase58()
+          })
+        });
+        console.log(`✅ Deadcoin vote recorded for ${token.mint}`);
+      }
+  
+      // Sonrasında normal Coincarne işlemine geç
+      await handleSend();
+  
+    } catch (err) {
+      console.error('❌ Error during Coincarne confirmation:', err);
+      alert('❌ Failed to complete Coincarnation. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };  
 
   const handleSend = async () => {
-    setShowConfirm(false);
+    setConfirmModalOpen(false);
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
     if (isNaN(amountToSend) || amountToSend <= 0) return;
@@ -173,13 +212,15 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
   return (
     <>
       <ConfirmModal
-        open={showConfirm}
+        open={confirmModalOpen}
         tokenSymbol={token.symbol || token.mint.slice(0, 4)}
         amount={parseFloat(amountInput) || 0}
         usdValue={usdValue}
         priceSources={priceSources}
-        onConfirm={handleSend}
-        onCancel={() => setShowConfirm(false)}
+        tokenStatus={tokenStatusData.status}
+        redlistDate={tokenStatusData.redlistDate}
+        onConfirm={handleConfirmCoincarne}
+        onCancel={() => setConfirmModalOpen(false)}
       />
 
       <Dialog open onOpenChange={onClose}>
@@ -261,7 +302,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
                 disabled={loading || !amountInput}
                 className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 hover:scale-105 text-black font-extrabold py-3 rounded-xl transition-all duration-200 shadow-xl border-2 border-white"
               >
-                {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate ${token.symbol || 'Token'} Now`}
+                {loading ? '🔥 Coincarnating...' : `🚀 Coincarne ${token.symbol || 'Token'} Now`}
               </button>
 
               <button
