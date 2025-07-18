@@ -15,6 +15,7 @@ import {
 import { connection } from '@/lib/solanaConnection';
 import CoincarnationResult from '@/components/CoincarnationResult';
 import getUsdValue from '@/app/api/utils/getUsdValue';
+import ConfirmModal from '@/components/ConfirmModal';
 
 interface TokenInfo {
   mint: string;
@@ -27,7 +28,7 @@ interface CoincarneModalProps {
   token: TokenInfo;
   onClose: () => void;
   refetchTokens?: () => void;
-  onGoToProfileRequest?: () => void; // ✅ Yeni prop
+  onGoToProfileRequest?: () => void;
 }
 
 const COINCARNATION_DEST = new PublicKey('HPBNVF9ATsnkDhGmQB4xoLC5tWBWQbTyBjsiQAN3dYXH');
@@ -42,6 +43,10 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     number: number;
     imageUrl: string;
   } | null>(null);
+
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [usdValue, setUsdValue] = useState<number>(0);
+  const [priceSources, setPriceSources] = useState<string[]>([]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -65,7 +70,26 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     setAmountInput(calculated.toFixed(6));
   };
 
+  const handlePrepareConfirm = async () => {
+    if (!publicKey || !amountInput) return;
+    const amountToSend = parseFloat(amountInput);
+    if (isNaN(amountToSend) || amountToSend <= 0) return;
+
+    try {
+      const { usdValue, sources } = await getUsdValue(token, amountToSend);
+      console.log('🧮 Confirm Modal Data:', usdValue, sources);
+
+      setUsdValue(usdValue);
+      setPriceSources(sources.map((s) => s.source));
+      setShowConfirm(true);
+    } catch (err) {
+      console.error('❌ Error preparing confirm modal:', err);
+      alert('❌ Failed to prepare confirmation. Check console.');
+    }
+  };
+
   const handleSend = async () => {
+    setShowConfirm(false);
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
     if (isNaN(amountToSend) || amountToSend <= 0) return;
@@ -73,7 +97,8 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     try {
       setLoading(true);
       let signature: string;
-      const usdValue = await getUsdValue(token, amountToSend);
+      const { usdValue: finalUsdValue, sources } = await getUsdValue(token, amountToSend);
+      console.log('✅ USD Value & Sources (Final):', finalUsdValue, sources);
 
       if (token.mint === 'SOL') {
         const tx = new Transaction().add(
@@ -103,7 +128,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
           token_contract: token.mint,
           network: 'solana',
           token_amount: amountToSend,
-          usd_value: usdValue,
+          usd_value: finalUsdValue,
           referral_code: referralCode,
           transaction_signature: signature,
           user_agent: navigator.userAgent,
@@ -146,98 +171,110 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
   };
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" />
-      <DialogContent
-        className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full shadow-[0_0_30px_5px_rgba(255,0,255,0.3)] border border-pink-500/30"
-        aria-describedby="coincarnation-description"
-      >
-        <DialogTitle className="sr-only">Coincarnation Modal</DialogTitle>
+    <>
+      <ConfirmModal
+        open={showConfirm}
+        tokenSymbol={token.symbol || token.mint.slice(0, 4)}
+        amount={parseFloat(amountInput) || 0}
+        usdValue={usdValue}
+        priceSources={priceSources}
+        onConfirm={handleSend}
+        onCancel={() => setShowConfirm(false)}
+      />
 
-        {resultData ? (
-          <CoincarnationResult
-            tokenFrom={resultData.tokenFrom}
-            number={resultData.number}
-            imageUrl={resultData.imageUrl}
-            onRecoincarnate={() => {
-              setResultData(null);
-              setAmountInput('');
-            }}
-            onGoToProfile={() => {
-              onClose(); // modalı kapat
-              if (onGoToProfileRequest) {
-                setTimeout(() => {
-                  onGoToProfileRequest(); // yönlendirme sinyali gönder
-                }, 100); // modal kapanana kadar bekle
-              }
-            }}
-          >
-            <a
-              href={`https://twitter.com/intent/tweet?text=I just coincarnated $${resultData.tokenFrom} into $MEGY ⚡️\nJoin the revival → https://coincarnation.com`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={handleShare}
-              className="mt-4 inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+      <Dialog open onOpenChange={onClose}>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" />
+        <DialogContent
+          className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full shadow-[0_0_30px_5px_rgba(255,0,255,0.3)] border border-pink-500/30"
+          aria-describedby="coincarnation-description"
+        >
+          <DialogTitle className="sr-only">Coincarnation Modal</DialogTitle>
+
+          {resultData ? (
+            <CoincarnationResult
+              tokenFrom={resultData.tokenFrom}
+              number={resultData.number}
+              imageUrl={resultData.imageUrl}
+              onRecoincarnate={() => {
+                setResultData(null);
+                setAmountInput('');
+              }}
+              onGoToProfile={() => {
+                onClose();
+                if (onGoToProfileRequest) {
+                  setTimeout(() => {
+                    onGoToProfileRequest();
+                  }, 100);
+                }
+              }}
             >
-              Share on X
-            </a>
-          </CoincarnationResult>
-        ) : (
-          <>
-            <p
-              id="coincarnation-description"
-              className="text-xs text-pink-400 text-center mb-2 tracking-wide uppercase"
-            >
-              🚨 Exclusive Coincarnation Portal
-            </p>
-            <h2 className="text-2xl font-bold text-center mb-3">
-              🔥 Coincarnate {token.symbol || token.mint.slice(0, 4)}
-            </h2>
-            <p className="text-sm text-gray-400 text-center mb-2">
-              Balance: {token.amount.toFixed(4)} {token.symbol || token.mint.slice(0, 4)}
-            </p>
+              <a
+                href={`https://twitter.com/intent/tweet?text=I just coincarnated $${resultData.tokenFrom} into $MEGY ⚡️\nJoin the revival → https://coincarnation.com`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={handleShare}
+                className="mt-4 inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+              >
+                Share on X
+              </a>
+            </CoincarnationResult>
+          ) : (
+            <>
+              <p
+                id="coincarnation-description"
+                className="text-xs text-pink-400 text-center mb-2 tracking-wide uppercase"
+              >
+                🚨 Exclusive Coincarnation Portal
+              </p>
+              <h2 className="text-2xl font-bold text-center mb-3">
+                🔥 Coincarnate {token.symbol || token.mint.slice(0, 4)}
+              </h2>
+              <p className="text-sm text-gray-400 text-center mb-2">
+                Balance: {token.amount.toFixed(4)} {token.symbol || token.mint.slice(0, 4)}
+              </p>
 
-            <div className="grid grid-cols-4 gap-2 mb-4">
-              {[25, 50, 75, 100].map((p) => (
-                <button
-                  key={p}
-                  className="bg-gradient-to-br from-purple-600 to-pink-500 hover:opacity-90 text-white font-semibold py-2 rounded-lg shadow"
-                  onClick={() => handlePercentage(p)}
-                  disabled={loading}
-                >
-                  {p}%
-                </button>
-              ))}
-            </div>
+              <div className="grid grid-cols-4 gap-2 mb-4">
+                {[25, 50, 75, 100].map((p) => (
+                  <button
+                    key={p}
+                    className="bg-gradient-to-br from-purple-600 to-pink-500 hover:opacity-90 text-white font-semibold py-2 rounded-lg shadow"
+                    onClick={() => handlePercentage(p)}
+                    disabled={loading}
+                  >
+                    {p}%
+                  </button>
+                ))}
+              </div>
 
-            <input
-              type="number"
-              step="0.000001"
-              value={amountInput}
-              onChange={(e) => setAmountInput(e.target.value)}
-              placeholder="Enter amount"
-              className="w-full bg-zinc-800 text-white p-3 rounded-lg border border-zinc-600 focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4"
-              disabled={loading}
-            />
+              <input
+                type="number"
+                step="0.000001"
+                value={amountInput}
+                onChange={(e) => setAmountInput(e.target.value)}
+                placeholder="Enter amount"
+                className="w-full bg-zinc-800 text-white p-3 rounded-lg border border-zinc-600 focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4"
+                disabled={loading}
+              />
 
-            <button
-              onClick={handleSend}
-              disabled={loading || !amountInput}
-              className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 hover:scale-105 text-black font-extrabold py-3 rounded-xl transition-all duration-200 shadow-xl border-2 border-white"
-            >
-              {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate ${token.symbol || 'Token'} Now`}
-            </button>
+              <button
+                onClick={handlePrepareConfirm}
+                disabled={loading || !amountInput}
+                className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 hover:scale-105 text-black font-extrabold py-3 rounded-xl transition-all duration-200 shadow-xl border-2 border-white"
+              >
+                {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate ${token.symbol || 'Token'} Now`}
+              </button>
 
-            <button
-              onClick={onClose}
-              className="mt-3 w-full text-sm text-red-500 hover:text-white transition-all duration-150"
-              disabled={loading}
-            >
-              ❌ Not Interested in Global Synergy
-            </button>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+              <button
+                onClick={onClose}
+                className="mt-3 w-full text-sm text-red-500 hover:text-white transition-all duration-150"
+                disabled={loading}
+              >
+                ❌ Not Interested in Global Synergy
+              </button>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
