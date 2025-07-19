@@ -61,8 +61,12 @@ export default function HomePage() {
         const enriched = tokenListRaw.map(token => {
           if (token.mint === 'SOL') return token;
           const metadata = tokenMetadata.find(t => t.address === token.mint);
-          return { ...token, symbol: metadata?.symbol, logoURI: metadata?.logoURI };
-        });
+          return { 
+            ...token, 
+            symbol: metadata?.symbol || token.mint.slice(0, 4), 
+            logoURI: metadata?.logoURI 
+          };
+        });        
         setTokens(enriched);
       } catch (err) {
         console.error('❌ Error fetching wallet tokens:', err);
