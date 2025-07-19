@@ -7,13 +7,14 @@ interface PriceSource {
 }
 
 interface ConfirmModalProps {
-  tokenSymbol: string;
-  usdValue: number;
-  sources: PriceSource[];
-  onConfirm: () => void;
-  onCancel: () => void;
-  onDeadcoinVote: (vote: 'yes' | 'no') => void;
-}
+    tokenSymbol: string;
+    usdValue: number;
+    sources: PriceSource[];
+    onConfirm: () => void;
+    onCancel: () => void;
+    onDeadcoinVote: (vote: 'yes' | 'no') => void;
+    open: boolean; // ✅ eksik olan buydu
+  }  
 
 export default function ConfirmModal({
   tokenSymbol,
@@ -21,7 +22,8 @@ export default function ConfirmModal({
   sources,
   onConfirm,
   onCancel,
-  onDeadcoinVote
+  onDeadcoinVote,
+  open
 }: ConfirmModalProps) {
   const [deadcoinVoted, setDeadcoinVoted] = useState(false);
 
@@ -31,7 +33,7 @@ export default function ConfirmModal({
   };
 
   return (
-    <Dialog open onOpenChange={onCancel}>
+    <Dialog open={open} onOpenChange={(open) => { if (!open) onCancel(); }}>
       <DialogTitle>Confirm Coincarnation</DialogTitle>
       <DialogContent>
         <p>You are about to coincarnate <strong>{tokenSymbol}</strong>.</p>
