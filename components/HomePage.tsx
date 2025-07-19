@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useEffect, useState } from 'react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
@@ -7,6 +7,7 @@ import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import CoincarneModal from '@/components/CoincarneModal';
 import { fetchSolanaTokenList } from '@/lib/utils';
 import { connection } from '@/lib/solanaConnection';
+import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 
 interface TokenInfo {
   mint: string;
@@ -35,13 +36,7 @@ export default function HomePage() {
   });
   const [userContribution, setUserContribution] = useState(0);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const ref = params.get('ref');
-      if (ref) localStorage.setItem('referralCode', ref);
-    }
-  }, []);
+  const metadataCache: Record<string, { symbol: string }> = {};
 
   useEffect(() => {
     if (!publicKey || !connected) return;
@@ -58,15 +53,33 @@ export default function HomePage() {
         if (solBalance > 0) tokenListRaw.unshift({ mint: 'SOL', amount: solBalance / 1e9, symbol: 'SOL' });
 
         const tokenMetadata: TokenMeta[] = await fetchSolanaTokenList();
-        const enriched = tokenListRaw.map(token => {
+
+        const enriched = await Promise.all(tokenListRaw.map(async (token) => {
           if (token.mint === 'SOL') return token;
+
           const metadata = tokenMetadata.find(t => t.address === token.mint);
-          return { 
-            ...token, 
-            symbol: metadata?.symbol || token.mint.slice(0, 4), 
-            logoURI: metadata?.logoURI 
+          if (metadata) {
+            return {
+              ...token,
+              symbol: metadata.symbol,
+              logoURI: metadata.logoURI
+            };
+          }
+
+          if (metadataCache[token.mint]) {
+            return { ...token, symbol: metadataCache[token.mint].symbol, logoURI: undefined };
+          }
+
+          const meta = await fetchTokenMetadata(token.mint);
+          metadataCache[token.mint] = { symbol: meta?.symbol || token.mint.slice(0, 4) };
+
+          return {
+            ...token,
+            symbol: metadataCache[token.mint].symbol,
+            logoURI: undefined
           };
-        });        
+        }));
+
         setTokens(enriched);
       } catch (err) {
         console.error('❌ Error fetching wallet tokens:', err);
@@ -93,6 +106,14 @@ export default function HomePage() {
     fetchStats();
   }, [publicKey, connected]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get('ref');
+      if (ref) localStorage.setItem('referralCode', ref);
+    }
+  }, []);
+
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const mint = e.target.value;
     const token = tokens.find(t => t.mint === mint || (mint === 'SOL' && t.mint === 'SOL'));
@@ -106,27 +127,9 @@ export default function HomePage() {
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
   const sharePercentage = (shareRatio * 100).toFixed(2);
 
-  const cardBaseClasses = "relative p-6 rounded-2xl text-center shadow-xl border transform transition-all duration-500 ease-in-out hover:scale-110 hover:rotate-1 tracking-wide overflow-hidden";
-
-  function StatCard({ fromColor, toColor, borderHex, title, value }: any) {
-    return (
-      <div
-        className={`${cardBaseClasses} bg-gradient-to-br ${fromColor} ${toColor}`}
-        style={{ borderColor: borderHex }}
-      >
-        <div className="absolute inset-0 bg-black/85 backdrop-blur-md"></div>
-        <div className="relative z-10">
-          <p className="text-sm text-gray-200 mb-1">{title}</p>
-          <p className="text-2xl font-bold text-white">{value}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
 
-      {/* Wallet button - Desktop */}
       <div className="w-full hidden md:flex justify-end mt-2 mb-4">
         <WalletMultiButton className="scale-90" />
       </div>
@@ -137,7 +140,6 @@ export default function HomePage() {
         <p className="text-sm text-gray-300 max-w-xl mx-auto">Burning wealth inequality. One deadcoin at a time.</p>
       </section>
 
-      {/* Wallet button - Mobile */}
       <div className="w-full flex md:hidden justify-center my-5">
         <WalletMultiButton className="w-full max-w-xs scale-75" />
       </div>
@@ -148,17 +150,17 @@ export default function HomePage() {
 
         {publicKey ? (
           <select
-          className="w-full bg-gray-800 text-white p-3 rounded mb-4 border border-gray-600"
-          value={resetTokenSelection ? "" : selectedToken?.mint || ""}
-          onChange={handleSelectChange}
-        >
-          <option value="" disabled>👉 Select a token to Coincarnate</option>
-          {tokens.map((token, idx) => (
-            <option key={idx} value={token.mint}>
-              {token.symbol || token.mint.slice(0, 4)} — {token.amount.toFixed(4)}
-            </option>
-          ))}
-        </select>        
+            className="w-full bg-gray-800 text-white p-3 rounded mb-4 border border-gray-600"
+            value={resetTokenSelection ? "" : selectedToken?.mint || ""}
+            onChange={handleSelectChange}
+          >
+            <option value="" disabled>👉 Select a token to Coincarnate</option>
+            {tokens.map((token, idx) => (
+              <option key={idx} value={token.mint}>
+                {token.symbol || token.mint.slice(0, 4)} — {token.amount.toFixed(4)}
+              </option>
+            ))}
+          </select>
         ) : (
           <p className="text-gray-400">Connect your wallet to see your tokens.</p>
         )}
@@ -183,26 +185,16 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="mt-10 w-full max-w-5xl">
-        <h2 className="text-2xl font-bold text-center mb-6">🌐 Global Contribution Stats</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard fromColor="from-fuchsia-600" toColor="to-pink-500" borderHex="#C026D3" title="Total Participants" value={globalStats.totalParticipants.toLocaleString()} />
-          <StatCard fromColor="from-emerald-500" toColor="to-teal-400" borderHex="#10B981" title="Total USD Contributed" value={`$${globalStats.totalUsd.toLocaleString()}`} />
-          <StatCard fromColor="from-yellow-500" toColor="to-orange-400" borderHex="#EAB308" title="Unique Deadcoins Revived" value={globalStats.uniqueDeadcoins} />
-          <StatCard fromColor="from-cyan-500" toColor="to-indigo-500" borderHex="#06B6D4" title="Most Popular Deadcoin" value={globalStats.mostPopularDeadcoin} />
-        </div>
-      </div>
-
       {showModal && selectedToken && (
         <CoincarneModal
-        token={selectedToken}
-        onClose={() => {
-          setSelectedToken(null);
-          setShowModal(false);
-          setResetTokenSelection(false);
-        }}
-        onGoToProfileRequest={() => window.location.href = '/profile'}
-      />      
+          token={selectedToken}
+          onClose={() => {
+            setSelectedToken(null);
+            setShowModal(false);
+            setResetTokenSelection(false);
+          }}
+          onGoToProfileRequest={() => window.location.href = '/profile'}
+        />
       )}
 
       {publicKey && (
