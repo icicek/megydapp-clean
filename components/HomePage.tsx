@@ -8,6 +8,7 @@ import CoincarneModal from '@/components/CoincarneModal';
 import { fetchSolanaTokenList } from '@/lib/utils';
 import { connection } from '@/lib/solanaConnection';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
+import { useRef } from 'react';
 
 interface TokenInfo {
   mint: string;
@@ -36,7 +37,7 @@ export default function HomePage() {
   });
   const [userContribution, setUserContribution] = useState(0);
 
-  const metadataCache: Record<string, { symbol: string }> = {};
+  const metadataCache = useRef<Record<string, { symbol: string }>>({});
 
   useEffect(() => {
     if (!publicKey || !connected) return;
@@ -66,16 +67,16 @@ export default function HomePage() {
             };
           }
 
-          if (metadataCache[token.mint]) {
-            return { ...token, symbol: metadataCache[token.mint].symbol, logoURI: undefined };
+          if (metadataCache.current[token.mint]) {
+            return { ...token, symbol: metadataCache.current[token.mint].symbol, logoURI: undefined };
           }
-
+          
           const meta = await fetchTokenMetadata(token.mint);
-          metadataCache[token.mint] = { symbol: meta?.symbol || token.mint.slice(0, 4) };
+          metadataCache.current[token.mint] = { symbol: meta?.symbol || token.mint.slice(0, 4) };          
 
           return {
             ...token,
-            symbol: metadataCache[token.mint].symbol,
+            symbol: metadataCache.current[token.mint].symbol,
             logoURI: undefined
           };
         }));
