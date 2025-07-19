@@ -66,25 +66,34 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
   }, []);
 
   const handlePrepareConfirm = async () => {
-    if (!publicKey || !amountInput) return;
+    if (!publicKey || !amountInput) {
+      console.log('❌ Missing wallet or amount input');
+      return;
+    }
     const amountToSend = parseFloat(amountInput);
-    if (isNaN(amountToSend) || amountToSend <= 0) return;
+    if (isNaN(amountToSend) || amountToSend <= 0) {
+      console.log('❌ Invalid amount input');
+      return;
+    }
   
     try {
       setLoading(true);
+      console.log('🔍 Fetching USD Value for', token.symbol, 'Amount:', amountToSend);
+  
       const { usdValue, sources } = await getUsdValue(token, amountToSend);
       console.log('🧮 USD Value:', usdValue, 'Sources:', sources);
   
       setUsdValue(usdValue);
-      setPriceSources(sources); // artık komple obje array
+      setPriceSources(sources);
       setConfirmModalOpen(true);
     } catch (err) {
-      console.error('❌ Error preparing confirm modal:', err);
+      console.error('❌ Error in handlePrepareConfirm:', err);
       alert('❌ Failed to prepare confirmation. Check console.');
     } finally {
       setLoading(false);
     }
   };
+  
   const [tokenStatusData, setTokenStatusData] = useState<{
     status: 'whitelist' | 'blacklist' | 'redlist' | 'deadcoin' | 'unknown';
     redlistDate?: string;
