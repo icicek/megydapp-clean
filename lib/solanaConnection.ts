@@ -1,6 +1,7 @@
-import { Connection } from '@solana/web3.js';
+import { Connection, clusterApiUrl } from '@solana/web3.js';
 
-export const connection = new Connection(
-  'https://mainnet.helius-rpc.com/?api-key=c43783fe-2860-4a7d-b835-aab54c98ccf0',
-  'confirmed'
-);
+// Option 1: Solana resmi public RPC
+export const connection = new Connection(clusterApiUrl('mainnet-beta'), 'confirmed');
+
+// Option 2: Direkt public RPC adresi (alternatif)
+// export const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
