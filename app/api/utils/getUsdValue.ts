@@ -1,4 +1,6 @@
 import pythMapping from './pythMapping.json';
+import NodeCache from 'node-cache';
+import { PublicKey } from '@solana/web3.js';
 
 interface TokenInfo {
   mint: string;
@@ -10,10 +12,19 @@ interface PriceResult {
   source: string;
 }
 
+const cache = new NodeCache({ stdTTL: 1800 }); // 30 dakika cache süresi
+
 export default async function getUsdValue(
   token: TokenInfo,
   amount: number
 ): Promise<{ usdValue: number; sources: PriceResult[]; usedPrice: number }> {
+  const cacheKey = `price_${token.mint}`;
+  const cached = cache.get<{ prices: PriceResult[] }>(cacheKey);
+  if (cached) {
+    console.log(`⚡ Cache hit for ${token.mint}`);
+    return calculateFinalPrice(cached.prices, amount);
+  }
+
   const prices: PriceResult[] = [];
 
   // 1️⃣ CoinGecko
@@ -26,8 +37,8 @@ export default async function getUsdValue(
     const res = await fetch(coingeckoUrl);
     const json = await res.json();
     const price = isSol
-  ? json?.solana?.usd
-  : Object.values(json).length > 0 ? (Object.values(json)[0] as any)?.usd : undefined;
+      ? json?.solana?.usd
+      : Object.values(json).length > 0 ? (Object.values(json)[0] as any)?.usd : undefined;
 
     if (price) {
       prices.push({ price, source: 'CoinGecko' });
@@ -56,12 +67,20 @@ export default async function getUsdValue(
     console.warn('⚠️ Pyth Network failed:', e);
   }
 
-  // 4️⃣ DEX Pool (Orca)
+  // 4️⃣ Orca DEX
   try {
     const dexPrice = await getDexPoolPrice(token.mint);
-    if (dexPrice) prices.push({ price: dexPrice, source: 'DEX Pool' });
+    if (dexPrice) prices.push({ price: dexPrice, source: 'Orca DEX' });
   } catch (e) {
     console.warn('⚠️ DEX Pool API failed:', e);
+  }
+
+  // 5️⃣ Raydium
+  try {
+    const raydiumPrice = await getRaydiumPrice(token.mint);
+    if (raydiumPrice) prices.push({ price: raydiumPrice, source: 'Raydium' });
+  } catch (err) {
+    console.warn('⚠️ Raydium fetch failed:', err);
   }
 
   if (prices.length === 0) {
@@ -69,6 +88,7 @@ export default async function getUsdValue(
     return { usdValue: 0, sources: [], usedPrice: 0 };
   }
 
+  cache.set(cacheKey, { prices });
   return calculateFinalPrice(prices, amount);
 }
 
@@ -124,7 +144,7 @@ async function getPythPrice(mint: string): Promise<number | null> {
 }
 
 //
-// -------- DEX Pool Price Fetching --------
+// -------- Orca DEX Pool Price Fetching --------
 //
 async function getDexPoolPrice(mint: string): Promise<number | null> {
   try {
@@ -141,6 +161,23 @@ async function getDexPoolPrice(mint: string): Promise<number | null> {
     return null;
   } catch (e) {
     console.error('❌ Error fetching DEX pool price:', e);
+    return null;
+  }
+}
+
+//
+// -------- Raydium Price Fetching --------
+//
+async function getRaydiumPrice(mint: string): Promise<number | null> {
+  try {
+    const res = await fetch('https://api.raydium.io/pairs');
+    const json = await res.json();
+    const pool = json?.data?.find((p: any) =>
+      p.baseMint === mint || p.quoteMint === mint
+    );
+    return pool ? parseFloat(pool.price) : null;
+  } catch (e) {
+    console.error('❌ Error fetching Raydium price:', e);
     return null;
   }
 }
