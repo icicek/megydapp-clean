@@ -9,9 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@metaplex-foundation/js": "^0.20.1",
     "@neondatabase/serverless": "^1.0.0",
     "@radix-ui/react-dialog": "^1.1.14",
     "@solana/spl-token": "^0.4.13",
+    "@solana/spl-token-registry": "^0.2.4574",
     "@solana/wallet-adapter-react-ui": "^0.9.38",
     "@solana/wallet-adapter-wallets": "^0.19.36",
     "@vercel/postgres": "^0.10.0",

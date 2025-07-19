@@ -13,6 +13,7 @@ import {
   SystemProgram,
 } from '@solana/web3.js';
 import { connection } from '@/lib/solanaConnection';
+import { Metaplex } from '@metaplex-foundation/js';
 import CoincarnationResult from '@/components/CoincarnationResult';
 import getUsdValue from '@/app/api/utils/getUsdValue';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -22,6 +23,24 @@ async function getTokenDecimals(mintAddress: string): Promise<number> {
   const mintPublicKey = new PublicKey(mintAddress);
   const mintInfo = await getMint(connection, mintPublicKey);
   return mintInfo.decimals;
+}
+
+async function fetchTokenMetadata(mintAddress: string): Promise<{ symbol: string; name: string } | null> {
+  try {
+    const mintPublicKey = new PublicKey(mintAddress);
+    const metadata = await metaplex.nfts().findByMint({ mintAddress: mintPublicKey });
+    
+    if (metadata) {
+      return {
+        symbol: metadata.symbol,
+        name: metadata.name
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error('❌ Failed to fetch Metaplex metadata:', err);
+    return null;
+  }
 }
 
 interface TokenInfo {
@@ -39,6 +58,7 @@ interface CoincarneModalProps {
 }
 
 const COINCARNATION_DEST = new PublicKey('HPBNVF9ATsnkDhGmQB4xoLC5tWBWQbTyBjsiQAN3dYXH');
+const metaplex = Metaplex.make(connection);
 
 export default function CoincarneModal({ token, onClose, refetchTokens, onGoToProfileRequest }: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
@@ -220,7 +240,13 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
   
       const json = await res.json();
       const userNumber = json?.number ?? 0;
-      const tokenSymbol = token.symbol || token.mint.slice(0, 4);
+      let tokenSymbol = token.symbol;
+
+      if (!tokenSymbol) {
+        const metadata = await fetchTokenMetadata(token.mint);
+        tokenSymbol = metadata?.symbol || token.mint.slice(0, 4);
+      }
+
       const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbol}.png`;
   
       setResultData({ tokenFrom: tokenSymbol, number: userNumber, imageUrl });
