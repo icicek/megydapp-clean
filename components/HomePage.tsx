@@ -25,6 +25,7 @@ export default function HomePage() {
   const { publicKey, connected } = useWallet();
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
+  const [resetTokenSelection, setResetTokenSelection] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [globalStats, setGlobalStats] = useState({
     totalUsd: 0,
@@ -95,6 +96,7 @@ export default function HomePage() {
       setSelectedToken(token);
       setShowModal(true);
     }
+    setResetTokenSelection(true);
   };
 
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
@@ -141,12 +143,18 @@ export default function HomePage() {
         <p className="text-xs text-gray-400 text-left mb-2">Walking Deadcoins, Memecoins, deadcoins...</p>
 
         {publicKey ? (
-          <select className="w-full bg-gray-800 text-white p-3 rounded mb-4 border border-gray-600" defaultValue="" onChange={handleSelectChange}>
-            <option value="" disabled>👉 Select a token to Coincarnate</option>
-            {tokens.map((token, idx) => (
-              <option key={idx} value={token.mint}>{token.symbol || token.mint.slice(0, 4)} — {token.amount.toFixed(4)}</option>
-            ))}
-          </select>
+          <select
+          className="w-full bg-gray-800 text-white p-3 rounded mb-4 border border-gray-600"
+          value={resetTokenSelection ? "" : selectedToken?.mint || ""}
+          onChange={handleSelectChange}
+        >
+          <option value="" disabled>👉 Select a token to Coincarnate</option>
+          {tokens.map((token, idx) => (
+            <option key={idx} value={token.mint}>
+              {token.symbol || token.mint.slice(0, 4)} — {token.amount.toFixed(4)}
+            </option>
+          ))}
+        </select>        
         ) : (
           <p className="text-gray-400">Connect your wallet to see your tokens.</p>
         )}
@@ -183,13 +191,14 @@ export default function HomePage() {
 
       {showModal && selectedToken && (
         <CoincarneModal
-          token={selectedToken}
-          onClose={() => {
-            setSelectedToken(null);
-            setShowModal(false);
-          }}
-          onGoToProfileRequest={() => window.location.href = '/profile'}
-        />
+        token={selectedToken}
+        onClose={() => {
+          setSelectedToken(null);
+          setShowModal(false);
+          setResetTokenSelection(false);
+        }}
+        onGoToProfileRequest={() => window.location.href = '/profile'}
+      />      
       )}
 
       {publicKey && (
