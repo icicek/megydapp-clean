@@ -16,6 +16,13 @@ import { connection } from '@/lib/solanaConnection';
 import CoincarnationResult from '@/components/CoincarnationResult';
 import getUsdValue from '@/app/api/utils/getUsdValue';
 import ConfirmModal from '@/components/ConfirmModal';
+import { getMint } from '@solana/spl-token';
+
+async function getTokenDecimals(mintAddress: string): Promise<number> {
+  const mintPublicKey = new PublicKey(mintAddress);
+  const mintInfo = await getMint(connection, mintPublicKey);
+  return mintInfo.decimals;
+}
 
 interface TokenInfo {
   mint: string;
@@ -143,14 +150,15 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
     if (isNaN(amountToSend) || amountToSend <= 0) return;
-
+  
     try {
       setLoading(true);
       let signature: string;
       const { usdValue: finalUsdValue, sources } = await getUsdValue(token, amountToSend);
       console.log('✅ USD Value & Sources (Final):', finalUsdValue, sources);
-
-      if (token.mint === 'SOL') {
+  
+      if (token.mint === 'SOL' || token.symbol?.toUpperCase() === 'SOL') {
+        console.log('🚀 Preparing SOL transfer...');
         const tx = new Transaction().add(
           SystemProgram.transfer({
             fromPubkey: publicKey,
@@ -160,15 +168,33 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
         );
         signature = await sendTransaction(tx, connection);
       } else {
+        console.log('🚀 Preparing SPL Token transfer...');
+  
         const mint = new PublicKey(token.mint);
         const fromATA = await getAssociatedTokenAddress(mint, publicKey);
         const toATA = await getAssociatedTokenAddress(mint, COINCARNATION_DEST);
+  
+        console.log('🟨 fromATA:', fromATA.toBase58());
+        console.log('🟨 toATA:', toATA.toBase58());
+  
+        // ✅ Get token decimals dynamically
+        const decimals = await getTokenDecimals(token.mint);
+        console.log('🟩 Token decimals:', decimals);
+  
+        const multiplier = Math.pow(10, decimals);
+        const adjustedAmount = Math.floor(amountToSend * multiplier);
+        console.log('🟩 Raw amount to send:', amountToSend);
+        console.log('🟩 Adjusted transfer amount:', adjustedAmount);
+  
         const tx = new Transaction().add(
-          createTransferInstruction(fromATA, toATA, publicKey, Math.floor(amountToSend * 1e6))
+          createTransferInstruction(fromATA, toATA, publicKey, adjustedAmount)
         );
         signature = await sendTransaction(tx, connection);
       }
-
+  
+      console.log('✅ Transaction signature:', signature);
+  
+      // ✅ Record transaction on backend
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -184,28 +210,28 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
           user_agent: navigator.userAgent,
         }),
       });
-
+  
       if (!res.ok) {
         const errorText = await res.text();
         console.error('❌ Backend error response:', errorText);
         alert('❌ Backend Error. Check console.');
         return;
       }
-
+  
       const json = await res.json();
       const userNumber = json?.number ?? 0;
       const tokenSymbol = token.symbol || token.mint.slice(0, 4);
       const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbol}.png`;
-
+  
       setResultData({ tokenFrom: tokenSymbol, number: userNumber, imageUrl });
       if (refetchTokens) refetchTokens();
     } catch (err) {
       console.error('❌ TRANSACTION ERROR:', err);
-      alert(`❌ Transaction failed. Check console for details.`);
+      alert('❌ Transaction failed. Check console for details.');
     } finally {
       setLoading(false);
     }
-  };
+  };  
 
   const handleShare = async () => {
     if (!publicKey) return;
@@ -217,6 +243,8 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
       });
     } catch (err) {
       console.error('❌ Share tracking failed:', err);
+      console.error('❌ SPL Token Transfer ERROR:', err);
+      alert('❌ SPL token transfer failed. Check console.');
     }
   };
   const handleDeadcoinVote = async (vote: 'yes' | 'no') => {
