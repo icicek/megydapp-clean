@@ -244,10 +244,11 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
       <ConfirmModal
         tokenSymbol={token.symbol || token.mint.slice(0, 4)}
         usdValue={usdValue}
-        sources={priceSources} // 👈 eklenen ve düzelen prop
+        sources={priceSources}
         onConfirm={handleConfirmCoincarne}
         onCancel={() => setConfirmModalOpen(false)}
-        onDeadcoinVote={handleDeadcoinVote} // 👈 yeni prop
+        onDeadcoinVote={handleDeadcoinVote}
+        open={confirmModalOpen}
       />
 
       <Dialog open onOpenChange={onClose}>
