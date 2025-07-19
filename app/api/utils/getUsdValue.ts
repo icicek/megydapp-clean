@@ -10,22 +10,27 @@ interface PriceResult {
   source: string;
 }
 
-export default async function getUsdValue(token: TokenInfo, amount: number): Promise<{ usdValue: number, sources: PriceResult[], usedPrice: number }> {
+export default async function getUsdValue(
+  token: TokenInfo,
+  amount: number
+): Promise<{ usdValue: number; sources: PriceResult[]; usedPrice: number }> {
   const prices: PriceResult[] = [];
 
   // 1️⃣ CoinGecko
   try {
     const isSol = token.symbol?.toUpperCase() === 'SOL' || token.mint === 'So11111111111111111111111111111111111111112';
-    if (isSol) {
-      const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd`);
-      const json = await res.json();
-      const price = json?.solana?.usd;
-      if (price) prices.push({ price, source: 'CoinGecko' });
-    } else {
-      const res = await fetch(`https://api.coingecko.com/api/v3/simple/token_price/solana?contract_addresses=${token.mint}&vs_currencies=usd`);
-      const json = await res.json();
-      const priceData = Object.values(json)[0] as { usd?: number };
-      if (priceData?.usd) prices.push({ price: priceData.usd, source: 'CoinGecko' });
+    const coingeckoUrl = isSol
+      ? `https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd`
+      : `https://api.coingecko.com/api/v3/simple/token_price/solana?contract_addresses=${token.mint}&vs_currencies=usd`;
+    
+    const res = await fetch(coingeckoUrl);
+    const json = await res.json();
+    const price = isSol
+  ? json?.solana?.usd
+  : Object.values(json).length > 0 ? (Object.values(json)[0] as any)?.usd : undefined;
+
+    if (price) {
+      prices.push({ price, source: 'CoinGecko' });
     }
   } catch (e) {
     console.warn('⚠️ CoinGecko API failed:', e);
@@ -48,64 +53,52 @@ export default async function getUsdValue(token: TokenInfo, amount: number): Pro
     const pythPrice = await getPythPrice(token.mint);
     if (pythPrice) prices.push({ price: pythPrice, source: 'Pyth Network' });
   } catch (e) {
-    console.warn('⚠️ Pyth price fetch failed:', e);
+    console.warn('⚠️ Pyth Network failed:', e);
   }
 
-  // 4️⃣ DEX Pool
+  // 4️⃣ DEX Pool (Orca)
   try {
     const dexPrice = await getDexPoolPrice(token.mint);
     if (dexPrice) prices.push({ price: dexPrice, source: 'DEX Pool' });
   } catch (e) {
-    console.warn('⚠️ DEX pool price fetch failed:', e);
+    console.warn('⚠️ DEX Pool API failed:', e);
   }
 
   if (prices.length === 0) {
-    console.warn(`⚠️ No price sources available for ${token.symbol || token.mint}.`);
+    console.warn(`⚠️ No prices found for ${token.symbol || token.mint}`);
     return { usdValue: 0, sources: [], usedPrice: 0 };
   }
 
-  // ✅ Median hesapla
-  const sortedPrices = [...prices].sort((a, b) => a.price - b.price);
-  const mid = Math.floor(sortedPrices.length / 2);
-  const median = sortedPrices.length % 2 !== 0
-    ? sortedPrices[mid].price
-    : (sortedPrices[mid - 1].price + sortedPrices[mid].price) / 2;
+  return calculateFinalPrice(prices, amount);
+}
 
-  console.log('📊 All prices:', prices);
-  console.log('📊 Calculated median:', median);
+//
+// -------- Price Calculation Helper --------
+//
+function calculateFinalPrice(prices: PriceResult[], amount: number) {
+  const sorted = [...prices].sort((a, b) => a.price - b.price);
+  const mid = Math.floor(sorted.length / 2);
+  const median =
+    sorted.length % 2 !== 0
+      ? sorted[mid].price
+      : (sorted[mid - 1].price + sorted[mid].price) / 2;
 
-  // ✅ %5 sapma kontrolü
-  let acceptedPrices = prices.filter(p => {
-    const diffPercent = Math.abs((p.price - median) / median) * 100;
-    return diffPercent <= 5;
+  console.log('📊 Prices:', prices);
+  console.log('📊 Median price:', median);
+
+  const accepted = prices.filter((p) => {
+    const diff = Math.abs((p.price - median) / median) * 100;
+    return diff <= 5;
   });
 
-  if (acceptedPrices.length >= 3) {
-    acceptedPrices = acceptedPrices.filter(p => {
-      const diffPercent = Math.abs((p.price - median) / median) * 100;
-      return diffPercent <= 5;
-    });
-  }
+  const finalPrices = accepted.length > 0 ? accepted : prices;
+  const avgPrice = finalPrices.reduce((sum, p) => sum + p.price, 0) / finalPrices.length;
 
-  if (acceptedPrices.length === 0) {
-    console.warn('⚠️ All prices deviated >5%. Using source priority fallback.');
-    const priority = ['CoinGecko', 'Pyth Network', 'Jupiter', 'DEX Pool'];
-    for (const source of priority) {
-      const found = prices.find(p => p.source === source);
-      if (found) {
-        return { usdValue: amount * found.price, sources: [found], usedPrice: found.price };
-      }
-    }
-    return { usdValue: 0, sources: [], usedPrice: 0 };
-  }
-
-  const avgPrice = acceptedPrices.reduce((sum, p) => sum + p.price, 0) / acceptedPrices.length;
   console.log('✅ Final average price:', avgPrice);
-
   return {
     usdValue: amount * avgPrice,
-    sources: acceptedPrices,
-    usedPrice: avgPrice
+    sources: finalPrices,
+    usedPrice: avgPrice,
   };
 }
 
@@ -115,27 +108,15 @@ export default async function getUsdValue(token: TokenInfo, amount: number): Pro
 async function getPythPrice(mint: string): Promise<number | null> {
   const feedId = (pythMapping as Record<string, string>)[mint];
   if (!feedId) {
-    console.info(`ℹ️ No Pyth price feed mapped for token mint: ${mint}. Skipping Pyth.`);
+    console.info(`ℹ️ No Pyth price feed for mint: ${mint}`);
     return null;
   }
 
   try {
     const res = await fetch(`https://hermes.pyth.network/v2/price_feed_ids/${feedId}`);
-    if (!res.ok) {
-      console.error(`❌ Pyth API returned status ${res.status} for mint: ${mint}`);
-      return null;
-    }
-
     const data = await res.json();
     const price = data?.price?.price;
-
-    if (price) {
-      console.log(`✅ Pyth price for mint ${mint}: ${price}`);
-      return price;
-    } else {
-      console.warn(`⚠️ No price found in Pyth data for mint: ${mint}`);
-      return null;
-    }
+    return price ?? null;
   } catch (e) {
     console.error('❌ Error fetching Pyth price:', e);
     return null;
@@ -153,15 +134,10 @@ async function getDexPoolPrice(mint: string): Promise<number | null> {
     for (const pool of json.pools) {
       const tokenA = pool.tokenA.mint;
       const tokenB = pool.tokenB.mint;
-
       if (tokenA === mint || tokenB === mint) {
-        const price = pool.price;
-        console.log(`✅ DEX Pool price for mint ${mint}: ${price}`);
-        return price;
+        return pool.price;
       }
     }
-
-    console.warn(`⚠️ No DEX pool found for mint: ${mint}`);
     return null;
   } catch (e) {
     console.error('❌ Error fetching DEX pool price:', e);

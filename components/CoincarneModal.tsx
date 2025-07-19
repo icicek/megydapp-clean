@@ -46,7 +46,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [usdValue, setUsdValue] = useState<number>(0);
-  const [priceSources, setPriceSources] = useState<string[]>([]);
+  const [priceSources, setPriceSources] = useState<{ price: number; source: string }[]>([]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -65,26 +65,24 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     }
   }, []);
 
-  const handlePercentage = (percent: number) => {
-    const calculated = (token.amount * percent) / 100;
-    setAmountInput(calculated.toFixed(6));
-  };
-
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
     if (isNaN(amountToSend) || amountToSend <= 0) return;
-
+  
     try {
+      setLoading(true);
       const { usdValue, sources } = await getUsdValue(token, amountToSend);
-      console.log('🧮 Confirm Modal Data:', usdValue, sources);
-
+      console.log('🧮 USD Value:', usdValue, 'Sources:', sources);
+  
       setUsdValue(usdValue);
-      setPriceSources(sources.map((s) => s.source));
-      setConfirmModalOpen(true);(true);
+      setPriceSources(sources); // artık komple obje array
+      setConfirmModalOpen(true);
     } catch (err) {
       console.error('❌ Error preparing confirm modal:', err);
       alert('❌ Failed to prepare confirmation. Check console.');
+    } finally {
+      setLoading(false);
     }
   };
   const [tokenStatusData, setTokenStatusData] = useState<{
@@ -125,6 +123,10 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     } finally {
       setLoading(false);
     }
+  };
+  const handlePercentage = (percent: number) => {
+    const calculated = (token.amount * percent) / 100;
+    setAmountInput(calculated.toFixed(6));
   };  
 
   const handleSend = async () => {
@@ -208,19 +210,35 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
       console.error('❌ Share tracking failed:', err);
     }
   };
+  const handleDeadcoinVote = async (vote: 'yes' | 'no') => {
+    if (!publicKey) return;
+    try {
+      await fetch('/api/deadcoin/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wallet: publicKey.toBase58(),
+          tokenMint: token.mint,
+          vote
+        }),
+      });
+      console.log(`✅ Deadcoin vote submitted: ${vote}`);
+      alert(`Thank you! Your vote "${vote}" has been recorded.`);
+    } catch (err) {
+      console.error('❌ Deadcoin vote failed:', err);
+      alert('❌ Failed to record your vote. Please try again.');
+    }
+  };  
 
   return (
     <>
       <ConfirmModal
-        open={confirmModalOpen}
         tokenSymbol={token.symbol || token.mint.slice(0, 4)}
-        amount={parseFloat(amountInput) || 0}
         usdValue={usdValue}
-        priceSources={priceSources}
-        tokenStatus={tokenStatusData.status}
-        redlistDate={tokenStatusData.redlistDate}
+        sources={priceSources} // 👈 eklenen ve düzelen prop
         onConfirm={handleConfirmCoincarne}
         onCancel={() => setConfirmModalOpen(false)}
+        onDeadcoinVote={handleDeadcoinVote} // 👈 yeni prop
       />
 
       <Dialog open onOpenChange={onClose}>
