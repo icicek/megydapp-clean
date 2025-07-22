@@ -1,5 +1,3 @@
-// Güncellenmiş HomePage bileşeni (stat kutuları swap alanının altında ve blur + border efekti ile)
-
 "use client";
 
 import { useEffect, useState } from 'react';
@@ -154,23 +152,22 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* İstatistik kutuları swap alanının altında */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 my-6 w-full max-w-5xl">
-        <div className="bg-blue-800 bg-opacity-50 backdrop-blur-md border border-blue-300 p-3 rounded-lg text-center">
-          <p className="text-sm text-gray-300">Total Participants</p>
-          <p className="text-lg font-bold">{globalStats.totalParticipants}</p>
+        <div className="bg-blue-800 bg-opacity-60 backdrop-blur-lg border-2 border-blue-400 p-4 rounded-lg text-center">
+          <p className="text-sm text-gray-200">Total Participants</p>
+          <p className="text-lg font-bold text-white">{globalStats.totalParticipants}</p>
         </div>
-        <div className="bg-green-800 bg-opacity-50 backdrop-blur-md border border-green-300 p-3 rounded-lg text-center">
-          <p className="text-sm text-gray-300">Total USD Revived</p>
-          <p className="text-lg font-bold">${globalStats.totalUsd.toFixed(2)}</p>
+        <div className="bg-green-800 bg-opacity-60 backdrop-blur-lg border-2 border-green-400 p-4 rounded-lg text-center">
+          <p className="text-sm text-gray-200">Total USD Revived</p>
+          <p className="text-lg font-bold text-white">${globalStats.totalUsd.toFixed(2)}</p>
         </div>
-        <div className="bg-pink-800 bg-opacity-50 backdrop-blur-md border border-pink-300 p-3 rounded-lg text-center">
-          <p className="text-sm text-gray-300">Unique Deadcoins</p>
-          <p className="text-lg font-bold">{globalStats.uniqueDeadcoins}</p>
+        <div className="bg-pink-800 bg-opacity-60 backdrop-blur-lg border-2 border-pink-400 p-4 rounded-lg text-center">
+          <p className="text-sm text-gray-200">Unique Deadcoins</p>
+          <p className="text-lg font-bold text-white">{globalStats.uniqueDeadcoins}</p>
         </div>
-        <div className="bg-purple-800 bg-opacity-50 backdrop-blur-md border border-purple-300 p-3 rounded-lg text-center">
-          <p className="text-sm text-gray-300">Most Popular Deadcoin</p>
-          <p className="text-lg font-bold">{globalStats.mostPopularDeadcoin}</p>
+        <div className="bg-purple-800 bg-opacity-60 backdrop-blur-lg border-2 border-purple-400 p-4 rounded-lg text-center">
+          <p className="text-sm text-gray-200">Most Popular Deadcoin</p>
+          <p className="text-lg font-bold text-white">{globalStats.mostPopularDeadcoin}</p>
         </div>
       </div>
 
