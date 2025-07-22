@@ -23,6 +23,8 @@ export default function HomePage() {
   const [globalStats, setGlobalStats] = useState({
     totalUsd: 0,
     totalParticipants: 0,
+    uniqueDeadcoins: 0,
+    mostPopularDeadcoin: '',
   });
   const [userContribution, setUserContribution] = useState(0);
 
@@ -67,7 +69,7 @@ export default function HomePage() {
         const globalData = await globalRes.json();
         const userData = await userRes.json();
 
-        console.log('📊 Global Stats API Response:', JSON.stringify(globalData, null, 2));
+        console.log('📊 Global Stats API Response:', globalData);
 
         if (globalData.success) setGlobalStats(globalData);
         if (userData.success) setUserContribution(userData.data.total_usd_contributed);
@@ -147,6 +149,13 @@ export default function HomePage() {
           </div>
 
           <p className="text-sm text-gray-300 mt-2 text-left">🌍 Your personal contribution to the Fair Future Fund (% of total)</p>
+        </div>
+
+        <div className="bg-gray-800 text-white p-4 rounded-xl mt-6 space-y-1">
+          <p>🌍 Total Participants: {globalStats.totalParticipants}</p>
+          <p>💰 Total USD Revived: ${globalStats.totalUsd.toFixed(2)}</p>
+          <p>💀 Unique Deadcoins: {globalStats.uniqueDeadcoins}</p>
+          <p>🔥 Most Popular Deadcoin: {globalStats.mostPopularDeadcoin}</p>
         </div>
       </div>
 
