@@ -151,11 +151,24 @@ export default function HomePage() {
           <p className="text-sm text-gray-300 mt-2 text-left">🌍 Your personal contribution to the Fair Future Fund (% of total)</p>
         </div>
 
-        <div className="bg-gray-800 text-white p-4 rounded-xl mt-6 space-y-1">
-          <p>🌍 Total Participants: {globalStats.totalParticipants}</p>
-          <p>💰 Total USD Revived: ${globalStats.totalUsd.toFixed(2)}</p>
-          <p>💀 Unique Deadcoins: {globalStats.uniqueDeadcoins}</p>
-          <p>🔥 Most Popular Deadcoin: {globalStats.mostPopularDeadcoin}</p>
+        {/* İstatistik kutuları */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 my-6">
+          <div className="bg-blue-800 p-3 rounded-lg text-center">
+            <p className="text-sm text-gray-300">Total Participants</p>
+            <p className="text-lg font-bold">{globalStats.totalParticipants}</p>
+          </div>
+          <div className="bg-green-800 p-3 rounded-lg text-center">
+            <p className="text-sm text-gray-300">Total USD Revived</p>
+            <p className="text-lg font-bold">${globalStats.totalUsd.toFixed(2)}</p>
+          </div>
+          <div className="bg-pink-800 p-3 rounded-lg text-center">
+            <p className="text-sm text-gray-300">Unique Deadcoins</p>
+            <p className="text-lg font-bold">{globalStats.uniqueDeadcoins}</p>
+          </div>
+          <div className="bg-purple-800 p-3 rounded-lg text-center">
+            <p className="text-sm text-gray-300">Most Popular Deadcoin</p>
+            <p className="text-lg font-bold">{globalStats.mostPopularDeadcoin}</p>
+          </div>
         </div>
       </div>
 
