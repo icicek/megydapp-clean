@@ -67,6 +67,8 @@ export default function HomePage() {
         const globalData = await globalRes.json();
         const userData = await userRes.json();
 
+        console.log('📊 Global Stats API Response:', globalData);
+
         if (globalData.success) setGlobalStats(globalData);
         if (userData.success) setUserContribution(userData.data.total_usd_contributed);
       } catch (err) {
