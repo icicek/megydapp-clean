@@ -7,14 +7,14 @@ interface PriceSource {
 }
 
 interface ConfirmModalProps {
-    tokenSymbol: string;
-    usdValue: number;
-    sources: PriceSource[];
-    onConfirm: () => void;
-    onCancel: () => void;
-    onDeadcoinVote: (vote: 'yes' | 'no') => void;
-    open: boolean; // ✅ eksik olan buydu
-  }  
+  tokenSymbol: string;
+  usdValue: number;
+  sources: PriceSource[];
+  onConfirm: () => void;
+  onCancel: () => void;
+  onDeadcoinVote: (vote: 'yes' | 'no') => void;
+  open: boolean;
+}
 
 export default function ConfirmModal({
   tokenSymbol,
@@ -26,10 +26,12 @@ export default function ConfirmModal({
   open
 }: ConfirmModalProps) {
   const [deadcoinVoted, setDeadcoinVoted] = useState(false);
+  const [voteMessage, setVoteMessage] = useState('');
 
   const handleDeadcoinVote = (vote: 'yes' | 'no') => {
     setDeadcoinVoted(true);
     onDeadcoinVote(vote);
+    setVoteMessage('✅ Thank you! Your vote has been recorded.');
   };
 
   return (
@@ -59,7 +61,9 @@ export default function ConfirmModal({
               </div>
             )}
             {deadcoinVoted && (
-              <p className="mt-2 text-sm italic">Thank you, your vote has been recorded.</p>
+              <div className="mt-3 p-2 bg-green-100 text-green-800 rounded font-semibold text-center">
+                {voteMessage}
+              </div>
             )}
           </div>
         ) : (

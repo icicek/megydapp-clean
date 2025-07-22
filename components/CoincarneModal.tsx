@@ -18,6 +18,7 @@ import CoincarnationResult from '@/components/CoincarnationResult';
 import getUsdValue from '@/app/api/utils/getUsdValue';
 import ConfirmModal from '@/components/ConfirmModal';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
+import { isValuableAsset, isStablecoin } from '@/app/api/utils/isValuableAsset';
 
 interface TokenInfo {
   mint: string;
@@ -43,7 +44,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [usdValue, setUsdValue] = useState(0);
   const [priceSources, setPriceSources] = useState<{ price: number; source: string }[]>([]);
-  const [voteMessage, setVoteMessage] = useState<string | null>(null);
+  const [isValuable, setIsValuable] = useState(false);
 
   useEffect(() => {
     if (!token.symbol) {
@@ -55,26 +56,6 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     }
   }, [token]);
 
-  const handleDeadcoinVote = async (vote: 'yes' | 'no') => {
-    if (!publicKey) return;
-    try {
-      await fetch('/api/deadcoin/vote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          wallet: publicKey.toBase58(),
-          tokenMint: token.mint,
-          vote
-        }),
-      });
-      console.log(`✅ Deadcoin vote submitted: ${vote}`);
-      setVoteMessage('✅ Thank you! Your vote has been recorded.');
-    } catch (err) {
-      console.error('❌ Deadcoin vote failed:', err);
-      setVoteMessage('❌ Failed to record your vote. Please try again.');
-    }
-  };
-
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
@@ -85,6 +66,15 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
       const { usdValue, sources } = await getUsdValue(token, amountToSend);
       setUsdValue(usdValue);
       setPriceSources(sources);
+
+      // Değer kontrolü
+      const unitPrice = usdValue / amountToSend;
+      if (isValuableAsset(unitPrice) || isStablecoin(unitPrice)) {
+        setIsValuable(true);
+      } else {
+        setIsValuable(false);
+      }
+
       setConfirmModalOpen(true);
     } catch (err) {
       console.error('❌ Error preparing confirmation:', err);
@@ -170,7 +160,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
         sources={priceSources}
         onConfirm={handleSend}
         onCancel={() => setConfirmModalOpen(false)}
-        onDeadcoinVote={handleDeadcoinVote}
+        onDeadcoinVote={() => {}}
         open={confirmModalOpen}
       />
 
@@ -178,12 +168,6 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" />
         <DialogContent className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full">
           <DialogTitle className="sr-only">Coincarnation Modal</DialogTitle>
-
-          {voteMessage && (
-            <div className="bg-blue-100 text-blue-800 p-2 rounded mb-3 text-center">
-              {voteMessage}
-            </div>
-          )}
 
           {resultData ? (
             <CoincarnationResult
@@ -233,7 +217,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
                 disabled={loading || !amountInput}
                 className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 text-black font-extrabold py-3 rounded-xl"
               >
-                {loading ? '🔥 Coincarnating...' : `🚀 Coincarne ${token.symbol || 'Token'} Now`}
+                {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate ${token.symbol || 'Token'} Now`}
               </button>
 
               <button
@@ -241,7 +225,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
                 className="mt-3 w-full text-sm text-red-500 hover:text-white"
                 disabled={loading}
               >
-                ❌ Not Interested
+                ❌ Not Interested in Global Synergy 
               </button>
             </>
           )}

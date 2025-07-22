@@ -12,7 +12,7 @@ interface PriceResult {
   source: string;
 }
 
-const cache = new NodeCache({ stdTTL: 1800 }); // 30 dakika cache süresi
+const cache = new NodeCache({ stdTTL: 1800 }); // 30 dakika cache
 
 export default async function getUsdValue(
   token: TokenInfo,
@@ -27,13 +27,13 @@ export default async function getUsdValue(
 
   const prices: PriceResult[] = [];
 
-  // 1️⃣ CoinGecko
+  // CoinGecko
   try {
     const isSol = token.symbol?.toUpperCase() === 'SOL' || token.mint === 'So11111111111111111111111111111111111111112';
     const coingeckoUrl = isSol
       ? `https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd`
       : `https://api.coingecko.com/api/v3/simple/token_price/solana?contract_addresses=${token.mint}&vs_currencies=usd`;
-    
+
     const res = await fetch(coingeckoUrl);
     const json = await res.json();
     const price = isSol
@@ -47,7 +47,7 @@ export default async function getUsdValue(
     console.warn('⚠️ CoinGecko API failed:', e);
   }
 
-  // 2️⃣ Jupiter
+  // Jupiter (only if symbol exists)
   if (token.symbol) {
     try {
       const res = await fetch(`https://price.jup.ag/v4/price?ids=${token.symbol}`);
@@ -59,7 +59,7 @@ export default async function getUsdValue(
     }
   }
 
-  // 3️⃣ Pyth Network
+  // Pyth
   try {
     const pythPrice = await getPythPrice(token.mint);
     if (pythPrice) prices.push({ price: pythPrice, source: 'Pyth Network' });
@@ -67,24 +67,24 @@ export default async function getUsdValue(
     console.warn('⚠️ Pyth Network failed:', e);
   }
 
-  // 4️⃣ Orca DEX
+  // Orca
   try {
     const dexPrice = await getDexPoolPrice(token.mint);
     if (dexPrice) prices.push({ price: dexPrice, source: 'Orca DEX' });
   } catch (e) {
-    console.warn('⚠️ DEX Pool API failed:', e);
+    console.warn('⚠️ Orca DEX fetch failed:', e);
   }
 
-  // 5️⃣ Raydium
+  // Raydium
   try {
     const raydiumPrice = await getRaydiumPrice(token.mint);
     if (raydiumPrice) prices.push({ price: raydiumPrice, source: 'Raydium' });
-  } catch (err) {
-    console.warn('⚠️ Raydium fetch failed:', err);
+  } catch (e) {
+    console.warn('⚠️ Raydium fetch failed:', e);
   }
 
   if (prices.length === 0) {
-    console.warn(`⚠️ No prices found for ${token.symbol || token.mint}`);
+    console.warn(`⚠️ No price sources found for ${token.symbol || token.mint}`);
     return { usdValue: 0, sources: [], usedPrice: 0 };
   }
 
@@ -92,29 +92,17 @@ export default async function getUsdValue(
   return calculateFinalPrice(prices, amount);
 }
 
-//
-// -------- Price Calculation Helper --------
-//
 function calculateFinalPrice(prices: PriceResult[], amount: number) {
   const sorted = [...prices].sort((a, b) => a.price - b.price);
   const mid = Math.floor(sorted.length / 2);
-  const median =
-    sorted.length % 2 !== 0
-      ? sorted[mid].price
-      : (sorted[mid - 1].price + sorted[mid].price) / 2;
+  const median = sorted.length % 2 !== 0
+    ? sorted[mid].price
+    : (sorted[mid - 1].price + sorted[mid].price) / 2;
 
-  console.log('📊 Prices:', prices);
-  console.log('📊 Median price:', median);
-
-  const accepted = prices.filter((p) => {
-    const diff = Math.abs((p.price - median) / median) * 100;
-    return diff <= 5;
-  });
-
+  const accepted = prices.filter(p => Math.abs((p.price - median) / median) * 100 <= 5);
   const finalPrices = accepted.length > 0 ? accepted : prices;
   const avgPrice = finalPrices.reduce((sum, p) => sum + p.price, 0) / finalPrices.length;
 
-  console.log('✅ Final average price:', avgPrice);
   return {
     usdValue: amount * avgPrice,
     sources: finalPrices,
@@ -122,62 +110,43 @@ function calculateFinalPrice(prices: PriceResult[], amount: number) {
   };
 }
 
-//
-// -------- Pyth Price Fetching --------
-//
 async function getPythPrice(mint: string): Promise<number | null> {
   const feedId = (pythMapping as Record<string, string>)[mint];
-  if (!feedId) {
-    console.info(`ℹ️ No Pyth price feed for mint: ${mint}`);
-    return null;
-  }
+  if (!feedId) return null;
 
   try {
     const res = await fetch(`https://hermes.pyth.network/v2/price_feed_ids/${feedId}`);
     const data = await res.json();
-    const price = data?.price?.price;
-    return price ?? null;
-  } catch (e) {
-    console.error('❌ Error fetching Pyth price:', e);
+    return data?.price?.price ?? null;
+  } catch {
     return null;
   }
 }
 
-//
-// -------- Orca DEX Pool Price Fetching --------
-//
 async function getDexPoolPrice(mint: string): Promise<number | null> {
   try {
     const res = await fetch('https://api.orca.so/allPools');
     const json = await res.json();
 
     for (const pool of json.pools) {
-      const tokenA = pool.tokenA.mint;
-      const tokenB = pool.tokenB.mint;
-      if (tokenA === mint || tokenB === mint) {
+      if (pool.tokenA.mint === mint || pool.tokenB.mint === mint) {
         return pool.price;
       }
     }
     return null;
-  } catch (e) {
-    console.error('❌ Error fetching DEX pool price:', e);
+  } catch {
     return null;
   }
 }
 
-//
-// -------- Raydium Price Fetching --------
-//
 async function getRaydiumPrice(mint: string): Promise<number | null> {
   try {
     const res = await fetch('https://api.raydium.io/pairs');
     const json = await res.json();
-    const pool = json?.data?.find((p: any) =>
-      p.baseMint === mint || p.quoteMint === mint
-    );
+
+    const pool = json?.data?.find((p: any) => p.baseMint === mint || p.quoteMint === mint);
     return pool ? parseFloat(pool.price) : null;
-  } catch (e) {
-    console.error('❌ Error fetching Raydium price:', e);
+  } catch {
     return null;
   }
 }
