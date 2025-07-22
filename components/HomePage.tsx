@@ -152,22 +152,22 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 my-6 w-full max-w-5xl">
-        <div className="bg-blue-800 bg-opacity-40 backdrop-blur-xl border-2 border-blue-500 p-4 rounded-lg text-center shadow-inner">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 my-6 w-full max-w-5xl">
+        <div className="bg-blue-900 bg-opacity-60 backdrop-blur-2xl border-2 border-blue-500 p-6 rounded-lg text-center shadow-inner h-36">
           <p className="text-sm text-gray-200">Total Participants</p>
-          <p className="text-lg font-bold text-white">{globalStats.totalParticipants}</p>
+          <p className="text-lg font-bold text-white mt-2">{globalStats.totalParticipants}</p>
         </div>
-        <div className="bg-green-800 bg-opacity-40 backdrop-blur-xl border-2 border-green-500 p-4 rounded-lg text-center shadow-inner">
+        <div className="bg-green-900 bg-opacity-60 backdrop-blur-2xl border-2 border-green-500 p-6 rounded-lg text-center shadow-inner h-36">
           <p className="text-sm text-gray-200">Total USD Revived</p>
-          <p className="text-lg font-bold text-white">${globalStats.totalUsd.toFixed(2)}</p>
+          <p className="text-lg font-bold text-white mt-2">${globalStats.totalUsd.toFixed(2)}</p>
         </div>
-        <div className="bg-pink-800 bg-opacity-40 backdrop-blur-xl border-2 border-pink-500 p-4 rounded-lg text-center shadow-inner">
+        <div className="bg-pink-900 bg-opacity-60 backdrop-blur-2xl border-2 border-pink-500 p-6 rounded-lg text-center shadow-inner h-36">
           <p className="text-sm text-gray-200">Unique Deadcoins</p>
-          <p className="text-lg font-bold text-white">{globalStats.uniqueDeadcoins}</p>
+          <p className="text-lg font-bold text-white mt-2">{globalStats.uniqueDeadcoins}</p>
         </div>
-        <div className="bg-purple-800 bg-opacity-40 backdrop-blur-xl border-2 border-purple-500 p-4 rounded-lg text-center shadow-inner">
+        <div className="bg-purple-900 bg-opacity-60 backdrop-blur-2xl border-2 border-purple-500 p-6 rounded-lg text-center shadow-inner h-36">
           <p className="text-sm text-gray-200">Most Popular Deadcoin</p>
-          <p className="text-lg font-bold text-white">{globalStats.mostPopularDeadcoin}</p>
+          <p className="text-lg font-bold text-white mt-2">{globalStats.mostPopularDeadcoin}</p>
         </div>
       </div>
 
