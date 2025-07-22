@@ -7,8 +7,6 @@ import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import CoincarneModal from '@/components/CoincarneModal';
 import { fetchSolanaTokenList } from '@/lib/utils';
 import { connection } from '@/lib/solanaConnection';
-import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
-import { useRef } from 'react';
 
 interface TokenInfo {
   mint: string;
@@ -17,27 +15,16 @@ interface TokenInfo {
   logoURI?: string;
 }
 
-interface TokenMeta {
-  address: string;
-  symbol?: string;
-  logoURI?: string;
-}
-
 export default function HomePage() {
   const { publicKey, connected } = useWallet();
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
-  const [resetTokenSelection, setResetTokenSelection] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [globalStats, setGlobalStats] = useState({
     totalUsd: 0,
     totalParticipants: 0,
-    uniqueDeadcoins: 0,
-    mostPopularDeadcoin: '',
   });
   const [userContribution, setUserContribution] = useState(0);
-
-  const metadataCache = useRef<Record<string, { symbol: string }>>({});
 
   useEffect(() => {
     if (!publicKey || !connected) return;
@@ -53,33 +40,17 @@ export default function HomePage() {
         const solBalance = await connection.getBalance(publicKey);
         if (solBalance > 0) tokenListRaw.unshift({ mint: 'SOL', amount: solBalance / 1e9, symbol: 'SOL' });
 
-        const tokenMetadata: TokenMeta[] = await fetchSolanaTokenList();
+        const tokenMetadata = await fetchSolanaTokenList();
 
-        const enriched = await Promise.all(tokenListRaw.map(async (token) => {
+        const enriched = tokenListRaw.map(token => {
           if (token.mint === 'SOL') return token;
-
-          const metadata = tokenMetadata.find(t => t.address === token.mint);
-          if (metadata) {
-            return {
-              ...token,
-              symbol: metadata.symbol,
-              logoURI: metadata.logoURI
-            };
-          }
-
-          if (metadataCache.current[token.mint]) {
-            return { ...token, symbol: metadataCache.current[token.mint].symbol, logoURI: undefined };
-          }
-          
-          const meta = await fetchTokenMetadata(token.mint);
-          metadataCache.current[token.mint] = { symbol: meta?.symbol || token.mint.slice(0, 4) };          
-
+          const metadata = tokenMetadata.find(meta => meta.address === token.mint);
           return {
             ...token,
-            symbol: metadataCache.current[token.mint].symbol,
-            logoURI: undefined
+            symbol: metadata?.symbol || token.mint.slice(0, 4),
+            logoURI: metadata?.logoURI
           };
-        }));
+        });
 
         setTokens(enriched);
       } catch (err) {
@@ -107,22 +78,13 @@ export default function HomePage() {
     fetchStats();
   }, [publicKey, connected]);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const ref = params.get('ref');
-      if (ref) localStorage.setItem('referralCode', ref);
-    }
-  }, []);
-
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const mint = e.target.value;
-    const token = tokens.find(t => t.mint === mint || (mint === 'SOL' && t.mint === 'SOL'));
+    const token = tokens.find(t => t.mint === mint);
     if (token) {
       setSelectedToken(token);
       setShowModal(true);
     }
-    setResetTokenSelection(true);
   };
 
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
@@ -152,13 +114,13 @@ export default function HomePage() {
         {publicKey ? (
           <select
             className="w-full bg-gray-800 text-white p-3 rounded mb-4 border border-gray-600"
-            value={resetTokenSelection ? "" : selectedToken?.mint || ""}
+            value={selectedToken?.mint || ''}
             onChange={handleSelectChange}
           >
             <option value="" disabled>👉 Select a token to Coincarnate</option>
             {tokens.map((token, idx) => (
               <option key={idx} value={token.mint}>
-                {token.symbol || token.mint.slice(0, 4)} — {token.amount.toFixed(4)}
+                {token.symbol} — {token.amount.toFixed(4)}
               </option>
             ))}
           </select>
@@ -192,7 +154,6 @@ export default function HomePage() {
           onClose={() => {
             setSelectedToken(null);
             setShowModal(false);
-            setResetTokenSelection(false);
           }}
           onGoToProfileRequest={() => window.location.href = '/profile'}
         />
