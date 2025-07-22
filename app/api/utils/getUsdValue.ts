@@ -34,6 +34,7 @@ export default async function getUsdValue(
       ? `https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd`
       : `https://api.coingecko.com/api/v3/simple/token_price/solana?contract_addresses=${token.mint}&vs_currencies=usd`;
 
+    console.log(`🌐 Fetching CoinGecko price from ${coingeckoUrl}`);
     const res = await fetch(coingeckoUrl);
     const json = await res.json();
     const price = isSol
@@ -41,7 +42,10 @@ export default async function getUsdValue(
       : Object.values(json).length > 0 ? (Object.values(json)[0] as any)?.usd : undefined;
 
     if (price) {
+      console.log(`✅ CoinGecko price for ${token.symbol || token.mint}: $${price}`);
       prices.push({ price, source: 'CoinGecko' });
+    } else {
+      console.warn(`❌ CoinGecko returned no price for ${token.symbol || token.mint}`);
     }
   } catch (e) {
     console.warn('⚠️ CoinGecko API failed:', e);
@@ -50,10 +54,16 @@ export default async function getUsdValue(
   // Jupiter (only if symbol exists)
   if (token.symbol) {
     try {
+      console.log(`🌐 Fetching Jupiter price for ${token.symbol}`);
       const res = await fetch(`https://price.jup.ag/v4/price?ids=${token.symbol}`);
       const json = await res.json();
       const price = json.data?.[token.symbol]?.price;
-      if (price) prices.push({ price, source: 'Jupiter' });
+      if (price) {
+        console.log(`✅ Jupiter price for ${token.symbol}: $${price}`);
+        prices.push({ price, source: 'Jupiter' });
+      } else {
+        console.warn(`❌ Jupiter returned no price for ${token.symbol}`);
+      }
     } catch (e) {
       console.warn('⚠️ Jupiter API failed:', e);
     }
@@ -62,7 +72,12 @@ export default async function getUsdValue(
   // Pyth
   try {
     const pythPrice = await getPythPrice(token.mint);
-    if (pythPrice) prices.push({ price: pythPrice, source: 'Pyth Network' });
+    if (pythPrice) {
+      console.log(`✅ Pyth Network price for ${token.symbol || token.mint}: $${pythPrice}`);
+      prices.push({ price: pythPrice, source: 'Pyth Network' });
+    } else {
+      console.warn(`❌ No Pyth price for ${token.symbol || token.mint}`);
+    }
   } catch (e) {
     console.warn('⚠️ Pyth Network failed:', e);
   }
@@ -70,7 +85,12 @@ export default async function getUsdValue(
   // Orca
   try {
     const dexPrice = await getDexPoolPrice(token.mint);
-    if (dexPrice) prices.push({ price: dexPrice, source: 'Orca DEX' });
+    if (dexPrice) {
+      console.log(`✅ Orca DEX price for ${token.symbol || token.mint}: $${dexPrice}`);
+      prices.push({ price: dexPrice, source: 'Orca DEX' });
+    } else {
+      console.warn(`❌ No Orca DEX price for ${token.symbol || token.mint}`);
+    }
   } catch (e) {
     console.warn('⚠️ Orca DEX fetch failed:', e);
   }
@@ -78,7 +98,12 @@ export default async function getUsdValue(
   // Raydium
   try {
     const raydiumPrice = await getRaydiumPrice(token.mint);
-    if (raydiumPrice) prices.push({ price: raydiumPrice, source: 'Raydium' });
+    if (raydiumPrice) {
+      console.log(`✅ Raydium price for ${token.symbol || token.mint}: $${raydiumPrice}`);
+      prices.push({ price: raydiumPrice, source: 'Raydium' });
+    } else {
+      console.warn(`❌ No Raydium price for ${token.symbol || token.mint}`);
+    }
   } catch (e) {
     console.warn('⚠️ Raydium fetch failed:', e);
   }
@@ -103,6 +128,10 @@ function calculateFinalPrice(prices: PriceResult[], amount: number) {
   const finalPrices = accepted.length > 0 ? accepted : prices;
   const avgPrice = finalPrices.reduce((sum, p) => sum + p.price, 0) / finalPrices.length;
 
+  console.log('📊 Prices collected:', prices);
+  console.log('📊 Median price calculated:', median);
+  console.log('✅ Final average price selected:', avgPrice);
+
   return {
     usdValue: amount * avgPrice,
     sources: finalPrices,
@@ -112,13 +141,17 @@ function calculateFinalPrice(prices: PriceResult[], amount: number) {
 
 async function getPythPrice(mint: string): Promise<number | null> {
   const feedId = (pythMapping as Record<string, string>)[mint];
-  if (!feedId) return null;
+  if (!feedId) {
+    console.info(`ℹ️ No Pyth price feed for mint: ${mint}`);
+    return null;
+  }
 
   try {
     const res = await fetch(`https://hermes.pyth.network/v2/price_feed_ids/${feedId}`);
     const data = await res.json();
     return data?.price?.price ?? null;
-  } catch {
+  } catch (e) {
+    console.error('❌ Error fetching Pyth price:', e);
     return null;
   }
 }
@@ -134,7 +167,8 @@ async function getDexPoolPrice(mint: string): Promise<number | null> {
       }
     }
     return null;
-  } catch {
+  } catch (e) {
+    console.error('❌ Error fetching Orca DEX pool price:', e);
     return null;
   }
 }
@@ -146,7 +180,8 @@ async function getRaydiumPrice(mint: string): Promise<number | null> {
 
     const pool = json?.data?.find((p: any) => p.baseMint === mint || p.quoteMint === mint);
     return pool ? parseFloat(pool.price) : null;
-  } catch {
+  } catch (e) {
+    console.error('❌ Error fetching Raydium price:', e);
     return null;
   }
 }
