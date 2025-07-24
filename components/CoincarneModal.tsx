@@ -137,6 +137,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
       const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbol}.png`;
 
       setResultData({ tokenFrom: tokenSymbol, number: userNumber, imageUrl });
+      console.log('✅ resultData set:', { tokenSymbol, userNumber, imageUrl });
       if (refetchTokens) refetchTokens();
 
     } catch (err) {
@@ -183,7 +184,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
               imageUrl={resultData.imageUrl}
               onRecoincarnate={() => setResultData(null)}
               onGoToProfile={() => {
-                onClose();
+                // onClose();
                 onGoToProfileRequest?.();
               }}
             />
