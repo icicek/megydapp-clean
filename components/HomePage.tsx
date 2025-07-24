@@ -181,7 +181,7 @@ export default function HomePage() {
 
         {/* Yeşil kutu */}
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-green-400 via-green-500 to-green-600">
-          <div className="bg-black/70 backdrop-blur-md rounded-xl p-6 text-center">
+          <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
             <p className="text-sm text-gray-300">Total USD Revived</p>
             <p className="text-lg font-bold text-white mt-2">${globalStats.totalUsd.toFixed(2)}</p>
           </div>
@@ -189,7 +189,7 @@ export default function HomePage() {
 
         {/* Pembe kutu */}
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-pink-400 via-pink-500 to-pink-600">
-          <div className="bg-black/70 backdrop-blur-md rounded-xl p-6 text-center">
+          <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
             <p className="text-sm text-gray-300">Unique Deadcoins</p>
             <p className="text-lg font-bold text-white mt-2">{globalStats.uniqueDeadcoins}</p>
           </div>
@@ -197,7 +197,7 @@ export default function HomePage() {
 
         {/* Mor kutu */}
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-purple-400 via-purple-500 to-purple-600">
-          <div className="bg-black/70 backdrop-blur-md rounded-xl p-6 text-center">
+          <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
             <p className="text-sm text-gray-300">Most Popular Deadcoin</p>
             <p className="text-lg font-bold text-white mt-2">{globalStats.mostPopularDeadcoin}</p>
           </div>
