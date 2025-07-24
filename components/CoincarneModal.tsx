@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import * as Dialog from '@radix-ui/react-dialog';
 import { useWallet } from '@solana/wallet-adapter-react';
 import {
   getAssociatedTokenAddress,
@@ -67,13 +67,8 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
       setUsdValue(usdValue);
       setPriceSources(sources);
 
-      // Değer kontrolü
       const unitPrice = usdValue / amountToSend;
-      if (isValuableAsset(unitPrice) || isStablecoin(unitPrice)) {
-        setIsValuable(true);
-      } else {
-        setIsValuable(false);
-      }
+      setIsValuable(isValuableAsset(unitPrice) || isStablecoin(unitPrice));
 
       setConfirmModalOpen(true);
     } catch (err) {
@@ -138,7 +133,6 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
 
       setResultData({ tokenFrom: tokenSymbol, number: userNumber, imageUrl });
       if (refetchTokens) refetchTokens();
-
     } catch (err) {
       console.error('❌ Transaction error:', err);
       alert('❌ Transaction failed.');
@@ -154,7 +148,6 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
 
   useEffect(() => {
     if (resultData) {
-      // Modal sonucu açıldığında sayfayı yukarı kaydır
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [resultData]);
@@ -171,10 +164,15 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
         open={confirmModalOpen}
       />
 
-      <Dialog open onOpenChange={onClose}>
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" />
-        <DialogContent className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center">
-
+      <Dialog.Root open>
+        <Dialog.Overlay className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" />
+        <Dialog.Content
+          className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center"
+          onPointerDownOutside={(e) => {
+            if (resultData) e.preventDefault();
+            else onClose();
+          }}
+        >
           {resultData ? (
             <CoincarnationResult
               tokenFrom={resultData.tokenFrom}
@@ -235,8 +233,8 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
               </button>
             </>
           )}
-        </DialogContent>
-      </Dialog>
+        </Dialog.Content>
+      </Dialog.Root>
     </>
   );
 }
