@@ -152,6 +152,13 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     setAmountInput(calculated.toFixed(6));
   };
 
+  useEffect(() => {
+    if (resultData) {
+      // Modal sonucu açıldığında sayfayı yukarı kaydır
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [resultData]);
+
   return (
     <>
       <ConfirmModal
