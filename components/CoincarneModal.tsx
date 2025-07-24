@@ -137,7 +137,6 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
       const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbol}.png`;
 
       setResultData({ tokenFrom: tokenSymbol, number: userNumber, imageUrl });
-      console.log('✅ resultData set:', { tokenSymbol, userNumber, imageUrl });
       if (refetchTokens) refetchTokens();
 
     } catch (err) {
@@ -175,8 +174,6 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
       <Dialog open onOpenChange={onClose}>
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" />
         <DialogContent className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center">
-        <DialogTitle className="sr-only">Coincarnation Modal</DialogTitle>
-
           {resultData ? (
             <CoincarnationResult
               tokenFrom={resultData.tokenFrom}
@@ -184,7 +181,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
               imageUrl={resultData.imageUrl}
               onRecoincarnate={() => setResultData(null)}
               onGoToProfile={() => {
-                // onClose();
+                onClose();
                 onGoToProfileRequest?.();
               }}
             />
