@@ -85,15 +85,14 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
   };
 
   const handleSend = async () => {
-    setConfirmModalOpen(false);
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
     if (isNaN(amountToSend) || amountToSend <= 0) return;
-
+  
     try {
       setLoading(true);
       let signature: string;
-
+  
       if (token.mint === 'SOL' || token.symbol?.toUpperCase() === 'SOL') {
         const tx = new Transaction().add(
           SystemProgram.transfer({
@@ -109,13 +108,13 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
         const toATA = await getAssociatedTokenAddress(mint, COINCARNATION_DEST);
         const decimals = (await getMint(connection, mint)).decimals;
         const adjustedAmount = Math.floor(amountToSend * Math.pow(10, decimals));
-
+  
         const tx = new Transaction().add(
           createTransferInstruction(fromATA, toATA, publicKey, adjustedAmount)
         );
         signature = await sendTransaction(tx, connection);
       }
-
+  
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -130,22 +129,24 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
           user_agent: navigator.userAgent,
         }),
       });
-
+  
       const json = await res.json();
       const userNumber = json?.number ?? 0;
       const tokenSymbol = token.symbol || token.mint.slice(0, 4);
       const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbol}.png`;
-
-      setResultData({ tokenFrom: tokenSymbol, number: userNumber, imageUrl });
+  
+      setResultData({ tokenFrom: tokenSymbol, number: userNumber, imageUrl }); // ✅ önce başarı sonucu göster
+      setConfirmModalOpen(false); // ✅ sonra confirm modal'ı kapat
+  
       if (refetchTokens) refetchTokens();
-
+  
     } catch (err) {
       console.error('❌ Transaction error:', err);
       alert('❌ Transaction failed.');
     } finally {
       setLoading(false);
     }
-  };
+  };  
 
   const handlePercentage = (percent: number) => {
     const calculated = (token.amount * percent) / 100;
