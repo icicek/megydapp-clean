@@ -173,7 +173,7 @@ export default function HomePage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 my-6 w-full max-w-5xl">
         {/* Mavi kutu */}
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600">
-          <div className="bg-black/70 backdrop-blur-md rounded-xl p-6 text-center">
+          <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
             <p className="text-sm text-gray-300">Total Participants</p>
             <p className="text-lg font-bold text-white mt-2">{globalStats.totalParticipants}</p>
           </div>
