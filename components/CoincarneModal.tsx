@@ -173,8 +173,8 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
 
       <Dialog open onOpenChange={onClose}>
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" />
-        <DialogContent className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full">
-          <DialogTitle className="sr-only">Coincarnation Modal</DialogTitle>
+        <DialogContent className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center">
+        <DialogTitle className="sr-only">Coincarnation Modal</DialogTitle>
 
           {resultData ? (
             <CoincarnationResult
