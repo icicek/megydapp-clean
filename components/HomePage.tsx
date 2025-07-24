@@ -169,6 +169,10 @@ export default function HomePage() {
           <p className="text-sm text-gray-300 mt-2 text-left">🌍 Your personal contribution to the Fair Future Fund (% of total)</p>
         </div>
       </div>
+      
+      <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
+        🌐 Global Coincarnation Statistics
+      </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 my-6 w-full max-w-5xl">
         {/* Mavi kutu */}
