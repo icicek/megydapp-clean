@@ -26,6 +26,24 @@ export default function HomePage() {
     uniqueDeadcoins: 0,
     mostPopularDeadcoin: '',
   });
+
+  useEffect(() => {
+    const fetchGlobalStats = async () => {
+      try {
+        const res = await fetch('/api/coincarnation/stats');
+        const data = await res.json();
+        console.log('📊 Global stats:', data);
+        if (data.success) {
+          setGlobalStats(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch global stats:', err);
+      }
+    };
+  
+    fetchGlobalStats(); // Sayfa yüklendiğinde her zaman çalışsın
+  }, []);
+  
   const [userContribution, setUserContribution] = useState(0);
 
   useEffect(() => {
