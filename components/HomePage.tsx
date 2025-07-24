@@ -176,48 +176,44 @@ export default function HomePage() {
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 my-6 w-full max-w-5xl">
-        {/* Mavi kutu */}
+        {/* Total Participants */}
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600">
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
-          <p className="text-lg font-bold text-white mt-2">
-            <CountUp end={globalStats.totalParticipants} duration={2} />
-          </p>
-            <p className="text-lg font-bold text-white mt-2">{globalStats.totalParticipants}</p>
+            <p className="text-sm text-white font-semibold mb-1">Total Participants</p>
+            <p className="text-lg font-bold text-white">
+              <CountUp end={globalStats.totalParticipants} duration={2} />
+            </p>
           </div>
         </div>
 
-        {/* Yeşil kutu */}
+        {/* Total USD Revived */}
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-green-400 via-green-500 to-green-600">
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
-          <p className="text-lg font-bold text-white mt-2">
-            $
-            <CountUp
-              end={globalStats.totalUsd}
-              decimals={2}
-              duration={2}
-            />
-          </p>
-            <p className="text-lg font-bold text-white mt-2">${globalStats.totalUsd.toFixed(2)}</p>
+            <p className="text-sm text-white font-semibold mb-1">Total USD Revived</p>
+            <p className="text-lg font-bold text-white">
+              $
+              <CountUp end={globalStats.totalUsd} decimals={2} duration={2} />
+            </p>
           </div>
         </div>
 
-        {/* Pembe kutu */}
+        {/* Unique Deadcoins */}
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-pink-400 via-pink-500 to-pink-600">
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
-          <p className="text-lg font-bold text-white mt-2">
-            <CountUp end={globalStats.uniqueDeadcoins} duration={2} />
-          </p>
-            <p className="text-lg font-bold text-white mt-2">{globalStats.uniqueDeadcoins}</p>
+            <p className="text-sm text-white font-semibold mb-1">Unique Deadcoins</p>
+            <p className="text-lg font-bold text-white">
+              <CountUp end={globalStats.uniqueDeadcoins} duration={2} />
+            </p>
           </div>
         </div>
 
-        {/* Mor kutu */}
+        {/* Most Popular Deadcoin */}
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-purple-400 via-purple-500 to-purple-600">
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
-          <p className="text-lg font-bold text-white mt-2">
-            {globalStats.mostPopularDeadcoin || "No deadcoin yet"}
-          </p>
-            <p className="text-lg font-bold text-white mt-2">{globalStats.mostPopularDeadcoin}</p>
+            <p className="text-sm text-white font-semibold mb-1">Most Popular Deadcoin</p>
+            <p className="text-lg font-bold text-white">
+              {globalStats.mostPopularDeadcoin || "No deadcoin yet"}
+            </p>
           </div>
         </div>
       </div>
