@@ -7,6 +7,7 @@ import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import CoincarneModal from '@/components/CoincarneModal';
 import { fetchSolanaTokenList } from '@/lib/utils';
 import { connection } from '@/lib/solanaConnection';
+import CountUp from 'react-countup';
 
 interface TokenInfo {
   mint: string;
@@ -169,7 +170,7 @@ export default function HomePage() {
           <p className="text-sm text-gray-300 mt-2 text-left">🌍 Your personal contribution to the Fair Future Fund (% of total)</p>
         </div>
       </div>
-      
+
       <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
         🌐 Global Coincarnation Statistics
       </h2>
@@ -178,7 +179,9 @@ export default function HomePage() {
         {/* Mavi kutu */}
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600">
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
-            <p className="text-sm text-gray-300">Total Participants</p>
+          <p className="text-lg font-bold text-white mt-2">
+            <CountUp end={globalStats.totalParticipants} duration={2} />
+          </p>
             <p className="text-lg font-bold text-white mt-2">{globalStats.totalParticipants}</p>
           </div>
         </div>
@@ -186,7 +189,14 @@ export default function HomePage() {
         {/* Yeşil kutu */}
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-green-400 via-green-500 to-green-600">
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
-            <p className="text-sm text-gray-300">Total USD Revived</p>
+          <p className="text-lg font-bold text-white mt-2">
+            $
+            <CountUp
+              end={globalStats.totalUsd}
+              decimals={2}
+              duration={2}
+            />
+          </p>
             <p className="text-lg font-bold text-white mt-2">${globalStats.totalUsd.toFixed(2)}</p>
           </div>
         </div>
@@ -194,7 +204,9 @@ export default function HomePage() {
         {/* Pembe kutu */}
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-pink-400 via-pink-500 to-pink-600">
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
-            <p className="text-sm text-gray-300">Unique Deadcoins</p>
+          <p className="text-lg font-bold text-white mt-2">
+            <CountUp end={globalStats.uniqueDeadcoins} duration={2} />
+          </p>
             <p className="text-lg font-bold text-white mt-2">{globalStats.uniqueDeadcoins}</p>
           </div>
         </div>
@@ -202,7 +214,9 @@ export default function HomePage() {
         {/* Mor kutu */}
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-purple-400 via-purple-500 to-purple-600">
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
-            <p className="text-sm text-gray-300">Most Popular Deadcoin</p>
+          <p className="text-lg font-bold text-white mt-2">
+            {globalStats.mostPopularDeadcoin || "No deadcoin yet"}
+          </p>
             <p className="text-lg font-bold text-white mt-2">{globalStats.mostPopularDeadcoin}</p>
           </div>
         </div>
