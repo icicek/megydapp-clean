@@ -38,6 +38,7 @@ const COINCARNATION_DEST = new PublicKey('HPBNVF9ATsnkDhGmQB4xoLC5tWBWQbTyBjsiQA
 
 export default function CoincarneModal({ token, onClose, refetchTokens, onGoToProfileRequest }: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
+  const [isOpen, setIsOpen] = useState(true);
   const [loading, setLoading] = useState(false);
   const [amountInput, setAmountInput] = useState('');
   const [resultData, setResultData] = useState<{ tokenFrom: string; number: number; imageUrl: string } | null>(null);
@@ -171,7 +172,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
         open={confirmModalOpen}
       />
 
-      <Dialog open onOpenChange={onClose}>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" />
         <DialogContent className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center">
           {resultData ? (
