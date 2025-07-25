@@ -82,12 +82,6 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     try {
       setLoading(true);
 
-      // Sadece sınıflandırma tamamlandıysa devam et
-      if (!classificationDone) {
-        alert('⏳ Please wait while the token is being classified...');
-        return;
-      }
-
       // Değerli varlık kontrolü (sadece görünüm için kullanılabilir)
       const unitPrice = usdValue / amountToSend;
       setIsValuable(isValuableAsset(unitPrice) || isStablecoin(unitPrice));
