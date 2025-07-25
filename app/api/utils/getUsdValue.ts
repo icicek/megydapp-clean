@@ -1,7 +1,7 @@
-import pythMapping from './pythMapping.json';
 import NodeCache from 'node-cache';
-import { PublicKey } from '@solana/web3.js';
 import { fetchPriceViaProxy } from './fetchPriceProxy';
+import fetchPriceFromRaydium from './fetchPriceFromRaydium';
+import fetchPriceFromJupiter from './fetchPriceFromJupiter';
 
 interface TokenInfo {
   mint: string;
@@ -13,50 +13,60 @@ interface PriceResult {
   source: string;
 }
 
-const cache = new NodeCache({ stdTTL: 1800 });
+const cache = new NodeCache({ stdTTL: 1800 }); // 30 dakika
 
 export default async function getUsdValue(
   token: TokenInfo,
   amount: number
 ): Promise<{ usdValue: number; sources: PriceResult[]; usedPrice: number }> {
   const cacheKey = `price_${token.mint}`;
-  const cached = cache.get<{ prices: PriceResult[] }>(cacheKey);
+  const cached = cache.get<PriceResult>(cacheKey);
   if (cached) {
-    console.log(`⚡ Cache hit for ${token.mint}`);
-    return calculateFinalPrice(cached.prices, amount);
+    console.log(`⚡ Cache hit for ${token.mint}: $${cached.price} (${cached.source})`);
+    return {
+      usdValue: cached.price * amount,
+      sources: [cached],
+      usedPrice: cached.price,
+    };
   }
 
-  const prices: PriceResult[] = [];
+  const sources: { name: string; fetcher: () => Promise<number | null> }[] = [
+    {
+      name: 'Proxy-Coingecko',
+      fetcher: () => fetchPriceViaProxy(token),
+    },
+    {
+      name: 'Raydium',
+      fetcher: () => fetchPriceFromRaydium(token),
+    },
+    {
+      name: 'Jupiter',
+      fetcher: () => fetchPriceFromJupiter(token),
+    },
+  ];
 
-  // Proxy via backend
-  try {
-    console.log(`🌐 Fetching price via proxy for ${token.symbol || token.mint}`);
-    const proxyPrice = await fetchPriceViaProxy(token);
-    if (proxyPrice) {
-      console.log(`✅ Proxy returned price for ${token.symbol || token.mint}: $${proxyPrice}`);
-      prices.push({ price: proxyPrice, source: 'Proxy-Coingecko' });
-    } else {
-      console.warn(`❌ Proxy returned no price for ${token.symbol || token.mint}`);
+  for (const source of sources) {
+    try {
+      const price = await source.fetcher();
+      if (price && price > 0) {
+        const result: PriceResult = { price, source: source.name };
+        cache.set(cacheKey, result);
+        console.log(`✅ Price found from ${source.name}: $${price}`);
+        return {
+          usdValue: price * amount,
+          sources: [result],
+          usedPrice: price,
+        };
+      }
+    } catch (err) {
+      console.warn(`❌ Failed fetching price from ${source.name}:`, err);
     }
-  } catch (e) {
-    console.warn('⚠️ Proxy fetch failed:', e);
   }
 
-  if (prices.length === 0) {
-    console.warn(`⚠️ No price sources found for ${token.symbol || token.mint}`);
-    return { usdValue: 0, sources: [], usedPrice: 0 };
-  }
-
-  cache.set(cacheKey, { prices });
-  return calculateFinalPrice(prices, amount);
-}
-
-function calculateFinalPrice(prices: PriceResult[], amount: number) {
-  const avgPrice = prices.reduce((sum, p) => sum + p.price, 0) / prices.length;
-
+  console.warn(`⚠️ All price sources failed for ${token.mint}`);
   return {
-    usdValue: amount * avgPrice,
-    sources: prices,
-    usedPrice: avgPrice,
+    usdValue: 0,
+    sources: [],
+    usedPrice: 0,
   };
 }

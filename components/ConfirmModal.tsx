@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { TokenCategory } from '@/app/api/utils/classifyToken'; // Bu gerekli
 
 interface PriceSource {
   price: number;
@@ -9,21 +10,26 @@ interface PriceSource {
 interface ConfirmModalProps {
   tokenSymbol: string;
   usdValue: number;
-  sources: PriceSource[];
+  amount: number;
+  tokenCategory: TokenCategory | null;
+  priceSources: { price: number; source: string }[];
+  sources?: { price: number; source: string }[]; // Optional olabilir
+  isOpen: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   onDeadcoinVote: (vote: 'yes' | 'no') => void;
-  open: boolean;
 }
 
 export default function ConfirmModal({
   tokenSymbol,
   usdValue,
-  sources,
+  amount,
+  tokenCategory,
+  priceSources,
+  isOpen,
   onConfirm,
   onCancel,
   onDeadcoinVote,
-  open
 }: ConfirmModalProps) {
   const [deadcoinVoted, setDeadcoinVoted] = useState(false);
   const [voteMessage, setVoteMessage] = useState('');
@@ -35,13 +41,33 @@ export default function ConfirmModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(open) => { if (!open) onCancel(); }}>
-      <DialogTitle>Confirm Coincarnation</DialogTitle>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onCancel(); }}>
       <DialogContent>
-        <p>You are about to coincarnate <strong>{tokenSymbol}</strong>.</p>
+        <DialogTitle>Confirm Coincarnation</DialogTitle>
+
+        <p className="text-sm text-gray-700 mb-2">
+          You are about to coincarnate <strong>{tokenSymbol}</strong> ({amount} units).
+        </p>
+
+        <div className="space-y-2 text-sm text-gray-700 mb-4">
+          <p>Total USD Value: <strong>${usdValue.toFixed(2)}</strong></p>
+          <p>Category: <strong>{tokenCategory || 'Unknown'}</strong></p>
+          {priceSources.length > 0 && (
+            <div>
+              <p className="font-medium">Price Sources:</p>
+              <ul className="list-disc list-inside">
+                {priceSources.map((src, i) => (
+                  <li key={i}>
+                    {src.source}: ${src.price.toFixed(4)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
 
         {usdValue === 0 ? (
-          <div className="bg-yellow-100 text-yellow-800 p-2 rounded mt-3">
+          <div className="bg-yellow-100 text-yellow-800 p-2 rounded mb-3">
             ⚠️ <strong>This token has no USD value.</strong><br />
             Do you confirm this as a deadcoin?
             {!deadcoinVoted && (
@@ -67,21 +93,8 @@ export default function ConfirmModal({
             )}
           </div>
         ) : (
-          <div className="bg-green-100 text-green-800 p-2 rounded mt-3">
-            Estimated Value: <strong>${usdValue.toFixed(2)}</strong>
-          </div>
-        )}
-
-        {sources.length > 0 && (
-          <div className="mt-3">
-            <h4 className="font-semibold mb-1">Price Sources:</h4>
-            <ul className="list-disc list-inside text-sm">
-              {sources.map((s, index) => (
-                <li key={index}>
-                  {s.source}: ${s.price}
-                </li>
-              ))}
-            </ul>
+          <div className="bg-green-100 text-green-800 p-2 rounded mb-3">
+            ✅ This token has estimated value.
           </div>
         )}
 

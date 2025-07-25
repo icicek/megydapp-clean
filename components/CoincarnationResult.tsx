@@ -8,7 +8,7 @@ interface Props {
   imageUrl: string;
   onRecoincarnate: () => void;
   onGoToProfile: () => void;
-  children?: ReactNode; // 👈 Burayı ekliyoruz
+  children?: ReactNode;
 }
 
 export default function CoincarnationResult({
@@ -17,7 +17,7 @@ export default function CoincarnationResult({
   imageUrl,
   onRecoincarnate,
   onGoToProfile,
-  children, // 👈 Burayı da alıyoruz
+  children, 
 }: Props) {
   const tweetText = `🚀 I just swapped my $${tokenFrom} for $MEGY. Coincarnator #${number} reporting in.\n\n🌐 We're uniting deadcoins to rescue billions.\n\n🔗 Join us 👉 https://megydapp-clean.vercel.app`;
   const tweetLink = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;

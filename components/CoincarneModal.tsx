@@ -19,6 +19,8 @@ import getUsdValue from '@/app/api/utils/getUsdValue';
 import ConfirmModal from '@/components/ConfirmModal';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 import { isValuableAsset, isStablecoin } from '@/app/api/utils/isValuableAsset';
+import classifyToken, { TokenCategory } from '@/app/api/utils/classifyToken';
+
 
 interface TokenInfo {
   mint: string;
@@ -45,6 +47,9 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
   const [usdValue, setUsdValue] = useState(0);
   const [priceSources, setPriceSources] = useState<{ price: number; source: string }[]>([]);
   const [isValuable, setIsValuable] = useState(false);
+  const [tokenCategory, setTokenCategory] = useState<TokenCategory | null>(null);
+  const [classificationDone, setClassificationDone] = useState(false);
+
 
   useEffect(() => {
     if (!token.symbol) {
@@ -56,6 +61,19 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     }
   }, [token]);
 
+  useEffect(() => {
+    const classify = async () => {
+      const result = await classifyToken(token, token.amount);
+      setUsdValue(result.usdValue);
+      setPriceSources(result.priceSources);
+      setTokenCategory(result.category);
+      setClassificationDone(true);
+    };
+  
+    classify();
+  }, [token]);
+  
+
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
@@ -63,17 +81,16 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
 
     try {
       setLoading(true);
-      const { usdValue, sources } = await getUsdValue(token, amountToSend);
-      setUsdValue(usdValue);
-      setPriceSources(sources);
 
-      // Değer kontrolü
-      const unitPrice = usdValue / amountToSend;
-      if (isValuableAsset(unitPrice) || isStablecoin(unitPrice)) {
-        setIsValuable(true);
-      } else {
-        setIsValuable(false);
+      // Sadece sınıflandırma tamamlandıysa devam et
+      if (!classificationDone) {
+        alert('⏳ Please wait while the token is being classified...');
+        return;
       }
+
+      // Değerli varlık kontrolü (sadece görünüm için kullanılabilir)
+      const unitPrice = usdValue / amountToSend;
+      setIsValuable(isValuableAsset(unitPrice) || isStablecoin(unitPrice));
 
       setConfirmModalOpen(true);
     } catch (err) {
@@ -163,13 +180,18 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
   return (
     <>
       <ConfirmModal
-        tokenSymbol={token.symbol || token.mint.slice(0, 4)}
-        usdValue={usdValue}
-        sources={priceSources}
-        onConfirm={handleSend}
+        isOpen={confirmModalOpen}
         onCancel={() => setConfirmModalOpen(false)}
-        onDeadcoinVote={() => {}}
-        open={confirmModalOpen}
+        onConfirm={handleSend}
+        usdValue={usdValue}
+        tokenSymbol={token.symbol || token.mint}
+        amount={parseFloat(amountInput)}
+        tokenCategory={tokenCategory}
+        priceSources={priceSources}
+        onDeadcoinVote={(vote) => {
+          console.log('🗳️ Deadcoin vote:', vote);
+          // burada ileride vote'ları backend'e yollayabilirsin
+        }}
       />
 
       <Dialog open onOpenChange={onClose}>
