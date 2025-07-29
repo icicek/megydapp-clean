@@ -35,7 +35,7 @@ export async function fetchTokenMetadata(mintAddress: string): Promise<{ symbol:
     const mintPublicKey = new PublicKey(mintAddress);
 
     // Metaplex -> bazı sürümlerde run() gerekir
-    const nft = await metaplex.nfts().findByMint({ mintAddress: mintPublicKey }).run?.() ?? await metaplex.nfts().findByMint({ mintAddress: mintPublicKey });
+    const nft = await metaplex.nfts().findByMint({ mintAddress: mintPublicKey });
 
     if (nft) {
       return {
