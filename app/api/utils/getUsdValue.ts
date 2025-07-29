@@ -2,6 +2,7 @@ import NodeCache from 'node-cache';
 import { fetchPriceViaProxy } from './fetchPriceProxy';
 import fetchPriceFromRaydium from './fetchPriceFromRaydium';
 import fetchPriceFromJupiter from './fetchPriceFromJupiter';
+import fetchPriceFromCMC from './fetchPriceFromCMC'; // EKLENDİ
 
 interface TokenInfo {
   mint: string;
@@ -21,6 +22,7 @@ export default async function getUsdValue(
 ): Promise<{ usdValue: number; sources: PriceResult[]; usedPrice: number }> {
   const cacheKey = `price_${token.mint}`;
   const cached = cache.get<PriceResult>(cacheKey);
+
   if (cached) {
     console.log(`⚡ Cache hit for ${token.mint}: $${cached.price} (${cached.source})`);
     return {
@@ -42,6 +44,10 @@ export default async function getUsdValue(
     {
       name: 'Jupiter',
       fetcher: () => fetchPriceFromJupiter(token),
+    },
+    {
+      name: 'CoinMarketCap',
+      fetcher: () => fetchPriceFromCMC(token),
     },
   ];
 

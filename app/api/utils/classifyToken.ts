@@ -28,7 +28,7 @@ export default async function classifyToken(
     return {
       category: 'deadcoin',
       usdValue: 0,
-      priceSources: [],
+      priceSources: priceResult.sources, // ❗️önceden boştu, şimdi denenen kaynaklar gösteriliyor
       volume: null,
       liquidity: null,
     };
@@ -68,7 +68,7 @@ export default async function classifyToken(
     };
   }
 
-  // If no volume or liquidity, but has price → still alive
+  // If no volume or liquidity, but has price → still a deadcoin
   return {
     category: 'deadcoin',
     usdValue: priceResult.usdValue,

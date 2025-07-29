@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useWallet } from '@solana/wallet-adapter-react';
 import {
   getAssociatedTokenAddress,
@@ -15,12 +15,10 @@ import {
 } from '@solana/web3.js';
 import { connection } from '@/lib/solanaConnection';
 import CoincarnationResult from '@/components/CoincarnationResult';
-import getUsdValue from '@/app/api/utils/getUsdValue';
 import ConfirmModal from '@/components/ConfirmModal';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
+import classifyTokenFn, { TokenCategory } from '@/app/api/utils/classifyToken';
 import { isValuableAsset, isStablecoin } from '@/app/api/utils/isValuableAsset';
-import classifyToken, { TokenCategory } from '@/app/api/utils/classifyToken';
-
 
 interface TokenInfo {
   mint: string;
@@ -48,12 +46,13 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
   const [priceSources, setPriceSources] = useState<{ price: number; source: string }[]>([]);
   const [isValuable, setIsValuable] = useState(false);
   const [tokenCategory, setTokenCategory] = useState<TokenCategory | null>(null);
-  const [classificationDone, setClassificationDone] = useState(false);
+  const [isClassifying, setIsClassifying] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-
+  // Fallback metadata yükleme
   useEffect(() => {
     if (!token.symbol) {
-      fetchTokenMetadata(token.mint).then(meta => {
+      fetchTokenMetadata(token.mint).then((meta) => {
         if (meta?.symbol) {
           token.symbol = meta.symbol;
         }
@@ -61,18 +60,30 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     }
   }, [token]);
 
+  // Token sınıflandırma
   useEffect(() => {
     const classify = async () => {
-      const result = await classifyToken(token, token.amount);
-      setUsdValue(result.usdValue);
-      setPriceSources(result.priceSources);
-      setTokenCategory(result.category);
-      setClassificationDone(true);
+      setIsClassifying(true);
+      setShowConfirmModal(false);
+
+      try {
+        const { usdValue, category, priceSources } = await classifyTokenFn(token, 1);
+        setUsdValue(usdValue);
+        setTokenCategory(category);
+        setPriceSources(priceSources);
+
+        if (usdValue > 0 && category) {
+          setShowConfirmModal(true);
+        }
+      } catch (err) {
+        console.error('❌ Error classifying token:', err);
+      } finally {
+        setIsClassifying(false);
+      }
     };
-  
+
     classify();
   }, [token]);
-  
 
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
@@ -81,11 +92,8 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
 
     try {
       setLoading(true);
-
-      // Değerli varlık kontrolü (sadece görünüm için kullanılabilir)
       const unitPrice = usdValue / amountToSend;
       setIsValuable(isValuableAsset(unitPrice) || isStablecoin(unitPrice));
-
       setConfirmModalOpen(true);
     } catch (err) {
       console.error('❌ Error preparing confirmation:', err);
@@ -99,11 +107,11 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
     if (isNaN(amountToSend) || amountToSend <= 0) return;
-  
+
     try {
       setLoading(true);
       let signature: string;
-  
+
       if (token.mint === 'SOL' || token.symbol?.toUpperCase() === 'SOL') {
         const tx = new Transaction().add(
           SystemProgram.transfer({
@@ -119,13 +127,13 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
         const toATA = await getAssociatedTokenAddress(mint, COINCARNATION_DEST);
         const decimals = (await getMint(connection, mint)).decimals;
         const adjustedAmount = Math.floor(amountToSend * Math.pow(10, decimals));
-  
+
         const tx = new Transaction().add(
           createTransferInstruction(fromATA, toATA, publicKey, adjustedAmount)
         );
         signature = await sendTransaction(tx, connection);
       }
-  
+
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -140,24 +148,22 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
           user_agent: navigator.userAgent,
         }),
       });
-  
+
       const json = await res.json();
       const userNumber = json?.number ?? 0;
       const tokenSymbol = token.symbol || token.mint.slice(0, 4);
       const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbol}.png`;
-  
-      setResultData({ tokenFrom: tokenSymbol, number: userNumber, imageUrl }); // ✅ önce başarı sonucu göster
-      setConfirmModalOpen(false); // ✅ sonra confirm modal'ı kapat
-  
+
+      setResultData({ tokenFrom: tokenSymbol, number: userNumber, imageUrl });
+      setConfirmModalOpen(false);
       if (refetchTokens) refetchTokens();
-  
     } catch (err) {
       console.error('❌ Transaction error:', err);
       alert('❌ Transaction failed.');
     } finally {
       setLoading(false);
     }
-  };  
+  };
 
   const handlePercentage = (percent: number) => {
     const calculated = (token.amount * percent) / 100;
@@ -166,7 +172,6 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
 
   useEffect(() => {
     if (resultData) {
-      // Modal sonucu açıldığında sayfayı yukarı kaydır
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [resultData]);
@@ -184,7 +189,6 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
         priceSources={priceSources}
         onDeadcoinVote={(vote) => {
           console.log('🗳️ Deadcoin vote:', vote);
-          // burada ileride vote'ları backend'e yollayabilirsin
         }}
       />
 

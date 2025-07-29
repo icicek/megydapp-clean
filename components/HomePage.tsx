@@ -8,6 +8,7 @@ import CoincarneModal from '@/components/CoincarneModal';
 import { fetchSolanaTokenList } from '@/lib/utils';
 import { connection } from '@/lib/solanaConnection';
 import CountUp from 'react-countup';
+import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 
 interface TokenInfo {
   mint: string;
@@ -52,27 +53,58 @@ export default function HomePage() {
 
     const fetchWalletTokens = async () => {
       try {
-        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, { programId: TOKEN_PROGRAM_ID });
-        const tokenListRaw: TokenInfo[] = tokenAccounts.value.map(({ account }) => {
-          const parsed = account.data.parsed;
-          return { mint: parsed.info.mint, amount: parseFloat(parsed.info.tokenAmount.uiAmountString || '0') };
-        }).filter(t => t.amount > 0);
-
-        const solBalance = await connection.getBalance(publicKey);
-        if (solBalance > 0) tokenListRaw.unshift({ mint: 'SOL', amount: solBalance / 1e9, symbol: 'SOL' });
-
-        const tokenMetadata = await fetchSolanaTokenList();
-
-        const enriched = tokenListRaw.map(token => {
-          if (token.mint === 'SOL') return token;
-          const metadata = tokenMetadata.find(meta => meta.address === token.mint);
-          return {
-            ...token,
-            symbol: metadata?.symbol || token.mint.slice(0, 4),
-            logoURI: metadata?.logoURI
-          };
+        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+          programId: TOKEN_PROGRAM_ID,
         });
-
+    
+        const tokenListRaw: TokenInfo[] = tokenAccounts.value
+          .map(({ account }) => {
+            const parsed = account.data.parsed;
+            return {
+              mint: parsed.info.mint,
+              amount: parseFloat(parsed.info.tokenAmount.uiAmountString || '0'),
+            };
+          })
+          .filter((t) => t.amount > 0);
+    
+        // SOL bakiyesi
+        const solBalance = await connection.getBalance(publicKey);
+        if (solBalance > 0) {
+          tokenListRaw.unshift({
+            mint: 'SOL',
+            amount: solBalance / 1e9,
+            symbol: 'SOL',
+          });
+        }
+    
+        // Token listesi (önbellekten)
+        const tokenMetadata = await fetchSolanaTokenList();
+    
+        // Token bilgilerini zenginleştir (önce listedeki metadata, yoksa fetchTokenMetadata)
+        const enriched = await Promise.all(
+          tokenListRaw.map(async (token) => {
+            if (token.mint === 'SOL') return token;
+    
+            const metadata = tokenMetadata.find((meta) => meta.address === token.mint);
+    
+            if (metadata) {
+              return {
+                ...token,
+                symbol: metadata.symbol,
+                logoURI: metadata.logoURI,
+              };
+            }
+    
+            const fallbackMeta = await fetchTokenMetadata(token.mint);
+    
+            return {
+              ...token,
+              symbol: fallbackMeta?.symbol || token.mint.slice(0, 4),
+              logoURI: undefined,
+            };
+          })
+        );
+    
         setTokens(enriched);
       } catch (err) {
         console.error('❌ Error fetching wallet tokens:', err);

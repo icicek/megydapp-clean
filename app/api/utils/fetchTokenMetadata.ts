@@ -5,32 +5,54 @@ import { fetchSolanaTokenList } from '@/lib/utils';
 
 const metaplex = Metaplex.make(connection);
 
+// Token listesi önbelleğe alınacak
+let cachedTokenList: any[] | null = null;
+
+async function getCachedTokenList() {
+  if (!cachedTokenList) {
+    try {
+      cachedTokenList = await fetchSolanaTokenList();
+    } catch (e) {
+      console.error('❌ Failed to fetch token list:', e);
+      cachedTokenList = [];
+    }
+  }
+  return cachedTokenList;
+}
+
 export async function fetchTokenMetadata(mintAddress: string): Promise<{ symbol: string; name: string } | null> {
   try {
-    // Önce token listten kontrol et
-    const tokenList = await fetchSolanaTokenList();
+    const tokenList = await getCachedTokenList();
     const token = tokenList.find(t => t.address === mintAddress);
+
     if (token) {
       return {
         symbol: token.symbol,
-        name: token.name || token.symbol
+        name: token.name || token.symbol,
       };
     }
 
-    // Eğer bulamazsa Metaplex'ten kontrol et (NFT olabilir ihtimaline karşı)
     const mintPublicKey = new PublicKey(mintAddress);
-    const nft = await metaplex.nfts().findByMint({ mintAddress: mintPublicKey });
+
+    // Metaplex -> bazı sürümlerde run() gerekir
+    const nft = await metaplex.nfts().findByMint({ mintAddress: mintPublicKey }).run?.() ?? await metaplex.nfts().findByMint({ mintAddress: mintPublicKey });
 
     if (nft) {
       return {
-        symbol: nft.symbol,
-        name: nft.name
+        symbol: nft.symbol || mintAddress.slice(0, 4),
+        name: nft.name || mintAddress.slice(0, 4),
       };
     }
 
-    return null;
+    return {
+      symbol: mintAddress.slice(0, 4),
+      name: mintAddress.slice(0, 4),
+    };
   } catch (error) {
     console.error('❌ Failed to fetch token metadata:', error);
-    return null;
+    return {
+      symbol: mintAddress.slice(0, 4),
+      name: mintAddress.slice(0, 4),
+    };
   }
 }
