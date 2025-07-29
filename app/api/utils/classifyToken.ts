@@ -14,30 +14,46 @@ interface ClassificationResult {
   priceSources: { price: number; source: string }[];
   volume: number | null;
   liquidity: number | null;
+  status: 'ok' | 'not_found' | 'fetching' | 'error'; // 🔄 Yeni
 }
 
 export default async function classifyToken(
   token: TokenInfo,
   amount: number
 ): Promise<ClassificationResult> {
-  // 1. Get price
   const priceResult = await getUsdValue(token, amount);
 
-  // No price found
-  if (priceResult.usdValue === 0) {
+  // Eğer fiyat hâlâ aranıyorsa → unknown
+  if (priceResult.status === 'fetching') {
     return {
-      category: 'deadcoin',
+      category: 'unknown',
       usdValue: 0,
-      priceSources: priceResult.sources, // ❗️önceden boştu, şimdi denenen kaynaklar gösteriliyor
+      priceSources: [],
       volume: null,
       liquidity: null,
+      status: 'fetching',
     };
   }
 
-  // 2. Get volume and liquidity
+  // Fiyat hiç bulunamadıysa → deadcoin
+  if (
+    priceResult.status === 'not_found' ||
+    priceResult.status === 'error' ||
+    priceResult.usdValue === 0
+  ) {
+    return {
+      category: 'deadcoin',
+      usdValue: 0,
+      priceSources: priceResult.sources || [],
+      volume: null,
+      liquidity: null,
+      status: priceResult.status,
+    };
+  }
+
+  // Hacim ve likidite ile detaylı analiz
   const { volume, liquidity } = await getVolumeAndLiquidity(token);
 
-  // 3. Classification logic
   if (
     volume !== null &&
     liquidity !== null &&
@@ -50,6 +66,7 @@ export default async function classifyToken(
       priceSources: priceResult.sources,
       volume,
       liquidity,
+      status: 'ok',
     };
   }
 
@@ -65,15 +82,17 @@ export default async function classifyToken(
       priceSources: priceResult.sources,
       volume,
       liquidity,
+      status: 'ok',
     };
   }
 
-  // If no volume or liquidity, but has price → still a deadcoin
+  // Hacim/l likidite yok ama fiyat var → yine de deadcoin
   return {
     category: 'deadcoin',
     usdValue: priceResult.usdValue,
     priceSources: priceResult.sources,
     volume,
     liquidity,
+    status: 'ok',
   };
 }

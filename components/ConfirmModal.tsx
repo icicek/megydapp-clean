@@ -10,6 +10,7 @@ interface ConfirmModalProps {
   amount: number;
   tokenCategory: TokenCategory | null;
   priceSources: { price: number; source: string }[];
+  fetchStatus: 'loading' | 'found' | 'not_found' | 'error'; 
   isOpen: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -22,6 +23,7 @@ export default function ConfirmModal({
   amount,
   tokenCategory,
   priceSources,
+  fetchStatus,
   isOpen,
   onConfirm,
   onCancel,
@@ -48,7 +50,20 @@ export default function ConfirmModal({
         </div>
 
         <div className="space-y-3 text-sm text-gray-700 mt-4">
-          {usdValue === 0 ? (
+
+          {fetchStatus === 'loading' && (
+            <div className="bg-blue-100 text-blue-800 p-3 rounded font-medium">
+              🔄 Fetching price data... Please wait.
+            </div>
+          )}
+
+          {fetchStatus === 'not_found' && (
+            <div className="bg-red-100 text-red-800 p-3 rounded font-medium">
+              ❌ Failed to fetch price from all sources. Please try again later.
+            </div>
+          )}
+
+          {fetchStatus === 'found' && usdValue === 0 && (
             <div className="bg-yellow-100 text-yellow-800 p-3 rounded">
               ⚠️ <strong>This token has no USD value.</strong><br />
               Do you confirm this as a deadcoin?
@@ -74,13 +89,15 @@ export default function ConfirmModal({
                 </div>
               )}
             </div>
-          ) : (
+          )}
+
+          {fetchStatus === 'found' && usdValue > 0 && (
             <div className="bg-green-100 text-green-800 p-3 rounded font-medium">
               ✅ This token has estimated value: <strong>${usdValue.toFixed(2)}</strong>
             </div>
           )}
 
-          {priceSources.length > 0 && (
+          {fetchStatus === 'found' && priceSources.length > 0 && (
             <div>
               <p className="font-medium">Price Sources:</p>
               <ul className="list-disc list-inside">
@@ -104,6 +121,7 @@ export default function ConfirmModal({
           <button
             onClick={onConfirm}
             className="bg-blue-600 text-white px-4 py-2 rounded"
+            disabled={fetchStatus !== 'found'}
           >
             Confirm Coincarnation
           </button>

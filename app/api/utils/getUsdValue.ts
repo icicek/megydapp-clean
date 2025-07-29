@@ -2,7 +2,7 @@ import NodeCache from 'node-cache';
 import { fetchPriceViaProxy } from './fetchPriceProxy';
 import fetchPriceFromRaydium from './fetchPriceFromRaydium';
 import fetchPriceFromJupiter from './fetchPriceFromJupiter';
-import fetchPriceFromCMC from './fetchPriceFromCMC'; // EKLENDİ
+import fetchPriceFromCMC from './fetchPriceFromCMC';
 
 interface TokenInfo {
   mint: string;
@@ -14,12 +14,19 @@ interface PriceResult {
   source: string;
 }
 
+type FetchStatus = 'ok' | 'not_found' | 'fetching' | 'error';
+
 const cache = new NodeCache({ stdTTL: 1800 }); // 30 dakika
 
 export default async function getUsdValue(
   token: TokenInfo,
   amount: number
-): Promise<{ usdValue: number; sources: PriceResult[]; usedPrice: number }> {
+): Promise<{
+  usdValue: number;
+  sources: PriceResult[];
+  usedPrice: number;
+  status: FetchStatus;
+}> {
   const cacheKey = `price_${token.mint}`;
   const cached = cache.get<PriceResult>(cacheKey);
 
@@ -29,6 +36,7 @@ export default async function getUsdValue(
       usdValue: cached.price * amount,
       sources: [cached],
       usedPrice: cached.price,
+      status: 'ok',
     };
   }
 
@@ -62,6 +70,7 @@ export default async function getUsdValue(
           usdValue: price * amount,
           sources: [result],
           usedPrice: price,
+          status: 'ok',
         };
       }
     } catch (err) {
@@ -74,5 +83,6 @@ export default async function getUsdValue(
     usdValue: 0,
     sources: [],
     usedPrice: 0,
+    status: 'not_found',
   };
 }

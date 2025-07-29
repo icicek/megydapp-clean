@@ -46,44 +46,45 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
   const [priceSources, setPriceSources] = useState<{ price: number; source: string }[]>([]);
   const [isValuable, setIsValuable] = useState(false);
   const [tokenCategory, setTokenCategory] = useState<TokenCategory | null>(null);
-  const [isClassifying, setIsClassifying] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [priceStatus, setPriceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [fetchStatus, setFetchStatus] = useState<'loading' | 'found' | 'not_found' | 'error'>('loading');
 
-  // Fallback metadata yükleme
+  // Token adı yedeği
   useEffect(() => {
     if (!token.symbol) {
       fetchTokenMetadata(token.mint).then((meta) => {
-        if (meta?.symbol) {
-          token.symbol = meta.symbol;
-        }
+        if (meta?.symbol) token.symbol = meta.symbol;
       });
     }
   }, [token]);
 
-  // Token sınıflandırma
+  // Token fiyat + kategori
   useEffect(() => {
     const classify = async () => {
-      setIsClassifying(true);
-      setShowConfirmModal(false);
-
+      setFetchStatus('loading');
+  
       try {
         const { usdValue, category, priceSources } = await classifyTokenFn(token, 1);
-        setUsdValue(usdValue);
-        setTokenCategory(category);
-        setPriceSources(priceSources);
-
-        if (usdValue > 0 && category) {
-          setShowConfirmModal(true);
+      
+        if (usdValue === 0) {
+          setFetchStatus('not_found');
+        } else {
+          setFetchStatus('found');
+          setPriceStatus('ready'); // ✅ Burayı ekle
         }
+      
+        setTokenCategory(category);
+        setUsdValue(usdValue);
+        setPriceSources(priceSources);
+        setConfirmModalOpen(true);
       } catch (err) {
         console.error('❌ Error classifying token:', err);
-      } finally {
-        setIsClassifying(false);
-      }
+        setFetchStatus('error');
+      }      
     };
-
+  
     classify();
-  }, [token]);
+  }, [token]);  
 
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
@@ -178,19 +179,22 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
 
   return (
     <>
-      <ConfirmModal
-        isOpen={confirmModalOpen}
-        onCancel={() => setConfirmModalOpen(false)}
-        onConfirm={handleSend}
-        usdValue={usdValue}
-        tokenSymbol={token.symbol || token.mint}
-        amount={parseFloat(amountInput)}
-        tokenCategory={tokenCategory}
-        priceSources={priceSources}
-        onDeadcoinVote={(vote) => {
-          console.log('🗳️ Deadcoin vote:', vote);
-        }}
-      />
+      {priceStatus === 'ready' && confirmModalOpen && (
+        <ConfirmModal
+          isOpen={confirmModalOpen}
+          onCancel={() => setConfirmModalOpen(false)}
+          onConfirm={handleSend}
+          usdValue={usdValue}
+          tokenSymbol={token.symbol || token.mint}
+          amount={parseFloat(amountInput)}
+          tokenCategory={tokenCategory}
+          priceSources={priceSources}
+          fetchStatus={fetchStatus} // 🔹 EKLENDİ
+          onDeadcoinVote={(vote) => {
+            console.log('🗳️ Deadcoin vote:', vote);
+          }}
+        />
+      )}
 
       <Dialog open onOpenChange={onClose}>
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" />
@@ -239,9 +243,15 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
                 disabled={loading}
               />
 
+              {priceStatus === 'loading' && (
+                <div className="text-center text-yellow-400 font-semibold animate-pulse mb-4">
+                  🔎 Fetching token value... Please wait.
+                </div>
+              )}
+
               <button
                 onClick={handlePrepareConfirm}
-                disabled={loading || !amountInput}
+                disabled={loading || !amountInput || priceStatus !== 'ready'}
                 className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 text-black font-extrabold py-3 rounded-xl"
               >
                 {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate ${token.symbol || 'Token'} Now`}
