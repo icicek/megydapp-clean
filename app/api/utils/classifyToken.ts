@@ -47,7 +47,7 @@ export default async function classifyToken(
       priceSources: priceResult.sources || [],
       volume: null,
       liquidity: null,
-      status: priceResult.status,
+      status: priceResult.status === 'ready' ? 'ok' : priceResult.status,
     };
   }
 
