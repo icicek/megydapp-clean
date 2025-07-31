@@ -14,8 +14,6 @@ interface PriceResult {
   source: string;
 }
 
-type FetchStatus = 'ok' | 'not_found' | 'fetching' | 'error';
-
 const cache = new NodeCache({ stdTTL: 1800 }); // 30 dakika
 
 export default async function getUsdValue(
@@ -25,7 +23,7 @@ export default async function getUsdValue(
   usdValue: number;
   sources: PriceResult[];
   usedPrice: number;
-  status: FetchStatus;
+  status: 'ready' | 'not_found' | 'fetching' | 'error';
 }> {
   const cacheKey = `price_${token.mint}`;
   const cached = cache.get<PriceResult>(cacheKey);
@@ -36,53 +34,56 @@ export default async function getUsdValue(
       usdValue: cached.price * amount,
       sources: [cached],
       usedPrice: cached.price,
-      status: 'ok',
+      status: 'ready',
     };
   }
 
-  const sources: { name: string; fetcher: () => Promise<number | null> }[] = [
-    {
-      name: 'Proxy-Coingecko',
-      fetcher: () => fetchPriceViaProxy(token),
-    },
-    {
-      name: 'Raydium',
-      fetcher: () => fetchPriceFromRaydium(token),
-    },
-    {
-      name: 'Jupiter',
-      fetcher: () => fetchPriceFromJupiter(token),
-    },
-    {
-      name: 'CoinMarketCap',
-      fetcher: () => fetchPriceFromCMC(token),
-    },
+  const sources = [
+    { name: 'Proxy-Coingecko', fetcher: () => fetchPriceViaProxy(token) },
+    { name: 'Raydium', fetcher: () => fetchPriceFromRaydium(token) },
+    { name: 'Jupiter', fetcher: () => fetchPriceFromJupiter(token) },
+    { name: 'CoinMarketCap', fetcher: () => fetchPriceFromCMC(token) },
   ];
 
-  for (const source of sources) {
-    try {
-      const price = await source.fetcher();
-      if (price && price > 0) {
-        const result: PriceResult = { price, source: source.name };
+  try {
+    const results = await Promise.allSettled(
+      sources.map(({ fetcher }) => fetcher())
+    );
+
+    for (let i = 0; i < results.length; i++) {
+      const res = results[i];
+      const source = sources[i].name;
+
+      if (res.status === 'fulfilled' && res.value && res.value > 0) {
+        const price = res.value;
+        const result: PriceResult = { price, source };
+
         cache.set(cacheKey, result);
-        console.log(`✅ Price found from ${source.name}: $${price}`);
+        console.log(`✅ Fast price from ${source}: $${price}`);
+
         return {
           usdValue: price * amount,
           sources: [result],
           usedPrice: price,
-          status: 'ok',
+          status: 'ready',
         };
       }
-    } catch (err) {
-      console.warn(`❌ Failed fetching price from ${source.name}:`, err);
     }
-  }
 
-  console.warn(`⚠️ All price sources failed for ${token.mint}`);
-  return {
-    usdValue: 0,
-    sources: [],
-    usedPrice: 0,
-    status: 'not_found',
-  };
+    console.warn(`❌ No valid price for ${token.mint}`);
+    return {
+      usdValue: 0,
+      sources: [],
+      usedPrice: 0,
+      status: 'not_found',
+    };
+  } catch (error) {
+    console.error(`🚨 Unexpected error fetching price for ${token.mint}`, error);
+    return {
+      usdValue: 0,
+      sources: [],
+      usedPrice: 0,
+      status: 'error',
+    };
+  }
 }
