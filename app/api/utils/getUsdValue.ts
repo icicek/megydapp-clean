@@ -3,84 +3,101 @@ import { fetchRaydiumPrice } from './fetchPriceFromRaydium';
 import { fetchJupiterPrice } from './fetchPriceFromJupiter';
 import { fetchCMCPrice } from './fetchPriceFromCMC';
 
-export default async function getUsdValue(
-  token: { mint: string; symbol?: string },
-  amount: number
-): Promise<{
-  usdValue: number;
-  sources: { price: number; source: string }[];
-  status: 'ready' | 'not_found' | 'fetching' | 'error';
-}> {
-  const tokenMint = token.mint;
-  const tokenSymbol = token.symbol;
-  const cacheKey = `price-${tokenMint}`;
+interface TokenInfo {
+  mint: string;
+  symbol?: string;
+}
 
-  // 1️⃣ Önce localStorage'da var mı kontrol et
-  if (typeof window !== 'undefined') {
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        const now = Date.now();
-        const age = now - parsed.timestamp;
-        if (age < 5 * 60 * 1000) {
-          console.log('⚡ Price served from localStorage cache');
-          return {
-            usdValue: parsed.price * amount,
-            sources: [{ price: parsed.price, source: 'localStorage' }],
-            status: 'ready',
-          };
-        } else {
-          localStorage.removeItem(cacheKey);
-        }
-      } catch (e) {
-        console.warn('❌ localStorage parse error:', e);
-      }
-    }
+interface PriceSource {
+  price: number;
+  source: string;
+}
+
+export interface PriceResult {
+  usdValue: number;
+  sources: PriceSource[];
+  status: 'ready' | 'not_found' | 'fetching' | 'error';
+}
+
+// 🧠 CACHE
+const priceCache = new Map<
+  string,
+  { price: number; source: string; timestamp: number }
+>();
+
+const CACHE_TTL = 1000 * 60 * 5; // 5 dakika
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('Timeout')), ms);
+    promise
+      .then((res) => {
+        clearTimeout(timeout);
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+  });
+}
+
+export default async function getUsdValue(
+  token: TokenInfo,
+  amount: number
+): Promise<PriceResult> {
+  const key = token.mint;
+  const now = Date.now();
+
+  // ✅ Check cache
+  const cached = priceCache.get(key);
+  if (cached && now - cached.timestamp < CACHE_TTL) {
+    return {
+      usdValue: cached.price * amount,
+      sources: [{ price: cached.price, source: cached.source }],
+      status: 'ready',
+    };
   }
 
-  const sources: {
-    fn: (token: { mint: string; symbol?: string }) => Promise<number | null>;
-    name: string;
-  }[] = [
+  // 📡 Try all sources
+  const sources = [
     { fn: fetchPriceProxy, name: 'coingecko' },
     { fn: fetchRaydiumPrice, name: 'raydium' },
     { fn: fetchJupiterPrice, name: 'jupiter' },
     { fn: fetchCMCPrice, name: 'cmc' },
   ];
 
-  for (const { fn, name } of sources) {
-    try {
-      const price = await fn({ mint: tokenMint, symbol: tokenSymbol });
-      if (price && price > 0) {
-        console.log(`✅ Price found from ${name}: $${price}`);
+  try {
+    const result = await Promise.any(
+      sources.map(({ fn, name }) =>
+        withTimeout(fn({ mint: token.mint, symbol: token.symbol }), 5000).then(
+          (price) => {
+            if (price && price > 0) {
+              // 💾 Cache the result
+              priceCache.set(key, {
+                price,
+                source: name,
+                timestamp: now,
+              });
+              return { price, source: name };
+            }
+            throw new Error(`${name} returned no price`);
+          }
+        )
+      )
+    );
 
-        // 2️⃣ Bulunan fiyatı localStorage'a kaydet
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(
-            cacheKey,
-            JSON.stringify({
-              price,
-              timestamp: Date.now(),
-            })
-          );
-        }
-
-        return {
-          usdValue: price * amount,
-          sources: [{ price, source: name }],
-          status: 'ready',
-        };
-      }
-    } catch (err) {
-      console.error(`❌ Error fetching price from ${name}:`, err);
-    }
+    return {
+      usdValue: result.price * amount,
+      sources: [result],
+      status: 'ready',
+    };
+  } catch (error) {
+    console.warn('❌ All price sources failed or timed out');
+    return {
+      usdValue: 0,
+      sources: [],
+      status: 'not_found',
+    };
   }
-
-  console.warn('⚠️ Price not found from any source');
-  return {
-    usdValue: 0,
-    sources: [],
-    status: 'not_found',
-  };
 }
