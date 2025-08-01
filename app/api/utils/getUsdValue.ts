@@ -3,79 +3,84 @@ import { fetchRaydiumPrice } from './fetchPriceFromRaydium';
 import { fetchJupiterPrice } from './fetchPriceFromJupiter';
 import { fetchCMCPrice } from './fetchPriceFromCMC';
 
-interface TokenInfo {
-  mint: string;
-  symbol?: string;
-}
-
-interface PriceSource {
-  price: number;
-  source: string;
-}
-
-export interface PriceResult {
-  usdValue: number;
-  sources: PriceSource[];
-  status: 'ready' | 'not_found' | 'fetching' | 'error';
-}
-
-// 🔹 Her isteğe timeout koy
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      reject(new Error('Timeout'));
-    }, ms);
-    promise
-      .then((res) => {
-        clearTimeout(timeout);
-        resolve(res);
-      })
-      .catch((err) => {
-        clearTimeout(timeout);
-        reject(err);
-      });
-  });
-}
-
 export default async function getUsdValue(
-  token: TokenInfo,
+  token: { mint: string; symbol?: string },
   amount: number
-): Promise<PriceResult> {
-  const tokenKey = `${token.symbol || token.mint}`;
+): Promise<{
+  usdValue: number;
+  sources: { price: number; source: string }[];
+  status: 'ready' | 'not_found' | 'fetching' | 'error';
+}> {
+  const tokenMint = token.mint;
+  const tokenSymbol = token.symbol;
+  const cacheKey = `price-${tokenMint}`;
 
-  const sources = [
+  // 1️⃣ Önce localStorage'da var mı kontrol et
+  if (typeof window !== 'undefined') {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        const now = Date.now();
+        const age = now - parsed.timestamp;
+        if (age < 5 * 60 * 1000) {
+          console.log('⚡ Price served from localStorage cache');
+          return {
+            usdValue: parsed.price * amount,
+            sources: [{ price: parsed.price, source: 'localStorage' }],
+            status: 'ready',
+          };
+        } else {
+          localStorage.removeItem(cacheKey);
+        }
+      } catch (e) {
+        console.warn('❌ localStorage parse error:', e);
+      }
+    }
+  }
+
+  const sources: {
+    fn: (token: { mint: string; symbol?: string }) => Promise<number | null>;
+    name: string;
+  }[] = [
     { fn: fetchPriceProxy, name: 'coingecko' },
     { fn: fetchRaydiumPrice, name: 'raydium' },
     { fn: fetchJupiterPrice, name: 'jupiter' },
     { fn: fetchCMCPrice, name: 'cmc' },
   ];
 
-  try {
-    const results = await Promise.any(
-      sources.map(({ fn, name }) =>
-        withTimeout(fn({ mint: token.mint, symbol: token.symbol }), 5000)
-          .then((price) => {
-            if (price && price > 0) {
-              return { price, source: name };
-            }
-            throw new Error(`${name} returned no price`);
-          })
-      )
-    );
+  for (const { fn, name } of sources) {
+    try {
+      const price = await fn({ mint: tokenMint, symbol: tokenSymbol });
+      if (price && price > 0) {
+        console.log(`✅ Price found from ${name}: $${price}`);
 
-    const usdValue = results.price * amount;
+        // 2️⃣ Bulunan fiyatı localStorage'a kaydet
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(
+            cacheKey,
+            JSON.stringify({
+              price,
+              timestamp: Date.now(),
+            })
+          );
+        }
 
-    return {
-      usdValue,
-      sources: [results],
-      status: 'ready',
-    };
-  } catch (error) {
-    console.warn('❌ All price sources failed or timed out');
-    return {
-      usdValue: 0,
-      sources: [],
-      status: 'not_found',
-    };
+        return {
+          usdValue: price * amount,
+          sources: [{ price, source: name }],
+          status: 'ready',
+        };
+      }
+    } catch (err) {
+      console.error(`❌ Error fetching price from ${name}:`, err);
+    }
   }
+
+  console.warn('⚠️ Price not found from any source');
+  return {
+    usdValue: 0,
+    sources: [],
+    status: 'not_found',
+  };
 }
