@@ -3,73 +3,79 @@ import { fetchRaydiumPrice } from './fetchPriceFromRaydium';
 import { fetchJupiterPrice } from './fetchPriceFromJupiter';
 import { fetchCMCPrice } from './fetchPriceFromCMC';
 
-export interface PriceSource {
-  price: number;
-  source: string;
-}
-
 interface TokenInfo {
   mint: string;
   symbol?: string;
 }
 
-type PriceStatus = 'ready' | 'not_found' | 'error' | 'fetching';
+interface PriceSource {
+  price: number;
+  source: string;
+}
 
-export async function getUsdValue(
-  token: TokenInfo,
-  amount: number
-): Promise<{
+export interface PriceResult {
   usdValue: number;
   sources: PriceSource[];
-  usedPrice: number;
-  status: PriceStatus;
-}> {
-  const sources: {
-    fn: (token: { mint: string; symbol?: string }) => Promise<number | null>;
-    name: string;
-  }[] = [
+  status: 'ready' | 'not_found' | 'fetching' | 'error';
+}
+
+// 🔹 Her isteğe timeout koy
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Timeout'));
+    }, ms);
+    promise
+      .then((res) => {
+        clearTimeout(timeout);
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+  });
+}
+
+export default async function getUsdValue(
+  token: TokenInfo,
+  amount: number
+): Promise<PriceResult> {
+  const tokenKey = `${token.symbol || token.mint}`;
+
+  const sources = [
     { fn: fetchPriceProxy, name: 'coingecko' },
     { fn: fetchRaydiumPrice, name: 'raydium' },
     { fn: fetchJupiterPrice, name: 'jupiter' },
     { fn: fetchCMCPrice, name: 'cmc' },
   ];
 
-  const results: PriceSource[] = [];
+  try {
+    const results = await Promise.any(
+      sources.map(({ fn, name }) =>
+        withTimeout(fn({ mint: token.mint, symbol: token.symbol }), 5000)
+          .then((price) => {
+            if (price && price > 0) {
+              return { price, source: name };
+            }
+            throw new Error(`${name} returned no price`);
+          })
+      )
+    );
 
-  for (const { fn, name } of sources) {
-    try {
-      const price = await fn({ mint: token.mint, symbol: token.symbol });
-      if (price !== null && price > 0) {
-        results.push({ price, source: name });
+    const usdValue = results.price * amount;
 
-        const usdValue = price * amount;
-        return {
-          usdValue,
-          sources: results,
-          usedPrice: price,
-          status: 'ready',
-        };
-      }
-    } catch (err) {
-      console.warn(`⚠️ Price fetch error from ${name}:`, err);
-    }
-  }
-
-  if (results.length === 0) {
+    return {
+      usdValue,
+      sources: [results],
+      status: 'ready',
+    };
+  } catch (error) {
+    console.warn('❌ All price sources failed or timed out');
     return {
       usdValue: 0,
       sources: [],
-      usedPrice: 0,
       status: 'not_found',
     };
   }
-
-  return {
-    usdValue: 0,
-    sources: results,
-    usedPrice: 0,
-    status: 'error',
-  };
 }
-
-export default getUsdValue;
