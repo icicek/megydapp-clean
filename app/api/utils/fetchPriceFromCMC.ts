@@ -12,7 +12,7 @@ const SOLANA_PLATFORM_ID = 1027; // ETH: 1027, SOLANA: 5426, vs.
 
 const CMC_API_KEY = process.env.CMC_API_KEY;
 
-export default async function fetchPriceFromCMC(token: TokenInfo): Promise<number | null> {
+export async function fetchCMCPrice(token: TokenInfo): Promise<number | null> {
   if (!CMC_API_KEY) {
     console.error('❌ CoinMarketCap API key is missing in environment variables.');
     return null;

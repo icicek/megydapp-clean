@@ -1,4 +1,4 @@
-export default async function fetchPriceFromJupiter(token: { mint: string }): Promise<number | null> {
+export async function fetchJupiterPrice(token: { mint: string }): Promise<number | null> {
     try {
       const response = await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${token.mint}&outputMint=So11111111111111111111111111111111111111112&amount=100000000`, {
         headers: { 'accept': 'application/json' }

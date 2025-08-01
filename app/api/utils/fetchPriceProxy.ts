@@ -1,4 +1,4 @@
-export async function fetchPriceViaProxy(token: { mint: string; symbol?: string }): Promise<number | null> {
+export async function fetchPriceProxy(token: { mint: string; symbol?: string }): Promise<number | null> {
   try {
     const isSol = token.symbol?.toUpperCase() === 'SOL' || token.mint === 'So11111111111111111111111111111111111111112';
 

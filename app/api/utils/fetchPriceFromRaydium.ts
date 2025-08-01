@@ -1,6 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 
-export default async function fetchPriceFromRaydium(token: { mint: string }): Promise<number | null> {
+export async function fetchRaydiumPrice(token: { mint: string }): Promise<number | null> {
   try {
     const response = await fetch('https://api.raydium.io/pairs');
     if (!response.ok) {
