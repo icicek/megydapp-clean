@@ -1,33 +1,37 @@
-// app/api/utils/fetchPriceProxy.ts
-
 export async function fetchPriceProxy(token: { mint: string; symbol?: string }): Promise<number | null> {
-  console.log(`🚀 [Proxy] Starting price fetch for token: ${token.mint} (${token.symbol})`);
-
-  const url = `https://proxy.megydapp.vercel.app/api/coingecko-price?mint=${token.mint}`;
-  console.log(`🌐 [Proxy] Request URL: ${url}`);
-
   try {
-    console.time('⏱️ Coingecko Fetch Duration');
-    const response = await fetch(url);
-    console.timeEnd('⏱️ Coingecko Fetch Duration');
+    const isSol = token.symbol?.toUpperCase() === 'SOL' || token.mint === 'So11111111111111111111111111111111111111112';
 
-    if (!response.ok) {
-      console.warn(`❌ [Proxy] Fetch failed with status: ${response.status}`);
+    const res = await fetch('/api/proxy/price', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: 'coingecko',
+        params: { isSol, mint: token.mint },
+      }),
+    });
+
+    const json = await res.json();
+
+    if (!json.success) {
+      console.warn('❌ Proxy price fetch failed:', json.error);
       return null;
     }
 
-    const data = await response.json();
-    console.log('📦 [Proxy] Response data:', data);
-
-    if (data && typeof data.price === 'number') {
-      console.log(`✅ [Proxy] Price found: $${data.price}`);
-      return data.price;
-    } else {
-      console.warn('⚠️ [Proxy] Price not found in response.');
-      return null;
+    if (isSol) {
+      return json.data.solana?.usd ?? null;
     }
-  } catch (error) {
-    console.error('🔥 [Proxy] Fetch error:', error);
+
+    const priceData = Object.values(json.data)[0];
+    if (priceData && typeof priceData === 'object' && 'usd' in priceData) {
+      return (priceData as any).usd;
+    }
+
+    console.warn('❌ USD price not found in proxy response data');
+    return null;
+
+  } catch (err) {
+    console.error('❌ Error in fetchPriceViaProxy:', err);
     return null;
   }
 }

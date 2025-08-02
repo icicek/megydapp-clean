@@ -1,4 +1,7 @@
 import { fetchPriceProxy } from './fetchPriceProxy';
+import { fetchRaydiumPrice } from './fetchPriceFromRaydium';
+import { fetchJupiterPrice } from './fetchPriceFromJupiter';
+import { fetchCMCPrice } from './fetchPriceFromCMC';
 
 interface TokenInfo {
   mint: string;
@@ -10,51 +13,79 @@ interface PriceSource {
   source: string;
 }
 
-interface PriceResult {
+export interface PriceResult {
   usdValue: number;
   sources: PriceSource[];
   status: 'ready' | 'not_found' | 'fetching' | 'error';
 }
 
-// In-memory cache
-const priceCache = new Map<string, { price: number; timestamp: number }>();
-const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+const priceCache = new Map<
+  string,
+  { price: number; source: string; timestamp: number }
+>();
 
-export default async function getUsdValue(token: TokenInfo, amount: number): Promise<PriceResult> {
-  const tokenMint = token.mint;
-  const cacheKey = `${tokenMint}`;
+const CACHE_TTL = 1000 * 60 * 5; // 5 dakika
 
-  const cached = priceCache.get(cacheKey);
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('Timeout')), ms);
+    promise
+      .then((res) => {
+        clearTimeout(timeout);
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+  });
+}
+
+export default async function getUsdValue(
+  token: TokenInfo,
+  amount: number
+): Promise<PriceResult> {
+  const key = token.mint;
   const now = Date.now();
 
-  if (cached && now - cached.timestamp < CACHE_DURATION_MS) {
+  // ✅ Use cache if available
+  const cached = priceCache.get(key);
+  if (cached && now - cached.timestamp < CACHE_TTL) {
     return {
       usdValue: cached.price * amount,
-      sources: [{ price: cached.price, source: 'cache' }],
+      sources: [{ price: cached.price, source: cached.source }],
       status: 'ready',
     };
   }
 
-  try {
-    const start = Date.now();
-    const price = await fetchPriceProxy({ mint: tokenMint, symbol: token.symbol });
-    const elapsed = Date.now() - start;
+  const sourceList = [
+    { fn: fetchPriceProxy, name: 'coingecko' },
+    { fn: fetchRaydiumPrice, name: 'raydium' },
+    { fn: fetchJupiterPrice, name: 'jupiter' },
+    { fn: fetchCMCPrice, name: 'cmc' },
+  ];
 
-    console.log(`⏱ [COINGECKO] took ${elapsed}ms`);
-
-    if (price && price > 0) {
-      priceCache.set(cacheKey, { price, timestamp: now });
-
-      return {
-        usdValue: price * amount,
-        sources: [{ price, source: 'coingecko' }],
-        status: 'ready',
-      };
+  for (const { fn, name } of sourceList) {
+    try {
+      const price = await withTimeout(
+        fn({ mint: token.mint, symbol: token.symbol }),
+        2000
+      );
+      if (price && price > 0) {
+        // 💾 Cache
+        priceCache.set(key, { price, source: name, timestamp: now });
+        return {
+          usdValue: price * amount,
+          sources: [{ price, source: name }],
+          status: 'ready',
+        };
+      }
+    } catch (err) {
+      console.warn(`⚠️ ${name} failed or timed out`);
     }
-  } catch (err) {
-    console.warn(`⚠️ Error fetching price from Coingecko:`, err);
   }
 
+  // ❌ All failed
   return {
     usdValue: 0,
     sources: [],
