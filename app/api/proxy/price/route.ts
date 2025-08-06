@@ -1,5 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeout = 3000
+): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('Fetch timed out'));
+    }, timeout);
+
+    fetch(url, options)
+      .then((res) => {
+        clearTimeout(timer);
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { source, params } = await req.json();
@@ -32,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     console.log('🌍 [proxy] Fetching from:', apiUrl);
 
-    const response = await fetch(apiUrl);
+    const response = await fetchWithTimeout(apiUrl, {}, 3000);
     if (!response.ok) {
       console.warn('❌ [proxy] Failed with status:', response.status);
       return NextResponse.json(
