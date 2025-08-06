@@ -6,10 +6,22 @@ export async function fetchPriceProxy({
   symbol?: string;
 }): Promise<number | null> {
   try {
-    console.log('📡 [proxy] Fetching price from /api/proxy/price...');
+    const isSol = mint === 'So11111111111111111111111111111111111111112' || symbol === 'SOL';
+
+    const payload = {
+      source: 'coingecko',
+      params: {
+        mint,
+        symbol,
+        isSol,
+      },
+    };
+
+    console.log('📤 Sending proxy request with:', payload);
+
     const res = await fetch('/api/proxy/price', {
       method: 'POST',
-      body: JSON.stringify({ mint, symbol }),
+      body: JSON.stringify(payload),
       headers: {
         'Content-Type': 'application/json',
       },
@@ -24,7 +36,7 @@ export async function fetchPriceProxy({
     console.log('✅ [proxy] Price received:', data?.price);
 
     return data?.price ?? null;
-  } catch (err) {
+  } catch (err: any) {
     console.error('🔥 [proxy] Error fetching price:', err.message);
     return null;
   }
