@@ -60,31 +60,44 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
 
   // Token fiyat + kategori
   useEffect(() => {
+    let isMounted = true;
+
     const classify = async () => {
       setFetchStatus('loading');
-  
+      setPriceStatus('loading');
+      setConfirmModalOpen(false); // Modal açık olabilir, kapat
+
       try {
         const { usdValue, category, priceSources } = await classifyTokenFn(token, 1);
-      
+
+        if (!isMounted) return;
+
         if (usdValue <= 0) {
           setFetchStatus('not_found');
         } else {
           setFetchStatus('found');
-          setPriceStatus('ready'); // ✅ Burayı ekle
+          setPriceStatus('ready');
+          setConfirmModalOpen(true); // ✅ Modalı sadece fiyat geldikten sonra aç
         }
-      
+
         setTokenCategory(category);
         setUsdValue(usdValue);
         setPriceSources(priceSources);
-        setConfirmModalOpen(true);
       } catch (err) {
-        console.error('❌ Error classifying token:', err);
-        setFetchStatus('error');
-      }      
+        if (isMounted) {
+          console.error('❌ Error classifying token:', err);
+          setFetchStatus('error');
+          setPriceStatus('error');
+        }
+      }
     };
-  
+
     classify();
-  }, [token]);  
+
+    return () => {
+      isMounted = false;
+    };
+  }, [token]);
 
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;

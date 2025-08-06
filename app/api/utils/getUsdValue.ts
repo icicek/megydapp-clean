@@ -27,6 +27,24 @@ const priceCache = new Map<
 const CACHE_TTL = 1000 * 60 * 5; // 5 dakika
 const TIMEOUT_MS = 2000; // Maksimum bekleme süresi her kaynak için
 
+function fetchWithTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('Fetch timed out'));
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
