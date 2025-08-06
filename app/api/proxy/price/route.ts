@@ -73,8 +73,7 @@ export async function POST(req: NextRequest) {
       if (isSol) {
         price = data?.solana?.usd ?? null;
       } else {
-        const mintLower = params.mint.toLowerCase();
-        price = data?.[mintLower]?.usd ?? null;
+        price = data?.[params.mint]?.usd ?? null;
       }
     }
 
