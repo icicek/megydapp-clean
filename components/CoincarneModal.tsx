@@ -77,7 +77,6 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
         } else {
           setFetchStatus('found');
           setPriceStatus('ready');
-          setConfirmModalOpen(true); // ✅ Modalı sadece fiyat geldikten sonra aç
         }
 
         setTokenCategory(category);
@@ -98,6 +97,12 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
       isMounted = false;
     };
   }, [token]);
+
+  useEffect(() => {
+    if (priceStatus === 'ready') {
+      setConfirmModalOpen(true);
+    }
+  }, [priceStatus]);
 
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
