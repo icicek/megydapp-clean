@@ -66,7 +66,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
       try {
         const { usdValue, category, priceSources } = await classifyTokenFn(token, 1);
       
-        if (usdValue === 0) {
+        if (usdValue <= 0) {
           setFetchStatus('not_found');
         } else {
           setFetchStatus('found');
