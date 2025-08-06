@@ -14,7 +14,7 @@ interface ClassificationResult {
   priceSources: { price: number; source: string }[];
   volume: number | null;
   liquidity: number | null;
-  status: 'ok' | 'not_found' | 'fetching' | 'error'; // 🔄 Yeni
+  status: 'ok' | 'not_found' | 'loading' | 'error'; // ✅ Uyumlu değerler
 }
 
 export default async function classifyToken(
@@ -23,19 +23,19 @@ export default async function classifyToken(
 ): Promise<ClassificationResult> {
   const priceResult = await getUsdValue(token, amount);
 
-  // Eğer fiyat hâlâ aranıyorsa → unknown
-  if (priceResult.status === 'fetching') {
+  // ⏳ Fiyat hâlâ aranıyorsa
+  if (priceResult.status === 'loading') {
     return {
       category: 'unknown',
       usdValue: 0,
       priceSources: [],
       volume: null,
       liquidity: null,
-      status: 'fetching',
+      status: 'loading',
     };
   }
 
-  // Fiyat hiç bulunamadıysa → deadcoin
+  // ❌ Fiyat bulunamadıysa veya hata varsa
   if (
     priceResult.status === 'not_found' ||
     priceResult.status === 'error' ||
@@ -47,11 +47,11 @@ export default async function classifyToken(
       priceSources: priceResult.sources || [],
       volume: null,
       liquidity: null,
-      status: priceResult.status === 'ready' ? 'ok' : priceResult.status,
+      status: priceResult.status === 'not_found' ? 'not_found' : 'error',
     };
   }
 
-  // Hacim ve likidite ile detaylı analiz
+  // 🔍 Hacim ve likidite kontrolü
   const { volume, liquidity } = await getVolumeAndLiquidity(token);
 
   if (
@@ -86,7 +86,7 @@ export default async function classifyToken(
     };
   }
 
-  // Hacim/l likidite yok ama fiyat var → yine de deadcoin
+  // 💀 Hacim/l likidite yok ama fiyat var → yine de deadcoin
   return {
     category: 'deadcoin',
     usdValue: priceResult.usdValue,

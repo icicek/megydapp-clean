@@ -16,7 +16,7 @@ interface PriceSource {
 export interface PriceResult {
   usdValue: number;
   sources: PriceSource[];
-  status: 'ready' | 'not_found' | 'fetching' | 'error';
+  status: 'found' | 'not_found' | 'loading' | 'error';
 }
 
 const priceCache = new Map<
@@ -64,7 +64,7 @@ export default async function getUsdValue(
     return {
       usdValue: cached.price * amount,
       sources: [{ price: cached.price, source: cached.source }],
-      status: 'ready',
+      status: 'found',
     };
   }
 
@@ -88,7 +88,7 @@ export default async function getUsdValue(
         return {
           usdValue: price * amount,
           sources: [{ price, source: name }],
-          status: 'ready',
+          status: 'found',
         };
       } else {
         console.warn(`⚠️ ${name} returned zero or invalid price`);
