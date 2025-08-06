@@ -1,37 +1,31 @@
-export async function fetchPriceProxy(token: { mint: string; symbol?: string }): Promise<number | null> {
+export async function fetchPriceProxy({
+  mint,
+  symbol,
+}: {
+  mint: string;
+  symbol?: string;
+}): Promise<number | null> {
   try {
-    const isSol = token.symbol?.toUpperCase() === 'SOL' || token.mint === 'So11111111111111111111111111111111111111112';
-
+    console.log('📡 [proxy] Fetching price from /api/proxy/price...');
     const res = await fetch('/api/proxy/price', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        source: 'coingecko',
-        params: { isSol, mint: token.mint },
-      }),
+      body: JSON.stringify({ mint, symbol }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
 
-    const json = await res.json();
-
-    if (!json.success) {
-      console.warn('❌ Proxy price fetch failed:', json.error);
+    if (!res.ok) {
+      console.warn('❌ [proxy] Response not OK:', res.status);
       return null;
     }
 
-    if (isSol) {
-      return json.data.solana?.usd ?? null;
-    }
+    const data = await res.json();
+    console.log('✅ [proxy] Price received:', data?.price);
 
-    const priceData = Object.values(json.data)[0];
-    if (priceData && typeof priceData === 'object' && 'usd' in priceData) {
-      return (priceData as any).usd;
-    }
-
-    console.warn('❌ USD price not found in proxy response data');
-    return null;
-
+    return data?.price ?? null;
   } catch (err) {
-    console.error('❌ Error in fetchPriceViaProxy:', err);
+    console.error('🔥 [proxy] Error fetching price:', err.message);
     return null;
   }
 }
