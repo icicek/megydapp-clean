@@ -19,8 +19,8 @@ import ConfirmModal from '@/components/ConfirmModal';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 import { TokenCategory } from '@/app/api/utils/classifyToken';
 import { isValuableAsset, isStablecoin } from '@/app/api/utils/isValuableAsset';
-import getUsdValueFast from '@/app/api/utils/getUsdValueFast'; // 🚀 Hızlı fiyat
-import { checkTokenLiquidityAndVolume } from '@/app/api/utils/checkTokenLiquidityAndVolume'; // ⬅️ Arka plan kontrol
+import getUsdValueFast from '@/app/api/utils/getUsdValueFast';
+import { checkTokenLiquidityAndVolume } from '@/app/api/utils/checkTokenLiquidityAndVolume';
 
 interface TokenInfo {
   mint: string;
@@ -38,11 +38,17 @@ interface CoincarneModalProps {
 
 const COINCARNATION_DEST = new PublicKey('HPBNVF9ATsnkDhGmQB4xoLC5tWBWQbTyBjsiQAN3dYXH');
 
-export default function CoincarneModal({ token, onClose, refetchTokens, onGoToProfileRequest }: CoincarneModalProps) {
+export default function CoincarneModal({
+  token,
+  onClose,
+  refetchTokens,
+  onGoToProfileRequest,
+}: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
   const [loading, setLoading] = useState(false);
   const [amountInput, setAmountInput] = useState('');
   const [resultData, setResultData] = useState<{ tokenFrom: string; number: number; imageUrl: string } | null>(null);
+
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [usdValue, setUsdValue] = useState(0);
   const [priceSources, setPriceSources] = useState<{ price: number; source: string }[]>([]);
@@ -51,7 +57,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
   const [priceStatus, setPriceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [fetchStatus, setFetchStatus] = useState<'loading' | 'found' | 'not_found' | 'error'>('loading');
 
-  // Token adı yedeği
+  // Symbol fallback
   useEffect(() => {
     if (!token.symbol) {
       fetchTokenMetadata(token.mint).then((meta) => {
@@ -60,7 +66,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     }
   }, [token]);
 
-  // 🚀 Hızlı fiyat ile ConfirmModal açma
+  // 🚀 Butona basınca: hızlı fiyat → modal; L/V ARKA PLAN YOK
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
@@ -69,37 +75,39 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     try {
       setLoading(true);
 
-      // 1️⃣ Önce hızlı fiyat al
+      // 1) Hızlı fiyat
       const fastPrice = await getUsdValueFast(token, amountToSend);
 
-      if (fastPrice.status === 'found') {
+      if (fastPrice.status === 'found' && fastPrice.usdValue > 0) {
         setUsdValue(fastPrice.usdValue);
         setPriceSources(fastPrice.sources);
         setIsValuable(isValuableAsset(fastPrice.usdValue / amountToSend) || isStablecoin(fastPrice.usdValue / amountToSend));
         setFetchStatus('found');
         setPriceStatus('ready');
-        setConfirmModalOpen(true); // 🚀 Hemen modal aç
+        setTokenCategory((prev) => prev ?? 'healthy'); // UI bilgilendirme için
+        setConfirmModalOpen(true); // hemen aç
       } else {
-        setFetchStatus('not_found');
-        setPriceStatus('error');
-        alert('❌ Token price could not be fetched.');
-        return;
+        // fiyat yok/0 → deadcoin akışı (oylama açık)
+        setUsdValue(0);
+        setPriceSources(fastPrice.sources ?? []);
+        setFetchStatus('found');   // modal açılabilsin
+        setPriceStatus('ready');
+        setTokenCategory('deadcoin');
+        setConfirmModalOpen(true);
       }
 
-      // 2️⃣ Arka planda hacim & likidite kontrolü (kullanıcıyı bekletmeden)
-      checkTokenLiquidityAndVolume(token).then(({ volume, liquidity, category }) => {
-        console.log(`📊 Liquidity check for ${token.symbol}:`, { volume, liquidity, category });
-        setTokenCategory(category);
-      });
+      // ⚠️ Burada L/V çağrısı yok; post-tx’e taşıdık.
 
     } catch (err) {
       console.error('❌ Error preparing confirmation:', err);
-      alert('❌ Failed to prepare confirmation.');
+      setFetchStatus('error');
+      setPriceStatus('error');
     } finally {
       setLoading(false);
     }
   };
 
+  // 📨 Gönderim + kayıt → SONRA arka planda L/V kontrolü
   const handleSend = async () => {
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
@@ -131,6 +139,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
         signature = await sendTransaction(tx, connection);
       }
 
+      // ✅ Backend'e kayıt
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -143,6 +152,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
           usd_value: usdValue,
           transaction_signature: signature,
           user_agent: navigator.userAgent,
+          token_category: tokenCategory ?? 'unknown',
         }),
       });
 
@@ -151,9 +161,26 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
       const tokenSymbol = token.symbol || token.mint.slice(0, 4);
       const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbol}.png`;
 
+      // 🎉 Başarı ekranı
       setResultData({ tokenFrom: tokenSymbol, number: userNumber, imageUrl });
       setConfirmModalOpen(false);
       if (refetchTokens) refetchTokens();
+
+      // 🔁 ⬇️ BURASI: KAYITTAN HEMEN SONRA, KULLANICIYI BEKLETMEDEN
+      try {
+        checkTokenLiquidityAndVolume(token)
+          .then(({ volume, liquidity, category }) => {
+            console.log('📊 Post-tx L/V:', { volume, liquidity, category });
+            // UI'ı değiştirmiyoruz; istersen backend list update çağrısı:
+            fetch('/api/list/update-from-lv', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mint: token.mint, volume, liquidity, category })
+            }).catch(() => {});
+          })
+          .catch((e) => console.warn('⚠️ Post-tx L/V error:', e));
+      } catch {}
+
     } catch (err) {
       console.error('❌ Transaction error:', err);
       alert('❌ Transaction failed.');
@@ -186,6 +213,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
           tokenCategory={tokenCategory}
           priceSources={priceSources}
           fetchStatus={fetchStatus}
+          tokenMint={token.mint} // ✅ deadcoin oylaması için mint gönder
           onDeadcoinVote={(vote) => {
             console.log('🗳️ Deadcoin vote:', vote);
           }}
@@ -252,7 +280,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
                 className="mt-3 w-full text-sm text-red-500 hover:text-white"
                 disabled={loading}
               >
-                ❌ Not Interested in Global Synergy 
+                ❌ Not Interested in Global Synergy
               </button>
             </>
           )}

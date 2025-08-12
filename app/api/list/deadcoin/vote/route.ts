@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
+import { voteDeadcoin } from '../../_store';
 
-// Geçici in-memory veri (deployment sonrası resetlenir, DB eklenmeli)
-let deadcoinVotes: Record<string, { yes: number; no: number }> = {};
-let DeadcoinList = new Set<string>();
+// (Opsiyonel)
+export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
   try {
@@ -12,26 +12,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
     }
 
-    // Oyları takip et
-    if (!deadcoinVotes[mint]) {
-      deadcoinVotes[mint] = { yes: 0, no: 0 };
-    }
-
-    if (vote === 'yes') {
-      deadcoinVotes[mint].yes += 1;
-    } else {
-      deadcoinVotes[mint].no += 1;
-    }
-
-    // Eğer 3 veya daha fazla "yes" varsa Deadcoin listesine ekle
-    if (deadcoinVotes[mint].yes >= 3) {
-      DeadcoinList.add(mint);
-    }
+    const { yes, no, isDeadcoin } = voteDeadcoin(mint, vote as 'yes' | 'no');
 
     return NextResponse.json({
       mint,
-      votes: deadcoinVotes[mint],
-      isDeadcoin: DeadcoinList.has(mint),
+      votes: { yes, no },
+      isDeadcoin, // 3+ YES sonrası true olur
     });
   } catch (err) {
     console.error('❌ Error recording deadcoin vote:', err);
