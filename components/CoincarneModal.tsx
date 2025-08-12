@@ -17,9 +17,10 @@ import { connection } from '@/lib/solanaConnection';
 import CoincarnationResult from '@/components/CoincarnationResult';
 import ConfirmModal from '@/components/ConfirmModal';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
-import classifyTokenFn, { TokenCategory } from '@/app/api/utils/classifyToken';
-import { isValuableAsset, isStablecoin } from '@/app/api/utils/isValuableAsset';
+import getUsdValue from '@/app/api/utils/getUsdValue';
 import { checkTokenLiquidityAndVolume } from '@/app/api/utils/checkTokenLiquidityAndVolume';
+import { TokenCategory } from '@/app/api/utils/classifyToken';
+import { isValuableAsset, isStablecoin } from '@/app/api/utils/isValuableAsset';
 
 interface TokenInfo {
   mint: string;
@@ -37,7 +38,12 @@ interface CoincarneModalProps {
 
 const COINCARNATION_DEST = new PublicKey('HPBNVF9ATsnkDhGmQB4xoLC5tWBWQbTyBjsiQAN3dYXH');
 
-export default function CoincarneModal({ token, onClose, refetchTokens, onGoToProfileRequest }: CoincarneModalProps) {
+export default function CoincarneModal({
+  token,
+  onClose,
+  refetchTokens,
+  onGoToProfileRequest
+}: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
   const [loading, setLoading] = useState(false);
   const [amountInput, setAmountInput] = useState('');
@@ -45,9 +51,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [usdValue, setUsdValue] = useState(0);
   const [priceSources, setPriceSources] = useState<{ price: number; source: string }[]>([]);
-  const [isValuable, setIsValuable] = useState(false);
   const [tokenCategory, setTokenCategory] = useState<TokenCategory | null>(null);
-  const [priceStatus, setPriceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [fetchStatus, setFetchStatus] = useState<'loading' | 'found' | 'not_found' | 'error'>('loading');
 
   // Token adı yedeği
@@ -59,59 +63,6 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     }
   }, [token]);
 
-  // Token fiyatını al ve modalı hemen aç
-  useEffect(() => {
-    let isMounted = true;
-
-    const classify = async () => {
-      setFetchStatus('loading');
-      setPriceStatus('loading');
-      setConfirmModalOpen(false);
-
-      try {
-        const { usdValue, category, priceSources } = await classifyTokenFn(token, 1);
-
-        if (!isMounted) return;
-
-        if (usdValue <= 0) {
-          setFetchStatus('not_found');
-        } else {
-          setFetchStatus('found');
-          setPriceStatus('ready');
-          setConfirmModalOpen(true); // ✅ fiyat bulununca modal hemen aç
-        }
-
-        setTokenCategory(category);
-        setUsdValue(usdValue);
-        setPriceSources(priceSources);
-
-        // 💡 Hacim/l likidite kontrolünü arka planda yap
-        checkTokenLiquidityAndVolume(token)
-          .then(({ volume, liquidity, category }) => {
-            if (isMounted) {
-              console.log(`📊 Arka plan kontrolü tamamlandı: ${category}`, { volume, liquidity });
-            }
-          })
-          .catch(err => {
-            console.warn('⚠️ Hacim/Likidite kontrol hatası:', err);
-          });
-
-      } catch (err) {
-        if (isMounted) {
-          console.error('❌ Error classifying token:', err);
-          setFetchStatus('error');
-          setPriceStatus('error');
-        }
-      }
-    };
-
-    classify();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [token]);
-
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
@@ -119,12 +70,37 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
 
     try {
       setLoading(true);
-      const unitPrice = usdValue / amountToSend;
-      setIsValuable(isValuableAsset(unitPrice) || isStablecoin(unitPrice));
+      setFetchStatus('loading');
+
+      // 1️⃣ Önce fiyat al
+      const priceResult = await getUsdValue(token, amountToSend);
+
+      if (priceResult.status !== 'found' || priceResult.usdValue <= 0) {
+        setFetchStatus('not_found');
+        alert('❌ Token value not found.');
+        return;
+      }
+
+      setUsdValue(priceResult.usdValue);
+      setPriceSources(priceResult.sources);
+      setFetchStatus('found');
+
+      // 2️⃣ Kategori belirleme (fiyat üzerinden)
+      const unitPrice = priceResult.usdValue / amountToSend;
+      setTokenCategory(isValuableAsset(unitPrice) || isStablecoin(unitPrice) ? 'healthy' : 'unknown');
+
+      // 3️⃣ Confirm modalı hemen aç
       setConfirmModalOpen(true);
+
+      // 4️⃣ Hacim ve likiditeyi arka planda kontrol et (kullanıcıyı bekletmeden)
+      checkTokenLiquidityAndVolume(token).then(({ volume, liquidity, category }) => {
+        console.log('📊 Liquidity/Volume check:', { volume, liquidity, category });
+        // Burada kategoriye göre listelere ekleme işlemleri yapılabilir.
+      });
+
     } catch (err) {
       console.error('❌ Error preparing confirmation:', err);
-      alert('❌ Failed to prepare confirmation.');
+      setFetchStatus('error');
     } finally {
       setLoading(false);
     }
@@ -205,7 +181,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
 
   return (
     <>
-      {priceStatus === 'ready' && confirmModalOpen && (
+      {confirmModalOpen && (
         <ConfirmModal
           isOpen={confirmModalOpen}
           onCancel={() => setConfirmModalOpen(false)}
@@ -269,15 +245,9 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
                 disabled={loading}
               />
 
-              {priceStatus === 'loading' && (
-                <div className="text-center text-yellow-400 font-semibold animate-pulse mb-4">
-                  🔎 Fetching token value... Please wait.
-                </div>
-              )}
-
               <button
                 onClick={handlePrepareConfirm}
-                disabled={loading || !amountInput || priceStatus !== 'ready'}
+                disabled={loading || !amountInput}
                 className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 text-black font-extrabold py-3 rounded-xl"
               >
                 {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate ${token.symbol || 'Token'} Now`}
@@ -288,7 +258,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
                 className="mt-3 w-full text-sm text-red-500 hover:text-white"
                 disabled={loading}
               >
-                ❌ Not Interested in Global Synergy
+                ❌ Not Interested in Global Synergy 
               </button>
             </>
           )}
