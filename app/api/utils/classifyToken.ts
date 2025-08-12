@@ -1,12 +1,13 @@
+// classifyToken.ts
 import getUsdValue from './getUsdValue';
-import getVolumeAndLiquidity from './getVolumeAndLiquidity';
+import { checkTokenLiquidityAndVolume } from './checkTokenLiquidityAndVolume';
+
+export type TokenCategory = 'healthy' | 'walking_dead' | 'deadcoin' | 'redlist' | 'blacklist' | 'unknown';
 
 interface TokenInfo {
   mint: string;
   symbol?: string;
 }
-
-export type TokenCategory = 'healthy' | 'walking_dead' | 'deadcoin' | 'unknown';
 
 interface ClassificationResult {
   category: TokenCategory;
@@ -14,16 +15,53 @@ interface ClassificationResult {
   priceSources: { price: number; source: string }[];
   volume: number | null;
   liquidity: number | null;
-  status: 'ok' | 'not_found' | 'loading' | 'error'; // ✅ Uyumlu değerler
+  status: 'ok' | 'not_found' | 'loading' | 'error';
 }
 
-export default async function classifyToken(
-  token: TokenInfo,
-  amount: number
-): Promise<ClassificationResult> {
+// 🔹 Burada listeler veri tabanından veya JSON'dan gelebilir.
+// Şimdilik basit dizi örnekleri ekliyorum:
+const DeadcoinList = new Set<string>([]);
+const Redlist = new Set<string>([]);
+const Blacklist = new Set<string>([]);
+
+export default async function classifyToken(token: TokenInfo, amount: number): Promise<ClassificationResult> {
+  // 1️⃣ Önce listelerden kontrol et
+  if (Blacklist.has(token.mint)) {
+    return {
+      category: 'blacklist',
+      usdValue: 0,
+      priceSources: [],
+      volume: null,
+      liquidity: null,
+      status: 'ok',
+    };
+  }
+
+  if (Redlist.has(token.mint)) {
+    return {
+      category: 'redlist',
+      usdValue: 0,
+      priceSources: [],
+      volume: null,
+      liquidity: null,
+      status: 'ok',
+    };
+  }
+
+  if (DeadcoinList.has(token.mint)) {
+    return {
+      category: 'deadcoin',
+      usdValue: 0,
+      priceSources: [],
+      volume: null,
+      liquidity: null,
+      status: 'ok',
+    };
+  }
+
+  // 2️⃣ Fiyat sorgusu
   const priceResult = await getUsdValue(token, amount);
 
-  // ⏳ Fiyat hâlâ aranıyorsa
   if (priceResult.status === 'loading') {
     return {
       category: 'unknown',
@@ -35,60 +73,23 @@ export default async function classifyToken(
     };
   }
 
-  // ❌ Fiyat bulunamadıysa veya hata varsa
-  if (
-    priceResult.status === 'not_found' ||
-    priceResult.status === 'error' ||
-    priceResult.usdValue === 0
-  ) {
+  if (priceResult.status === 'not_found' || priceResult.usdValue <= 0) {
+    // Değeri 0 → Deadcoin
     return {
       category: 'deadcoin',
       usdValue: 0,
       priceSources: priceResult.sources || [],
       volume: null,
       liquidity: null,
-      status: priceResult.status === 'not_found' ? 'not_found' : 'error',
+      status: 'not_found',
     };
   }
 
-  // 🔍 Hacim ve likidite kontrolü
-  const { volume, liquidity } = await getVolumeAndLiquidity(token);
+  // 3️⃣ Hacim & likidite kontrolü
+  const { volume, liquidity, category } = await checkTokenLiquidityAndVolume(token);
 
-  if (
-    volume !== null &&
-    liquidity !== null &&
-    volume >= 10000 &&
-    liquidity >= 10000
-  ) {
-    return {
-      category: 'healthy',
-      usdValue: priceResult.usdValue,
-      priceSources: priceResult.sources,
-      volume,
-      liquidity,
-      status: 'ok',
-    };
-  }
-
-  if (
-    volume !== null &&
-    liquidity !== null &&
-    volume >= 100 &&
-    liquidity >= 100
-  ) {
-    return {
-      category: 'walking_dead',
-      usdValue: priceResult.usdValue,
-      priceSources: priceResult.sources,
-      volume,
-      liquidity,
-      status: 'ok',
-    };
-  }
-
-  // 💀 Hacim/l likidite yok ama fiyat var → yine de deadcoin
   return {
-    category: 'deadcoin',
+    category,
     usdValue: priceResult.usdValue,
     priceSources: priceResult.sources,
     volume,

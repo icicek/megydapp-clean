@@ -17,10 +17,10 @@ import { connection } from '@/lib/solanaConnection';
 import CoincarnationResult from '@/components/CoincarnationResult';
 import ConfirmModal from '@/components/ConfirmModal';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
-import getUsdValue from '@/app/api/utils/getUsdValue';
-import { checkTokenLiquidityAndVolume } from '@/app/api/utils/checkTokenLiquidityAndVolume';
 import { TokenCategory } from '@/app/api/utils/classifyToken';
 import { isValuableAsset, isStablecoin } from '@/app/api/utils/isValuableAsset';
+import getUsdValueFast from '@/app/api/utils/getUsdValueFast'; // 🚀 Hızlı fiyat
+import { checkTokenLiquidityAndVolume } from '@/app/api/utils/checkTokenLiquidityAndVolume'; // ⬅️ Arka plan kontrol
 
 interface TokenInfo {
   mint: string;
@@ -38,12 +38,7 @@ interface CoincarneModalProps {
 
 const COINCARNATION_DEST = new PublicKey('HPBNVF9ATsnkDhGmQB4xoLC5tWBWQbTyBjsiQAN3dYXH');
 
-export default function CoincarneModal({
-  token,
-  onClose,
-  refetchTokens,
-  onGoToProfileRequest
-}: CoincarneModalProps) {
+export default function CoincarneModal({ token, onClose, refetchTokens, onGoToProfileRequest }: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
   const [loading, setLoading] = useState(false);
   const [amountInput, setAmountInput] = useState('');
@@ -51,7 +46,9 @@ export default function CoincarneModal({
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [usdValue, setUsdValue] = useState(0);
   const [priceSources, setPriceSources] = useState<{ price: number; source: string }[]>([]);
+  const [isValuable, setIsValuable] = useState(false);
   const [tokenCategory, setTokenCategory] = useState<TokenCategory | null>(null);
+  const [priceStatus, setPriceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [fetchStatus, setFetchStatus] = useState<'loading' | 'found' | 'not_found' | 'error'>('loading');
 
   // Token adı yedeği
@@ -63,6 +60,7 @@ export default function CoincarneModal({
     }
   }, [token]);
 
+  // 🚀 Hızlı fiyat ile ConfirmModal açma
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
@@ -70,37 +68,33 @@ export default function CoincarneModal({
 
     try {
       setLoading(true);
-      setFetchStatus('loading');
 
-      // 1️⃣ Önce fiyat al
-      const priceResult = await getUsdValue(token, amountToSend);
+      // 1️⃣ Önce hızlı fiyat al
+      const fastPrice = await getUsdValueFast(token, amountToSend);
 
-      if (priceResult.status !== 'found' || priceResult.usdValue <= 0) {
+      if (fastPrice.status === 'found') {
+        setUsdValue(fastPrice.usdValue);
+        setPriceSources(fastPrice.sources);
+        setIsValuable(isValuableAsset(fastPrice.usdValue / amountToSend) || isStablecoin(fastPrice.usdValue / amountToSend));
+        setFetchStatus('found');
+        setPriceStatus('ready');
+        setConfirmModalOpen(true); // 🚀 Hemen modal aç
+      } else {
         setFetchStatus('not_found');
-        alert('❌ Token value not found.');
+        setPriceStatus('error');
+        alert('❌ Token price could not be fetched.');
         return;
       }
 
-      setUsdValue(priceResult.usdValue);
-      setPriceSources(priceResult.sources);
-      setFetchStatus('found');
-
-      // 2️⃣ Kategori belirleme (fiyat üzerinden)
-      const unitPrice = priceResult.usdValue / amountToSend;
-      setTokenCategory(isValuableAsset(unitPrice) || isStablecoin(unitPrice) ? 'healthy' : 'unknown');
-
-      // 3️⃣ Confirm modalı hemen aç
-      setConfirmModalOpen(true);
-
-      // 4️⃣ Hacim ve likiditeyi arka planda kontrol et (kullanıcıyı bekletmeden)
+      // 2️⃣ Arka planda hacim & likidite kontrolü (kullanıcıyı bekletmeden)
       checkTokenLiquidityAndVolume(token).then(({ volume, liquidity, category }) => {
-        console.log('📊 Liquidity/Volume check:', { volume, liquidity, category });
-        // Burada kategoriye göre listelere ekleme işlemleri yapılabilir.
+        console.log(`📊 Liquidity check for ${token.symbol}:`, { volume, liquidity, category });
+        setTokenCategory(category);
       });
 
     } catch (err) {
       console.error('❌ Error preparing confirmation:', err);
-      setFetchStatus('error');
+      alert('❌ Failed to prepare confirmation.');
     } finally {
       setLoading(false);
     }
@@ -181,7 +175,7 @@ export default function CoincarneModal({
 
   return (
     <>
-      {confirmModalOpen && (
+      {priceStatus === 'ready' && confirmModalOpen && (
         <ConfirmModal
           isOpen={confirmModalOpen}
           onCancel={() => setConfirmModalOpen(false)}

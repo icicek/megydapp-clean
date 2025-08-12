@@ -15,6 +15,7 @@ interface ConfirmModalProps {
   onConfirm: () => void;
   onCancel: () => void;
   onDeadcoinVote: (vote: 'yes' | 'no') => void;
+  tokenMint?: string; // 🔹 Mint adresi ekledik
 }
 
 export default function ConfirmModal({
@@ -28,14 +29,36 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
   onDeadcoinVote,
+  tokenMint
 }: ConfirmModalProps) {
   const [deadcoinVoted, setDeadcoinVoted] = useState(false);
   const [voteMessage, setVoteMessage] = useState('');
 
-  const handleDeadcoinVote = (vote: 'yes' | 'no') => {
+  const handleDeadcoinVote = async (vote: 'yes' | 'no') => {
     setDeadcoinVoted(true);
     onDeadcoinVote(vote);
-    setVoteMessage('✅ Thank you! Your vote has been recorded.');
+
+    try {
+      if (tokenMint) {
+        const res = await fetch('/api/list/deadcoin/vote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mint: tokenMint, vote })
+        });
+
+        const data = await res.json();
+        if (data.isDeadcoin) {
+          setVoteMessage('💀 This token is now in the Deadcoin List!');
+        } else {
+          setVoteMessage('✅ Thank you! Your vote has been recorded.');
+        }
+      } else {
+        setVoteMessage('✅ Thank you! Your vote has been recorded.');
+      }
+    } catch (err) {
+      console.error('❌ Error voting deadcoin:', err);
+      setVoteMessage('⚠️ Failed to record your vote. Please try again.');
+    }
   };
 
   return (
@@ -50,7 +73,6 @@ export default function ConfirmModal({
         </div>
 
         <div className="space-y-3 text-sm text-gray-700 mt-4">
-
           {fetchStatus === 'loading' && (
             <div className="bg-blue-100 text-blue-800 p-3 rounded font-medium">
               🔄 Fetching price data... Please wait.

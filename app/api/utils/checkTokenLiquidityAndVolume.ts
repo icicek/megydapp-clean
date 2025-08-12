@@ -17,6 +17,7 @@ export async function checkTokenLiquidityAndVolume(token: TokenInfo): Promise<Li
   const { volume, liquidity } = await getVolumeAndLiquidity(token);
 
   let category: TokenCategory = 'deadcoin';
+
   if (volume !== null && liquidity !== null) {
     if (volume >= 10000 && liquidity >= 10000) {
       category = 'healthy';
