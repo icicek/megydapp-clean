@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // ⬅️ useRef eklendi
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useWallet } from '@solana/wallet-adapter-react';
 import {
@@ -19,6 +19,7 @@ import ConfirmModal from '@/components/ConfirmModal';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 import classifyTokenFn, { TokenCategory } from '@/app/api/utils/classifyToken';
 import { isValuableAsset, isStablecoin } from '@/app/api/utils/isValuableAsset';
+import { checkTokenLiquidityAndVolume } from '@/app/api/utils/checkTokenLiquidityAndVolume'; // ⬅️ arka plan kontrol importu
 
 interface TokenInfo {
   mint: string;
@@ -49,6 +50,9 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
   const [priceStatus, setPriceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [fetchStatus, setFetchStatus] = useState<'loading' | 'found' | 'not_found' | 'error'>('loading');
 
+  // ⬇️ aynı mint için arka plan kontrolünü sadece 1 kez çalıştırmak için
+  const lastBgCheckedMintRef = useRef<string | null>(null);
+
   // Token adı yedeği
   useEffect(() => {
     if (!token.symbol) {
@@ -58,7 +62,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     }
   }, [token]);
 
-  // Token fiyat + kategori
+  // Token fiyat + kategori (fiyat gelir gelmez modal’ı açıyoruz)
   useEffect(() => {
     let isMounted = true;
 
@@ -77,6 +81,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
         } else {
           setFetchStatus('found');
           setPriceStatus('ready');
+          setConfirmModalOpen(true); // ✅ fiyat hazır olur olmaz modal'ı aç
         }
 
         setTokenCategory(category);
@@ -98,11 +103,23 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
     };
   }, [token]);
 
+  // ⬇️ Fiyat hazır olunca hacim & likidite kontrolünü ARKA PLANDA ve SADECE 1 KEZ çalıştır
   useEffect(() => {
-    if (priceStatus === 'ready') {
-      setConfirmModalOpen(true);
-    }
-  }, [priceStatus]);
+    if (priceStatus !== 'ready') return;
+    if (!token?.mint) return;
+
+    // aynı mint için tekrar tekrar çalışmasın
+    if (lastBgCheckedMintRef.current === token.mint) return;
+    lastBgCheckedMintRef.current = token.mint;
+
+    (async () => {
+      try {
+        await checkTokenLiquidityAndVolume(token.mint);
+      } catch (e) {
+        console.warn('bg volume/liquidity check failed:', (e as Error)?.message || e);
+      }
+    })();
+  }, [priceStatus, token?.mint]);
 
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
@@ -207,7 +224,7 @@ export default function CoincarneModal({ token, onClose, refetchTokens, onGoToPr
           amount={parseFloat(amountInput)}
           tokenCategory={tokenCategory}
           priceSources={priceSources}
-          fetchStatus={fetchStatus} // 🔹 EKLENDİ
+          fetchStatus={fetchStatus}
           onDeadcoinVote={(vote) => {
             console.log('🗳️ Deadcoin vote:', vote);
           }}
