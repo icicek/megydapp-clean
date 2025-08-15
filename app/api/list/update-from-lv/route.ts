@@ -1,42 +1,18 @@
-import { NextResponse } from 'next/server';
-import {
-  addWalkingDead,
-  removeWalkingDead,
-  suggestDeadcoin,
-  getStatus,
-} from '../_store';
+import { NextRequest, NextResponse } from 'next/server';
+import { updateFromLv } from '@/app/api/list/repo';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { mint, volume, liquidity, category } = await req.json();
+    const { mint, isDeadcoin } = await req.json();
 
-    if (!mint || !category) {
-      return NextResponse.json({ error: 'mint and category are required' }, { status: 400 });
+    if (!mint || typeof isDeadcoin !== 'boolean') {
+      return NextResponse.json({ success: false, error: 'Invalid payload' }, { status: 400 });
     }
 
-    // Blacklist/Redlist’i bu endpoint yönetmez — manuel süreç.
-    // Sağlıklı → walking_dead’ten çıkar
-    if (category === 'healthy') {
-      removeWalkingDead(mint);
-    }
-
-    // Walking dead → listeye ekle
-    if (category === 'walking_dead') {
-      addWalkingDead(mint);
-    }
-
-    // L/V “deadcoin” → direkt deadcoin yapmıyoruz; önce öneri (oy lazım)
-    if (category === 'deadcoin') {
-      suggestDeadcoin(mint);
-    }
-
-    return NextResponse.json({
-      ok: true,
-      currentStatus: getStatus(mint),
-      received: { mint, volume, liquidity, category },
-    });
-  } catch (e) {
-    console.error('❌ update-from-lv error:', e);
-    return NextResponse.json({ error: 'internal error' }, { status: 500 });
+    const updated = await updateFromLv(mint, isDeadcoin);
+    return NextResponse.json({ success: true, ...updated });
+  } catch (error) {
+    console.error('❌ Update-from-LV API error:', error);
+    return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
   }
 }

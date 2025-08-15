@@ -1,26 +1,18 @@
-import { NextResponse } from 'next/server';
-import { voteDeadcoin } from '../../_store';
+import { NextRequest, NextResponse } from 'next/server';
+import { recordVote } from '@/app/api/list/repo';
 
-// (Opsiyonel)
-export const runtime = 'nodejs';
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { mint, vote } = await req.json();
+    const { mint, voterWallet, voteYes } = await req.json();
 
-    if (!mint || !['yes', 'no'].includes(vote)) {
-      return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
+    if (!mint || !voterWallet || typeof voteYes !== 'boolean') {
+      return NextResponse.json({ success: false, error: 'Invalid payload' }, { status: 400 });
     }
 
-    const { yes, no, isDeadcoin } = voteDeadcoin(mint, vote as 'yes' | 'no');
-
-    return NextResponse.json({
-      mint,
-      votes: { yes, no },
-      isDeadcoin, // 3+ YES sonrası true olur
-    });
-  } catch (err) {
-    console.error('❌ Error recording deadcoin vote:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const result = await recordVote(mint, voterWallet, voteYes);
+    return NextResponse.json({ success: true, ...result });
+  } catch (error) {
+    console.error('❌ Vote API error:', error);
+    return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
   }
 }

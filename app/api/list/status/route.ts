@@ -1,20 +1,19 @@
-import { NextResponse } from 'next/server';
-import { getStatus, statusTimestamps } from '../_store';
+import { NextRequest, NextResponse } from 'next/server';
+import { getDeadcoinStatus } from '@/app/api/list/repo';
 
-// (Opsiyonel) Node runtime istiyorsan aç:
-export const runtime = 'nodejs';
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const mint = searchParams.get('mint');
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const mint = searchParams.get('mint');
+    if (!mint) {
+      return NextResponse.json({ success: false, error: 'Mint is required' }, { status: 400 });
+    }
 
-  if (!mint) {
-    return NextResponse.json({ error: 'Mint address required' }, { status: 400 });
+    const status = await getDeadcoinStatus(mint);
+    return NextResponse.json({ success: true, ...status });
+  } catch (error) {
+    console.error('❌ Status API error:', error);
+    return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
   }
-
-  const status = getStatus(mint);
-  return NextResponse.json({
-    status,                               // 'healthy' | 'walking_dead' | 'deadcoin' | 'redlist' | 'blacklist'
-    statusAt: statusTimestamps.get(mint) ?? null, // eklenme/değişim zamanı (varsa)
-  });
 }

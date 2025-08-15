@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { TokenCategory } from '@/app/api/utils/classifyToken';
 
@@ -10,38 +10,18 @@ interface ConfirmModalProps {
   amount: number;
   tokenCategory: TokenCategory | null;
   priceSources: { price: number; source: string }[];
-  fetchStatus: 'loading' | 'found' | 'not_found' | 'error'; 
+  fetchStatus: 'loading' | 'found' | 'not_found' | 'error';
   isOpen: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   onDeadcoinVote: (vote: 'yes' | 'no') => void;
+
+  // ✅ Yeni ama opsiyonel: vermezsen eski davranış korunur
   tokenMint?: string;
+  currentWallet?: string | null;
 }
 
-// 💲 Küçük değerleri 0 yapmadan gösteren formatlayıcı
-function formatUsd(v: number): string {
-  if (!isFinite(v) || v === 0) return '$0';
-  if (Math.abs(v) >= 0.01) {
-    return `$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  }
-  if (Math.abs(v) >= 1e-6) {
-    return `$${v.toLocaleString(undefined, { minimumFractionDigits: 6, maximumFractionDigits: 6 })}`;
-  }
-  // aşırı küçükler bilimsel gösterim
-  return `$${v.toExponential(2)}`;
-}
-
-// Tekil fiyat (kaynak) için: 1$ üzeri 4 hane, altı 8 hane
-function formatUnitPrice(p: number): string {
-  if (!isFinite(p) || p === 0) return '$0';
-  if (Math.abs(p) >= 1) {
-    return `$${p.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
-  }
-  if (Math.abs(p) >= 1e-6) {
-    return `$${p.toLocaleString(undefined, { minimumFractionDigits: 8, maximumFractionDigits: 8 })}`;
-  }
-  return `$${p.toExponential(2)}`;
-}
+type ListStatus = 'healthy' | 'walking_dead' | 'deadcoin' | 'redlist' | 'blacklist';
 
 export default function ConfirmModal({
   tokenSymbol,
@@ -54,151 +34,181 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
   onDeadcoinVote,
-  tokenMint
+  tokenMint,
+  currentWallet,
 }: ConfirmModalProps) {
   const [deadcoinVoted, setDeadcoinVoted] = useState(false);
   const [voteMessage, setVoteMessage] = useState('');
+  const [listStatus, setListStatus] = useState<ListStatus | null>(null);
+  const [statusAt, setStatusAt] = useState<string | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+
+  // 🔎 Opsiyonel: tokenMint sağlanırsa liste durumunu çek
+  useEffect(() => {
+    let abort = false;
+    async function load() {
+      if (!isOpen || !tokenMint) return;
+      try {
+        setStatusLoading(true);
+        const res = await fetch(`/api/list/status?mint=${encodeURIComponent(tokenMint)}`);
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        const data = await res.json();
+        if (abort) return;
+        setListStatus(data.status as ListStatus);
+        setStatusAt(data.statusAt ?? null);
+      } catch (e) {
+        // Sessiz geç – UI akışı bozulmasın
+        if (!abort) {
+          setListStatus(null);
+          setStatusAt(null);
+        }
+      } finally {
+        if (!abort) setStatusLoading(false);
+      }
+    }
+    load();
+    return () => {
+      abort = true;
+    };
+  }, [isOpen, tokenMint]);
 
   const handleDeadcoinVote = async (vote: 'yes' | 'no') => {
     setDeadcoinVoted(true);
-    onDeadcoinVote(vote);
+    onDeadcoinVote(vote); // 🔁 mevcut callback korunuyor
+    setVoteMessage('✅ Thank you! Your vote has been recorded.');
 
+    // Backend’e kaydet (opsiyonel, parametreler yoksa atla)
+    if (!tokenMint || !currentWallet) return;
     try {
-      if (tokenMint) {
-        const res = await fetch('/api/list/deadcoin/vote', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mint: tokenMint, vote })
-        });
-
-        const data = await res.json();
-        if (data.isDeadcoin) {
-          setVoteMessage('💀 This token is now in the Deadcoin List!');
-        } else {
-          setVoteMessage('✅ Thank you! Your vote has been recorded.');
-        }
-      } else {
-        setVoteMessage('✅ Thank you! Your vote has been recorded.');
-      }
-    } catch (err) {
-      console.error('❌ Error voting deadcoin:', err);
-      setVoteMessage('⚠️ Failed to record your vote. Please try again.');
+      await fetch('/api/list/deadcoin/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mint: tokenMint,
+          vote, // 'yes' | 'no' — backend bu formatı destekliyor
+          voter_wallet: currentWallet,
+        }),
+      });
+    } catch {
+      // Sessiz geç – kullanıcı deneyimini bozma
     }
   };
 
-  // Kategori uyarıları (renkler korunuyor)
-  const renderCategoryNotice = () => {
-    switch (tokenCategory) {
-      case 'blacklist':
-        return (
-          <div className="bg-black text-white p-3 rounded font-medium">
-            ⛔ <strong>This token is on the BLACKLIST.</strong><br />
-            You cannot coincarnate this token. All MEGY claims are permanently blocked.
-          </div>
-        );
-      case 'redlist':
-        return (
-          <div className="bg-red-200 text-red-900 p-3 rounded font-medium">
-            ⚠️ <strong>This token is on the REDLIST.</strong><br />
-            You can coincarnate it if you owned it before its redlist date, but MEGY claims may be restricted.
-          </div>
-        );
-      case 'walking_dead':
-        return (
-          <div className="bg-yellow-100 text-yellow-800 p-3 rounded font-medium">
-            ⚠️ This token is a <strong>Walking Deadcoin</strong>.<br />
-            Liquidity and volume are critically low. It may soon become a Deadcoin.
-          </div>
-        );
-      case 'deadcoin':
-        return (
-          <div className="bg-gray-200 text-gray-800 p-3 rounded font-medium">
-            💀 This is a <strong>Deadcoin</strong>.<br />
-            You can coincarnate it and earn CorePoints, but it will not generate MEGY.
-            {!deadcoinVoted && (
-              <div className="flex gap-2 mt-2">
-                <button
-                  onClick={() => handleDeadcoinVote('yes')}
-                  className="bg-red-600 text-white px-3 py-1 rounded"
-                >
-                  Yes, it is a Deadcoin
-                </button>
-                <button
-                  onClick={() => handleDeadcoinVote('no')}
-                  className="bg-gray-300 text-gray-800 px-3 py-1 rounded"
-                >
-                  No, it is not
-                </button>
-              </div>
-            )}
-            {deadcoinVoted && (
-              <div className="mt-3 p-2 bg-green-100 text-green-800 rounded font-semibold text-center">
-                {voteMessage}
-              </div>
-            )}
-          </div>
-        );
-      case 'healthy':
-        return (
-          <div className="bg-green-100 text-green-800 p-3 rounded font-medium">
-            ✅ This token is Healthy. Full MEGY rewards apply.
-          </div>
-        );
-      default:
-        return null;
+  // 💬 Liste durumu için üstte ince uyarı bandı
+  const renderListBanner = () => {
+    if (!listStatus || statusLoading) return null;
+
+    const base = 'p-3 rounded font-medium text-white';
+    if (listStatus === 'blacklist') {
+      return (
+        <div className={`bg-red-600 ${base}`}>
+          ⛔ This token is on the <strong>Blacklist</strong>.
+          {statusAt ? <> Since {new Date(statusAt).toLocaleString()}.</> : null}
+          <div className="text-xs opacity-90">Coincarnation is blocked for blacklisted tokens.</div>
+        </div>
+      );
     }
+    if (listStatus === 'redlist') {
+      return (
+        <div className={`bg-amber-600 ${base}`}>
+          ⚠️ This token is on the <strong>Redlist</strong>.
+          {statusAt ? <> Since {new Date(statusAt).toLocaleString()}.</> : null}
+          <div className="text-xs opacity-90">Existing Coincarnations before listing remain valid.</div>
+        </div>
+      );
+    }
+    if (listStatus === 'deadcoin') {
+      return (
+        <div className={`bg-yellow-700 ${base}`}>
+          ☠️ This token is classified as a <strong>Deadcoin</strong>.
+          {statusAt ? <> Since {new Date(statusAt).toLocaleString()}.</> : null}
+          <div className="text-xs opacity-90">CorePoint is granted; MEGY is not distributed.</div>
+        </div>
+      );
+    }
+    if (listStatus === 'walking_dead') {
+      return (
+        <div className={`bg-orange-700 ${base}`}>
+          🧟 This token is on the <strong>Walking Deadcoin</strong> list.
+          {statusAt ? <> Since {new Date(statusAt).toLocaleString()}.</> : null}
+          <div className="text-xs opacity-90">It may turn into a Deadcoin; consider coincarnating sooner.</div>
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onCancel(); }}>
-      <DialogContent className="bg-zinc-900 text-white"> {/* 🔥 modal zemini koyu, metinler beyaz */}
+      <DialogContent>
         <DialogTitle className="text-white">Confirm Coincarnation</DialogTitle>
 
-        <div className="mt-3 text-sm text-white"> {/* 👈 net beyaz */}
+        <div className="mt-3 text-sm text-white">
           <p>
             You are about to coincarnate <strong>{tokenSymbol}</strong> ({amount} units).
           </p>
         </div>
 
-        <div className="space-y-3 text-sm mt-4">
-          {/* Kategoriye göre uyarı */}
-          {renderCategoryNotice()}
+        <div className="space-y-3 text-sm text-white mt-4">
+          {/* 🔔 Liste durumu (opsiyonel) */}
+          {renderListBanner()}
 
-          {/* Fiyat bilgisi */}
-          {fetchStatus === 'found' && (
-            <div className="bg-zinc-800 text-white p-3 rounded font-medium">
-              💲 Estimated value: <strong>{formatUsd(usdValue)}</strong>
+          {fetchStatus === 'loading' && (
+            <div className="bg-blue-700 text-white p-3 rounded font-medium">
+              🔄 Fetching price data... Please wait.
             </div>
           )}
 
-          {/* Fiyat kaynakları */}
+          {fetchStatus === 'not_found' && (
+            <div className="bg-red-700 text-white p-3 rounded font-medium">
+              ❌ Failed to fetch price from all sources. Please try again later.
+            </div>
+          )}
+
+          {fetchStatus === 'found' && usdValue === 0 && (
+            <div className="bg-yellow-700 text-white p-3 rounded">
+              ⚠️ <strong>This token has no detectable USD value.</strong><br />
+              Do you confirm this as a deadcoin?
+              {!deadcoinVoted && (
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => handleDeadcoinVote('yes')}
+                    className="bg-red-600 text-white px-3 py-1 rounded"
+                  >
+                    Yes, it is a Deadcoin
+                  </button>
+                  <button
+                    onClick={() => handleDeadcoinVote('no')}
+                    className="bg-gray-400 text-black px-3 py-1 rounded"
+                  >
+                    No, it is not
+                  </button>
+                </div>
+              )}
+              {deadcoinVoted && (
+                <div className="mt-3 p-2 bg-green-700 text-white rounded font-semibold text-center">
+                  {voteMessage}
+                </div>
+              )}
+            </div>
+          )}
+
+          {fetchStatus === 'found' && usdValue > 0 && (
+            <div className="bg-green-700 text-white p-3 rounded font-medium">
+              ✅ This token has estimated value: <strong>${usdValue.toString()}</strong>
+            </div>
+          )}
+
           {fetchStatus === 'found' && priceSources.length > 0 && (
-            <div className="text-white"> {/* 👈 başlık & liste beyaz */}
+            <div>
               <p className="font-medium">Price Sources:</p>
               <ul className="list-disc list-inside">
                 {priceSources.map((src, i) => (
                   <li key={i}>
-                    {src.source}: {formatUnitPrice(src.price)}
+                    {src.source}: ${src.price.toString()}
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
-
-          {/* Hata / bulunamadı */}
-          {fetchStatus === 'not_found' && (
-            <div className="bg-red-600/20 text-red-300 p-3 rounded font-medium">
-              ❌ Failed to fetch price from all sources. Please try again later.
-            </div>
-          )}
-          {fetchStatus === 'loading' && (
-            <div className="bg-blue-600/20 text-blue-200 p-3 rounded font-medium">
-              🔄 Fetching price data... Please wait.
-            </div>
-          )}
-          {fetchStatus === 'error' && (
-            <div className="bg-red-600/20 text-red-200 p-3 rounded font-medium">
-              ⚠️ An error occurred while fetching price.
             </div>
           )}
         </div>
@@ -206,14 +216,14 @@ export default function ConfirmModal({
         <div className="flex justify-end gap-2 mt-6">
           <button
             onClick={onCancel}
-            className="bg-zinc-700 hover:bg-zinc-600 text-white px-4 py-2 rounded"
+            className="bg-gray-400 text-black px-4 py-2 rounded"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded"
-            disabled={fetchStatus !== 'found' || tokenCategory === 'blacklist'}
+            className="bg-blue-600 text-white px-4 py-2 rounded"
+            disabled={fetchStatus !== 'found' || listStatus === 'blacklist'}
           >
             Confirm Coincarnation
           </button>

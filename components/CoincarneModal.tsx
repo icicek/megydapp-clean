@@ -169,16 +169,14 @@ export default function CoincarneModal({
       // 🔁 ⬇️ BURASI: KAYITTAN HEMEN SONRA, KULLANICIYI BEKLETMEDEN
       try {
         checkTokenLiquidityAndVolume(token)
-          .then(({ volume, liquidity, category }) => {
-            console.log('📊 Post-tx L/V:', { volume, liquidity, category });
-            // UI'ı değiştirmiyoruz; istersen backend list update çağrısı:
-            fetch('/api/list/update-from-lv', {
+        .then(({ volume, liquidity, category }) => {
+          fetch('/api/list/update-from-lv', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mint: token.mint, volume, liquidity, category })
-            }).catch(() => {});
-          })
-          .catch((e) => console.warn('⚠️ Post-tx L/V error:', e));
+            body: JSON.stringify({ mint: token.mint, category }) // volume/liquidity şimdilik DB’ye yazmıyoruz
+          }).catch((err) => console.warn('⚠️ update-from-lv error:', err));
+        })
+        .catch((e) => console.warn('⚠️ Post-tx L/V error:', e));      
       } catch {}
 
     } catch (err) {
@@ -214,8 +212,24 @@ export default function CoincarneModal({
           priceSources={priceSources}
           fetchStatus={fetchStatus}
           tokenMint={token.mint} // ✅ deadcoin oylaması için mint gönder
-          onDeadcoinVote={(vote) => {
-            console.log('🗳️ Deadcoin vote:', vote);
+          currentWallet={publicKey?.toBase58() ?? null}
+          onDeadcoinVote={async (vote) => {
+            try {
+              const res = await fetch('/api/list/deadcoin/vote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  mint: token.mint,
+                  vote,
+                  voter_wallet: publicKey?.toBase58() ?? null
+                })
+              });
+
+              const data = await res.json();
+              console.log('✅ Vote result:', data);
+            } catch (err) {
+              console.error('❌ Failed to submit vote:', err);
+            }
           }}
         />
       )}
