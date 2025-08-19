@@ -50,7 +50,7 @@ export default function ConfirmModal({
       if (!isOpen || !tokenMint) return;
       try {
         setStatusLoading(true);
-        const res = await fetch(`/api/status?mint=${encodeURIComponent(tokenMint)}`);
+        const res = await fetch(`/api/status?mint=${encodeURIComponent(tokenMint)}`, { cache: 'no-store' });
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();
         if (abort) return;
