@@ -85,8 +85,8 @@ export default function ConfirmModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mint: tokenMint,
-          vote, // 'yes' | 'no' — backend bu formatı destekliyor
-          voter_wallet: currentWallet,
+          voterWallet: currentWallet,
+          voteYes: vote === 'yes',
         }),
       });
     } catch {

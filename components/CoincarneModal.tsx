@@ -1,3 +1,4 @@
+// components/CoincarneModal.tsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -6,6 +7,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import {
   getAssociatedTokenAddress,
   createTransferInstruction,
+  createAssociatedTokenAccountInstruction,
   getMint,
 } from '@solana/spl-token';
 import {
@@ -45,6 +47,8 @@ export default function CoincarneModal({
   onGoToProfileRequest,
 }: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
+
+  // ---------- Local UI state ----------
   const [loading, setLoading] = useState(false);
   const [amountInput, setAmountInput] = useState('');
   const [resultData, setResultData] = useState<{ tokenFrom: string; number: number; imageUrl: string } | null>(null);
@@ -57,16 +61,30 @@ export default function CoincarneModal({
   const [priceStatus, setPriceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [fetchStatus, setFetchStatus] = useState<'loading' | 'found' | 'not_found' | 'error'>('loading');
 
-  // Symbol fallback
+  // ---------- Symbol handling (props mutate ETME) ----------
+  const [symbol, setSymbol] = useState<string | undefined>(token.symbol);
   useEffect(() => {
-    if (!token.symbol) {
-      fetchTokenMetadata(token.mint).then((meta) => {
-        if (meta?.symbol) token.symbol = meta.symbol;
-      });
-    }
-  }, [token]);
+    // token değiştiğinde sembol state'ini senkronla
+    setSymbol(token.symbol);
+  }, [token.mint, token.symbol]);
 
-  // 🚀 Butona basınca: hızlı fiyat → modal; L/V ARKA PLAN YOK
+  useEffect(() => {
+    // sembol yoksa metadata'dan çek
+    let abort = false;
+    if (!symbol) {
+      fetchTokenMetadata(token.mint)
+        .then(meta => {
+          if (!abort && meta?.symbol) setSymbol(meta.symbol);
+        })
+        .catch(() => { /* sessiz geç */ });
+    }
+    return () => { abort = true; };
+  }, [token.mint, symbol]);
+
+  const displaySymbol = symbol ?? token.mint.slice(0, 4);
+  const isSOLToken = token.mint === 'SOL' || symbol?.toUpperCase() === 'SOL';
+
+  // ---------- Prepare confirm (fast price → open modal) ----------
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
@@ -80,12 +98,13 @@ export default function CoincarneModal({
 
       if (fastPrice.status === 'found' && fastPrice.usdValue > 0) {
         setUsdValue(fastPrice.usdValue);
-        setPriceSources(fastPrice.sources);
-        setIsValuable(isValuableAsset(fastPrice.usdValue / amountToSend) || isStablecoin(fastPrice.usdValue / amountToSend));
+        setPriceSources(fastPrice.sources || []);
+        const unitPrice = fastPrice.usdValue / amountToSend;
+        setIsValuable(isValuableAsset(unitPrice) || isStablecoin(unitPrice));
         setFetchStatus('found');
         setPriceStatus('ready');
         setTokenCategory((prev) => prev ?? 'healthy'); // UI bilgilendirme için
-        setConfirmModalOpen(true); // hemen aç
+        setConfirmModalOpen(true);
       } else {
         // fiyat yok/0 → deadcoin akışı (oylama açık)
         setUsdValue(0);
@@ -96,7 +115,7 @@ export default function CoincarneModal({
         setConfirmModalOpen(true);
       }
 
-      // ⚠️ Burada L/V çağrısı yok; post-tx’e taşıdık.
+      // Not: LV çağrısı burada YOK; post-tx'e taşıdık.
 
     } catch (err) {
       console.error('❌ Error preparing confirmation:', err);
@@ -107,7 +126,7 @@ export default function CoincarneModal({
     }
   };
 
-  // 📨 Gönderim + kayıt → SONRA arka planda L/V kontrolü
+  // ---------- Send transaction + record + background LV apply ----------
   const handleSend = async () => {
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
@@ -117,7 +136,8 @@ export default function CoincarneModal({
       setLoading(true);
       let signature: string;
 
-      if (token.mint === 'SOL' || token.symbol?.toUpperCase() === 'SOL') {
+      if (isSOLToken) {
+        // SOL transfer
         const tx = new Transaction().add(
           SystemProgram.transfer({
             fromPubkey: publicKey,
@@ -127,15 +147,30 @@ export default function CoincarneModal({
         );
         signature = await sendTransaction(tx, connection);
       } else {
+        // SPL token transfer
         const mint = new PublicKey(token.mint);
         const fromATA = await getAssociatedTokenAddress(mint, publicKey);
-        const toATA = await getAssociatedTokenAddress(mint, COINCARNATION_DEST);
-        const decimals = (await getMint(connection, mint)).decimals;
+        const toATA   = await getAssociatedTokenAddress(mint, COINCARNATION_DEST);
+        const mintInfo = await getMint(connection, mint);
+        const decimals = mintInfo.decimals;
         const adjustedAmount = Math.floor(amountToSend * Math.pow(10, decimals));
 
-        const tx = new Transaction().add(
-          createTransferInstruction(fromATA, toATA, publicKey, adjustedAmount)
-        );
+        const ixs: any[] = [];
+        // Hedef ATA mevcut değilse, aynı tx içinde oluştur
+        const toAtaInfo = await connection.getAccountInfo(toATA);
+        if (!toAtaInfo) {
+          ixs.push(
+            createAssociatedTokenAccountInstruction(
+              publicKey,           // payer
+              toATA,               // ata address
+              COINCARNATION_DEST,  // owner of ATA
+              mint
+            )
+          );
+        }
+        ixs.push(createTransferInstruction(fromATA, toATA, publicKey, adjustedAmount));
+
+        const tx = new Transaction().add(...ixs);
         signature = await sendTransaction(tx, connection);
       }
 
@@ -145,39 +180,41 @@ export default function CoincarneModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           wallet_address: publicKey.toBase58(),
-          token_symbol: token.symbol || '',
+          token_symbol: symbol || '',
           token_contract: token.mint,
           network: 'solana',
           token_amount: amountToSend,
           usd_value: usdValue,
           transaction_signature: signature,
-          user_agent: navigator.userAgent,
+          user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
           token_category: tokenCategory ?? 'unknown',
         }),
       });
 
       const json = await res.json();
       const userNumber = json?.number ?? 0;
-      const tokenSymbol = token.symbol || token.mint.slice(0, 4);
-      const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbol}.png`;
+      const tokenSymbolForImage = displaySymbol;
+      const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbolForImage}.png`;
 
       // 🎉 Başarı ekranı
-      setResultData({ tokenFrom: tokenSymbol, number: userNumber, imageUrl });
+      setResultData({ tokenFrom: tokenSymbolForImage, number: userNumber, imageUrl });
       setConfirmModalOpen(false);
       if (refetchTokens) refetchTokens();
 
-      // 🔁 ⬇️ BURASI: KAYITTAN HEMEN SONRA, KULLANICIYI BEKLETMEDEN
+      // 🔁 Kayıttan hemen sonra L/V kontrolünü arkaya at (kullanıcıyı bekletme)
       try {
         checkTokenLiquidityAndVolume(token)
-        .then(({ volume, liquidity, category }) => {
-          fetch('/api/lv/apply', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mint: token.mint, category }) // volume/liquidity şimdilik DB’ye yazmıyoruz
-          }).catch((err) => console.warn('⚠️ update-from-lv error:', err));
-        })
-        .catch((e) => console.warn('⚠️ Post-tx L/V error:', e));      
-      } catch {}
+          .then(({ volume, liquidity, category }) => {
+            fetch('/api/lv/apply', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ mint: token.mint, category }),
+            }).catch((err) => console.warn('⚠️ lv/apply error:', err));
+          })
+          .catch((e) => console.warn('⚠️ Post-tx L/V error:', e));
+      } catch {
+        // sessiz geç
+      }
 
     } catch (err) {
       console.error('❌ Transaction error:', err);
@@ -206,31 +243,15 @@ export default function CoincarneModal({
           onCancel={() => setConfirmModalOpen(false)}
           onConfirm={handleSend}
           usdValue={usdValue}
-          tokenSymbol={token.symbol || token.mint}
+          tokenSymbol={displaySymbol}
           amount={parseFloat(amountInput)}
           tokenCategory={tokenCategory}
           priceSources={priceSources}
           fetchStatus={fetchStatus}
-          tokenMint={token.mint} // ✅ deadcoin oylaması için mint gönder
+          tokenMint={token.mint}               // ✅ deadcoin oylaması için mint gönder
           currentWallet={publicKey?.toBase58() ?? null}
-          onDeadcoinVote={async (vote) => {
-            try {
-              const res = await fetch('/api/vote', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  mint: token.mint,
-                  vote,
-                  voter_wallet: publicKey?.toBase58() ?? null
-                })
-              });
-
-              const data = await res.json();
-              console.log('✅ Vote result:', data);
-            } catch (err) {
-              console.error('❌ Failed to submit vote:', err);
-            }
-          }}
+          // Oy çağrısını ConfirmModal'a bırakıyoruz (çift gönderim olmasın diye no-op)
+          onDeadcoinVote={() => {}}
         />
       )}
 
@@ -252,10 +273,10 @@ export default function CoincarneModal({
           ) : (
             <>
               <h2 className="text-2xl font-bold text-center mb-3">
-                🔥 Coincarnate {token.symbol || token.mint.slice(0, 4)}
+                🔥 Coincarnate {displaySymbol}
               </h2>
               <p className="text-sm text-gray-400 text-center mb-2">
-                Balance: {token.amount.toFixed(4)} {token.symbol || token.mint.slice(0, 4)}
+                Balance: {token.amount.toFixed(4)} {displaySymbol}
               </p>
 
               <div className="grid grid-cols-4 gap-2 mb-4">
@@ -286,7 +307,7 @@ export default function CoincarneModal({
                 disabled={loading || !amountInput}
                 className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 text-black font-extrabold py-3 rounded-xl"
               >
-                {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate ${token.symbol || 'Token'} Now`}
+                {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate ${displaySymbol} Now`}
               </button>
 
               <button
