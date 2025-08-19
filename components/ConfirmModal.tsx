@@ -50,7 +50,7 @@ export default function ConfirmModal({
       if (!isOpen || !tokenMint) return;
       try {
         setStatusLoading(true);
-        const res = await fetch(`/api/list/status?mint=${encodeURIComponent(tokenMint)}`);
+        const res = await fetch(`/api/status?mint=${encodeURIComponent(tokenMint)}`);
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();
         if (abort) return;
@@ -80,7 +80,7 @@ export default function ConfirmModal({
     // Backend’e kaydet (opsiyonel, parametreler yoksa atla)
     if (!tokenMint || !currentWallet) return;
     try {
-      await fetch('/api/list/deadcoin/vote', {
+      await fetch('/api/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

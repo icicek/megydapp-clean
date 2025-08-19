@@ -170,7 +170,7 @@ export default function CoincarneModal({
       try {
         checkTokenLiquidityAndVolume(token)
         .then(({ volume, liquidity, category }) => {
-          fetch('/api/list/update-from-lv', {
+          fetch('/api/lv/apply', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ mint: token.mint, category }) // volume/liquidity şimdilik DB’ye yazmıyoruz
@@ -215,7 +215,7 @@ export default function CoincarneModal({
           currentWallet={publicKey?.toBase58() ?? null}
           onDeadcoinVote={async (vote) => {
             try {
-              const res = await fetch('/api/list/deadcoin/vote', {
+              const res = await fetch('/api/vote', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
