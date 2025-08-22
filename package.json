@@ -17,7 +17,9 @@
     "@solana/wallet-adapter-react-ui": "^0.9.38",
     "@solana/wallet-adapter-wallets": "^0.19.36",
     "@vercel/postgres": "^0.10.0",
+    "bs58": "^6.0.0",
     "framer-motion": "^12.19.1",
+    "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.511.0",
     "next": "15.3.2",
     "node-cache": "^5.1.2",
@@ -25,11 +27,14 @@
     "react": "^19.0.0",
     "react-countup": "^6.5.3",
     "react-dom": "^19.0.0",
-    "recharts": "^3.0.2"
+    "recharts": "^3.0.2",
+    "tweetnacl": "^1.0.3",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.17.50",
     "@types/react": "^19.1.5",
     "@types/react-dom": "^19",
@@ -37,5 +42,6 @@
     "eslint-config-next": "15.3.2",
     "tailwindcss": "^4",
     "typescript": "^5.8.3"
-  }
+  },
+  "packageManager": "pnpm@10.15.0+sha512.486ebc259d3e999a4e8691ce03b5cac4a71cbeca39372a9b762cb500cfdf0873e2cb16abe3d951b1ee2cf012503f027b98b6584e4df22524e0c7450d9ec7aa7b"
 }
