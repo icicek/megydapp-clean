@@ -1,3 +1,4 @@
+// app/admin/tokens/page.tsx
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -7,6 +8,11 @@ type TokenStatus = 'healthy'|'walking_dead'|'deadcoin'|'redlist'|'blacklist';
 
 const TOKEN_KEY = 'coincarnation_admin_token';
 const ALLOWED: TokenStatus[] = ['healthy','walking_dead','deadcoin','redlist','blacklist'];
+
+function logout(router: ReturnType<typeof useRouter>) {
+  localStorage.removeItem(TOKEN_KEY);
+  router.replace('/admin/login');
+}
 
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem(TOKEN_KEY);
@@ -92,7 +98,16 @@ export default function AdminTokensPage() {
 
   return (
     <div className="min-h-screen bg-black text-white p-6">
-      <h1 className="text-2xl font-bold mb-4">🛡️ Token Yönetimi</h1>
+      {/* ÜST BAR: Başlık + Logout */}
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">🛡️ Token Yönetimi</h1>
+        <button
+          onClick={() => logout(router)}
+          className="bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
+        >
+          Çıkış
+        </button>
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
         <input
@@ -112,7 +127,7 @@ export default function AdminTokensPage() {
         <button
           onClick={load}
           disabled={loading}
-          className="bg-blue-600 hover:bg-blue-700 rounded px-3 py-2 font-semibold"
+          className="bg-blue-600 hover:bg-blue-700 rounded px-3 py-2 font-semibold disabled:opacity-60"
         >
           {loading ? 'Yükleniyor…' : 'Yenile'}
         </button>

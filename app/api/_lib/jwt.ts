@@ -1,9 +1,12 @@
+// app/api/_lib/jwt.ts
 import jwt from 'jsonwebtoken';
 
-const SECRET = process.env.ADMIN_JWT_SECRET;
-if (!SECRET) throw new Error('Missing env: ADMIN_JWT_SECRET');
+const SECRET = process.env.ADMIN_JWT_SECRET!;
+if (!SECRET) {
+  console.warn('ADMIN_JWT_SECRET is not set');
+}
 
-export function signAdmin(wallet: string, ttlSec = 60 * 60) {
+export function signAdmin(wallet: string, ttlSec = 3600) {
   return jwt.sign({ sub: wallet, role: 'admin' }, SECRET, { expiresIn: ttlSec });
 }
 
@@ -12,20 +15,41 @@ export function verifyAdminToken(token: string): string {
   return payload.sub as string;
 }
 
-/** Authorization: Bearer <token> bekler, wallet döner. ADMIN_WALLET liste kontrolü yapar. */
+function getCookieFromHeader(header: string | null, name: string): string | null {
+  if (!header) return null;
+  const parts = header.split(';');
+  for (const part of parts) {
+    const p = part.trim();
+    const eq = p.indexOf('=');
+    if (eq === -1) continue;
+    const key = decodeURIComponent(p.slice(0, eq).trim());
+    if (key === name) {
+      return decodeURIComponent(p.slice(eq + 1));
+    }
+  }
+  return null;
+}
+
+// API route'larda kullan
 export async function requireAdmin(req: Request): Promise<string> {
-  const auth = req.headers.get('authorization') || '';
-  const m = auth.match(/^Bearer\s+(.+)$/i);
-  if (!m) throw new Error('Missing Authorization header');
+  // 1) Bearer header
+  const hdr = req.headers.get('authorization') || '';
+  const bearer = hdr.match(/^Bearer\s+(.+)$/i)?.[1];
 
-  const wallet = verifyAdminToken(m[1]);
+  // 2) Cookie header (HttpOnly cookie desteği)
+  const cookieHeader = req.headers.get('cookie');
+  const cookieTok = getCookieFromHeader(cookieHeader, 'coincarnation_admin');
 
-  // Env: tek veya virgülle çoklu cüzdan destekler
+  const token = bearer ?? cookieTok;
+  if (!token) throw new Error('Missing token');
+
+  const wallet = verifyAdminToken(token);
+
+  // Allowed list kontrolü (env varsa uygula)
   const allowed = (process.env.ADMIN_WALLET || '')
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
-
   if (allowed.length && !allowed.includes(wallet)) {
     throw new Error('Not allowed');
   }
