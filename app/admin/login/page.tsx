@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import bs58 from 'bs58';
 import { ConnectionProvider } from '@solana/wallet-adapter-react';
 import { WalletProvider, useWallet } from '@solana/wallet-adapter-react';
@@ -12,6 +13,7 @@ import { PhantomWalletAdapter } from '@solana/wallet-adapter-wallets';
 import '@solana/wallet-adapter-react-ui/styles.css';
 
 function LoginCard() {
+  const router = useRouter();
   const { publicKey, signMessage, connected } = useWallet();
   const [loading, setLoading] = useState(false);
   const [log, setLog] = useState<string>('');
@@ -65,12 +67,13 @@ function LoginCard() {
       setToken(t);
       setLog('Giriş başarılı. Token alındı.');
       localStorage.setItem('coincarnation_admin_token', t);
+      router.replace('/admin/tokens');
     } catch (e: any) {
       setLog(`Hata: ${e?.message || e}`);
     } finally {
       setLoading(false);
     }
-  }, [connected, signMessage, walletBase58]);
+}, [connected, signMessage, walletBase58, router]);
 
   return (
     <div style={{ maxWidth: 560, margin: '40px auto', padding: 24, border: '1px solid #eee', borderRadius: 12 }}>
