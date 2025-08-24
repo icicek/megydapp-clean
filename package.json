@@ -19,6 +19,7 @@
     "@vercel/postgres": "^0.10.0",
     "bs58": "^6.0.0",
     "framer-motion": "^12.19.1",
+    "jose": "^6.0.13",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.511.0",
     "next": "15.3.2",
