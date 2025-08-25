@@ -3,12 +3,11 @@
 
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import bs58 from 'bs58';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-// UI stilini ya global provider dosyanda import ediyorsundur.
-// Değilse bir kere projede (ör. WalletConnectionProvider) import et:
-// import '@solana/wallet-adapter-react-ui/styles.css';
+// UI stilleri global provider’da import ediliyor (gerekirse burada da eklenebilir)
 
 function LoginCard() {
   const router = useRouter();
@@ -49,7 +48,7 @@ function LoginCard() {
       const signature = await signMessage(encoded);
       const signatureB58 = bs58.encode(signature);
 
-      // 3) Verify → server sets HttpOnly cookie; may also return JWT for debug
+      // 3) Verify → server sets HttpOnly cookie
       const verifyRes = await fetch('/api/admin/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -63,12 +62,9 @@ function LoginCard() {
         return;
       }
 
-      if (verifyJson.token) {
-        setToken(verifyJson.token as string);
-      }
+      if (verifyJson.token) setToken(verifyJson.token as string);
       setLog('Login successful. Session cookie set.');
 
-      // Go to admin panel
       router.replace('/admin/tokens');
     } catch (e: any) {
       setLog(`Error: ${e?.message || String(e)}`);
@@ -79,7 +75,18 @@ function LoginCard() {
 
   return (
     <div className="max-w-xl mx-auto mt-10 p-6 rounded-xl border border-gray-800 bg-black text-white">
-      <h2 className="text-2xl font-bold mb-3">Admin Login</h2>
+      {/* Header with back link */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-bold">Admin Login</h2>
+        <Link
+          href="/"
+          className="text-sm bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded px-3 py-2"
+          title="Back to site"
+        >
+          ← Back to site
+        </Link>
+      </div>
+
       <p className="text-gray-300 mb-4">
         Connect your wallet → fetch nonce → sign message → receive session (HttpOnly cookie).
       </p>
@@ -114,7 +121,5 @@ function LoginCard() {
 }
 
 export default function AdminLoginPage() {
-  // Global WalletConnectionProvider (app/layout.tsx) zaten tüm context’i sağlıyor.
-  // Burada sadece kartı render ediyoruz.
   return <LoginCard />;
 }

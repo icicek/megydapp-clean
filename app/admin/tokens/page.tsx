@@ -277,12 +277,21 @@ export default function AdminTokensPage() {
       {/* TOP BAR */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">🛡️ Token Management</h1>
-        <button
-          onClick={logout}
-          className="bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
-        >
-          Logout
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push('/')}
+            className="bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
+            title="Back to site"
+          >
+            ← Back to site
+          </button>
+          <button
+            onClick={logout}
+            className="bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
