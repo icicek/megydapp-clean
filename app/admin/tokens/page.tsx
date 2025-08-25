@@ -67,6 +67,17 @@ function ToastViewport({ toasts }: { toasts: Toast[] }) {
 function parseMints(raw: string): string[] {
   return raw.split(/[\s,]+/g).map(s => s.trim()).filter(Boolean);
 }
+function StatusBadge({ status }: { status: string }) {
+  // Beklenmeyen değer gelirse 'healthy'ye düşer
+  const isKnown = (STATUSES as readonly string[]).includes(status as any);
+  const s = (isKnown ? status : 'healthy') as TokenStatus;
+
+  return (
+    <span className={['rounded px-2 py-0.5 text-xs', STATUS_STYLES[s]].join(' ')}>
+      {s}
+    </span>
+  );
+}
 
 // cookie-only: no localStorage token; no Authorization header
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -413,7 +424,9 @@ export default function AdminTokensPage() {
             {items.map((it) => (
               <tr key={it.mint} className="border-b border-gray-800">
                 <td className="p-2 font-mono">{it.mint}</td>
-                <td className="p-2">{it.status}</td>
+                <td className="p-2">
+                  <StatusBadge status={it.status} />
+                </td>
                 <td className="p-2">{it.updated_by ?? '—'}</td>
                 <td className="p-2">{it.status_at ? new Date(it.status_at).toLocaleString() : '—'}</td>
                 <td className="p-2 flex flex-wrap gap-2">
