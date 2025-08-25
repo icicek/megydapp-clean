@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/app/api/_lib/db';
 import { requireAdmin } from '@/app/api/_lib/jwt';
-import { cache, statusKey } from '@/app/api/_lib/cache'; // <-- eklendi
+import { cache, statusKey } from '@/app/api/_lib/cache';
+import { verifyCsrf } from '@/app/api/_lib/csrf';
 
 type TokenStatus = 'healthy'|'walking_dead'|'deadcoin'|'redlist'|'blacklist';
 const ALLOWED: TokenStatus[] = ['healthy','walking_dead','deadcoin','redlist','blacklist'];
@@ -11,6 +12,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
+    verifyCsrf(req as any);
     const admin = await requireAdmin(req);
 
     const body = await req.json();

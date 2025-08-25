@@ -4,6 +4,7 @@ import { requireAdmin } from '@/app/api/_lib/jwt';
 import { sql } from '@/app/api/_lib/db';
 import { setStatus as upsertTokenStatus, getStatus as readTokenStatus } from '@/app/api/_lib/token-registry';
 import type { TokenStatus } from '@/app/api/_lib/types';
+import { verifyCsrf } from '@/app/api/_lib/csrf';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -71,6 +72,7 @@ export async function GET(req: NextRequest) {
 // Body: { mint, status, reason?, meta? }
 export async function POST(req: NextRequest) {
   try {
+    verifyCsrf(req);
     const wallet = await requireAdmin(req); // JWT içinden admin
     const body = await req.json();
     const { mint, status, reason = null, meta = {} } = body || {};
@@ -98,6 +100,7 @@ export async function POST(req: NextRequest) {
 // Etki: healthy'e çeker (kayıt yoksa healthy kabul)
 export async function DELETE(req: NextRequest) {
   try {
+    verifyCsrf(req);
     const wallet = await requireAdmin(req);
     const { searchParams } = new URL(req.url);
     const mint = searchParams.get('mint');

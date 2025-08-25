@@ -5,6 +5,7 @@ import {
 } from '@/app/api/_lib/token-registry';
 import { cache, statusKey, STATUS_TTL } from '@/app/api/_lib/cache';
 import type { TokenStatus } from '@/app/api/_lib/types';
+import { verifyCsrf } from '@/app/api/_lib/csrf';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -57,6 +58,7 @@ export async function GET(req: NextRequest) {
  */
 export async function PUT(req: NextRequest) {
   try {
+    verifyCsrf(req);
     const body = await req.json();
     const {
       mint,
