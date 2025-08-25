@@ -263,32 +263,6 @@ export default function AdminTokensPage() {
         </button>
       </div>
 
-      {/* KPI Strip */}
-      {stats && (
-        <div className="mb-4 grid gap-3 sm:grid-cols-3">
-          <div className="bg-gray-900 border border-gray-700 rounded p-3">
-            <div className="text-xs text-gray-400">Total tokens</div>
-            <div className="text-xl font-semibold">{stats.total}</div>
-          </div>
-          <div className="bg-gray-900 border border-gray-700 rounded p-3">
-            <div className="text-xs text-gray-400">By status</div>
-            <div className="flex flex-wrap gap-2 mt-1 text-sm">
-              {['healthy','walking_dead','deadcoin','redlist','blacklist'].map(s => (
-                <span key={s} className="bg-gray-800 rounded px-2 py-0.5">
-                  {s}: {stats.byStatus?.[s] ?? 0}
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="bg-gray-900 border border-gray-700 rounded p-3">
-            <div className="text-xs text-gray-400">Last updated</div>
-            <div className="text-sm">
-              {stats.lastUpdatedAt ? new Date(stats.lastUpdatedAt).toLocaleString() : '—'}
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
         <input
           value={q}
@@ -459,6 +433,38 @@ export default function AdminTokensPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Registry Stats (framed, at the bottom) */}
+      {stats && (
+        <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-6">
+          <h2 className="font-semibold mb-2">Registry Stats</h2>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="bg-gray-950 border border-gray-800 rounded p-3">
+              <div className="text-xs text-gray-400">Total tokens</div>
+              <div className="text-xl font-semibold">{stats.total}</div>
+            </div>
+
+            <div className="bg-gray-950 border border-gray-800 rounded p-3">
+              <div className="text-xs text-gray-400">By status</div>
+              <div className="flex flex-wrap gap-2 mt-1 text-sm">
+                {['healthy','walking_dead','deadcoin','redlist','blacklist'].map(s => (
+                  <span key={s} className="bg-gray-800 rounded px-2 py-0.5">
+                    {s}: {stats.byStatus?.[s] ?? 0}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-gray-950 border border-gray-800 rounded p-3">
+              <div className="text-xs text-gray-400">Last updated</div>
+              <div className="text-sm">
+                {stats.lastUpdatedAt ? new Date(stats.lastUpdatedAt).toLocaleString() : '—'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* History Modal */}
       {histOpen && (
