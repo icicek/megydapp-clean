@@ -5,7 +5,22 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import ExportCsvButton from '@/components/admin/ExportCsvButton';
 
-type TokenStatus = 'healthy'|'walking_dead'|'deadcoin'|'redlist'|'blacklist';
+/** ---------- Status typing (single source of truth) ---------- */
+const STATUSES = ['healthy','walking_dead','deadcoin','redlist','blacklist'] as const;
+type TokenStatus = typeof STATUSES[number];
+
+// Back-compat alias (readonly); istersen kullanmaya devam edebilirsin
+const ALLOWED: readonly TokenStatus[] = STATUSES;
+
+// Subtle color mapping for badges/chips (dark theme friendly)
+const STATUS_STYLES: Record<TokenStatus, string> = {
+  healthy: 'bg-emerald-900/50 text-emerald-200 border border-emerald-700',
+  walking_dead: 'bg-amber-900/50 text-amber-200 border border-amber-700',
+  deadcoin: 'bg-zinc-800 text-zinc-200 border border-zinc-700',
+  redlist: 'bg-rose-900/50 text-rose-200 border border-rose-700',
+  blacklist: 'bg-fuchsia-900/50 text-fuchsia-200 border border-fuchsia-700',
+};
+/** ----------------------------------------------------------- */
 
 type AuditRow = {
   mint: string;
@@ -16,8 +31,6 @@ type AuditRow = {
   updated_by: string | null;
   changed_at: string;
 };
-
-const ALLOWED: TokenStatus[] = ['healthy','walking_dead','deadcoin','redlist','blacklist'];
 
 /* --------- simple toast system --------- */
 type Toast = { id: number; message: string; kind?: 'ok'|'err'|'info' };
@@ -100,6 +113,13 @@ export default function AdminTokensPage() {
   const [histItems, setHistItems] = useState<AuditRow[] | null>(null);
   const [histLoading, setHistLoading] = useState(false);
 
+  // Registry stats
+  const [stats, setStats] = useState<{
+    total: number;
+    byStatus: Record<string, number>;
+    lastUpdatedAt: string | null;
+  } | null>(null);
+
   // build querystring
   const params = useMemo(() => {
     const sp = new URLSearchParams();
@@ -110,28 +130,6 @@ export default function AdminTokensPage() {
     return sp.toString();
   }, [q, status, limit, page]);
 
-   // Registry stats
-  const [stats, setStats] = useState<{
-    total: number;
-    byStatus: Record<string, number>;
-    lastUpdatedAt: string | null;
-  } | null>(null);
-
-  const loadStats = useCallback(async () => {
-    try {
-      const res = await fetch('/api/admin/registry/stats', { credentials: 'same-origin', cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const j = await res.json();
-      if (j?.success) setStats(j);
-    } catch (e: any) {
-      push('Stats load error', 'err');
-    }
-  }, [push]);
-
-  useEffect(() => {
-    loadStats();
-  }, [loadStats]);
-  
   const load = useCallback(async () => {
     try {
       setLoading(true);
@@ -147,10 +145,23 @@ export default function AdminTokensPage() {
     }
   }, [params, push]);
 
+  const loadStats = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/registry/stats', { credentials: 'same-origin', cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const j = await res.json();
+      if (j?.success) setStats(j);
+    } catch {
+      push('Stats load error', 'err');
+    }
+  }, [push]);
+
+  // initial loads
   useEffect(() => {
+    loadStats();
     const id = setTimeout(load, 250);
     return () => clearTimeout(id);
-  }, [load]);
+  }, [load, loadStats]);
 
   useEffect(() => { setPage(0); }, [q, status, limit]);
 
@@ -277,7 +288,7 @@ export default function AdminTokensPage() {
           className="bg-gray-900 border border-gray-700 rounded px-3 py-2"
         >
           <option value="">(all)</option>
-          {ALLOWED.map(s => <option key={s} value={s}>{s}</option>)}
+          {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <div className="flex gap-2">
           <select
@@ -334,7 +345,7 @@ export default function AdminTokensPage() {
             onChange={(e) => setSetTo(e.target.value as TokenStatus)}
             className="bg-gray-950 border border-gray-700 rounded px-3 py-2"
           >
-            {ALLOWED.map(s => <option key={s} value={s}>{s}</option>)}
+            {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <button
             onClick={() => {
@@ -364,7 +375,7 @@ export default function AdminTokensPage() {
               onChange={(e) => setBulkTo(e.target.value as TokenStatus)}
               className="bg-gray-950 border border-gray-700 rounded px-3 py-2"
             >
-              {ALLOWED.map(s => <option key={s} value={s}>{s}</option>)}
+              {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <input
               value={bulkReason}
@@ -406,7 +417,7 @@ export default function AdminTokensPage() {
                 <td className="p-2">{it.updated_by ?? '—'}</td>
                 <td className="p-2">{it.status_at ? new Date(it.status_at).toLocaleString() : '—'}</td>
                 <td className="p-2 flex flex-wrap gap-2">
-                  {ALLOWED.map(s => (
+                  {STATUSES.map(s => (
                     <button
                       key={s}
                       onClick={() => setStatusFor(it.mint, s)}
@@ -436,26 +447,23 @@ export default function AdminTokensPage() {
 
       {/* Registry Stats (framed, at the bottom) */}
       {stats && (
-        <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-6">
+        <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-6 mt-6">
           <h2 className="font-semibold mb-2">Registry Stats</h2>
-
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="bg-gray-950 border border-gray-800 rounded p-3">
               <div className="text-xs text-gray-400">Total tokens</div>
               <div className="text-xl font-semibold">{stats.total}</div>
             </div>
-
             <div className="bg-gray-950 border border-gray-800 rounded p-3">
               <div className="text-xs text-gray-400">By status</div>
               <div className="flex flex-wrap gap-2 mt-1 text-sm">
-                {['healthy','walking_dead','deadcoin','redlist','blacklist'].map(s => (
-                  <span key={s} className="bg-gray-800 rounded px-2 py-0.5">
+                {STATUSES.map((s) => (
+                  <span key={s} className={['rounded px-2 py-0.5', STATUS_STYLES[s]].join(' ')}>
                     {s}: {stats.byStatus?.[s] ?? 0}
                   </span>
                 ))}
               </div>
             </div>
-
             <div className="bg-gray-950 border border-gray-800 rounded p-3">
               <div className="text-xs text-gray-400">Last updated</div>
               <div className="text-sm">
