@@ -110,6 +110,28 @@ export default function AdminTokensPage() {
     return sp.toString();
   }, [q, status, limit, page]);
 
+   // Registry stats
+  const [stats, setStats] = useState<{
+    total: number;
+    byStatus: Record<string, number>;
+    lastUpdatedAt: string | null;
+  } | null>(null);
+
+  const loadStats = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/registry/stats', { credentials: 'same-origin', cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const j = await res.json();
+      if (j?.success) setStats(j);
+    } catch (e: any) {
+      push('Stats load error', 'err');
+    }
+  }, [push]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+  
   const load = useCallback(async () => {
     try {
       setLoading(true);
@@ -142,6 +164,7 @@ export default function AdminTokensPage() {
       });
       push(`✅ ${m} → ${s}`, 'ok');
       await load();
+      await loadStats();
     } catch (e: any) {
       const msg = e?.message || 'Update error';
       setError(msg);
@@ -155,6 +178,7 @@ export default function AdminTokensPage() {
       await api(`/api/admin/tokens?mint=${encodeURIComponent(m)}`, { method: 'DELETE' });
       push(`✅ ${m} reset → healthy`, 'ok');
       await load();
+      await loadStats();
     } catch (e: any) {
       const msg = e?.message || 'Reset error';
       setError(msg);
@@ -190,6 +214,7 @@ export default function AdminTokensPage() {
         push(`Some failed: ${sample}`, 'err');
       }
       await load();
+      await loadStats();
     } catch (e: any) {
       push(`❌ ${e?.message || 'Bulk error'}`, 'err');
     }
@@ -237,6 +262,32 @@ export default function AdminTokensPage() {
           Logout
         </button>
       </div>
+
+      {/* KPI Strip */}
+      {stats && (
+        <div className="mb-4 grid gap-3 sm:grid-cols-3">
+          <div className="bg-gray-900 border border-gray-700 rounded p-3">
+            <div className="text-xs text-gray-400">Total tokens</div>
+            <div className="text-xl font-semibold">{stats.total}</div>
+          </div>
+          <div className="bg-gray-900 border border-gray-700 rounded p-3">
+            <div className="text-xs text-gray-400">By status</div>
+            <div className="flex flex-wrap gap-2 mt-1 text-sm">
+              {['healthy','walking_dead','deadcoin','redlist','blacklist'].map(s => (
+                <span key={s} className="bg-gray-800 rounded px-2 py-0.5">
+                  {s}: {stats.byStatus?.[s] ?? 0}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="bg-gray-900 border border-gray-700 rounded p-3">
+            <div className="text-xs text-gray-400">Last updated</div>
+            <div className="text-sm">
+              {stats.lastUpdatedAt ? new Date(stats.lastUpdatedAt).toLocaleString() : '—'}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
         <input
