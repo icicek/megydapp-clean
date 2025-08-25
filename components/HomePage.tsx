@@ -20,23 +20,36 @@ interface TokenInfo {
 export default function HomePage() {
   const { publicKey, connected } = useWallet();
 
-  // ← Admin oturum kontrolü (KOMPONENT İÇİNE TAŞINDI)
+  // Admin session (whoami)
   const [isAdminSession, setIsAdminSession] = useState(false);
+
+  // ❶ Mount + cüzdan değişiminde admin session'ı kontrol et
   useEffect(() => {
     let aborted = false;
     (async () => {
       try {
-        const res = await fetch('/api/admin/whoami', {
-          credentials: 'include',
-          cache: 'no-store',
-        });
+        const res = await fetch('/api/admin/whoami', { credentials: 'include', cache: 'no-store' });
         if (!aborted) setIsAdminSession(res.ok);
       } catch {
         if (!aborted) setIsAdminSession(false);
       }
     })();
     return () => { aborted = true; };
-  }, []); // cookie tabanlı olduğu için mount'ta kontrol yeterli
+  }, [publicKey]);
+
+  // ❷ Sekme odaklandığında yeniden kontrol et
+  useEffect(() => {
+    const recheck = async () => {
+      try {
+        const res = await fetch('/api/admin/whoami', { credentials: 'include', cache: 'no-store' });
+        setIsAdminSession(res.ok);
+      } catch {
+        setIsAdminSession(false);
+      }
+    };
+    window.addEventListener('focus', recheck);
+    return () => window.removeEventListener('focus', recheck);
+  }, []);
 
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
@@ -53,15 +66,11 @@ export default function HomePage() {
       try {
         const res = await fetch('/api/coincarnation/stats');
         const data = await res.json();
-        console.log('📊 Global stats:', data);
-        if (data.success) {
-          setGlobalStats(data);
-        }
+        if (data.success) setGlobalStats(data);
       } catch (err) {
         console.error('Failed to fetch global stats:', err);
       }
     };
-
     fetchGlobalStats();
   }, []);
 
@@ -105,17 +114,11 @@ export default function HomePage() {
             if (token.mint === 'SOL') return token;
 
             const metadata = tokenMetadata.find((meta) => meta.address === token.mint);
-
             if (metadata) {
-              return {
-                ...token,
-                symbol: metadata.symbol,
-                logoURI: metadata.logoURI,
-              };
+              return { ...token, symbol: metadata.symbol, logoURI: metadata.logoURI };
             }
 
             const fallbackMeta = await fetchTokenMetadata(token.mint);
-
             return {
               ...token,
               symbol: fallbackMeta?.symbol || token.mint.slice(0, 4),
@@ -138,8 +141,6 @@ export default function HomePage() {
         ]);
         const globalData = await globalRes.json();
         const userData = await userRes.json();
-
-        console.log('📊 Global Stats API Response:', globalData);
 
         if (globalData.success) setGlobalStats(globalData);
         if (userData.success) setUserContribution(userData.data.total_usd_contributed);
@@ -251,7 +252,7 @@ export default function HomePage() {
         </div>
 
         {/* Unique Deadcoins */}
-        <div className="rounded-xl p-[2px] bg-gradient-to-br from/pink-400 via-pink-500 to-pink-600">
+        <div className="rounded-xl p-[2px] bg-gradient-to-br from-pink-400 via-pink-500 to-pink-600">
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
             <p className="text-sm text-white font-semibold mb-1">Unique Deadcoins</p>
             <p className="text-lg font-bold text-white">
@@ -292,24 +293,17 @@ export default function HomePage() {
         </button>
       )}
 
-      {/* Admin panel erişimi */}
-      <div className="flex flex-col items-center gap-3 mt-4">
-        {isAdminSession ? (
+      {/* Admin panel erişimi (yalnızca admin session varsa) */}
+      {isAdminSession && (
+        <div className="flex flex-col items-center gap-3 mt-4">
           <button
             onClick={() => (window.location.href = '/admin/tokens')}
             className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white font-semibold py-3 px-6 rounded-xl shadow-fuchsia-500/40 hover:scale-105 transition-all"
           >
             🔐 Go to Admin Panel
           </button>
-        ) : (
-          <a
-            href="/admin/login"
-            className="text-sm text-gray-400 hover:text-gray-200 underline underline-offset-4"
-          >
-            Admin Login
-          </a>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
