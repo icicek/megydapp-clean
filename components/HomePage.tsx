@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import CoincarneModal from '@/components/CoincarneModal';
@@ -9,6 +8,7 @@ import { fetchSolanaTokenList } from '@/lib/utils';
 import { connection } from '@/lib/solanaConnection';
 import CountUp from 'react-countup';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
+import ConnectWalletCTA from '@/components/wallet/ConnectWalletCTA';
 
 interface TokenInfo {
   mint: string;
@@ -149,7 +149,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
 
       <div className="w-full hidden md:flex justify-end mt-2 mb-4">
-        <WalletMultiButton className="scale-90" />
+        <ConnectWalletCTA />
       </div>
 
       <section className="text-center py-4 w-full">
@@ -159,7 +159,9 @@ export default function HomePage() {
       </section>
 
       <div className="w-full flex md:hidden justify-center my-5">
-        <WalletMultiButton className="w-full max-w-xs scale-75" />
+        <div className="w-full max-w-xs">
+          <ConnectWalletCTA />
+        </div>
       </div>
 
       <div className="w-full max-w-5xl bg-gradient-to-br from-gray-900 via-zinc-800 to-gray-900 p-8 rounded-2xl border border-purple-700 shadow-2xl">
