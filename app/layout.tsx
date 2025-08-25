@@ -1,8 +1,10 @@
+// app/layout.tsx
 import './globals.css';
+import type { Metadata } from 'next';
 import { ReactNode } from 'react';
 import WalletConnectionProvider from '@/components/WalletConnectionProvider';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Coincarnation',
   description: 'Rescue your deadcoins. Coincarnate now!',
   openGraph: {
@@ -31,7 +33,7 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
         <WalletConnectionProvider>
           {children}

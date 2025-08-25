@@ -10,6 +10,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
 
     "noEmit": true,
     "skipLibCheck": true,
@@ -18,6 +19,7 @@
 
     "baseUrl": ".",
     "paths": { "@/*": ["./*"] },
+    "types": ["node"],
 
     "plugins": [{ "name": "next" }]
   },
