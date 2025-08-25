@@ -1,15 +1,19 @@
-// app/api/status/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getStatus as getTokenStatus,
   setStatus as upsertTokenStatus,
 } from '@/app/api/_lib/token-registry';
+import { cache, statusKey, STATUS_TTL } from '@/app/api/_lib/cache';
 import type { TokenStatus } from '@/app/api/_lib/types';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/status?mint=...
  * - Tek tablodan (token_registry) statüyü okur.
  * - Kayıt yoksa healthy kabul eder.
+ * - Node-cache ile kısa süreli cache (STATUS_TTL) uygular.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -18,9 +22,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'mint is required' }, { status: 400 });
     }
 
+    // 1) cache dene
+    const key = statusKey(mint);
+    const cached = cache.get<{ status: TokenStatus; statusAt: string | null }>(key);
+    if (cached) {
+      return NextResponse.json(
+        { success: true, mint, status: cached.status, statusAt: cached.statusAt },
+        { headers: { 'Cache-Control': `public, max-age=0, s-maxage=${STATUS_TTL}` } }
+      );
+    }
+
+    // 2) DB'den çek
     const s = await getTokenStatus(mint);
-    // Eski davranışla uyumlu, yalın cevap
-    return NextResponse.json({ success: true, mint, status: s.status, statusAt: s.statusAt });
+
+    // 3) cache'e yaz + dön
+    cache.set(key, { status: s.status, statusAt: s.statusAt });
+    return NextResponse.json(
+      { success: true, mint, status: s.status, statusAt: s.statusAt },
+      { headers: { 'Cache-Control': `public, max-age=0, s-maxage=${STATUS_TTL}` } }
+    );
   } catch (e: any) {
     return NextResponse.json(
       { success: false, error: e?.message || 'Internal error' },
@@ -31,9 +51,9 @@ export async function GET(req: NextRequest) {
 
 /**
  * PUT /api/status
- * Body: { mint, status, reason?, source?="manual", force?=false, meta?={} }
+ * Body: { mint, status, reason?, source?="manual", force?=false, meta?={}, changedBy? }
  * - Eski sözleşmeyle uyumlu (reason/source/force/meta desteklenir).
- * - Güvenlik notu: Bu uç şu an açık; sonradan admin JWT ile sınırlandıracağız.
+ * - upsert sonrası token-registry.setStatus zaten cache invalidation yapar.
  */
 export async function PUT(req: NextRequest) {
   try {
@@ -56,10 +76,10 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    // Güncel durum (compat için önceki değeri döndürmek isteyebiliriz)
+    // upsert öncesi mevcut durumu oku (compat için)
     const prev = await getTokenStatus(mint);
 
-    // changedBy: önce body.changedBy → yoksa source → yoksa 'manual'
+    // changedBy: body.changedBy → yoksa source → yoksa 'manual'
     const actor = (changedBy as string) || (source as string) || 'manual';
 
     // meta içine source/force’u da iliştirerek saklıyoruz (geriye dönük uyumluluk)
@@ -69,7 +89,8 @@ export async function PUT(req: NextRequest) {
       force: !!force,
     };
 
-    await upsertTokenStatus({
+    // upsert + audit + cache invalidation (token-registry.setStatus içinde)
+    const after = await upsertTokenStatus({
       mint,
       newStatus: status as TokenStatus,
       changedBy: actor,
@@ -77,13 +98,13 @@ export async function PUT(req: NextRequest) {
       meta: mergedMeta,
     });
 
-    // Eski akışlarla uyumlu, sade bir yanıt
+    // Sade ve doğru zaman damgası ile yanıt
     return NextResponse.json({
       success: true,
       mint,
       previous: prev.status,
-      status,
-      statusAt: new Date().toISOString(),
+      status: after.status,
+      statusAt: after.statusAt,
     });
   } catch (e: any) {
     return NextResponse.json(

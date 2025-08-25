@@ -1,7 +1,7 @@
-// app/api/admin/tokens/bulk/route.ts
 import { NextResponse } from 'next/server';
 import { sql } from '@/app/api/_lib/db';
 import { requireAdmin } from '@/app/api/_lib/jwt';
+import { cache, statusKey } from '@/app/api/_lib/cache'; // <-- eklendi
 
 type TokenStatus = 'healthy'|'walking_dead'|'deadcoin'|'redlist'|'blacklist';
 const ALLOWED: TokenStatus[] = ['healthy','walking_dead','deadcoin','redlist','blacklist'];
@@ -52,6 +52,9 @@ export async function POST(req: Request) {
 
         const r = rows[0];
         ok.push({ mint: r.mint, status: r.status, statusAt: r.status_at });
+
+        // cache invalidation for this mint
+        cache.del(statusKey(mint)); // <-- eklendi
       } catch (e: any) {
         fail.push({ mint, error: e?.message || 'error' });
       }

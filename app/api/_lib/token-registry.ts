@@ -1,6 +1,6 @@
-// app/api/_lib/token-registry.ts
 import { sql } from '@/app/api/_lib/db';
 import type { TokenStatus } from '@/app/api/_lib/types';
+import { cache, statusKey } from '@/app/api/_lib/cache'; // <-- eklendi
 
 export async function getStatus(
   mint: string
@@ -21,19 +21,11 @@ export async function getStatus(
 type SetStatusInput = {
   mint: string;
   newStatus: TokenStatus;
-  changedBy: string;            // admin wallet
+  changedBy: string;
   reason?: string | null;
   meta?: any;
 };
 
-/**
- * Tek SQL ifadesi (CTE) ile:
- *  - önceki status'u okur,
- *  - upsert yapar,
- *  - audit kaydı yazar,
- *  - güncel status ve statusAt'i döner.
- * Tamamen atomik, transaction kullanmadan (dolayısıyla sql.begin gerektirmez).
- */
 export async function setStatus({
   mint,
   newStatus,
@@ -83,6 +75,9 @@ export async function setStatus({
       (SELECT status::text FROM upsert)   AS status,
       (SELECT status_at     FROM upsert)  AS status_at
   `) as unknown as { status: TokenStatus; status_at: string }[];
+
+  // cache invalidation: bu mint için eski cache’i sil
+  cache.del(statusKey(mint));
 
   return { status: rows[0].status, statusAt: rows[0].status_at };
 }
