@@ -16,7 +16,6 @@ export async function POST(req: Request) {
     const body = await req.json();
     let { mints, status, reason = null, meta = {} } = body || {};
 
-    // normalize mints: accept string or array; split on whitespace/commas if string
     if (typeof mints === 'string') {
       mints = mints.split(/[\s,]+/g).map((s: string) => s.trim()).filter(Boolean);
     }
@@ -27,7 +26,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'valid status is required' }, { status: 400 });
     }
 
-    // safety limits
     const MAX = 200;
     const uniq = Array.from(new Set<string>(mints));
     if (uniq.length > MAX) {
@@ -37,14 +35,13 @@ export async function POST(req: Request) {
     const ok: { mint: string; status: TokenStatus; statusAt: string }[] = [];
     const fail: { mint: string; error: string }[] = [];
 
-    // process sequentially (keeps Neon happy; simple & safe)
     for (const mint of uniq) {
       try {
-        const rows = (await sql/* sql */`
+        const rows = (await sql`
           INSERT INTO token_registry (mint, status, status_at, updated_by, reason, meta)
-          VALUES (${mint}, ${status}::token_status, NOW(), ${admin}, ${reason}, ${meta})
+          VALUES (${mint}, ${status}::token_status_enum, NOW(), ${admin}, ${reason}, ${meta})
           ON CONFLICT (mint) DO UPDATE
-          SET status=${status}::token_status,
+          SET status=${status}::token_status_enum,
               status_at=NOW(),
               updated_by=${admin},
               reason=${reason},
