@@ -10,7 +10,7 @@ export async function getStatus(
     FROM token_registry
     WHERE mint = ${mint}
     LIMIT 1
-  `) as unknown as { status: TokenStatus; status_at: string }[];
+  `) as unknown as { status: TokenStatus; status_at: string | null }[];
 
   if (rows.length === 0) {
     return { status: 'healthy', statusAt: null };
@@ -18,48 +18,71 @@ export async function getStatus(
   return { status: rows[0].status, statusAt: rows[0].status_at };
 }
 
-export async function setStatus(params: {
+type SetStatusInput = {
   mint: string;
   newStatus: TokenStatus;
-  changedBy: string;
+  changedBy: string;            // admin wallet
   reason?: string | null;
   meta?: any;
-}) {
-  const { mint, newStatus, changedBy, reason, meta } = params;
+};
 
-  const prev = (await sql`
-    SELECT status::text AS status FROM token_registry WHERE mint = ${mint}
-  `) as unknown as { status: TokenStatus }[];
+/**
+ * Tek SQL ifadesi (CTE) ile:
+ *  - önceki status'u okur,
+ *  - upsert yapar,
+ *  - audit kaydı yazar,
+ *  - güncel status ve statusAt'i döner.
+ * Tamamen atomik, transaction kullanmadan (dolayısıyla sql.begin gerektirmez).
+ */
+export async function setStatus({
+  mint,
+  newStatus,
+  changedBy,
+  reason = null,
+  meta = {},
+}: SetStatusInput): Promise<{ status: TokenStatus; statusAt: string }> {
+  const metaJson = meta ? JSON.stringify(meta) : null;
 
-  const oldStatus: TokenStatus | null = prev[0]?.status ?? null;
-
-  await sql`
-    INSERT INTO token_registry (mint, status, status_at, updated_by, reason, meta)
-    VALUES (${mint}, ${newStatus}::token_status_enum, NOW(), ${changedBy}, ${reason ?? null}, ${
-      meta ? JSON.stringify(meta) : null
-    })
-    ON CONFLICT (mint)
-    DO UPDATE SET
-      status     = EXCLUDED.status,
-      status_at  = EXCLUDED.status_at,
-      updated_by = EXCLUDED.updated_by,
-      reason     = EXCLUDED.reason,
-      meta       = EXCLUDED.meta
-  `;
-
-  // history tabloyu kurmadıysan bu blok sessizce çalışmayabilir; try/catch ile sarmalıyoruz
-  try {
-    await sql`
-      INSERT INTO token_status_history (mint, old_status, new_status, changed_by, reason)
+  const rows = (await sql`
+    WITH prev AS (
+      SELECT status AS old_status
+      FROM token_registry
+      WHERE mint = ${mint}
+    ),
+    upsert AS (
+      INSERT INTO token_registry (mint, status, status_at, updated_by, reason, meta)
       VALUES (
         ${mint},
-        ${oldStatus}::token_status_enum,
         ${newStatus}::token_status_enum,
+        NOW(),
         ${changedBy},
-        ${reason ?? null}
+        ${reason},
+        ${metaJson}
       )
-    `;
-  } catch (_) {}
+      ON CONFLICT (mint) DO UPDATE
+      SET
+        status     = ${newStatus}::token_status_enum,
+        status_at  = NOW(),
+        updated_by = ${changedBy},
+        reason     = ${reason},
+        meta       = ${metaJson},
+        updated_at = NOW()
+      RETURNING status, status_at
+    ),
+    audit_ins AS (
+      INSERT INTO token_audit (mint, old_status, new_status, reason, meta, updated_by)
+      SELECT
+        ${mint},
+        (SELECT old_status FROM prev)::token_status_enum,
+        (SELECT status FROM upsert)::token_status_enum,
+        ${reason},
+        ${metaJson},
+        ${changedBy}
+    )
+    SELECT
+      (SELECT status::text FROM upsert)   AS status,
+      (SELECT status_at     FROM upsert)  AS status_at
+  `) as unknown as { status: TokenStatus; status_at: string }[];
 
-  return { ok: true };
+  return { status: rows[0].status, statusAt: rows[0].status_at };
 }
