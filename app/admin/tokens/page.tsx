@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import ExportCsvButton from '@/components/admin/ExportCsvButton';
 
 type TokenStatus = 'healthy'|'walking_dead'|'deadcoin'|'redlist'|'blacklist';
 
@@ -265,10 +266,13 @@ export default function AdminTokensPage() {
           <button
             onClick={load}
             disabled={loading}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 rounded px-3 py-2 font-semibold disabled:opacity-60"
+            className="bg-blue-600 hover:bg-blue-700 rounded px-3 py-2 font-semibold disabled:opacity-60"
           >
             {loading ? 'Loading…' : 'Refresh'}
           </button>
+
+          {/* Export CSV button (filters: q & status) */}
+          <ExportCsvButton q={q} status={status || ''} />
         </div>
       </div>
 
