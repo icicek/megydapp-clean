@@ -6,6 +6,16 @@ import { useRouter } from 'next/navigation';
 
 type TokenStatus = 'healthy'|'walking_dead'|'deadcoin'|'redlist'|'blacklist';
 
+type AuditRow = {
+  mint: string;
+  old_status: TokenStatus | null;
+  new_status: TokenStatus;
+  reason: string | null;
+  meta: any;
+  updated_by: string | null;
+  changed_at: string;
+};
+
 const ALLOWED: TokenStatus[] = ['healthy','walking_dead','deadcoin','redlist','blacklist'];
 
 /* --------- simple toast system --------- */
@@ -74,7 +84,7 @@ export default function AdminTokensPage() {
   const [setTo, setSetTo] = useState<TokenStatus>('redlist');
   const [error, setError] = useState<string | null>(null);
 
-  // ⬇️ BULK state'leri BİLEŞEN İÇİNDE olmalı
+  // BULK state
   const [bulkList, setBulkList] = useState('');
   const [bulkTo, setBulkTo] = useState<TokenStatus>('redlist');
   const [bulkReason, setBulkReason] = useState('');
@@ -82,6 +92,12 @@ export default function AdminTokensPage() {
   // pagination
   const [limit, setLimit] = useState(20);
   const [page, setPage] = useState(0);
+
+  // History modal state
+  const [histOpen, setHistOpen] = useState(false);
+  const [histMint, setHistMint] = useState<string | null>(null);
+  const [histItems, setHistItems] = useState<AuditRow[] | null>(null);
+  const [histLoading, setHistLoading] = useState(false);
 
   // build querystring
   const params = useMemo(() => {
@@ -175,6 +191,23 @@ export default function AdminTokensPage() {
       await load();
     } catch (e: any) {
       push(`❌ ${e?.message || 'Bulk error'}`, 'err');
+    }
+  }
+
+  async function openHistory(mintVal: string) {
+    try {
+      setHistOpen(true);
+      setHistMint(mintVal);
+      setHistItems(null);
+      setHistLoading(true);
+      const data = await api<{ success: true; items: AuditRow[] }>(
+        `/api/admin/audit?mint=${encodeURIComponent(mintVal)}&limit=50`
+      );
+      setHistItems(data.items);
+    } catch (e: any) {
+      push(e?.message || 'History load error', 'err');
+    } finally {
+      setHistLoading(false);
     }
   }
 
@@ -359,6 +392,12 @@ export default function AdminTokensPage() {
                   >
                     reset → healthy
                   </button>
+                  <button
+                    onClick={() => openHistory(it.mint)}
+                    className="bg-indigo-700 hover:bg-indigo-600 rounded px-2 py-1"
+                  >
+                    history
+                  </button>
                 </td>
               </tr>
             ))}
@@ -366,6 +405,55 @@ export default function AdminTokensPage() {
         </table>
       </div>
 
+      {/* History Modal */}
+      {histOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl w-[90vw] max-w-2xl max-h-[80vh] overflow-hidden">
+            <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+              <div className="font-semibold">
+                History — <span className="font-mono">{histMint}</span>
+              </div>
+              <button
+                onClick={() => setHistOpen(false)}
+                className="text-gray-300 hover:text-white"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 overflow-auto">
+              {histLoading && <div className="text-sm text-gray-400">Loading…</div>}
+              {!histLoading && (!histItems || histItems.length === 0) && (
+                <div className="text-sm text-gray-400">No history</div>
+              )}
+              {!histLoading && histItems && histItems.length > 0 && (
+                <table className="w-full text-sm">
+                  <thead className="text-gray-400">
+                    <tr>
+                      <th className="text-left p-2">Changed At</th>
+                      <th className="text-left p-2">Old → New</th>
+                      <th className="text-left p-2">Updated By</th>
+                      <th className="text-left p-2">Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {histItems.map((h, idx) => (
+                      <tr key={idx} className="border-t border-gray-800">
+                        <td className="p-2">{new Date(h.changed_at).toLocaleString()}</td>
+                        <td className="p-2">
+                          {(h.old_status ?? '—')} → <span className="font-semibold">{h.new_status}</span>
+                        </td>
+                        <td className="p-2">{h.updated_by ?? '—'}</td>
+                        <td className="p-2">{h.reason ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
