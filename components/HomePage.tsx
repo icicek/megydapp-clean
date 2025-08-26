@@ -295,13 +295,15 @@ export default function HomePage() {
 
       {/* Admin panel erişimi (yalnızca admin session varsa) */}
       {isAdminSession && (
-        <div className="flex flex-col items-center gap-3 mt-4">
-          <button
-            onClick={() => (window.location.href = '/admin/tokens')}
-            className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white font-semibold py-3 px-6 rounded-xl shadow-fuchsia-500/40 hover:scale-105 transition-all"
+        <div className="mt-4">
+          <a
+            href="/admin/tokens"
+            className="text-sm text-gray-400 hover:text-gray-200 underline underline-offset-4
+                      focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500 rounded"
+            title="Go to Admin Panel"
           >
-            🔐 Go to Admin Panel
-          </button>
+            Go to Admin Panel →
+          </a>
         </div>
       )}
     </div>
