@@ -3,6 +3,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { ReactNode } from 'react';
 import WalletConnectionProvider from '@/components/WalletConnectionProvider';
+import AdminSessionSync from '@/components/wallet/AdminSessionSync';
 
 export const metadata: Metadata = {
   title: 'Coincarnation',
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <body>
         <WalletConnectionProvider>
+          <AdminSessionSync />
           {children}
         </WalletConnectionProvider>
       </body>

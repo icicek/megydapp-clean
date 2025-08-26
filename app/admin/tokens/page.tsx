@@ -4,13 +4,11 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import ExportCsvButton from '@/components/admin/ExportCsvButton';
+import { useWallet } from '@solana/wallet-adapter-react';
 
 /** ---------- Status typing (single source of truth) ---------- */
 const STATUSES = ['healthy','walking_dead','deadcoin','redlist','blacklist'] as const;
 type TokenStatus = typeof STATUSES[number];
-
-// Back-compat alias (readonly); istersen kullanmaya devam edebilirsin
-const ALLOWED: readonly TokenStatus[] = STATUSES;
 
 // Subtle color mapping for badges/chips (dark theme friendly)
 const STATUS_STYLES: Record<TokenStatus, string> = {
@@ -100,6 +98,7 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 export default function AdminTokensPage() {
   const router = useRouter();
   const { toasts, push } = useToasts();
+  const { publicKey, connected } = useWallet();
 
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -175,6 +174,28 @@ export default function AdminTokensPage() {
   }, [load, loadStats]);
 
   useEffect(() => { setPage(0); }, [q, status, limit]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/admin/whoami', { credentials: 'include', cache: 'no-store' });
+        if (!res.ok) {
+          router.replace('/admin/login?e=session');
+          return;
+        }
+        const { wallet: adminWallet } = await res.json();
+        const current = publicKey?.toBase58() || null;
+  
+        // Admin cookie var ama wallet yoksa / değiştiyse → logout + login'e
+        if (!connected || !current || adminWallet !== current) {
+          await fetch('/api/admin/auth/logout', { method: 'POST', credentials: 'include' });
+          router.replace('/admin/login?e=wallet-changed');
+        }
+      } catch {
+        router.replace('/admin/login?e=error');
+      }
+    })();
+  }, [publicKey, connected, router]);
 
   async function setStatusFor(m: string, s: TokenStatus) {
     try {
