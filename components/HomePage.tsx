@@ -19,6 +19,7 @@ interface TokenInfo {
 
 export default function HomePage() {
   const { publicKey, connected } = useWallet();
+  const [isAdminWallet, setIsAdminWallet] = useState(false);
 
   // Admin session (whoami)
   const [isAdminSession, setIsAdminSession] = useState(false);
@@ -35,7 +36,7 @@ export default function HomePage() {
       }
     })();
     return () => { aborted = true; };
-  }, [publicKey]);
+  }, [publicKey, connected]);
 
   // ❷ Sekme odaklandığında yeniden kontrol et
   useEffect(() => {
@@ -50,6 +51,26 @@ export default function HomePage() {
     window.addEventListener('focus', recheck);
     return () => window.removeEventListener('focus', recheck);
   }, []);
+
+  // Bu effect'i EKLE (whoami effect'i kalsın)
+  useEffect(() => {
+    let aborted = false;
+    (async () => {
+      if (!connected || !publicKey) {
+        if (!aborted) setIsAdminWallet(false);
+        return;
+      }
+      try {
+        const w = publicKey.toBase58();
+        const res = await fetch(`/api/admin/is-allowed?wallet=${w}`, { cache: 'no-store' });
+        const j = await res.json().catch(() => null);
+        if (!aborted) setIsAdminWallet(Boolean(j?.allowed));
+      } catch {
+        if (!aborted) setIsAdminWallet(false);
+      }
+    })();
+    return () => { aborted = true; };
+  }, [publicKey, connected]);
 
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
@@ -293,16 +314,15 @@ export default function HomePage() {
         </button>
       )}
 
-      {/* Admin panel erişimi (yalnızca admin session varsa) */}
-      {isAdminSession && (
+      {/* Admin panel erişimi */}
+      {(isAdminSession || (connected && isAdminWallet)) && (
         <div className="mt-4">
           <a
-            href="/admin/tokens"
+            href={isAdminSession ? '/admin/tokens' : '/admin/login'}
             className="text-sm text-gray-400 hover:text-gray-200 underline underline-offset-4
                       focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500 rounded"
-            title="Go to Admin Panel"
           >
-            Go to Admin Panel →
+            Go to Admin Panel 
           </a>
         </div>
       )}
