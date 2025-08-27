@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import ExportCsvButton from '@/components/admin/ExportCsvButton';
 import { useWallet } from '@solana/wallet-adapter-react';
-import BulkUpdateDialog from '../components/BulkUpdateDialog'; // ✅ eklendi
+import BulkUpdateDialog from '../components/BulkUpdateDialog'; // dialog butonu
 
 /** ---------- Status typing (single source of truth) ---------- */
 const STATUSES = ['healthy','walking_dead','deadcoin','redlist','blacklist'] as const;
@@ -63,14 +63,9 @@ function ToastViewport({ toasts }: { toasts: Toast[] }) {
 }
 /* --------------------------------------- */
 
-function parseMints(raw: string): string[] {
-  return raw.split(/[\s,]+/g).map(s => s.trim()).filter(Boolean);
-}
 function StatusBadge({ status }: { status: string }) {
-  // Beklenmeyen değer gelirse 'healthy'ye düşer
   const isKnown = (STATUSES as readonly string[]).includes(status as any);
   const s = (isKnown ? status : 'healthy') as TokenStatus;
-
   return (
     <span className={['rounded px-2 py-0.5 text-xs', STATUS_STYLES[s]].join(' ')}>
       {s}
@@ -82,7 +77,7 @@ function StatusBadge({ status }: { status: string }) {
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {
     cache: 'no-store',
-    credentials: 'same-origin', // send same-origin cookies
+    credentials: 'same-origin',
     ...init,
   });
   if (!res.ok) {
@@ -108,11 +103,6 @@ export default function AdminTokensPage() {
   const [mint, setMint] = useState('');
   const [setTo, setSetTo] = useState<TokenStatus>('redlist');
   const [error, setError] = useState<string | null>(null);
-
-  // BULK state
-  const [bulkList, setBulkList] = useState('');
-  const [bulkTo, setBulkTo] = useState<TokenStatus>('redlist');
-  const [bulkReason, setBulkReason] = useState('');
 
   // pagination
   const [limit, setLimit] = useState(20);
@@ -174,6 +164,9 @@ export default function AdminTokensPage() {
     return () => clearTimeout(id);
   }, [load, loadStats]);
 
+  // auto reload when params change (opsiyonel ama iyi)
+  useEffect(() => { load(); }, [load, params]);
+
   useEffect(() => { setPage(0); }, [q, status, limit]);
 
   useEffect(() => {
@@ -186,8 +179,7 @@ export default function AdminTokensPage() {
         }
         const { wallet: adminWallet } = await res.json();
         const current = publicKey?.toBase58() || null;
-  
-        // Admin cookie var ama wallet yoksa / değiştiyse → logout + login'e
+
         if (!connected || !current || adminWallet !== current) {
           await fetch('/api/admin/auth/logout', { method: 'POST', credentials: 'include' });
           router.replace('/admin/login?e=wallet-changed');
@@ -227,40 +219,6 @@ export default function AdminTokensPage() {
       const msg = e?.message || 'Reset error';
       setError(msg);
       push(`❌ ${msg}`, 'err');
-    }
-  }
-
-  async function bulkUpdate() {
-    try {
-      const mints = parseMints(bulkList);
-      if (mints.length === 0) { push('Paste at least one mint', 'err'); return; }
-      const res = await api<{
-        success: true;
-        okCount: number;
-        failCount: number;
-        fail: { mint: string; error: string }[];
-      }>(
-        '/api/admin/tokens/bulk',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mints,
-            status: bulkTo,
-            reason: bulkReason || null,
-            meta: { from: 'admin_bulk' },
-          }),
-        }
-      );
-      push(`✅ Bulk done: ${res.okCount} ok, ${res.failCount} fail`, res.failCount ? 'info' : 'ok');
-      if (res.failCount) {
-        const sample = res.fail.slice(0, 3).map(f => `${f.mint}: ${f.error}`).join(' | ');
-        push(`Some failed: ${sample}`, 'err');
-      }
-      await load();
-      await loadStats();
-    } catch (e: any) {
-      push(`❌ ${e?.message || 'Bulk error'}`, 'err');
     }
   }
 
@@ -314,7 +272,7 @@ export default function AdminTokensPage() {
             Logout
           </button>
 
-          {/* ✅ Bulk Update dialog button */}
+          {/* Bulk Update dialog button (tek kaynak) */}
           <BulkUpdateDialog
             onDone={async () => {
               await load();
@@ -363,25 +321,7 @@ export default function AdminTokensPage() {
         </div>
       </div>
 
-      {/* Pagination controls */}
-      <div className="flex items-center gap-2 mb-4">
-        <button
-          onClick={() => canPrev && setPage(p => Math.max(0, p - 1))}
-          disabled={!canPrev}
-          className="bg-gray-800 disabled:opacity-50 hover:bg-gray-700 border border-gray-600 rounded px-3 py-1"
-        >
-          ← Prev
-        </button>
-        <div className="text-sm text-gray-300">Page {page + 1}</div>
-        <button
-          onClick={() => canNext && setPage(p => p + 1)}
-          disabled={!canNext}
-          className="bg-gray-800 disabled:opacity-50 hover:bg-gray-700 border border-gray-600 rounded px-3 py-1"
-        >
-          Next →
-        </button>
-      </div>
-
+      {/* Quick Update — tek mint */}
       <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-6">
         <h2 className="font-semibold mb-2">Quick Update</h2>
         <div className="flex flex-col sm:flex-row gap-3">
@@ -407,40 +347,6 @@ export default function AdminTokensPage() {
           >
             Apply
           </button>
-        </div>
-      </div>
-
-      <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-6">
-        <h2 className="font-semibold mb-2">Bulk Update</h2>
-        <p className="text-gray-400 text-sm mb-3">Paste mint addresses (one per line, comma or whitespace separated).</p>
-        <div className="flex flex-col gap-3">
-          <textarea
-            value={bulkList}
-            onChange={(e) => setBulkList(e.target.value)}
-            placeholder={`Ex:\nMINT1\nMINT2\nMINT3`}
-            className="min-h-[140px] bg-gray-950 border border-gray-700 rounded px-3 py-2 font-mono"
-          />
-          <div className="flex flex-col sm:flex-row gap-3">
-            <select
-              value={bulkTo}
-              onChange={(e) => setBulkTo(e.target.value as TokenStatus)}
-              className="bg-gray-950 border border-gray-700 rounded px-3 py-2"
-            >
-              {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <input
-              value={bulkReason}
-              onChange={(e) => setBulkReason(e.target.value)}
-              placeholder="Optional reason"
-              className="flex-1 bg-gray-950 border border-gray-700 rounded px-3 py-2"
-            />
-            <button
-              onClick={bulkUpdate}
-              className="bg-amber-600 hover:bg-amber-700 rounded px-3 py-2 font-semibold"
-            >
-              Apply to list
-            </button>
-          </div>
         </div>
       </div>
 
@@ -507,6 +413,7 @@ export default function AdminTokensPage() {
               <div className="text-xs text-gray-400">Total tokens</div>
               <div className="text-xl font-semibold">{stats.total}</div>
             </div>
+
             <div className="bg-gray-950 border border-gray-800 rounded p-3">
               <div className="text-xs text-gray-400">By status</div>
               <div className="flex flex-wrap gap-2 mt-1 text-sm">
@@ -517,6 +424,7 @@ export default function AdminTokensPage() {
                 ))}
               </div>
             </div>
+
             <div className="bg-gray-950 border border-gray-800 rounded p-3">
               <div className="text-xs text-gray-400">Last updated</div>
               <div className="text-sm">
