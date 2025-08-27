@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import ExportCsvButton from '@/components/admin/ExportCsvButton';
 import { useWallet } from '@solana/wallet-adapter-react';
-import BulkUpdateDialog from '../components/BulkUpdateDialog'; // dialog butonu
+import BulkUpdateDialog from '../components/BulkUpdateDialog';
 
 /** ---------- Status typing (single source of truth) ---------- */
 const STATUSES = ['healthy','walking_dead','deadcoin','redlist','blacklist'] as const;
@@ -164,7 +164,7 @@ export default function AdminTokensPage() {
     return () => clearTimeout(id);
   }, [load, loadStats]);
 
-  // auto reload when params change (opsiyonel ama iyi)
+  // auto reload when params change
   useEffect(() => { load(); }, [load, params]);
 
   useEffect(() => { setPage(0); }, [q, status, limit]);
@@ -283,6 +283,7 @@ export default function AdminTokensPage() {
         </div>
       </div>
 
+      {/* Filters */}
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
         <input
           value={q}
@@ -352,6 +353,7 @@ export default function AdminTokensPage() {
 
       {error && <div className="text-red-400 mb-4">❌ {error}</div>}
 
+      {/* Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-800">
@@ -413,7 +415,6 @@ export default function AdminTokensPage() {
               <div className="text-xs text-gray-400">Total tokens</div>
               <div className="text-xl font-semibold">{stats.total}</div>
             </div>
-
             <div className="bg-gray-950 border border-gray-800 rounded p-3">
               <div className="text-xs text-gray-400">By status</div>
               <div className="flex flex-wrap gap-2 mt-1 text-sm">
@@ -424,7 +425,6 @@ export default function AdminTokensPage() {
                 ))}
               </div>
             </div>
-
             <div className="bg-gray-950 border border-gray-800 rounded p-3">
               <div className="text-xs text-gray-400">Last updated</div>
               <div className="text-sm">
