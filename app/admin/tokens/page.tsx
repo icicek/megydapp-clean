@@ -11,7 +11,6 @@ import BulkUpdateDialog from '../components/BulkUpdateDialog';
 const STATUSES = ['healthy','walking_dead','deadcoin','redlist','blacklist'] as const;
 type TokenStatus = typeof STATUSES[number];
 
-// Subtle color mapping for badges/chips (dark theme friendly)
 const STATUS_STYLES: Record<TokenStatus, string> = {
   healthy: 'bg-emerald-900/50 text-emerald-200 border border-emerald-700',
   walking_dead: 'bg-amber-900/50 text-amber-200 border border-amber-700',
@@ -19,7 +18,6 @@ const STATUS_STYLES: Record<TokenStatus, string> = {
   redlist: 'bg-rose-900/50 text-rose-200 border border-rose-700',
   blacklist: 'bg-fuchsia-900/50 text-fuchsia-200 border border-fuchsia-700',
 };
-/** ----------------------------------------------------------- */
 
 type AuditRow = {
   mint: string;
@@ -31,14 +29,14 @@ type AuditRow = {
   changed_at: string;
 };
 
-/* --------- simple toast system --------- */
+/* ---------- tiny toast ---------- */
 type Toast = { id: number; message: string; kind?: 'ok'|'err'|'info' };
 function useToasts() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const push = useCallback((message: string, kind: Toast['kind'] = 'info') => {
     const id = Date.now() + Math.random();
     setToasts(t => [...t, { id, message, kind }]);
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3000);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 2200);
   }, []);
   return { toasts, push };
 }
@@ -61,7 +59,25 @@ function ToastViewport({ toasts }: { toasts: Toast[] }) {
     </div>
   );
 }
-/* --------------------------------------- */
+
+/* ---------- helpers ---------- */
+function shortenWallet(w?: string | null) {
+  if (!w) return 'Admin';
+  return w.length > 10 ? `${w.slice(0,4)}…${w.slice(-4)}` : w;
+}
+async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+      return true;
+    } catch { return false; }
+  }
+}
 
 function StatusBadge({ status }: { status: string }) {
   const isKnown = (STATUSES as readonly string[]).includes(status as any);
@@ -73,7 +89,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// cookie-only: no localStorage token; no Authorization header
+// cookie-only API (HttpOnly cookie)
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {
     cache: 'no-store',
@@ -108,7 +124,7 @@ export default function AdminTokensPage() {
   const [limit, setLimit] = useState(20);
   const [page, setPage] = useState(0);
 
-  // History modal state
+  // History modal
   const [histOpen, setHistOpen] = useState(false);
   const [histMint, setHistMint] = useState<string | null>(null);
   const [histItems, setHistItems] = useState<AuditRow[] | null>(null);
@@ -121,7 +137,7 @@ export default function AdminTokensPage() {
     lastUpdatedAt: string | null;
   } | null>(null);
 
-  // build querystring
+  // querystring for list
   const params = useMemo(() => {
     const sp = new URLSearchParams();
     if (q) sp.set('q', q);
@@ -169,17 +185,14 @@ export default function AdminTokensPage() {
 
   useEffect(() => { setPage(0); }, [q, status, limit]);
 
+  // whoami + wallet sync
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch('/api/admin/whoami', { credentials: 'include', cache: 'no-store' });
-        if (!res.ok) {
-          router.replace('/admin/login?e=session');
-          return;
-        }
+        if (!res.ok) { router.replace('/admin/login?e=session'); return; }
         const { wallet: adminWallet } = await res.json();
         const current = publicKey?.toBase58() || null;
-
         if (!connected || !current || adminWallet !== current) {
           await fetch('/api/admin/auth/logout', { method: 'POST', credentials: 'include' });
           router.replace('/admin/login?e=wallet-changed');
@@ -272,7 +285,7 @@ export default function AdminTokensPage() {
             Logout
           </button>
 
-          {/* Bulk Update dialog button (tek kaynak) */}
+          {/* Bulk Update dialog button */}
           <BulkUpdateDialog
             onDone={async () => {
               await load();
@@ -322,8 +335,8 @@ export default function AdminTokensPage() {
         </div>
       </div>
 
-      {/* Quick Update — tek mint */}
-      <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-6">
+      {/* Quick Update — single mint */}
+      <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-4">
         <h2 className="font-semibold mb-2">Quick Update</h2>
         <div className="flex flex-col sm:flex-row gap-3">
           <input
@@ -351,64 +364,9 @@ export default function AdminTokensPage() {
         </div>
       </div>
 
-      {error && <div className="text-red-400 mb-4">❌ {error}</div>}
-
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead className="bg-gray-800">
-            <tr>
-              <th className="text-left p-2">Mint</th>
-              <th className="text-left p-2">Status</th>
-              <th className="text-left p-2">Updated By</th>
-              <th className="text-left p-2">Status At</th>
-              <th className="text-left p-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 && (
-              <tr><td className="p-3 text-gray-400" colSpan={5}>No records</td></tr>
-            )}
-            {items.map((it) => (
-              <tr key={it.mint} className="border-b border-gray-800">
-                <td className="p-2 font-mono">{it.mint}</td>
-                <td className="p-2">
-                  <StatusBadge status={it.status} />
-                </td>
-                <td className="p-2">{it.updated_by ?? '—'}</td>
-                <td className="p-2">{it.status_at ? new Date(it.status_at).toLocaleString() : '—'}</td>
-                <td className="p-2 flex flex-wrap gap-2">
-                  {STATUSES.map(s => (
-                    <button
-                      key={s}
-                      onClick={() => setStatusFor(it.mint, s)}
-                      className="bg-gray-700 hover:bg-gray-600 rounded px-2 py-1"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => resetHealthy(it.mint)}
-                    className="bg-green-700 hover:bg-green-600 rounded px-2 py-1"
-                  >
-                    reset → healthy
-                  </button>
-                  <button
-                    onClick={() => openHistory(it.mint)}
-                    className="bg-indigo-700 hover:bg-indigo-600 rounded px-2 py-1"
-                  >
-                    history
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Registry Stats (framed, at the bottom) */}
+      {/* 📊 Registry Stats — moved above the table */}
       {stats && (
-        <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-6 mt-6">
+        <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-6">
           <h2 className="font-semibold mb-2">Registry Stats</h2>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="bg-gray-950 border border-gray-800 rounded p-3">
@@ -434,6 +392,93 @@ export default function AdminTokensPage() {
           </div>
         </div>
       )}
+
+      {error && <div className="text-red-400 mb-4">❌ {error}</div>}
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-800">
+            <tr>
+              <th className="text-left p-2">Mint</th>
+              <th className="text-left p-2">Status</th>
+              <th className="text-left p-2 w-[120px]">By</th>
+              <th className="text-left p-2">Status At</th>
+              <th className="text-left p-2 w-[520px]">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.length === 0 && (
+              <tr><td className="p-3 text-gray-400" colSpan={5}>No records</td></tr>
+            )}
+            {items.map((it) => (
+              <tr key={it.mint} className="border-b border-gray-800">
+                {/* Mint + Copy */}
+                <td className="p-2">
+                  <div className="flex items-center gap-2 max-w-[360px]">
+                    <span className="font-mono truncate" title={it.mint}>{it.mint}</span>
+                    <button
+                      onClick={async () => {
+                        const ok = await copyToClipboard(it.mint);
+                        if (ok) push('Copied mint', 'ok'); else push('Copy failed', 'err');
+                      }}
+                      className="bg-gray-700 hover:bg-gray-600 rounded px-2 py-1 text-xs shrink-0"
+                      aria-label="Copy mint"
+                      title="Copy"
+                    >
+                      copy
+                    </button>
+                  </div>
+                </td>
+
+                {/* Status */}
+                <td className="p-2">
+                  <StatusBadge status={it.status} />
+                </td>
+
+                {/* Updated By (short) */}
+                <td className="p-2 w-[120px]">
+                  <span className="truncate block" title={it.updated_by ?? 'Admin'}>
+                    {shortenWallet(it.updated_by)}
+                  </span>
+                </td>
+
+                {/* Status At */}
+                <td className="p-2 whitespace-nowrap">
+                  {it.status_at ? new Date(it.status_at).toLocaleString() : '—'}
+                </td>
+
+                {/* Actions (keep on one line, allow horizontal scroll on small screens) */}
+                <td className="p-2 w-[520px]">
+                  <div className="flex gap-2 whitespace-nowrap overflow-x-auto">
+                    {STATUSES.map(s => (
+                      <button
+                        key={s}
+                        onClick={() => setStatusFor(it.mint, s)}
+                        className="bg-gray-700 hover:bg-gray-600 rounded px-2 py-1"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => resetHealthy(it.mint)}
+                      className="bg-green-700 hover:bg-green-600 rounded px-2 py-1"
+                    >
+                      reset → healthy
+                    </button>
+                    <button
+                      onClick={() => openHistory(it.mint)}
+                      className="bg-indigo-700 hover:bg-indigo-600 rounded px-2 py-1"
+                    >
+                      history
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {/* History Modal */}
       {histOpen && (
@@ -473,7 +518,9 @@ export default function AdminTokensPage() {
                         <td className="p-2">
                           {(h.old_status ?? '—')} → <span className="font-semibold">{h.new_status}</span>
                         </td>
-                        <td className="p-2">{h.updated_by ?? '—'}</td>
+                        <td className="p-2" title={h.updated_by ?? 'Admin'}>
+                          {shortenWallet(h.updated_by)}
+                        </td>
                         <td className="p-2">{h.reason ?? '—'}</td>
                       </tr>
                     ))}
