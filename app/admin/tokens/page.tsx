@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import ExportCsvButton from '@/components/admin/ExportCsvButton';
 import { useWallet } from '@solana/wallet-adapter-react';
+import BulkUpdateDialog from '../components/BulkUpdateDialog'; // ✅ eklendi
 
 /** ---------- Status typing (single source of truth) ---------- */
 const STATUSES = ['healthy','walking_dead','deadcoin','redlist','blacklist'] as const;
@@ -312,6 +313,15 @@ export default function AdminTokensPage() {
           >
             Logout
           </button>
+
+          {/* ✅ Bulk Update dialog button */}
+          <BulkUpdateDialog
+            onDone={async () => {
+              await load();
+              await loadStats();
+              push('Bulk update completed', 'ok');
+            }}
+          />
         </div>
       </div>
 
