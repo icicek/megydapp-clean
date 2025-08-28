@@ -89,7 +89,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// cookie-only API (HttpOnly cookie)
+// cookie-only API
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {
     cache: 'no-store',
@@ -129,6 +129,9 @@ export default function AdminTokensPage() {
   const [histMint, setHistMint] = useState<string | null>(null);
   const [histItems, setHistItems] = useState<AuditRow[] | null>(null);
   const [histLoading, setHistLoading] = useState(false);
+  const HIST_LIMIT = 50;
+  const [histHasMore, setHistHasMore] = useState(false);
+  const [histLoadingMore, setHistLoadingMore] = useState(false);
 
   // Registry stats
   const [stats, setStats] = useState<{
@@ -235,22 +238,46 @@ export default function AdminTokensPage() {
     }
   }
 
+  /* -------- History fetching with pagination -------- */
+  const fetchHistory = useCallback(
+    async (mintVal: string, offset = 0) => {
+      const url = `/api/admin/audit?mint=${encodeURIComponent(mintVal)}&limit=${HIST_LIMIT}&offset=${offset}`;
+      const data = await api<{ success: true; items: AuditRow[] }>(url);
+      return data.items || [];
+    },
+    []
+  );
+
   async function openHistory(mintVal: string) {
     try {
       setHistOpen(true);
       setHistMint(mintVal);
       setHistItems(null);
       setHistLoading(true);
-      const data = await api<{ success: true; items: AuditRow[] }>(
-        `/api/admin/audit?mint=${encodeURIComponent(mintVal)}&limit=50`
-      );
-      setHistItems(data.items);
+      const first = await fetchHistory(mintVal, 0);
+      setHistItems(first);
+      setHistHasMore(first.length === HIST_LIMIT);
     } catch (e: any) {
       push(e?.message || 'History load error', 'err');
     } finally {
       setHistLoading(false);
     }
   }
+
+  async function loadMoreHistory() {
+    if (!histMint || histLoadingMore || !histItems) return;
+    try {
+      setHistLoadingMore(true);
+      const next = await fetchHistory(histMint, histItems.length);
+      setHistItems([...histItems, ...next]);
+      setHistHasMore(next.length === HIST_LIMIT);
+    } catch (e: any) {
+      push(e?.message || 'Load more failed', 'err');
+    } finally {
+      setHistLoadingMore(false);
+    }
+  }
+  /* -------------------------------------------------- */
 
   async function logout() {
     try {
@@ -364,7 +391,7 @@ export default function AdminTokensPage() {
         </div>
       </div>
 
-      {/* 📊 Registry Stats — moved above the table */}
+      {/* 📊 Registry Stats — above the table */}
       {stats && (
         <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-6">
           <h2 className="font-semibold mb-2">Registry Stats</h2>
@@ -400,7 +427,7 @@ export default function AdminTokensPage() {
         <table className="min-w-full text-sm">
           <thead className="bg-gray-800">
             <tr>
-              <th className="text-left p-2">Mint</th>
+              <th className="text-left p-2 w-[460px]">Mint</th>
               <th className="text-left p-2">Status</th>
               <th className="text-left p-2 w-[120px]">By</th>
               <th className="text-left p-2">Status At</th>
@@ -413,16 +440,16 @@ export default function AdminTokensPage() {
             )}
             {items.map((it) => (
               <tr key={it.mint} className="border-b border-gray-800">
-                {/* Mint + Copy */}
-                <td className="p-2">
-                  <div className="flex items-center gap-2 max-w-[360px]">
+                {/* Mint + Copy (button pinned right) */}
+                <td className="p-2 w-[460px]">
+                  <div className="grid grid-cols-[1fr_auto] items-center gap-2">
                     <span className="font-mono truncate" title={it.mint}>{it.mint}</span>
                     <button
                       onClick={async () => {
                         const ok = await copyToClipboard(it.mint);
                         if (ok) push('Copied mint', 'ok'); else push('Copy failed', 'err');
                       }}
-                      className="bg-gray-700 hover:bg-gray-600 rounded px-2 py-1 text-xs shrink-0"
+                      className="bg-gray-700 hover:bg-gray-600 rounded px-2 py-1 text-xs"
                       aria-label="Copy mint"
                       title="Copy"
                     >
@@ -448,7 +475,7 @@ export default function AdminTokensPage() {
                   {it.status_at ? new Date(it.status_at).toLocaleString() : '—'}
                 </td>
 
-                {/* Actions (keep on one line, allow horizontal scroll on small screens) */}
+                {/* Actions */}
                 <td className="p-2 w-[520px]">
                   <div className="flex gap-2 whitespace-nowrap overflow-x-auto">
                     {STATUSES.map(s => (
@@ -480,7 +507,7 @@ export default function AdminTokensPage() {
         </table>
       </div>
 
-      {/* History Modal */}
+      {/* History Modal (with Load more) */}
       {histOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
           <div className="bg-gray-900 border border-gray-700 rounded-xl w-[90vw] max-w-2xl max-h-[80vh] overflow-hidden">
@@ -496,36 +523,53 @@ export default function AdminTokensPage() {
                 ✕
               </button>
             </div>
+
             <div className="p-4 overflow-auto">
               {histLoading && <div className="text-sm text-gray-400">Loading…</div>}
               {!histLoading && (!histItems || histItems.length === 0) && (
                 <div className="text-sm text-gray-400">No history</div>
               )}
+
               {!histLoading && histItems && histItems.length > 0 && (
-                <table className="w-full text-sm">
-                  <thead className="text-gray-400">
-                    <tr>
-                      <th className="text-left p-2">Changed At</th>
-                      <th className="text-left p-2">Old → New</th>
-                      <th className="text-left p-2">Updated By</th>
-                      <th className="text-left p-2">Reason</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {histItems.map((h, idx) => (
-                      <tr key={idx} className="border-t border-gray-800">
-                        <td className="p-2">{new Date(h.changed_at).toLocaleString()}</td>
-                        <td className="p-2">
-                          {(h.old_status ?? '—')} → <span className="font-semibold">{h.new_status}</span>
-                        </td>
-                        <td className="p-2" title={h.updated_by ?? 'Admin'}>
-                          {shortenWallet(h.updated_by)}
-                        </td>
-                        <td className="p-2">{h.reason ?? '—'}</td>
+                <>
+                  <table className="w-full text-sm">
+                    <thead className="text-gray-400">
+                      <tr>
+                        <th className="text-left p-2">Changed At</th>
+                        <th className="text-left p-2">Old → New</th>
+                        <th className="text-left p-2">Updated By</th>
+                        <th className="text-left p-2">Reason</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {histItems.map((h, idx) => (
+                        <tr key={idx} className="border-t border-gray-800">
+                          <td className="p-2">{new Date(h.changed_at).toLocaleString()}</td>
+                          <td className="p-2">
+                            {(h.old_status ?? '—')} → <span className="font-semibold">{h.new_status}</span>
+                          </td>
+                          <td className="p-2" title={h.updated_by ?? 'Admin'}>
+                            {shortenWallet(h.updated_by)}
+                          </td>
+                          <td className="p-2">{h.reason ?? '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {/* Load more */}
+                  {histHasMore && (
+                    <div className="flex justify-center mt-3">
+                      <button
+                        onClick={loadMoreHistory}
+                        disabled={histLoadingMore}
+                        className="bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded px-3 py-1 text-sm disabled:opacity-60"
+                      >
+                        {histLoadingMore ? 'Loading…' : 'Load more'}
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
