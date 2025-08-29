@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import ExportCsvButton from '@/components/admin/ExportCsvButton';
 import { useWallet } from '@solana/wallet-adapter-react';
 import BulkUpdateDialog from '../components/BulkUpdateDialog';
+import { fetchSolanaTokenList } from '@/lib/utils';
+import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 
 /** ---------- Status typing (single source of truth) ---------- */
 const STATUSES = ['healthy','walking_dead','deadcoin','redlist','blacklist'] as const;
@@ -119,6 +121,9 @@ export default function AdminTokensPage() {
   const [mint, setMint] = useState('');
   const [setTo, setSetTo] = useState<TokenStatus>('redlist');
   const [error, setError] = useState<string | null>(null);
+  const [nameMap, setNameMap] = useState<Record<string, { symbol?: string; name?: string }>>({});
+  const [tokenListIndex, setTokenListIndex] = useState<Map<string, { symbol?: string; name?: string }>>();
+  const [listReady, setListReady] = useState(false);
 
   // pagination
   const [limit, setLimit] = useState(20);
@@ -206,6 +211,39 @@ export default function AdminTokensPage() {
     })();
   }, [publicKey, connected, router]);
 
+  useEffect(() => {
+    let stop = false;
+    (async () => {
+      try {
+        const list = await fetchSolanaTokenList(); // cache’li util’in
+        if (stop || !Array.isArray(list)) return;
+        const m = new Map<string, { symbol?: string; name?: string }>();
+        for (const t of list) {
+          if (t?.address) m.set(t.address, { symbol: t.symbol, name: t.name });
+        }
+        setTokenListIndex(m);
+      } finally {
+        setListReady(true);
+      }
+    })();
+    return () => { stop = true; };
+  }, []);
+  
+  useEffect(() => {
+    if (!listReady || !tokenListIndex || items.length === 0) return;
+    setNameMap((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const it of items) {
+        if (!next[it.mint]) {
+          const hit = tokenListIndex.get(it.mint);
+          if (hit) { next[it.mint] = hit; changed = true; }
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [listReady, tokenListIndex, items]);  
+
   async function setStatusFor(m: string, s: TokenStatus) {
     try {
       setError(null);
@@ -237,6 +275,20 @@ export default function AdminTokensPage() {
       push(`❌ ${msg}`, 'err');
     }
   }
+
+  async function lookupOneMint(mint: string) {
+    try {
+      const meta = await fetchTokenMetadata(mint); // util’in var
+      if (meta?.symbol || meta?.name) {
+        setNameMap(prev => ({ ...prev, [mint]: { symbol: meta.symbol, name: meta.name } }));
+        push('Metadata fetched', 'ok');
+      } else {
+        push('No metadata found', 'info');
+      }
+    } catch {
+      push('Lookup failed', 'err');
+    }
+  }  
 
   /* -------- History fetching with pagination -------- */
   const fetchHistory = useCallback(
@@ -286,9 +338,6 @@ export default function AdminTokensPage() {
       router.replace('/admin/login');
     }
   }
-
-  const canPrev = page > 0;
-  const canNext = items.length === limit;
 
   return (
     <div className="min-h-screen bg-black text-white p-6">
@@ -443,7 +492,26 @@ export default function AdminTokensPage() {
                 {/* Mint + Copy (button pinned right) */}
                 <td className="p-2 w-[460px]">
                   <div className="grid grid-cols-[1fr_auto] items-center gap-2">
-                    <span className="font-mono truncate" title={it.mint}>{it.mint}</span>
+                    <div className="min-w-0">
+                      <span className="font-mono truncate block" title={it.mint}>{it.mint}</span>
+                      <div className="text-xs text-gray-400">
+                        {nameMap[it.mint]?.symbol || nameMap[it.mint]?.name ? (
+                          <>
+                            {nameMap[it.mint]?.symbol ?? ''}
+                            {nameMap[it.mint]?.name ? ` — ${nameMap[it.mint]?.name}` : ''}
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => lookupOneMint(it.mint)}
+                            className="underline underline-offset-2 hover:text-gray-200"
+                            title="Fetch name/symbol"
+                          >
+                            lookup
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
                     <button
                       onClick={async () => {
                         const ok = await copyToClipboard(it.mint);
