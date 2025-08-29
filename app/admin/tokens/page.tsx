@@ -81,6 +81,42 @@ async function copyToClipboard(text: string) {
   }
 }
 
+/* ---------- localStorage cache for nameMap ---------- */
+type NameEntry = { symbol?: string; name?: string };
+
+const LS_KEY = 'cc_admin_nameMap_v1';
+const LS_MAX = 1000; // en fazla kaç mint saklayalım (isteğe göre artır/azalt)
+
+function loadNameCache(): Record<string, NameEntry> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    // basit doğrulama
+    if (parsed && typeof parsed === 'object') return parsed as Record<string, NameEntry>;
+  } catch {}
+  return {};
+}
+
+function saveNameCache(map: Record<string, NameEntry>) {
+  if (typeof window === 'undefined') return;
+  try {
+    const pruned = pruneMap(map, LS_MAX);
+    localStorage.setItem(LS_KEY, JSON.stringify(pruned));
+  } catch {}
+}
+
+function pruneMap(map: Record<string, NameEntry>, max: number) {
+  const keys = Object.keys(map);
+  if (keys.length <= max) return map;
+  // insertion order garantisi yok ama çoğu durumda yeterli; gerekiyorsa TS'ye ts alanı ekleriz
+  const keep = keys.slice(-max);
+  const out: Record<string, NameEntry> = {};
+  for (const k of keep) out[k] = map[k];
+  return out;
+}
+
 function StatusBadge({ status }: { status: string }) {
   const isKnown = (STATUSES as readonly string[]).includes(status as any);
   const s = (isKnown ? status : 'healthy') as TokenStatus;
@@ -243,6 +279,19 @@ export default function AdminTokensPage() {
       return changed ? next : prev;
     });
   }, [listReady, tokenListIndex, items]);  
+
+  // mount: localStorage → nameMap
+  useEffect(() => {
+    const cached = loadNameCache();
+    if (cached && Object.keys(cached).length) {
+      setNameMap(prev => ({ ...cached, ...prev }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    saveNameCache(nameMap);
+  }, [nameMap]);  
 
   async function setStatusFor(m: string, s: TokenStatus) {
     try {
