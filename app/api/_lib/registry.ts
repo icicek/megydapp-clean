@@ -3,7 +3,7 @@ import { sql } from '@/app/api/_lib/db';
 import type { TokenStatus } from '@/app/api/_lib/types';
 export type { TokenStatus } from '@/app/api/_lib/types';
 
-// Compat: Bazı yerler registry üzerinden set/get çağırıyor olabilir.
+// Compat: Bazı yerlerde registry üzerinden set/get çağrısı bekleniyor olabilir.
 import {
   getStatus as getRegistryStatus,
   setStatus as setRegistryStatus,
@@ -23,7 +23,7 @@ export const ENV_THRESHOLDS = {
   DEADCOIN_MAX_USD: intFromEnv('DEADCOIN_MAX_USD', 100),
 };
 
-// -------------------- DB yardımcıları --------------------
+// -------------------- DB helpers --------------------
 export type StatusRow = {
   mint: string;
   status: TokenStatus;
@@ -54,17 +54,61 @@ export async function getStatusRow(mint: string): Promise<StatusRow | null> {
   return rows[0] ?? null;
 }
 
-/** Kayıt yoksa healthy ile ilk satırı oluşturur (idempotent). */
+// -------------------- ensureFirstSeen (iki imza destekli) --------------------
+export type EnsureFirstSeenOptions = {
+  /** İlk açılış statüsü (varsayılan: 'healthy') */
+  suggestedStatus?: TokenStatus;
+  /** Audit için updated_by alanı (varsayılan: 'system:first_seen') */
+  actorWallet?: string | null;
+  /** Audit reason (varsayılan: 'first_seen') */
+  reason?: string | null;
+  /** Ek meta (JSON) */
+  meta?: any;
+};
+
+/**
+ * Kayıt yoksa ilk satırı oluşturur (idempotent).
+ * 2. parametre geriye dönük uyumlu: string (changedBy) ya da options objesi olabilir.
+ */
+// overload imzaları:
+export function ensureFirstSeenRegistry(mint: string, changedBy?: string): Promise<boolean>;
+export function ensureFirstSeenRegistry(mint: string, options?: EnsureFirstSeenOptions): Promise<boolean>;
+
+// tek implementasyon:
 export async function ensureFirstSeenRegistry(
   mint: string,
-  changedBy: string = 'system:first_seen',
+  opts?: string | EnsureFirstSeenOptions
 ): Promise<boolean> {
+  // Varsayılanlar
+  let status: TokenStatus = 'healthy';
+  let updatedBy = 'system:first_seen';
+  let reason: string | null = 'first_seen';
+  let meta: any = { source: 'ensureFirstSeen' };
+
+  if (typeof opts === 'string') {
+    // Eski kullanım (changedBy)
+    updatedBy = opts || updatedBy;
+  } else if (opts && typeof opts === 'object') {
+    if (opts.suggestedStatus) status = opts.suggestedStatus;
+    if (opts.actorWallet) updatedBy = opts.actorWallet;
+    if (opts.reason !== undefined) reason = opts.reason;
+    if (opts.meta) meta = { ...meta, ...opts.meta };
+  }
+
   const rows = (await sql`
     INSERT INTO token_registry (mint, status, status_at, updated_by, reason, meta)
-    VALUES (${mint}, 'healthy'::token_status_enum, NOW(), ${changedBy}, 'first_seen', '{"source":"ensureFirstSeen"}')
+    VALUES (
+      ${mint},
+      ${status}::token_status_enum,
+      NOW(),
+      ${updatedBy},
+      ${reason},
+      ${JSON.stringify(meta)}::jsonb
+    )
     ON CONFLICT (mint) DO NOTHING
     RETURNING 1 AS inserted
   `) as unknown as { inserted: 1 }[];
+
   return !!rows[0]?.inserted;
 }
 
@@ -85,7 +129,9 @@ export function computeStatusDecision(metrics: {
   const vol = Number(metrics.volumeUSD ?? 0);
   const liq = Number(metrics.liquidityUSD ?? 0);
 
-  if (usd === 0) return { status: 'deadcoin', voteSuggested: false };
+  if (usd === 0) {
+    return { status: 'deadcoin', voteSuggested: false };
+  }
 
   const criticallyLow =
     vol < ENV_THRESHOLDS.WALKING_DEAD_MIN_USD &&
@@ -103,7 +149,7 @@ export function computeStatusDecision(metrics: {
 /**
  * getEffectiveStatus:
  * - redlist/blacklist override’larını korur
- * - (TODO 3) cross-chain alias yükseltmesi buraya eklenecek
+ * - (TODO: cross-chain alias yükseltmesi burada değerlendirilebilir)
  */
 export async function getEffectiveStatus(mint: string): Promise<TokenStatus> {
   const row = await getStatusRow(mint);
