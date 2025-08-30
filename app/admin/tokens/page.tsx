@@ -67,6 +67,11 @@ function shortenWallet(w?: string | null) {
   if (!w) return 'Admin';
   return w.length > 10 ? `${w.slice(0,4)}…${w.slice(-4)}` : w;
 }
+
+function clamp(n: number, min: number, max: number) {
+  return Math.min(Math.max(n, min), max);
+}
+
 async function copyToClipboard(text: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -127,6 +132,20 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+// ✅ Votes badge (YES/threshold)
+function VotesBadge({ yes, threshold }: { yes: number; threshold: number }) {
+  const ratio = threshold > 0 ? yes / threshold : 0;
+  const cls =
+    ratio >= 1 ? 'bg-red-600 text-white' :
+    ratio >= 0.66 ? 'bg-amber-500 text-black' :
+    'bg-neutral-200 text-black';
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${cls}`}>
+      YES {yes}/{threshold}
+    </span>
+  );
+}
+
 // cookie-only API
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {
@@ -181,6 +200,11 @@ export default function AdminTokensPage() {
     lastUpdatedAt: string | null;
   } | null>(null);
 
+  // ✅ Vote threshold (settings)
+  const [voteThreshold, setVoteThreshold] = useState<number>(3);
+  const [savingThreshold, setSavingThreshold] = useState(false);
+  const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
+
   // querystring for list
   const params = useMemo(() => {
     const sp = new URLSearchParams();
@@ -217,12 +241,23 @@ export default function AdminTokensPage() {
     }
   }, [push]);
 
+  // ✅ load settings (threshold)
+  const loadSettings = useCallback(async () => {
+    try {
+      const r = await fetch('/api/admin/settings', { credentials: 'include', cache: 'no-store' });
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d?.success) setVoteThreshold(d.voteThreshold ?? 3);
+    } catch {}
+  }, []);
+
   // initial loads
   useEffect(() => {
     loadStats();
+    loadSettings();
     const id = setTimeout(load, 250);
     return () => clearTimeout(id);
-  }, [load, loadStats]);
+  }, [load, loadStats, loadSettings]);
 
   // auto reload when params change
   useEffect(() => { load(); }, [load, params]);
@@ -388,6 +423,36 @@ export default function AdminTokensPage() {
     }
   }
 
+  // ✅ Save threshold (inline settings card)
+  async function saveThreshold() {
+    try {
+      setSettingsMsg(null);
+      setSavingThreshold(true);
+      const r = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voteThreshold, changedBy: 'admin_ui' }),
+      });
+      const d = await r.json();
+      if (d?.success) {
+        setVoteThreshold(d.voteThreshold ?? voteThreshold);
+        setSettingsMsg('✅ Saved');
+        push('Threshold saved', 'ok');
+        // tabloyu tazelemek istersen:
+        await load();
+      } else {
+        setSettingsMsg(`❌ ${d?.error || 'Save failed'}`);
+        push('Save failed', 'err');
+      }
+    } catch (e:any) {
+      setSettingsMsg(`❌ ${e?.message || 'Save failed'}`);
+      push('Save failed', 'err');
+    } finally {
+      setSavingThreshold(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-black text-white p-6">
       <ToastViewport toasts={toasts} />
@@ -460,32 +525,36 @@ export default function AdminTokensPage() {
         </div>
       </div>
 
-      {/* Quick Update — single mint */}
+      {/* ✅ Inline Settings Card (Vote Threshold) */}
       <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-4">
-        <h2 className="font-semibold mb-2">Quick Update</h2>
-        <div className="flex flex-col sm:flex-row gap-3">
+        <h2 className="font-semibold mb-2">Admin Settings</h2>
+        <div className="flex items-center gap-3">
+          <label className="text-sm text-gray-300">Community Vote Threshold</label>
           <input
-            value={mint}
-            onChange={(e) => setMint(e.target.value)}
-            placeholder="Mint address"
-            className="flex-1 bg-gray-950 border border-gray-700 rounded px-3 py-2"
-          />
-          <select
-            value={setTo}
-            onChange={(e) => setSetTo(e.target.value as TokenStatus)}
-            className="bg-gray-950 border border-gray-700 rounded px-3 py-2"
-          >
-            {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <button
-            onClick={() => {
-              if (!mint) { push('Mint cannot be empty', 'err'); return; }
-              setStatusFor(mint, setTo);
+            type="number"
+            min={1}
+            max={50}
+            step={1}
+            value={Number.isFinite(voteThreshold) ? voteThreshold : 1}
+            onChange={(e) => {
+              const raw = Number(e.target.value);
+              if (!Number.isFinite(raw)) { setVoteThreshold(1); return; }
+              setVoteThreshold(clamp(Math.round(raw), 1, 50));
             }}
-            className="bg-purple-600 hover:bg-purple-700 rounded px-3 py-2 font-semibold"
+            className="w-24 px-2 py-1 rounded bg-gray-950 border border-gray-700"
+          />
+
+          <button
+            onClick={saveThreshold}
+            disabled={savingThreshold || !Number.isFinite(voteThreshold) || voteThreshold < 1 || voteThreshold > 50}
+            className="px-3 py-1 rounded bg-blue-600 text-white disabled:opacity-50"
           >
-            Apply
+            {savingThreshold ? 'Saving…' : 'Save'}
           </button>
+          {settingsMsg && <div className="text-xs text-gray-300">{settingsMsg}</div>}
+        </div>
+        <div className="mt-1 text-[11px] text-neutral-500">
+          Affects auto-deadcoin promotion (YES ≥ threshold).
         </div>
       </div>
 
@@ -527,6 +596,8 @@ export default function AdminTokensPage() {
             <tr>
               <th className="text-left p-2 w-[460px]">Mint</th>
               <th className="text-left p-2">Status</th>
+              {/* ✅ New Votes column */}
+              <th className="text-left p-2 w-[120px]">Votes</th>
               <th className="text-left p-2 w-[120px]">By</th>
               <th className="text-left p-2">Status At</th>
               <th className="text-left p-2 w-[520px]">Actions</th>
@@ -534,92 +605,100 @@ export default function AdminTokensPage() {
           </thead>
           <tbody>
             {items.length === 0 && (
-              <tr><td className="p-3 text-gray-400" colSpan={5}>No records</td></tr>
+              <tr><td className="p-3 text-gray-400" colSpan={6}>No records</td></tr>
             )}
-            {items.map((it) => (
-              <tr key={it.mint} className="border-b border-gray-800">
-                {/* Mint + Copy (button pinned right) */}
-                <td className="p-2 w-[460px]">
-                  <div className="grid grid-cols-[1fr_auto] items-center gap-2">
-                    <div className="min-w-0">
-                      <span className="font-mono truncate block" title={it.mint}>{it.mint}</span>
-                      <div className="text-xs text-gray-400">
-                        {nameMap[it.mint]?.symbol || nameMap[it.mint]?.name ? (
-                          <>
-                            {nameMap[it.mint]?.symbol ?? ''}
-                            {nameMap[it.mint]?.name ? ` — ${nameMap[it.mint]?.name}` : ''}
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => lookupOneMint(it.mint)}
-                            className="underline underline-offset-2 hover:text-gray-200"
-                            title="Fetch name/symbol"
-                          >
-                            lookup
-                          </button>
-                        )}
+            {items.map((it) => {
+              const yesCount = typeof it.yes_count === 'number' ? it.yes_count : 0;
+              return (
+                <tr key={it.mint} className="border-b border-gray-800">
+                  {/* Mint + Copy (button pinned right) */}
+                  <td className="p-2 w-[460px]">
+                    <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+                      <div className="min-w-0">
+                        <span className="font-mono truncate block" title={it.mint}>{it.mint}</span>
+                        <div className="text-xs text-gray-400">
+                          {nameMap[it.mint]?.symbol || nameMap[it.mint]?.name ? (
+                            <>
+                              {nameMap[it.mint]?.symbol ?? ''}
+                              {nameMap[it.mint]?.name ? ` — ${nameMap[it.mint]?.name}` : ''}
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => lookupOneMint(it.mint)}
+                              className="underline underline-offset-2 hover:text-gray-200"
+                              title="Fetch name/symbol"
+                            >
+                              lookup
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                    <button
-                      onClick={async () => {
-                        const ok = await copyToClipboard(it.mint);
-                        if (ok) push('Copied mint', 'ok'); else push('Copy failed', 'err');
-                      }}
-                      className="bg-gray-700 hover:bg-gray-600 rounded px-2 py-1 text-xs"
-                      aria-label="Copy mint"
-                      title="Copy"
-                    >
-                      copy
-                    </button>
-                  </div>
-                </td>
-
-                {/* Status */}
-                <td className="p-2">
-                  <StatusBadge status={it.status} />
-                </td>
-
-                {/* Updated By (short) */}
-                <td className="p-2 w-[120px]">
-                  <span className="truncate block" title={it.updated_by ?? 'Admin'}>
-                    {shortenWallet(it.updated_by)}
-                  </span>
-                </td>
-
-                {/* Status At */}
-                <td className="p-2 whitespace-nowrap">
-                  {it.status_at ? new Date(it.status_at).toLocaleString() : '—'}
-                </td>
-
-                {/* Actions */}
-                <td className="p-2 w-[520px]">
-                  <div className="flex gap-2 whitespace-nowrap overflow-x-auto">
-                    {STATUSES.map(s => (
                       <button
-                        key={s}
-                        onClick={() => setStatusFor(it.mint, s)}
-                        className="bg-gray-700 hover:bg-gray-600 rounded px-2 py-1"
+                        onClick={async () => {
+                          const ok = await copyToClipboard(it.mint);
+                          if (ok) push('Copied mint', 'ok'); else push('Copy failed', 'err');
+                        }}
+                        className="bg-gray-700 hover:bg-gray-600 rounded px-2 py-1 text-xs"
+                        aria-label="Copy mint"
+                        title="Copy"
                       >
-                        {s}
+                        copy
                       </button>
-                    ))}
-                    <button
-                      onClick={() => resetHealthy(it.mint)}
-                      className="bg-green-700 hover:bg-green-600 rounded px-2 py-1"
-                    >
-                      reset → healthy
-                    </button>
-                    <button
-                      onClick={() => openHistory(it.mint)}
-                      className="bg-indigo-700 hover:bg-indigo-600 rounded px-2 py-1"
-                    >
-                      history
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                    </div>
+                  </td>
+
+                  {/* Status */}
+                  <td className="p-2">
+                    <StatusBadge status={it.status} />
+                  </td>
+
+                  {/* ✅ Votes */}
+                  <td className="p-2 w-[120px]" title={`YES ${yesCount}/${voteThreshold || 3}`}>
+                    <VotesBadge yes={yesCount} threshold={voteThreshold || 3} />
+                  </td>
+
+                  {/* Updated By (short) */}
+                  <td className="p-2 w-[120px]">
+                    <span className="truncate block" title={it.updated_by ?? 'Admin'}>
+                      {shortenWallet(it.updated_by)}
+                    </span>
+                  </td>
+
+                  {/* Status At */}
+                  <td className="p-2 whitespace-nowrap">
+                    {it.status_at ? new Date(it.status_at).toLocaleString() : '—'}
+                  </td>
+
+                  {/* Actions */}
+                  <td className="p-2 w-[520px]">
+                    <div className="flex gap-2 whitespace-nowrap overflow-x-auto">
+                      {STATUSES.map(s => (
+                        <button
+                          key={s}
+                          onClick={() => setStatusFor(it.mint, s)}
+                          className="bg-gray-700 hover:bg-gray-600 rounded px-2 py-1"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => resetHealthy(it.mint)}
+                        className="bg-green-700 hover:bg-green-600 rounded px-2 py-1"
+                      >
+                        reset → healthy
+                      </button>
+                      <button
+                        onClick={() => openHistory(it.mint)}
+                        className="bg-indigo-700 hover:bg-indigo-600 rounded px-2 py-1"
+                      >
+                        history
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

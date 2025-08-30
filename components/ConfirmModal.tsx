@@ -1,8 +1,10 @@
+// components/ConfirmModal.tsx
 'use client';
 
 import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { TokenCategory } from '@/app/api/utils/classifyToken';
+import DeadcoinVoteButton from '@/components/community/DeadcoinVoteButton';
 
 interface ConfirmModalProps {
   tokenSymbol: string;
@@ -16,7 +18,7 @@ interface ConfirmModalProps {
   onCancel: () => void;
   onDeadcoinVote: (vote: 'yes' | 'no') => void;
 
-  // ✅ Yeni ama opsiyonel: vermezsen eski davranış korunur
+  // ✅ Opsiyonel: list status & oy butonu için gerekli
   tokenMint?: string;
   currentWallet?: string | null;
 }
@@ -37,7 +39,6 @@ export default function ConfirmModal({
   tokenMint,
   currentWallet,
 }: ConfirmModalProps) {
-  const [deadcoinVoted, setDeadcoinVoted] = useState(false);
   const [voteMessage, setVoteMessage] = useState('');
   const [listStatus, setListStatus] = useState<ListStatus | null>(null);
   const [statusAt, setStatusAt] = useState<string | null>(null);
@@ -56,8 +57,7 @@ export default function ConfirmModal({
         if (abort) return;
         setListStatus(data.status as ListStatus);
         setStatusAt(data.statusAt ?? null);
-      } catch (e) {
-        // Sessiz geç – UI akışı bozulmasın
+      } catch {
         if (!abort) {
           setListStatus(null);
           setStatusAt(null);
@@ -67,36 +67,13 @@ export default function ConfirmModal({
       }
     }
     load();
-    return () => {
-      abort = true;
-    };
+    return () => { abort = true; };
   }, [isOpen, tokenMint]);
-
-  const handleDeadcoinVote = async (vote: 'yes' | 'no') => {
-    setDeadcoinVoted(true);
-    onDeadcoinVote(vote); // 🔁 mevcut callback korunuyor
-    setVoteMessage('✅ Thank you! Your vote has been recorded.');
-
-    // Backend’e kaydet (opsiyonel, parametreler yoksa atla)
-    if (!tokenMint || !currentWallet) return;
-    try {
-      await fetch('/api/vote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mint: tokenMint,
-          voterWallet: currentWallet,
-          voteYes: vote === 'yes',
-        }),
-      });
-    } catch {
-      // Sessiz geç – kullanıcı deneyimini bozma
-    }
-  };
 
   // 💬 Liste durumu için üstte ince uyarı bandı
   const renderListBanner = () => {
-    if (!listStatus || statusLoading) return null;
+    if (statusLoading) return null;
+    if (!listStatus) return null;
 
     const base = 'p-3 rounded font-medium text-white';
     if (listStatus === 'blacklist') {
@@ -159,37 +136,11 @@ export default function ConfirmModal({
             </div>
           )}
 
-          {fetchStatus === 'not_found' && (
-            <div className="bg-red-700 text-white p-3 rounded font-medium">
-              ❌ Failed to fetch price from all sources. Please try again later.
-            </div>
-          )}
-
+          {/* ❗ usdValue === 0: Artık oy istemiyoruz; sistem bunu deadcoin olarak işler */}
           {fetchStatus === 'found' && usdValue === 0 && (
             <div className="bg-yellow-700 text-white p-3 rounded">
               ⚠️ <strong>This token has no detectable USD value.</strong><br />
-              Do you confirm this as a deadcoin?
-              {!deadcoinVoted && (
-                <div className="flex gap-2 mt-2">
-                  <button
-                    onClick={() => handleDeadcoinVote('yes')}
-                    className="bg-red-600 text-white px-3 py-1 rounded"
-                  >
-                    Yes, it is a Deadcoin
-                  </button>
-                  <button
-                    onClick={() => handleDeadcoinVote('no')}
-                    className="bg-gray-400 text-black px-3 py-1 rounded"
-                  >
-                    No, it is not
-                  </button>
-                </div>
-              )}
-              {deadcoinVoted && (
-                <div className="mt-3 p-2 bg-green-700 text-white rounded font-semibold text-center">
-                  {voteMessage}
-                </div>
-              )}
+              It will be treated as a Deadcoin for this coincarnation (no MEGY; CorePoint only).
             </div>
           )}
 
@@ -209,6 +160,37 @@ export default function ConfirmModal({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* 🗳️ OY BUTONU: Walking Dead + değer > 0 iken göster.
+              computeStatusDecision() server’da “voteSuggested” döndürse de,
+              burada pratik proxy olarak listStatus==='walking_dead' & usdValue>0 kullanıyoruz. */}
+          {listStatus === 'walking_dead' && tokenMint && fetchStatus === 'found' && usdValue > 0 && (
+            <div className="mt-2">
+              <p className="text-xs text-orange-200 mb-2">
+                Community can vote this token as Deadcoin if liquidity/volume stays critically low.
+                <br />
+                <strong>3 YES</strong> votes will mark it as Deadcoin.
+              </p>
+              <DeadcoinVoteButton
+                mint={tokenMint}
+                onVoted={(res) => {
+                  // geri uyumluluk: parent callback’ini tetikle
+                  onDeadcoinVote('yes');
+                  if (res?.applied) {
+                    setListStatus('deadcoin');
+                  }
+                  setVoteMessage(
+                    res?.applied
+                      ? '✅ Threshold reached – marked as Deadcoin.'
+                      : `👍 Vote recorded (${res?.votesYes ?? 1}/${res?.threshold ?? 3})`
+                  );                  
+                }}
+                label="Vote deadcoin (YES)"
+                className="w-full sm:w-auto"
+              />
+              {voteMessage && <div className="mt-2 text-xs text-gray-300">{voteMessage}</div>}
             </div>
           )}
         </div>

@@ -31,25 +31,31 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(Math.max(toInt(searchParams.get('limit'), 20), 1), 100);
     const offset = Math.max(toInt(searchParams.get('offset'), 0), 0);
 
-    // Opsiyonel filtreleri "OR param IS NULL" kalıbıyla çözüyoruz;
-    // Böylece tek bir tagged template ile güvenli parametreleme yapılıyor.
+    // Opsiyonel filtreler
     const pattern = q ? `%${q}%` : null;
 
+    // ✅ YES sayacı için LATERAL alt-sorgu (vote_yes boolean TRUE)
     const rows = (await sql`
       SELECT
-        mint,
-        status::text AS status,
-        status_at,
-        updated_by,
-        reason,
-        meta,
-        created_at,
-        updated_at
-      FROM token_registry
+        r.mint,
+        r.status::text AS status,
+        r.status_at,
+        r.updated_by,
+        r.reason,
+        r.meta,
+        r.created_at,
+        r.updated_at,
+        vc.yes_count
+      FROM token_registry r
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS yes_count
+        FROM deadcoin_votes v
+        WHERE v.mint = r.mint AND v.vote_yes = TRUE
+      ) vc ON TRUE
       WHERE
-        (${status ?? null}::text IS NULL OR status::text = ${status})
-        AND (${pattern ?? null}::text IS NULL OR mint ILIKE ${pattern})
-      ORDER BY updated_at DESC
+        (${status ?? null}::text IS NULL OR r.status::text = ${status})
+        AND (${pattern ?? null}::text IS NULL OR r.mint ILIKE ${pattern})
+      ORDER BY r.updated_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `) as unknown as {
       mint: string;
@@ -60,6 +66,7 @@ export async function GET(req: NextRequest) {
       meta: any;
       created_at: string;
       updated_at: string;
+      yes_count: number;           // ✅ yeni alan
     }[];
 
     return NextResponse.json({ success: true, items: rows });
