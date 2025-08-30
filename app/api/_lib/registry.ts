@@ -69,16 +69,21 @@ export type EnsureFirstSeenOptions = {
 /**
  * Kayıt yoksa ilk satırı oluşturur (idempotent).
  * 2. parametre geriye dönük uyumlu: string (changedBy) ya da options objesi olabilir.
+ * DÖNÜŞ: { created: boolean }
  */
-// overload imzaları:
-export function ensureFirstSeenRegistry(mint: string, changedBy?: string): Promise<boolean>;
-export function ensureFirstSeenRegistry(mint: string, options?: EnsureFirstSeenOptions): Promise<boolean>;
+export function ensureFirstSeenRegistry(
+  mint: string,
+  changedBy?: string
+): Promise<{ created: boolean }>;
+export function ensureFirstSeenRegistry(
+  mint: string,
+  options?: EnsureFirstSeenOptions
+): Promise<{ created: boolean }>;
 
-// tek implementasyon:
 export async function ensureFirstSeenRegistry(
   mint: string,
   opts?: string | EnsureFirstSeenOptions
-): Promise<boolean> {
+): Promise<{ created: boolean }> {
   // Varsayılanlar
   let status: TokenStatus = 'healthy';
   let updatedBy = 'system:first_seen';
@@ -109,7 +114,7 @@ export async function ensureFirstSeenRegistry(
     RETURNING 1 AS inserted
   `) as unknown as { inserted: 1 }[];
 
-  return !!rows[0]?.inserted;
+  return { created: !!rows[0]?.inserted };
 }
 
 // -------------------- Karar fonksiyonu --------------------
