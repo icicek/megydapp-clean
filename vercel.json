@@ -1,0 +1,6 @@
+{
+    "crons": [
+      { "path": "/api/_crons/reclassify", "schedule": "*/15 * * * *" }
+    ]
+  }
+  
