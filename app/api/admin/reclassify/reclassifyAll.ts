@@ -1,13 +1,22 @@
 // app/api/admin/reclassify/reclassifyAll.ts
-// Minimal, güvenli iskelet: cooldown, lock, audit; gerçek iş mantığını sonra doldururuz.
+// ENV ile özelleştirilebilir kolon/tablolar:
 const BATCH_SIZE = Number(process.env.RECLASSIFIER_BATCH_SIZE ?? 50);
 const MIN_AGE_MINUTES = Number(process.env.RECLASSIFIER_MIN_AGE_MINUTES ?? 30);
-const COOLDOWN_HOURS = Number(process.env.RECLASSIFIER_COOLDOWN_HOURS ?? 1);
+const COOLDOWN_HOURS = Number(process.env.RECLASSIFIER_COOLDOWN_HOURS ?? 0.25);
+
+const TABLE = process.env.RECLASSIFIER_TABLE ?? 'token_registry';
+const COL_MINT = process.env.RECLASSIFIER_COL_MINT ?? 'mint';
+const COL_STATUS = process.env.RECLASSIFIER_COL_STATUS ?? 'status';
+const COL_UPDATED_AT = process.env.RECLASSIFIER_COL_UPDATED_AT ?? 'updated_at';
+const COL_STATUS_AT = process.env.RECLASSIFIER_COL_STATUS_AT ?? 'status_at';
 
 type Sql = any;
+const ident = (x: string) => `"${String(x).replace(/"/g, '""')}"`;
+const lit = (x: string | null | number) =>
+  x === null || x === undefined ? 'NULL' : `'${String(x).replace(/'/g, "''")}'`;
 
 export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
-  // 0) Tablo hazırla
+  // Meta tablolar
   await sql/* sql */`
     CREATE TABLE IF NOT EXISTS cron_runs (
       id serial PRIMARY KEY,
@@ -27,16 +36,16 @@ export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
     );
   `;
 
-  // 1) Cooldown (yalnızca "başarılı" çalışmaları dikkate al)
+  // Cooldown (sadece "ok:%" notlarına bak)
   if (!opts.force) {
-    const lastOk = await sql<{ last: string | null }[]>`
-      SELECT MAX(ran_at) AS last
-      FROM cron_runs
-      WHERE note IS NULL OR note LIKE 'ok:%'
+    const lastOk = await sql/* sql */`
+      SELECT MAX(ran_at) AS last FROM cron_runs
+      WHERE note IS NULL OR note LIKE 'ok:%';
     `;
-    if (lastOk[0]?.last) {
-      const blocked = await sql<{ blocked: boolean }[]>`
-        SELECT (now() - ${lastOk[0].last}::timestamptz) < (${COOLDOWN_HOURS} * interval '1 hour') AS blocked;
+    const last = lastOk[0]?.last;
+    if (last) {
+      const blocked = await sql/* sql */`
+        SELECT (now() - ${last}::timestamptz) < (${COOLDOWN_HOURS} * interval '1 hour') AS blocked;
       `;
       if (blocked[0]?.blocked) {
         await sql/* sql */`INSERT INTO cron_runs (note) VALUES ('skip: cooldown');`;
@@ -45,8 +54,8 @@ export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
     }
   }
 
-  // 2) Tekil çalıştırma (advisory lock)
-  const lock = await sql<{ got: boolean }[]>`SELECT pg_try_advisory_lock(823746) AS got;`;
+  // Tekil çalıştırma
+  const lock = await sql/* sql */`SELECT pg_try_advisory_lock(823746) AS got;`;
   if (!lock[0]?.got) {
     await sql/* sql */`INSERT INTO cron_runs (note) VALUES ('skip: already_running');`;
     return { skipped: true, reason: 'already_running' };
@@ -54,35 +63,50 @@ export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
 
   let processed = 0, changed = 0;
   try {
-    // 3) Adayları al (kendi şemana göre düzenle)
-    // Şeman yoksa bu blok hiç hata vermesin diye en basit haline bıraktım:
-    const candidates: { mint: string; status: string }[] = [];
-    // TODO: gerçek sorgunu buraya ekle:
-    // const candidates = await sql`SELECT ... FROM token_registry WHERE ... LIMIT ${BATCH_SIZE};`;
+    // Şema kontrolü
+    const cols = await sql/* sql */`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema='public' AND table_name=${TABLE};
+    `;
+    const have = new Set(cols.map((r: any) => r.column_name));
+    const need = [COL_MINT, COL_STATUS, COL_UPDATED_AT, COL_STATUS_AT];
+    const missing = need.filter(c => !have.has(c));
+    if (missing.length > 0) {
+      await sql/* sql */`INSERT INTO cron_runs (note) VALUES (${`skip: schema_missing:${missing.join(',')}`});`;
+      return { skipped: true, reason: 'schema_mismatch', missing, table: TABLE, found: [...have] };
+    }
 
+    // 🔧 DİKKAT: Dinamik string => sql.unsafe kullan
+    const qCandidates = `
+      SELECT ${ident(COL_MINT)}  AS mint,
+             ${ident(COL_STATUS)} AS status
+      FROM ${ident(TABLE)}
+      WHERE ${ident(COL_STATUS)} NOT IN ('blacklist','redlist')
+        AND (${ident(COL_UPDATED_AT)} IS NULL
+             OR ${ident(COL_UPDATED_AT)} < now() - (${MIN_AGE_MINUTES} * interval '1 minute'))
+      ORDER BY ${ident(COL_UPDATED_AT)} NULLS FIRST
+      LIMIT ${BATCH_SIZE};
+    `;
+    const candidates: { mint: string; status: string }[] = await sql.unsafe(qCandidates);
+
+    processed = candidates.length;
+    console.log('[reclassify] candidates:', processed);
+
+    // Basit davranış: şimdilik sadece updated_at'i dokun (örnek)
     for (const row of candidates) {
-      processed++;
-      const mint = row.mint;
-      const newStatus = row.status; // TODO: mevcut sınıflandırma mantığını ekle
-
-      // Değişmediyse sadece dokun
-      await sql/* sql */`
-        UPDATE token_registry SET updated_at = now() WHERE mint = ${mint};
+      const touch = `
+        UPDATE ${ident(TABLE)}
+        SET ${ident(COL_UPDATED_AT)} = now()
+        WHERE ${ident(COL_MINT)} = ${lit(row.mint)};
       `;
-      // Eğer değişecekse:
-      // await sql.begin(async (trx: any) => {
-      //   await trx`UPDATE token_registry SET status=${newStatus}, status_at=now(), updated_at=now() WHERE mint=${mint};`;
-      //   await trx`INSERT INTO token_audit (mint, old_status, new_status, price, reason) VALUES (${mint}, ${row.status}, ${newStatus}, ${null}, 'reclassify');`;
-      // });
-      // changed++;
+      await sql.unsafe(touch);
+      // Burada gerçek sınıflandırma eklenebilir; değişiklik olursa changed++ yap.
     }
   } finally {
     await sql/* sql */`SELECT pg_advisory_unlock(823746);`;
   }
 
-  await sql/* sql */`
-    INSERT INTO cron_runs (note) VALUES (${`ok: processed=${processed}, changed=${changed}`});
-  `;
-
+  await sql/* sql */`INSERT INTO cron_runs (note) VALUES (${`ok: processed=${processed}, changed=${changed}`});`;
   return { skipped: false, processed, changed };
 }
