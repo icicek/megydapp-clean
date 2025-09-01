@@ -6,34 +6,33 @@ on:
     - cron: "*/15 * * * *"
 
 jobs:
-  call-cron-endpoint:
+  call:
     runs-on: ubuntu-latest
+    # Eğer secret'ları "Environments → Production" altında tuttuysan yorumu kaldır:
+    # environment: production
     steps:
-      - name: Sanity check (HEAD without secret)
+      - name: HEAD (sanity check)
         env:
           CRON_URL: ${{ secrets.CRON_URL }}
         run: |
           set -euo pipefail
           if [ -z "${CRON_URL:-}" ]; then echo "CRON_URL empty"; exit 1; fi
-          code=$(curl -sS -o /dev/null -w "%{http_code}" -I "$CRON_URL")
+          code=$(curl -sS -o /dev/null -w "%{http_code}" -I "$CRON_URL?v=$(date +%s)")
           echo "HEAD status: $code"
-          if [ "$code" = "404" ]; then echo "Not found (bad path)"; exit 1; fi
+          # 404 = path yanlış; 200/405/308 kabul
+          [ "$code" != "404" ] || { echo "Not found (bad path)"; exit 1; }
 
-      - name: Call CRON endpoint (POST with secret)
+      - name: POST (call with secret)
         env:
           CRON_URL: ${{ secrets.CRON_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -euo pipefail
           if [ -z "${CRON_SECRET:-}" ]; then echo "CRON_SECRET empty"; exit 1; fi
-
-          STATUS=$(curl -sS -X POST "$CRON_URL" \
-            -H "Content-Type: application/json" \
+          STATUS=$(curl -sS -X POST "$CRON_URL?v=$(date +%s)" \
             -H "X-CRON-SECRET: $CRON_SECRET" \
             -o /tmp/body.txt -w "%{http_code}")
-
           echo "HTTP $STATUS"
           echo "---- Response body ----"
           cat /tmp/body.txt
-
           test "$STATUS" -lt 400
