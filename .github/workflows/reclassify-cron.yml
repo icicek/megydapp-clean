@@ -1,38 +1,114 @@
 name: Reclassify tokens (cron)
 
 on:
+  # Elle tetiklemek için:
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Cooldown'ı bypass et (1 = evet)"
+        required: false
+        default: "0"
+  # Otomatik: her 15 dakikada bir
   schedule:
     - cron: "*/15 * * * *"
 
+concurrency:
+  group: reclassify-cron
+  cancel-in-progress: false
+
 jobs:
-  call:
+  call-cron-endpoint:
+    name: Call CRON endpoint
     runs-on: ubuntu-latest
-    # Eğer secret'ları "Environments → Production" altında tuttuysan yorumu kaldır:
+    timeout-minutes: 5
+    # Eğer Production environment'ı ve oradaki secret'ları kullanıyorsan aç:
     # environment: production
+
     steps:
+      - name: Resolve envs (prefer secrets, fallback to vars)
+        id: prep
+        env:
+          CRON_URL_SECRET: ${{ secrets.CRON_URL }}
+          CRON_URL_VAR:    ${{ vars.CRON_URL }}
+          CRON_SECRET_S:   ${{ secrets.CRON_SECRET }}
+          CRON_SECRET_V:   ${{ vars.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          CRON_URL="${CRON_URL_SECRET:-${CRON_URL_VAR:-}}"
+          CRON_SECRET="${CRON_SECRET_S:-${CRON_SECRET_V:-}}"
+          if [ -z "${CRON_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "CRON_URL veya CRON_SECRET eksik"; exit 1;
+          fi
+          echo "cron_url=$CRON_URL"       >> "$GITHUB_OUTPUT"
+          echo "has_secret=true"          >> "$GITHUB_OUTPUT"
+          # Secret'ı output olarak yazmıyoruz
+
       - name: HEAD (sanity check)
         env:
-          CRON_URL: ${{ secrets.CRON_URL }}
+          CRON_URL: ${{ steps.prep.outputs.cron_url }}
         run: |
           set -euo pipefail
-          if [ -z "${CRON_URL:-}" ]; then echo "CRON_URL empty"; exit 1; fi
-          code=$(curl -sS -o /dev/null -w "%{http_code}" -I "$CRON_URL?v=$(date +%s)")
-          echo "HEAD status: $code"
+          CODE=$(curl -sS -I \
+            --retry 2 --retry-delay 2 \
+            -o /dev/null -w "%{http_code}" \
+            "$CRON_URL?v=$(date +%s)")
+          echo "HEAD status: $CODE"
+          {
+            echo "### Reclassify cron — HEAD"
+            echo ""
+            echo "- Event: **${{ github.event_name }}**"
+            echo "- Ref: **${{ github.ref_name }}**"
+            echo "- URL: $CRON_URL"
+            echo "- Status: $CODE"
+          } >> "$GITHUB_STEP_SUMMARY"
           # 404 = path yanlış; 200/405/308 kabul
-          [ "$code" != "404" ] || { echo "Not found (bad path)"; exit 1; }
+          [ "$CODE" != "404" ] || { echo "Not found (bad path)"; exit 1; }
 
-      - name: POST (call with secret)
+      - name: POST (trigger endpoint)
         env:
-          CRON_URL: ${{ secrets.CRON_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          CRON_URL: ${{ steps.prep.outputs.cron_url }}
+          CRON_SECRET_S: ${{ secrets.CRON_SECRET }}
+          CRON_SECRET_V: ${{ vars.CRON_SECRET }}
         run: |
           set -euo pipefail
-          if [ -z "${CRON_SECRET:-}" ]; then echo "CRON_SECRET empty"; exit 1; fi
-          STATUS=$(curl -sS -X POST "$CRON_URL?v=$(date +%s)" \
+
+          CRON_SECRET="${CRON_SECRET_S:-${CRON_SECRET_V:-}}"
+
+          URL="$CRON_URL?v=$(date +%s)"
+          # Manuel tetiklemede force=1 isteğe bağlı
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.force }}" = "1" ]; then
+            URL="${URL}&force=1"
+          fi
+
+          STATUS=$(curl -sS -X POST "$URL" \
             -H "X-CRON-SECRET: $CRON_SECRET" \
-            -o /tmp/body.txt -w "%{http_code}")
+            --retry 2 --retry-delay 2 \
+            -o /tmp/body.json -w "%{http_code}")
+
           echo "HTTP $STATUS"
           echo "---- Response body ----"
-          cat /tmp/body.txt
-          test "$STATUS" -lt 400
+          cat /tmp/body.json || true
+
+          {
+            echo "### Reclassify cron — POST"
+            echo ""
+            echo "- URL: $URL"
+            echo "- HTTP: **$STATUS**"
+            echo ""
+            echo "\`\`\`json"
+            cat /tmp/body.json || true
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # HTTP hatalarında fail
+          if [ "$STATUS" -ge 400 ]; then
+            exit 1
+          fi
+
+          # JSON 'ok:false' ise fail (jq varsa)
+          if command -v jq >/dev/null 2>&1; then
+            OK=$(jq -r '.ok // empty' /tmp/body.json 2>/dev/null || true)
+            if [ "$OK" != "true" ]; then
+              echo "Endpoint ok:false döndürdü veya JSON geçersiz"; exit 1
+            fi
+          fi
