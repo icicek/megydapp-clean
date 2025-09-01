@@ -1,22 +1,31 @@
 name: Reclassify tokens (cron)
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"   # Her 15 dk. (UTC'ye göre)
   workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
 
 jobs:
   call-cron-endpoint:
     runs-on: ubuntu-latest
     steps:
-      - name: Call CRON endpoint
+      - name: Sanity check (HEAD without secret)
+        env:
+          CRON_URL: ${{ secrets.CRON_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CRON_URL:-}" ]; then echo "CRON_URL empty"; exit 1; fi
+          code=$(curl -sS -o /dev/null -w "%{http_code}" -I "$CRON_URL")
+          echo "HEAD status: $code"
+          if [ "$code" = "404" ]; then echo "Not found (bad path)"; exit 1; fi
+
+      - name: Call CRON endpoint (POST with secret)
         env:
           CRON_URL: ${{ secrets.CRON_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          if [ -z "$CRON_URL" ] || [ -z "$CRON_SECRET" ]; then
-            echo "CRON_URL or CRON_SECRET is missing"; exit 1;
-          fi
+          set -euo pipefail
+          if [ -z "${CRON_SECRET:-}" ]; then echo "CRON_SECRET empty"; exit 1; fi
 
           STATUS=$(curl -sS -X POST "$CRON_URL" \
             -H "Content-Type: application/json" \
@@ -24,8 +33,7 @@ jobs:
             -o /tmp/body.txt -w "%{http_code}")
 
           echo "HTTP $STATUS"
-          if [ "$STATUS" -ge 400 ]; then
-            echo "---- Response body ----"
-            cat /tmp/body.txt
-            exit 1
-          fi
+          echo "---- Response body ----"
+          cat /tmp/body.txt
+
+          test "$STATUS" -lt 400
