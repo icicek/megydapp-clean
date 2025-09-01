@@ -11,16 +11,24 @@ const COL_UPDATED_AT = process.env.RECLASSIFIER_COL_UPDATED_AT ?? 'updated_at';
 const COL_STATUS_AT = process.env.RECLASSIFIER_COL_STATUS_AT ?? 'status_at';
 
 type Sql = any;
+
 const ident = (x: string) => `"${String(x).replace(/"/g, '""')}"`;
-const lit = (x: string | null | number) =>
+const lit = (x: string | number | null | undefined) =>
   x === null || x === undefined ? 'NULL' : `'${String(x).replace(/'/g, "''")}'`;
 
-/** Neon farklı sürümlerde iki şekil döndürebiliyor: rows[] veya {rows:[]}. */
 function asRows<T = any>(r: any): T[] {
   if (Array.isArray(r)) return r as T[];
   if (r && Array.isArray(r.rows)) return r.rows as T[];
   return [];
 }
+
+// Varsayılan isimler mi?
+const IS_DEFAULT_SCHEMA =
+  TABLE === 'token_registry' &&
+  COL_MINT === 'mint' &&
+  COL_STATUS === 'status' &&
+  COL_UPDATED_AT === 'updated_at' &&
+  COL_STATUS_AT === 'status_at';
 
 export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
   // Meta tablolar
@@ -69,15 +77,15 @@ export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
   }
 
   let processed = 0, changed = 0;
+  let metrics: any = {};
   try {
     // Şema kontrolü
     const colsRes = await sql/* sql */`
       SELECT column_name
       FROM information_schema.columns
-      WHERE table_schema='public' AND table_name=${TABLE};
+      WHERE table_schema = 'public' AND table_name = ${TABLE};
     `;
-    const cols = asRows(colsRes);
-    const have = new Set(cols.map((r: any) => r.column_name));
+    const have = new Set(asRows(colsRes).map((r: any) => r.column_name));
     const need = [COL_MINT, COL_STATUS, COL_UPDATED_AT, COL_STATUS_AT];
     const missing = need.filter(c => !have.has(c));
     if (missing.length > 0) {
@@ -85,36 +93,101 @@ export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
       return { skipped: true, reason: 'schema_mismatch', missing, table: TABLE, found: [...have] };
     }
 
-    // Adaylar (dinamik string -> unsafe; sonra normalize)
-    const qCandidates = `
-      SELECT ${ident(COL_MINT)}  AS mint,
-             ${ident(COL_STATUS)} AS status
-      FROM ${ident(TABLE)}
-      WHERE ${ident(COL_STATUS)} NOT IN ('blacklist','redlist')
-        AND (${ident(COL_UPDATED_AT)} IS NULL
-             OR ${ident(COL_UPDATED_AT)} < now() - (${MIN_AGE_MINUTES} * interval '1 minute'))
-      ORDER BY ${ident(COL_UPDATED_AT)} NULLS FIRST
-      LIMIT ${BATCH_SIZE};
-    `;
-    const candRes = await sql.unsafe(qCandidates);
-    const candidates: { mint: string; status: string }[] = asRows(candRes);
+    // Metrikler (teşhis için)
+    if (IS_DEFAULT_SCHEMA) {
+      const total    = (await sql/* sql */`SELECT COUNT(*)::int AS n FROM token_registry;`)[0]?.n ?? 0;
+      const eligible = (await sql/* sql */`
+        SELECT COUNT(*)::int AS n
+        FROM token_registry
+        WHERE status NOT IN ('blacklist','redlist');
+      `)[0]?.n ?? 0;
+      const stale    = (await sql/* sql */`
+        SELECT COUNT(*)::int AS n
+        FROM token_registry
+        WHERE updated_at IS NULL
+           OR updated_at < now() - (${MIN_AGE_MINUTES} * interval '1 minute');
+      `)[0]?.n ?? 0;
+      const both     = (await sql/* sql */`
+        SELECT COUNT(*)::int AS n
+        FROM token_registry
+        WHERE status NOT IN ('blacklist','redlist')
+          AND (updated_at IS NULL
+               OR updated_at < now() - (${MIN_AGE_MINUTES} * interval '1 minute'));
+      `)[0]?.n ?? 0;
+      metrics = { total, eligible, stale, eligible_and_stale: both };
+    } else {
+      const q = (s: string) => sql.unsafe(s);
+      const total    = asRows(await q(`SELECT COUNT(*)::int AS n FROM ${ident(TABLE)};`))[0]?.n ?? 0;
+      const eligible = asRows(await q(`
+        SELECT COUNT(*)::int AS n
+        FROM ${ident(TABLE)}
+        WHERE ${ident(COL_STATUS)} NOT IN ('blacklist','redlist');
+      `))[0]?.n ?? 0;
+      const stale    = asRows(await q(`
+        SELECT COUNT(*)::int AS n
+        FROM ${ident(TABLE)}
+        WHERE ${ident(COL_UPDATED_AT)} IS NULL
+           OR ${ident(COL_UPDATED_AT)} < now() - (${MIN_AGE_MINUTES} * interval '1 minute');
+      `))[0]?.n ?? 0;
+      const both     = asRows(await q(`
+        SELECT COUNT(*)::int AS n
+        FROM ${ident(TABLE)}
+        WHERE ${ident(COL_STATUS)} NOT IN ('blacklist','redlist')
+          AND (${ident(COL_UPDATED_AT)} IS NULL
+               OR ${ident(COL_UPDATED_AT)} < now() - (${MIN_AGE_MINUTES} * interval '1 minute'));
+      `))[0]?.n ?? 0;
+      metrics = { total, eligible, stale, eligible_and_stale: both };
+    }
+
+    // Adayları al
+    let candidates: { mint: string; status: string }[] = [];
+    if (IS_DEFAULT_SCHEMA) {
+      candidates = await sql/* sql */`
+        SELECT mint, status
+        FROM token_registry
+        WHERE status NOT IN ('blacklist','redlist')
+          AND (updated_at IS NULL
+               OR updated_at < now() - (${MIN_AGE_MINUTES} * interval '1 minute'))
+        ORDER BY updated_at NULLS FIRST
+        LIMIT ${BATCH_SIZE};
+      `;
+    } else {
+      const qCandidates = `
+        SELECT ${ident(COL_MINT)} AS mint,
+               ${ident(COL_STATUS)} AS status
+        FROM ${ident(TABLE)}
+        WHERE ${ident(COL_STATUS)} NOT IN ('blacklist','redlist')
+          AND (${ident(COL_UPDATED_AT)} IS NULL
+               OR ${ident(COL_UPDATED_AT)} < now() - (${MIN_AGE_MINUTES} * interval '1 minute'))
+        ORDER BY ${ident(COL_UPDATED_AT)} NULLS FIRST
+        LIMIT ${BATCH_SIZE};
+      `;
+      candidates = asRows(await sql.unsafe(qCandidates));
+    }
 
     processed = candidates.length;
 
-    // Dokunma (örnek davranış)
+    // Şimdilik sadece "dokun" (updated_at = now())
     for (const row of candidates) {
-      const upd = `
-        UPDATE ${ident(TABLE)}
-        SET ${ident(COL_UPDATED_AT)} = now()
-        WHERE ${ident(COL_MINT)} = ${lit(row.mint)};
-      `;
-      await sql.unsafe(upd);
-      // TODO: gerçek sınıflandırmayı eklediğinde changed++ yap.
+      if (IS_DEFAULT_SCHEMA) {
+        await sql/* sql */`
+          UPDATE token_registry
+          SET updated_at = now()
+          WHERE mint = ${row.mint};
+        `;
+      } else {
+        const upd = `
+          UPDATE ${ident(TABLE)}
+          SET ${ident(COL_UPDATED_AT)} = now()
+          WHERE ${ident(COL_MINT)} = ${lit(row.mint)};
+        `;
+        await sql.unsafe(upd);
+      }
     }
   } finally {
     await sql/* sql */`SELECT pg_advisory_unlock(823746);`;
   }
 
   await sql/* sql */`INSERT INTO cron_runs (note) VALUES (${`ok: processed=${processed}, changed=${changed}`});`;
-  return { skipped: false, processed, changed };
+  return { skipped: false, processed, changed, metrics };
 }
