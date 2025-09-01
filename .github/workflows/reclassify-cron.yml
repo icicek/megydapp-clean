@@ -1,0 +1,31 @@
+name: Reclassify tokens (cron)
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # Her 15 dk. (UTC'ye göre)
+  workflow_dispatch:
+
+jobs:
+  call-cron-endpoint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call CRON endpoint
+        env:
+          CRON_URL: ${{ secrets.CRON_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "CRON_URL or CRON_SECRET is missing"; exit 1;
+          fi
+
+          STATUS=$(curl -sS -X POST "$CRON_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-CRON-SECRET: $CRON_SECRET" \
+            -o /tmp/body.txt -w "%{http_code}")
+
+          echo "HTTP $STATUS"
+          if [ "$STATUS" -ge 400 ]; then
+            echo "---- Response body ----"
+            cat /tmp/body.txt
+            exit 1
+          fi
