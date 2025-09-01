@@ -1,5 +1,5 @@
 // app/api/admin/reclassify/reclassifyAll.ts
-// ENV ile özelleştirilebilir kolon/tablolar:
+
 const BATCH_SIZE = Number(process.env.RECLASSIFIER_BATCH_SIZE ?? 50);
 const MIN_AGE_MINUTES = Number(process.env.RECLASSIFIER_MIN_AGE_MINUTES ?? 30);
 const COOLDOWN_HOURS = Number(process.env.RECLASSIFIER_COOLDOWN_HOURS ?? 0.25);
@@ -14,6 +14,13 @@ type Sql = any;
 const ident = (x: string) => `"${String(x).replace(/"/g, '""')}"`;
 const lit = (x: string | null | number) =>
   x === null || x === undefined ? 'NULL' : `'${String(x).replace(/'/g, "''")}'`;
+
+/** Neon farklı sürümlerde iki şekil döndürebiliyor: rows[] veya {rows:[]}. */
+function asRows<T = any>(r: any): T[] {
+  if (Array.isArray(r)) return r as T[];
+  if (r && Array.isArray(r.rows)) return r.rows as T[];
+  return [];
+}
 
 export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
   // Meta tablolar
@@ -36,7 +43,7 @@ export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
     );
   `;
 
-  // Cooldown (sadece "ok:%" notlarına bak)
+  // Cooldown (sadece ok:%)
   if (!opts.force) {
     const lastOk = await sql/* sql */`
       SELECT MAX(ran_at) AS last FROM cron_runs
@@ -64,11 +71,12 @@ export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
   let processed = 0, changed = 0;
   try {
     // Şema kontrolü
-    const cols = await sql/* sql */`
+    const colsRes = await sql/* sql */`
       SELECT column_name
       FROM information_schema.columns
       WHERE table_schema='public' AND table_name=${TABLE};
     `;
+    const cols = asRows(colsRes);
     const have = new Set(cols.map((r: any) => r.column_name));
     const need = [COL_MINT, COL_STATUS, COL_UPDATED_AT, COL_STATUS_AT];
     const missing = need.filter(c => !have.has(c));
@@ -77,7 +85,7 @@ export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
       return { skipped: true, reason: 'schema_mismatch', missing, table: TABLE, found: [...have] };
     }
 
-    // 🔧 DİKKAT: Dinamik string => sql.unsafe kullan
+    // Adaylar (dinamik string -> unsafe; sonra normalize)
     const qCandidates = `
       SELECT ${ident(COL_MINT)}  AS mint,
              ${ident(COL_STATUS)} AS status
@@ -88,20 +96,20 @@ export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
       ORDER BY ${ident(COL_UPDATED_AT)} NULLS FIRST
       LIMIT ${BATCH_SIZE};
     `;
-    const candidates: { mint: string; status: string }[] = await sql.unsafe(qCandidates);
+    const candRes = await sql.unsafe(qCandidates);
+    const candidates: { mint: string; status: string }[] = asRows(candRes);
 
     processed = candidates.length;
-    console.log('[reclassify] candidates:', processed);
 
-    // Basit davranış: şimdilik sadece updated_at'i dokun (örnek)
+    // Dokunma (örnek davranış)
     for (const row of candidates) {
-      const touch = `
+      const upd = `
         UPDATE ${ident(TABLE)}
         SET ${ident(COL_UPDATED_AT)} = now()
         WHERE ${ident(COL_MINT)} = ${lit(row.mint)};
       `;
-      await sql.unsafe(touch);
-      // Burada gerçek sınıflandırma eklenebilir; değişiklik olursa changed++ yap.
+      await sql.unsafe(upd);
+      // TODO: gerçek sınıflandırmayı eklediğinde changed++ yap.
     }
   } finally {
     await sql/* sql */`SELECT pg_advisory_unlock(823746);`;
