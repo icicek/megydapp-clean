@@ -1,4 +1,7 @@
+// app/api/proxy/price/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+
+export const runtime = 'nodejs';
 
 function fetchWithTimeout(
   url: string,
@@ -6,57 +9,86 @@ function fetchWithTimeout(
   timeout = 3000
 ): Promise<Response> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error('Fetch timed out'));
-    }, timeout);
-
+    const timer = setTimeout(() => reject(new Error('Fetch timed out')), timeout);
     fetch(url, options)
-      .then((res) => {
-        clearTimeout(timer);
-        resolve(res);
-      })
-      .catch((err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
+      .then((res) => { clearTimeout(timer); resolve(res); })
+      .catch((err) => { clearTimeout(timer); reject(err); });
   });
 }
 
-export async function POST(req: NextRequest) {
+function toBool(v: any): boolean {
+  if (typeof v === 'boolean') return v;
+  if (v == null) return false;
+  const s = String(v).trim().toLowerCase();
+  return s === '1' || s === 'true' || s === 'yes';
+}
+
+function pickInput(req: NextRequest) {
+  const u = new URL(req.url);
+  const ct = req.headers.get('content-type') || '';
+  const query = {
+    source: u.searchParams.get('source'),
+    mint: u.searchParams.get('mint'),
+    isSol: u.searchParams.get('isSol'),
+  };
+  return { ct, query };
+}
+
+async function parseBody(req: NextRequest) {
+  const ct = req.headers.get('content-type') || '';
+  if (ct.includes('application/json')) {
+    try {
+      return await req.json();
+    } catch { /* ignore */ }
+  }
+  return {};
+}
+
+async function handle(req: NextRequest) {
   try {
-    const { source, params } = await req.json();
+    const { ct, query } = pickInput(req);
+    const body: any = await parseBody(req);
 
-    console.log('📥 [proxy] Incoming request:', { source, params });
+    // Esnek parametre okuma (body seviyesinde veya body.params içinde)
+    const sourceRaw = body.source ?? query.source ?? process.env.PRICE_DEFAULT_SOURCE ?? 'coingecko';
+    const mintRaw   = body.mint ?? body?.params?.mint ?? query.mint ?? null;
+    const isSolRaw  = body.isSol ?? body?.params?.isSol ?? query.isSol ?? false;
 
-    if (!source) {
+    const source = String(sourceRaw).toLowerCase();
+    const isSol  = toBool(isSolRaw);
+    const mint   = mintRaw ? String(mintRaw) : null;
+
+    // Şimdilik sadece coingecko destekli
+    const ALLOWED = new Set(['coingecko']);
+    if (!ALLOWED.has(source)) {
       return NextResponse.json(
-        { success: false, error: 'Source is required' },
+        { success: false, error: 'Unsupported source', allowed: Array.from(ALLOWED) },
         { status: 400 }
       );
     }
 
     let apiUrl = '';
-    let isSol = false;
-
     if (source === 'coingecko') {
-      const { mint } = params;
-      isSol = params.isSol;
-
-      apiUrl = isSol
-        ? 'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd'
-        : `https://api.coingecko.com/api/v3/simple/token_price/solana?contract_addresses=${mint}&vs_currencies=usd`;
-    } else {
-      return NextResponse.json(
-        { success: false, error: 'Unsupported source' },
-        { status: 400 }
-      );
+      if (isSol) {
+        // SOL fiyatı (ids=solana)
+        apiUrl = 'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd';
+      } else {
+        if (!mint) {
+          return NextResponse.json(
+            { success: false, error: 'mint is required for token lookup' },
+            { status: 400 }
+          );
+        }
+        // Solana'da token fiyatı: contract_addresses=<mint>
+        apiUrl =
+          `https://api.coingecko.com/api/v3/simple/token_price/solana?` +
+          `contract_addresses=${encodeURIComponent(mint)}&vs_currencies=usd`;
+      }
     }
 
-    console.log('🌍 [proxy] Fetching from:', apiUrl);
-
+    // İstek
     const response = await fetchWithTimeout(apiUrl, {}, 3000);
     if (!response.ok) {
-      console.warn('❌ [proxy] Failed with status:', response.status);
       return NextResponse.json(
         { success: false, error: `Fetch failed with status ${response.status}` },
         { status: response.status }
@@ -64,31 +96,36 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await response.json();
-    console.log('📦 [proxy] Response data:', data);
 
-    // 🔎 Extract price from CoinGecko response
-    let price: number | null = null;
-
+    // Fiyat çıkarımı
+    let priceUsd: number | null = null;
     if (source === 'coingecko') {
       if (isSol) {
-        price = data?.solana?.usd ?? null;
+        priceUsd = data?.solana?.usd ?? null;
       } else {
-        price = data?.[params.mint]?.usd ?? null;
+        // coingecko bu endpointte yanıtı { "<contract_address>": { usd: ... } } şeklinde döndürür.
+        // Key casing farklı olabilir; ilk anahtarın usd'sini okuyalım.
+        const key = Object.keys(data || {})[0];
+        priceUsd = key ? (data[key]?.usd ?? null) : null;
       }
     }
 
-    console.log('✅ [proxy] Parsed price:', price);
-
     return NextResponse.json({
       success: true,
-      data,
-      price,
+      source,
+      mint,
+      isSol,
+      priceUsd,
+      data, // debug/şeffaflık için bırakıyoruz; istersen kaldırabilirsin.
     });
   } catch (err: any) {
-    console.error('🔥 [proxy] Error occurred:', err.message);
+    console.error('🔥 [proxy] Error:', err?.message || err);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
+
+export async function POST(req: NextRequest) { return handle(req); }
+export async function GET(req: NextRequest)  { return handle(req); }

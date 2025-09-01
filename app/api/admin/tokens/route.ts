@@ -15,6 +15,17 @@ function toInt(v: string | null, d: number) {
   const n = parseInt(String(v ?? ''), 10);
   return Number.isFinite(n) ? n : d;
 }
+function httpErrorFrom(e: any, fallback = 500) {
+  const status = typeof e?.status === 'number' ? e.status
+    : /csrf/i.test(String(e?.message || '')) ? 403
+    : fallback;
+  const body = {
+    success: false,
+    error: String(e?.message || 'Internal error'),
+    code: e?.code,
+  };
+  return { status, body };
+}
 
 // GET /api/admin/tokens?status=redlist&q=Mi&limit=20&offset=0
 export async function GET(req: NextRequest) {
@@ -71,7 +82,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, items: rows });
   } catch (e: any) {
-    return NextResponse.json({ success: false, error: e?.message || 'Internal error' }, { status: 500 });
+    const { status, body } = httpErrorFrom(e, 500);
+    return NextResponse.json(body, { status });
   }
 }
 
@@ -99,7 +111,8 @@ export async function POST(req: NextRequest) {
     const after = await readTokenStatus(mint);
     return NextResponse.json({ success: true, mint, status: after.status, statusAt: after.statusAt });
   } catch (e: any) {
-    return NextResponse.json({ success: false, error: e?.message || 'Internal error' }, { status: 500 });
+    const { status, body } = httpErrorFrom(e, 500);
+    return NextResponse.json(body, { status });
   }
 }
 
@@ -126,6 +139,7 @@ export async function DELETE(req: NextRequest) {
     const after = await readTokenStatus(mint);
     return NextResponse.json({ success: true, mint, status: after.status, statusAt: after.statusAt });
   } catch (e: any) {
-    return NextResponse.json({ success: false, error: e?.message || 'Internal error' }, { status: 500 });
+    const { status, body } = httpErrorFrom(e, 500);
+    return NextResponse.json(body, { status });
   }
 }
