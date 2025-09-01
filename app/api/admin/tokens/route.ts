@@ -5,6 +5,7 @@ import { sql } from '@/app/api/_lib/db';
 import { setStatus as upsertTokenStatus, getStatus as readTokenStatus } from '@/app/api/_lib/token-registry';
 import type { TokenStatus } from '@/app/api/_lib/types';
 import { verifyCsrf } from '@/app/api/_lib/csrf';
+import { httpErrorFrom } from '@/app/api/_lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,22 +16,11 @@ function toInt(v: string | null, d: number) {
   const n = parseInt(String(v ?? ''), 10);
   return Number.isFinite(n) ? n : d;
 }
-function httpErrorFrom(e: any, fallback = 500) {
-  const status = typeof e?.status === 'number' ? e.status
-    : /csrf/i.test(String(e?.message || '')) ? 403
-    : fallback;
-  const body = {
-    success: false,
-    error: String(e?.message || 'Internal error'),
-    code: e?.code,
-  };
-  return { status, body };
-}
 
 // GET /api/admin/tokens?status=redlist&q=Mi&limit=20&offset=0
 export async function GET(req: NextRequest) {
   try {
-    await requireAdmin(req); // Bearer JWT zorunlu
+    await requireAdmin(req); // Bearer/JWT
 
     const { searchParams } = new URL(req.url);
     const rawStatus = searchParams.get('status');
@@ -91,8 +81,8 @@ export async function GET(req: NextRequest) {
 // Body: { mint, status, reason?, meta? }
 export async function POST(req: NextRequest) {
   try {
-    verifyCsrf(req);
-    const wallet = await requireAdmin(req); // JWT içinden admin
+    verifyCsrf(req as any);
+    const wallet = await requireAdmin(req as any); // JWT içinden admin
     const body = await req.json();
     const { mint, status, reason = null, meta = {} } = body || {};
 
@@ -120,8 +110,8 @@ export async function POST(req: NextRequest) {
 // Etki: healthy'e çeker (kayıt yoksa healthy kabul)
 export async function DELETE(req: NextRequest) {
   try {
-    verifyCsrf(req);
-    const wallet = await requireAdmin(req);
+    verifyCsrf(req as any);
+    const wallet = await requireAdmin(req as any);
     const { searchParams } = new URL(req.url);
     const mint = searchParams.get('mint');
     if (!mint) {

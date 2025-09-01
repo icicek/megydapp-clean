@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import { verifyCsrf } from '@/app/api/_lib/csrf';
 import { requireAdmin } from '@/app/api/_lib/jwt';
+import { httpErrorFrom } from '@/app/api/_lib/http';
 
 export const runtime = 'nodejs';
 
@@ -116,8 +117,11 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err: any) {
-    const message = err?.message || 'Export failed';
-    return NextResponse.json({ success: false, error: message }, { status: 400 });
+    const { status, body } = httpErrorFrom(err, 500);
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    });
   }
 }
 

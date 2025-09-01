@@ -1,8 +1,10 @@
+// app/api/admin/tokens/bulk/route.ts
 import { NextResponse } from 'next/server';
 import { sql } from '@/app/api/_lib/db';
 import { requireAdmin } from '@/app/api/_lib/jwt';
 import { cache, statusKey } from '@/app/api/_lib/cache';
 import { verifyCsrf } from '@/app/api/_lib/csrf';
+import { httpErrorFrom } from '@/app/api/_lib/http';
 
 type TokenStatus = 'healthy'|'walking_dead'|'deadcoin'|'redlist'|'blacklist';
 const ALLOWED: TokenStatus[] = ['healthy','walking_dead','deadcoin','redlist','blacklist'];
@@ -13,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
   try {
     verifyCsrf(req as any);
-    const admin = await requireAdmin(req); // keep your existing admin (string or wallet id)
+    const admin = await requireAdmin(req as any); // keep your existing admin (string or wallet id)
 
     const body = await req.json();
     let { mints, status, reason = null, meta = {} } = body || {};
@@ -116,8 +118,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, okCount: ok.length, failCount: fail.length, ok, fail });
   } catch (e: any) {
-    const msg = e?.message || 'bulk error';
-    const code = /Missing token|Not allowed|invalid token/i.test(msg) ? 401 : 500;
-    return NextResponse.json({ success: false, error: msg }, { status: code });
+    const { status, body } = httpErrorFrom(e, 500);
+    return NextResponse.json(body, { status });
   }
 }

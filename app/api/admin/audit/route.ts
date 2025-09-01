@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/app/api/_lib/db';
 import { requireAdmin } from '@/app/api/_lib/jwt';
+import { httpErrorFrom } from '@/app/api/_lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,8 +40,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, items: rows });
   } catch (e: any) {
-    const msg = e?.message || 'Internal error';
-    const code = /Missing token|Not allowed|invalid token/i.test(msg) ? 401 : 500;
-    return NextResponse.json({ success: false, error: msg }, { status: code });
+    const { status, body } = httpErrorFrom(e, 500);
+    return NextResponse.json(body, { status });
   }
 }

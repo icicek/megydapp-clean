@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import { requireAdmin } from '@/app/api/_lib/jwt';
+import { httpErrorFrom } from '@/app/api/_lib/http';
 
 export const runtime = 'nodejs';
 
@@ -48,9 +49,7 @@ export async function GET(req: NextRequest) {
       lastUpdatedAt,
     });
   } catch (e: any) {
-    return NextResponse.json(
-      { success: false, error: e?.message || 'Stats error' },
-      { status: 400 }
-    );
+    const { status, body } = httpErrorFrom(e, 500);
+    return NextResponse.json(body, { status });
   }
 }

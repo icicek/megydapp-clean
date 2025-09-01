@@ -1,10 +1,13 @@
-// ✅ File: app/api/admin/config/claim_open/route.ts
-
+// app/api/admin/config/claim_open/route.ts
 import { neon } from '@neondatabase/serverless';
 import { NextResponse } from 'next/server';
+import { httpErrorFrom } from '@/app/api/_lib/http';
 
 const sql = neon(process.env.DATABASE_URL!);
 const ADMIN_WALLET = process.env.ADMIN_WALLET?.toLowerCase();
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
@@ -14,9 +17,9 @@ export async function GET() {
     const rows = result as { value: string }[];
     const value = rows[0]?.value ?? 'false';
     return NextResponse.json({ success: true, value });
-  } catch (err) {
-    console.error("Claim config error:", err);
-    return NextResponse.json({ success: false, error: 'Internal error' }, { status: 500 });
+  } catch (err: any) {
+    const { status, body } = httpErrorFrom(err, 500);
+    return NextResponse.json(body, { status });
   }
 }
 
@@ -35,8 +38,8 @@ export async function POST(req: Request) {
     `;
 
     return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("Claim config error:", err);
-    return NextResponse.json({ success: false, error: 'Internal error' }, { status: 500 });
+  } catch (err: any) {
+    const { status, body } = httpErrorFrom(err, 500);
+    return NextResponse.json(body, { status });
   }
 }

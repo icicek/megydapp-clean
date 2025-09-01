@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/app/api/_lib/db';
 import { randomUUID } from 'node:crypto';
+import { httpErrorFrom } from '@/app/api/_lib/http';
 
 export const runtime = 'nodejs';       // Edge yerine Node.js
 export const dynamic = 'force-dynamic';
@@ -46,10 +47,7 @@ export async function GET(req: Request) {
       expiresAt: expires.toISOString(),
     });
   } catch (err: any) {
-    // Hata mesajını görünür yapalım
-    return NextResponse.json(
-      { success: false, error: err?.message ?? 'unknown error' },
-      { status: 500 }
-    );
+    const { status, body } = httpErrorFrom(err, 500);
+    return NextResponse.json(body, { status });
   }
 }

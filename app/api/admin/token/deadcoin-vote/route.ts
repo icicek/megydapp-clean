@@ -1,5 +1,7 @@
+// app/api/admin/token/deadcoin-vote/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { httpErrorFrom } from '@/app/api/_lib/http';
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -24,7 +26,7 @@ export async function POST(req: NextRequest) {
       WHERE mint = ${mint} AND wallet_address = ${wallet_address}
     `;
 
-    if (existingVote.length > 0) {
+    if ((existingVote as any[]).length > 0) {
       return NextResponse.json(
         { success: false, error: 'You have already voted for this token.' },
         { status: 400 }
@@ -41,7 +43,7 @@ export async function POST(req: NextRequest) {
     const voteCountResult = await sql`
       SELECT COUNT(*) as count FROM deadcoin_votes WHERE mint = ${mint}
     `;
-    const voteCount = parseInt(voteCountResult[0].count, 10);
+    const voteCount = parseInt((voteCountResult as any[])[0].count, 10);
 
     // tokens tablosunu güncelle (vote sayısı)
     await sql`
@@ -61,17 +63,14 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: voteCount >= DEADCOIN_VOTE_THRESHOLD
-        ? 'Token has been marked as deadcoin.'
-        : 'Your deadcoin vote has been recorded.',
-      total_votes: voteCount
+      message:
+        voteCount >= DEADCOIN_VOTE_THRESHOLD
+          ? 'Token has been marked as deadcoin.'
+          : 'Your deadcoin vote has been recorded.',
+      total_votes: voteCount,
     });
-
-  } catch (error) {
-    console.error('❌ Deadcoin vote error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error.' },
-      { status: 500 }
-    );
+  } catch (error: any) {
+    const { status, body } = httpErrorFrom(error, 500);
+    return NextResponse.json(body, { status });
   }
 }

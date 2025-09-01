@@ -4,6 +4,7 @@ import { sql } from '@/app/api/_lib/db';
 import { signAdmin } from '@/app/api/_lib/jwt';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
+import { httpErrorFrom } from '@/app/api/_lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -78,9 +79,7 @@ export async function POST(req: Request) {
     });
     return res;
   } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: err?.message || 'verify error' },
-      { status: 500 }
-    );
+    const { status, body } = httpErrorFrom(err, 500);
+    return NextResponse.json(body, { status });
   }
 }

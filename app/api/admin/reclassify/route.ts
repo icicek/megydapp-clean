@@ -4,6 +4,7 @@ export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { httpErrorFrom } from '@/app/api/_lib/http';
 
 type Sql = ReturnType<typeof neon>;
 
@@ -39,10 +40,8 @@ export async function POST(req: Request) {
 
     const result = await reclassifyAll(sql, { force });
     return NextResponse.json({ ok:true, stage:'after_reclassify', ...result });
-  } catch (err:any) {
-    return NextResponse.json(
-      { ok:false, error:'internal_error', code:String(err?.code||err?.name||'INTERNAL'), message:String(err?.message||err) },
-      { status:500 }
-    );
+  } catch (err: any) {
+    const { status, body } = httpErrorFrom(err, 500);
+    return NextResponse.json({ ok:false, ...body }, { status });
   }
 }
