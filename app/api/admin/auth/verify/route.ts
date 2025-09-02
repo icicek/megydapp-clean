@@ -54,6 +54,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'invalid base58' }, { status: 400 });
     }
 
+    // 🔒 Boy kontrolleri: 64-byte imza, 32-byte public key
+    if (sigBytes.length !== 64) {
+      return NextResponse.json({ success: false, error: 'invalid signature size' }, { status: 400 });
+    }
+    if (pubkeyBytes.length !== 32) {
+      return NextResponse.json({ success: false, error: 'invalid wallet size' }, { status: 400 });
+    }
+
     const ok = nacl.sign.detached.verify(msgBytes, sigBytes, pubkeyBytes);
     if (!ok) {
       return NextResponse.json({ success: false, error: 'invalid signature' }, { status: 401 });
