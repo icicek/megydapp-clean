@@ -7,16 +7,6 @@ const ADMIN_COOKIE = 'coincarnation_admin';
 const SECRET_RAW = process.env.ADMIN_JWT_SECRET || '';
 const SECRET = SECRET_RAW ? new TextEncoder().encode(SECRET_RAW) : null;
 
-// Fail-closed allowlist
-function isAllowed(wallet: string): boolean {
-  const allowed = (process.env.ADMIN_WALLET || '')
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean);
-  if (allowed.length === 0) return false; // env boşsa kimseye izin verme
-  return allowed.includes(wallet);
-}
-
 // /admin altında auth'suz erişilecek rotalar (redirect loop'u önler)
 function isPublicAdminRoute(pathname: string): boolean {
   return pathname === '/admin/login';
@@ -25,13 +15,20 @@ function isPublicAdminRoute(pathname: string): boolean {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // /admin dışındaki rotalar → geç
+  // /admin dışındaki rotalar → olduğu gibi geç
   if (!pathname.startsWith('/admin')) return NextResponse.next();
 
-  // /admin/login → her zaman geç (aksi halde loop olur)
+  // public admin route → geç
   if (isPublicAdminRoute(pathname)) return NextResponse.next();
 
-  // Cookie yoksa login'e gönder
+  // Server secret yoksa güvenlik için login'e gönder
+  if (!SECRET) {
+    const url = new URL('/admin/login', req.url);
+    url.searchParams.set('e', 'server-config');
+    return NextResponse.redirect(url);
+  }
+
+  // Cookie zorunlu
   const tok = req.cookies.get(ADMIN_COOKIE)?.value;
   if (!tok) {
     const url = new URL('/admin/login', req.url);
@@ -39,20 +36,14 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // SECRET yoksa güvenlik için engelle
-  if (!SECRET) {
-    const url = new URL('/admin/login', req.url);
-    url.searchParams.set('e', 'server-config');
-    return NextResponse.redirect(url);
-  }
-
   try {
     // JWT doğrula
     const { payload } = await jose.jwtVerify(tok, SECRET);
-    const wallet = String(payload.sub || '');
 
-    // Allowlist kontrolü
-    if (!isAllowed(wallet)) {
+    // JWT claim'lerinden yetki kontrolü
+    const role = String(payload.role || '');
+    const sub = String(payload.sub || '');
+    if (role !== 'admin' || !sub) {
       const url = new URL('/admin/login', req.url);
       url.searchParams.set('e', 'not-allowed');
       return NextResponse.redirect(url);
@@ -67,6 +58,7 @@ export async function middleware(req: NextRequest) {
   }
 }
 
+// Kök /admin de korunsun diye matcher'a /admin ekledik
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin', '/admin/:path*'],
 };

@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { ReactNode } from 'react';
 import WalletConnectionProvider from '@/components/WalletConnectionProvider';
 import AdminSessionSync from '@/components/wallet/AdminSessionSync';
+import AdminTopNav from '@/components/AdminTopNav'; // 👈 eklendi
 
 export const metadata: Metadata = {
   title: 'Coincarnation',
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <WalletConnectionProvider>
           <AdminSessionSync />
+          <AdminTopNav />  {/* 👈 yalnızca /admin altında (login hariç) görünür */}
           {children}
         </WalletConnectionProvider>
       </body>
