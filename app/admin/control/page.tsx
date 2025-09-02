@@ -1,185 +1,291 @@
 // app/admin/control/page.tsx
 'use client';
-import { useEffect, useState } from 'react';
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, init);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as any)?.error || res.statusText);
-  return data as T;
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+
+// basit fetch helper’ları
+async function getJSON<T>(url: string): Promise<T> {
+  const r = await fetch(url, { credentials: 'include', cache: 'no-store' });
+  if (!r.ok) throw new Error(`${r.status}`);
+  return r.json();
 }
+async function sendJSON<T>(url: string, method: 'POST'|'PUT', body: any): Promise<T> {
+  const r = await fetch(url, {
+    method,
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body ?? {}),
+  });
+  const data = await r.json().catch(() => ({} as any));
+  if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data;
+}
+type BoolConfigResponse = { success: boolean; value: unknown };
 
-// Tek tipli yardımcı: her zaman RequestInit döndürür
-const withCsrf = (init: RequestInit = {}): RequestInit => ({
-  ...init,
-  credentials: 'include',
-  headers: {
-    'Content-Type': 'application/json',
-    ...(init.headers as Record<string, string> | undefined),
-  },
-});
+const asBool = (v: unknown): boolean => {
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'number') return v === 1;
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase();
+    return s === 'true' || s === '1';
+  }
+  return false;
+};
+
 
 export default function AdminControlPage() {
-  const [claimOpen, setClaimOpen] = useState<'true'|'false'>('false');
-  const [appEnabled, setAppEnabled] = useState<'true'|'false'>('true');
-  const [pool, setPool] = useState<string>('');
-  const [envAdmins, setEnvAdmins] = useState<string[]>([]);
-  const [extraAdmins, setExtraAdmins] = useState<string[]>([]);
+  const [whoami, setWhoami] = useState<string | null>(null);
+
+  // toggles
+  const [claimOpen, setClaimOpen] = useState<boolean | null>(null);
+  const [appEnabled, setAppEnabled] = useState<boolean | null>(null);
+
+  // pool
+  const [pool, setPool] = useState<string>('');      // text input
+  const poolNumber = useMemo(() => Number(pool), [pool]);
+
+  // admins
+  const [admins, setAdmins] = useState<string[]>([]);
   const [newAdmin, setNewAdmin] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
 
-  const loadAll = async () => {
-    const [c, a, d, ad] = await Promise.all([
-      api<{success:true; value:string}>('/api/admin/config/claim_open'),
-      api<{success:true; value:string}>('/api/admin/config/app_enabled'),
-      api<{success:true; value:number}>('/api/admin/config/distribution_pool'),
-      api<{success:true; env:string[]; extra:string[]}>('/api/admin/admins'),
-    ]);
-    setClaimOpen(c.value === 'true' ? 'true' : 'false');
-    setAppEnabled(a.value === 'true' ? 'true' : 'false');
-    setPool(String(d.value ?? ''));
-    setEnvAdmins(ad.env || []);
-    setExtraAdmins(ad.extra || []);
-  };
+  // bazı endpointler projende yoksa (404) kartları gizleyelim
+  const [hasAppEnabled, setHasAppEnabled] = useState(true);
+  const [hasAdminsCfg, setHasAdminsCfg] = useState(true);
 
-  useEffect(() => { loadAll().catch(console.error); }, []);
+  // ilk yükleme
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+
+        // whoami → wallet
+        try {
+          const w = await getJSON<{ success: boolean; wallet?: string }>('/api/admin/whoami');
+          setWhoami(w?.wallet ?? null);
+        } catch { setWhoami(null); }
+
+        // claim_open
+        try {
+            const resp = await getJSON<BoolConfigResponse>('/api/admin/config/claim_open');
+            setClaimOpen(asBool(resp?.value));
+        } catch {
+            setClaimOpen(null);
+        }
+        
+        // app_enabled (opsiyonel)
+        try {
+            const resp = await getJSON<BoolConfigResponse>('/api/admin/config/app_enabled');
+            setAppEnabled(asBool(resp?.value));
+            setHasAppEnabled(true);
+        } catch {
+            setHasAppEnabled(false);
+            setAppEnabled(null);
+        }
+  
+        // distribution_pool
+        try {
+          const dp = await getJSON<{ success: boolean; value: number }>('/api/admin/config/distribution_pool');
+          setPool(String(dp?.value ?? ''));
+        } catch { setPool(''); }
+
+        // admins (opsiyonel)
+        try {
+          const ad = await getJSON<{ success: boolean; wallets: string[] }>('/api/admin/config/admins');
+          setAdmins(Array.isArray(ad?.wallets) ? ad.wallets : []);
+          setHasAdminsCfg(true);
+        } catch {
+          setHasAdminsCfg(false);
+          setAdmins([]);
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  async function toggleClaim(next: boolean) {
+    setMsg(null);
+    try {
+      // bu route sende wallet istiyordu; whoami yoksa fallback boş kalsın
+      await sendJSON('/api/admin/config/claim_open', 'POST', {
+        wallet: whoami,
+        value: String(next),
+      });
+      setClaimOpen(next);
+      setMsg('✅ Claim setting saved');
+    } catch (e: any) {
+      setMsg(`❌ ${e?.message || 'Claim save failed'}`);
+    }
+  }
+
+  async function toggleApp(next: boolean) {
+    setMsg(null);
+    try {
+      await sendJSON('/api/admin/config/app_enabled', 'POST', { value: String(next) });
+      setAppEnabled(next);
+      setMsg('✅ App enabled setting saved');
+    } catch (e: any) {
+      setMsg(`❌ ${e?.message || 'App enabled save failed'}`);
+    }
+  }
+
+  async function savePool() {
+    setMsg(null);
+    if (!Number.isFinite(poolNumber)) { setMsg('❌ Enter a valid number'); return; }
+    try {
+      await sendJSON('/api/admin/config/distribution_pool', 'PUT', { value: poolNumber });
+      setMsg('✅ Distribution pool saved');
+    } catch (e: any) {
+      setMsg(`❌ ${e?.message || 'Pool save failed'}`);
+    }
+  }
+
+  async function saveAdmins(next: string[]) {
+    setMsg(null);
+    try {
+      await sendJSON('/api/admin/config/admins', 'PUT', { wallets: next });
+      setAdmins(next);
+      setNewAdmin('');
+      setMsg('✅ Admin wallets saved');
+    } catch (e: any) {
+      setMsg(`❌ ${e?.message || 'Admins save failed'}`);
+    }
+  }
+
+  function addAdmin() {
+    const v = newAdmin.trim();
+    if (!v) return;
+    if (admins.includes(v)) { setNewAdmin(''); return; }
+    saveAdmins([...admins, v]);
+  }
+  function removeAdmin(w: string) {
+    saveAdmins(admins.filter(x => x !== w));
+  }
 
   return (
-    <main className="mx-auto max-w-2xl p-6 space-y-8">
-      <h1 className="text-2xl font-semibold">Admin Controls</h1>
+    <main className="mx-auto max-w-2xl p-6 space-y-8 text-white">
+      {/* header: karşılıklı geçiş */}
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-xl font-semibold">Control</h1>
+        <Link
+          href="/admin/tokens"
+          className="px-3 py-1 rounded border border-gray-600 bg-gray-800 hover:bg-gray-700 text-sm"
+        >
+          Tokens
+        </Link>
+      </div>
+
+      {msg && <div className="text-sm">{msg}</div>}
+      {loading && <div className="text-sm text-gray-400">Loading…</div>}
 
       {/* Claim toggle */}
-      <section className="border rounded-xl p-4 space-y-3">
-        <h2 className="font-medium">Claim</h2>
-        <div className="flex items-center gap-3">
-          <label className="font-mono">claim_open = {claimOpen}</label>
-          <button
-            className="px-3 py-1 rounded-lg border"
-            onClick={async () => {
-              const next = claimOpen === 'true' ? 'false' : 'true';
-              await api('/api/admin/config/claim_open', withCsrf({
-                method: 'POST',
-                body: JSON.stringify({ value: next }),
-              }));
-              setClaimOpen(next);
-            }}
-          >
-            Toggle
-          </button>
+      <section className="rounded-xl border border-gray-700 bg-gray-900 p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-semibold">Claim Panel</div>
+            <div className="text-xs text-gray-400">Enable/disable public claiming</div>
+          </div>
+          <label className="inline-flex items-center gap-3">
+            <span className="text-sm">{claimOpen ? 'Open' : 'Closed'}</span>
+            <input
+              type="checkbox"
+              className="h-5 w-5"
+              checked={!!claimOpen}
+              onChange={(e) => toggleClaim(e.target.checked)}
+            />
+          </label>
         </div>
       </section>
 
-      {/* App enabled */}
-      <section className="border rounded-xl p-4 space-y-3">
-        <h2 className="font-medium">App (Global)</h2>
-        <div className="flex items-center gap-3">
-          <label className="font-mono">app_enabled = {appEnabled}</label>
-          <button
-            className="px-3 py-1 rounded-lg border"
-            onClick={async () => {
-              const next = appEnabled === 'true' ? 'false' : 'true';
-              await api('/api/admin/config/app_enabled', withCsrf({
-                method: 'POST',
-                body: JSON.stringify({ value: next }),
-              }));
-              setAppEnabled(next);
-            }}
-          >
-            Toggle
-          </button>
-        </div>
-      </section>
+      {/* App enabled toggle (opsiyonel) */}
+      {hasAppEnabled && (
+        <section className="rounded-xl border border-gray-700 bg-gray-900 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-semibold">App Enabled</div>
+              <div className="text-xs text-gray-400">Global kill-switch for write ops</div>
+            </div>
+            <label className="inline-flex items-center gap-3">
+              <span className="text-sm">{appEnabled ? 'Enabled' : 'Disabled'}</span>
+              <input
+                type="checkbox"
+                className="h-5 w-5"
+                checked={!!appEnabled}
+                onChange={(e) => toggleApp(e.target.checked)}
+              />
+            </label>
+          </div>
+        </section>
+      )}
 
       {/* Distribution pool */}
-      <section className="border rounded-xl p-4 space-y-3">
-        <h2 className="font-medium">Distribution Pool</h2>
-        <div className="flex items-center gap-2">
+      <section className="rounded-xl border border-gray-700 bg-gray-900 p-4 space-y-3">
+        <div className="font-semibold">Distribution Pool</div>
+        <div className="flex items-center gap-3">
           <input
+            inputMode="decimal"
             value={pool}
             onChange={(e) => setPool(e.target.value)}
-            className="border rounded px-2 py-1 w-40"
-            placeholder="amount"
+            className="w-48 rounded bg-gray-950 border border-gray-700 px-2 py-1"
+            placeholder="0"
           />
           <button
-            className="px-3 py-1 rounded-lg border"
-            onClick={async () => {
-              const v = Number(pool);
-              if (!Number.isFinite(v) || v <= 0) { alert('positive number'); return; }
-              await api('/api/admin/config/distribution_pool', withCsrf({
-                method: 'PUT',
-                body: JSON.stringify({ value: v }),
-              }));
-              await loadAll();
-            }}
+            onClick={savePool}
+            className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700"
           >
             Save
           </button>
         </div>
+        <div className="text-[11px] text-gray-400">
+          Total MEGY amount to be distributed in the current snapshot.
+        </div>
       </section>
 
-      {/* Admin wallets */}
-      <section className="border rounded-xl p-4 space-y-3">
-        <h2 className="font-medium">Admin Wallets</h2>
-        <p className="text-sm">ENV (read-only):</p>
-        <div className="text-xs font-mono border rounded-lg p-2">
-          {envAdmins.join(', ') || '—'}
-        </div>
+      {/* Admin wallets (opsiyonel) */}
+      {hasAdminsCfg && (
+        <section className="rounded-xl border border-gray-700 bg-gray-900 p-4 space-y-3">
+          <div className="font-semibold">Admin Wallets</div>
 
-        <p className="text-sm">Extra admins (DB):</p>
-        <div className="text-xs font-mono border rounded-lg p-2">
-          {extraAdmins.join(', ') || '—'}
-        </div>
+          {admins.length === 0 ? (
+            <div className="text-sm text-gray-400">No admins set yet.</div>
+          ) : (
+            <ul className="space-y-2">
+              {admins.map((w) => (
+                <li key={w} className="flex items-center justify-between">
+                  <span className="font-mono text-sm">{w}</span>
+                  <button
+                    onClick={() => removeAdmin(w)}
+                    className="px-2 py-1 rounded bg-red-700 hover:bg-red-600 text-sm"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
 
-        <div className="flex items-center gap-2">
-          <input
-            className="border rounded px-2 py-1 flex-1"
-            placeholder="base58 wallet"
-            value={newAdmin}
-            onChange={(e) => setNewAdmin(e.target.value)}
-          />
-          <button
-            className="px-3 py-1 rounded-lg border"
-            onClick={() => {
-              const w = newAdmin.trim();
-              if (!/^[1-9A-HJ-NP-Za-km-z]{32,48}$/.test(w)) { alert('invalid base58'); return; }
-              setExtraAdmins((prev) => Array.from(new Set([...prev, w])));
-              setNewAdmin('');
-            }}
-          >
-            Add
-          </button>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {extraAdmins.map((w) => (
+          <div className="flex items-center gap-2">
+            <input
+              value={newAdmin}
+              onChange={(e) => setNewAdmin(e.target.value)}
+              placeholder="New admin wallet (base58)"
+              className="flex-1 rounded bg-gray-950 border border-gray-700 px-2 py-1"
+            />
             <button
-              key={w}
-              className="text-xs border rounded-full px-2 py-1"
-              onClick={() => setExtraAdmins((prev) => prev.filter((x) => x !== w))}
-              title="remove"
+              onClick={addAdmin}
+              className="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700"
             >
-              {w} ✕
+              Add
             </button>
-          ))}
-        </div>
-
-        <div>
-          <button
-            className="mt-2 px-3 py-1 rounded-lg border"
-            onClick={async () => {
-              await api('/api/admin/admins', withCsrf({
-                method: 'PUT',
-                body: JSON.stringify({ wallets: extraAdmins }),
-              }));
-              await loadAll();
-            }}
-          >
-            Save Admins
-          </button>
-        </div>
-        <p className="text-xs text-gray-500">
-          Login kontrolü ENV ∪ DB ile yapılır (ikisi de boşsa fail-closed).
-        </p>
-      </section>
+          </div>
+          <div className="text-[11px] text-gray-400">
+            This updates the DB allowlist used by login verification.
+          </div>
+        </section>
+      )}
     </main>
   );
 }

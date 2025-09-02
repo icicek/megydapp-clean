@@ -8,6 +8,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import BulkUpdateDialog from '../components/BulkUpdateDialog';
 import { fetchSolanaTokenList } from '@/lib/utils';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
+import Link from 'next/link';
 
 /** ---------- Status typing (single source of truth) ---------- */
 const STATUSES = ['healthy','walking_dead','deadcoin','redlist','blacklist'] as const;
@@ -461,6 +462,13 @@ export default function AdminTokensPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">🛡️ Token Management</h1>
         <div className="flex items-center gap-2">
+          <Link
+            href="/admin/control"
+            className="bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
+          >
+            Control
+          </Link>
+          
           <button
             onClick={() => router.push('/')}
             className="bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
