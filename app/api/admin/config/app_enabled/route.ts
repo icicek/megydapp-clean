@@ -1,9 +1,8 @@
-// app/api/admin/config/claim_open/route.ts
-import { neon } from '@neondatabase/serverless';
 import { NextResponse } from 'next/server';
-import { httpErrorFrom } from '@/app/api/_lib/http';
+import { neon } from '@neondatabase/serverless';
 import { requireAdmin } from '@/app/api/_lib/jwt';
 import { verifyCsrf } from '@/app/api/_lib/csrf';
+import { httpErrorFrom } from '@/app/api/_lib/http';
 
 const sql = neon(process.env.DATABASE_URL!);
 export const runtime = 'nodejs';
@@ -11,11 +10,11 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const rows = await sql`SELECT value FROM config WHERE key='claim_open' LIMIT 1`;
-    const value = (rows as {value:string}[])[0]?.value ?? 'false';
-    return NextResponse.json({ success: true, value: value === 'true' ? 'true' : 'false' });
-  } catch (err:any) {
-    const { status, body } = httpErrorFrom(err, 500);
+    const rows = await sql`SELECT value FROM config WHERE key='app_enabled' LIMIT 1`;
+    const v = (rows as {value:string}[])[0]?.value ?? 'true';
+    return NextResponse.json({ success: true, value: v });
+  } catch (e:any) {
+    const { status, body } = httpErrorFrom(e, 500);
     return NextResponse.json(body, { status });
   }
 }
@@ -26,15 +25,15 @@ export async function POST(req: Request) {
     verifyCsrf(req as any);
     const body = await req.json();
     const v = String(body?.value).toLowerCase();
-    const normalized = v === 'true' || v === '1' ? 'true' : 'false';
+    const normalized = v === 'false' || v === '0' ? 'false' : 'true';
     await sql`
       INSERT INTO config (key, value)
-      VALUES ('claim_open', ${normalized})
+      VALUES ('app_enabled', ${normalized})
       ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value
     `;
     return NextResponse.json({ success: true, value: normalized });
-  } catch (err:any) {
-    const { status, body } = httpErrorFrom(err, 500);
+  } catch (e:any) {
+    const { status, body } = httpErrorFrom(e, 500);
     return NextResponse.json(body, { status });
   }
 }

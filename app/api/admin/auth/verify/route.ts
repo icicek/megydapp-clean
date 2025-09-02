@@ -5,19 +5,10 @@ import { signAdmin } from '@/app/api/_lib/jwt';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import { httpErrorFrom } from '@/app/api/_lib/http';
+import { isAdminAllowed } from '@/app/api/_lib/admins';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-// Fail-closed allowlist: ENV boşsa reddet
-function isAllowed(wallet: string): boolean {
-  const allowed = (process.env.ADMIN_WALLET || '')
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean);
-  if (allowed.length === 0) return false;
-  return allowed.includes(wallet);
-}
 
 export async function POST(req: Request) {
   try {
@@ -27,6 +18,11 @@ export async function POST(req: Request) {
         { success: false, error: 'wallet and signature required' },
         { status: 400 }
       );
+    }
+
+    // Basit format kontrolü (hızlı eleme)
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,48}$/.test(String(wallet))) {
+      return NextResponse.json({ success: false, error: 'invalid wallet' }, { status: 400 });
     }
 
     // 1) Nonce'ı al
@@ -49,16 +45,22 @@ export async function POST(req: Request) {
     // 2) İmzayı doğrula (Ed25519)
     const message = `Coincarnation Admin Login\nnonce=${nonce}`;
     const msgBytes = new TextEncoder().encode(message);
-    const sigBytes = bs58.decode(signature);
-    const pubkeyBytes = bs58.decode(wallet);
+
+    let sigBytes: Uint8Array, pubkeyBytes: Uint8Array;
+    try {
+      sigBytes = bs58.decode(String(signature));
+      pubkeyBytes = bs58.decode(String(wallet));
+    } catch {
+      return NextResponse.json({ success: false, error: 'invalid base58' }, { status: 400 });
+    }
 
     const ok = nacl.sign.detached.verify(msgBytes, sigBytes, pubkeyBytes);
     if (!ok) {
       return NextResponse.json({ success: false, error: 'invalid signature' }, { status: 401 });
     }
 
-    // 3) Allowlist kontrolü (fail-closed)
-    if (!isAllowed(wallet)) {
+    // 3) Allowlist kontrolü (ENV ∪ DB; fail-closed)
+    if (!(await isAdminAllowed(wallet))) {
       return NextResponse.json({ success: false, error: 'Not allowed' }, { status: 403 });
     }
 
@@ -68,11 +70,14 @@ export async function POST(req: Request) {
     // 5) Nonce'u tek-kullanımlık yap (sil)
     await sql`DELETE FROM admin_nonces WHERE wallet = ${wallet}`;
 
-    // 6) JSON + HttpOnly Cookie
-    const res = NextResponse.json({ success: true, token, wallet, expiresIn: 3600 });
+    // 6) JSON + HttpOnly Cookie + cache kapalı
+    const res = NextResponse.json(
+      { success: true, token, wallet, expiresIn: 3600 },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
     res.cookies.set('coincarnation_admin', token, {
       httpOnly: true,
-      secure: true,     // prod https
+      secure: true,
       sameSite: 'strict',
       maxAge: 60 * 60,
       path: '/',
@@ -82,4 +87,14 @@ export async function POST(req: Request) {
     const { status, body } = httpErrorFrom(err, 500);
     return NextResponse.json(body, { status });
   }
+}
+
+// Preflight için sessiz dönüş
+export function OPTIONS() {
+  return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
+}
+
+// Diğer methodlar 405
+export function GET() {
+  return NextResponse.json({ success: false, error: 'Method Not Allowed' }, { status: 405 });
 }
