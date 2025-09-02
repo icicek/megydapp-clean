@@ -92,7 +92,7 @@ export async function POST(req: Request) {
 
           // write audit (old -> new)
           await sql`
-            INSERT INTO token_audit (mint, old_status, new_status, reason, meta, updated_by, updated_at)
+            INSERT INTO token_audit (mint, old_status, new_status, reason, meta, updated_by, changed_at)
             VALUES (
               ${mint},
               ${oldStatus},
