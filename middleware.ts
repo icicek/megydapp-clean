@@ -4,12 +4,23 @@ import * as jose from 'jose';
 
 const ADMIN_COOKIE = 'coincarnation_admin';
 
+// JWT imzası
 const SECRET_RAW = process.env.ADMIN_JWT_SECRET || '';
 const SECRET = SECRET_RAW ? new TextEncoder().encode(SECRET_RAW) : null;
 
-// /admin altında auth'suz erişilecek rotalar (redirect loop'u önler)
+// Sadece login sayfasını auth'suz bırak (redirect loop önler)
 function isPublicAdminRoute(pathname: string): boolean {
   return pathname === '/admin/login';
+}
+
+// ENV root admin kontrolü (DB'ye bakmadan, sadece ENV)
+function isEnvAdmin(wallet: string): boolean {
+  const allowed = (process.env.ADMIN_WALLET || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+  if (allowed.length === 0) return false; // fail-closed
+  return allowed.includes(wallet);
 }
 
 export async function middleware(req: NextRequest) {
@@ -42,14 +53,25 @@ export async function middleware(req: NextRequest) {
 
     // JWT claim'lerinden yetki kontrolü
     const role = String(payload.role || '');
-    const sub = String(payload.sub || '');
-    if (role !== 'admin' || !sub) {
+    const wallet = String(payload.sub || '');
+
+    // Login sırasında admin allowlist'inden geçmiş olmalı
+    if (role !== 'admin' || !wallet) {
       const url = new URL('/admin/login', req.url);
       url.searchParams.set('e', 'not-allowed');
       return NextResponse.redirect(url);
     }
 
-    // Her şey yolunda → devam
+    // /admin/control → yalnızca ENV root admin
+    if (pathname.startsWith('/admin/control')) {
+      if (!isEnvAdmin(wallet)) {
+        const url = new URL('/admin/login', req.url);
+        url.searchParams.set('e', 'not-allowed');
+        return NextResponse.redirect(url);
+      }
+    }
+
+    // Diğer tüm /admin sayfaları → role: 'admin' yeterli (DB/ENV allowlist login'de geçti)
     return NextResponse.next();
   } catch {
     const url = new URL('/admin/login', req.url);
@@ -58,7 +80,7 @@ export async function middleware(req: NextRequest) {
   }
 }
 
-// Kök /admin de korunsun diye matcher'a /admin ekledik
+// Kök /admin de korunsun diye matcher'a /admin ekliyoruz
 export const config = {
   matcher: ['/admin', '/admin/:path*'],
 };
