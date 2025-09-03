@@ -1,37 +1,74 @@
 // app/api/_lib/admins.ts
 import { sql } from '@/app/api/_lib/db';
+import bs58 from 'bs58';
 
-// ENV -> kök otorite (virgüllü liste)
-export function envAdmins(): string[] {
-  return (process.env.ADMIN_WALLET || '')
-    .split(',').map(s => s.trim()).filter(Boolean);
-}
-
-// DB'deki ek adminler (admin_config.key='extra_admins' JSON array)
-export async function getExtraAdmins(): Promise<string[]> {
-  const rows = await sql`SELECT value FROM admin_config WHERE key='extra_admins' LIMIT 1`;
-  const v = (rows as any[])[0]?.value;
-  if (!v) return [];
+export function isValidBase58Wallet(w: string): boolean {
   try {
-    const arr = Array.isArray(v?.value) ? v.value : Array.isArray(v) ? v : [];
-    return arr.filter((x: any) => typeof x === 'string' && x.length > 0);
-  } catch { return []; }
+    const b = bs58.decode((w || '').trim());
+    return b.length === 32;
+  } catch { return false; }
 }
 
-export async function setExtraAdmins(wallets: string[], updatedBy: string) {
-  const unique = Array.from(new Set(wallets.map(w => w.trim()).filter(Boolean)));
-  await sql`
-    INSERT INTO admin_config (key, value, updated_by)
-    VALUES ('extra_admins', ${ { value: unique } }, ${updatedBy})
-    ON CONFLICT (key) DO UPDATE
-      SET value = EXCLUDED.value, updated_by = ${updatedBy}, updated_at = now()
-  `;
+export function isEnvAdmin(wallet: string): boolean {
+  const w = (wallet || '').trim();
+  const allowed = (process.env.ADMIN_WALLET || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+  return allowed.includes(w);
+}
+
+export async function listAdmins(): Promise<string[]> {
+  try {
+    await sql`CREATE TABLE IF NOT EXISTS admin_wallets (
+      wallet    TEXT PRIMARY KEY,
+      added_by  TEXT,
+      added_at  TIMESTAMPTZ DEFAULT NOW()
+    )`;
+    const rows = await sql`SELECT wallet FROM admin_wallets ORDER BY added_at ASC`;
+    return (rows as any[]).map(r => String(r.wallet));
+  } catch {
+    return (process.env.ADMIN_WALLET || '')
+      .split(',').map(s => s.trim()).filter(Boolean);
+  }
 }
 
 export async function isAdminAllowed(wallet: string): Promise<boolean> {
-  const env = envAdmins();
-  const extra = await getExtraAdmins();
-  // fail-closed: hem ENV hem DB boşsa => false
-  if (env.length === 0 && extra.length === 0) return false;
-  return env.includes(wallet) || extra.includes(wallet);
+  const w = (wallet || '').trim();
+  if (!isValidBase58Wallet(w)) return false;
+  try {
+    const hit = await sql`SELECT 1 FROM admin_wallets WHERE wallet = ${w} LIMIT 1`;
+    if ((hit as any[]).length > 0) return true;
+  } catch { /* ignore */ }
+  const env = (process.env.ADMIN_WALLET || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
+  return env.includes(w);
+}
+
+export async function replaceAdmins(wallets: string[], updatedBy?: string): Promise<string[]> {
+  const uniq = Array.from(new Set(wallets.map(w => w.trim()).filter(Boolean)));
+  if (uniq.length > 200) throw Object.assign(new Error('too_many_wallets'), { status: 400 });
+  for (const w of uniq) {
+    if (!isValidBase58Wallet(w)) {
+      throw Object.assign(new Error(`invalid_wallet:${w}`), { status: 400, code: 'invalid_wallet' });
+    }
+  }
+
+  await sql`BEGIN`;
+  try {
+    await sql`CREATE TABLE IF NOT EXISTS admin_wallets (
+      wallet    TEXT PRIMARY KEY,
+      added_by  TEXT,
+      added_at  TIMESTAMPTZ DEFAULT NOW()
+    )`;
+    await sql`TRUNCATE admin_wallets`;
+    for (const w of uniq) {
+      await sql`INSERT INTO admin_wallets (wallet, added_by) VALUES (${w}, ${updatedBy || null})`;
+    }
+    await sql`COMMIT`;
+    return uniq;
+  } catch (e) {
+    await sql`ROLLBACK`;
+    throw e;
+  }
 }

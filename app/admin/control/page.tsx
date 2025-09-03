@@ -78,8 +78,8 @@ export default function AdminControlPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   // optional endpoints guard
-  const [hasAppEnabled, setHasAppEnabled] = useState(true);
-  const [hasAdminsCfg, setHasAdminsCfg] = useState(true);
+  const [hasAppEnabled, setHasAppEnabled] = useState(false);
+  const [hasAdminsCfg, setHasAdminsCfg] = useState(false);
 
   // initial load
   useEffect(() => {
