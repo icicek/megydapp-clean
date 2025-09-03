@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import { generateReferralCode } from '@/app/api/utils/generateReferralCode';
 
-// 🔽 YENİ: registry helper'ları ekledik
+// Registry helpers
 import {
   ensureFirstSeenRegistry,
   computeStatusDecision,
@@ -13,10 +13,16 @@ import {
   type TokenStatus
 } from '@/app/api/_lib/registry';
 
-const sql = neon(process.env.DATABASE_URL!);
+// 🔽 Yeni: feature flags
+import { requireAppEnabled } from '@/app/api/_lib/feature-flags';
+
+const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
 export async function POST(req: NextRequest) {
   console.log('✅ /api/coincarnation/record API called');
+
+  // 🛡️ Global kill-switch (yalnızca write uçlarında)
+  await requireAppEnabled();
 
   try {
     const body = await req.json();
@@ -35,7 +41,7 @@ export async function POST(req: NextRequest) {
     const timestamp = new Date().toISOString();
     console.log('📦 Incoming data:', body);
 
-    // 🚨 1) SOL için USD 0 engeli (senin kuralın korunuyor)
+    // 1) SOL için USD 0 engeli
     if (usd_value === 0 && token_symbol?.toUpperCase() === 'SOL') {
       console.error('❌ FATAL: SOL token reported with 0 USD value. Rejecting.');
       return NextResponse.json(
@@ -44,7 +50,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 🛡️ 2) Redlist/Blacklist guard (mint varsa)
+    // 2) Redlist/Blacklist guard
     const hasMint = Boolean(token_contract && token_contract !== 'SOL');
     if (hasMint) {
       const reg = await getStatusRow(token_contract!);
@@ -62,14 +68,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 💀 3) (Eski) Deadcoin tespiti sadece usd_value==0 ise geçerli olacak
-    //     Artık < $100 otomatik deadcoin yapmıyoruz; yürüyen ölü + oylama önerisi.
-    //     Aşağıda "decision" ile yeni statüyü belirliyoruz.
-    // const isDeadcoinLegacy = usd_value === 0;
-
-    // 🧠 4) İlk statü kararı (market verisine göre)
-    // - usd_value === 0 ise "otomatik deadcoin" (market yok gibi);
-    // - değilse token_prices'a bakarak decision çıkar.
+    // 3) Statü kararı
     let initialDecision:
       | { status: TokenStatus; voteSuggested?: boolean; reason?: string; metrics?: { vol: number; liq: number } }
       | null = null;
@@ -84,8 +83,6 @@ export async function POST(req: NextRequest) {
         };
       } else {
         initialDecision = await computeStatusDecision(token_contract!);
-        // computeStatusDecision registry override (black/red) görürse onu döndürür;
-        // yukarıdaki guard zaten yeni işlemi blokluyordu.
       }
     }
 
@@ -93,7 +90,7 @@ export async function POST(req: NextRequest) {
     const voteSuggested = Boolean(initialDecision?.voteSuggested);
     const decisionMetrics = initialDecision?.metrics ?? null;
 
-    // 👥 5) Participants (senin original akışın)
+    // Participants
     const existing = await sql`
       SELECT * FROM participants WHERE wallet_address = ${wallet_address}
     `;
@@ -122,7 +119,6 @@ export async function POST(req: NextRequest) {
       `;
     } else {
       userReferralCode = existing[0].referral_code;
-
       if (!userReferralCode) {
         userReferralCode = generateReferralCode();
         await sql`
@@ -133,24 +129,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log('📤 Contribution insert payload:', {
-      wallet_address,
-      token_symbol,
-      token_contract,
-      network,
-      token_amount,
-      usd_value,
-      transaction_signature,
-      user_agent,
-      timestamp,
-      referral_code: userReferralCode,
-      referrer_wallet: referrerWallet,
-      initialStatus,
-      voteSuggested,
-      decisionMetrics,
-    });
-
-    // 🧾 6) Contribution kaydı (senin kodun)
+    // Contribution kaydı
     try {
       const insertResult = await sql`
         INSERT INTO contributions (
@@ -184,8 +163,7 @@ export async function POST(req: NextRequest) {
       console.error('❌ Contribution INSERT failed:', insertError);
     }
 
-    // 🔐 7) Registry'ye ilk kaydı (idempotent) yaz
-    //     SOL için kayıt açmıyoruz.
+    // Registry ilk kaydı
     let registryCreated = false;
     if (hasMint) {
       const res = await ensureFirstSeenRegistry(token_contract!, {
@@ -205,27 +183,31 @@ export async function POST(req: NextRequest) {
       registryCreated = !!res?.created;
     }
 
-    // 🔢 8) Kullanıcı numarası (senin kodun)
+    // Kullanıcı numarası
     const result = await sql`
       SELECT id FROM participants WHERE wallet_address = ${wallet_address}
     `;
     const number = result[0]?.id ?? 0;
 
-    // 📦 9) Response — UI confirm modal için faydalı sinyaller de dönelim
     return NextResponse.json({
       success: true,
       number,
       referral_code: userReferralCode,
       message: '✅ Coincarnation recorded successfully',
-      // 'is_deadcoin' field'ını artık karardan türetiyoruz:
       is_deadcoin: initialStatus === 'deadcoin',
-      status: initialStatus,                // 'healthy' | 'walking_dead' | 'deadcoin' | 'redlist' | 'blacklist'
-      voteSuggested,                        // walking_dead + <100 bandında ise true
-      metrics: decisionMetrics,             // { vol, liq } varsa
+      status: initialStatus,
+      voteSuggested,
+      metrics: decisionMetrics,
       registryCreated,
     });
   } catch (error: any) {
     console.error('❌ Record API Error:', error);
+    if (error?.status) {
+      return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+    }
+    if (error?.status) {
+    return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+    }
     return NextResponse.json(
       { success: false, error: error?.message || 'Unknown server error' },
       { status: 500 }
