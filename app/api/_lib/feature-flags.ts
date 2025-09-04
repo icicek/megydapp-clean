@@ -81,3 +81,14 @@ export async function isAdminWallet(addr?: string | null): Promise<boolean> {
   const list = await getAdminWallets();
   return list.includes(addr.toLowerCase());
 }
+
+// feature-flags.ts içine ek (opsiyonel)
+export async function getCoincarnationRateNumber(): Promise<number> {
+  const cfg = await getConfigValue('coincarnation_rate');
+  const env =
+    cfg ??
+    process.env.COINCARNATION_RATE ??
+    process.env.NEXT_PUBLIC_COINCARNATION_RATE;
+  const n = Number(env);
+  return Number.isFinite(n) && n > 0 ? n : 1; // default 1 USD/MEGY
+}

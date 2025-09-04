@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 
-// ---- CSRF helpers (pasif: token varsa header ekler) ----
+/* ---------------- CSRF helpers ---------------- */
 function getCookie(name: string): string | null {
   if (typeof document === 'undefined') return null;
   const m = document.cookie.match(
@@ -18,7 +18,7 @@ function getCsrfToken(): string | null {
   return meta?.content || getCookie('csrf') || null;
 }
 
-// ---- fetch helpers ----
+/* ---------------- fetch helpers ---------------- */
 async function getJSON<T>(url: string): Promise<T> {
   const r = await fetch(url, { credentials: 'include', cache: 'no-store' });
   if (!r.ok) throw new Error(`${r.status}`);
@@ -43,6 +43,7 @@ async function sendJSON<T>(url: string, method: 'POST' | 'PUT', body: any): Prom
   return data;
 }
 
+/* ---------------- utils ---------------- */
 type BoolConfigResponse = { success: boolean; value: unknown };
 const asBool = (v: unknown): boolean => {
   if (typeof v === 'boolean') return v;
@@ -54,6 +55,10 @@ const asBool = (v: unknown): boolean => {
   return false;
 };
 
+const CARD =
+  'rounded-2xl border border-white/10 bg-[#0b0f18] p-5 shadow-sm hover:shadow transition-shadow';
+
+/* ---------------- page ---------------- */
 export default function AdminControlPage() {
   const [whoami, setWhoami] = useState<string | null>(null);
 
@@ -61,27 +66,35 @@ export default function AdminControlPage() {
   const [claimOpen, setClaimOpen] = useState<boolean | null>(null);
   const [appEnabled, setAppEnabled] = useState<boolean | null>(null);
 
-  // saving flags (UX)
+  // saving flags
   const [savingClaim, setSavingClaim] = useState(false);
   const [savingApp, setSavingApp] = useState(false);
   const [savingPool, setSavingPool] = useState(false);
   const [savingAdmins, setSavingAdmins] = useState(false);
+  const [savingRate, setSavingRate] = useState(false);
 
-  // pool
+  // distribution pool
   const [pool, setPool] = useState<string>(''); // text input
   const poolNumber = useMemo(() => Number(pool), [pool]);
+
+  // coincarnation rate (USD per 1 MEGY)
+  const [rate, setRate] = useState<string>(''); // text input
+  const rateNumber = useMemo(() => Number(rate), [rate]);
 
   // admins
   const [admins, setAdmins] = useState<string[]>([]);
   const [newAdmin, setNewAdmin] = useState('');
+
+  // page state
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   // optional endpoints guard
   const [hasAppEnabled, setHasAppEnabled] = useState(false);
   const [hasAdminsCfg, setHasAdminsCfg] = useState(false);
+  const [hasRateCfg, setHasRateCfg] = useState(false);
 
-  // initial load
+  /* -------- initial load -------- */
   useEffect(() => {
     (async () => {
       try {
@@ -115,15 +128,31 @@ export default function AdminControlPage() {
 
         // distribution_pool
         try {
-          const dp = await getJSON<{ success: boolean; value: number }>('/api/admin/config/distribution_pool');
+          const dp = await getJSON<{ success: boolean; value: number }>(
+            '/api/admin/config/distribution_pool'
+          );
           setPool(String(dp?.value ?? ''));
         } catch {
           setPool('');
         }
 
+        // coincarnation_rate (USD per 1 MEGY) — optional ama önerilir
+        try {
+          const cr = await getJSON<{ success: boolean; value: number }>(
+            '/api/admin/config/coincarnation_rate'
+          );
+          setRate(String(cr?.value ?? ''));
+          setHasRateCfg(true);
+        } catch {
+          setHasRateCfg(false);
+          setRate(''); // göster ama kaydetmeye çalışınca hata döner
+        }
+
         // admins (optional)
         try {
-          const ad = await getJSON<{ success: boolean; wallets: string[] }>('/api/admin/config/admins');
+          const ad = await getJSON<{ success: boolean; wallets: string[] }>(
+            '/api/admin/config/admins'
+          );
           setAdmins(Array.isArray(ad?.wallets) ? ad.wallets : []);
           setHasAdminsCfg(true);
         } catch {
@@ -136,13 +165,13 @@ export default function AdminControlPage() {
     })();
   }, []);
 
+  /* -------- actions -------- */
   async function toggleClaim(next: boolean) {
     setMsg(null);
     setSavingClaim(true);
     try {
-      // bu route sende wallet istiyordu; whoami yoksa boş gider (backend requireAdmin'e geçersen body'den kaldırabiliriz)
       await sendJSON('/api/admin/config/claim_open', 'POST', {
-        wallet: whoami,
+        wallet: whoami, // backend requireAdmin’a geçtiyse bu alanı yok sayabilir
         value: String(next),
       });
       setClaimOpen(next);
@@ -176,8 +205,8 @@ export default function AdminControlPage() {
       setSavingPool(false);
       return;
     }
-    if (!Number.isFinite(poolNumber)) {
-      setMsg('❌ Enter a valid number');
+    if (!Number.isFinite(poolNumber) || poolNumber < 0) {
+      setMsg('❌ Enter a valid non-negative number');
       setSavingPool(false);
       return;
     }
@@ -188,6 +217,29 @@ export default function AdminControlPage() {
       setMsg(`❌ ${e?.message || 'Pool save failed'}`);
     } finally {
       setSavingPool(false);
+    }
+  }
+
+  async function saveRate() {
+    setMsg(null);
+    setSavingRate(true);
+    if (rate.trim() === '') {
+      setMsg('❌ Enter a value');
+      setSavingRate(false);
+      return;
+    }
+    if (!Number.isFinite(rateNumber) || rateNumber <= 0) {
+      setMsg('❌ Enter a valid positive number (USD per 1 MEGY)');
+      setSavingRate(false);
+      return;
+    }
+    try {
+      await sendJSON('/api/admin/config/coincarnation_rate', 'PUT', { value: rateNumber });
+      setMsg('✅ Coincarnation rate saved');
+    } catch (e: any) {
+      setMsg(`❌ ${e?.message || 'Rate save failed'}`);
+    } finally {
+      setSavingRate(false);
     }
   }
 
@@ -219,141 +271,205 @@ export default function AdminControlPage() {
     saveAdmins(admins.filter((x) => x !== w));
   }
 
-  const poolDisabled =
-    savingPool || pool.trim() === '' || !Number.isFinite(poolNumber);
+  /* -------- derived -------- */
+  const poolDisabled = savingPool || pool.trim() === '' || !Number.isFinite(poolNumber) || poolNumber < 0;
+  const rateDisabled = savingRate || rate.trim() === '' || !Number.isFinite(rateNumber) || rateNumber <= 0;
 
+  /* -------- UI -------- */
   return (
-    <main className="mx-auto max-w-2xl p-6 space-y-8 text-white">
-      {/* header: karşılıklı geçiş */}
-      <div className="flex items-center justify-between mb-2">
-        <h1 className="text-xl font-semibold">Control</h1>
-        <Link
-          href="/admin/tokens"
-          className="px-3 py-1 rounded border border-gray-600 bg-gray-800 hover:bg-gray-700 text-sm"
-        >
-          Tokens
-        </Link>
-      </div>
-
-      {msg && <div className="text-sm">{msg}</div>}
-      {loading && <div className="text-sm text-gray-400">Loading…</div>}
-
-      {/* Claim toggle */}
-      <section className="rounded-xl border border-gray-700 bg-gray-900 p-4">
+    <main className="min-h-screen bg-[#090d15] text-white">
+      <div className="mx-auto max-w-5xl px-6 py-8 space-y-8">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <div className="font-semibold">Claim Panel</div>
-            <div className="text-xs text-gray-400">Enable/disable public claiming</div>
+            <h1 className="text-2xl font-semibold">Control Panel</h1>
+            <p className="text-xs text-white/60 mt-1">
+              Manage global switches & distribution settings
+            </p>
           </div>
-          <label className="inline-flex items-center gap-3">
-            <span className="text-sm">
-              {savingClaim ? 'Saving…' : claimOpen ? 'Open' : 'Closed'}
-            </span>
-            <input
-              type="checkbox"
-              className="h-5 w-5"
-              checked={!!claimOpen}
-              onChange={(e) => toggleClaim(e.target.checked)}
-              disabled={savingClaim}
-            />
-          </label>
-        </div>
-      </section>
-
-      {/* App enabled toggle (opsiyonel) */}
-      {hasAppEnabled && (
-        <section className="rounded-xl border border-gray-700 bg-gray-900 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-semibold">App Enabled</div>
-              <div className="text-xs text-gray-400">Global kill-switch for write ops</div>
-            </div>
-            <label className="inline-flex items-center gap-3">
-              <span className="text-sm">
-                {savingApp ? 'Saving…' : appEnabled ? 'Enabled' : 'Disabled'}
-              </span>
-              <input
-                type="checkbox"
-                className="h-5 w-5"
-                checked={!!appEnabled}
-                onChange={(e) => toggleApp(e.target.checked)}
-                disabled={savingApp}
-              />
-            </label>
-          </div>
-        </section>
-      )}
-
-      {/* Distribution pool */}
-      <section className="rounded-xl border border-gray-700 bg-gray-900 p-4 space-y-3">
-        <div className="font-semibold">Distribution Pool</div>
-        <div className="flex items-center gap-3">
-          <input
-            inputMode="decimal"
-            value={pool}
-            onChange={(e) => setPool(e.target.value)}
-            className="w-48 rounded bg-gray-950 border border-gray-700 px-2 py-1"
-            placeholder="0"
-            disabled={savingPool}
-          />
-          <button
-            onClick={savePool}
-            disabled={poolDisabled}
-            className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+          <Link
+            href="/admin/tokens"
+            className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
           >
-            {savingPool ? 'Saving…' : 'Save'}
-          </button>
+            Tokens
+          </Link>
         </div>
-        <div className="text-[11px] text-gray-400">
-          Total MEGY amount to be distributed in the current snapshot.
-        </div>
-      </section>
 
-      {/* Admin wallets (opsiyonel) */}
-      {hasAdminsCfg && (
-        <section className="rounded-xl border border-gray-700 bg-gray-900 p-4 space-y-3">
-          <div className="font-semibold">Admin Wallets</div>
+        {/* Alerts */}
+        {msg && <div className={`${CARD} text-sm`}>{msg}</div>}
+        {loading && (
+          <div className={`${CARD} text-sm text-white/70`}>
+            Loading…
+          </div>
+        )}
 
-          {admins.length === 0 ? (
-            <div className="text-sm text-gray-400">No admins set yet.</div>
-          ) : (
-            <ul className="space-y-2">
-              {admins.map((w) => (
-                <li key={w} className="flex items-center justify-between">
-                  <span className="font-mono text-sm">{w}</span>
-                  <button
-                    onClick={() => removeAdmin(w)}
-                    className="px-2 py-1 rounded bg-red-700 hover:bg-red-600 text-sm disabled:opacity-50"
-                    disabled={savingAdmins}
-                  >
-                    Remove
-                  </button>
-                </li>
+        {/* Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Claim toggle */}
+          <section className={CARD}>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="font-semibold">Claim Panel</div>
+                <div className="text-xs text-white/60">
+                  Enable/disable public claiming
+                </div>
+              </div>
+              <label className="inline-flex items-center gap-3">
+                <span className="text-sm">
+                  {savingClaim ? 'Saving…' : claimOpen ? 'Open' : 'Closed'}
+                </span>
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 accent-emerald-500"
+                  checked={!!claimOpen}
+                  onChange={(e) => toggleClaim(e.target.checked)}
+                  disabled={savingClaim}
+                />
+              </label>
+            </div>
+          </section>
+
+          {/* App enabled toggle (optional) */}
+          <section className={CARD}>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="font-semibold">App Enabled</div>
+                <div className="text-xs text-white/60">
+                  Global kill-switch for write operations
+                </div>
+              </div>
+              <label className="inline-flex items-center gap-3">
+                <span className="text-sm">
+                  {savingApp ? 'Saving…' : appEnabled ? 'Enabled' : 'Disabled'}
+                </span>
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 accent-blue-500"
+                  checked={!!appEnabled}
+                  onChange={(e) => toggleApp(e.target.checked)}
+                  disabled={savingApp || !hasAppEnabled}
+                  title={!hasAppEnabled ? 'Endpoint not available' : undefined}
+                />
+              </label>
+            </div>
+          </section>
+
+          {/* Distribution pool */}
+          <section className={`${CARD} md:col-span-2`}>
+            <div className="font-semibold mb-3">Distribution Pool</div>
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                inputMode="decimal"
+                value={pool}
+                onChange={(e) => setPool(e.target.value)}
+                className="w-48 rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
+                placeholder="0"
+                disabled={savingPool}
+              />
+              <button
+                onClick={savePool}
+                disabled={poolDisabled}
+                className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+              >
+                {savingPool ? 'Saving…' : 'Save'}
+              </button>
+              <div className="text-[11px] text-white/60">
+                Total MEGY amount to be distributed for the current snapshot (pool-mode).
+              </div>
+            </div>
+          </section>
+
+          {/* Coincarnation Rate (USD per 1 MEGY) */}
+          <section className={CARD}>
+            <div className="font-semibold">Coincarnation Rate</div>
+            <div className="text-xs text-white/60 mb-3">
+              USD price per 1 MEGY. Example: 1 → 1 USD/MEGY; 2 → 0.5 MEGY per USD; 3 → 0.33 MEGY per USD.
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                inputMode="decimal"
+                value={rate}
+                onChange={(e) => setRate(e.target.value)}
+                className="w-40 rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
+                placeholder="1"
+                disabled={savingRate || !hasRateCfg}
+                title={!hasRateCfg ? 'Endpoint not available' : undefined}
+              />
+              <button
+                onClick={saveRate}
+                disabled={rateDisabled || !hasRateCfg}
+                className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {savingRate ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+
+            {/* Quick presets */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {[1, 2, 3, 5, 8, 13].map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setRate(String(v))}
+                  disabled={savingRate || !hasRateCfg}
+                  className="px-2.5 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-sm disabled:opacity-50"
+                >
+                  {v}
+                </button>
               ))}
-            </ul>
-          )}
+            </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              value={newAdmin}
-              onChange={(e) => setNewAdmin(e.target.value)}
-              placeholder="New admin wallet (base58)"
-              className="flex-1 rounded bg-gray-950 border border-gray-700 px-2 py-1"
-              disabled={savingAdmins}
-            />
-            <button
-              onClick={addAdmin}
-              className="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
-              disabled={savingAdmins || newAdmin.trim() === ''}
-            >
-              {savingAdmins ? 'Saving…' : 'Add'}
-            </button>
-          </div>
-          <div className="text-[11px] text-gray-400">
-            This updates the DB allowlist used by login verification.
-          </div>
-        </section>
-      )}
+            <div className="text-[11px] text-white/60 mt-3">
+              Tip: Start with 1 USD/MEGY for Phase 1 (e.g., distribute ~500k MEGY), then raise to 2, 3, 5, 8…
+            </div>
+          </section>
+
+          {/* Admin wallets (optional) */}
+          <section className={`${CARD} md:col-span-2`}>
+            <div className="font-semibold mb-3">Admin Wallets</div>
+
+            {!hasAdminsCfg ? (
+              <div className="text-sm text-white/60">Endpoint not available.</div>
+            ) : admins.length === 0 ? (
+              <div className="text-sm text-white/60">No admins set yet.</div>
+            ) : (
+              <ul className="space-y-2">
+                {admins.map((w) => (
+                  <li key={w} className="flex items-center justify-between">
+                    <span className="font-mono text-sm">{w}</span>
+                    <button
+                      onClick={() => removeAdmin(w)}
+                      className="px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-600 text-sm disabled:opacity-50"
+                      disabled={savingAdmins}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="mt-3 flex items-center gap-2">
+              <input
+                value={newAdmin}
+                onChange={(e) => setNewAdmin(e.target.value)}
+                placeholder="New admin wallet (base58)"
+                className="flex-1 rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
+                disabled={savingAdmins || !hasAdminsCfg}
+              />
+              <button
+                onClick={addAdmin}
+                className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
+                disabled={savingAdmins || newAdmin.trim() === '' || !hasAdminsCfg}
+              >
+                {savingAdmins ? 'Saving…' : 'Add'}
+              </button>
+            </div>
+            <div className="text-[11px] text-white/60 mt-2">
+              Updates the DB allowlist used by admin login verification.
+            </div>
+          </section>
+        </div>
+      </div>
     </main>
   );
 }

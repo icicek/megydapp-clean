@@ -3,9 +3,9 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/app/api/_lib/db';
-import { getDistributionPoolNumber } from '@/app/api/_lib/feature-flags';
+import { getDistributionPoolNumber, getCoincarnationRateNumber } from '@/app/api/_lib/feature-flags';
 
-// Ağırlık katsayıları (seninkiyle aynı)
+// Ağırlık katsayıları (değişmedi)
 const USD_CONTRIBUTION_WEIGHT = 100;
 const REFERRAL_PERSON_WEIGHT = 100;
 const REFERRAL_USD_WEIGHT = 50;
@@ -67,11 +67,28 @@ export async function GET(req: NextRequest) {
       sharePoint;
 
     const total_core_point = parseFloat((totalCorePointRes[0] as any).total_core_point || 0);
+
+    // Pool-mode (mevcut davranış)
     const pool = await getDistributionPoolNumber();
     const share = total_core_point > 0 ? core_point / total_core_point : 0;
-    const amount = pool * share;
+    const poolAmount = pool * share;
 
-    return NextResponse.json({ success: true, pool, share, amount });
+    // Rate-mode (yeni): yalnız KENDİ USD katkısı baz alınır
+    const rate = await getCoincarnationRateNumber(); // USD/MEGY
+    const rateAmount = rate > 0 ? total_usd_contributed / rate : 0; // MEGY
+
+    return NextResponse.json({
+      success: true,
+      // geriye dönük uyum için eski alanlar:
+      pool,
+      share,
+      amount: poolAmount,
+      // yeni alanlar:
+      mode: {
+        pool: { pool, share, amount: poolAmount },
+        rate: { rate, userUsd: total_usd_contributed, amount: rateAmount },
+      },
+    });
   } catch (error: any) {
     console.error('[claim/preview] error:', error);
     return NextResponse.json({ success: false, error: error?.message || 'Internal error' }, { status: 500 });
