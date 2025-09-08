@@ -2,7 +2,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 
 type Props = { compact?: boolean };
 
@@ -10,8 +9,7 @@ export default function TrustPledge({ compact = true }: Props) {
   const items: { title: string; body: string }[] = [
     {
       title: 'Pool-Proportional Distribution',
-      body:
-        "Each phase’s MEGY pool is distributed proportionally to users’ USD contributions.",
+      body: 'Each phase’s MEGY pool is distributed proportionally to users’ USD contributions.',
     },
     {
       title: 'Floor Guard',
@@ -20,13 +18,11 @@ export default function TrustPledge({ compact = true }: Props) {
     },
     {
       title: 'Market Independence',
-      body:
-        'Distribution is independent from external market price; resistant to manipulation.',
+      body: 'Distribution is independent from external market price; resistant to manipulation.',
     },
     {
       title: 'Live Transparency',
-      body:
-        'Implied rate, full-unlock target, remaining pool, and participant counts are public.',
+      body: 'Implied rate, full-unlock target, remaining pool, and participant counts are public.',
     },
     {
       title: 'Snapshot & Finalize',
@@ -35,8 +31,7 @@ export default function TrustPledge({ compact = true }: Props) {
     },
     {
       title: 'Vesting (Optional)',
-      body:
-        'TGE + linear vesting can reduce immediate sell pressure.',
+      body: 'TGE + linear vesting can reduce immediate sell pressure.',
     },
     {
       title: 'Secure Governance',
@@ -45,62 +40,52 @@ export default function TrustPledge({ compact = true }: Props) {
     },
     {
       title: 'Auditable Records',
-      body:
-        'USD values via TWAP/VWAP; regular metric reports published.',
+      body: 'USD values via TWAP/VWAP; regular metric reports published.',
     },
   ];
 
-  // exactly one open at a time; default the first open
-  const [openIdx, setOpenIdx] = useState<number>(0);
+  // start with all closed
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
 
-  const sectionClass =
-    'w-full bg-zinc-950 border border-zinc-800 rounded-2xl p-6 md:p-8 text-white';
+  const container =
+    'w-full rounded-2xl border border-white/10 bg-black/30 backdrop-blur-sm p-6 md:p-8 text-white';
+  const itemBase =
+    'rounded-lg border border-white/10 bg-white/5';
+  const headerBtn =
+    'w-full flex items-center justify-between px-4 py-3 text-left';
+  const bodyCls =
+    'px-4 pb-4 text-sm text-zinc-300';
 
   return (
-    <section className={sectionClass}>
+    <section className={container}>
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 mb-4">
+      <div className="mb-3">
         <h2 className="text-xl md:text-2xl font-semibold">Trust Pledge</h2>
-        <Link
-          href="/trust"
-          className="shrink-0 rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 px-3 py-1.5 text-sm"
-        >
-          Learn more
-        </Link>
+        <p className="text-sm text-zinc-400 mt-1">
+          Coincarnation is designed for fairness and transparency. These principles are core to the protocol.
+        </p>
       </div>
 
-      {/* Intro */}
-      <p className="text-sm text-zinc-400 mb-4">
-        Coincarnation is designed for fairness and transparency. These principles are core to the protocol.
-      </p>
-
-      {/* Accordion (single column, only one open) */}
+      {/* Accordion (single column, only one open; clicking open again collapses all) */}
       <div className="space-y-3">
         {items.map((it, i) => {
           const isOpen = i === openIdx;
           const contentId = `trust-pledge-item-${i}`;
           return (
-            <div
-              key={i}
-              className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden"
-            >
-              {/* Header row */}
+            <div key={i} className={itemBase}>
               <button
                 type="button"
                 aria-expanded={isOpen}
                 aria-controls={contentId}
-                onClick={() => setOpenIdx(i)}
-                className="w-full flex items-center justify-between px-4 py-3 text-left"
+                onClick={() => setOpenIdx(isOpen ? null : i)}
+                className={headerBtn}
               >
                 <span className="font-medium">{it.title}</span>
-                <ChevronRight className={`h-5 w-5 text-zinc-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                <ChevronRight
+                  className={`h-5 w-5 text-zinc-400 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                />
               </button>
-
-              {/* Content */}
-              <div
-                id={contentId}
-                className={`${isOpen ? 'block' : 'hidden'} px-4 pb-4 text-sm text-zinc-300`}
-              >
+              <div id={contentId} className={`${isOpen ? 'block' : 'hidden'} ${bodyCls}`}>
                 {it.body}
               </div>
             </div>
@@ -110,22 +95,16 @@ export default function TrustPledge({ compact = true }: Props) {
 
       {!compact && (
         <div className="mt-4 text-xs text-zinc-500">
-          Details and formulas are available at <Link className="underline" href="/trust">/trust</Link>.
+          Details and formulas will be published with the whitepaper.
         </div>
       )}
     </section>
   );
 }
 
-/* simple inline chevron icon (no external libs) */
 function ChevronRight({ className = '' }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
-    >
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
       <path
         fillRule="evenodd"
         d="M7.293 4.293a1 1 0 011.414 0l4.999 5a1 1 0 010 1.414l-5 5a1 1 0 01-1.414-1.414L11.586 10 7.293 5.707a1 1 0 010-1.414z"
