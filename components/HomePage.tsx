@@ -9,6 +9,7 @@ import { connection } from '@/lib/solanaConnection';
 import CountUp from 'react-countup';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 import ConnectWalletCTA from '@/components/wallet/ConnectWalletCTA';
+import TrustPledge from './TrustPledge';
 
 interface TokenInfo {
   mint: string;
@@ -19,12 +20,11 @@ interface TokenInfo {
 
 export default function HomePage() {
   const { publicKey, connected } = useWallet();
-  const [isAdminWallet, setIsAdminWallet] = useState(false);
 
-  // Admin session (whoami)
+  const [isAdminWallet, setIsAdminWallet] = useState(false);
   const [isAdminSession, setIsAdminSession] = useState(false);
 
-  // ❶ Mount + cüzdan değişiminde admin session'ı kontrol et
+  // (1) On mount & wallet changes, check admin session
   useEffect(() => {
     let aborted = false;
     (async () => {
@@ -38,7 +38,7 @@ export default function HomePage() {
     return () => { aborted = true; };
   }, [publicKey, connected]);
 
-  // ❷ Sekme odaklandığında yeniden kontrol et
+  // (2) Re-check when tab gains focus
   useEffect(() => {
     const recheck = async () => {
       try {
@@ -52,7 +52,7 @@ export default function HomePage() {
     return () => window.removeEventListener('focus', recheck);
   }, []);
 
-  // Bu effect'i EKLE (whoami effect'i kalsın)
+  // (3) Check if connected wallet is in the admin allowlist
   useEffect(() => {
     let aborted = false;
     (async () => {
@@ -75,6 +75,7 @@ export default function HomePage() {
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showModal, setShowModal] = useState(false);
+
   const [globalStats, setGlobalStats] = useState({
     totalUsd: 0,
     totalParticipants: 0,
@@ -129,16 +130,14 @@ export default function HomePage() {
         // Token list (cached)
         const tokenMetadata = await fetchSolanaTokenList();
 
-        // Enrich
+        // Enrich with symbol/logo
         const enriched = await Promise.all(
           tokenListRaw.map(async (token) => {
             if (token.mint === 'SOL') return token;
-
             const metadata = tokenMetadata.find((meta) => meta.address === token.mint);
             if (metadata) {
               return { ...token, symbol: metadata.symbol, logoURI: metadata.logoURI };
             }
-
             const fallbackMeta = await fetchTokenMetadata(token.mint);
             return {
               ...token,
@@ -184,7 +183,8 @@ export default function HomePage() {
   };
 
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
-  const sharePercentage = (shareRatio * 100).toFixed(2);
+  const sharePercentageNum = Math.max(0, Math.min(100, shareRatio * 100));
+  const sharePercentage = sharePercentageNum.toFixed(2);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
@@ -207,7 +207,7 @@ export default function HomePage() {
 
       <div className="w-full max-w-5xl bg-gradient-to-br from-gray-900 via-zinc-800 to-gray-900 p-8 rounded-2xl border border-purple-700 shadow-2xl">
         <h2 className="text-lg mb-1 text-left">You give</h2>
-        <p className="text-xs text-gray-400 text-left mb-2">Walking Deadcoins, Memecoins, deadcoins...</p>
+        <p className="text-xs text-gray-400 text-left mb-2">Walking deadcoins, memecoins, any unsupported assets…</p>
 
         {publicKey ? (
           <select
@@ -218,7 +218,7 @@ export default function HomePage() {
             <option value="" disabled>👉 Select a token to Coincarnate</option>
             {tokens.map((token, idx) => (
               <option key={idx} value={token.mint}>
-                {token.symbol} — {token.amount.toFixed(4)}
+                {token.symbol ?? token.mint.slice(0, 4)} — {token.amount.toFixed(4)}
               </option>
             ))}
           </select>
@@ -229,7 +229,7 @@ export default function HomePage() {
         <div className="text-2xl my-4 text-center">↔️</div>
 
         <h2 className="text-lg text-left mb-2">You receive</h2>
-        <p className="text-xs text-gray-400 text-left mb-2">$MEGY - the currency of the Fair Future Fund</p>
+        <p className="text-xs text-gray-400 text-left mb-2">$MEGY — the currency of the Fair Future Fund</p>
 
         <div className="mt-4">
           <div className="w-full bg-gray-800 rounded-full h-6 overflow-hidden relative border border-gray-600">
@@ -242,7 +242,9 @@ export default function HomePage() {
             </span>
           </div>
 
-          <p className="text-sm text-gray-300 mt-2 text-left">🌍 Your personal contribution to the Fair Future Fund (% of total)</p>
+          <p className="text-sm text-gray-300 mt-2 text-left">
+            🌍 Your personal contribution to the Fair Future Fund (% of total)
+          </p>
         </div>
       </div>
 
@@ -293,6 +295,11 @@ export default function HomePage() {
         </div>
       </div>
 
+      {/* Trust Pledge summary block */}
+      <div className="w-full max-w-5xl">
+        <TrustPledge compact />
+      </div>
+
       {showModal && selectedToken && (
         <CoincarneModal
           token={selectedToken}
@@ -314,7 +321,7 @@ export default function HomePage() {
         </button>
       )}
 
-      {/* Admin panel erişimi */}
+      {/* Admin panel access */}
       {(isAdminSession || (connected && isAdminWallet)) && (
         <div className="mt-4">
           <a
@@ -322,7 +329,7 @@ export default function HomePage() {
             className="text-sm text-gray-400 hover:text-gray-200 underline underline-offset-4
                       focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500 rounded"
           >
-            Go to Admin Panel 
+            Go to Admin Panel
           </a>
         </div>
       )}

@@ -136,7 +136,7 @@ export default function AdminControlPage() {
           setPool('');
         }
 
-        // coincarnation_rate (USD per 1 MEGY) — optional ama önerilir
+        // coincarnation_rate (USD per 1 MEGY) — optional but recommended
         try {
           const cr = await getJSON<{ success: boolean; value: number }>(
             '/api/admin/config/coincarnation_rate'
@@ -145,7 +145,7 @@ export default function AdminControlPage() {
           setHasRateCfg(true);
         } catch {
           setHasRateCfg(false);
-          setRate(''); // göster ama kaydetmeye çalışınca hata döner
+          setRate(''); // visible, but saving will be disabled
         }
 
         // admins (optional)
@@ -171,7 +171,7 @@ export default function AdminControlPage() {
     setSavingClaim(true);
     try {
       await sendJSON('/api/admin/config/claim_open', 'POST', {
-        wallet: whoami, // backend requireAdmin’a geçtiyse bu alanı yok sayabilir
+        wallet: whoami, // backend may ignore this if it uses server-side admin check
         value: String(next),
       });
       setClaimOpen(next);
@@ -272,8 +272,10 @@ export default function AdminControlPage() {
   }
 
   /* -------- derived -------- */
-  const poolDisabled = savingPool || pool.trim() === '' || !Number.isFinite(poolNumber) || poolNumber < 0;
-  const rateDisabled = savingRate || rate.trim() === '' || !Number.isFinite(rateNumber) || rateNumber <= 0;
+  const poolDisabled =
+    savingPool || pool.trim() === '' || !Number.isFinite(poolNumber) || poolNumber < 0;
+  const rateDisabled =
+    savingRate || rate.trim() === '' || !Number.isFinite(rateNumber) || rateNumber <= 0;
 
   /* -------- UI -------- */
   return (
@@ -314,7 +316,7 @@ export default function AdminControlPage() {
                   Enable/disable public claiming
                 </div>
               </div>
-              <label className="inline-flex items-center gap-3">
+              <label className="inline-flex items-center gap-3" role="switch" aria-checked={!!claimOpen}>
                 <span className="text-sm">
                   {savingClaim ? 'Saving…' : claimOpen ? 'Open' : 'Closed'}
                 </span>
@@ -338,7 +340,7 @@ export default function AdminControlPage() {
                   Global kill-switch for write operations
                 </div>
               </div>
-              <label className="inline-flex items-center gap-3">
+              <label className="inline-flex items-center gap-3" role="switch" aria-checked={!!appEnabled}>
                 <span className="text-sm">
                   {savingApp ? 'Saving…' : appEnabled ? 'Enabled' : 'Disabled'}
                 </span>
@@ -466,6 +468,20 @@ export default function AdminControlPage() {
             </div>
             <div className="text-[11px] text-white/60 mt-2">
               Updates the DB allowlist used by admin login verification.
+            </div>
+          </section>
+
+          {/* Trust & Safety — info card (read-only) */}
+          <section className={`${CARD} md:col-span-2`}>
+            <div className="font-semibold mb-2">Trust &amp; Safety</div>
+            <ul className="list-disc pl-5 text-sm text-white/75 space-y-1">
+              <li><span title="Pool-Proportional: everyone receives proportional to USD contribution.">Pool-Proportional Distribution</span> — allocations are proportional to USD contributions.</li>
+              <li><span title="Floor: USD/MEGY does not go below the previous phase.">Floor Guard</span> — partial distribution on low contributions; the remainder rolls over.</li>
+              <li>Market-independent — distribution isn’t tied to external price; live implied rate and full-unlock target are shown.</li>
+              <li>Snapshot &amp; finalize — allocations freeze at close; post-phase reports are published.</li>
+            </ul>
+            <div className="text-[11px] text-white/60 mt-2">
+              Details & formulas: <a className="underline" href="/trust">/trust</a>
             </div>
           </section>
         </div>
