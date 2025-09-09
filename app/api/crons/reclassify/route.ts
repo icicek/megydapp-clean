@@ -1,4 +1,4 @@
-// app/api/_crons/reclassify/route.ts
+// app/api/crons/reclassify/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/app/api/_lib/db';
 import { computeStatusDecision, getEffectiveStatus } from '@/app/api/_lib/registry';
