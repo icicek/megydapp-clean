@@ -1,21 +1,53 @@
 'use client';
 
 import { useWallet } from '@solana/wallet-adapter-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import CorePointChart from './CorePointChart'; 
 import Leaderboard from './Leaderboard';
+
+function emptyProfile(wallet: string) {
+  return {
+    id: 0,
+    wallet_address: wallet,
+    referral_code: null,
+    claimed: false,
+    referral_count: 0,
+    referral_usd_contributions: 0,
+    referral_deadcoin_count: 0,
+    total_usd_contributed: 0,
+    total_coins_contributed: 0,
+    transactions: [] as any[],
+    core_point: 0,
+    total_core_point: 0,
+    pvc_share: 0,
+    core_point_breakdown: {
+      coincarnations: 0,
+      referrals: 0,
+      deadcoins: 0,
+      shares: 0,
+    },
+  };
+}
 
 export default function ClaimPanel() {
   const { publicKey } = useWallet();
 
   const [data, setData] = useState<any>(null);
-  const deadcoinContracts = new Set(
-    data?.contributions
-      ?.filter((tx: any) => tx.usd_value === 0)
-      ?.map((tx: any) => tx.token_contract)
-  );
+
+  // ✅ deadcoin’leri transactions üzerinden hesapla (eski: data.contributions)
+  const deadcoinContracts = useMemo(() => {
+    const txs: any[] = Array.isArray(data?.transactions) ? data.transactions : [];
+    return new Set(
+      txs
+        .filter((tx) => Number(tx?.usd_value) === 0)
+        .map((tx) => tx?.token_contract)
+        .filter(Boolean)
+    );
+  }, [data]);
+
   const deadcoinsRevived = deadcoinContracts.size;
+
   const [claimAmount, setClaimAmount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
@@ -30,31 +62,25 @@ export default function ClaimPanel() {
   });
   const [distributionPool, setDistributionPool] = useState(0);
   const [copied, setCopied] = useState(false);
+
   const handleShare = async () => {
     if (!publicKey) return;
-  
     const wallet_address = publicKey.toBase58();
-  
-    // Tweet içeriği
+
     const tweetText = encodeURIComponent(`I just revived my walking deadcoins through #Coincarnation and earned $MEGY 💥🔥
   Join the revolution at https://megydapp.vercel.app`);
     const tweetURL = `https://twitter.com/intent/tweet?text=${tweetText}`;
-  
-    // Yeni sekmede tweet penceresi aç
     window.open(tweetURL, '_blank');
-  
-    // API'ye gönder
+
     try {
       const res = await fetch('/api/share/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet_address }),
       });
-  
       const data = await res.json();
       if (data.success) {
         console.log('✅ First-time share rewarded with +30 CorePoints');
-        // İstersen burada frontend state güncellenebilir
       } else {
         console.log('ℹ️ Already shared before or failed');
       }
@@ -67,41 +93,50 @@ export default function ClaimPanel() {
     const fetchData = async () => {
       if (!publicKey) return;
       setLoading(true);
+      const wallet = publicKey.toBase58();
 
       try {
         const [claimStatusRes, userRes, globalRes, poolRes] = await Promise.all([
-          fetch('/api/admin/config/claim_open'),
-          fetch(`/api/claim/${publicKey.toBase58()}`),
-          fetch('/api/coincarnation/stats'),
-          fetch('/api/admin/config/distribution_pool'),
+          fetch('/api/admin/config/claim_open', { cache: 'no-store' }),
+          fetch(`/api/claim/${wallet}`, { cache: 'no-store' }),
+          fetch('/api/coincarnation/stats', { cache: 'no-store' }),
+          fetch('/api/admin/config/distribution_pool', { cache: 'no-store' }),
         ]);
 
-        const claimStatus = await claimStatusRes.json();
-        const userData = await userRes.json();
-        const globalData = await globalRes.json();
-        const poolData = await poolRes.json();
+        const claimStatus = await claimStatusRes.json().catch(() => null);
+        setClaimOpen(Boolean(claimStatus?.success && (claimStatus?.value === 'true' || claimStatus?.value === true)));
 
-        setClaimOpen(claimStatus.success && claimStatus.value === 'true');
-
-        if (userData.success) {
-          setData(userData.data);
-          setClaimed(userData.data.claimed);
+        // ✅ Kayıt yoksa boş profille aç
+        if (userRes.ok) {
+          const userData = await userRes.json().catch(() => null);
+          if (userData?.success) {
+            setData(userData.data);
+            setClaimed(Boolean(userData.data.claimed));
+          } else {
+            setData(emptyProfile(wallet));
+            setClaimed(false);
+          }
         } else {
-          setData(null);
+          setData(emptyProfile(wallet));
+          setClaimed(false);
         }
 
-        if (globalData.success) {
+        const globalData = await globalRes.json().catch(() => null);
+        if (globalData?.success) {
           setGlobalStats({
-            totalUsd: globalData.totalUsd,
-            totalParticipants: globalData.totalParticipants,
+            totalUsd: Number(globalData.totalUsd || 0),
+            totalParticipants: Number(globalData.totalParticipants || 0),
           });
         }
 
-        if (poolData.success) {
-          setDistributionPool(poolData.value);
+        const poolData = await poolRes.json().catch(() => null);
+        if (poolData?.success) {
+          setDistributionPool(Number(poolData.value || 0));
         }
       } catch (err) {
         console.error('Claim fetch error:', err);
+        // yine de boş profille göster
+        if (publicKey) setData(emptyProfile(publicKey.toBase58()));
       } finally {
         setLoading(false);
       }
@@ -169,9 +204,9 @@ export default function ClaimPanel() {
     return <p className="text-center text-blue-400">⏳ Loading your claim data...</p>;
   }
 
-  if (!data) {
-    return <p className="text-center text-red-400">❌ No Coincarnation record found for this wallet.</p>;
-  }
+  // ❌ Eski: kayıt yoksa tamamen kapatıyorduk.
+  // if (!data) { return <p>❌ No Coincarnation record…</p>; }
+  // ✅ Yeni: data daima set ediliyor (gerçek ya da emptyProfile)
 
   const shareRatio = globalStats.totalUsd > 0 ? (data.total_usd_contributed / globalStats.totalUsd) : 0;
   const claimableMegy = Math.floor(shareRatio * distributionPool);
@@ -198,11 +233,12 @@ export default function ClaimPanel() {
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full">
             <Info label="Wallet Address" value={shorten(data.wallet_address)} />
-            <Info label="Coincarnator No" value={`#${data.id}`} />
+            <Info label="Coincarnator No" value={data.id ? `#${data.id}` : '—'} />
 
             <div
               className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 min-h-[100px] flex flex-col justify-between relative cursor-pointer hover:bg-zinc-700 transition"
               onClick={() => {
+                if (!data?.referral_code) return;
                 navigator.clipboard.writeText(data.referral_code);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
@@ -223,7 +259,7 @@ export default function ClaimPanel() {
             <Info label="Referrals Brought" value={data.referral_count?.toString() || '0'} />
             <Info
               label="Total USD Contributed"
-              value={`$${data.total_usd_contributed?.toFixed(2) || '0.00'}`}
+              value={`$${(Number(data.total_usd_contributed || 0)).toFixed(2)}`}
             />
             <Info
               label="Deadcoins Revived"

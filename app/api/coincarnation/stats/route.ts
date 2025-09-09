@@ -15,7 +15,7 @@ export async function GET() {
       mostPopularDeadcoinResult,
     ] = await Promise.all([
       sql`SELECT COUNT(DISTINCT wallet_address) AS count FROM contributions;`,
-      // usd_value string bile olsa güvenli toplansın
+      // usd_value text bile olsa güvenli toplansın
       sql`SELECT COALESCE(SUM((usd_value)::numeric), 0) AS sum FROM contributions;`,
       sql`SELECT COUNT(DISTINCT token_contract) AS unique_count
           FROM contributions

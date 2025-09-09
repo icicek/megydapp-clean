@@ -86,7 +86,7 @@ export default function HomePage() {
   useEffect(() => {
     const fetchGlobalStats = async () => {
       try {
-        const res = await fetch('/api/coincarnation/stats');
+        const res = await fetch('/api/coincarnation/stats', { cache: 'no-store' });
         const data = await res.json();
         if (data.success) setGlobalStats(data);
       } catch (err) {
