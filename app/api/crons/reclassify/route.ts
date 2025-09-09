@@ -37,7 +37,8 @@ export async function GET(req: NextRequest) {
     // 1) Auth for cron trigger (Vercel Managed Cron OR secret via header/query)
     const urlSecret = req.nextUrl.searchParams.get('secret');
     const headerSecret = req.headers.get('x-cron-secret');
-    const isVercelCron = req.headers.get('x-vercel-cron') === '1';
+    const ua = req.headers.get('user-agent') || '';
+    const isVercelCron = /\bvercel-cron\/1\.0\b/i.test(ua);
     const cfgSecret = process.env.CRON_SECRET || '';
 
     const authed =
