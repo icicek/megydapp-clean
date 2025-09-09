@@ -21,8 +21,7 @@ jobs:
     name: Call CRON endpoint
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # Eğer Production environment'ı ve oradaki secret'ları kullanıyorsan aç:
-    # environment: production
+    # environment: production  # (gerekirse prod env/secretlarını sabitlemek için aç)
 
     steps:
       - name: Resolve envs (prefer secrets, fallback to vars)
@@ -36,12 +35,16 @@ jobs:
           set -euo pipefail
           CRON_URL="${CRON_URL_SECRET:-${CRON_URL_VAR:-}}"
           CRON_SECRET="${CRON_SECRET_S:-${CRON_SECRET_V:-}}"
-          if [ -z "${CRON_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
-            echo "CRON_URL veya CRON_SECRET eksik"; exit 1;
+
+          if [ -z "${CRON_URL:-}" ]; then
+            echo "CRON_URL eksik (örn: https://<site>/api/admin/reclassify)"; exit 1;
           fi
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "CRON_SECRET eksik"; exit 1;
+          fi
+
           echo "cron_url=$CRON_URL"       >> "$GITHUB_OUTPUT"
           echo "has_secret=true"          >> "$GITHUB_OUTPUT"
-          # Secret'ı output olarak yazmıyoruz
 
       - name: HEAD (sanity check)
         env:
@@ -53,6 +56,7 @@ jobs:
             -o /dev/null -w "%{http_code}" \
             "$CRON_URL?v=$(date +%s)")
           echo "HEAD status: $CODE"
+
           {
             echo "### Reclassify cron — HEAD"
             echo ""
@@ -61,8 +65,13 @@ jobs:
             echo "- URL: $CRON_URL"
             echo "- Status: $CODE"
           } >> "$GITHUB_STEP_SUMMARY"
-          # 404 = path yanlış; 200/405/308 kabul
-          [ "$CODE" != "404" ] || { echo "Not found (bad path)"; exit 1; }
+
+          # 404 = path yanlış; kabul edilenler: 200/204/405/308
+          case "$CODE" in
+            200|204|405|308) true ;;
+            404) echo "Not found (bad path)"; exit 1 ;;
+            *) true ;;  # Devam: bazı edge durumlarında HEAD farklı olabilir
+          esac
 
       - name: POST (trigger endpoint)
         env:
@@ -71,7 +80,6 @@ jobs:
           CRON_SECRET_V: ${{ vars.CRON_SECRET }}
         run: |
           set -euo pipefail
-
           CRON_SECRET="${CRON_SECRET_S:-${CRON_SECRET_V:-}}"
 
           URL="$CRON_URL?v=$(date +%s)"
@@ -95,17 +103,32 @@ jobs:
             echo "- URL: $URL"
             echo "- HTTP: **$STATUS**"
             echo ""
-            echo "\`\`\`json"
+            echo '```json'
             cat /tmp/body.json || true
-            echo "\`\`\`"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-          # HTTP hatalarında fail
+          # 503 CRON_DISABLED ise 'skipped' say ve hataya düşme
+          if [ "$STATUS" = "503" ]; then
+            if command -v jq >/dev/null 2>&1; then
+              ERR=$(jq -r '.error // empty' /tmp/body.json 2>/dev/null || true)
+              if [ "$ERR" = "CRON_DISABLED" ]; then
+                echo "Cron disabled — skipping without failure."
+                exit 0
+              fi
+            else
+              # jq yoksa yine de 503'te fail etmeyelim
+              echo "503 received — treating as skipped."
+              exit 0
+            fi
+          fi
+
+          # Diğer HTTP hatalarında fail
           if [ "$STATUS" -ge 400 ]; then
             exit 1
           fi
 
-          # JSON 'ok:false' ise fail (jq varsa)
+          # JSON 'ok:false' ise fail (jq varsa kontrol)
           if command -v jq >/dev/null 2>&1; then
             OK=$(jq -r '.ok // empty' /tmp/body.json 2>/dev/null || true)
             if [ "$OK" != "true" ]; then
