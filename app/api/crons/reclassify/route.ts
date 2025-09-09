@@ -50,9 +50,9 @@ export async function GET(req: NextRequest) {
     }
 
     // 2) Params
-    const BATCH = parseInt(process.env.RECLASSIFIER_BATCH_SIZE || '200', 10);
-    const MIN_AGE_MIN = parseInt(process.env.RECLASSIFIER_MIN_AGE_MINUTES || '30', 10);
-    const COOLDOWN_H = parseInt(process.env.RECLASSIFIER_COOLDOWN_HOURS || '12', 10);
+    const BATCH = Number(process.env.RECLASSIFIER_BATCH_SIZE ?? '200');
+    const MIN_AGE_MIN = Number(process.env.RECLASSIFIER_MIN_AGE_MINUTES ?? '30');
+    const COOLDOWN_H = Number(process.env.RECLASSIFIER_COOLDOWN_HOURS ?? '12');
 
     // 3) Candidates: exclude red/black; prefer oldest updated
     const candidates = (await sql`
