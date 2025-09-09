@@ -1,94 +1,130 @@
 // app/api/_lib/feature-flags.ts
 import { sql } from '@/app/api/_lib/db';
+import { HttpError } from '@/app/api/_lib/jwt';
 
-function asBool(v: unknown, def?: boolean): boolean {
+/* -------------------------------------------------------
+ * Helpers
+ * -----------------------------------------------------*/
+
+/** Loose bool parser: "1/true/yes/on" -> true, "0/false/no/off" -> false */
+function parseBoolLoose(v: unknown, def: boolean): boolean {
   if (typeof v === 'boolean') return v;
-  if (v == null) return def ?? false;
-  const s = String(v).trim().toLowerCase();
-  if (['true', '1', 'yes', 'on'].includes(s)) return true;
-  if (['false', '0', 'no', 'off'].includes(s)) return false;
-  return def ?? false;
+  if (typeof v !== 'string') return def;
+  const s = v.trim().toLowerCase();
+  if (s === '1' || s === 'true' || s === 'yes' || s === 'on') return true;
+  if (s === '0' || s === 'false' || s === 'no' || s === 'off') return false;
+  return def;
 }
 
-export async function getConfigValue(key: string): Promise<string | null> {
-  const rows = await sql`SELECT value FROM config WHERE key = ${key} LIMIT 1`;
-  return (rows as any[])[0]?.value ?? null;
+/** Loose number parser with sane defaults */
+function parseNumberLoose(v: unknown, def: number): number {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string') {
+    const n = Number(v.trim());
+    if (Number.isFinite(n)) return n;
+  }
+  return def;
 }
 
-/** App global kill-switch (yoksa default = true) */
-export async function requireAppEnabled() {
-  // 1) DB config
-  const cfg = await getConfigValue('app_enabled');
-  // 2) ENV fallback
-  const env = cfg ?? process.env.APP_ENABLED ?? process.env.NEXT_PUBLIC_APP_ENABLED;
-  // default true: sadece açıkça false ise kapat
-  if (env != null && !asBool(env, true)) {
-    const err: any = new Error('app_disabled');
-    err.status = 503;
-    err.code = 'app_disabled';
-    throw err;
+/** Read config.value (text) from DB, fallback to null on any error */
+async function getConfigValueFromDB(key: string): Promise<string | null> {
+  try {
+    // Generic kullanmadan sorgula; sonra güvenli daralt
+    const rows = await sql`
+      SELECT value FROM config WHERE key = ${key} LIMIT 1
+    `;
+
+    const arr = rows as unknown as Array<Record<string, unknown>>;
+    const raw = arr?.[0]?.value;
+
+    if (typeof raw === 'string') return raw;
+    if (raw == null) return null;
+    // Değer başka tipteyse string'e çevir
+    return String(raw);
+  } catch {
+    // Edge/DB erişilemezse sessizce null döneriz (üst katman default kullanır)
+    return null;
   }
 }
 
-/** Claim switch (yoksa default = false) */
-export async function requireClaimOpen() {
-  // 1) DB config
-  const cfg = await getConfigValue('claim_open');
-  // 2) ENV fallback
-  const env = cfg ?? process.env.CLAIM_OPEN ?? process.env.NEXT_PUBLIC_CLAIM_OPEN;
-  const open = asBool(env, false);
-  if (!open) {
-    const err: any = new Error('claim_closed');
-    err.status = 403;
-    err.code = 'claim_closed';
-    throw err;
-  }
+async function getConfigBooleanFromDB(key: string, def: boolean): Promise<boolean> {
+  const raw = await getConfigValueFromDB(key);
+  if (raw == null) return def;
+  return parseBoolLoose(raw, def);
 }
 
-/** Havuz miktarı: config > ENV (DISTRIBUTION_POOL / MEGY_TOTAL_DISTRIBUTE) > 0 */
+async function getConfigNumberFromDB(key: string, def: number): Promise<number> {
+  const raw = await getConfigValueFromDB(key);
+  if (raw == null) return def;
+  return parseNumberLoose(raw, def);
+}
+
+/* -------------------------------------------------------
+ * App Enabled
+ * -----------------------------------------------------*/
+
+export async function isAppEnabled(): Promise<boolean> {
+  if (typeof process.env.APP_ENABLED === 'string') {
+    return parseBoolLoose(process.env.APP_ENABLED, true);
+  }
+  return await getConfigBooleanFromDB('app_enabled', true);
+}
+
+export async function requireAppEnabled(): Promise<void> {
+  const ok = await isAppEnabled();
+  if (!ok) throw new HttpError(503, 'APP_DISABLED');
+}
+
+/* -------------------------------------------------------
+ * Claim Open
+ * -----------------------------------------------------*/
+
+export async function isClaimOpen(): Promise<boolean> {
+  if (typeof process.env.CLAIM_OPEN === 'string') {
+    return parseBoolLoose(process.env.CLAIM_OPEN, false);
+  }
+  return await getConfigBooleanFromDB('claim_open', false);
+}
+
+export async function requireClaimOpen(): Promise<void> {
+  const ok = await isClaimOpen();
+  if (!ok) throw new HttpError(403, 'CLAIM_CLOSED');
+}
+
+/* -------------------------------------------------------
+ * Distribution Pool (number)
+ * -----------------------------------------------------*/
+
 export async function getDistributionPoolNumber(): Promise<number> {
-  const cfg = await getConfigValue('distribution_pool');
-  const env =
-    cfg ??
-    process.env.DISTRIBUTION_POOL ??
-    process.env.MEGY_TOTAL_DISTRIBUTE ??
-    process.env.NEXT_PUBLIC_DISTRIBUTION_POOL;
-
-  const n = Number(env);
-  if (!Number.isFinite(n) || n < 0) return 0;
-  return n;
+  if (typeof process.env.DISTRIBUTION_POOL === 'string') {
+    return parseNumberLoose(process.env.DISTRIBUTION_POOL, 0);
+  }
+  return await getConfigNumberFromDB('distribution_pool', 0);
 }
 
-/** (Opsiyonel) Admin cüzdanları: config.admin_wallets > ENV */
-export async function getAdminWallets(): Promise<string[]> {
-  const cfg = await getConfigValue('admin_wallets');
-  const env =
-    cfg ??
-    process.env.ADMIN_WALLETS ??
-    process.env.ADMIN_WALLET ??
-    process.env.NEXT_PUBLIC_ADMIN_WALLETS;
+/* -------------------------------------------------------
+ * Coincarnation Rate (number)
+ * -----------------------------------------------------*/
 
-  if (!env) return [];
-  return String(env)
-    .split(/[,\s]+/g)
-    .map(s => s.trim())
-    .filter(Boolean)
-    .map(s => s.toLowerCase());
-}
-
-export async function isAdminWallet(addr?: string | null): Promise<boolean> {
-  if (!addr) return false;
-  const list = await getAdminWallets();
-  return list.includes(addr.toLowerCase());
-}
-
-// feature-flags.ts içine ek (opsiyonel)
 export async function getCoincarnationRateNumber(): Promise<number> {
-  const cfg = await getConfigValue('coincarnation_rate');
-  const env =
-    cfg ??
-    process.env.COINCARNATION_RATE ??
-    process.env.NEXT_PUBLIC_COINCARNATION_RATE;
-  const n = Number(env);
-  return Number.isFinite(n) && n > 0 ? n : 1; // default 1 USD/MEGY
+  if (typeof process.env.COINCARNATION_RATE === 'string') {
+    return parseNumberLoose(process.env.COINCARNATION_RATE, 1);
+  }
+  return await getConfigNumberFromDB('coincarnation_rate', 1);
+}
+
+/* -------------------------------------------------------
+ * Cron Enabled
+ * -----------------------------------------------------*/
+
+export async function isCronEnabled(): Promise<boolean> {
+  if (typeof process.env.CRON_ENABLED === 'string') {
+    return parseBoolLoose(process.env.CRON_ENABLED, true);
+  }
+  return await getConfigBooleanFromDB('cron_enabled', true);
+}
+
+export async function requireCronEnabled(): Promise<void> {
+  const ok = await isCronEnabled();
+  if (!ok) throw new HttpError(503, 'CRON_DISABLED');
 }

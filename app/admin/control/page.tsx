@@ -50,7 +50,7 @@ const asBool = (v: unknown): boolean => {
   if (typeof v === 'number') return v === 1;
   if (typeof v === 'string') {
     const s = v.trim().toLowerCase();
-    return s === 'true' || s === '1';
+    return s === 'true' || s === '1' || s === 'on';
   }
   return false;
 };
@@ -65,10 +65,12 @@ export default function AdminControlPage() {
   // toggles
   const [claimOpen, setClaimOpen] = useState<boolean | null>(null);
   const [appEnabled, setAppEnabled] = useState<boolean | null>(null);
+  const [cronEnabled, setCronEnabled] = useState<boolean | null>(null);
 
   // saving flags
   const [savingClaim, setSavingClaim] = useState(false);
   const [savingApp, setSavingApp] = useState(false);
+  const [savingCron, setSavingCron] = useState(false);
   const [savingPool, setSavingPool] = useState(false);
   const [savingAdmins, setSavingAdmins] = useState(false);
   const [savingRate, setSavingRate] = useState(false);
@@ -93,6 +95,7 @@ export default function AdminControlPage() {
   const [hasAppEnabled, setHasAppEnabled] = useState(false);
   const [hasAdminsCfg, setHasAdminsCfg] = useState(false);
   const [hasRateCfg, setHasRateCfg] = useState(false);
+  const [hasCronCfg, setHasCronCfg] = useState(false);
 
   /* -------- initial load -------- */
   useEffect(() => {
@@ -124,6 +127,16 @@ export default function AdminControlPage() {
         } catch {
           setHasAppEnabled(false);
           setAppEnabled(null);
+        }
+
+        // cron_enabled (optional)
+        try {
+          const resp = await getJSON<BoolConfigResponse>('/api/admin/config/cron_enabled');
+          setCronEnabled(asBool(resp?.value));
+          setHasCronCfg(true);
+        } catch {
+          setHasCronCfg(false);
+          setCronEnabled(null);
         }
 
         // distribution_pool
@@ -194,6 +207,20 @@ export default function AdminControlPage() {
       setMsg(`❌ ${e?.message || 'App enabled save failed'}`);
     } finally {
       setSavingApp(false);
+    }
+  }
+
+  async function toggleCron(next: boolean) {
+    setMsg(null);
+    setSavingCron(true);
+    try {
+      await sendJSON('/api/admin/config/cron_enabled', 'POST', { value: String(next) });
+      setCronEnabled(next);
+      setMsg('✅ Cron enabled setting saved');
+    } catch (e: any) {
+      setMsg(`❌ ${e?.message || 'Cron enabled save failed'}`);
+    } finally {
+      setSavingCron(false);
     }
   }
 
@@ -351,6 +378,34 @@ export default function AdminControlPage() {
                   onChange={(e) => toggleApp(e.target.checked)}
                   disabled={savingApp || !hasAppEnabled}
                   title={!hasAppEnabled ? 'Endpoint not available' : undefined}
+                />
+              </label>
+            </div>
+          </section>
+
+          {/* Cron enabled toggle (optional) */}
+          <section className={CARD}>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="font-semibold">Cron Enabled</div>
+                <div className="text-xs text-white/60">
+                  Enable/disable scheduled jobs (reclassify, snapshot, etc.)
+                </div>
+                <div className="text-[11px] text-white/50 mt-1">
+                  Note: If <code>CRON_ENABLED</code> is set in ENV, it overrides this toggle.
+                </div>
+              </div>
+              <label className="inline-flex items-center gap-3" role="switch" aria-checked={!!cronEnabled}>
+                <span className="text-sm">
+                  {savingCron ? 'Saving…' : cronEnabled ? 'Enabled' : 'Disabled'}
+                </span>
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 accent-amber-500"
+                  checked={!!cronEnabled}
+                  onChange={(e) => toggleCron(e.target.checked)}
+                  disabled={savingCron || !hasCronCfg}
+                  title={!hasCronCfg ? 'Endpoint not available' : undefined}
                 />
               </label>
             </div>

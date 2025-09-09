@@ -1,11 +1,22 @@
-'use client';
+// app/profile/page.tsx  — Server Component
+import nextDynamic from 'next/dynamic';
 
-import React from 'react';
-import dynamic from 'next/dynamic';
+// Route-segment config: sayfayı her istekte dinamik çalıştır (cache yok)
+export const dynamic = 'force-dynamic';
 
-// Dinamik import: SSR hatası almamak için ClaimPanel'i client-side render eder
-const ClaimPanel = dynamic(() => import('@/components/ClaimPanel'), { ssr: false });
+const ClaimPanel = nextDynamic(() => import('@/components/ClaimPanel'), {
+  ssr: false,
+  loading: () => (
+    <p className="min-h-screen flex items-center justify-center text-blue-400">
+      ⏳ Loading your claim panel…
+    </p>
+  ),
+});
 
 export default function ProfilePage() {
-  return <ClaimPanel />;
+  return (
+    <main className="min-h-screen bg-black text-white">
+      <ClaimPanel />
+    </main>
+  );
 }

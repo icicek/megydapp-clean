@@ -1,5 +1,5 @@
 // app/api/admin/reclassify/reclassifyAll.ts
-// SQL-tabanlı "deadcoin" + "touch" akışı (default şema için tam güvenli, dinamik şema için unsafe fallback)
+// SQL-based "deadcoin" + "touch" flow (safe for default schema; dynamic schema via unsafe fallback)
 
 const BATCH_SIZE = Number(process.env.RECLASSIFIER_BATCH_SIZE ?? 50);
 const MIN_AGE_MINUTES = Number(process.env.RECLASSIFIER_MIN_AGE_MINUTES ?? 30);
@@ -12,11 +12,22 @@ const COL_STATUS = process.env.RECLASSIFIER_COL_STATUS ?? 'status';
 const COL_UPDATED_AT = process.env.RECLASSIFIER_COL_UPDATED_AT ?? 'updated_at';
 const COL_STATUS_AT = process.env.RECLASSIFIER_COL_STATUS_AT ?? 'status_at';
 
-type Sql = any;
+// Minimal SQL type to tolerate different clients (neon, pg, etc.)
+type Sql = {
+  (strings: TemplateStringsArray, ...values: any[]): Promise<any>;
+  unsafe?: (text: string) => Promise<any>;
+};
+
 const ident = (x: string) => `"${String(x).replace(/"/g, '""')}"`;
 const lit = (x: string | number | null | undefined) =>
   x === null || x === undefined ? 'NULL' : `'${String(x).replace(/'/g, "''")}'`;
-function asRows<T = any>(r: any): T[] { if (Array.isArray(r)) return r; if (r?.rows) return r.rows; return []; }
+
+// Normalize result shapes (neon returns arrays; pg may return { rows: [...] })
+function asRows<T = any>(r: any): T[] {
+  if (Array.isArray(r)) return r as T[];
+  if (r && Array.isArray(r.rows)) return r.rows as T[];
+  return [];
+}
 
 const IS_DEFAULT_SCHEMA =
   TABLE === 'token_registry' &&
@@ -26,7 +37,7 @@ const IS_DEFAULT_SCHEMA =
   COL_STATUS_AT === 'status_at';
 
 export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
-  // Meta tablolar
+  // Meta tables
   await sql/* sql */`
     CREATE TABLE IF NOT EXISTS cron_runs (
       id serial PRIMARY KEY,
@@ -46,90 +57,101 @@ export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
     );
   `;
 
-  // Cooldown
+  // Cooldown guard (skip if recent "ok" run and not forced)
   if (!opts.force) {
-    const lastOk = await sql/* sql */`
+    const lastOkRes = await sql/* sql */`
       SELECT MAX(ran_at) AS last FROM cron_runs
       WHERE note IS NULL OR note LIKE 'ok:%';
     `;
-    const last = lastOk[0]?.last;
-    if (last) {
-      const blocked = await sql/* sql */`
-        SELECT (now() - ${last}::timestamptz) < (${COOLDOWN_HOURS} * interval '1 hour') AS blocked;
+    const lastOk = asRows<{ last: string | null }>(lastOkRes)[0]?.last;
+    if (lastOk) {
+      const blockedRes = await sql/* sql */`
+        SELECT (now() - ${lastOk}::timestamptz) < (${COOLDOWN_HOURS} * interval '1 hour') AS blocked;
       `;
-      if (blocked[0]?.blocked) {
+      const blocked = asRows<{ blocked: boolean }>(blockedRes)[0]?.blocked;
+      if (blocked) {
         await sql/* sql */`INSERT INTO cron_runs (note) VALUES ('skip: cooldown');`;
-        return { skipped: true, reason: 'cooldown' };
+        return { skipped: true, reason: 'cooldown' as const };
       }
     }
   }
 
-  // Tekil çalıştırma
-  const lock = await sql/* sql */`SELECT pg_try_advisory_lock(823746) AS got;`;
-  if (!lock[0]?.got) {
+  // Single-run guard (advisory lock)
+  const lockRes = await sql/* sql */`SELECT pg_try_advisory_lock(823746) AS got;`;
+  const gotLock = asRows<{ got: boolean }>(lockRes)[0]?.got;
+  if (!gotLock) {
     await sql/* sql */`INSERT INTO cron_runs (note) VALUES ('skip: already_running');`;
-    return { skipped: true, reason: 'already_running' };
+    return { skipped: true, reason: 'already_running' as const };
   }
 
-  let processed = 0, changed = 0;
-  let metrics: any = {};
+  let processed = 0;
+  let changed = 0;
+  let metrics: Record<string, number> = {};
   try {
-    // Şema kontrolü
+    // Schema sanity check
     const colsRes = await sql/* sql */`
       SELECT column_name FROM information_schema.columns
       WHERE table_schema='public' AND table_name=${TABLE};
     `;
-    const have = new Set(asRows(colsRes).map((r: any) => r.column_name));
-    const need = [COL_MINT, COL_STATUS, COL_UPDATED_AT, COL_STATUS_AT];
-    const missing = need.filter(c => !have.has(c));
+    const haveCols = new Set(asRows<{ column_name: string }>(colsRes).map(r => r.column_name));
+    const needCols = [COL_MINT, COL_STATUS, COL_UPDATED_AT, COL_STATUS_AT];
+    const missing = needCols.filter(c => !haveCols.has(c));
     if (missing.length > 0) {
       await sql/* sql */`INSERT INTO cron_runs (note) VALUES (${`skip: schema_missing:${missing.join(',')}`});`;
-      return { skipped: true, reason: 'schema_mismatch', missing, table: TABLE, found: [...have] };
+      return { skipped: true, reason: 'schema_mismatch' as const, missing, table: TABLE, found: Array.from(haveCols) };
     }
 
-    // Metrikler
+    // Metrics (optional, helpful in logs)
     if (IS_DEFAULT_SCHEMA) {
-      const total    = (await sql/* sql */`SELECT COUNT(*)::int AS n FROM token_registry;`)[0]?.n ?? 0;
-      const eligible = (await sql/* sql */`
+      const totalRes    = await sql/* sql */`SELECT COUNT(*)::int AS n FROM token_registry;`;
+      const eligibleRes = await sql/* sql */`
         SELECT COUNT(*)::int AS n FROM token_registry
         WHERE status NOT IN ('blacklist','redlist');
-      `)[0]?.n ?? 0;
-      const stale    = (await sql/* sql */`
+      `;
+      const staleRes    = await sql/* sql */`
         SELECT COUNT(*)::int AS n FROM token_registry
         WHERE updated_at IS NULL
            OR updated_at < now() - (${MIN_AGE_MINUTES} * interval '1 minute');
-      `)[0]?.n ?? 0;
-      const both     = (await sql/* sql */`
+      `;
+      const bothRes     = await sql/* sql */`
         SELECT COUNT(*)::int AS n FROM token_registry
         WHERE status NOT IN ('blacklist','redlist')
           AND (updated_at IS NULL
                OR updated_at < now() - (${MIN_AGE_MINUTES} * interval '1 minute'));
-      `)[0]?.n ?? 0;
+      `;
+      const total    = asRows<{ n: number }>(totalRes)[0]?.n ?? 0;
+      const eligible = asRows<{ n: number }>(eligibleRes)[0]?.n ?? 0;
+      const stale    = asRows<{ n: number }>(staleRes)[0]?.n ?? 0;
+      const both     = asRows<{ n: number }>(bothRes)[0]?.n ?? 0;
       metrics = { total, eligible, stale, eligible_and_stale: both };
     } else {
-      const q = (s: string) => sql.unsafe(s);
-      const total    = asRows(await q(`SELECT COUNT(*)::int AS n FROM ${ident(TABLE)};`))[0]?.n ?? 0;
-      const eligible = asRows(await q(`
+      const q = (s: string) => sql.unsafe ? sql.unsafe(s) : sql([s] as any);
+      const totalRes    = await q(`SELECT COUNT(*)::int AS n FROM ${ident(TABLE)};`);
+      const eligibleRes = await q(`
         SELECT COUNT(*)::int AS n FROM ${ident(TABLE)}
         WHERE ${ident(COL_STATUS)} NOT IN ('blacklist','redlist');
-      `))[0]?.n ?? 0;
-      const stale    = asRows(await q(`
+      `);
+      const staleRes    = await q(`
         SELECT COUNT(*)::int AS n FROM ${ident(TABLE)}
         WHERE ${ident(COL_UPDATED_AT)} IS NULL
            OR ${ident(COL_UPDATED_AT)} < now() - (${MIN_AGE_MINUTES} * interval '1 minute');
-      `))[0]?.n ?? 0;
-      const both     = asRows(await q(`
+      `);
+      const bothRes     = await q(`
         SELECT COUNT(*)::int AS n FROM ${ident(TABLE)}
         WHERE ${ident(COL_STATUS)} NOT IN ('blacklist','redlist')
           AND (${ident(COL_UPDATED_AT)} IS NULL
                OR ${ident(COL_UPDATED_AT)} < now() - (${MIN_AGE_MINUTES} * interval '1 minute'));
-      `))[0]?.n ?? 0;
+      `);
+      const total    = asRows<{ n: number }>(totalRes)[0]?.n ?? 0;
+      const eligible = asRows<{ n: number }>(eligibleRes)[0]?.n ?? 0;
+      const stale    = asRows<{ n: number }>(staleRes)[0]?.n ?? 0;
+      const both     = asRows<{ n: number }>(bothRes)[0]?.n ?? 0;
       metrics = { total, eligible, stale, eligible_and_stale: both };
     }
 
-    // ---------- 1) DEADCOIN aşaması (SQL ile) ----------
+    // ---------- 1) DEADCOIN stage (SQL) ----------
     if (IS_DEFAULT_SCHEMA) {
-      const deadcoinRows = await sql/* sql */`
+      const deadcoinRes = await sql/* sql */`
         WITH to_dead AS (
           SELECT mint, status AS old_status
           FROM token_registry
@@ -153,10 +175,10 @@ export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
         FROM upd
         RETURNING mint;
       `;
-      changed = deadcoinRows.length;
+      changed = asRows(deadcoinRes).length;
     } else {
-      const q = (s: string) => sql.unsafe(s);
-      const deadcoinRows = asRows(await q(`
+      const q = (s: string) => sql.unsafe ? sql.unsafe(s) : sql([s] as any);
+      const deadcoinRes = await q(`
         WITH to_dead AS (
           SELECT ${ident(COL_MINT)} AS mint, ${ident(COL_STATUS)} AS old_status
           FROM ${ident(TABLE)}
@@ -179,18 +201,18 @@ export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
         SELECT mint, old_status, 'deadcoin', NULL, ${lit(`stale>${DEADCOIN_DAYS}d`)}
         FROM upd
         RETURNING mint;
-      `));
-      changed = deadcoinRows.length;
+      `);
+      changed = asRows(deadcoinRes).length;
     }
 
-    // ---------- 2) TOUCH aşaması (updated_at = now) ----------
-    // BATCH_SIZE'in aşılıp aşılmamasını dert etmiyorsan direkt ikinci bir BATCH daha dokunabilir.
-    // İstersen kalan kapasiteyi kullanmak için şu satırı aktif et:
+    // ---------- 2) TOUCH stage (updated_at = now) ----------
+    // If you don't care about exceeding BATCH_SIZE overall, you can run a full second batch.
+    // This version uses remaining capacity after deadcoin UPDATEs:
     const TOUCH_LIMIT = Math.max(0, BATCH_SIZE - changed);
 
     if (TOUCH_LIMIT > 0) {
       if (IS_DEFAULT_SCHEMA) {
-        const touchRows = await sql/* sql */`
+        const touchRes = await sql/* sql */`
           WITH to_touch AS (
             SELECT mint
             FROM token_registry
@@ -206,10 +228,10 @@ export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
           WHERE t.mint = s.mint
           RETURNING t.mint;
         `;
-        processed = changed + touchRows.length;
+        processed = changed + asRows(touchRes).length;
       } else {
-        const q = (s: string) => sql.unsafe(s);
-        const touchRows = asRows(await q(`
+        const q = (s: string) => sql.unsafe ? sql.unsafe(s) : sql([s] as any);
+        const touchRes = await q(`
           WITH to_touch AS (
             SELECT ${ident(COL_MINT)} AS mint
             FROM ${ident(TABLE)}
@@ -224,17 +246,21 @@ export async function reclassifyAll(sql: Sql, opts: { force?: boolean } = {}) {
           FROM to_touch s
           WHERE t.${ident(COL_MINT)} = s.mint
           RETURNING t.${ident(COL_MINT)} AS mint;
-        `));
-        processed = changed + touchRows.length;
+        `);
+        processed = changed + asRows(touchRes).length;
       }
     } else {
       processed = changed;
     }
-
   } finally {
     await sql/* sql */`SELECT pg_advisory_unlock(823746);`;
   }
 
   await sql/* sql */`INSERT INTO cron_runs (note) VALUES (${`ok: processed=${processed}, changed=${changed}`});`;
-  return { skipped: false, processed, changed, metrics: { ...metrics, deadcoin_days: DEADCOIN_DAYS } };
+  return {
+    skipped: false as const,
+    processed,
+    changed,
+    metrics: { ...metrics, deadcoin_days: DEADCOIN_DAYS }
+  };
 }
