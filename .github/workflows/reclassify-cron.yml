@@ -8,9 +8,6 @@ on:
         description: "Cooldown'ı bypass et (1 = evet)"
         required: false
         default: "0"
-  # Otomatik: her 15 dakikada bir
-  schedule:
-    - cron: "*/15 * * * *"
 
 concurrency:
   group: reclassify-cron
@@ -18,16 +15,16 @@ concurrency:
 
 jobs:
   call-cron-endpoint:
-    name: Call CRON endpoint
+    name: Call CRON endpoint (manual)
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # environment: production  # (gerekirse prod env/secretlarını sabitlemek için aç)
+    # environment: production  # (prod env/secretlarını sabitlemek istiyorsan aç)
 
     steps:
       - name: Resolve envs (prefer secrets, fallback to vars)
         id: prep
         env:
-          CRON_URL_SECRET: ${{ secrets.CRON_URL }}
+          CRON_URL_SECRET: ${{ secrets.CRON_URL }}   # Örn: https://<site>/api/admin/reclassify
           CRON_URL_VAR:    ${{ vars.CRON_URL }}
           CRON_SECRET_S:   ${{ secrets.CRON_SECRET }}
           CRON_SECRET_V:   ${{ vars.CRON_SECRET }}
@@ -43,8 +40,7 @@ jobs:
             echo "CRON_SECRET eksik"; exit 1;
           fi
 
-          echo "cron_url=$CRON_URL"       >> "$GITHUB_OUTPUT"
-          echo "has_secret=true"          >> "$GITHUB_OUTPUT"
+          echo "cron_url=$CRON_URL" >> "$GITHUB_OUTPUT"
 
       - name: HEAD (sanity check)
         env:
@@ -70,7 +66,7 @@ jobs:
           case "$CODE" in
             200|204|405|308) true ;;
             404) echo "Not found (bad path)"; exit 1 ;;
-            *) true ;;  # Devam: bazı edge durumlarında HEAD farklı olabilir
+            *) true ;;
           esac
 
       - name: POST (trigger endpoint)
@@ -117,7 +113,6 @@ jobs:
                 exit 0
               fi
             else
-              # jq yoksa yine de 503'te fail etmeyelim
               echo "503 received — treating as skipped."
               exit 0
             fi
