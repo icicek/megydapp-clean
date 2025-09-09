@@ -58,6 +58,48 @@ const asBool = (v: unknown): boolean => {
 const CARD =
   'rounded-2xl border border-white/10 bg-[#0b0f18] p-5 shadow-sm hover:shadow transition-shadow';
 
+/* ---------------- tiny Toggle component (accessible) ---------------- */
+type ToggleProps = {
+  checked: boolean | null;
+  onChange: (next: boolean) => void;
+  disabled?: boolean;
+  color?: 'emerald' | 'blue' | 'amber';
+  title?: string;
+};
+function Toggle({ checked, onChange, disabled, color = 'emerald', title }: ToggleProps) {
+  const isOn = !!checked;
+  const onBg =
+    color === 'blue' ? 'bg-blue-600' : color === 'amber' ? 'bg-amber-500' : 'bg-emerald-600';
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={isOn}
+      aria-disabled={disabled || undefined}
+      disabled={disabled}
+      onClick={() => !disabled && onChange(!isOn)}
+      onKeyDown={(e) => {
+        if ((e.key === ' ' || e.key === 'Enter') && !disabled) {
+          e.preventDefault();
+          onChange(!isOn);
+        }
+      }}
+      title={title}
+      className="inline-flex items-center gap-2"
+    >
+      <span
+        className={[
+          'flex h-6 w-11 rounded-full p-1 transition-colors',
+          disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
+          isOn ? `justify-end ${onBg}` : 'justify-start bg-white/10',
+        ].join(' ')}
+      >
+        <span className="h-4 w-4 rounded-full bg-white" />
+      </span>
+    </button>
+  );
+}
+
 /* ---------------- page ---------------- */
 export default function AdminControlPage() {
   const [whoami, setWhoami] = useState<string | null>(null);
@@ -149,7 +191,7 @@ export default function AdminControlPage() {
           setPool('');
         }
 
-        // coincarnation_rate (USD per 1 MEGY) — optional but recommended
+        // coincarnation_rate (USD per 1 MEGY)
         try {
           const cr = await getJSON<{ success: boolean; value: number }>(
             '/api/admin/config/coincarnation_rate'
@@ -158,7 +200,7 @@ export default function AdminControlPage() {
           setHasRateCfg(true);
         } catch {
           setHasRateCfg(false);
-          setRate(''); // visible, but saving will be disabled
+          setRate('');
         }
 
         // admins (optional)
@@ -184,7 +226,7 @@ export default function AdminControlPage() {
     setSavingClaim(true);
     try {
       await sendJSON('/api/admin/config/claim_open', 'POST', {
-        wallet: whoami, // backend may ignore this if it uses server-side admin check
+        wallet: whoami,
         value: String(next),
       });
       setClaimOpen(next);
@@ -339,22 +381,19 @@ export default function AdminControlPage() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <div className="font-semibold">Claim Panel</div>
-                <div className="text-xs text-white/60">
-                  Enable/disable public claiming
-                </div>
+                <div className="text-xs text-white/60">Enable/disable public claiming</div>
               </div>
-              <label className="inline-flex items-center gap-3" role="switch" aria-checked={!!claimOpen}>
-                <span className="text-sm">
-                  {savingClaim ? 'Saving…' : claimOpen ? 'Open' : 'Closed'}
+              <div className="flex items-center gap-3">
+                <span className="text-sm min-w-[64px] text-right">
+                  {savingClaim ? 'Saving…' : claimOpen ? 'Açık' : 'Kapalı'}
                 </span>
-                <input
-                  type="checkbox"
-                  className="h-5 w-5 accent-emerald-500"
+                <Toggle
                   checked={!!claimOpen}
-                  onChange={(e) => toggleClaim(e.target.checked)}
+                  onChange={(v) => toggleClaim(v)}
                   disabled={savingClaim}
+                  color="emerald"
                 />
-              </label>
+              </div>
             </div>
           </section>
 
@@ -363,23 +402,20 @@ export default function AdminControlPage() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <div className="font-semibold">App Enabled</div>
-                <div className="text-xs text-white/60">
-                  Global kill-switch for write operations
-                </div>
+                <div className="text-xs text-white/60">Global kill-switch for write operations</div>
               </div>
-              <label className="inline-flex items-center gap-3" role="switch" aria-checked={!!appEnabled}>
-                <span className="text-sm">
-                  {savingApp ? 'Saving…' : appEnabled ? 'Enabled' : 'Disabled'}
+              <div className="flex items-center gap-3">
+                <span className="text-sm min-w-[64px] text-right">
+                  {savingApp ? 'Saving…' : appEnabled ? 'Açık' : 'Kapalı'}
                 </span>
-                <input
-                  type="checkbox"
-                  className="h-5 w-5 accent-blue-500"
+                <Toggle
                   checked={!!appEnabled}
-                  onChange={(e) => toggleApp(e.target.checked)}
+                  onChange={(v) => toggleApp(v)}
                   disabled={savingApp || !hasAppEnabled}
+                  color="blue"
                   title={!hasAppEnabled ? 'Endpoint not available' : undefined}
                 />
-              </label>
+              </div>
             </div>
           </section>
 
@@ -389,25 +425,24 @@ export default function AdminControlPage() {
               <div>
                 <div className="font-semibold">Cron Enabled</div>
                 <div className="text-xs text-white/60">
-                  Enable/disable scheduled jobs (reclassify, snapshot, etc.)
+                  Reclassify / snapshot gibi zamanlanmış işleri aç/kapat
                 </div>
                 <div className="text-[11px] text-white/50 mt-1">
-                  Note: If <code>CRON_ENABLED</code> is set in ENV, it overrides this toggle.
+                  Not: <code>CRON_ENABLED</code> ENV set edilmişse bu toggle’ı override eder.
                 </div>
               </div>
-              <label className="inline-flex items-center gap-3" role="switch" aria-checked={!!cronEnabled}>
-                <span className="text-sm">
-                  {savingCron ? 'Saving…' : cronEnabled ? 'Enabled' : 'Disabled'}
+              <div className="flex items-center gap-3">
+                <span className="text-sm min-w-[64px] text-right">
+                  {savingCron ? 'Saving…' : cronEnabled ? 'Açık' : 'Kapalı'}
                 </span>
-                <input
-                  type="checkbox"
-                  className="h-5 w-5 accent-amber-500"
+                <Toggle
                   checked={!!cronEnabled}
-                  onChange={(e) => toggleCron(e.target.checked)}
+                  onChange={(v) => toggleCron(v)}
                   disabled={savingCron || !hasCronCfg}
+                  color="amber"
                   title={!hasCronCfg ? 'Endpoint not available' : undefined}
                 />
-              </label>
+              </div>
             </div>
           </section>
 
