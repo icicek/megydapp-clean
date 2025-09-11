@@ -1,7 +1,7 @@
 // app/api/utils/getUsdValue.ts
-// Fast & robust SPL pricing with dynamic source order.
-// Default order (best for Solana): jupiter,raydium,coingecko,cmc
-// Override via env: PRICE_SOURCE_ORDER="coingecko,raydium,jupiter,cmc"
+// Fast & robust SPL pricing with SOL/WSOL normalization.
+// Default source order (best for Solana): jupiter -> raydium -> coingecko -> cmc
+// You can override via env: PRICE_SOURCE_ORDER="coingecko,raydium,jupiter,cmc"
 
 export type PriceResult = {
   usdValue: number;
@@ -10,11 +10,13 @@ export type PriceResult = {
   error?: string;
 };
 
-const NATIVE_MINT = 'So11111111111111111111111111111111111111112';
+const NATIVE_MINT = 'So11111111111111111111111111111111111111112'; // WSOL
+const SYSTEM_PROGRAM = '11111111111111111111111111111111';
 
-// --- tiny in-memory TTL cache (per lambda instance) ---
+// ---------- tiny in-memory TTL cache (per lambda instance) ----------
 type CacheEntry = { price: number; source: string; expires: number };
 const cache = new Map<string, CacheEntry>();
+
 function getFromCache(mint: string): CacheEntry | null {
   const c = cache.get(mint);
   if (c && c.expires > Date.now()) return c;
@@ -22,22 +24,24 @@ function getFromCache(mint: string): CacheEntry | null {
   return null;
 }
 function setCache(mint: string, price: number, source: string) {
-  // lower TTL for SOL, moderate for others
-  const ttl = mint === NATIVE_MINT ? 60_000 : 120_000; // 60s / 120s
-  cache.set(mint, { price, source, expires: Date.now() + ttl });
+  // Lower TTL for SOL/WSOL; moderate for others
+  const ttlMs = mint === NATIVE_MINT ? 60_000 : 120_000; // 60s / 120s
+  cache.set(mint, { price, source, expires: Date.now() + ttlMs });
 }
 
-// --- helpers ---
-async function fetchJSON<T>(url: string, timeoutMs: number, headers: Record<string,string> = {}): Promise<T> {
-  const res = await fetch(url, { signal: (AbortSignal as any).timeout(timeoutMs), headers: { accept: 'application/json', ...headers } });
+// ----------------------------- helpers ------------------------------
+async function fetchJSON<T>(url: string, timeoutMs: number, headers: Record<string, string> = {}): Promise<T> {
+  const res = await fetch(url, {
+    signal: (AbortSignal as any).timeout(timeoutMs),
+    headers: { accept: 'application/json', ...headers },
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
   return (await res.json()) as T;
 }
 
-// ---- Sources ----
-
-// 1) Jupiter v3 (lite) — fastest/most reliable on Solana
+// ----------------------------- sources ------------------------------
 async function jupiterV3Price(mint: string, timeoutMs = 1200): Promise<number> {
+  // https://lite-api.jup.ag/price/v3?ids=<mint>
   const url = `https://lite-api.jup.ag/price/v3?ids=${encodeURIComponent(mint)}`;
   const data: any = await fetchJSON<any>(url, timeoutMs);
   const p = data?.[mint]?.usdPrice;
@@ -45,8 +49,8 @@ async function jupiterV3Price(mint: string, timeoutMs = 1200): Promise<number> {
   return p;
 }
 
-// 2) Raydium v3
 async function raydiumV3Price(mint: string, timeoutMs = 1600): Promise<number> {
+  // https://api-v3.raydium.io/mint/price?mints=<mint>
   const url = `https://api-v3.raydium.io/mint/price?mints=${encodeURIComponent(mint)}`;
   const data: any = await fetchJSON<any>(url, timeoutMs);
   const raw = data?.data?.[mint] ?? data?.[mint];
@@ -55,9 +59,8 @@ async function raydiumV3Price(mint: string, timeoutMs = 1600): Promise<number> {
   return p;
 }
 
-// 3) CoinGecko (contract on Solana)
-// Note: public endpoint, keep tight timeout.
 async function coingeckoPrice(mint: string, timeoutMs = 1800): Promise<number> {
+  // public endpoint; keep tight timeout
   const url = `https://api.coingecko.com/api/v3/coins/solana/contract/${encodeURIComponent(mint)}`;
   const data: any = await fetchJSON<any>(url, timeoutMs);
   const p = data?.market_data?.current_price?.usd;
@@ -65,21 +68,19 @@ async function coingeckoPrice(mint: string, timeoutMs = 1800): Promise<number> {
   return p;
 }
 
-// 4) CoinMarketCap (contract) — requires API key
 async function cmcPrice(mint: string, timeoutMs = 1800): Promise<number> {
   const key = process.env.CMC_API_KEY;
   if (!key) throw new Error('CMC_API_KEY missing');
-  // address lookup for Solana:
+  // Address (platform) lookup for Solana
   const url = `https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?address=${encodeURIComponent(mint)}&aux=platform`;
   const data: any = await fetchJSON<any>(url, timeoutMs, { 'X-CMC_PRO_API_KEY': key });
-  // response can be keyed by ID; find first item with a quote
   const first = Object.values(data?.data || {}).find((x: any) => x?.quote?.USD?.price);
   const p = (first as any)?.quote?.USD?.price;
   if (typeof p !== 'number' || !isFinite(p)) throw new Error('No price from cmc');
   return p;
 }
 
-// dynamic source order
+// ---------------------- dynamic source ordering ---------------------
 function parseOrder(): string[] {
   const env = (process.env.PRICE_SOURCE_ORDER || '').trim();
   if (!env) return ['jupiter', 'raydium', 'coingecko', 'cmc'];
@@ -91,7 +92,6 @@ function getOrderForMint(mint: string): string[] {
   const base = parseOrder();
   if (mint === NATIVE_MINT) {
     const seen = new Set<string>();
-    // ensure jupiter at front
     return ['jupiter', ...base].filter(s => (seen.has(s) ? false : (seen.add(s), true)));
   }
   return base;
@@ -107,34 +107,49 @@ async function runSource(name: string, mint: string): Promise<{ name: string; pr
   }
 }
 
+// ------------------------------ main --------------------------------
 export default async function getUsdValue(
-  args: { mint: string; amount?: number } | string,
+  args: { mint: string; amount?: number; symbol?: string } | string,
   maybeAmount?: number
 ): Promise<PriceResult> {
-  const mint = typeof args === 'string' ? args : args.mint;
+  // Support both signatures: ({ mint, amount, symbol? }) OR (mint, amount)
+  let mint = typeof args === 'string' ? args : args.mint;
+  const symbol = (typeof args === 'string' ? undefined : (args as any).symbol) || undefined;
   const amount = typeof args === 'string' ? (maybeAmount ?? 1) : (args.amount ?? 1);
+
+  // --- NORMALIZATION: treat SOL/WSOL/SystemProgram/empty as WSOL (NATIVE_MINT)
+  const mintU = (mint || '').trim().toUpperCase();
+  const symU  = (symbol || '').trim().toUpperCase();
+  if (
+    !mint ||
+    mint === SYSTEM_PROGRAM ||
+    mintU === 'SOL' || mintU === 'WSOL' ||
+    symU  === 'SOL' || symU  === 'WSOL'
+  ) {
+    mint = NATIVE_MINT;
+  }
 
   const sources: Array<{ source: string; price: number }> = [];
   if (!mint) return { usdValue: 0, sources, status: 'error', error: 'mint is required' };
 
-  // cache hit?
+  // cache
   const c = getFromCache(mint);
   if (c) {
     sources.push({ source: `${c.source}(cache)`, price: c.price });
     return { usdValue: c.price * amount, sources, status: 'found' };
   }
 
-  // fast-path for WSOL
+  // WSOL fast-path
   if (mint === NATIVE_MINT) {
     try {
       const p = await jupiterV3Price(mint, 1200);
       setCache(mint, p, 'jupiter');
       sources.push({ source: 'jupiter', price: p });
       return { usdValue: p * amount, sources, status: 'found' };
-    } catch { /* fallthrough */ }
+    } catch { /* fallthrough to general order */ }
   }
 
-  // sequential short-circuit
+  // Sequential short-circuit by order
   const order = getOrderForMint(mint);
   for (const src of order) {
     try {
@@ -142,7 +157,9 @@ export default async function getUsdValue(
       setCache(mint, price, name);
       sources.push({ source: name, price });
       return { usdValue: price * amount, sources, status: 'found' };
-    } catch { /* try next */ }
+    } catch {
+      // try next
+    }
   }
 
   return { usdValue: 0, sources, status: 'not_found', error: 'all sources failed' };
