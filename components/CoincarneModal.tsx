@@ -1,5 +1,5 @@
 // components/CoincarneModal.tsx
-"use client";
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -20,9 +20,10 @@ import CoincarnationResult from '@/components/CoincarnationResult';
 import ConfirmModal from '@/components/ConfirmModal';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 import { TokenCategory } from '@/app/api/utils/classifyToken';
-import { isValuableAsset, isStablecoin } from '@/app/api/utils/isValuableAsset';
-import getUsdValueFast from '@/app/api/utils/getUsdValueFast';
 import { checkTokenLiquidityAndVolume } from '@/app/api/utils/checkTokenLiquidityAndVolume';
+
+const WSOL_MINT = 'So11111111111111111111111111111111111111112';
+const COINCARNATION_DEST = new PublicKey('HPBNVF9ATsnkDhGmQB4xoLC5tWBWQbTyBjsiQAN3dYXH');
 
 interface TokenInfo {
   mint: string;
@@ -38,7 +39,11 @@ interface CoincarneModalProps {
   onGoToProfileRequest?: () => void;
 }
 
-const COINCARNATION_DEST = new PublicKey('HPBNVF9ATsnkDhGmQB4xoLC5tWBWQbTyBjsiQAN3dYXH');
+type PriceView = {
+  fetchStatus: 'loading' | 'found' | 'not_found' | 'error';
+  usdValue: number; // toplam (unit * amount)
+  priceSources: { price: number; source: string }[];
+};
 
 export default function CoincarneModal({
   token,
@@ -54,29 +59,22 @@ export default function CoincarneModal({
   const [resultData, setResultData] = useState<{ tokenFrom: string; number: number; imageUrl: string } | null>(null);
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [usdValue, setUsdValue] = useState(0);
-  const [priceSources, setPriceSources] = useState<{ price: number; source: string }[]>([]);
-  const [isValuable, setIsValuable] = useState(false);
+  const [priceView, setPriceView] = useState<PriceView>({ fetchStatus: 'loading', usdValue: 0, priceSources: [] });
   const [tokenCategory, setTokenCategory] = useState<TokenCategory | null>(null);
   const [priceStatus, setPriceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [fetchStatus, setFetchStatus] = useState<'loading' | 'found' | 'not_found' | 'error'>('loading');
 
   // ---------- Symbol handling (props mutate ETME) ----------
   const [symbol, setSymbol] = useState<string | undefined>(token.symbol);
   useEffect(() => {
-    // token değiştiğinde sembol state'ini senkronla
     setSymbol(token.symbol);
   }, [token.mint, token.symbol]);
 
   useEffect(() => {
-    // sembol yoksa metadata'dan çek
     let abort = false;
     if (!symbol) {
       fetchTokenMetadata(token.mint)
-        .then(meta => {
-          if (!abort && meta?.symbol) setSymbol(meta.symbol);
-        })
-        .catch(() => { /* sessiz geç */ });
+        .then(meta => { if (!abort && meta?.symbol) setSymbol(meta.symbol); })
+        .catch(() => {});
     }
     return () => { abort = true; };
   }, [token.mint, symbol]);
@@ -84,7 +82,7 @@ export default function CoincarneModal({
   const displaySymbol = symbol ?? token.mint.slice(0, 4);
   const isSOLToken = token.mint === 'SOL' || symbol?.toUpperCase() === 'SOL';
 
-  // ---------- Prepare confirm (fast price → open modal) ----------
+  // ---------- Prepare confirm (robust price → open modal) ----------
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
@@ -92,35 +90,55 @@ export default function CoincarneModal({
 
     try {
       setLoading(true);
+      setPriceStatus('loading');
+      setPriceView({ fetchStatus: 'loading', usdValue: 0, priceSources: [] });
 
-      // 1) Hızlı fiyat
-      const fastPrice = await getUsdValueFast(token, amountToSend);
+      // Normalize mint: SOL → WSOL
+      const mint = isSOLToken ? WSOL_MINT : token.mint;
 
-      if (fastPrice.status === 'found' && fastPrice.usdValue > 0) {
-        setUsdValue(fastPrice.usdValue);
-        setPriceSources(fastPrice.sources || []);
-        const unitPrice = fastPrice.usdValue / amountToSend;
-        setIsValuable(isValuableAsset(unitPrice) || isStablecoin(unitPrice));
-        setFetchStatus('found');
-        setPriceStatus('ready');
-        setTokenCategory((prev) => prev ?? 'healthy'); // UI bilgilendirme için
+      const qs = new URLSearchParams({ mint, amount: String(amountToSend) });
+      const res = await fetch(`/api/proxy/price?${qs.toString()}`, { cache: 'no-store' });
+      const json = await res.json();
+
+      const ok = !!json?.ok || !!json?.success;
+      if (!ok) {
+        setPriceView({
+          fetchStatus: json?.status === 'not_found' ? 'not_found' : 'error',
+          usdValue: 0,
+          priceSources: [],
+        });
+        setTokenCategory('deadcoin'); // UI mesajları için
         setConfirmModalOpen(true);
-      } else {
-        // fiyat yok/0 → deadcoin akışı (oylama açık)
-        setUsdValue(0);
-        setPriceSources(fastPrice.sources ?? []);
-        setFetchStatus('found');   // modal açılabilsin
         setPriceStatus('ready');
-        setTokenCategory('deadcoin');
-        setConfirmModalOpen(true);
+        return;
       }
 
-      // Not: LV çağrısı burada YOK; post-tx'e taşıdık.
+      // unit → total
+      const unit = Number(json?.priceUsd ?? 0);
+      const summed = Number(json?.usdValue ?? 0);
+      const total = summed > 0 ? summed : unit * amountToSend;
 
+      // sources (yoksa tekil kaynaktan inşa et)
+      const sources: { price: number; source: string }[] =
+        Array.isArray(json?.sources) && json.sources.length
+          ? json.sources
+          : unit > 0 && json?.source
+          ? [{ source: String(json.source), price: unit }]
+          : [];
+
+      setPriceView({
+        fetchStatus: 'found',
+        usdValue: Number.isFinite(total) ? total : 0,
+        priceSources: sources,
+      });
+      setTokenCategory(prev => prev ?? 'healthy');
+      setConfirmModalOpen(true);
+      setPriceStatus('ready');
     } catch (err) {
       console.error('❌ Error preparing confirmation:', err);
-      setFetchStatus('error');
+      setPriceView({ fetchStatus: 'error', usdValue: 0, priceSources: [] });
       setPriceStatus('error');
+      setConfirmModalOpen(true);
     } finally {
       setLoading(false);
     }
@@ -156,20 +174,18 @@ export default function CoincarneModal({
         const adjustedAmount = Math.floor(amountToSend * Math.pow(10, decimals));
 
         const ixs: any[] = [];
-        // Hedef ATA mevcut değilse, aynı tx içinde oluştur
         const toAtaInfo = await connection.getAccountInfo(toATA);
         if (!toAtaInfo) {
           ixs.push(
             createAssociatedTokenAccountInstruction(
-              publicKey,           // payer
-              toATA,               // ata address
-              COINCARNATION_DEST,  // owner of ATA
+              publicKey,
+              toATA,
+              COINCARNATION_DEST,
               mint
             )
           );
         }
         ixs.push(createTransferInstruction(fromATA, toATA, publicKey, adjustedAmount));
-
         const tx = new Transaction().add(...ixs);
         signature = await sendTransaction(tx, connection);
       }
@@ -184,7 +200,7 @@ export default function CoincarneModal({
           token_contract: token.mint,
           network: 'solana',
           token_amount: amountToSend,
-          usd_value: usdValue,
+          usd_value: priceView.usdValue, // toplam USD
           transaction_signature: signature,
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
           token_category: tokenCategory ?? 'unknown',
@@ -201,7 +217,7 @@ export default function CoincarneModal({
       setConfirmModalOpen(false);
       if (refetchTokens) refetchTokens();
 
-      // 🔁 Kayıttan hemen sonra L/V kontrolünü arkaya at (kullanıcıyı bekletme)
+      // 🔁 L/V kontrolünü arkaya at
       try {
         checkTokenLiquidityAndVolume(token)
           .then(({ volume, liquidity, category }) => {
@@ -242,15 +258,14 @@ export default function CoincarneModal({
           isOpen={confirmModalOpen}
           onCancel={() => setConfirmModalOpen(false)}
           onConfirm={handleSend}
-          usdValue={usdValue}
+          usdValue={priceView.usdValue}
           tokenSymbol={displaySymbol}
           amount={parseFloat(amountInput)}
           tokenCategory={tokenCategory}
-          priceSources={priceSources}
-          fetchStatus={fetchStatus}
-          tokenMint={token.mint}               // ✅ deadcoin oylaması için mint gönder
+          priceSources={priceView.priceSources}
+          fetchStatus={priceView.fetchStatus}
+          tokenMint={isSOLToken ? WSOL_MINT : token.mint}   // ✅ normalize mint
           currentWallet={publicKey?.toBase58() ?? null}
-          // Oy çağrısını ConfirmModal'a bırakıyoruz (çift gönderim olmasın diye no-op)
           onDeadcoinVote={() => {}}
         />
       )}
