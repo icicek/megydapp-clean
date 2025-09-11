@@ -1,7 +1,8 @@
 {
-    "$schema": "https://openapi.vercel.sh/vercel.json",
-    "crons": [
-      { "path": "/api/crons/reclassify", "schedule": "*/15 * * * *" }
-    ]
-  }
-  
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/_crons/reclassify", "destination": "/api/crons/reclassify" },
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/((?!api|_next|favicon.ico).*)", "destination": "/" }
+  ]
+}
