@@ -1,177 +1,149 @@
 // app/api/utils/getUsdValue.ts
-import { fetchPriceProxy } from './fetchPriceProxy';
-import { fetchRaydiumPrice } from './fetchPriceFromRaydium';
-import { fetchJupiterPrice } from './fetchPriceFromJupiter';
-import { fetchCMCPrice } from './fetchPriceFromCMC';
+// Fast & robust SPL pricing with dynamic source order.
+// Default order (best for Solana): jupiter,raydium,coingecko,cmc
+// Override via env: PRICE_SOURCE_ORDER="coingecko,raydium,jupiter,cmc"
 
-interface TokenInfo {
-  mint: string;
-  symbol?: string;
-}
-
-interface PriceSource {
-  price: number;
-  source: string;
-}
-
-export interface PriceResult {
+export type PriceResult = {
   usdValue: number;
-  sources: PriceSource[];
-  status: 'found' | 'not_found' | 'loading' | 'error';
+  sources: Array<{ source: string; price: number }>;
+  status: 'found' | 'not_found' | 'error';
+  error?: string;
+};
+
+const NATIVE_MINT = 'So11111111111111111111111111111111111111112';
+
+// --- tiny in-memory TTL cache (per lambda instance) ---
+type CacheEntry = { price: number; source: string; expires: number };
+const cache = new Map<string, CacheEntry>();
+function getFromCache(mint: string): CacheEntry | null {
+  const c = cache.get(mint);
+  if (c && c.expires > Date.now()) return c;
+  if (c) cache.delete(mint);
+  return null;
+}
+function setCache(mint: string, price: number, source: string) {
+  // lower TTL for SOL, moderate for others
+  const ttl = mint === NATIVE_MINT ? 60_000 : 120_000; // 60s / 120s
+  cache.set(mint, { price, source, expires: Date.now() + ttl });
 }
 
-/* -------------------- Normalize helpers (SOL→WSOL, alias→canonical) -------------------- */
-const WSOL_MINT = 'So11111111111111111111111111111111111111112';
+// --- helpers ---
+async function fetchJSON<T>(url: string, timeoutMs: number, headers: Record<string,string> = {}): Promise<T> {
+  const res = await fetch(url, { signal: (AbortSignal as any).timeout(timeoutMs), headers: { accept: 'application/json', ...headers } });
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+  return (await res.json()) as T;
+}
 
-const isMintLike = (x: string) =>
-  typeof x === 'string' &&
-  x.length >= 32 &&
-  x.length <= 64 &&
-  /^[1-9A-HJ-NP-Za-km-z]+$/.test(x);
+// ---- Sources ----
 
-async function normalizeInput(mint: string, symbol?: string): Promise<string> {
-  const raw = (mint || symbol || '').trim();
-  if (!raw) return raw;
+// 1) Jupiter v3 (lite) — fastest/most reliable on Solana
+async function jupiterV3Price(mint: string, timeoutMs = 1200): Promise<number> {
+  const url = `https://lite-api.jup.ag/price/v3?ids=${encodeURIComponent(mint)}`;
+  const data: any = await fetchJSON<any>(url, timeoutMs);
+  const p = data?.[mint]?.usdPrice;
+  if (typeof p !== 'number' || !isFinite(p)) throw new Error('No price from jupiter');
+  return p;
+}
 
-  // 1) SOL özel durumu → WSOL mint
-  if (raw.toUpperCase() === 'SOL' || raw === WSOL_MINT) return WSOL_MINT;
+// 2) Raydium v3
+async function raydiumV3Price(mint: string, timeoutMs = 1600): Promise<number> {
+  const url = `https://api-v3.raydium.io/mint/price?mints=${encodeURIComponent(mint)}`;
+  const data: any = await fetchJSON<any>(url, timeoutMs);
+  const raw = data?.data?.[mint] ?? data?.[mint];
+  const p = typeof raw === 'number' ? raw : Number(raw);
+  if (!p || !isFinite(p)) throw new Error('No price from raydium');
+  return p;
+}
 
-  // 2) Base58 mint gibi görünüyorsa (SPL) → dokunma
-  if (isMintLike(raw)) return raw;
+// 3) CoinGecko (contract on Solana)
+// Note: public endpoint, keep tight timeout.
+async function coingeckoPrice(mint: string, timeoutMs = 1800): Promise<number> {
+  const url = `https://api.coingecko.com/api/v3/coins/solana/contract/${encodeURIComponent(mint)}`;
+  const data: any = await fetchJSON<any>(url, timeoutMs);
+  const p = data?.market_data?.current_price?.usd;
+  if (typeof p !== 'number' || !isFinite(p)) throw new Error('No price from coingecko');
+  return p;
+}
 
-  // 3) Alias/sembol ise kanonik mint'e çözmeyi dene (varsa)
-  try {
-    // Bu modül projende mevcutsa kanonik çözümler; yoksa try/catch yutar, sorun olmaz.
-    const mod: any = await import('@/app/api/_lib/aliases');
-    if (typeof mod?.getCanonicalMint === 'function') {
-      const a = await mod.getCanonicalMint(raw);
-      if (a) return a;
-    }
-  } catch {
-    /* ignore */
+// 4) CoinMarketCap (contract) — requires API key
+async function cmcPrice(mint: string, timeoutMs = 1800): Promise<number> {
+  const key = process.env.CMC_API_KEY;
+  if (!key) throw new Error('CMC_API_KEY missing');
+  // address lookup for Solana:
+  const url = `https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?address=${encodeURIComponent(mint)}&aux=platform`;
+  const data: any = await fetchJSON<any>(url, timeoutMs, { 'X-CMC_PRO_API_KEY': key });
+  // response can be keyed by ID; find first item with a quote
+  const first = Object.values(data?.data || {}).find((x: any) => x?.quote?.USD?.price);
+  const p = (first as any)?.quote?.USD?.price;
+  if (typeof p !== 'number' || !isFinite(p)) throw new Error('No price from cmc');
+  return p;
+}
+
+// dynamic source order
+function parseOrder(): string[] {
+  const env = (process.env.PRICE_SOURCE_ORDER || '').trim();
+  if (!env) return ['jupiter', 'raydium', 'coingecko', 'cmc'];
+  return env.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+}
+
+// For SOL/WSOL we always try Jupiter first (fast-path), regardless of env order.
+function getOrderForMint(mint: string): string[] {
+  const base = parseOrder();
+  if (mint === NATIVE_MINT) {
+    const seen = new Set<string>();
+    // ensure jupiter at front
+    return ['jupiter', ...base].filter(s => (seen.has(s) ? false : (seen.add(s), true)));
   }
-
-  return raw;
+  return base;
 }
 
-/* --------------------------------- Caching & timing ---------------------------------- */
-const priceCache = new Map<string, { price: number; source: string; timestamp: number }>();
-const CACHE_TTL = 1000 * 60 * 5; // 5 dakika
-const TIMEOUT_MS = 2000; // Her kaynak için maksimum bekleme süresi (agresif ayarını koruduk)
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      console.warn('🕒 Request timed out after', ms, 'ms');
-      reject(new Error('Timeout'));
-    }, ms);
-
-    promise
-      .then((res) => {
-        clearTimeout(timeout);
-        console.log('✅ Price source responded');
-        resolve(res);
-      })
-      .catch((err) => {
-        clearTimeout(timeout);
-        console.warn('❌ Price fetch failed:', (err as any)?.message || String(err));
-        reject(err);
-      });
-  });
-}
-
-/* ---------------------------- Jupiter SOL id fallback helper -------------------------- */
-async function fetchJupiterSOLById(): Promise<number | null> {
-  try {
-    const u = new URL('https://price.jup.ag/v6/price');
-    u.searchParams.set('ids', 'SOL');
-    const r = await fetch(u, { method: 'GET', cache: 'no-store' });
-    if (!r.ok) return null;
-    const j: any = await r.json().catch(() => null);
-    const p = j?.data?.SOL?.price;
-    const n = typeof p === 'number' ? p : Number(p);
-    return n && n > 0 && Number.isFinite(n) ? n : null;
-  } catch {
-    return null;
+async function runSource(name: string, mint: string): Promise<{ name: string; price: number }> {
+  switch (name) {
+    case 'jupiter':   return { name, price: await jupiterV3Price(mint) };
+    case 'raydium':   return { name, price: await raydiumV3Price(mint) };
+    case 'coingecko': return { name, price: await coingeckoPrice(mint) };
+    case 'cmc':       return { name, price: await cmcPrice(mint) };
+    default: throw new Error(`unknown source: ${name}`);
   }
 }
 
-/* ------------------------------------- Main ------------------------------------------- */
 export default async function getUsdValue(
-  token: TokenInfo,
-  amount: number
+  args: { mint: string; amount?: number } | string,
+  maybeAmount?: number
 ): Promise<PriceResult> {
-  console.log('⏳ Starting price fetch for', token.symbol || token.mint);
+  const mint = typeof args === 'string' ? args : args.mint;
+  const amount = typeof args === 'string' ? (maybeAmount ?? 1) : (args.amount ?? 1);
 
-  // ✅ 1) Girdiyi normalize et (SOL→WSOL, alias→canonical)
-  const canon = await normalizeInput(token.mint, token.symbol);
-  const key = canon || (token.symbol || '').trim().toUpperCase();
-  const now = Date.now();
+  const sources: Array<{ source: string; price: number }> = [];
+  if (!mint) return { usdValue: 0, sources, status: 'error', error: 'mint is required' };
 
-  // ✅ 2) Cache (pozitif)
-  const cached = priceCache.get(key);
-  if (cached && now - cached.timestamp < CACHE_TTL) {
-    console.log('⚡ Returning cached price for', token.symbol || canon);
-    return {
-      usdValue: cached.price * amount,
-      sources: [{ price: cached.price, source: cached.source }],
-      status: 'found',
-    };
+  // cache hit?
+  const c = getFromCache(mint);
+  if (c) {
+    sources.push({ source: `${c.source}(cache)`, price: c.price });
+    return { usdValue: c.price * amount, sources, status: 'found' };
   }
 
-  // ✅ 3) Kaynakları sırayla (mevcut mimariyi bozmadan) dene — ama normalize edilmiş mint ile
-  const sources = [
-    { fn: fetchPriceProxy, name: 'coingecko' },
-    { fn: fetchRaydiumPrice, name: 'raydium' },
-    { fn: fetchJupiterPrice, name: 'jupiter' },
-    { fn: fetchCMCPrice, name: 'cmc' },
-  ];
-
-  for (const { fn, name } of sources) {
+  // fast-path for WSOL
+  if (mint === NATIVE_MINT) {
     try {
-      console.log(`🌐 Trying ${name}...`);
-      const price = await withTimeout(
-        fn({ mint: canon, symbol: token.symbol }),
-        TIMEOUT_MS
-      );
-      if (price && price > 0) {
-        console.log(`✅ ${name} returned price: $${price}`);
-        priceCache.set(key, { price, source: name, timestamp: now });
-        return {
-          usdValue: price * amount,
-          sources: [{ price, source: name }],
-          status: 'found',
-        };
-      } else {
-        console.warn(`⚠️ ${name} returned zero or invalid price`);
-      }
-    } catch (err: any) {
-      console.warn(`🚫 ${name} failed:`, err?.message || String(err));
-    }
+      const p = await jupiterV3Price(mint, 1200);
+      setCache(mint, p, 'jupiter');
+      sources.push({ source: 'jupiter', price: p });
+      return { usdValue: p * amount, sources, status: 'found' };
+    } catch { /* fallthrough */ }
   }
 
-  // ✅ 4) SOL için son çare: Jupiter ids=SOL fallback
-  if (canon === WSOL_MINT || (token.symbol || '').toUpperCase() === 'SOL') {
+  // sequential short-circuit
+  const order = getOrderForMint(mint);
+  for (const src of order) {
     try {
-      console.log('🛟 Fallback: jupiter ids=SOL');
-      const solPx = await withTimeout(fetchJupiterSOLById(), TIMEOUT_MS);
-      if (solPx && solPx > 0) {
-        priceCache.set(key, { price: solPx, source: 'jupiter-sol', timestamp: now });
-        return {
-          usdValue: solPx * amount,
-          sources: [{ price: solPx, source: 'jupiter-sol' }],
-          status: 'found',
-        };
-      }
-    } catch (e) {
-      console.warn('🚫 jupiter-sol fallback failed');
-    }
+      const { price, name } = await runSource(src, mint);
+      setCache(mint, price, name);
+      sources.push({ source: name, price });
+      return { usdValue: price * amount, sources, status: 'found' };
+    } catch { /* try next */ }
   }
 
-  console.warn('❌ No price source returned a valid result');
-  return {
-    usdValue: 0,
-    sources: [],
-    status: 'not_found',
-  };
+  return { usdValue: 0, sources, status: 'not_found', error: 'all sources failed' };
 }
