@@ -60,21 +60,22 @@ export default async function classifyToken(token: TokenInfo, amount: number): P
   }
 
   // 2️⃣ Fiyat sorgusu
-  const priceResult = await getUsdValue(token, amount);
+  const priceResult = await getUsdValue(token as any, amount);
 
-  if (priceResult.status === 'loading') {
+  // ❗Yeni mantık: getUsdValue artık 'loading' döndürmüyor
+  if (priceResult.status === 'error') {
     return {
       category: 'unknown',
       usdValue: 0,
-      priceSources: [],
+      priceSources: priceResult.sources || [],
       volume: null,
       liquidity: null,
-      status: 'loading',
+      status: 'error',
     };
   }
 
   if (priceResult.status === 'not_found' || priceResult.usdValue <= 0) {
-    // Değeri 0 → Deadcoin
+    // Fiyat bulunamadı veya 0 → Deadcoin
     return {
       category: 'deadcoin',
       usdValue: 0,
