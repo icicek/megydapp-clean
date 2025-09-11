@@ -70,6 +70,19 @@ export default function ConfirmModal({
     return () => { abort = true; };
   }, [isOpen, tokenMint]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    console.debug('ConfirmModal props', {
+      fetchStatus, usdValue, amount, priceSources,
+      firstSource: priceSources?.[0] ?? null,
+    });
+  }, [isOpen, fetchStatus, usdValue, amount, priceSources]);  
+
+  // ... mevcut useState/useEffect'lerin ALTINA ekle
+  const showDebug =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('debug');
+
   // 💬 Liste durumu için üstte ince uyarı bandı
   const renderListBanner = () => {
     if (statusLoading) return null;
@@ -119,6 +132,27 @@ export default function ConfirmModal({
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onCancel(); }}>
       <DialogContent>
         <DialogTitle className="text-white">Confirm Coincarnation</DialogTitle>
+        {showDebug && (
+          <div className="text-xs text-gray-300 bg-gray-900/60 rounded p-2 mt-2">
+            <div>fetchStatus: <b>{fetchStatus}</b></div>
+            <div>
+              usdValue: <b>{String(usdValue)}</b>{" "}
+              <span>(typeof: <b>{typeof usdValue}</b>)</span>
+            </div>
+            <div>amount: <b>{String(amount)}</b></div>
+            <div>priceSources: <b>{Array.isArray(priceSources) ? priceSources.length : 0}</b></div>
+
+            {Array.isArray(priceSources) && priceSources[0] && (
+              <>
+                <div>
+                  first source: <b>{priceSources[0].source}</b> @{" "}
+                  <b>{String(priceSources[0].price)}</b>
+                </div>
+                <div>price typeof: <b>{typeof priceSources[0].price}</b></div>
+              </>
+            )}
+          </div>
+        )}
 
         <div className="mt-3 text-sm text-white">
           <p>
