@@ -76,12 +76,23 @@ export default function ConfirmModal({
       fetchStatus, usdValue, amount, priceSources,
       firstSource: priceSources?.[0] ?? null,
     });
-  }, [isOpen, fetchStatus, usdValue, amount, priceSources]);  
+  }, [isOpen, fetchStatus, usdValue, amount, priceSources]);
 
-  // ... mevcut useState/useEffect'lerin ALTINA ekle
+  // Debug paneli URL parametresi ile aç/kapat
   const showDebug =
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).has('debug');
+
+  // ✅ Parent mapping hatalarına karşı güvenli USD (birim fiyat * amount)
+  const firstUnit = Array.isArray(priceSources) && priceSources[0]?.price ? Number(priceSources[0].price) : 0;
+  const derivedUsd = usdValue > 0 ? usdValue : (firstUnit > 0 ? firstUnit * Math.max(1, amount) : 0);
+
+  // ✅ Kurallar: Blacklist/Redlist → sert engel; Deadcoin → izin ver
+  const isHardBlocked = listStatus === 'blacklist' || listStatus === 'redlist';
+  const isDeadcoin =
+    listStatus === 'deadcoin' ||
+    fetchStatus === 'not_found' ||
+    (fetchStatus === 'found' && derivedUsd === 0);
 
   // 💬 Liste durumu için üstte ince uyarı bandı
   const renderListBanner = () => {
@@ -132,6 +143,7 @@ export default function ConfirmModal({
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onCancel(); }}>
       <DialogContent>
         <DialogTitle className="text-white">Confirm Coincarnation</DialogTitle>
+
         {showDebug && (
           <div className="text-xs text-gray-300 bg-gray-900/60 rounded p-2 mt-2">
             <div>fetchStatus: <b>{fetchStatus}</b></div>
@@ -139,18 +151,20 @@ export default function ConfirmModal({
               usdValue: <b>{String(usdValue)}</b>{" "}
               <span>(typeof: <b>{typeof usdValue}</b>)</span>
             </div>
+            <div>derivedUsd: <b>{String(derivedUsd)}</b></div>
             <div>amount: <b>{String(amount)}</b></div>
             <div>priceSources: <b>{Array.isArray(priceSources) ? priceSources.length : 0}</b></div>
-
             {Array.isArray(priceSources) && priceSources[0] && (
               <>
                 <div>
-                  first source: <b>{priceSources[0].source}</b> @{" "}
-                  <b>{String(priceSources[0].price)}</b>
+                  first source: <b>{priceSources[0].source}</b> @ <b>{String(priceSources[0].price)}</b>
                 </div>
                 <div>price typeof: <b>{typeof priceSources[0].price}</b></div>
               </>
             )}
+            <div>listStatus: <b>{listStatus ?? '—'}</b></div>
+            <div>isHardBlocked: <b>{String(isHardBlocked)}</b></div>
+            <div>isDeadcoin: <b>{String(isDeadcoin)}</b></div>
           </div>
         )}
 
@@ -170,21 +184,23 @@ export default function ConfirmModal({
             </div>
           )}
 
-          {/* ❗ usdValue === 0: Artık oy istemiyoruz; sistem bunu deadcoin olarak işler */}
-          {fetchStatus === 'found' && usdValue === 0 && (
+          {/* ☠️ Deadcoin mesajı: list deadcoin || not_found || (found && 0) */}
+          {(isDeadcoin && (fetchStatus === 'found' || fetchStatus === 'not_found')) && (
             <div className="bg-yellow-700 text-white p-3 rounded">
-              ⚠️ <strong>This token has no detectable USD value.</strong><br />
-              It will be treated as a Deadcoin for this coincarnation (no MEGY; CorePoint only).
+              ☠️ <strong>This token is treated as a Deadcoin.</strong><br />
+              CorePoint is granted; MEGY is not distributed.
             </div>
           )}
 
-          {fetchStatus === 'found' && usdValue > 0 && (
+          {/* ✅ Değer bulundu (ve engel yok) */}
+          {fetchStatus === 'found' && !isHardBlocked && derivedUsd > 0 && (
             <div className="bg-green-700 text-white p-3 rounded font-medium">
-              ✅ This token has estimated value: <strong>${usdValue.toString()}</strong>
+              ✅ Estimated value: <strong>${derivedUsd.toString()}</strong>
             </div>
           )}
 
-          {fetchStatus === 'found' && priceSources.length > 0 && (
+          {/* Kaynak listesi (found ya da not_found geldiğinde de gösterebiliriz) */}
+          {(fetchStatus === 'found' || fetchStatus === 'not_found') && priceSources.length > 0 && (
             <div>
               <p className="font-medium">Price Sources:</p>
               <ul className="list-disc list-inside">
@@ -197,10 +213,8 @@ export default function ConfirmModal({
             </div>
           )}
 
-          {/* 🗳️ OY BUTONU: Walking Dead + değer > 0 iken göster.
-              computeStatusDecision() server’da “voteSuggested” döndürse de,
-              burada pratik proxy olarak listStatus==='walking_dead' & usdValue>0 kullanıyoruz. */}
-          {listStatus === 'walking_dead' && tokenMint && fetchStatus === 'found' && usdValue > 0 && (
+          {/* 🗳️ Oy butonu: Walking Dead + değer > 0 iken göster. */}
+          {listStatus === 'walking_dead' && tokenMint && fetchStatus === 'found' && derivedUsd > 0 && (
             <div className="mt-2">
               <p className="text-xs text-orange-200 mb-2">
                 Community can vote this token as Deadcoin if liquidity/volume stays critically low.
@@ -219,7 +233,7 @@ export default function ConfirmModal({
                     res?.applied
                       ? '✅ Threshold reached – marked as Deadcoin.'
                       : `👍 Vote recorded (${res?.votesYes ?? 1}/${res?.threshold ?? 3})`
-                  );                  
+                  );
                 }}
                 label="Vote deadcoin (YES)"
                 className="w-full sm:w-auto"
@@ -239,7 +253,8 @@ export default function ConfirmModal({
           <button
             onClick={onConfirm}
             className="bg-blue-600 text-white px-4 py-2 rounded"
-            disabled={fetchStatus !== 'found' || listStatus === 'blacklist'}
+            // ⛔ Blacklist/Redlist → engelle; Loading/Error → engelle; Deadcoin → izin ver
+            disabled={isHardBlocked || fetchStatus === 'loading' || fetchStatus === 'error'}
           >
             Confirm Coincarnation
           </button>
