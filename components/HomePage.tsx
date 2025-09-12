@@ -1,42 +1,51 @@
 // components/HomePage.tsx
-"use client";
+'use client';
 
 import { useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import CoincarneModal from '@/components/CoincarneModal';
 import CountUp from 'react-countup';
+
+import CoincarneModal from '@/components/CoincarneModal';
 import ConnectWalletCTA from '@/components/wallet/ConnectWalletCTA';
 import TrustPledge from '@/components/TrustPledge';
-
-// ✅ New hook
-import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
-// ✅ Skeleton
 import Skeleton from '@/components/ui/Skeleton';
+
+import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
 
 export default function HomePage() {
   const { publicKey, connected } = useWallet();
 
-  // ---------- Admin session/wallet checks ----------
+  // ---------- Admin checks ----------
   const [isAdminWallet, setIsAdminWallet] = useState(false);
   const [isAdminSession, setIsAdminSession] = useState(false);
 
+  // Session (cookie-JWT)
   useEffect(() => {
     let aborted = false;
     (async () => {
       try {
-        const res = await fetch('/api/admin/whoami', { credentials: 'include', cache: 'no-store' });
+        const res = await fetch('/api/admin/whoami', {
+          credentials: 'include',
+          cache: 'no-store',
+        });
         if (!aborted) setIsAdminSession(res.ok);
       } catch {
         if (!aborted) setIsAdminSession(false);
       }
     })();
-    return () => { aborted = true; };
+    return () => {
+      aborted = true;
+    };
   }, [publicKey, connected]);
 
+  // Re-check when tab gains focus
   useEffect(() => {
     const recheck = async () => {
       try {
-        const res = await fetch('/api/admin/whoami', { credentials: 'include', cache: 'no-store' });
+        const res = await fetch('/api/admin/whoami', {
+          credentials: 'include',
+          cache: 'no-store',
+        });
         setIsAdminSession(res.ok);
       } catch {
         setIsAdminSession(false);
@@ -46,6 +55,7 @@ export default function HomePage() {
     return () => window.removeEventListener('focus', recheck);
   }, []);
 
+  // Wallet allowlist
   useEffect(() => {
     let aborted = false;
     (async () => {
@@ -55,28 +65,34 @@ export default function HomePage() {
       }
       try {
         const w = publicKey.toBase58();
-        const res = await fetch(`/api/admin/is-allowed?wallet=${w}`, { cache: 'no-store' });
+        const res = await fetch(`/api/admin/is-allowed?wallet=${w}`, {
+          cache: 'no-store',
+        });
         const j = await res.json().catch(() => null);
         if (!aborted) setIsAdminWallet(Boolean(j?.allowed));
       } catch {
         if (!aborted) setIsAdminWallet(false);
       }
     })();
-    return () => { aborted = true; };
+    return () => {
+      aborted = true;
+    };
   }, [publicKey, connected]);
 
-  // ---------- Tokens via hook ----------
+  // ---------- Tokens (anti-flicker) ----------
   const {
     tokens,
-    loading: tokensLoading,
-    error: tokensError,
+    loading: tokensLoading, // only initial
+    refreshing, // background sync (no flicker)
+    error: tokensError, // only initial error
     refetchTokens,
   } = useWalletTokens({
     autoRefetchOnFocus: true,
     autoRefetchOnAccountChange: true,
-    pollMs: 20000,
+    pollMs: 20000, // silent background refresh
   });
 
+  // ---------- Modal state ----------
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showModal, setShowModal] = useState(false);
 
@@ -87,7 +103,9 @@ export default function HomePage() {
     uniqueDeadcoins: 0,
     mostPopularDeadcoin: '',
   });
+  const [userContribution, setUserContribution] = useState(0);
 
+  // Initial global stats
   useEffect(() => {
     const fetchGlobalStats = async () => {
       try {
@@ -101,8 +119,7 @@ export default function HomePage() {
     fetchGlobalStats();
   }, []);
 
-  const [userContribution, setUserContribution] = useState(0);
-
+  // Re-fetch user stats when wallet is connected
   useEffect(() => {
     if (!publicKey || !connected) return;
 
@@ -125,10 +142,10 @@ export default function HomePage() {
     fetchStats();
   }, [publicKey, connected]);
 
-  // ---------- UI handlers ----------
+  // ---------- Handlers ----------
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const mint = e.target.value;
-    const token = tokens.find(t => t.mint === mint);
+    const token = tokens.find((t) => t.mint === mint);
     if (token) {
       setSelectedToken(token);
       setShowModal(true);
@@ -141,15 +158,20 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
-
       <div className="w-full hidden md:flex justify-end mt-2 mb-4">
         <ConnectWalletCTA />
       </div>
 
       <section className="text-center py-4 w-full">
-        <h1 className="text-4xl md:text-5xl font-extrabold mb-2">Turn Deadcoins into a Fair Future.</h1>
-        <p className="text-lg md:text-xl text-pink-400 mb-1">This is not a swap. This is reincarnation.</p>
-        <p className="text-sm text-gray-300 max-w-xl mx-auto">Burning wealth inequality. One deadcoin at a time.</p>
+        <h1 className="text-4xl md:text-5xl font-extrabold mb-2">
+          Turn Deadcoins into a Fair Future.
+        </h1>
+        <p className="text-lg md:text-xl text-pink-400 mb-1">
+          This is not a swap. This is reincarnation.
+        </p>
+        <p className="text-sm text-gray-300 max-w-xl mx-auto">
+          Burning wealth inequality. One deadcoin at a time.
+        </p>
       </section>
 
       <div className="w-full flex md:hidden justify-center my-5">
@@ -160,11 +182,13 @@ export default function HomePage() {
 
       <div className="w-full max-w-5xl bg-gradient-to-br from-gray-900 via-zinc-800 to-gray-900 p-8 rounded-2xl border border-purple-700 shadow-2xl">
         <h2 className="text-lg mb-1 text-left">You give</h2>
-        <p className="text-xs text-gray-400 text-left mb-2">Walking deadcoins, memecoins, any unsupported assets…</p>
+        <p className="text-xs text-gray-400 text-left mb-2">
+          Walking deadcoins, memecoins, any unsupported assets…
+        </p>
 
         {publicKey ? (
           <>
-            {/* Loading skeleton */}
+            {/* Only on very first load show skeletons */}
             {tokensLoading && tokens.length === 0 ? (
               <div className="space-y-2 mb-4" data-testid="tokens-skeleton">
                 {[...Array(6)].map((_, i) => (
@@ -173,13 +197,21 @@ export default function HomePage() {
               </div>
             ) : (
               <>
+                {/* subtle background syncing indicator — no flicker */}
+                {refreshing && (
+                  <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+                    <span className="inline-block h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                    <span>Syncing tokens…</span>
+                  </div>
+                )}
+
                 <select
                   className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
                   value={selectedToken?.mint || ''}
                   onChange={handleSelectChange}
                 >
                   <option value="" disabled>
-                    👉 {tokensLoading ? 'Loading tokens…' : 'Select a token to Coincarnate'}
+                    👉 Select a token to Coincarnate
                   </option>
                   {tokens.map((token, idx) => (
                     <option key={idx} value={token.mint}>
@@ -187,7 +219,9 @@ export default function HomePage() {
                     </option>
                   ))}
                 </select>
-                {tokensError && (
+
+                {/* Show error only if initial load failed and list is empty */}
+                {!tokensLoading && tokens.length === 0 && tokensError && (
                   <p className="text-xs text-red-400 mb-2">
                     Token fetch error: {tokensError}
                   </p>
@@ -202,7 +236,9 @@ export default function HomePage() {
         <div className="text-2xl my-4 text-center">↔️</div>
 
         <h2 className="text-lg text-left mb-2">You receive</h2>
-        <p className="text-xs text-gray-400 text-left mb-2">$MEGY — the currency of the Fair Future Fund</p>
+        <p className="text-xs text-gray-400 text-left mb-2">
+          $MEGY — the currency of the Fair Future Fund
+        </p>
 
         <div className="mt-4">
           <div className="w-full bg-gray-800 rounded-full h-6 overflow-hidden relative border border-gray-600">
@@ -241,8 +277,7 @@ export default function HomePage() {
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
             <p className="text-sm text-white font-semibold mb-1">Total USD Revived</p>
             <p className="text-lg font-bold text-white">
-              $
-              <CountUp end={globalStats.totalUsd} decimals={2} duration={2} />
+              $<CountUp end={globalStats.totalUsd} decimals={2} duration={2} />
             </p>
           </div>
         </div>
@@ -262,7 +297,7 @@ export default function HomePage() {
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
             <p className="text-sm text-white font-semibold mb-1">Most Popular Deadcoin</p>
             <p className="text-lg font-bold text-white">
-              {globalStats.mostPopularDeadcoin || "No deadcoin yet"}
+              {globalStats.mostPopularDeadcoin || 'No deadcoin yet'}
             </p>
           </div>
         </div>
@@ -306,7 +341,7 @@ export default function HomePage() {
             setSelectedToken(null);
             setShowModal(false);
           }}
-          refetchTokens={refetchTokens}   // refresh list after successful Coincarnation
+          refetchTokens={refetchTokens} // refresh after successful Coincarnation
           onGoToProfileRequest={() => (window.location.href = '/profile')}
         />
       )}

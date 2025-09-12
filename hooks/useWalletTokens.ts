@@ -1,7 +1,7 @@
 // hooks/useWalletTokens.ts
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 import { connection } from '@/lib/solanaConnection';
@@ -18,22 +18,38 @@ export interface TokenInfo {
 type Options = {
   autoRefetchOnFocus?: boolean;
   autoRefetchOnAccountChange?: boolean;
-  /** Optional background polling in ms (e.g., 20000). Omit/undefined to disable. */
+  /** Background polling in ms (e.g., 20000). Omit to disable. */
   pollMs?: number;
 };
 
 export function useWalletTokens(options?: Options) {
   const { publicKey, connected } = useWallet();
+
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState<string | null>(null);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [loading, setLoading] = useState(false);        // only for initial loads
+  const [refreshing, setRefreshing] = useState(false);  // background updates
+  const [error, setError] = useState<string | null>(null); // only for initial load errors
 
-  const refetchTokens = useCallback(async () => {
-    if (!publicKey || !connected) return;
-    try {
-      setLoading(true);
+  const inflightRef = useRef(false);
+
+  const doFetch = useCallback(async (silent: boolean) => {
+    if (!publicKey || !connected) {
+      setTokens([]);
+      setHasLoadedOnce(false);
+      setLoading(false);
+      setRefreshing(false);
       setError(null);
+      return;
+    }
+    if (inflightRef.current) return;
+    inflightRef.current = true;
 
+    // UI states
+    if (!hasLoadedOnce && !silent) setLoading(true);
+    if (hasLoadedOnce && silent) setRefreshing(true);
+
+    try {
       // 1) Scan both Token Program and Token-2022
       const programs = [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID];
       const results = await Promise.all(
@@ -67,42 +83,57 @@ export function useWalletTokens(options?: Options) {
           if (token.mint === 'SOL') return token;
           const meta = tokenMetadata.find((m) => m.address === token.mint);
           if (meta) return { ...token, symbol: meta.symbol, logoURI: meta.logoURI };
-
           const fallback = await fetchTokenMetadata(token.mint);
           return { ...token, symbol: fallback?.symbol || token.mint.slice(0, 4) };
         })
       );
 
       setTokens(enriched);
+      setHasLoadedOnce(true);
+      if (!silent) setError(null); // initial success clears error
     } catch (e: any) {
-      setError(e?.message || 'Failed to fetch tokens');
-      // Keep previous tokens for better UX
+      // Only surface error if this is the initial/foreground fetch
+      if (!silent || !hasLoadedOnce) {
+        setError(e?.message || 'Failed to fetch tokens');
+      }
+      // keep previous tokens for UX
     } finally {
+      inflightRef.current = false;
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [publicKey, connected]);
+  }, [publicKey, connected, hasLoadedOnce]);
 
-  // Trigger fetch on connect / wallet change
+  // Public API for manual refetch (foreground intent)
+  const refetchTokens = useCallback(async () => {
+    await doFetch(false);
+  }, [doFetch]);
+
+  // Trigger on connect / wallet change (foreground)
   useEffect(() => {
     if (publicKey && connected) {
-      refetchTokens();
+      doFetch(false);
     } else {
       setTokens([]);
+      setHasLoadedOnce(false);
+      setLoading(false);
+      setRefreshing(false);
+      setError(null);
     }
-  }, [publicKey, connected, refetchTokens]);
+  }, [publicKey, connected, doFetch]);
 
-  // Auto-refetch on focus / accountChanged / optional polling
+  // Auto-refetch on focus / accountChanged / optional polling (background/silent)
   useEffect(() => {
     if (!connected) return;
     const { autoRefetchOnFocus = true, autoRefetchOnAccountChange = true, pollMs } = options || {};
 
     const onVis = () => {
-      if (document.visibilityState === 'visible') refetchTokens();
+      if (document.visibilityState === 'visible') doFetch(true);
     };
-    const onFocus = () => refetchTokens();
+    const onFocus = () => doFetch(true);
 
     const provider = (typeof window !== 'undefined' ? (window as any).solana : null);
-    const onAcc = () => refetchTokens();
+    const onAcc = () => doFetch(true);
 
     if (autoRefetchOnFocus) {
       document.addEventListener('visibilitychange', onVis);
@@ -112,14 +143,18 @@ export function useWalletTokens(options?: Options) {
       provider?.on?.('accountChanged', onAcc);
     }
 
-    let t: any;
-    let stop = false;
+    let t: any, stop = false;
     if (typeof pollMs === 'number' && pollMs > 0) {
       const loop = async () => {
-        try { await refetchTokens(); } catch {}
-        if (!stop) t = setTimeout(loop, pollMs);
+        try {
+          if (document.visibilityState === 'visible') {
+            await doFetch(true);
+          }
+        } finally {
+          if (!stop) t = setTimeout(loop, pollMs);
+        }
       };
-      loop();
+      t = setTimeout(loop, pollMs);
     }
 
     return () => {
@@ -130,9 +165,16 @@ export function useWalletTokens(options?: Options) {
       if (autoRefetchOnAccountChange) {
         provider?.removeListener?.('accountChanged', onAcc);
       }
-      if (t) { stop = true; clearTimeout(t); }
+      stop = true;
+      if (t) clearTimeout(t);
     };
-  }, [connected, refetchTokens, options]);
+  }, [connected, doFetch, options]);
 
-  return { tokens, loading, error, refetchTokens };
+  return {
+    tokens,
+    loading,       // only for initial load
+    refreshing,    // background sync (no flicker)
+    error,         // only initial fetch errors
+    refetchTokens,
+  };
 }
