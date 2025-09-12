@@ -20,8 +20,12 @@ interface TokenInfo {
   decimals: number;
 }
 
+type ListStatus = 'healthy' | 'walking_dead' | 'deadcoin' | 'redlist' | 'blacklist';
+
 const TOKEN_LIST_URL =
   'https://cdn.jsdelivr.net/gh/solana-labs/token-list@main/src/tokens/solana.tokenlist.json';
+
+const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
 export default function CoincarneForm() {
   const { publicKey } = useWallet();
@@ -35,6 +39,14 @@ export default function CoincarneForm() {
   const [confirmed, setConfirmed] = useState(false);
   const [participantNumber, setParticipantNumber] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // (Opsiyonel) pre-flight sonucu debug göstermek istersek:
+  const [preflightInfo, setPreflightInfo] = useState<{
+    status?: ListStatus | null;
+    usdTotal?: number;
+    source?: string;
+    isDeadcoin?: boolean;
+  } | null>(null);
 
   useEffect(() => {
     const fetchTokens = async () => {
@@ -86,6 +98,7 @@ export default function CoincarneForm() {
       setAmount('');
       setConfirmed(false);
       setModalOpen(true);
+      setPreflightInfo(null);
       fetchWalletBalance(token);
     } else if (tokenSymbol === 'SOL') {
       const solToken: TokenInfo = {
@@ -99,6 +112,7 @@ export default function CoincarneForm() {
       setAmount('');
       setConfirmed(false);
       setModalOpen(true);
+      setPreflightInfo(null);
       fetchWalletBalance(solToken);
     }
   };
@@ -112,21 +126,87 @@ export default function CoincarneForm() {
   const handleConfirm = async () => {
     if (!amount || !selectedToken || !publicKey) return;
 
+    const amt = parseFloat(amount);
+    if (Number.isNaN(amt) || !(amt > 0)) return;
+
     setIsProcessing(true);
 
-    const lastNum = parseInt(localStorage.getItem('lastCoincarnator') || '100', 10);
-    const newNumber = lastNum + 1;
-    setParticipantNumber(newNumber);
-
-    const tx = {
-      wallet: publicKey.toBase58(),
-      token: selectedToken.symbol,
-      amount: parseFloat(amount),
-      number: newNumber,
-      timestamp: new Date().toISOString(),
-    };
-
     try {
+      // 0) Mint'i normalize et (SOL → WSOL)
+      const mint =
+        selectedToken.symbol === 'SOL' || !selectedToken.address
+          ? WSOL_MINT
+          : selectedToken.address;
+
+      // 1) Liste durumu — blacklist/redlist engeli
+      let listStatus: ListStatus | null = null;
+      try {
+        const stRes = await fetch(`/api/status?mint=${encodeURIComponent(mint)}`, { cache: 'no-store' });
+        if (stRes.ok) {
+          const stJson = await stRes.json();
+          listStatus = (stJson?.status as ListStatus) ?? null;
+        }
+      } catch {
+        // sessiz geç (server sorunları işlemi engellemesin; ama aşağıda price ile deadcoin path'i kontrol ederiz)
+      }
+
+      if (listStatus === 'blacklist' || listStatus === 'redlist') {
+        setPreflightInfo({ status: listStatus });
+        alert('⛔ This token is blocked (blacklist/redlist). Coincarnation is not allowed.');
+        setIsProcessing(false);
+        return; // ❌ sert engel
+      }
+
+      // 2) Fiyat kontrolü — deadcoin akışına izin ver
+      let usdTotal = 0;
+      let sourceName: string | undefined;
+      let isDeadcoin = false;
+      try {
+        const qs = new URLSearchParams({ mint, amount: String(amt) });
+        const prRes = await fetch(`/api/proxy/price?${qs}`, { cache: 'no-store' });
+        const prJson = await prRes.json();
+
+        const ok = !!prJson?.ok || !!prJson?.success;
+        const unit = Number(prJson?.priceUsd ?? 0);
+        const summed = Number(prJson?.usdValue ?? 0);
+        usdTotal = ok ? (summed > 0 ? summed : unit * amt) : 0;
+
+        if (ok) {
+          if (Array.isArray(prJson?.sources) && prJson.sources.length) {
+            sourceName = prJson.sources[0]?.source;
+          } else if (prJson?.source) {
+            sourceName = String(prJson.source);
+          }
+        }
+
+        isDeadcoin = !ok || !(usdTotal > 0);
+      } catch {
+        // price alınamadı → deadcoin kabul et
+        isDeadcoin = true;
+      }
+
+      setPreflightInfo({
+        status: listStatus,
+        usdTotal,
+        source: sourceName,
+        isDeadcoin,
+      });
+
+      // 3) (Bu form akışında) kayıt — mevcut payload'ı BOZMADAN bırakıyoruz
+      const lastNum = parseInt(localStorage.getItem('lastCoincarnator') || '100', 10);
+      const newNumber = lastNum + 1;
+      setParticipantNumber(newNumber);
+
+      const tx = {
+        wallet: publicKey.toBase58(),
+        token: selectedToken.symbol,
+        amount: amt,
+        number: newNumber,
+        timestamp: new Date().toISOString(),
+        // Not: /api/record payload’ını değiştirmiyoruz
+        // (Gerekirse server tarafı /api/record → /api/coincarnation/record'a yönlendirilebilir)
+      };
+
       await fetch('/api/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -138,6 +218,7 @@ export default function CoincarneForm() {
       setConfirmed(true);
     } catch (err) {
       console.error('❌ Error sending to backend:', err);
+      alert('❌ Failed to record your coincarnation.');
     } finally {
       setIsProcessing(false);
     }
@@ -148,9 +229,14 @@ export default function CoincarneForm() {
       `🚀 I just Coincarne'd my $${selectedToken?.symbol} for $MEGY.\n` +
       `👻 Coincarnator #${participantNumber} reporting in.\n\n` +
       `💥 Reviving deadcoins for a better future.\n` +
-      `🔗 Join us: https://megydapp.vercel.app`
+      `🔗 Join us: https://coincarnation.com`
     );
   };
+
+  // Debug paneli URL parametresiyle aç/kapat (opsiyonel)
+  const showDebug =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('debug');
 
   return (
     <div className="bg-gray-900 mt-10 p-6 rounded-xl w-full max-w-2xl border border-gray-700">
@@ -177,15 +263,16 @@ export default function CoincarneForm() {
           </select>
 
           <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-          <DialogContent className="bg-gray-900 border border-white rounded-2xl p-6 w-full max-w-md text-center">
-            {isProcessing ? (
-              <div className="flex flex-col items-center justify-center py-8">
-                <img src="/icons/hourglass.svg" className="w-10 h-10 mb-4 animate-spin" alt="Coincarnating..." />
-                <p className="text-white text-lg font-semibold">🕒 Coincarnating...</p>
-              </div>
-            ) : selectedToken && !confirmed ? (
-              <>
+            <DialogContent className="bg-gray-900 border border-white rounded-2xl p-6 w-full max-w-md text-center">
+              {isProcessing ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <img src="/icons/hourglass.svg" className="w-10 h-10 mb-4 animate-spin" alt="Coincarnating..." />
+                  <p className="text-white text-lg font-semibold">🕒 Coincarnating...</p>
+                </div>
+              ) : selectedToken && !confirmed ? (
+                <>
                   <h2 className="text-xl font-bold mb-4">Coincarnate {selectedToken.symbol}</h2>
+
                   {availableAmount !== null && (
                     <p className="text-sm text-gray-400 mb-2">
                       Available: {availableAmount.toFixed(4)} {selectedToken.symbol}
@@ -199,6 +286,7 @@ export default function CoincarneForm() {
                       </button>
                     ))}
                   </div>
+
                   <input
                     type="number"
                     value={amount}
@@ -206,60 +294,72 @@ export default function CoincarneForm() {
                     placeholder="Enter amount"
                     className="mt-4 w-full p-2 rounded bg-gray-800 border border-gray-600 text-white"
                   />
+
+                  {/* (opsiyonel) debug / küçük preflight etiketi */}
+                  {showDebug && preflightInfo && (
+                    <div className="text-xs text-left bg-gray-800/60 rounded p-2 mt-3">
+                      <div>listStatus: <b>{preflightInfo.status ?? '—'}</b></div>
+                      <div>usdTotal: <b>{preflightInfo.usdTotal ?? 0}</b></div>
+                      <div>source: <b>{preflightInfo.source ?? '—'}</b></div>
+                      <div>isDeadcoin: <b>{String(preflightInfo.isDeadcoin ?? false)}</b></div>
+                    </div>
+                  )}
+
                   <button
                     onClick={handleConfirm}
                     className="mt-4 w-full bg-purple-600 hover:bg-purple-700 py-2 rounded-xl font-bold"
                   >
                     Confirm Coincarnation
                   </button>
-                  </>
-                ) : (
-                  <>
-                    <h2 className="text-xl font-bold mb-4">🎉 Coincarnation Complete</h2>
-                    <p className="text-sm text-yellow-400 mb-2">
-                      ✅ {amount} {selectedToken?.symbol} registered successfully.
-                    </p>
-                    <p className="text-sm text-cyan-400 mb-4">
-                      👻 Coincarnator #{participantNumber}
-                    </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-xl font-bold mb-4">🎉 Coincarnation Complete</h2>
+                  <p className="text-sm text-yellow-400 mb-2">
+                    ✅ {amount} {selectedToken?.symbol} registered successfully.
+                  </p>
+                  <p className="text-sm text-cyan-400 mb-4">
+                    👻 Coincarnator #{participantNumber}
+                  </p>
 
-                    <div className="space-y-2 mt-4">
-                      <button
-                        onClick={() => {
-                          setModalOpen(false);
-                          setSelectedToken(null);
-                          setAmount('');
-                          setAvailableAmount(null);
-                          setConfirmed(false);
-                          setParticipantNumber(null);
-                        }}
-                        className="w-full py-2 rounded-xl bg-gray-700 hover:bg-gray-600"
-                      >
-                        🔁 Recoincarnate
+                  <div className="space-y-2 mt-4">
+                    <button
+                      onClick={() => {
+                        setModalOpen(false);
+                        setSelectedToken(null);
+                        setAmount('');
+                        setAvailableAmount(null);
+                        setConfirmed(false);
+                        setParticipantNumber(null);
+                        setPreflightInfo(null);
+                      }}
+                      className="w-full py-2 rounded-xl bg-gray-700 hover:bg-gray-600"
+                    >
+                      🔁 Recoincarnate
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        window.location.href = '/claim';
+                      }}
+                      className="w-full py-2 rounded-xl bg-blue-700 hover:bg-blue-600"
+                    >
+                      👤 Go to Profile
+                    </button>
+
+                    <a
+                      href={`https://twitter.com/intent/tweet?text=${generateTweetText()}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <button className="w-full py-2 rounded-xl bg-green-700 hover:bg-green-600">
+                        🐦 Share on X
                       </button>
-
-                      <button
-                        onClick={() => {
-                          window.location.href = '/claim';
-                        }}
-                        className="w-full py-2 rounded-xl bg-blue-700 hover:bg-blue-600"
-                      >
-                        👤 Go to Profile
-                      </button>
-
-                      <a
-                        href={`https://twitter.com/intent/tweet?text=${generateTweetText()}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <button className="w-full py-2 rounded-xl bg-green-700 hover:bg-green-600">
-                          🐦 Share on X
-                        </button>
-                      </a>
-                    </div>
-                  </>
-                )}
-              </DialogContent>
+                    </a>
+                  </div>
+                </>
+              )}
+            </DialogContent>
           </Dialog>
         </div>
       )}

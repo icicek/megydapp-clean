@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import CorePointChart from './CorePointChart';
 import Leaderboard from './Leaderboard';
+import { APP_URL } from '@/app/lib/origin';
 
 const asBool = (v: unknown): boolean => {
   if (typeof v === 'boolean') return v;
@@ -39,7 +40,7 @@ export default function ClaimPanel() {
     const wallet_address = publicKey.toBase58();
     const tweetText = encodeURIComponent(
       `I just revived my walking deadcoins through #Coincarnation and earned $MEGY 💥🔥
-Join the revolution at https://megydapp.vercel.app`
+Join the revolution at ${APP_URL}`
     );
     const tweetURL = `https://twitter.com/intent/tweet?text=${tweetText}`;
     window.open(tweetURL, '_blank');

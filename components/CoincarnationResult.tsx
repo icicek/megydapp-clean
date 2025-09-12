@@ -1,6 +1,7 @@
 'use client';
 
 import React, { ReactNode } from 'react';
+import { APP_URL } from '@/app/lib/origin';
 
 interface Props {
   tokenFrom: string;
@@ -19,7 +20,7 @@ export default function CoincarnationResult({
   onGoToProfile,
   children, 
 }: Props) {
-  const tweetText = `🚀 I just swapped my $${tokenFrom} for $MEGY. Coincarnator #${number} reporting in.\n\n🌐 We're uniting deadcoins to rescue billions.\n\n🔗 Join us 👉 https://megydapp-clean.vercel.app`;
+  const tweetText = `🚀 I just swapped my $${tokenFrom} for $MEGY. Coincarnator #${number} reporting in.\n\n🌐 We're uniting deadcoins to rescue billions.\n\n🔗 Join us 👉 ${APP_URL}`;
   const tweetLink = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
 
   return (

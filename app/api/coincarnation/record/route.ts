@@ -13,10 +13,15 @@ import {
   type TokenStatus
 } from '@/app/api/_lib/registry';
 
-// 🔽 Yeni: feature flags
+// 🔽 Feature flags (global kill-switch)
 import { requireAppEnabled } from '@/app/api/_lib/feature-flags';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
+
+function toNum(v: any, d = 0): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : d;
+}
 
 export async function POST(req: NextRequest) {
   console.log('✅ /api/coincarnation/record API called');
@@ -36,13 +41,25 @@ export async function POST(req: NextRequest) {
       network,
       user_agent,
       referral_code,
-    } = body;
+    } = body ?? {};
 
     const timestamp = new Date().toISOString();
-    console.log('📦 Incoming data:', body);
+    console.log('📦 Incoming data (coincarnation/record):', body);
 
-    // 1) SOL için USD 0 engeli
-    if (usd_value === 0 && token_symbol?.toUpperCase() === 'SOL') {
+    // ---- Basit doğrulamalar (payload) ----
+    if (!wallet_address || !token_symbol) {
+      return NextResponse.json(
+        { success: false, error: 'wallet_address and token_symbol are required' },
+        { status: 400 }
+      );
+    }
+
+    const tokenAmountNum = toNum(token_amount, 0);
+    const usdValueNum = toNum(usd_value, 0);
+    const networkNorm = String(network || 'solana');
+
+    // 1) SOL için USD 0 engeli (mantıksal koruma)
+    if (usdValueNum === 0 && String(token_symbol).toUpperCase() === 'SOL') {
       console.error('❌ FATAL: SOL token reported with 0 USD value. Rejecting.');
       return NextResponse.json(
         { success: false, error: 'SOL cannot have zero USD value. Try again later.' },
@@ -57,24 +74,25 @@ export async function POST(req: NextRequest) {
       if (reg?.status === 'blacklist') {
         return NextResponse.json(
           { success: false, error: 'This token is blacklisted and cannot be coincarnated.' },
-          { status: 400 }
+          { status: 403 }
         );
       }
       if (reg?.status === 'redlist') {
         return NextResponse.json(
           { success: false, error: 'This token is redlisted and cannot be coincarnated after its redlist date.' },
-          { status: 400 }
+          { status: 403 }
         );
       }
     }
 
-    // 3) Statü kararı
+    // 3) Statü kararı (deadcoin akışı dahil)
     let initialDecision:
       | { status: TokenStatus; voteSuggested?: boolean; reason?: string; metrics?: { vol: number; liq: number } }
       | null = null;
 
     if (hasMint) {
-      if (usd_value === 0) {
+      if (usdValueNum === 0) {
+        // Fiyat 0 → Deadcoin kabul (CorePoint-only)
         initialDecision = {
           status: 'deadcoin',
           voteSuggested: false,
@@ -82,6 +100,7 @@ export async function POST(req: NextRequest) {
           metrics: { vol: 0, liq: 0 },
         };
       } else {
+        // Hacim/likidite vb. ek kurallar computeStatusDecision içinde
         initialDecision = await computeStatusDecision(token_contract!);
       }
     }
@@ -90,7 +109,7 @@ export async function POST(req: NextRequest) {
     const voteSuggested = Boolean(initialDecision?.voteSuggested);
     const decisionMetrics = initialDecision?.metrics ?? null;
 
-    // Participants
+    // ---- Participants (referral) ----
     const existing = await sql`
       SELECT * FROM participants WHERE wallet_address = ${wallet_address}
     `;
@@ -129,7 +148,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Contribution kaydı
+    // ---- Contribution kaydı ----
     try {
       const insertResult = await sql`
         INSERT INTO contributions (
@@ -148,11 +167,11 @@ export async function POST(req: NextRequest) {
           ${wallet_address},
           ${token_symbol},
           ${token_contract},
-          ${network},
-          ${token_amount},
-          ${usd_value},
-          ${transaction_signature},
-          ${user_agent},
+          ${networkNorm},
+          ${tokenAmountNum},
+          ${usdValueNum},
+          ${transaction_signature || null},
+          ${user_agent || ''},
           ${timestamp},
           ${userReferralCode},
           ${referrerWallet}
@@ -161,9 +180,10 @@ export async function POST(req: NextRequest) {
       console.log('✅ INSERT result (with RETURNING):', insertResult);
     } catch (insertError: any) {
       console.error('❌ Contribution INSERT failed:', insertError);
+      // Kayıt hatası olsa bile mantıklı bir cevap verelim
     }
 
-    // Registry ilk kaydı
+    // ---- Registry ilk kaydı ----
     let registryCreated = false;
     if (hasMint) {
       const res = await ensureFirstSeenRegistry(token_contract!, {
@@ -172,7 +192,7 @@ export async function POST(req: NextRequest) {
         reason: 'first_coincarnation',
         meta: {
           from: 'record_api',
-          network,
+          network: networkNorm,
           tx: transaction_signature || null,
           decisionReason: initialDecision?.reason ?? null,
           vol: decisionMetrics?.vol ?? null,
@@ -183,7 +203,7 @@ export async function POST(req: NextRequest) {
       registryCreated = !!res?.created;
     }
 
-    // Kullanıcı numarası
+    // ---- Kullanıcı numarası ----
     const result = await sql`
       SELECT id FROM participants WHERE wallet_address = ${wallet_address}
     `;
@@ -201,16 +221,11 @@ export async function POST(req: NextRequest) {
       registryCreated,
     });
   } catch (error: any) {
-    console.error('❌ Record API Error:', error);
-    if (error?.status) {
-      return NextResponse.json({ success: false, error: error.message }, { status: error.status });
-    }
-    if (error?.status) {
-    return NextResponse.json({ success: false, error: error.message }, { status: error.status });
-    }
+    console.error('❌ Record API Error:', error?.message || error);
+    const status = Number(error?.status) || 500;
     return NextResponse.json(
       { success: false, error: error?.message || 'Unknown server error' },
-      { status: 500 }
+      { status }
     );
   }
 }

@@ -4,19 +4,24 @@ import type { Metadata } from 'next';
 import { ReactNode } from 'react';
 import WalletConnectionProvider from '@/components/WalletConnectionProvider';
 import AdminSessionSync from '@/components/wallet/AdminSessionSync';
-import AdminTopNav from '@/components/AdminTopNav'; // 👈 eklendi
+import AdminTopNav from '@/components/AdminTopNav';
+
+import { APP_URL, absoluteUrl } from '@/app/lib/origin';
 
 export const metadata: Metadata = {
+  // Canonical base — OG & sosyal kartlarda mutlak URL üretimi için önemli
+  metadataBase: new URL(APP_URL),
+
   title: 'Coincarnation',
   description: 'Rescue your deadcoins. Coincarnate now!',
   openGraph: {
     title: 'Coincarnation',
     description: 'Revive your deadcoins. Coincarnate them for $MEGY.',
-    url: 'https://megydapp-clean.vercel.app',
+    url: APP_URL,
     siteName: 'Coincarnation',
     images: [
       {
-        url: 'https://megydapp-clean.vercel.app/og-image.png',
+        url: absoluteUrl('/og-image.png'),
         width: 1200,
         height: 630,
         alt: 'Coincarnation Promotional Visual',
@@ -29,7 +34,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Coincarnation',
     description: 'Trade your deadcoins for $MEGY and join the future.',
-    images: ['https://megydapp-clean.vercel.app/og-image.png'],
+    images: [absoluteUrl('/og-image.png')],
   },
 };
 
@@ -39,7 +44,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <WalletConnectionProvider>
           <AdminSessionSync />
-          <AdminTopNav />  {/* 👈 yalnızca /admin altında (login hariç) görünür */}
+          <AdminTopNav /> {/* yalnızca /admin altında (login hariç) görünür */}
           {children}
         </WalletConnectionProvider>
       </body>

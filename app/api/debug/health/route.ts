@@ -1,14 +1,30 @@
-import { NextResponse } from 'next/server';
+// app/api/debug/health/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+export const runtime = 'nodejs';         // ENV erişimi problemsiz
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+function tscEqual(a: string, b: string) {
+  // Constant-time compare (kısa ve pratik)
+  if (a.length !== b.length) return false;
+  let r = 0;
+  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return r === 0;
+}
 
-export async function GET(req: Request) {
-  const needSecret = !!process.env.DEBUG_SECRET;
-  const provided = (req.headers.get('x-debug-secret') || '').trim();
-  if (needSecret && provided !== process.env.DEBUG_SECRET) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
+export async function GET(req: NextRequest) {
+  const want = process.env.DEBUG_SECRET || '';
+  if (!want) {
+    return NextResponse.json({ ok: false, error: 'server-misconfig' }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, now: new Date().toISOString() }, { headers: { 'Cache-Control': 'no-store' } });
+
+  const h = req.headers.get('x-debug-secret')?.trim() || '';
+  const q = new URL(req.url).searchParams.get('secret')?.trim() || '';
+  const got = h || q; // header öncelikli, yoksa query kabul
+
+  if (!got || !tscEqual(got, want)) {
+    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  }
+
+  return NextResponse.json({ ok: true, now: new Date().toISOString() }, {
+    headers: { 'Cache-Control': 'no-store' }
+  });
 }

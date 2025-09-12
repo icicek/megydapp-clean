@@ -12,6 +12,7 @@ import {
 import { WalletConnectWalletAdapter } from '@solana/wallet-adapter-walletconnect';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { clusterApiUrl } from '@solana/web3.js';
+import { absoluteUrl } from '@/app/lib/origin';
 
 require('@solana/wallet-adapter-react-ui/styles.css');
 
@@ -46,7 +47,7 @@ const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children 
               name: 'Coincarnation',
               description: 'Rescue your deadcoins. Coincarnate now!',
               url: process.env.NEXT_PUBLIC_APP_URL || 'https://example.com',
-              icons: ['https://megydapp-clean.vercel.app/og-image.png'],
+              icons: [absoluteUrl('/og-image.png')],
             },
           },
         })

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE="${BASE:-https://megydapp-clean.vercel.app}"
+BASE="${BASE:-https://coincarnation.com}"
 # Test için bilinen bir mint gir (Neon’dan kopyalayabilirsin):
 MINT="${MINT:-AGFEad2et2ZJif9jaGpdMixQqvW5i81aBdvKe7PHNfz3}"
 SECRET="${CRON_SECRET:-}"
