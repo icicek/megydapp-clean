@@ -2,37 +2,33 @@
   "compilerOptions": {
     "target": "ES2022",
     "lib": [
-      "dom",
-      "dom.iterable",
-      "ESNext"
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
     ],
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
     "jsx": "preserve",
+    "module": "ESNext",
+    "moduleResolution": "Bundler", // Next.js 15 önerilen
     "allowJs": true,
     "resolveJsonModule": true,
-    "isolatedModules": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
     "noEmit": true,
-    "skipLibCheck": true,
+    "isolatedModules": true,
+    "strict": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true, // 🔑 dış paket tip hatalarını yok say
     "baseUrl": ".",
     "paths": {
       "@/*": [
         "./*"
       ]
     },
-    "types": [
-      "node"
-    ],
+    "incremental": true,
     "plugins": [
       {
         "name": "next"
       }
-    ],
-    "incremental": true
+    ]
   },
   "include": [
     "**/*.ts",
@@ -41,6 +37,12 @@
     ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    ".next",
+    "dist",
+    "coverage",
+    "test", // 🔑 testleri app tip denetiminden çıkar
+    "**/*.test.ts",
+    "**/*.test.tsx"
   ]
 }

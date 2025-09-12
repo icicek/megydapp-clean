@@ -1,0 +1,15 @@
+{
+    "extends": "./tsconfig.jest.json",
+    "compilerOptions": {
+      // Jest tarafında da alias çalışsın diye baseUrl/paths kalıtımda zaten var
+    },
+    "include": [
+      "hooks/**/*.test.ts",
+      "hooks/**/*.test.tsx",
+      "hooks/**/__tests__/**/*.ts",
+      "hooks/**/__tests__/**/*.tsx",
+      "test/**/*.ts",
+      "test/**/*.tsx"
+    ]
+  }
+  

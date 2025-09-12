@@ -74,7 +74,7 @@ export default function HomePage() {
   } = useWalletTokens({
     autoRefetchOnFocus: true,
     autoRefetchOnAccountChange: true,
-    // pollMs: 20000, // ← istersen aç
+    pollMs: 20000,
   });
 
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);

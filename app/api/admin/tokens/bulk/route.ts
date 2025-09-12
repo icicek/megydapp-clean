@@ -5,6 +5,7 @@ import { requireAdmin } from '@/app/api/_lib/jwt';
 import { cache, statusKey } from '@/app/api/_lib/cache';
 import { verifyCsrf } from '@/app/api/_lib/csrf';
 import { httpErrorFrom } from '@/app/api/_lib/http';
+import { logAdminAudit } from '@/app/api/admin/_lib/audit'; // ✅ ADDED
 
 type TokenStatus = 'healthy'|'walking_dead'|'deadcoin'|'redlist'|'blacklist';
 const ALLOWED: TokenStatus[] = ['healthy','walking_dead','deadcoin','redlist','blacklist'];
@@ -15,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
   try {
     verifyCsrf(req as any);
-    const admin = await requireAdmin(req as any); // keep your existing admin (string or wallet id)
+    const admin = await requireAdmin(req as any); // wallet/address string
 
     const body = await req.json();
     let { mints, status, reason = null, meta = {} } = body || {};
@@ -52,7 +53,6 @@ export async function POST(req: Request) {
     const ok: { mint: string; status: TokenStatus; statusAt: string }[] = [];
     const fail: { mint: string; error: string }[] = [];
 
-    // --- single transaction to keep audit + registry consistent
     await sql`BEGIN`;
     try {
       for (const mint of uniq) {
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
           const r = rows[0];
           ok.push({ mint: r.mint, status: r.status, statusAt: r.status_at });
 
-          // write audit (old -> new)
+          // existing token_audit
           await sql`
             INSERT INTO token_audit (mint, old_status, new_status, reason, meta, updated_by, changed_at)
             VALUES (
@@ -104,7 +104,18 @@ export async function POST(req: Request) {
             )
           `;
 
-          // cache invalidation for this mint
+          // ✅ NEW: admin_audit (no type errors; jsonb cast)
+          await logAdminAudit({
+            req,
+            adminWallet: admin,
+            action: 'bulk_set_status',
+            targetMint: mint,
+            prevStatus: oldStatus,
+            newStatus: status,
+            extra: { reason, meta: metaObj }
+          });
+
+          // cache invalidation
           cache.del(statusKey(mint));
         } catch (e: any) {
           fail.push({ mint, error: e?.message || 'error' });

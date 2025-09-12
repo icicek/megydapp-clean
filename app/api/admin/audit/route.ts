@@ -7,14 +7,56 @@ import { httpErrorFrom } from '@/app/api/_lib/http';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+type TokenStatus = 'healthy'|'walking_dead'|'deadcoin'|'redlist'|'blacklist';
+
 export async function GET(req: NextRequest) {
   try {
     await requireAdmin(req); // cookie-based JWT
 
     const { searchParams } = new URL(req.url);
+    const source = (searchParams.get('source') || 'token').toLowerCase(); // 🔁 backward-compat: 'token'
     const mint = searchParams.get('mint');
+    const adminWallet = searchParams.get('admin_wallet');
+    const action = searchParams.get('action');
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50', 10), 1), 200);
 
+    if (source === 'admin') {
+      // ✅ NEW: admin_audit
+      const rows = (await sql`
+        SELECT
+          id,
+          ts,
+          admin_wallet,
+          action,
+          target_mint,
+          prev_status::text AS prev_status,
+          new_status::text AS new_status,
+          ip,
+          ua,
+          extra
+        FROM admin_audit
+        WHERE (${mint ?? null}::text IS NULL OR target_mint = ${mint})
+          AND (${adminWallet ?? null}::text IS NULL OR admin_wallet = ${adminWallet})
+          AND (${action ?? null}::text IS NULL OR action = ${action})
+        ORDER BY ts DESC
+        LIMIT ${limit}
+      `) as unknown as {
+        id: number;
+        ts: string;
+        admin_wallet: string;
+        action: string;
+        target_mint: string | null;
+        prev_status: TokenStatus | null;
+        new_status: TokenStatus | null;
+        ip: string | null;
+        ua: string | null;
+        extra: any;
+      }[];
+
+      return NextResponse.json({ success: true, source: 'admin', items: rows });
+    }
+
+    // ♻️ OLD: token_audit (mevcut davranışı koru)
     const rows = (await sql`
       SELECT
         mint,
@@ -38,7 +80,7 @@ export async function GET(req: NextRequest) {
       changed_at: string;
     }[];
 
-    return NextResponse.json({ success: true, items: rows });
+    return NextResponse.json({ success: true, source: 'token', items: rows });
   } catch (e: any) {
     const { status, body } = httpErrorFrom(e, 500);
     return NextResponse.json(body, { status });
