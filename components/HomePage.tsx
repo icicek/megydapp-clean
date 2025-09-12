@@ -1,30 +1,25 @@
+// components/HomePage.tsx
 "use client";
 
 import { useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import CoincarneModal from '@/components/CoincarneModal';
-import { fetchSolanaTokenList } from '@/lib/utils';
-import { connection } from '@/lib/solanaConnection';
 import CountUp from 'react-countup';
-import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 import ConnectWalletCTA from '@/components/wallet/ConnectWalletCTA';
 import TrustPledge from '@/components/TrustPledge';
 
-interface TokenInfo {
-  mint: string;
-  amount: number;
-  symbol?: string;
-  logoURI?: string;
-}
+// ✅ New hook
+import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
+// ✅ Skeleton
+import Skeleton from '@/components/ui/Skeleton';
 
 export default function HomePage() {
   const { publicKey, connected } = useWallet();
 
+  // ---------- Admin session/wallet checks ----------
   const [isAdminWallet, setIsAdminWallet] = useState(false);
   const [isAdminSession, setIsAdminSession] = useState(false);
 
-  // (1) On mount & wallet changes, check admin session
   useEffect(() => {
     let aborted = false;
     (async () => {
@@ -38,7 +33,6 @@ export default function HomePage() {
     return () => { aborted = true; };
   }, [publicKey, connected]);
 
-  // (2) Re-check when tab gains focus
   useEffect(() => {
     const recheck = async () => {
       try {
@@ -52,7 +46,6 @@ export default function HomePage() {
     return () => window.removeEventListener('focus', recheck);
   }, []);
 
-  // (3) Check if connected wallet is in the admin allowlist
   useEffect(() => {
     let aborted = false;
     (async () => {
@@ -72,10 +65,22 @@ export default function HomePage() {
     return () => { aborted = true; };
   }, [publicKey, connected]);
 
-  const [tokens, setTokens] = useState<TokenInfo[]>([]);
+  // ---------- Tokens via hook ----------
+  const {
+    tokens,
+    loading: tokensLoading,
+    error: tokensError,
+    refetchTokens,
+  } = useWalletTokens({
+    autoRefetchOnFocus: true,
+    autoRefetchOnAccountChange: true,
+    // pollMs: 20000, // ← istersen aç
+  });
+
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showModal, setShowModal] = useState(false);
 
+  // ---------- Global & user stats ----------
   const [globalStats, setGlobalStats] = useState({
     totalUsd: 0,
     totalParticipants: 0,
@@ -101,65 +106,13 @@ export default function HomePage() {
   useEffect(() => {
     if (!publicKey || !connected) return;
 
-    const fetchWalletTokens = async () => {
-      try {
-        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
-          programId: TOKEN_PROGRAM_ID,
-        });
-
-        const tokenListRaw: TokenInfo[] = tokenAccounts.value
-          .map(({ account }) => {
-            const parsed = account.data.parsed;
-            return {
-              mint: parsed.info.mint,
-              amount: parseFloat(parsed.info.tokenAmount.uiAmountString || '0'),
-            };
-          })
-          .filter((t) => t.amount > 0);
-
-        // SOL balance
-        const solBalance = await connection.getBalance(publicKey);
-        if (solBalance > 0) {
-          tokenListRaw.unshift({
-            mint: 'SOL',
-            amount: solBalance / 1e9,
-            symbol: 'SOL',
-          });
-        }
-
-        // Token list (cached)
-        const tokenMetadata = await fetchSolanaTokenList();
-
-        // Enrich with symbol/logo
-        const enriched = await Promise.all(
-          tokenListRaw.map(async (token) => {
-            if (token.mint === 'SOL') return token;
-            const metadata = tokenMetadata.find((meta) => meta.address === token.mint);
-            if (metadata) {
-              return { ...token, symbol: metadata.symbol, logoURI: metadata.logoURI };
-            }
-            const fallbackMeta = await fetchTokenMetadata(token.mint);
-            return {
-              ...token,
-              symbol: fallbackMeta?.symbol || token.mint.slice(0, 4),
-              logoURI: undefined,
-            };
-          })
-        );
-
-        setTokens(enriched);
-      } catch (err) {
-        console.error('❌ Error fetching wallet tokens:', err);
-      }
-    };
-
     const fetchStats = async () => {
       try {
         const [globalRes, userRes] = await Promise.all([
-          fetch('/api/coincarnation/stats'),
-          fetch(`/api/claim/${publicKey.toBase58()}`)
+          fetch('/api/coincarnation/stats', { cache: 'no-store' }),
+          fetch(`/api/claim/${publicKey.toBase58()}`, { cache: 'no-store' }),
         ]);
-        const globalData = await await globalRes.json();
+        const globalData = await globalRes.json();
         const userData = await userRes.json();
 
         if (globalData.success) setGlobalStats(globalData);
@@ -169,10 +122,10 @@ export default function HomePage() {
       }
     };
 
-    fetchWalletTokens();
     fetchStats();
   }, [publicKey, connected]);
 
+  // ---------- UI handlers ----------
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const mint = e.target.value;
     const token = tokens.find(t => t.mint === mint);
@@ -210,18 +163,38 @@ export default function HomePage() {
         <p className="text-xs text-gray-400 text-left mb-2">Walking deadcoins, memecoins, any unsupported assets…</p>
 
         {publicKey ? (
-          <select
-            className="w-full bg-gray-800 text-white p-3 rounded mb-4 border border-gray-600"
-            value={selectedToken?.mint || ''}
-            onChange={handleSelectChange}
-          >
-            <option value="" disabled>👉 Select a token to Coincarnate</option>
-            {tokens.map((token, idx) => (
-              <option key={idx} value={token.mint}>
-                {token.symbol ?? token.mint.slice(0, 4)} — {token.amount.toFixed(4)}
-              </option>
-            ))}
-          </select>
+          <>
+            {/* Loading skeleton */}
+            {tokensLoading && tokens.length === 0 ? (
+              <div className="space-y-2 mb-4" data-testid="tokens-skeleton">
+                {[...Array(6)].map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
+              </div>
+            ) : (
+              <>
+                <select
+                  className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
+                  value={selectedToken?.mint || ''}
+                  onChange={handleSelectChange}
+                >
+                  <option value="" disabled>
+                    👉 {tokensLoading ? 'Loading tokens…' : 'Select a token to Coincarnate'}
+                  </option>
+                  {tokens.map((token, idx) => (
+                    <option key={idx} value={token.mint}>
+                      {token.symbol ?? token.mint.slice(0, 4)} — {token.amount.toFixed(4)}
+                    </option>
+                  ))}
+                </select>
+                {tokensError && (
+                  <p className="text-xs text-red-400 mb-2">
+                    Token fetch error: {tokensError}
+                  </p>
+                )}
+              </>
+            )}
+          </>
         ) : (
           <p className="text-gray-400">Connect your wallet to see your tokens.</p>
         )}
@@ -333,6 +306,7 @@ export default function HomePage() {
             setSelectedToken(null);
             setShowModal(false);
           }}
+          refetchTokens={refetchTokens}   // refresh list after successful Coincarnation
           onGoToProfileRequest={() => (window.location.href = '/profile')}
         />
       )}

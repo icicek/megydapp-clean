@@ -22,6 +22,9 @@ import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 import { TokenCategory } from '@/app/api/utils/classifyToken';
 import { checkTokenLiquidityAndVolume } from '@/app/api/utils/checkTokenLiquidityAndVolume';
 
+// ✅ NEW: internal balance hook
+import { useInternalBalance, quantize } from '@/hooks/useInternalBalance';
+
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 const COINCARNATION_DEST = new PublicKey('HPBNVF9ATsnkDhGmQB4xoLC5tWBWQbTyBjsiQAN3dYXH');
 
@@ -81,6 +84,14 @@ export default function CoincarneModal({
 
   const displaySymbol = symbol ?? token.mint.slice(0, 4);
   const isSOLToken = token.mint === 'SOL' || symbol?.toUpperCase() === 'SOL';
+
+  // ---------- ✅ Internal balance via hook ----------
+  const {
+    balance: internalBalance,
+    loading: balLoading,
+    error: balError,
+    isSOL: isSolFromHook,
+  } = useInternalBalance(token.mint, { isSOL: isSOLToken });
 
   // ---------- Prepare confirm (robust price → open modal) ----------
   const handlePrepareConfirm = async () => {
@@ -240,9 +251,18 @@ export default function CoincarneModal({
     }
   };
 
+  // ---------- Percent buttons now use hook balance ----------
   const handlePercentage = (percent: number) => {
-    const calculated = (token.amount * percent) / 100;
-    setAmountInput(calculated.toFixed(6));
+    if (!internalBalance) return;
+    let calculated = (internalBalance.amount * percent) / 100;
+
+    // SOL için %100'te küçük fee tamponu
+    if (isSolFromHook && percent === 100 && calculated > 0.001) {
+      calculated -= 0.001;
+    }
+
+    calculated = quantize(calculated, internalBalance.decimals);
+    setAmountInput(String(calculated));
   };
 
   useEffect(() => {
@@ -264,7 +284,7 @@ export default function CoincarneModal({
           tokenCategory={tokenCategory}
           priceSources={priceView.priceSources}
           fetchStatus={priceView.fetchStatus}
-          tokenMint={isSOLToken ? WSOL_MINT : token.mint}   // ✅ normalize mint
+          tokenMint={isSOLToken ? WSOL_MINT : token.mint}
           currentWallet={publicKey?.toBase58() ?? null}
           onDeadcoinVote={() => {}}
         />
@@ -290,8 +310,17 @@ export default function CoincarneModal({
               <h2 className="text-2xl font-bold text-center mb-3">
                 🔥 Coincarnate {displaySymbol}
               </h2>
+
+              {/* ✅ Internal balance aware status line */}
               <p className="text-sm text-gray-400 text-center mb-2">
-                Balance: {token.amount.toFixed(4)} {displaySymbol}
+                {balLoading
+                  ? 'Fetching balance…'
+                  : balError
+                  ? `Balance error: ${balError}`
+                  : internalBalance
+                  ? `Balance: ${internalBalance.amount.toFixed(4)} ${displaySymbol}`
+                  : `Balance: ${token.amount.toFixed(4)} ${displaySymbol}`
+                }
               </p>
 
               <div className="grid grid-cols-4 gap-2 mb-4">
@@ -300,7 +329,7 @@ export default function CoincarneModal({
                     key={p}
                     className="bg-gradient-to-br from-purple-600 to-pink-500 hover:opacity-90 text-white font-semibold py-2 rounded-lg shadow"
                     onClick={() => handlePercentage(p)}
-                    disabled={loading}
+                    disabled={loading || balLoading || !internalBalance}
                   >
                     {p}%
                   </button>
