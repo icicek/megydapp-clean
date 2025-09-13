@@ -1,4 +1,3 @@
-// components/WalletConnectionProvider.tsx
 'use client';
 
 import { FC, useMemo } from 'react';
@@ -10,11 +9,7 @@ import { WalletConnectWalletAdapter } from '@solana/wallet-adapter-walletconnect
 
 const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children }) => {
   const network = WalletAdapterNetwork.Mainnet;
-
-  const endpoint = useMemo(
-    () => process.env.NEXT_PUBLIC_SOLANA_RPC || clusterApiUrl(network),
-    [network]
-  );
+  const endpoint = useMemo(() => process.env.NEXT_PUBLIC_SOLANA_RPC || clusterApiUrl(network), [network]);
 
   const appUrl =
     typeof window !== 'undefined' && window.location?.origin
@@ -25,8 +20,8 @@ const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children 
     process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
     process.env.WALLETCONNECT_PROJECT_ID;
 
-  // 🔹 Standart cüzdanlar (Phantom, Solflare, Backpack, vs.) otomatik algılanır → wallets=[]
-  // 🔹 Sadece WalletConnect'i manuel ekliyoruz (QR/mobil için)
+  // Standart uzantılar (Phantom, Solflare, Backpack...) otomatik algılanır → wallets=[]
+  // Sadece WalletConnect'i (QR/mobil) eklemek istiyorsan aşağıdaki bloğu bırak.
   const wallets = useMemo((): WalletAdapter[] => {
     const list: WalletAdapter[] = [];
     if (wcProjectId) {
@@ -46,7 +41,7 @@ const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children 
         })
       );
     }
-    return list; // <- Standart cüzdanlar için boş dizi yeterli
+    return list;
   }, [network, wcProjectId, appUrl]);
 
   return (

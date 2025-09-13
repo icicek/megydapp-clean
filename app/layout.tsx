@@ -1,10 +1,9 @@
 // app/layout.tsx
-import '@solana/wallet-adapter-react-ui/styles.css'; // Wallet modal CSS (tek yerde)
+import '@solana/wallet-adapter-react-ui/styles.css';
 import './globals.css';
 
 import type { Metadata } from 'next';
 import { ReactNode } from 'react';
-
 import WalletConnectionProvider from '@/components/WalletConnectionProvider';
 import { APP_URL, absoluteUrl } from '@/app/lib/origin';
 
@@ -17,23 +16,11 @@ export const metadata: Metadata = {
     description: 'Revive your deadcoins. Coincarnate them for $MEGY.',
     url: APP_URL,
     siteName: 'Coincarnation',
-    images: [
-      {
-        url: absoluteUrl('/og-image.png'),
-        width: 1200,
-        height: 630,
-        alt: 'Coincarnation Promotional Visual',
-      },
-    ],
+    images: [{ url: absoluteUrl('/og-image.png'), width: 1200, height: 630, alt: 'Coincarnation' }],
     locale: 'en_US',
-    type: 'website',
+    type: 'website'
   },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Coincarnation',
-    description: 'Trade your deadcoins for $MEGY and join the future.',
-    images: [absoluteUrl('/og-image.png')],
-  },
+  twitter: { card: 'summary_large_image', title: 'Coincarnation', description: 'Trade your deadcoins for $MEGY and join the future.', images: [absoluteUrl('/og-image.png')] }
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -41,7 +28,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <body>
         <WalletConnectionProvider>
-          {/* ❌ Burada admin ile ilgili hiçbir şey yok */}
           {children}
         </WalletConnectionProvider>
       </body>
