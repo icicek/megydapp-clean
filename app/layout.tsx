@@ -1,7 +1,10 @@
 // app/layout.tsx
+import '@solana/wallet-adapter-react-ui/styles.css'; // ✅ modal stilleri burada ve tek yerde
 import './globals.css';
+
 import type { Metadata } from 'next';
 import { ReactNode } from 'react';
+
 import WalletConnectionProvider from '@/components/WalletConnectionProvider';
 import AdminSessionSync from '@/components/wallet/AdminSessionSync';
 import AdminTopNav from '@/components/AdminTopNav';
@@ -9,9 +12,7 @@ import AdminTopNav from '@/components/AdminTopNav';
 import { APP_URL, absoluteUrl } from '@/app/lib/origin';
 
 export const metadata: Metadata = {
-  // Canonical base — OG & sosyal kartlarda mutlak URL üretimi için önemli
   metadataBase: new URL(APP_URL),
-
   title: 'Coincarnation',
   description: 'Rescue your deadcoins. Coincarnate now!',
   openGraph: {
@@ -44,7 +45,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <WalletConnectionProvider>
           <AdminSessionSync />
-          <AdminTopNav /> {/* yalnızca /admin altında (login hariç) görünür */}
+          <AdminTopNav />
           {children}
         </WalletConnectionProvider>
       </body>

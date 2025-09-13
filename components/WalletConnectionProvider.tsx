@@ -1,15 +1,17 @@
-// components/WalletConnectionProvider.tsx
 'use client';
 
 import { FC, useMemo } from 'react';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletAdapterNetwork, type WalletAdapter } from '@solana/wallet-adapter-base';
-import { PhantomWalletAdapter, SolflareWalletAdapter, TrustWalletAdapter, LedgerWalletAdapter } from '@solana/wallet-adapter-wallets';
+import {
+  PhantomWalletAdapter,
+  SolflareWalletAdapter,
+  TrustWalletAdapter,
+  LedgerWalletAdapter,
+} from '@solana/wallet-adapter-wallets';
 import { WalletConnectWalletAdapter } from '@solana/wallet-adapter-walletconnect';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { clusterApiUrl } from '@solana/web3.js';
-
-require('@solana/wallet-adapter-react-ui/styles.css');
 
 const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children }) => {
   const network = WalletAdapterNetwork.Mainnet;
@@ -19,20 +21,14 @@ const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children 
     [network]
   );
 
-  // MUST match live origin; also allowlisted in Reown
-  const appUrl = useMemo(() => {
-    if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
-    return process.env.NEXT_PUBLIC_APP_URL ?? 'https://coincarnation.com';
-  }, []);
+  const appUrl =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : (process.env.NEXT_PUBLIC_APP_URL ?? 'https://coincarnation.com');
 
   const wcProjectId =
     process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
     process.env.WALLETCONNECT_PROJECT_ID;
-
-  if (typeof window !== 'undefined') {
-    console.log('[WC] projectId', (wcProjectId || '').slice(0, 8) + '…');
-    console.log('[WC] metadata.url', appUrl);
-  }
 
   const wallets = useMemo((): WalletAdapter[] => {
     const list: WalletAdapter[] = [
@@ -42,6 +38,7 @@ const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children 
       new LedgerWalletAdapter(),
     ];
 
+    // İstersen geçici olarak WC'yi yorum satırına alıp diğer cüzdanları izole test edebilirsin.
     if (wcProjectId) {
       list.push(
         new WalletConnectWalletAdapter({
@@ -52,8 +49,8 @@ const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children 
             metadata: {
               name: 'Coincarnation',
               description: 'Revive deadcoins → $MEGY',
-              url: appUrl,                        // e.g. https://coincarnation.com
-              icons: [`${appUrl}/og-image.png`],  // absolute https URL
+              url: appUrl, // MUST match the real origin
+              icons: [`${appUrl}/og-image.png`],
             },
           },
         })
@@ -64,7 +61,7 @@ const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <ConnectionProvider endpoint={endpoint}>
-      {/* autoConnect=false -> eski bozuku session’a yapışmayı engeller */}
+      {/* stale/broken session’a yapışmayı engellemek için şimdilik kapalı */}
       <WalletProvider wallets={wallets} autoConnect={false}>
         <WalletModalProvider>{children}</WalletModalProvider>
       </WalletProvider>

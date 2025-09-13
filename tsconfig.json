@@ -1,28 +1,32 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "es2022",
     "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
+      "dom",
+      "dom.iterable",
+      "es2022"
     ],
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "jsx": "preserve",
-    "module": "ESNext",
-    "moduleResolution": "Bundler", // Next.js 15 önerilen
-    "allowJs": true,
-    "resolveJsonModule": true,
-    "noEmit": true,
-    "isolatedModules": true,
     "strict": true,
-    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "skipLibCheck": true,
     "esModuleInterop": true,
-    "skipLibCheck": true, // 🔑 dış paket tip hatalarını yok say
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
       "@/*": [
-        "./*"
+        "*"
       ]
     },
+    "types": [
+      "node",
+      "jest"
+    ],
+    "allowJs": true,
     "incremental": true,
     "plugins": [
       {
@@ -31,18 +35,13 @@
     ]
   },
   "include": [
+    "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    "next-env.d.ts",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "types/**/*.d.ts"
   ],
   "exclude": [
-    "node_modules",
-    ".next",
-    "dist",
-    "coverage",
-    "test", // 🔑 testleri app tip denetiminden çıkar
-    "**/*.test.ts",
-    "**/*.test.tsx"
+    "node_modules"
   ]
 }
