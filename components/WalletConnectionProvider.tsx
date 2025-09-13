@@ -1,17 +1,12 @@
+// components/WalletConnectionProvider.tsx
 'use client';
 
 import { FC, useMemo } from 'react';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletAdapterNetwork, type WalletAdapter } from '@solana/wallet-adapter-base';
-import {
-  PhantomWalletAdapter,
-  SolflareWalletAdapter,
-  TrustWalletAdapter,
-  LedgerWalletAdapter,
-} from '@solana/wallet-adapter-wallets';
-import { WalletConnectWalletAdapter } from '@solana/wallet-adapter-walletconnect';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { clusterApiUrl } from '@solana/web3.js';
+import { WalletConnectWalletAdapter } from '@solana/wallet-adapter-walletconnect';
 
 const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children }) => {
   const network = WalletAdapterNetwork.Mainnet;
@@ -30,15 +25,10 @@ const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children 
     process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
     process.env.WALLETCONNECT_PROJECT_ID;
 
+  // 🔹 Standart cüzdanlar (Phantom, Solflare, Backpack, vs.) otomatik algılanır → wallets=[]
+  // 🔹 Sadece WalletConnect'i manuel ekliyoruz (QR/mobil için)
   const wallets = useMemo((): WalletAdapter[] => {
-    const list: WalletAdapter[] = [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter(),
-      new TrustWalletAdapter(),
-      new LedgerWalletAdapter(),
-    ];
-
-    // İstersen geçici olarak WC'yi yorum satırına alıp diğer cüzdanları izole test edebilirsin.
+    const list: WalletAdapter[] = [];
     if (wcProjectId) {
       list.push(
         new WalletConnectWalletAdapter({
@@ -49,27 +39,23 @@ const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children 
             metadata: {
               name: 'Coincarnation',
               description: 'Revive deadcoins → $MEGY',
-              url: appUrl, // MUST match the real origin
+              url: appUrl,
               icons: [`${appUrl}/og-image.png`],
             },
           },
         })
       );
     }
-    return list;
+    return list; // <- Standart cüzdanlar için boş dizi yeterli
   }, [network, wcProjectId, appUrl]);
 
   return (
     <ConnectionProvider endpoint={endpoint}>
-      {/* stale/broken session’a yapışmayı engellemek için şimdilik kapalı */}
       <WalletProvider
         wallets={wallets}
         autoConnect={false}
         onError={(err, adapter) => {
-          // Hata olduğunda modal kapanabilir; burada sebebi net göreceğiz
           console.error('[WALLET ERROR]', adapter?.name, err);
-          // İstersen alert de at:
-          // alert(`${adapter?.name || 'Wallet'} error: ${err?.message || err}`);
         }}
       >
         <WalletModalProvider>{children}</WalletModalProvider>
