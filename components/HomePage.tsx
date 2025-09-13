@@ -1,7 +1,7 @@
 // components/HomePage.tsx
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useRouter } from 'next/navigation';
 import CountUp from 'react-countup';
@@ -32,12 +32,11 @@ export default function HomePage() {
         signal,
       });
       if (!res.ok) {
-        // sessiz modda bile non-OK gelirse false'a çek
         setIsAdminSession(false);
         return;
       }
-      const data = await res.json().catch(() => ({}));
-      setIsAdminSession(Boolean(data?.ok));
+      const data = await res.json().catch(() => ({} as any));
+      setIsAdminSession(Boolean((data as any)?.ok));
     } catch {
       setIsAdminSession(false);
     }
@@ -48,7 +47,6 @@ export default function HomePage() {
     const ac = new AbortController();
     checkAdminSession(ac.signal);
     return () => ac.abort();
-    // publicKey/connected değişince tekrar denemek yeterli
   }, [pubkeyBase58, connected]);
 
   // Sekme odaklanınca tekrar kontrol (sessiz)
@@ -72,7 +70,7 @@ export default function HomePage() {
           signal: ac.signal,
         });
         const j = await res.json().catch(() => null);
-        setIsAdminWallet(Boolean(j?.allowed));
+        setIsAdminWallet(Boolean((j as any)?.allowed));
       } catch {
         setIsAdminWallet(false);
       }
@@ -113,7 +111,7 @@ export default function HomePage() {
       try {
         const res = await fetch('/api/coincarnation/stats', { cache: 'no-store', signal: ac.signal });
         const data = await res.json();
-        if (data?.success) setGlobalStats(data);
+        if ((data as any)?.success) setGlobalStats(data);
       } catch {}
     })();
     return () => ac.abort();
@@ -132,8 +130,10 @@ export default function HomePage() {
         const globalData = await globalRes.json().catch(() => ({}));
         const userData = await userRes.json().catch(() => ({}));
 
-        if (globalData?.success) setGlobalStats(globalData);
-        if (userData?.success) setUserContribution(Number(userData?.data?.total_usd_contributed || 0));
+        if ((globalData as any)?.success) setGlobalStats(globalData);
+        if ((userData as any)?.success) {
+          setUserContribution(Number((userData as any)?.data?.total_usd_contributed || 0));
+        }
       } catch {}
     })();
     return () => ac.abort();
@@ -184,7 +184,7 @@ export default function HomePage() {
         {publicKey ? (
           <>
             {tokensLoading && tokens.length === 0 ? (
-              <div className="space-y-2 mb-4" data-testid="tokens-skeleton">
+              <div className="space-y-2 mb-4" data-testid="tokens-skeleton" aria-busy="true">
                 {[...Array(6)].map((_, i) => (
                   <Skeleton key={i} className="h-10 w-full" />
                 ))}
@@ -198,7 +198,11 @@ export default function HomePage() {
                   </div>
                 )}
 
+                <label className="sr-only" htmlFor="token-select">
+                  Select a token to Coincarnate
+                </label>
                 <select
+                  id="token-select"
                   className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
                   value={selectedToken?.mint || ''}
                   onChange={handleSelectChange}
@@ -215,7 +219,7 @@ export default function HomePage() {
 
                 {!tokensLoading && tokens.length === 0 && tokensError && (
                   <p className="text-xs text-red-400 mb-2">
-                    Token fetch error: {tokensError}
+                    Token fetch error: {String(tokensError)}
                   </p>
                 )}
               </>
@@ -225,7 +229,9 @@ export default function HomePage() {
           <p className="text-gray-400">Connect your wallet to see your tokens.</p>
         )}
 
-        <div className="text-2xl my-4 text-center">↔️</div>
+        <div className="text-2xl my-4 text-center" aria-hidden>
+          ↔️
+        </div>
 
         <h2 className="text-lg text-left mb-2">You receive</h2>
         <p className="text-xs text-gray-400 text-left mb-2">
@@ -233,7 +239,7 @@ export default function HomePage() {
         </p>
 
         <div className="mt-4">
-          <div className="w-full bg-gray-800 rounded-full h-6 overflow-hidden relative border border-gray-600">
+          <div className="w-full bg-gray-800 rounded-full h-6 overflow-hidden relative border border-gray-600" aria-label="Your share of the Fair Future Fund">
             <div
               className="h-6 bg-gradient-to-r from-yellow-800 via-green-500 to-yellow-300"
               style={{ width: `${sharePercentage}%` }}
