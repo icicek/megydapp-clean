@@ -1,8 +1,9 @@
 // components/HomePage.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { useRouter } from 'next/navigation';
 import CountUp from 'react-countup';
 
 import CoincarneModal from '@/components/CoincarneModal';
@@ -13,71 +14,71 @@ import Skeleton from '@/components/ui/Skeleton';
 import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
 
 export default function HomePage() {
+  const router = useRouter();
   const { publicKey, connected } = useWallet();
+  const pubkeyBase58 = useMemo(() => publicKey?.toBase58() ?? null, [publicKey]);
 
-  // ---------- Admin checks ----------
+  // ---------- Admin checks (SAFE) ----------
   const [isAdminWallet, setIsAdminWallet] = useState(false);
   const [isAdminSession, setIsAdminSession] = useState(false);
 
-  // Session (cookie-JWT)
-  useEffect(() => {
-    let aborted = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/admin/whoami', {
-          credentials: 'include',
-          cache: 'no-store',
-        });
-        if (!aborted) setIsAdminSession(res.ok);
-      } catch {
-        if (!aborted) setIsAdminSession(false);
-      }
-    })();
-    return () => {
-      aborted = true;
-    };
-  }, [publicKey, connected]);
-
-  // Re-check when tab gains focus
-  useEffect(() => {
-    const recheck = async () => {
-      try {
-        const res = await fetch('/api/admin/whoami', {
-          credentials: 'include',
-          cache: 'no-store',
-        });
-        setIsAdminSession(res.ok);
-      } catch {
+  // whoami (sessiz mod) – 401 atmaz; { ok: boolean } döner
+  const checkAdminSession = async (signal?: AbortSignal) => {
+    try {
+      const res = await fetch('/api/admin/whoami?strict=0', {
+        credentials: 'include',
+        cache: 'no-store',
+        headers: { 'x-admin-sync': '1' },
+        signal,
+      });
+      if (!res.ok) {
+        // sessiz modda bile non-OK gelirse false'a çek
         setIsAdminSession(false);
+        return;
       }
-    };
-    window.addEventListener('focus', recheck);
-    return () => window.removeEventListener('focus', recheck);
+      const data = await res.json().catch(() => ({}));
+      setIsAdminSession(Boolean(data?.ok));
+    } catch {
+      setIsAdminSession(false);
+    }
+  };
+
+  // mount + wallet değişiminde bir kere kontrol
+  useEffect(() => {
+    const ac = new AbortController();
+    checkAdminSession(ac.signal);
+    return () => ac.abort();
+    // publicKey/connected değişince tekrar denemek yeterli
+  }, [pubkeyBase58, connected]);
+
+  // Sekme odaklanınca tekrar kontrol (sessiz)
+  useEffect(() => {
+    const handler = () => checkAdminSession();
+    window.addEventListener('focus', handler);
+    return () => window.removeEventListener('focus', handler);
   }, []);
 
-  // Wallet allowlist
+  // Allowlist (admin cüzdan mı?)
   useEffect(() => {
-    let aborted = false;
+    const ac = new AbortController();
     (async () => {
-      if (!connected || !publicKey) {
-        if (!aborted) setIsAdminWallet(false);
+      if (!connected || !pubkeyBase58) {
+        setIsAdminWallet(false);
         return;
       }
       try {
-        const w = publicKey.toBase58();
-        const res = await fetch(`/api/admin/is-allowed?wallet=${w}`, {
+        const res = await fetch(`/api/admin/is-allowed?wallet=${pubkeyBase58}`, {
           cache: 'no-store',
+          signal: ac.signal,
         });
         const j = await res.json().catch(() => null);
-        if (!aborted) setIsAdminWallet(Boolean(j?.allowed));
+        setIsAdminWallet(Boolean(j?.allowed));
       } catch {
-        if (!aborted) setIsAdminWallet(false);
+        setIsAdminWallet(false);
       }
     })();
-    return () => {
-      aborted = true;
-    };
-  }, [publicKey, connected]);
+    return () => ac.abort();
+  }, [pubkeyBase58, connected]);
 
   // ---------- Tokens (anti-flicker) ----------
   const {
@@ -107,49 +108,43 @@ export default function HomePage() {
 
   // Initial global stats
   useEffect(() => {
-    const fetchGlobalStats = async () => {
+    const ac = new AbortController();
+    (async () => {
       try {
-        const res = await fetch('/api/coincarnation/stats', { cache: 'no-store' });
+        const res = await fetch('/api/coincarnation/stats', { cache: 'no-store', signal: ac.signal });
         const data = await res.json();
-        if (data.success) setGlobalStats(data);
-      } catch (err) {
-        console.error('Failed to fetch global stats:', err);
-      }
-    };
-    fetchGlobalStats();
+        if (data?.success) setGlobalStats(data);
+      } catch {}
+    })();
+    return () => ac.abort();
   }, []);
 
   // Re-fetch user stats when wallet is connected
   useEffect(() => {
-    if (!publicKey || !connected) return;
-
-    const fetchStats = async () => {
+    if (!pubkeyBase58 || !connected) return;
+    const ac = new AbortController();
+    (async () => {
       try {
         const [globalRes, userRes] = await Promise.all([
-          fetch('/api/coincarnation/stats', { cache: 'no-store' }),
-          fetch(`/api/claim/${publicKey.toBase58()}`, { cache: 'no-store' }),
+          fetch('/api/coincarnation/stats', { cache: 'no-store', signal: ac.signal }),
+          fetch(`/api/claim/${pubkeyBase58}`, { cache: 'no-store', signal: ac.signal }),
         ]);
-        const globalData = await globalRes.json();
-        const userData = await userRes.json();
+        const globalData = await globalRes.json().catch(() => ({}));
+        const userData = await userRes.json().catch(() => ({}));
 
-        if (globalData.success) setGlobalStats(globalData);
-        if (userData.success) setUserContribution(userData.data.total_usd_contributed);
-      } catch (err) {
-        console.error('❌ Failed to fetch stats or user data:', err);
-      }
-    };
-
-    fetchStats();
-  }, [publicKey, connected]);
+        if (globalData?.success) setGlobalStats(globalData);
+        if (userData?.success) setUserContribution(Number(userData?.data?.total_usd_contributed || 0));
+      } catch {}
+    })();
+    return () => ac.abort();
+  }, [pubkeyBase58, connected]);
 
   // ---------- Handlers ----------
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const mint = e.target.value;
-    const token = tokens.find((t) => t.mint === mint);
-    if (token) {
-      setSelectedToken(token);
-      setShowModal(true);
-    }
+    const token = tokens.find((t) => t.mint === mint) || null;
+    setSelectedToken(token);
+    setShowModal(Boolean(token));
   };
 
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
@@ -188,7 +183,6 @@ export default function HomePage() {
 
         {publicKey ? (
           <>
-            {/* Only on very first load show skeletons */}
             {tokensLoading && tokens.length === 0 ? (
               <div className="space-y-2 mb-4" data-testid="tokens-skeleton">
                 {[...Array(6)].map((_, i) => (
@@ -197,7 +191,6 @@ export default function HomePage() {
               </div>
             ) : (
               <>
-                {/* subtle background syncing indicator — no flicker */}
                 {refreshing && (
                   <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
                     <span className="inline-block h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
@@ -220,7 +213,6 @@ export default function HomePage() {
                   ))}
                 </select>
 
-                {/* Show error only if initial load failed and list is empty */}
                 {!tokensLoading && tokens.length === 0 && tokensError && (
                   <p className="text-xs text-red-400 mb-2">
                     Token fetch error: {tokensError}
@@ -262,7 +254,6 @@ export default function HomePage() {
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 my-6 w-full max-w-5xl">
-        {/* Total Participants */}
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600">
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
             <p className="text-sm text-white font-semibold mb-1">Total Participants</p>
@@ -272,7 +263,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Total USD Revived */}
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-green-400 via-green-500 to-green-600">
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
             <p className="text-sm text-white font-semibold mb-1">Total USD Revived</p>
@@ -282,7 +272,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Unique Deadcoins */}
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-pink-400 via-pink-500 to-pink-600">
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
             <p className="text-sm text-white font-semibold mb-1">Unique Deadcoins</p>
@@ -292,7 +281,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Most Popular Deadcoin */}
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-purple-400 via-purple-500 to-purple-600">
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
             <p className="text-sm text-white font-semibold mb-1">Most Popular Deadcoin</p>
@@ -303,11 +291,10 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Profile CTA ABOVE Trust Pledge */}
       {publicKey && (
         <div className="w-full max-w-5xl flex justify-center">
           <button
-            onClick={() => (window.location.href = '/profile')}
+            onClick={() => router.push('/profile')}
             className="bg-gradient-to-r from-green-500 to-teal-500 hover:from-emerald-400 hover:to-cyan-400
                        text-white font-semibold py-3 px-6 rounded-xl shadow-green-500/50
                        hover:scale-110 hover:-translate-y-1 transition-all duration-300 flex items-center gap-2 mt-2"
@@ -318,12 +305,10 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Trust Pledge (accordion, default closed) */}
       <div className="w-full max-w-5xl">
         <TrustPledge compact />
       </div>
 
-      {/* Docs CTA under the pledge */}
       <div className="w-full max-w-5xl mt-2 text-center">
         <a
           href="/docs"
@@ -341,12 +326,11 @@ export default function HomePage() {
             setSelectedToken(null);
             setShowModal(false);
           }}
-          refetchTokens={refetchTokens} // refresh after successful Coincarnation
-          onGoToProfileRequest={() => (window.location.href = '/profile')}
+          refetchTokens={refetchTokens}
+          onGoToProfileRequest={() => router.push('/profile')}
         />
       )}
 
-      {/* Admin panel access */}
       {(isAdminSession || (connected && isAdminWallet)) && (
         <div className="mt-4">
           <a
