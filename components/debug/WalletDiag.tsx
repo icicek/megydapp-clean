@@ -11,7 +11,7 @@ import { SolflareWalletName } from '@solana/wallet-adapter-solflare';
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export default function WalletDiag() {
-  const { wallets, wallet, select, connect, disconnect, connected, connecting, publicKey } = useWallet();
+  const { wallets, wallet, select, disconnect, connected, connecting, publicKey } = useWallet();
   const [log, setLog] = useState<string[]>([]);
 
   const append = (m: string) => setLog((p) => [...p, `[${new Date().toLocaleTimeString()}] ${m}`]);
@@ -22,49 +22,69 @@ export default function WalletDiag() {
   );
   useEffect(() => { append(`adapters: ${summary}`); }, [summary]);
 
-  const waitUntilSelected = async (name: WalletName, tries = 20) => {
-    for (let i = 0; i < tries; i++) {
-      // state commit edilene kadar 10–25ms aralıklarla bekle
-      if (wallet?.adapter?.name === name) return true;
-      await sleep(25);
+  async function connectViaAdapter(name: WalletName) {
+    const entry = wallets.find((w) => (w.adapter.name as WalletName) === name);
+    if (!entry) return append(`SKIP ${name} — not found`);
+
+    const { adapter, readyState } = entry;
+    append(`target=${adapter.name} rs=${readyState}`);
+
+    if (!['Installed', 'Loadable'].includes(String(readyState))) {
+      return append(`SKIP ${name} — not ready (${readyState})`);
     }
-    return wallet?.adapter?.name === name;
-  };
 
-  const connectBy = async (name: WalletName) => {
     try {
-      const found = wallets.find((w) => (w.adapter.name as WalletName) === name);
-      append(`select(${name}) rs=${found?.readyState}`);
-      if (!found || !['Installed', 'Loadable'].includes(String(found.readyState))) {
-        append(`SKIP ${name} — not ready`);
-        return;
-      }
+      // 1) UI tutarlılığı için seç, fakat bağlanmayı adapter üzerinden yap
       select(name);
+      await Promise.resolve(); // microtask
 
-      // 🔸 kritik: seçimin gerçekten state'e yazılmasını bekle
-      const ok = await waitUntilSelected(name);
-      append(ok ? `selected=${name}` : `WARN: not selected yet (${wallet?.adapter?.name || '-'})`);
+      // 2) Event dinle
+      const onConnect = () => append(`EVENT connect: ${adapter.publicKey?.toBase58() || '-'}`);
+      const onDisconnect = () => append('EVENT disconnect');
+      const onError = (e: any) => append(`EVENT error: ${e?.message || String(e)}`);
+      adapter.on('connect', onConnect);
+      adapter.on('disconnect', onDisconnect);
+      adapter.on('error', onError);
 
-      append('connect()…');
-      await connect();
-      append(`CONNECTED: ${publicKey?.toBase58() || '(no pk yet)'}`);
+      // 3) Bağlan
+      append('adapter.connect()…');
+      await adapter.connect();
+
+      // 4) Kısa bekleme: publicKey’in propagate olması için
+      for (let i = 0; i < 40; i++) {
+        if (adapter.publicKey) break;
+        await sleep(25);
+      }
+
+      append(
+        `ADAPTER STATE: connected=${String((adapter as any).connected)} key=${adapter.publicKey?.toBase58() || '-'}`
+      );
     } catch (e: any) {
       append(`ERROR(${name}): ${e?.message || String(e)}`);
       // eslint-disable-next-line no-console
-      console.error('[Diag connect error]', name, e);
+      console.error('[Diag] adapter.connect error', name, e);
     }
-  };
+  }
 
   return (
     <div style={{ padding: 20 }}>
       <WalletMultiButton />
+
       <div style={{ display: 'flex', gap: 8, marginTop: 12, marginBottom: 12 }}>
-        <button onClick={() => connectBy(PhantomWalletName)} className="px-3 py-2 rounded bg-white/10 hover:bg-white/20">
-          Connect Phantom
+        <button
+          onClick={() => connectViaAdapter(PhantomWalletName)}
+          className="px-3 py-2 rounded bg-white/10 hover:bg-white/20"
+        >
+          Connect Phantom (via adapter)
         </button>
-        <button onClick={() => connectBy(SolflareWalletName)} className="px-3 py-2 rounded bg-white/10 hover:bg-white/20">
-          Connect Solflare
+
+        <button
+          onClick={() => connectViaAdapter(SolflareWalletName)}
+          className="px-3 py-2 rounded bg-white/10 hover:bg-white/20"
+        >
+          Connect Solflare (via adapter)
         </button>
+
         <button
           onClick={async () => { await disconnect(); append('DISCONNECTED'); }}
           className="px-3 py-2 rounded bg-white/10 hover:bg-white/20"
@@ -72,6 +92,7 @@ export default function WalletDiag() {
           Disconnect
         </button>
       </div>
+
       <pre style={{ fontSize: 12, whiteSpace: 'pre-wrap', opacity: 0.9 }}>
         connected={String(connected)} connecting={String(connecting)} current={wallet?.adapter?.name || '-'}
         {'\n'}pk={publicKey?.toBase58() || '-'}
