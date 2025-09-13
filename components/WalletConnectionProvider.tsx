@@ -62,7 +62,16 @@ const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children 
   return (
     <ConnectionProvider endpoint={endpoint}>
       {/* stale/broken session’a yapışmayı engellemek için şimdilik kapalı */}
-      <WalletProvider wallets={wallets} autoConnect={false}>
+      <WalletProvider
+        wallets={wallets}
+        autoConnect={false}
+        onError={(err, adapter) => {
+          // Hata olduğunda modal kapanabilir; burada sebebi net göreceğiz
+          console.error('[WALLET ERROR]', adapter?.name, err);
+          // İstersen alert de at:
+          // alert(`${adapter?.name || 'Wallet'} error: ${err?.message || err}`);
+        }}
+      >
         <WalletModalProvider>{children}</WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
