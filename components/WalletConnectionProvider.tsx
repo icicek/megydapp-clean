@@ -11,11 +11,9 @@ import {
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { clusterApiUrl } from '@solana/web3.js';
 
-// Modal & buttons styles (gerekli)
 import '@solana/wallet-adapter-react-ui/styles.css';
 
 const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children }) => {
-  // RPC endpoint: env varsa onu kullan, yoksa mainnet-beta
   const endpoint = useMemo(() => {
     return (
       process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
@@ -26,17 +24,19 @@ const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children 
 
   const WC_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '';
 
-  // Adapters tek seferlik oluşturulsun
+  // ✅ Production/staging için doğru origin’i seç
+  const APP_ORIGIN =
+    process.env.NEXT_PUBLIC_APP_ORIGIN ||
+    (typeof window !== 'undefined' ? window.location.origin : 'https://coincarnation.com');
+
   const wallets = useMemo((): WalletAdapter[] => {
     const list: WalletAdapter[] = [
       new PhantomWalletAdapter(),
-      new SolflareWalletAdapter(), // parametresiz: sürümler arası TS uyumu
+      new SolflareWalletAdapter(),
     ];
 
     if (WC_PROJECT_ID) {
-      // Sürüm farkları nedeniyle tipler değişebiliyor → bilinçli cast
       const wc = new WalletConnectWalletAdapter({
-        // bazı sürümlerde required olabiliyor; 'as any' ile uyumlu hale getiriyoruz
         network: 'mainnet-beta' as any,
         options: {
           projectId: WC_PROJECT_ID,
@@ -44,15 +44,8 @@ const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children 
           metadata: {
             name: 'Coincarnation DApp',
             description: 'Revive value, claim the Fair Future.',
-            url:
-              typeof window !== 'undefined'
-                ? window.location.origin
-                : 'https://megydapp.vercel.app',
-            icons: [
-              typeof window !== 'undefined'
-                ? `${window.location.origin}/icon.png`
-                : 'https://megydapp.vercel.app/icon.png',
-            ],
+            url: APP_ORIGIN,                         // 👈 burada artık coincarnation.com
+            icons: [`${APP_ORIGIN}/icon.png`],       // 👈 ve ikon yolu da bu origin’den
           },
         } as any,
       } as any) as unknown as WalletAdapter;
@@ -61,7 +54,7 @@ const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children 
     }
 
     return list;
-  }, [WC_PROJECT_ID]);
+  }, [WC_PROJECT_ID, APP_ORIGIN]);
 
   return (
     <ConnectionProvider endpoint={endpoint}>
