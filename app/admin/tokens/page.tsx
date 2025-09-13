@@ -462,6 +462,15 @@ export default function AdminTokensPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">🛡️ Token Management</h1>
         <div className="flex items-center gap-2">
+          {/* NEW: Quick access to Audit Log */}
+          <Link
+            href="/admin/audit"
+            className="bg-indigo-700 hover:bg-indigo-600 border border-indigo-500 rounded px-3 py-2 text-sm"
+            title="View Admin Audit Log"
+          >
+            Audit Log
+          </Link>
+
           <Link
             href="/admin/control"
             className="bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
