@@ -1,14 +1,11 @@
 // app/layout.tsx
-import '@solana/wallet-adapter-react-ui/styles.css'; // ✅ modal stilleri burada ve tek yerde
+import '@solana/wallet-adapter-react-ui/styles.css'; // Wallet modal CSS (tek yerde)
 import './globals.css';
 
 import type { Metadata } from 'next';
 import { ReactNode } from 'react';
 
 import WalletConnectionProvider from '@/components/WalletConnectionProvider';
-import AdminSessionSync from '@/components/wallet/AdminSessionSync';
-import AdminTopNav from '@/components/AdminTopNav';
-
 import { APP_URL, absoluteUrl } from '@/app/lib/origin';
 
 export const metadata: Metadata = {
@@ -44,8 +41,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <body>
         <WalletConnectionProvider>
-          <AdminSessionSync />
-          <AdminTopNav />
+          {/* ❌ Burada admin ile ilgili hiçbir şey yok */}
           {children}
         </WalletConnectionProvider>
       </body>
