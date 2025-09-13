@@ -1,4 +1,3 @@
-// app/layout.tsx
 import '@solana/wallet-adapter-react-ui/styles.css';
 import './globals.css';
 

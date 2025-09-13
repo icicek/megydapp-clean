@@ -20,8 +20,8 @@ const WalletConnectionProvider: FC<{ children: React.ReactNode }> = ({ children 
     process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
     process.env.WALLETCONNECT_PROJECT_ID;
 
-  // Standart uzantılar (Phantom, Solflare, Backpack...) otomatik algılanır → wallets=[]
-  // Sadece WalletConnect'i (QR/mobil) eklemek istiyorsan aşağıdaki bloğu bırak.
+  // Uzantı cüzdanları (Phantom/Solflare/Backpack…) Wallet Standard ile otomatik algılanır → wallets=[]
+  // Sadece WalletConnect'i QR/mobil için eklemek istersen aşağıdaki bloğu bırak.
   const wallets = useMemo((): WalletAdapter[] => {
     const list: WalletAdapter[] = [];
     if (wcProjectId) {
