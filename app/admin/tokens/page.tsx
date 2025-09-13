@@ -269,7 +269,11 @@ export default function AdminTokensPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/admin/whoami', { credentials: 'include', cache: 'no-store' });
+        const res = await fetch('/api/admin/whoami?strict=0', {
+          credentials: 'include',
+          cache: 'no-store',
+          headers: { 'x-admin-sync': '1' },
+        });        
         if (!res.ok) { router.replace('/admin/login?e=session'); return; }
         const { wallet: adminWallet } = await res.json();
         const current = publicKey?.toBase58() || null;

@@ -147,7 +147,9 @@ export default function AdminControlPage() {
 
         // whoami
         try {
-          const w = await getJSON<{ success: boolean; wallet?: string }>('/api/admin/whoami');
+          const w = await getJSON<{ ok?: boolean; wallet?: string | null }>(
+            '/api/admin/whoami?strict=0'
+          );          
           setWhoami(w?.wallet ?? null);
         } catch {
           setWhoami(null);
