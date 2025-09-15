@@ -15,7 +15,7 @@ export default function ConnectWalletCTA() {
     connect,
     connected,
     connecting,
-    wallet, // mevcut seçili cüzdan
+    wallet,
   } = useWallet();
 
   const short = (k: string) => k.slice(0, 4) + '…' + k.slice(-4);
@@ -24,9 +24,16 @@ export default function ConnectWalletCTA() {
   const [panel, setPanel] = useState<Panel>('actions');
   const [err, setErr] = useState<string | null>(null);
   const [pendingName, setPendingName] = useState<WalletName | null>(null);
-  const rootRef = useRef<HTMLDivElement | null>(null);
 
-  // Yüklü / yüklenebilir cüzdanlar, isim bazında uniq
+  // buton / menü referansları
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // mobil yerleşim için pozisyon state
+  const [mobileStyle, setMobileStyle] = useState<React.CSSProperties>({});
+
+  // yüklü cüzdanlar (uniq)
   const available = useMemo(() => {
     const seen = new Set<string>();
     return wallets
@@ -41,7 +48,7 @@ export default function ConnectWalletCTA() {
       });
   }, [wallets]);
 
-  // Dış tıklamada kapat
+  // dış tıklamada kapat
   useEffect(() => {
     function onDoc(e: MouseEvent) {
       if (!rootRef.current) return;
@@ -54,20 +61,18 @@ export default function ConnectWalletCTA() {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
 
-  // Bağlılık değişince paneli ayarla
+  // bağlılık değişince panel
   useEffect(() => {
     setPanel(connected ? 'actions' : 'pick');
   }, [connected]);
 
-  // Yarış çözücü: select(name) → provider state pendingName’e geldiğinde connect
+  // yarış çözücü
   useEffect(() => {
     (async () => {
       if (!pendingName) return;
       const current = wallet?.adapter?.name as WalletName | undefined;
-
       if (current && current === pendingName && !connected && !connecting) {
         try {
-          // bazı cüzdanlar injection sonrası 1–2 frame ister
           await new Promise((r) => setTimeout(r, 50));
           await connect();
           setOpen(false);
@@ -87,7 +92,69 @@ export default function ConnectWalletCTA() {
     })();
   }, [wallet, connected, connecting, pendingName, connect]);
 
-  // Bir cüzdan seç → select; connect() effect’te
+  // menü açıldığında mobilde konum hesapla (butonun altı, ekrana sığdır)
+  useEffect(() => {
+    if (!open) return;
+    if (typeof window === 'undefined') return;
+
+    const isDesktop = window.matchMedia('(min-width: 768px)').matches;
+    if (isDesktop) {
+      setMobileStyle({});
+      return;
+    }
+
+    const place = () => {
+      const btn = triggerRef.current;
+      const menu = menuRef.current;
+      if (!btn || !menu) return;
+
+      const rect = btn.getBoundingClientRect();
+
+      const margin = 10;                       // kenarlardan tampon
+      const maxW = Math.min(288, window.innerWidth - margin * 2); // ~w-72
+      const menuW = maxW;
+
+      // buton ortasına göre x, sonra clamp
+      let left = rect.left + rect.width / 2 - menuW / 2;
+      left = Math.max(margin, Math.min(left, window.innerWidth - menuW - margin));
+
+      // önce yaklaşık top hesapla (butonun altı)
+      let top = rect.bottom + 8;
+
+      // geçici width ile stil uygula, sonra yükseklik ölçüp alt taşmayı düzelt
+      setMobileStyle({
+        position: 'fixed',
+        left,
+        top,
+        width: menuW,
+      });
+
+      // bir frame sonra yükseklik ölç
+      requestAnimationFrame(() => {
+        const h = menu.getBoundingClientRect().height || 0;
+        let t = rect.bottom + 8;
+        if (t + h + margin > window.innerHeight) {
+          t = Math.max(margin, window.innerHeight - h - margin); // aşağı sığmıyorsa yukarı al
+        }
+        setMobileStyle({
+          position: 'fixed',
+          left,
+          top: t,
+          width: menuW,
+        });
+      });
+    };
+
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, { passive: true });
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place);
+    };
+  }, [open]);
+
+  // seçim / toggle
   const handlePick = (name: WalletName) => {
     setErr(null);
     setPendingName(name);
@@ -122,7 +189,7 @@ export default function ConnectWalletCTA() {
     ? `https://explorer.solana.com/address/${publicKey.toBase58()}`
     : '#';
 
-  // Yardım linkleri
+  // indirme linkleri
   const links = {
     phantom: 'https://phantom.app/download',
     backpack: 'https://www.backpack.app/download',
@@ -133,6 +200,7 @@ export default function ConnectWalletCTA() {
     <div className="relative inline-block text-left" ref={rootRef}>
       {/* Trigger */}
       <button
+        ref={triggerRef}
         onClick={handleToggle}
         className="bg-indigo-600 hover:bg-indigo-700 rounded px-3 py-2 text-sm font-semibold disabled:opacity-60 flex items-center gap-2"
         aria-expanded={open}
@@ -164,15 +232,14 @@ export default function ConnectWalletCTA() {
       {/* Popover */}
       {open && (
         <div
-          // 📱 Mobilde ortala ve ekrana sığdır; 💻 desktop’ta sağa yasla
-          className="
-            absolute mt-2 z-50 p-1 rounded-xl border border-white/10 bg-zinc-900 shadow-2xl
-            left-1/2 -translate-x-1/2 w-[min(18rem,calc(100vw-1.25rem))]    /* mobile */
-            md:left-auto md:right-0 md:translate-x-0 md:w-64                /* desktop */
-          "
+          ref={menuRef}
           role="menu"
-          // iOS safe area küçük dokunuş (çentik kenarı)
-          style={{ paddingLeft: 'max(0.25rem, env(safe-area-inset-left))', paddingRight: 'max(0.25rem, env(safe-area-inset-right))' }}
+          className="
+            z-50 p-1 rounded-xl border border-white/10 bg-zinc-900 shadow-2xl
+            md:absolute md:right-0 md:top-full md:mt-2 md:w-64      /* desktop: butona hizalı */
+          "
+          // mobilde fixed + ölçülmüş stil, desktop’ta tarafa yaslı absolute
+          style={mobileStyle}
         >
           {panel === 'actions' && connected ? (
             <div className="py-1">
@@ -209,7 +276,6 @@ export default function ConnectWalletCTA() {
               </button>
             </div>
           ) : (
-            // panel === 'pick'
             <div className="py-1">
               {connected && (
                 <button
@@ -220,7 +286,7 @@ export default function ConnectWalletCTA() {
                 </button>
               )}
 
-              {/* 👇 Cüzdan yoksa indirme önerileri */}
+              {/* Cüzdan yoksa indirme önerileri */}
               {available.length === 0 && (
                 <div className="px-3 py-2 text-sm text-gray-200 space-y-2">
                   <div className="text-gray-300">
@@ -268,7 +334,6 @@ export default function ConnectWalletCTA() {
                     role="menuitem"
                     disabled={connecting}
                   >
-                    {/* adapter.icon bazen data URL döner */}
                     {w.adapter.icon && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={w.adapter.icon} alt="" className="h-4 w-4 rounded" />
