@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useWallet } from '@solana/wallet-adapter-react';
 import {
   getAssociatedTokenAddress,
@@ -164,7 +165,6 @@ export default function CoincarneModal({
       let signature: string;
 
       if (isSOLToken) {
-        // SOL transfer
         const tx = new Transaction().add(
           SystemProgram.transfer({
             fromPubkey: publicKey,
@@ -174,7 +174,6 @@ export default function CoincarneModal({
         );
         signature = await sendTransaction(tx, connection);
       } else {
-        // SPL token transfer
         const mint = new PublicKey(token.mint);
         const fromATA = await getAssociatedTokenAddress(mint, publicKey);
         const toATA = await getAssociatedTokenAddress(mint, COINCARNATION_DEST);
@@ -202,7 +201,7 @@ export default function CoincarneModal({
           token_contract: token.mint,
           network: 'solana',
           token_amount: amountToSend,
-          usd_value: priceView.usdValue, // toplam USD
+          usd_value: priceView.usdValue,
           transaction_signature: signature,
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
           token_category: tokenCategory ?? 'unknown',
@@ -214,12 +213,10 @@ export default function CoincarneModal({
       const tokenSymbolForImage = displaySymbol;
       const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbolForImage}.png`;
 
-      // 🎉 Başarı ekranı
       setResultData({ tokenFrom: tokenSymbolForImage, number: userNumber, imageUrl });
       setConfirmModalOpen(false);
       if (refetchTokens) refetchTokens();
 
-      // (opsiyonel) arkada L/V işlemleri
       try {
         checkTokenLiquidityAndVolume(token)
           .then(({ category }) => {
@@ -279,21 +276,19 @@ export default function CoincarneModal({
       )}
 
       <Dialog open onOpenChange={onClose}>
-        {/* Görsel overlay (shadcn kendi overlay’ini de yönetebilir; dilersen kaldır) */}
+        {/* Görsel overlay (shadcn kendi overlay’ini de ekliyor olabilir; istersen kaldır) */}
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" />
 
         <DialogContent
           className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center"
-          aria-labelledby="coincarne-title"
-          aria-describedby="coincarne-desc"
         >
-          {/* a11y: ekranda görünmez başlık + açıklama */}
-          <h2 id="coincarne-title" className="sr-only">
+          {/* ✅ Radix’in beklediği gerçek Title/Description (gizli) */}
+          <DialogPrimitive.Title className="sr-only">
             Coincarnate {displaySymbol}
-          </h2>
-          <p id="coincarne-desc" className="sr-only">
+          </DialogPrimitive.Title>
+          <DialogPrimitive.Description className="sr-only">
             Choose an amount and confirm to convert your token into $MEGY.
-          </p>
+          </DialogPrimitive.Description>
 
           {resultData ? (
             <CoincarnationResult
@@ -352,7 +347,7 @@ export default function CoincarneModal({
                 disabled={loading || !amountInput}
                 className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 text-black font-extrabold py-3 rounded-xl"
               >
-                {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate {displaySymbol} Now`}
+                {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate ${displaySymbol} Now`}
               </button>
 
               <button
