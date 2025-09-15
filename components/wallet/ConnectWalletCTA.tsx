@@ -20,16 +20,23 @@ export default function ConnectWalletCTA() {
   const [err, setErr] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
-  // Sadece kullanılabilir cüzdanları göster (Installed / Loadable)
-  const available = useMemo(
-    () =>
-      wallets.filter(
+  // Yalnızca kullanılabilir cüzdanlar (Installed / Loadable)
+  const available = useMemo(() => {
+    // Aynı isimli (standard vs adapter) cüzdanlar varsa ad ile uniq’le
+    const seen = new Set<string>();
+    return wallets
+      .filter(
         (w) =>
           w.readyState === WalletReadyState.Installed ||
           w.readyState === WalletReadyState.Loadable
-      ),
-    [wallets]
-  );
+      )
+      .filter((w) => {
+        const key = String(w.adapter.name);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }, [wallets]);
 
   // Dış tıklamada menüyü kapat
   useEffect(() => {
@@ -45,8 +52,10 @@ export default function ConnectWalletCTA() {
   const handlePick = async (name: WalletName) => {
     setErr(null);
     try {
-      select(name);         // 1) seç
-      await connect();      // 2) anında bağlan
+      select(name); // 1) seç
+      // 2) Store’un seçimi işlemesi için 1 "tick" bekle (yarış durumunu yok eder)
+      await new Promise((r) => setTimeout(r, 0));
+      await connect(); // 3) bağlan
       setOpen(false);
     } catch (e: any) {
       setErr(e?.message || 'Failed to connect.');
