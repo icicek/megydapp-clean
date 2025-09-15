@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useWallet } from '@solana/wallet-adapter-react';
 import {
   getAssociatedTokenAddress,
@@ -10,19 +10,13 @@ import {
   createAssociatedTokenAccountInstruction,
   getMint,
 } from '@solana/spl-token';
-import {
-  PublicKey,
-  Transaction,
-  SystemProgram,
-} from '@solana/web3.js';
+import { PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
 import { connection } from '@/lib/solanaConnection';
 import CoincarnationResult from '@/components/CoincarnationResult';
 import ConfirmModal from '@/components/ConfirmModal';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 import { TokenCategory } from '@/app/api/utils/classifyToken';
 import { checkTokenLiquidityAndVolume } from '@/app/api/utils/checkTokenLiquidityAndVolume';
-
-// ✅ NEW: internal balance hook
 import { useInternalBalance, quantize } from '@/hooks/useInternalBalance';
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
@@ -44,7 +38,7 @@ interface CoincarneModalProps {
 
 type PriceView = {
   fetchStatus: 'loading' | 'found' | 'not_found' | 'error';
-  usdValue: number; // toplam (unit * amount)
+  usdValue: number;
   priceSources: { price: number; source: string }[];
 };
 
@@ -56,7 +50,6 @@ export default function CoincarneModal({
 }: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
 
-  // ---------- Local UI state ----------
   const [loading, setLoading] = useState(false);
   const [amountInput, setAmountInput] = useState('');
   const [resultData, setResultData] = useState<{ tokenFrom: string; number: number; imageUrl: string } | null>(null);
@@ -66,7 +59,6 @@ export default function CoincarneModal({
   const [tokenCategory, setTokenCategory] = useState<TokenCategory | null>(null);
   const [priceStatus, setPriceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
-  // ---------- Symbol handling (props mutate ETME) ----------
   const [symbol, setSymbol] = useState<string | undefined>(token.symbol);
   useEffect(() => {
     setSymbol(token.symbol);
@@ -76,16 +68,19 @@ export default function CoincarneModal({
     let abort = false;
     if (!symbol) {
       fetchTokenMetadata(token.mint)
-        .then(meta => { if (!abort && meta?.symbol) setSymbol(meta.symbol); })
+        .then((meta) => {
+          if (!abort && meta?.symbol) setSymbol(meta.symbol);
+        })
         .catch(() => {});
     }
-    return () => { abort = true; };
+    return () => {
+      abort = true;
+    };
   }, [token.mint, symbol]);
 
   const displaySymbol = symbol ?? token.mint.slice(0, 4);
   const isSOLToken = token.mint === 'SOL' || symbol?.toUpperCase() === 'SOL';
 
-  // ---------- ✅ Internal balance via hook ----------
   const {
     balance: internalBalance,
     loading: balLoading,
@@ -93,7 +88,6 @@ export default function CoincarneModal({
     isSOL: isSolFromHook,
   } = useInternalBalance(token.mint, { isSOL: isSOLToken });
 
-  // ---------- Prepare confirm (robust price → open modal) ----------
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
@@ -104,7 +98,6 @@ export default function CoincarneModal({
       setPriceStatus('loading');
       setPriceView({ fetchStatus: 'loading', usdValue: 0, priceSources: [] });
 
-      // Normalize mint: SOL → WSOL
       const mint = isSOLToken ? WSOL_MINT : token.mint;
 
       const qs = new URLSearchParams({ mint, amount: String(amountToSend) });
@@ -118,18 +111,16 @@ export default function CoincarneModal({
           usdValue: 0,
           priceSources: [],
         });
-        setTokenCategory('deadcoin'); // UI mesajları için
+        setTokenCategory('deadcoin');
         setConfirmModalOpen(true);
         setPriceStatus('ready');
         return;
       }
 
-      // unit → total
       const unit = Number(json?.priceUsd ?? 0);
       const summed = Number(json?.usdValue ?? 0);
       const total = summed > 0 ? summed : unit * amountToSend;
 
-      // sources (yoksa tekil kaynaktan inşa et)
       const sources: { price: number; source: string }[] =
         Array.isArray(json?.sources) && json.sources.length
           ? json.sources
@@ -142,7 +133,7 @@ export default function CoincarneModal({
         usdValue: Number.isFinite(total) ? total : 0,
         priceSources: sources,
       });
-      setTokenCategory(prev => prev ?? 'healthy');
+      setTokenCategory((prev) => prev ?? 'healthy');
       setConfirmModalOpen(true);
       setPriceStatus('ready');
     } catch (err) {
@@ -155,7 +146,6 @@ export default function CoincarneModal({
     }
   };
 
-  // ---------- Send transaction + record + background LV apply ----------
   const handleSend = async () => {
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
@@ -166,7 +156,6 @@ export default function CoincarneModal({
       let signature: string;
 
       if (isSOLToken) {
-        // SOL transfer
         const tx = new Transaction().add(
           SystemProgram.transfer({
             fromPubkey: publicKey,
@@ -176,10 +165,9 @@ export default function CoincarneModal({
         );
         signature = await sendTransaction(tx, connection);
       } else {
-        // SPL token transfer
         const mint = new PublicKey(token.mint);
         const fromATA = await getAssociatedTokenAddress(mint, publicKey);
-        const toATA   = await getAssociatedTokenAddress(mint, COINCARNATION_DEST);
+        const toATA = await getAssociatedTokenAddress(mint, COINCARNATION_DEST);
         const mintInfo = await getMint(connection, mint);
         const decimals = mintInfo.decimals;
         const adjustedAmount = Math.floor(amountToSend * Math.pow(10, decimals));
@@ -187,21 +175,13 @@ export default function CoincarneModal({
         const ixs: any[] = [];
         const toAtaInfo = await connection.getAccountInfo(toATA);
         if (!toAtaInfo) {
-          ixs.push(
-            createAssociatedTokenAccountInstruction(
-              publicKey,
-              toATA,
-              COINCARNATION_DEST,
-              mint
-            )
-          );
+          ixs.push(createAssociatedTokenAccountInstruction(publicKey, toATA, COINCARNATION_DEST, mint));
         }
         ixs.push(createTransferInstruction(fromATA, toATA, publicKey, adjustedAmount));
         const tx = new Transaction().add(...ixs);
         signature = await sendTransaction(tx, connection);
       }
 
-      // ✅ Backend'e kayıt
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -211,7 +191,7 @@ export default function CoincarneModal({
           token_contract: token.mint,
           network: 'solana',
           token_amount: amountToSend,
-          usd_value: priceView.usdValue, // toplam USD
+          usd_value: priceView.usdValue,
           transaction_signature: signature,
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
           token_category: tokenCategory ?? 'unknown',
@@ -223,12 +203,10 @@ export default function CoincarneModal({
       const tokenSymbolForImage = displaySymbol;
       const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbolForImage}.png`;
 
-      // 🎉 Başarı ekranı
       setResultData({ tokenFrom: tokenSymbolForImage, number: userNumber, imageUrl });
       setConfirmModalOpen(false);
       if (refetchTokens) refetchTokens();
 
-      // 🔁 L/V kontrolünü arkaya at
       try {
         checkTokenLiquidityAndVolume(token)
           .then(({ volume, liquidity, category }) => {
@@ -239,10 +217,7 @@ export default function CoincarneModal({
             }).catch((err) => console.warn('⚠️ lv/apply error:', err));
           })
           .catch((e) => console.warn('⚠️ Post-tx L/V error:', e));
-      } catch {
-        // sessiz geç
-      }
-
+      } catch {}
     } catch (err) {
       console.error('❌ Transaction error:', err);
       alert('❌ Transaction failed.');
@@ -251,12 +226,10 @@ export default function CoincarneModal({
     }
   };
 
-  // ---------- Percent buttons now use hook balance ----------
   const handlePercentage = (percent: number) => {
     if (!internalBalance) return;
     let calculated = (internalBalance.amount * percent) / 100;
 
-    // SOL için %100'te küçük fee tamponu
     if (isSolFromHook && percent === 100 && calculated > 0.001) {
       calculated -= 0.001;
     }
@@ -292,7 +265,16 @@ export default function CoincarneModal({
 
       <Dialog open onOpenChange={onClose}>
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" />
-        <DialogContent className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center">
+
+        <DialogContent
+          className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center"
+          aria-describedby="coincarne-desc"
+        >
+          {/* a11y: ekranda görünmez başlık + açıklama */}
+          <DialogTitle className="sr-only">Coincarnate {displaySymbol}</DialogTitle>
+          <p id="coincarne-desc" className="sr-only">
+            Choose an amount and confirm to convert your token into $MEGY.
+          </p>
 
           {resultData ? (
             <CoincarnationResult
@@ -311,7 +293,6 @@ export default function CoincarneModal({
                 🔥 Coincarnate {displaySymbol}
               </h2>
 
-              {/* ✅ Internal balance aware status line */}
               <p className="text-sm text-gray-400 text-center mb-2">
                 {balLoading
                   ? 'Fetching balance…'
@@ -319,8 +300,7 @@ export default function CoincarneModal({
                   ? `Balance error: ${balError}`
                   : internalBalance
                   ? `Balance: ${internalBalance.amount.toFixed(4)} ${displaySymbol}`
-                  : `Balance: ${token.amount.toFixed(4)} ${displaySymbol}`
-                }
+                  : `Balance: ${token.amount.toFixed(4)} ${displaySymbol}`}
               </p>
 
               <div className="grid grid-cols-4 gap-2 mb-4">
