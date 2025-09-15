@@ -1,4 +1,3 @@
-// components/wallet/ConnectWalletCTA.tsx
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -68,13 +67,12 @@ export default function ConnectWalletCTA() {
 
       if (current && current === pendingName && !connected && !connecting) {
         try {
-          // MetaMask/Snap bazen injection sonrası 1-2 frame istiyor
+          // bazı cüzdanlar injection sonrası 1–2 frame ister
           await new Promise((r) => setTimeout(r, 50));
           await connect();
           setOpen(false);
           setErr(null);
         } catch (e: any) {
-          // MetaMask Solana hazır değilse: rehber linki öner
           const msg = String(e?.message || e || '');
           const isMetaMask = (current || '').toLowerCase().includes('metamask');
           const hint = isMetaMask
@@ -124,9 +122,12 @@ export default function ConnectWalletCTA() {
     ? `https://explorer.solana.com/address/${publicKey.toBase58()}`
     : '#';
 
-  // MetaMask bilgi linkleri (yardım göster)
-  const metaMaskHelp = 'https://support.metamask.io/configure/networks/navigating-solana/';
-  const metaMaskHowTo = 'https://www.quicknode.com/guides/solana-development/wallets/metamask';
+  // Yardım linkleri
+  const links = {
+    phantom: 'https://phantom.app/download',
+    backpack: 'https://www.backpack.app/download',
+    metamask: 'https://metamask.io/download/',
+  };
 
   return (
     <div className="relative inline-block text-left" ref={rootRef}>
@@ -163,8 +164,15 @@ export default function ConnectWalletCTA() {
       {/* Popover */}
       {open && (
         <div
-          className="absolute right-0 mt-2 w-64 rounded-xl border border-white/10 bg-zinc-900 shadow-2xl p-1 z-50"
+          // 📱 Mobilde ortala ve ekrana sığdır; 💻 desktop’ta sağa yasla
+          className="
+            absolute mt-2 z-50 p-1 rounded-xl border border-white/10 bg-zinc-900 shadow-2xl
+            left-1/2 -translate-x-1/2 w-[min(18rem,calc(100vw-1.25rem))]    /* mobile */
+            md:left-auto md:right-0 md:translate-x-0 md:w-64                /* desktop */
+          "
           role="menu"
+          // iOS safe area küçük dokunuş (çentik kenarı)
+          style={{ paddingLeft: 'max(0.25rem, env(safe-area-inset-left))', paddingRight: 'max(0.25rem, env(safe-area-inset-right))' }}
         >
           {panel === 'actions' && connected ? (
             <div className="py-1">
@@ -201,6 +209,7 @@ export default function ConnectWalletCTA() {
               </button>
             </div>
           ) : (
+            // panel === 'pick'
             <div className="py-1">
               {connected && (
                 <button
@@ -211,41 +220,61 @@ export default function ConnectWalletCTA() {
                 </button>
               )}
 
+              {/* 👇 Cüzdan yoksa indirme önerileri */}
               {available.length === 0 && (
-                <div className="px-4 py-2 text-sm text-gray-400">
-                  No wallet detected.
+                <div className="px-3 py-2 text-sm text-gray-200 space-y-2">
+                  <div className="text-gray-300">
+                    No wallet detected. Install one to continue:
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <a
+                      href={links.phantom}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-lg bg-white/5 hover:bg-white/10 px-2 py-2 text-center"
+                    >
+                      Phantom
+                    </a>
+                    <a
+                      href={links.backpack}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-lg bg-white/5 hover:bg-white/10 px-2 py-2 text-center"
+                    >
+                      Backpack
+                    </a>
+                    <a
+                      href={links.metamask}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-lg bg-white/5 hover:bg-white/10 px-2 py-2 text-center"
+                    >
+                      MetaMask
+                    </a>
+                  </div>
+                  <div className="text-[11px] text-gray-400">
+                    On mobile, opening this site inside your wallet app’s browser gives the best result.
+                  </div>
                 </div>
               )}
 
               {available.map((w) => {
                 const name = String(w.adapter.name);
-                const isMetaMask = name.toLowerCase().includes('metamask');
                 return (
-                  <div key={name}>
-                    <button
-                      onClick={() => handlePick(w.adapter.name)}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2 rounded-md disabled:opacity-60"
-                      role="menuitem"
-                      disabled={connecting}
-                    >
-                      {w.adapter.icon && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={w.adapter.icon} alt="" className="h-4 w-4 rounded" />
-                      )}
-                      <span>{name}{isMetaMask ? ' (Solana)' : ''}</span>
-                    </button>
-
-                    {/* MetaMask için bağlanma ipucu */}
-                    {isMetaMask && !connected && (
-                      <div className="px-3 pb-2 text-[11px] text-gray-400">
-                        Having trouble? Enable Solana in MetaMask:
-                        {' '}
-                        <a className="underline" href={metaMaskHelp} target="_blank" rel="noreferrer">Help</a>
-                        {' · '}
-                        <a className="underline" href={metaMaskHowTo} target="_blank" rel="noreferrer">How-to</a>
-                      </div>
+                  <button
+                    key={name}
+                    onClick={() => handlePick(w.adapter.name)}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2 rounded-md disabled:opacity-60"
+                    role="menuitem"
+                    disabled={connecting}
+                  >
+                    {/* adapter.icon bazen data URL döner */}
+                    {w.adapter.icon && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={w.adapter.icon} alt="" className="h-4 w-4 rounded" />
                     )}
-                  </div>
+                    <span>{name}</span>
+                  </button>
                 );
               })}
             </div>
