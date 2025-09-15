@@ -13,16 +13,21 @@ export default function ConnectWalletCTA() {
     connect,
     connected,
     connecting,
+    wallet, // 👈 mevcut seçili cüzdan (provider state)
   } = useWallet();
 
   const short = (k: string) => k.slice(0, 4) + '…' + k.slice(-4);
+
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Seçilen cüzdan adını burada tutuyoruz; provider state'e yansıdığında connect edeceğiz
+  const [pendingName, setPendingName] = useState<WalletName | null>(null);
+
   const rootRef = useRef<HTMLDivElement | null>(null);
 
-  // Yalnızca kullanılabilir cüzdanlar (Installed / Loadable)
+  // Sadece kullanılabilir cüzdanlar (Installed / Loadable) + isim bazında uniq
   const available = useMemo(() => {
-    // Aynı isimli (standard vs adapter) cüzdanlar varsa ad ile uniq’le
     const seen = new Set<string>();
     return wallets
       .filter(
@@ -48,18 +53,40 @@ export default function ConnectWalletCTA() {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
 
-  // Bir cüzdan seç ve anında bağlan
-  const handlePick = async (name: WalletName) => {
+  // 👇 Yarışı çözen kısım:
+  // - handlePick -> select(name) + pendingName = name
+  // - Bu effect, provider state'teki wallet adı pendingName'e eşit olduğunda connect() çağırır.
+  useEffect(() => {
+    (async () => {
+      if (!pendingName) return;
+      const current = wallet?.adapter?.name as WalletName | undefined;
+
+      if (
+        current &&
+        current === pendingName &&
+        !connected &&
+        !connecting
+      ) {
+        try {
+          // küçük bir microtask/raf beklemek bazı ortamlarda daha stabil
+          await new Promise((r) => setTimeout(r, 0));
+          await connect();
+          setOpen(false);
+          setErr(null);
+        } catch (e: any) {
+          setErr(e?.message || 'Failed to connect.');
+        } finally {
+          setPendingName(null);
+        }
+      }
+    })();
+  }, [wallet, connected, connecting, pendingName, connect]);
+
+  // Bir cüzdan seç → önce select, connect'i effect’e bırak
+  const handlePick = (name: WalletName) => {
     setErr(null);
-    try {
-      select(name); // 1) seç
-      // 2) Store’un seçimi işlemesi için 1 "tick" bekle (yarış durumunu yok eder)
-      await new Promise((r) => setTimeout(r, 0));
-      await connect(); // 3) bağlan
-      setOpen(false);
-    } catch (e: any) {
-      setErr(e?.message || 'Failed to connect.');
-    }
+    setPendingName(name);
+    select(name); // state güncellemesini tetikle
   };
 
   if (publicKey) {
