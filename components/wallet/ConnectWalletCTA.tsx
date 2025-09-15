@@ -1,34 +1,57 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { WalletReadyState, type WalletName } from '@solana/wallet-adapter-base';
 
 export default function ConnectWalletCTA() {
-  const { publicKey, disconnect, wallet, connecting, connected, connect } = useWallet();
-  const { setVisible } = useWalletModal();
-
-  // Kullanıcı modalı AÇTIĞINDA bir seçim yaparsa, seçimden sonra otomatik connect et
-  const selectionPendingRef = useRef(false);
+  const {
+    publicKey,
+    disconnect,
+    wallets,
+    select,
+    connect,
+    connected,
+    connecting,
+  } = useWallet();
 
   const short = (k: string) => k.slice(0, 4) + '…' + k.slice(-4);
+  const [open, setOpen] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
 
-  // Modal üzerinden yeni bir cüzdan SEÇİLDİĞİNDE tetiklenir
+  // Sadece kullanılabilir cüzdanları göster (Installed / Loadable)
+  const available = useMemo(
+    () =>
+      wallets.filter(
+        (w) =>
+          w.readyState === WalletReadyState.Installed ||
+          w.readyState === WalletReadyState.Loadable
+      ),
+    [wallets]
+  );
+
+  // Dış tıklamada menüyü kapat
   useEffect(() => {
-    // selectionPendingRef => modalı biz açtıysak true
-    if (selectionPendingRef.current && wallet && !connected && !connecting) {
-      (async () => {
-        try {
-          await connect();       // seçer seçmez bağlan
-          setVisible(false);     // modalı kapat (gerekirse)
-        } catch {
-          // kullanıcı iptal vs. — sessiz geç
-        } finally {
-          selectionPendingRef.current = false; // bayrağı sıfırla
-        }
-      })();
+    function onDoc(e: MouseEvent) {
+      if (!rootRef.current) return;
+      if (!rootRef.current.contains(e.target as Node)) setOpen(false);
     }
-  }, [wallet, connected, connecting, connect, setVisible]);
+    if (open) document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  // Bir cüzdan seç ve anında bağlan
+  const handlePick = async (name: WalletName) => {
+    setErr(null);
+    try {
+      select(name);         // 1) seç
+      await connect();      // 2) anında bağlan
+      setOpen(false);
+    } catch (e: any) {
+      setErr(e?.message || 'Failed to connect.');
+    }
+  };
 
   if (publicKey) {
     return (
@@ -43,16 +66,54 @@ export default function ConnectWalletCTA() {
   }
 
   return (
-    <button
-      onClick={() => {
-        // Modalı BİZ açtığımız için, sonrasındaki seçim otomatik connect tetiklesin
-        selectionPendingRef.current = true;
-        setVisible(true);
-      }}
-      className="bg-indigo-600 hover:bg-indigo-700 rounded px-3 py-2 text-sm font-semibold"
-      aria-label="Connect wallet"
-    >
-      Connect Wallet
-    </button>
+    <div className="relative inline-block text-left" ref={rootRef}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="bg-indigo-600 hover:bg-indigo-700 rounded px-3 py-2 text-sm font-semibold"
+        aria-expanded={open}
+        aria-haspopup="true"
+        disabled={connecting}
+      >
+        {connecting ? 'Connecting…' : 'Connect Wallet'}
+      </button>
+
+      {open && (
+        <div
+          className="absolute z-50 mt-2 w-56 origin-top-right rounded-md bg-gray-900 border border-gray-700 shadow-lg focus:outline-none"
+          role="menu"
+        >
+          <div className="py-1">
+            {available.length === 0 && (
+              <div className="px-4 py-2 text-sm text-gray-400">
+                No wallet detected.
+              </div>
+            )}
+            {available.map((w) => (
+              <button
+                key={w.adapter.name as string}
+                onClick={() => handlePick(w.adapter.name)}
+                className="w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2"
+                role="menuitem"
+              >
+                {/* adapter.icon bazen data URL döner */}
+                {w.adapter.icon && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={w.adapter.icon}
+                    alt=""
+                    className="h-4 w-4 rounded"
+                  />
+                )}
+                <span>{w.adapter.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {err && (
+        <div className="mt-1 text-xs text-red-400 max-w-xs">{err}</div>
+      )}
+    </div>
   );
 }
