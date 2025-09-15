@@ -1,3 +1,4 @@
+// components/wallet/ConnectWalletCTA.tsx
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -15,31 +16,23 @@ export default function ConnectWalletCTA() {
     connect,
     connected,
     connecting,
-    wallet, // mevcut seçili cüzdan (provider state)
+    wallet, // mevcut seçili cüzdan
   } = useWallet();
 
   const short = (k: string) => k.slice(0, 4) + '…' + k.slice(-4);
 
-  // Popover açık mı?
   const [open, setOpen] = useState(false);
-  // Popover içeriği: bağlı değilken otomatik 'pick', bağlıyken 'actions'
   const [panel, setPanel] = useState<Panel>('actions');
-
   const [err, setErr] = useState<string | null>(null);
-
-  // Yarışı çözen mekanizma
   const [pendingName, setPendingName] = useState<WalletName | null>(null);
-
   const rootRef = useRef<HTMLDivElement | null>(null);
 
-  // Yüklü / yüklenebilir cüzdanlar (isim bazında uniq)
+  // Yüklü / yüklenebilir cüzdanlar, isim bazında uniq
   const available = useMemo(() => {
     const seen = new Set<string>();
     return wallets
-      .filter(
-        (w) =>
-          w.readyState === WalletReadyState.Installed ||
-          w.readyState === WalletReadyState.Loadable
+      .filter((w) =>
+        [WalletReadyState.Installed, WalletReadyState.Loadable].includes(w.readyState)
       )
       .filter((w) => {
         const key = String(w.adapter.name);
@@ -62,17 +55,12 @@ export default function ConnectWalletCTA() {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
 
-  // Bağlılık değiştiğinde paneli uyumla
+  // Bağlılık değişince paneli ayarla
   useEffect(() => {
-    if (!connected) {
-      // bağlı değilken açılırsa direkt seçim paneli daha mantıklı
-      setPanel('pick');
-    } else {
-      setPanel('actions');
-    }
+    setPanel(connected ? 'actions' : 'pick');
   }, [connected]);
 
-  // 👇 Yarışı çözen effect: select(name) sonrası provider state pendingName'i gösterince connect() çağır
+  // Yarış çözücü: select(name) → provider state pendingName’e geldiğinde connect
   useEffect(() => {
     (async () => {
       if (!pendingName) return;
@@ -80,13 +68,19 @@ export default function ConnectWalletCTA() {
 
       if (current && current === pendingName && !connected && !connecting) {
         try {
-          // microtask beklemek bazı ortamlarda stabilite sağlıyor
-          await new Promise((r) => setTimeout(r, 0));
+          // MetaMask/Snap bazen injection sonrası 1-2 frame istiyor
+          await new Promise((r) => setTimeout(r, 50));
           await connect();
           setOpen(false);
           setErr(null);
         } catch (e: any) {
-          setErr(e?.message || 'Failed to connect.');
+          // MetaMask Solana hazır değilse: rehber linki öner
+          const msg = String(e?.message || e || '');
+          const isMetaMask = (current || '').toLowerCase().includes('metamask');
+          const hint = isMetaMask
+            ? ' MetaMask’te Solana’yı etkinleştirmeniz gerekebilir.'
+            : '';
+          setErr((msg || 'Failed to connect.') + hint);
         } finally {
           setPendingName(null);
           setPanel('actions');
@@ -95,23 +89,20 @@ export default function ConnectWalletCTA() {
     })();
   }, [wallet, connected, connecting, pendingName, connect]);
 
-  // Bir cüzdan seç → önce select, connect'i effect’e bırak
+  // Bir cüzdan seç → select; connect() effect’te
   const handlePick = (name: WalletName) => {
     setErr(null);
     setPendingName(name);
-    select(name); // provider wallet state'ini tetikle
+    select(name);
   };
 
   const handleToggle = () => {
     setErr(null);
-    // bağlı değilse menüyü açınca direkt seçim panelini göster
     if (!connected) setPanel('pick');
     setOpen((v) => !v);
   };
 
-  const handleChangeWallet = () => {
-    setPanel('pick');
-  };
+  const handleChangeWallet = () => setPanel('pick');
 
   const handleDisconnect = async () => {
     try {
@@ -132,7 +123,10 @@ export default function ConnectWalletCTA() {
   const explorerUrl = publicKey
     ? `https://explorer.solana.com/address/${publicKey.toBase58()}`
     : '#';
-  // Not: farklı cluster kullanıyorsan URL'e '?cluster=devnet' vb. ekleyebilirsin.
+
+  // MetaMask bilgi linkleri (yardım göster)
+  const metaMaskHelp = 'https://support.metamask.io/configure/networks/navigating-solana/';
+  const metaMaskHowTo = 'https://www.quicknode.com/guides/solana-development/wallets/metamask';
 
   return (
     <div className="relative inline-block text-left" ref={rootRef}>
@@ -146,9 +140,8 @@ export default function ConnectWalletCTA() {
       >
         {connected && publicKey ? (
           <>
-            {/* bağlıyken cüzdan ikonunu ve adresi göster */}
             {wallet?.adapter?.icon ? (
-              // @ts-ignore adapter.icon çoğu zaman string URL
+              // @ts-ignore adapter.icon çoğu kez string URL
               <img src={wallet.adapter.icon} alt="" className="h-4 w-4 rounded-sm" />
             ) : (
               <span>👛</span>
@@ -208,7 +201,6 @@ export default function ConnectWalletCTA() {
               </button>
             </div>
           ) : (
-            // panel === 'pick'  (bağlı değilken ve "Change wallet" seçildiğinde)
             <div className="py-1">
               {connected && (
                 <button
@@ -225,26 +217,37 @@ export default function ConnectWalletCTA() {
                 </div>
               )}
 
-              {available.map((w) => (
-                <button
-                  key={w.adapter.name as string}
-                  onClick={() => handlePick(w.adapter.name)}
-                  className="w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2 rounded-md disabled:opacity-60"
-                  role="menuitem"
-                  disabled={connecting}
-                >
-                  {/* adapter.icon bazen data URL döner */}
-                  {w.adapter.icon && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={w.adapter.icon}
-                      alt=""
-                      className="h-4 w-4 rounded"
-                    />
-                  )}
-                  <span>{w.adapter.name}</span>
-                </button>
-              ))}
+              {available.map((w) => {
+                const name = String(w.adapter.name);
+                const isMetaMask = name.toLowerCase().includes('metamask');
+                return (
+                  <div key={name}>
+                    <button
+                      onClick={() => handlePick(w.adapter.name)}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2 rounded-md disabled:opacity-60"
+                      role="menuitem"
+                      disabled={connecting}
+                    >
+                      {w.adapter.icon && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={w.adapter.icon} alt="" className="h-4 w-4 rounded" />
+                      )}
+                      <span>{name}{isMetaMask ? ' (Solana)' : ''}</span>
+                    </button>
+
+                    {/* MetaMask için bağlanma ipucu */}
+                    {isMetaMask && !connected && (
+                      <div className="px-3 pb-2 text-[11px] text-gray-400">
+                        Having trouble? Enable Solana in MetaMask:
+                        {' '}
+                        <a className="underline" href={metaMaskHelp} target="_blank" rel="noreferrer">Help</a>
+                        {' · '}
+                        <a className="underline" href={metaMaskHowTo} target="_blank" rel="noreferrer">How-to</a>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
