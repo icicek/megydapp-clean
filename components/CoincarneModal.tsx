@@ -2,8 +2,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import * as DialogPrimitive from '@radix-ui/react-dialog';
+import {
+  Dialog,
+  DialogOverlay,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { useWallet } from '@solana/wallet-adapter-react';
 import {
   getAssociatedTokenAddress,
@@ -61,7 +66,7 @@ export default function CoincarneModal({
   const [tokenCategory, setTokenCategory] = useState<TokenCategory | null>(null);
   const [priceStatus, setPriceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
-  // ---------- Symbol handling (props mutate ETME) ----------
+  // ---------- Symbol handling ----------
   const [symbol, setSymbol] = useState<string | undefined>(token.symbol);
   useEffect(() => {
     setSymbol(token.symbol);
@@ -84,7 +89,7 @@ export default function CoincarneModal({
   const displaySymbol = symbol ?? token.mint.slice(0, 4);
   const isSOLToken = token.mint === 'SOL' || symbol?.toUpperCase() === 'SOL';
 
-  // ---------- ✅ Internal balance via hook ----------
+  // ---------- Internal balance ----------
   const {
     balance: internalBalance,
     loading: balLoading,
@@ -92,7 +97,7 @@ export default function CoincarneModal({
     isSOL: isSolFromHook,
   } = useInternalBalance(token.mint, { isSOL: isSOLToken });
 
-  // ---------- Prepare confirm (robust price → open modal) ----------
+  // ---------- Prepare confirm ----------
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
@@ -117,18 +122,16 @@ export default function CoincarneModal({
           usdValue: 0,
           priceSources: [],
         });
-        setTokenCategory('deadcoin'); // UI mesajları için
+        setTokenCategory('deadcoin');
         setConfirmModalOpen(true);
         setPriceStatus('ready');
         return;
       }
 
-      // unit → total
       const unit = Number(json?.priceUsd ?? 0);
       const summed = Number(json?.usdValue ?? 0);
       const total = summed > 0 ? summed : unit * amountToSend;
 
-      // sources (yoksa tekil kaynaktan inşa et)
       const sources: { price: number; source: string }[] =
         Array.isArray(json?.sources) && json.sources.length
           ? json.sources
@@ -165,6 +168,7 @@ export default function CoincarneModal({
       let signature: string;
 
       if (isSOLToken) {
+        // SOL transfer
         const tx = new Transaction().add(
           SystemProgram.transfer({
             fromPubkey: publicKey,
@@ -174,6 +178,7 @@ export default function CoincarneModal({
         );
         signature = await sendTransaction(tx, connection);
       } else {
+        // SPL token transfer
         const mint = new PublicKey(token.mint);
         const fromATA = await getAssociatedTokenAddress(mint, publicKey);
         const toATA = await getAssociatedTokenAddress(mint, COINCARNATION_DEST);
@@ -217,6 +222,7 @@ export default function CoincarneModal({
       setConfirmModalOpen(false);
       if (refetchTokens) refetchTokens();
 
+      // (opsiyonel) arkada L/V işlemleri
       try {
         checkTokenLiquidityAndVolume(token)
           .then(({ category }) => {
@@ -236,7 +242,7 @@ export default function CoincarneModal({
     }
   };
 
-  // ---------- Percent buttons now use hook balance ----------
+  // ---------- Percent buttons ----------
   const handlePercentage = (percent: number) => {
     if (!internalBalance) return;
     let calculated = (internalBalance.amount * percent) / 100;
@@ -276,19 +282,17 @@ export default function CoincarneModal({
       )}
 
       <Dialog open onOpenChange={onClose}>
-        {/* Görsel overlay (shadcn kendi overlay’ini de ekliyor olabilir; istersen kaldır) */}
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40" />
+        {/* Artık kendi overlay komponentimizi kullanıyoruz */}
+        <DialogOverlay />
 
-        <DialogContent
-          className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center"
-        >
-          {/* ✅ Radix’in beklediği gerçek Title/Description (gizli) */}
-          <DialogPrimitive.Title className="sr-only">
+        <DialogContent className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center">
+          {/* A11y için gizli başlık + açıklama (Radix uyarıları susar) */}
+          <DialogTitle className="sr-only">
             Coincarnate {displaySymbol}
-          </DialogPrimitive.Title>
-          <DialogPrimitive.Description className="sr-only">
+          </DialogTitle>
+          <DialogDescription className="sr-only">
             Choose an amount and confirm to convert your token into $MEGY.
-          </DialogPrimitive.Description>
+          </DialogDescription>
 
           {resultData ? (
             <CoincarnationResult

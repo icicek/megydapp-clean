@@ -2,7 +2,13 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogOverlay,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { TokenCategory } from '@/app/api/utils/classifyToken';
 import DeadcoinVoteButton from '@/components/community/DeadcoinVoteButton';
 
@@ -83,7 +89,7 @@ export default function ConfirmModal({
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).has('debug');
 
-  // ✅ Parent mapping hatalarına karşı güvenli USD (birim fiyat * amount)
+  // ✅ Güvenli USD (birim fiyat * amount)
   const firstUnit = Array.isArray(priceSources) && priceSources[0]?.price ? Number(priceSources[0].price) : 0;
   const derivedUsd = usdValue > 0 ? usdValue : (firstUnit > 0 ? firstUnit * Math.max(1, amount) : 0);
 
@@ -141,8 +147,15 @@ export default function ConfirmModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onCancel(); }}>
-      <DialogContent>
+      {/* Overlay ekledik */}
+      <DialogOverlay />
+
+      <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-50 shadow-lg">
+        {/* Radix için gerçek Title + Description (Title görünür, Description gizli de olabilir) */}
         <DialogTitle className="text-white">Confirm Coincarnation</DialogTitle>
+        <DialogDescription className="sr-only">
+          Review value, status and confirm to proceed with coincarnation.
+        </DialogDescription>
 
         {showDebug && (
           <div className="text-xs text-gray-300 bg-gray-900/60 rounded p-2 mt-2">
@@ -184,7 +197,7 @@ export default function ConfirmModal({
             </div>
           )}
 
-          {/* ☠️ Deadcoin mesajı: list deadcoin || not_found || (found && 0) */}
+          {/* ☠️ Deadcoin mesajı */}
           {(isDeadcoin && (fetchStatus === 'found' || fetchStatus === 'not_found')) && (
             <div className="bg-yellow-700 text-white p-3 rounded">
               ☠️ <strong>This token is treated as a Deadcoin.</strong><br />
@@ -199,7 +212,7 @@ export default function ConfirmModal({
             </div>
           )}
 
-          {/* Kaynak listesi (found ya da not_found geldiğinde de gösterebiliriz) */}
+          {/* Kaynak listesi */}
           {(fetchStatus === 'found' || fetchStatus === 'not_found') && priceSources.length > 0 && (
             <div>
               <p className="font-medium">Price Sources:</p>
@@ -213,7 +226,7 @@ export default function ConfirmModal({
             </div>
           )}
 
-          {/* 🗳️ Oy butonu: Walking Dead + değer > 0 iken göster. */}
+          {/* 🗳️ Oy butonu */}
           {listStatus === 'walking_dead' && tokenMint && fetchStatus === 'found' && derivedUsd > 0 && (
             <div className="mt-2">
               <p className="text-xs text-orange-200 mb-2">
@@ -224,7 +237,6 @@ export default function ConfirmModal({
               <DeadcoinVoteButton
                 mint={tokenMint}
                 onVoted={(res) => {
-                  // geri uyumluluk: parent callback’ini tetikle
                   onDeadcoinVote('yes');
                   if (res?.applied) {
                     setListStatus('deadcoin');
@@ -253,7 +265,6 @@ export default function ConfirmModal({
           <button
             onClick={onConfirm}
             className="bg-blue-600 text-white px-4 py-2 rounded"
-            // ⛔ Blacklist/Redlist → engelle; Loading/Error → engelle; Deadcoin → izin ver
             disabled={isHardBlocked || fetchStatus === 'loading' || fetchStatus === 'error'}
           >
             Confirm Coincarnation
