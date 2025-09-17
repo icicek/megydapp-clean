@@ -1,24 +1,25 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { WalletReadyState, type WalletName } from '@solana/wallet-adapter-base';
+import useChainWallet from '@/hooks/useChainWallet';
+import { useChain } from '@/app/providers/ChainProvider';
+import { addressExplorer } from '@/lib/explorer';
+import type { WalletName, WalletReadyState } from '@solana/wallet-adapter-base';
+
+// Solana modalını korumak için:
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 
 type Panel = 'actions' | 'pick';
 
-export default function ConnectWalletCTA() {
-  const {
-    publicKey,
-    disconnect,
-    wallets,
-    select,
-    connect,
-    connected,
-    connecting,
-    wallet,
-  } = useWallet();
+function short(k: string) {
+  return k.slice(0, 4) + '…' + k.slice(-4);
+}
 
-  const short = (k: string) => k.slice(0, 4) + '…' + k.slice(-4);
+export default function ConnectWalletCTA() {
+  const { chain } = useChain();
+  const { address, connected, connecting, wallets, select, connect, disconnect, icon, hasProvider } =
+    useChainWallet();
+  const { setVisible } = useWalletModal(); // Solana modal
 
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<Panel>('actions');
@@ -30,23 +31,24 @@ export default function ConnectWalletCTA() {
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  // mobil yerleşim için pozisyon state
+  // mobil yerleşim için pozisyon state (fixed + clamp)
   const [mobileStyle, setMobileStyle] = useState<React.CSSProperties>({});
 
-  // yüklü cüzdanlar (uniq)
+  // “installed/loadable” olanları uniq filtrele (Solana için anlamlı)
   const available = useMemo(() => {
+    if (chain !== 'solana') return wallets;
     const seen = new Set<string>();
     return wallets
       .filter((w) =>
-        [WalletReadyState.Installed, WalletReadyState.Loadable].includes(w.readyState)
+        String(w.readyState ?? '').match(/Installed|Loadable/i)
       )
       .filter((w) => {
-        const key = String(w.adapter.name);
+        const key = String(w.name);
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
       });
-  }, [wallets]);
+  }, [wallets, chain]);
 
   // dış tıklamada kapat
   useEffect(() => {
@@ -61,36 +63,31 @@ export default function ConnectWalletCTA() {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
 
-  // bağlılık değişince panel
+  // bağlılık değişince paneli ayarla
   useEffect(() => {
-    setPanel(connected ? 'actions' : 'pick');
-  }, [connected]);
+    setPanel(connected ? 'actions' : chain === 'solana' ? 'pick' : 'actions');
+  }, [connected, chain]);
 
-  // yarış çözücü
+  // Solana: seçim sonrası otomatik bağlanma yarışı çözücü
   useEffect(() => {
     (async () => {
+      if (chain !== 'solana') return;
       if (!pendingName) return;
-      const current = wallet?.adapter?.name as WalletName | undefined;
-      if (current && current === pendingName && !connected && !connecting) {
-        try {
-          await new Promise((r) => setTimeout(r, 50));
-          await connect();
-          setOpen(false);
-          setErr(null);
-        } catch (e: any) {
-          const msg = String(e?.message || e || '');
-          const isMetaMask = (current || '').toLowerCase().includes('metamask');
-          const hint = isMetaMask
-            ? ' MetaMask’te Solana’yı etkinleştirmeniz gerekebilir.'
-            : '';
-          setErr((msg || 'Failed to connect.') + hint);
-        } finally {
-          setPendingName(null);
-          setPanel('actions');
-        }
+      // küçük gecikme ile connect tetikle
+      try {
+        await new Promise((r) => setTimeout(r, 50));
+        await connect();
+        setOpen(false);
+        setErr(null);
+      } catch (e: any) {
+        const msg = String(e?.message || e || '');
+        setErr(msg || 'Failed to connect.');
+      } finally {
+        setPendingName(null);
+        setPanel('actions');
       }
     })();
-  }, [wallet, connected, connecting, pendingName, connect]);
+  }, [pendingName, connect, chain]);
 
   // menü açıldığında mobilde konum hesapla (butonun altı, ekrana sığdır)
   useEffect(() => {
@@ -110,7 +107,7 @@ export default function ConnectWalletCTA() {
 
       const rect = btn.getBoundingClientRect();
 
-      const margin = 10;                       // kenarlardan tampon
+      const margin = 10;
       const maxW = Math.min(288, window.innerWidth - margin * 2); // ~w-72
       const menuW = maxW;
 
@@ -157,17 +154,31 @@ export default function ConnectWalletCTA() {
   // seçim / toggle
   const handlePick = (name: WalletName) => {
     setErr(null);
-    setPendingName(name);
-    select(name);
+    if (chain === 'solana') {
+      setPendingName(name);
+      select(name);
+      return;
+    }
+    // EVM: seçilecek çoklu cüzdan yok; connect tetikle
+    connect().catch((e) => setErr(String(e?.message || e) || 'Failed to connect.'));
   };
 
   const handleToggle = () => {
     setErr(null);
-    if (!connected) setPanel('pick');
+    if (!connected && chain === 'solana') setPanel('pick');
     setOpen((v) => !v);
   };
 
-  const handleChangeWallet = () => setPanel('pick');
+  const handleChangeWallet = () => {
+    if (chain === 'solana') {
+      // native Solana modalını da açabiliriz (opsiyonel):
+      setVisible(true);
+      setPanel('pick');
+    } else {
+      // EVM: tekrar connect isteği göster
+      connect().catch((e) => setErr(String(e?.message || e) || 'Failed to connect.'));
+    }
+  };
 
   const handleDisconnect = async () => {
     try {
@@ -180,16 +191,13 @@ export default function ConnectWalletCTA() {
 
   const handleCopy = async () => {
     try {
-      if (publicKey) await navigator.clipboard.writeText(publicKey.toBase58());
+      if (address) await navigator.clipboard.writeText(address);
     } catch {}
     setOpen(false);
   };
 
-  const explorerUrl = publicKey
-    ? `https://explorer.solana.com/address/${publicKey.toBase58()}`
-    : '#';
+  const explorerUrl = address ? addressExplorer(chain, address) : '#';
 
-  // indirme linkleri
   const links = {
     phantom: 'https://phantom.app/download',
     backpack: 'https://www.backpack.app/download',
@@ -207,15 +215,15 @@ export default function ConnectWalletCTA() {
         aria-haspopup="true"
         disabled={connecting}
       >
-        {connected && publicKey ? (
+        {connected && address ? (
           <>
-            {wallet?.adapter?.icon ? (
-              // @ts-ignore adapter.icon çoğu kez string URL
-              <img src={wallet.adapter.icon} alt="" className="h-4 w-4 rounded-sm" />
+            {icon ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={icon} alt="" className="h-4 w-4 rounded-sm" />
             ) : (
               <span>👛</span>
             )}
-            <span>{short(publicKey.toBase58())}</span>
+            <span>{short(address)}</span>
             <svg
               className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`}
               viewBox="0 0 20 20"
@@ -236,12 +244,11 @@ export default function ConnectWalletCTA() {
           role="menu"
           className="
             z-50 p-1 rounded-xl border border-white/10 bg-zinc-900 shadow-2xl
-            md:absolute md:right-0 md:top-full md:mt-2 md:w-64      /* desktop: butona hizalı */
+            md:absolute md:right-0 md:top-full md:mt-2 md:w-64
           "
-          // mobilde fixed + ölçülmüş stil, desktop’ta tarafa yaslı absolute
-          style={mobileStyle}
+          style={mobileStyle} // mobilde fixed + ölçülmüş stil, desktop’ta absolute
         >
-          {panel === 'actions' && connected ? (
+          {panel === 'actions' && connected && address ? (
             <div className="py-1">
               <button
                 onClick={handleChangeWallet}
@@ -287,36 +294,67 @@ export default function ConnectWalletCTA() {
               )}
 
               {/* Cüzdan yoksa indirme önerileri */}
-              {available.length === 0 && (
+              {(!hasProvider || (chain === 'solana' && available.length === 0)) && (
                 <div className="px-3 py-2 text-sm text-gray-200 space-y-2">
                   <div className="text-gray-300">
                     No wallet detected. Install one to continue:
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    <a
-                      href={links.phantom}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-lg bg-white/5 hover:bg-white/10 px-2 py-2 text-center"
-                    >
-                      Phantom
-                    </a>
-                    <a
-                      href={links.backpack}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-lg bg-white/5 hover:bg-white/10 px-2 py-2 text-center"
-                    >
-                      Backpack
-                    </a>
-                    <a
-                      href={links.metamask}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-lg bg-white/5 hover:bg-white/10 px-2 py-2 text-center"
-                    >
-                      MetaMask
-                    </a>
+                    {chain === 'solana' ? (
+                      <>
+                        <a
+                          href={links.phantom}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg bg-white/5 hover:bg-white/10 px-2 py-2 text-center"
+                        >
+                          Phantom
+                        </a>
+                        <a
+                          href={links.backpack}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg bg-white/5 hover:bg-white/10 px-2 py-2 text-center"
+                        >
+                          Backpack
+                        </a>
+                        <a
+                          href={links.metamask}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg bg-white/5 hover:bg-white/10 px-2 py-2 text-center"
+                        >
+                          MetaMask
+                        </a>
+                      </>
+                    ) : (
+                      <>
+                        <a
+                          href={links.metamask}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg bg-white/5 hover:bg-white/10 px-2 py-2 text-center"
+                        >
+                          MetaMask
+                        </a>
+                        <a
+                          href={links.phantom}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg bg-white/5 hover:bg-white/10 px-2 py-2 text-center"
+                        >
+                          Phantom
+                        </a>
+                        <a
+                          href={links.backpack}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg bg-white/5 hover:bg-white/10 px-2 py-2 text-center"
+                        >
+                          Backpack
+                        </a>
+                      </>
+                    )}
                   </div>
                   <div className="text-[11px] text-gray-400">
                     On mobile, opening this site inside your wallet app’s browser gives the best result.
@@ -324,24 +362,43 @@ export default function ConnectWalletCTA() {
                 </div>
               )}
 
-              {available.map((w) => {
-                const name = String(w.adapter.name);
-                return (
-                  <button
-                    key={name}
-                    onClick={() => handlePick(w.adapter.name)}
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2 rounded-md disabled:opacity-60"
-                    role="menuitem"
-                    disabled={connecting}
-                  >
-                    {w.adapter.icon && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={w.adapter.icon} alt="" className="h-4 w-4 rounded" />
-                    )}
-                    <span>{name}</span>
-                  </button>
-                );
-              })}
+              {/* Solana için cüzdan listesi */}
+              {chain === 'solana' &&
+                available.map((w) => {
+                  const name = String(w.name) as WalletName;
+                  const icon = (w as any).icon as string | undefined;
+                  return (
+                    <button
+                      key={name}
+                      onClick={() => handlePick(name)}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-800 flex items-center gap-2 rounded-md disabled:opacity-60"
+                      role="menuitem"
+                      disabled={connecting}
+                    >
+                      {icon && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={icon} alt="" className="h-4 w-4 rounded" />
+                      )}
+                      <span>{name}</span>
+                    </button>
+                  );
+                })}
+
+              {/* EVM için tek “Connect” seçeneği */}
+              {chain !== 'solana' && hasProvider && (
+                <button
+                  onClick={() =>
+                    connect().catch((e) =>
+                      setErr(String(e?.message || e) || 'Failed to connect.')
+                    )
+                  }
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-gray-800 rounded-md"
+                  role="menuitem"
+                  disabled={connecting}
+                >
+                  Connect
+                </button>
+              )}
             </div>
           )}
         </div>

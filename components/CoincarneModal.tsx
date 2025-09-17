@@ -24,9 +24,9 @@ import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 import { TokenCategory } from '@/app/api/utils/classifyToken';
 import { checkTokenLiquidityAndVolume } from '@/app/api/utils/checkTokenLiquidityAndVolume';
 import { useInternalBalance, quantize } from '@/hooks/useInternalBalance';
+import { getDestAddress } from '@/lib/chain/env';
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
-const COINCARNATION_DEST = new PublicKey('HPBNVF9ATsnkDhGmQB4xoLC5tWBWQbTyBjsiQAN3dYXH');
 
 interface TokenInfo {
   mint: string;
@@ -55,6 +55,23 @@ export default function CoincarneModal({
   onGoToProfileRequest,
 }: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
+
+  // ---------- Env'den Solana hedef adresini çek ----------
+  const [destSol, setDestSol] = useState<PublicKey | null>(null);
+  const [destErr, setDestErr] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const addr = getDestAddress('solana'); // .env'den okur ve formatını doğrular
+      setDestSol(new PublicKey(addr));
+      setDestErr(null);
+    } catch (e: any) {
+      setDestSol(null);
+      setDestErr('Destination address is not configured. Please set NEXT_PUBLIC_DEST_SOL.');
+      // Konsola ayrıntı bas (dev için faydalı)
+      // eslint-disable-next-line no-console
+      console.warn('NEXT_PUBLIC_DEST_SOL error:', e?.message || e);
+    }
+  }, []);
 
   // ---------- Local UI state ----------
   const [loading, setLoading] = useState(false);
@@ -163,6 +180,11 @@ export default function CoincarneModal({
     const amountToSend = parseFloat(amountInput);
     if (isNaN(amountToSend) || amountToSend <= 0) return;
 
+    if (!destSol) {
+      alert('❌ Destination address missing. Please set NEXT_PUBLIC_DEST_SOL.');
+      return;
+    }
+
     try {
       setLoading(true);
       let signature: string;
@@ -172,7 +194,7 @@ export default function CoincarneModal({
         const tx = new Transaction().add(
           SystemProgram.transfer({
             fromPubkey: publicKey,
-            toPubkey: COINCARNATION_DEST,
+            toPubkey: destSol,
             lamports: Math.floor(amountToSend * 1e9),
           })
         );
@@ -181,7 +203,7 @@ export default function CoincarneModal({
         // SPL token transfer
         const mint = new PublicKey(token.mint);
         const fromATA = await getAssociatedTokenAddress(mint, publicKey);
-        const toATA = await getAssociatedTokenAddress(mint, COINCARNATION_DEST);
+        const toATA = await getAssociatedTokenAddress(mint, destSol);
         const mintInfo = await getMint(connection, mint);
         const decimals = mintInfo.decimals;
         const adjustedAmount = Math.floor(amountToSend * Math.pow(10, decimals));
@@ -189,7 +211,7 @@ export default function CoincarneModal({
         const ixs: any[] = [];
         const toAtaInfo = await connection.getAccountInfo(toATA);
         if (!toAtaInfo) {
-          ixs.push(createAssociatedTokenAccountInstruction(publicKey, toATA, COINCARNATION_DEST, mint));
+          ixs.push(createAssociatedTokenAccountInstruction(publicKey, toATA, destSol, mint));
         }
         ixs.push(createTransferInstruction(fromATA, toATA, publicKey, adjustedAmount));
         const tx = new Transaction().add(...ixs);
@@ -322,6 +344,13 @@ export default function CoincarneModal({
                   ? `Balance: ${internalBalance.amount.toFixed(4)} ${displaySymbol}`
                   : `Balance: ${token.amount.toFixed(4)} ${displaySymbol}`}
               </p>
+
+              {/* Env eksikse kullanıcıyı uyar */}
+              {destErr && (
+                <p className="text-xs text-amber-400 text-center mb-2">
+                  {destErr}
+                </p>
+              )}
 
               <div className="grid grid-cols-4 gap-2 mb-4">
                 {[25, 50, 75, 100].map((p) => (
