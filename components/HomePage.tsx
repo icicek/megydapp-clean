@@ -6,15 +6,18 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useRouter } from 'next/navigation';
 import CountUp from 'react-countup';
 
-import CoincarneModal from '@/components/CoincarneModal';
+import CoincarneModal from '@/components/CoincarneModal';                 // Solana modal
+import CoincarneModalEvm from '@/components/CoincarneModalEvm';          // EVM modal (yeni)
 import ConnectWalletCTA from '@/components/wallet/ConnectWalletCTA';
 import TrustPledge from '@/components/TrustPledge';
 import Skeleton from '@/components/ui/Skeleton';
 
 import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
+import { useChain } from '@/app/providers/ChainProvider';                 // zincir seçimi
 
 export default function HomePage() {
   const router = useRouter();
+  const { chain } = useChain(); // 'solana' | 'ethereum' | 'bsc' | 'polygon' | 'base'
   const { publicKey, connected } = useWallet();
   const pubkeyBase58 = useMemo(() => publicKey?.toBase58() ?? null, [publicKey]);
 
@@ -22,7 +25,7 @@ export default function HomePage() {
   const [isAdminWallet, setIsAdminWallet] = useState(false);
   const [isAdminSession, setIsAdminSession] = useState(false);
 
-  // whoami (sessiz mod) – 401 atmaz; { ok: boolean } döner
+  // whoami (sessiz mod)
   const checkAdminSession = async (signal?: AbortSignal) => {
     try {
       const res = await fetch('/api/admin/whoami?strict=0', {
@@ -42,21 +45,18 @@ export default function HomePage() {
     }
   };
 
-  // mount + wallet değişiminde bir kere kontrol
   useEffect(() => {
     const ac = new AbortController();
     checkAdminSession(ac.signal);
     return () => ac.abort();
   }, [pubkeyBase58, connected]);
 
-  // Sekme odaklanınca tekrar kontrol (sessiz)
   useEffect(() => {
     const handler = () => checkAdminSession();
     window.addEventListener('focus', handler);
     return () => window.removeEventListener('focus', handler);
   }, []);
 
-  // Allowlist (admin cüzdan mı?)
   useEffect(() => {
     const ac = new AbortController();
     (async () => {
@@ -78,22 +78,23 @@ export default function HomePage() {
     return () => ac.abort();
   }, [pubkeyBase58, connected]);
 
-  // ---------- Tokens (anti-flicker) ----------
+  // ---------- Tokens (Solana tarafı) ----------
   const {
     tokens,
     loading: tokensLoading, // only initial
-    refreshing, // background sync (no flicker)
-    error: tokensError, // only initial error
+    refreshing,
+    error: tokensError,
     refetchTokens,
   } = useWalletTokens({
     autoRefetchOnFocus: true,
     autoRefetchOnAccountChange: true,
-    pollMs: 20000, // silent background refresh
+    pollMs: 20000,
   });
 
   // ---------- Modal state ----------
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  const [showSolModal, setShowSolModal] = useState(false);
+  const [showEvmModal, setShowEvmModal] = useState(false);
 
   // ---------- Global & user stats ----------
   const [globalStats, setGlobalStats] = useState({
@@ -144,7 +145,7 @@ export default function HomePage() {
     const mint = e.target.value;
     const token = tokens.find((t) => t.mint === mint) || null;
     setSelectedToken(token);
-    setShowModal(Boolean(token));
+    setShowSolModal(Boolean(token));
   };
 
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
@@ -181,52 +182,70 @@ export default function HomePage() {
           Walking deadcoins, memecoins, any unsupported assets…
         </p>
 
-        {publicKey ? (
+        {chain === 'solana' ? (
+          // ---- SOLANA UI (eski akış aynen) ----
           <>
-            {tokensLoading && tokens.length === 0 ? (
-              <div className="space-y-2 mb-4" data-testid="tokens-skeleton" aria-busy="true">
-                {[...Array(6)].map((_, i) => (
-                  <Skeleton key={i} className="h-10 w-full" />
-                ))}
-              </div>
-            ) : (
+            {publicKey ? (
               <>
-                {refreshing && (
-                  <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
-                    <span className="inline-block h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
-                    <span>Syncing tokens…</span>
+                {tokensLoading && tokens.length === 0 ? (
+                  <div className="space-y-2 mb-4" data-testid="tokens-skeleton" aria-busy="true">
+                    {[...Array(6)].map((_, i) => (
+                      <Skeleton key={i} className="h-10 w-full" />
+                    ))}
                   </div>
-                )}
+                ) : (
+                  <>
+                    {refreshing && (
+                      <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+                        <span className="inline-block h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                        <span>Syncing tokens…</span>
+                      </div>
+                    )}
 
-                <label className="sr-only" htmlFor="token-select">
-                  Select a token to Coincarnate
-                </label>
-                <select
-                  id="token-select"
-                  className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
-                  value={selectedToken?.mint || ''}
-                  onChange={handleSelectChange}
-                >
-                  <option value="" disabled>
-                    👉 Select a token to Coincarnate
-                  </option>
-                  {tokens.map((token, idx) => (
-                    <option key={idx} value={token.mint}>
-                      {token.symbol ?? token.mint.slice(0, 4)} — {token.amount.toFixed(4)}
-                    </option>
-                  ))}
-                </select>
+                    <label className="sr-only" htmlFor="token-select">
+                      Select a token to Coincarnate
+                    </label>
+                    <select
+                      id="token-select"
+                      className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
+                      value={selectedToken?.mint || ''}
+                      onChange={handleSelectChange}
+                    >
+                      <option value="" disabled>
+                        👉 Select a token to Coincarnate
+                      </option>
+                      {tokens.map((token, idx) => (
+                        <option key={idx} value={token.mint}>
+                          {token.symbol ?? token.mint.slice(0, 4)} — {token.amount.toFixed(4)}
+                        </option>
+                      ))}
+                    </select>
 
-                {!tokensLoading && tokens.length === 0 && tokensError && (
-                  <p className="text-xs text-red-400 mb-2">
-                    Token fetch error: {String(tokensError)}
-                  </p>
+                    {!tokensLoading && tokens.length === 0 && tokensError && (
+                      <p className="text-xs text-red-400 mb-2">
+                        Token fetch error: {String(tokensError)}
+                      </p>
+                    )}
+                  </>
                 )}
               </>
+            ) : (
+              <p className="text-gray-400">Connect your wallet to see your tokens.</p>
             )}
           </>
         ) : (
-          <p className="text-gray-400">Connect your wallet to see your tokens.</p>
+          // ---- EVM UI (native transfer modalı) ----
+          <div className="flex flex-col items-start gap-3">
+            <p className="text-sm text-gray-300">
+              EVM networks don’t list tokens here yet. Use the button below to send a native coin.
+            </p>
+            <button
+              onClick={() => setShowEvmModal(true)}
+              className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 rounded px-3 py-2 text-sm font-semibold"
+            >
+              🚀 Coincarnate (EVM)
+            </button>
+          </div>
         )}
 
         <div className="text-2xl my-4 text-center" aria-hidden>
@@ -325,14 +344,22 @@ export default function HomePage() {
         </a>
       </div>
 
-      {showModal && selectedToken && (
+      {/* Modallar */}
+      {showSolModal && selectedToken && chain === 'solana' && (
         <CoincarneModal
           token={selectedToken}
           onClose={() => {
             setSelectedToken(null);
-            setShowModal(false);
+            setShowSolModal(false);
           }}
           refetchTokens={refetchTokens}
+          onGoToProfileRequest={() => router.push('/profile')}
+        />
+      )}
+
+      {showEvmModal && chain !== 'solana' && (
+        <CoincarneModalEvm
+          onClose={() => setShowEvmModal(false)}
           onGoToProfileRequest={() => router.push('/profile')}
         />
       )}
