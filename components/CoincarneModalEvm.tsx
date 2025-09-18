@@ -13,7 +13,7 @@ import { useChain } from '@/app/providers/ChainProvider';
 import useChainWallet from '@/hooks/useChainWallet';
 import { getDestAddress, EVM_CHAIN_ID_HEX } from '@/lib/chain/env';
 import { sendNative } from '@/lib/chain/evmTransfer';
-import { addressTxExplorer } from '@/lib/explorer';
+import { txExplorer } from '@/lib/explorer';
 import type { Chain } from '@/lib/chain/types';
 
 type Props = {
@@ -27,7 +27,7 @@ export default function CoincarneModalEvm({ onClose, onGoToProfileRequest }: Pro
   const { chain } = useChain(); // 'solana' | 'ethereum' | 'bsc' | 'polygon' | 'base'
   const { address, connected, connecting, connect, icon } = useChainWallet();
 
-  // EVM'e daralt (bu modal sadece EVM için)
+  // Bu modal sadece EVM için. TS daraltması:
   const evmChain: EvmChain = useMemo(() => {
     return chain === 'solana' ? 'ethereum' : (chain as EvmChain);
   }, [chain]);
@@ -51,7 +51,6 @@ export default function CoincarneModalEvm({ onClose, onGoToProfileRequest }: Pro
   }, [evmChain]);
 
   const decimals = 18; // ETH/BNB/MATIC/BASE native hepsi 18
-
   const short = (k?: string | null) => (k ? k.slice(0, 6) + '…' + k.slice(-4) : '');
 
   async function ensureCorrectNetwork() {
@@ -141,15 +140,9 @@ export default function CoincarneModalEvm({ onClose, onGoToProfileRequest }: Pro
     }
   }
 
-  // Explorer URL: her durumda string'e dönüştür
-  const explorerHref: string = useMemo(() => {
-    if (!tx) return '#';
-    const u = addressTxExplorer(evmChain, tx, 'tx') as unknown;
-    if (typeof u === 'string') return u;
-    // URL | undefined gibi durumları güvenle string'e çevir
-    // @ts-ignore
-    if (u && typeof u?.toString === 'function') return u.toString();
-    return '#';
+  // Explorer href: string
+  const explorerHref = useMemo<string>(() => {
+    return tx ? txExplorer(evmChain, tx) : '#';
   }, [tx, evmChain]);
 
   // Yanlışlıkla Solana iken render edildiyse (parent guard yoksa):
@@ -211,13 +204,13 @@ export default function CoincarneModalEvm({ onClose, onGoToProfileRequest }: Pro
             />
           </div>
 
-        <button
-          type="submit"
-          disabled={submitting || connecting}
-          className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 rounded px-3 py-2 text-sm font-semibold w-full"
-        >
-          {submitting ? 'Sending…' : connected ? 'Send' : 'Connect & Send'}
-        </button>
+          <button
+            type="submit"
+            disabled={submitting || connecting}
+            className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 rounded px-3 py-2 text-sm font-semibold w-full"
+          >
+            {submitting ? 'Sending…' : connected ? 'Send' : 'Connect & Send'}
+          </button>
         </form>
 
         {tx && (

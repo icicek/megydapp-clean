@@ -6,18 +6,19 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useRouter } from 'next/navigation';
 import CountUp from 'react-countup';
 
-import CoincarneModal from '@/components/CoincarneModal';                 // Solana modal
-import CoincarneModalEvm from '@/components/CoincarneModalEvm';          // EVM modal (yeni)
+import CoincarneModal from '@/components/CoincarneModal';
+import CoincarneModalEvm from '@/components/CoincarneModalEvm';
 import ConnectWalletCTA from '@/components/wallet/ConnectWalletCTA';
+import ChainSwitcher from '@/components/ChainSwitcher';
 import TrustPledge from '@/components/TrustPledge';
 import Skeleton from '@/components/ui/Skeleton';
 
 import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
-import { useChain } from '@/app/providers/ChainProvider';                 // zincir seçimi
+import { useChain } from '@/app/providers/ChainProvider';
 
 export default function HomePage() {
   const router = useRouter();
-  const { chain } = useChain(); // 'solana' | 'ethereum' | 'bsc' | 'polygon' | 'base'
+  const { chain } = useChain();
   const { publicKey, connected } = useWallet();
   const pubkeyBase58 = useMemo(() => publicKey?.toBase58() ?? null, [publicKey]);
 
@@ -25,7 +26,6 @@ export default function HomePage() {
   const [isAdminWallet, setIsAdminWallet] = useState(false);
   const [isAdminSession, setIsAdminSession] = useState(false);
 
-  // whoami (sessiz mod)
   const checkAdminSession = async (signal?: AbortSignal) => {
     try {
       const res = await fetch('/api/admin/whoami?strict=0', {
@@ -78,10 +78,10 @@ export default function HomePage() {
     return () => ac.abort();
   }, [pubkeyBase58, connected]);
 
-  // ---------- Tokens (Solana tarafı) ----------
+  // ---------- Tokens (Solana) ----------
   const {
     tokens,
-    loading: tokensLoading, // only initial
+    loading: tokensLoading,
     refreshing,
     error: tokensError,
     refetchTokens,
@@ -105,7 +105,6 @@ export default function HomePage() {
   });
   const [userContribution, setUserContribution] = useState(0);
 
-  // Initial global stats
   useEffect(() => {
     const ac = new AbortController();
     (async () => {
@@ -118,7 +117,6 @@ export default function HomePage() {
     return () => ac.abort();
   }, []);
 
-  // Re-fetch user stats when wallet is connected
   useEffect(() => {
     if (!pubkeyBase58 || !connected) return;
     const ac = new AbortController();
@@ -154,7 +152,8 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
-      <div className="w-full hidden md:flex justify-end mt-2 mb-4">
+      <div className="w-full hidden md:flex justify-end mt-2 mb-4 gap-3">
+        <ChainSwitcher />
         <ConnectWalletCTA />
       </div>
 
@@ -171,7 +170,8 @@ export default function HomePage() {
       </section>
 
       <div className="w-full flex md:hidden justify-center my-5">
-        <div className="w-full max-w-xs">
+        <div className="w-full max-w-xs flex items-center justify-between gap-3">
+          <ChainSwitcher />
           <ConnectWalletCTA />
         </div>
       </div>
@@ -183,7 +183,6 @@ export default function HomePage() {
         </p>
 
         {chain === 'solana' ? (
-          // ---- SOLANA UI (eski akış aynen) ----
           <>
             {publicKey ? (
               <>
@@ -234,7 +233,6 @@ export default function HomePage() {
             )}
           </>
         ) : (
-          // ---- EVM UI (native transfer modalı) ----
           <div className="flex flex-col items-start gap-3">
             <p className="text-sm text-gray-300">
               EVM networks don’t list tokens here yet. Use the button below to send a native coin.
