@@ -7,7 +7,9 @@ import { useRouter } from 'next/navigation';
 import CountUp from 'react-countup';
 
 import CoincarneModal from '@/components/CoincarneModal';
-import CoincarneModalEvm from '@/components/CoincarneModalEvm';
+// ❌ old EVM modal removed
+// import CoincarneModalEvm from '@/components/CoincarneModalEvm';
+
 import ConnectWalletCTA from '@/components/wallet/ConnectWalletCTA';
 import ChainSwitcher from '@/components/ChainSwitcher';
 import TrustPledge from '@/components/TrustPledge';
@@ -15,6 +17,9 @@ import Skeleton from '@/components/ui/Skeleton';
 
 import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
 import { useChain } from '@/app/providers/ChainProvider';
+
+// ✅ new EVM panel (uses useChainWalletEvm + useChainTokensEvm + ConfirmModalAdapterEvm)
+import EvmCoincarnationPanel from '@/components/evm/EvmCoincarnationPanel';
 
 export default function HomePage() {
   const router = useRouter();
@@ -91,10 +96,11 @@ export default function HomePage() {
     pollMs: 20000,
   });
 
-  // ---------- Modal state ----------
+  // ---------- Modal state (Solana) ----------
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showSolModal, setShowSolModal] = useState(false);
-  const [showEvmModal, setShowEvmModal] = useState(false);
+  // ❌ old EVM modal state removed
+  // const [showEvmModal, setShowEvmModal] = useState(false);
 
   // ---------- Global & user stats ----------
   const [globalStats, setGlobalStats] = useState({
@@ -233,16 +239,9 @@ export default function HomePage() {
             )}
           </>
         ) : (
-          <div className="flex flex-col items-start gap-3">
-            <p className="text-sm text-gray-300">
-              EVM networks don’t list tokens here yet. Use the button below to send a native coin.
-            </p>
-            <button
-              onClick={() => setShowEvmModal(true)}
-              className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 rounded px-3 py-2 text-sm font-semibold"
-            >
-              🚀 Coincarnate (EVM)
-            </button>
+          // ✅ NEW: full EVM flow panel instead of a single button
+          <div className="w-full">
+            <EvmCoincarnationPanel />
           </div>
         )}
 
@@ -342,7 +341,7 @@ export default function HomePage() {
         </a>
       </div>
 
-      {/* Modallar */}
+      {/* Modals */}
       {showSolModal && selectedToken && chain === 'solana' && (
         <CoincarneModal
           token={selectedToken}
@@ -355,12 +354,13 @@ export default function HomePage() {
         />
       )}
 
-      {showEvmModal && chain !== 'solana' && (
+      {/* ❌ old EVM modal removed */}
+      {/* {showEvmModal && chain !== 'solana' && (
         <CoincarneModalEvm
           onClose={() => setShowEvmModal(false)}
           onGoToProfileRequest={() => router.push('/profile')}
         />
-      )}
+      )} */}
 
       {(isAdminSession || (connected && isAdminWallet)) && (
         <div className="mt-4">
