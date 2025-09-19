@@ -38,7 +38,7 @@ export default function HomePage() {
   const { publicKey, connected } = useWallet();
   const pubkeyBase58 = useMemo(() => publicKey?.toBase58() ?? null, [publicKey]);
 
-  // Admin (aynı kalsın)
+  // ---------- Admin (aynı) ----------
   const [isAdminWallet, setIsAdminWallet] = useState(false);
   const [isAdminSession, setIsAdminSession] = useState(false);
   useEffect(() => {
@@ -64,7 +64,7 @@ export default function HomePage() {
     return () => ac.abort();
   }, [pubkeyBase58, connected]);
 
-  // Solana tokenları
+  // ---------- Solana tokenları ----------
   const { tokens, loading: tokensLoading, refreshing, error: tokensError, refetchTokens } =
     useWalletTokens({ autoRefetchOnFocus: true, autoRefetchOnAccountChange: true, pollMs: 20000 });
 
@@ -111,9 +111,8 @@ export default function HomePage() {
 
   // ---------- EVM ----------
   const desiredEvmChain = CHAIN_MAP[chain as keyof typeof CHAIN_MAP] ?? mainnet;
-  const evm = useChainWalletEvm(desiredEvmChain, { autoConnect: false }); // 👈 otomatik bağlanma yok
+  const evm = useChainWalletEvm(desiredEvmChain, { autoConnect: false }); // cüzdanı kullanıcı seçer
 
-  // Eğer bağlı ve ağ farklıysa, token listelemeyi bekletelim:
   const allowEvmListing = evm.isConnected && !evm.needsChainSwitch;
 
   const {
@@ -156,30 +155,70 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
-      <div className="w-full hidden md:flex justify-end mt-2 mb-4 gap-3">
+      {/* Top bar */}
+      <div className="w-full hidden md:flex justify-end mt-2 mb-2 gap-3">
         <ChainSwitcher />
         <ConnectWalletCTA />
       </div>
 
-      <section className="text-center py-4 w-full">
-        <h1 className="text-4xl md:text-5xl font-extrabold mb-2">Turn Deadcoins into a Fair Future.</h1>
-        <p className="text-lg md:text-xl text-pink-400 mb-1">This is not a swap. This is reincarnation.</p>
-        <p className="text-sm text-gray-300 max-w-xl mx-auto">Burning wealth inequality. One deadcoin at a time.</p>
-      </section>
+      {/* EVM: Cüzdan seçimi Connect butonunun ALTINDA (desktop) */}
+      {chain !== 'solana' && !evm.isConnected && (
+        <div className="w-full hidden md:flex justify-end -mt-2 mb-4">
+          <div className="flex flex-wrap gap-2">
+            {evm.wallets.map((w) => (
+              <button
+                key={w.id}
+                onClick={async () => { evm.selectWallet(w.id); await evm.connect(); }}
+                className="flex items-center gap-2 bg-gray-800 border border-gray-600 rounded px-3 py-2 hover:bg-gray-700 text-sm"
+              >
+                {w.icon ? <img src={w.icon} alt="" className="h-4 w-4 rounded" /> : <span>🦊</span>}
+                <span>{w.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
-      <div className="w-full flex md:hidden justify-center my-5">
+      {/* Mobile header */}
+      <div className="w-full flex md:hidden justify-center my-4">
         <div className="w-full max-w-xs flex items-center justify-between gap-3">
           <ChainSwitcher />
           <ConnectWalletCTA />
         </div>
       </div>
 
+      {/* EVM: Cüzdan seçimi Connect butonunun ALTINDA (mobile) */}
+      {chain !== 'solana' && !evm.isConnected && (
+        <div className="w-full md:hidden flex justify-center -mt-2 mb-4">
+          <div className="grid grid-cols-2 gap-2 w-full max-w-sm">
+            {evm.wallets.map((w) => (
+              <button
+                key={w.id}
+                onClick={async () => { evm.selectWallet(w.id); await evm.connect(); }}
+                className="flex items-center gap-2 bg-gray-800 border border-gray-600 rounded px-3 py-2 hover:bg-gray-700 text-sm"
+              >
+                {w.icon ? <img src={w.icon} alt="" className="h-4 w-4 rounded" /> : <span>🦊</span>}
+                <span className="truncate">{w.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <section className="text-center py-2 w-full">
+        <h1 className="text-4xl md:text-5xl font-extrabold mb-2">
+          Turn Deadcoins into a Fair Future.
+        </h1>
+        <p className="text-lg md:text-xl text-pink-400 mb-1">This is not a swap. This is reincarnation.</p>
+        <p className="text-sm text-gray-300 max-w-xl mx-auto">Burning wealth inequality. One deadcoin at a time.</p>
+      </section>
+
       <div className="w-full max-w-5xl bg-gradient-to-br from-gray-900 via-zinc-800 to-gray-900 p-8 rounded-2xl border border-purple-700 shadow-2xl">
         <h2 className="text-lg mb-1 text-left">You give</h2>
         <p className="text-xs text-gray-400 text-left mb-2">Walking deadcoins, memecoins, any unsupported assets…</p>
 
         {chain === 'solana' ? (
-          // ---------- SOLANA BLOĞU ----------
+          // ---------- SOLANA ----------
           <>
             {publicKey ? (
               <>
@@ -221,33 +260,14 @@ export default function HomePage() {
             )}
           </>
         ) : (
-          // ---------- EVM BLOĞU ----------
+          // ---------- EVM ----------
           <>
-            {/* 1) Cüzdan seçme ekranı */}
             {!evm.isConnected && (
-              <>
-                {evm.wallets.length === 0 ? (
-                  <p className="text-gray-400">
-                    Open your EVM wallet (MetaMask, Rabby, OKX…) then refresh to pick it here.
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
-                    {evm.wallets.map(w => (
-                      <button
-                        key={w.id}
-                        onClick={async () => { evm.selectWallet(w.id); await evm.connect(); }}
-                        className="flex items-center gap-2 bg-gray-800 border border-gray-600 rounded p-3 hover:bg-gray-700"
-                      >
-                        {w.icon ? <img src={w.icon} alt="" className="h-5 w-5 rounded" /> : <span>🦊</span>}
-                        <span className="text-sm font-medium">{w.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
+              <p className="text-gray-400">
+                Connect your wallet to see your tokens.
+              </p>
             )}
 
-            {/* 2) Network uyumsuzsa anahtarlama çağrısı */}
             {evm.isConnected && evm.needsChainSwitch && (
               <div className="flex items-center gap-3">
                 <p className="text-amber-300 text-sm">
@@ -262,7 +282,6 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* 3) Token listesi */}
             {allowEvmListing && (
               <>
                 {evmLoading && evmBalances.length === 0 ? (
@@ -310,9 +329,7 @@ export default function HomePage() {
         <div className="text-2xl my-4 text-center" aria-hidden>↔️</div>
 
         <h2 className="text-lg text-left mb-2">You receive</h2>
-        <p className="text-xs text-gray-400 text-left mb-2">
-          $MEGY — the currency of the Fair Future Fund
-        </p>
+        <p className="text-xs text-gray-400 text-left mb-2">$MEGY — the currency of the Fair Future Fund</p>
 
         <div className="mt-4">
           <div className="w-full bg-gray-800 rounded-full h-6 overflow-hidden relative border border-gray-600" aria-label="Your share">
