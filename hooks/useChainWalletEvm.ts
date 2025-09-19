@@ -18,18 +18,23 @@ type AnnounceDetail = {
 };
 
 export type DiscoveredWallet = {
-  id: string; name: string; icon: string; rdns?: string; provider: EIP1193Provider;
+  id: string;
+  name: string;
+  icon: string;
+  rdns?: string;
+  provider: EIP1193Provider;
 };
 
 export type EvmWalletState = {
   isReady: boolean;
   isConnected: boolean;
+  needsChainSwitch: boolean;
   account: Address | null;
   chainId: number | null;
   chain: Chain;
   wallets: DiscoveredWallet[];
   walletClient: ReturnType<typeof createWalletClient> | null;
-  publicClient: ReturnType<typeof createPublicClient>;   // ✅ her zaman mevcut (provider varsa custom, yoksa http)
+  publicClient: ReturnType<typeof createPublicClient>;
   selectWallet: (id: string) => void;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
@@ -39,65 +44,93 @@ export type EvmWalletState = {
 
 export const EVM_CHAINS: Chain[] = [mainnet, bsc, polygon, base, arbitrum];
 
-function toHexChainId(n: number) { return `0x${n.toString(16)}`; }
+function toHexChainId(n: number) {
+  return `0x${n.toString(16)}`;
+}
 
-export default function useChainWalletEvm(initialChain: Chain = mainnet): EvmWalletState {
+const LS_SELECTED = 'evm.selectedProvider';
+
+export default function useChainWalletEvm(
+  desiredChain: Chain = mainnet,
+  opts: { autoConnect?: boolean } = {}
+): EvmWalletState {
+  const autoConnect = Boolean(opts.autoConnect); // default: false
+
   const [wallets, setWallets] = useState<DiscoveredWallet[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = useMemo(() => wallets.find(w => w.id === selectedId) ?? wallets[0], [wallets, selectedId]);
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem(LS_SELECTED) : null;
+  });
+  const selected = useMemo(
+    () => wallets.find(w => w.id === selectedId) ?? null,
+    [wallets, selectedId]
+  );
 
-  const [chain, setChain] = useState<Chain>(initialChain);
+  const [chain, setChain] = useState<Chain>(desiredChain);
+  useEffect(() => setChain(desiredChain), [desiredChain]);
+
   const [account, setAccount] = useState<Address | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
   const [walletClient, setWalletClient] = useState<ReturnType<typeof createWalletClient> | null>(null);
 
-  // ❗️HTTP tabanlı “genel” client (fallback olarak durur)
-  const httpPublicClient = useMemo(() => createPublicClient({ chain, transport: http() }), [chain]);
-
-  // ✅ Provider geldiğinde burayı custom(provider) ile dolduracağız
+  // Fallback HTTP client (sadece provider yoksa kullanılır)
+  const httpPublicClient = useMemo(
+    () => createPublicClient({ chain, transport: http() }),
+    [chain]
+  );
   const [providerPublicClient, setProviderPublicClient] =
     useState<ReturnType<typeof createPublicClient> | null>(null);
 
-  // Dışarıya verdiğimiz publicClient: provider varsa onu kullan, yoksa http
   const publicClient = providerPublicClient ?? httpPublicClient;
 
   const isConnected = !!account && !!chainId && !!walletClient;
+  const needsChainSwitch = isConnected && chainId !== chain.id;
   const isReady = typeof window !== 'undefined';
 
-  // ---- EIP-6963 discovery ----
+  // ---- Discover providers (EIP-6963 + legacy) ----
   useEffect(() => {
     if (!isReady) return;
 
-    const handlers = new Set<string>();
+    const seen = new Set<string>();
+
     const onAnnounce = (event: Event) => {
       const e = event as CustomEvent<AnnounceDetail>;
       const { info, provider } = e.detail || ({} as AnnounceDetail);
-      if (!info?.uuid || !provider || handlers.has(info.uuid)) return;
-      handlers.add(info.uuid);
-      setWallets(prev => (prev.some(w => w.id === info.uuid) ? prev
-        : [...prev, { id: info.uuid, name: info.name, icon: info.icon, rdns: info.rdns, provider }]));
+      if (!info?.uuid || !provider || seen.has(info.uuid)) return;
+      seen.add(info.uuid);
+      setWallets(prev => prev.some(w => w.id === info.uuid) ? prev
+        : [...prev, { id: info.uuid, name: info.name, icon: info.icon, rdns: info.rdns, provider }]);
     };
 
     window.addEventListener('eip6963:announceProvider', onAnnounce as EventListener);
     window.dispatchEvent(new Event('eip6963:requestProvider'));
 
-    // Legacy window.ethereum
     const legacy = (window as any)?.ethereum as EIP1193Provider | undefined;
-    if (legacy && !handlers.has('legacy:window.ethereum')) {
-      handlers.add('legacy:window.ethereum');
-      setWallets(prev => (prev.some(w => w.id === 'legacy:window.ethereum') ? prev : [
+    if (legacy && !seen.has('legacy:window.ethereum')) {
+      seen.add('legacy:window.ethereum');
+      setWallets(prev => prev.some(w => w.id === 'legacy:window.ethereum') ? prev : [
         ...prev,
-        { id: 'legacy:window.ethereum', name: (legacy as any)?.isMetaMask ? 'MetaMask (legacy)' : 'Injected (legacy)', icon: '', provider: legacy },
-      ]));
+        {
+          id: 'legacy:window.ethereum',
+          name: (legacy as any)?.isMetaMask ? 'MetaMask (legacy)' : 'Injected (legacy)',
+          icon: '',
+          provider: legacy,
+        },
+      ]);
     }
-    return () => window.removeEventListener('eip6963:announceProvider', onAnnounce as EventListener);
+
+    return () => {
+      window.removeEventListener('eip6963:announceProvider', onAnnounce as EventListener);
+    };
   }, [isReady]);
 
-  // Seçili provider referansı
+  // keep provider ref
   const providerRef = useRef<EIP1193Provider | null>(null);
   useEffect(() => { providerRef.current = selected?.provider ?? null; }, [selected]);
 
-  const selectWallet = useCallback((id: string) => setSelectedId(id), []);
+  const selectWallet = useCallback((id: string) => {
+    setSelectedId(id);
+    try { localStorage.setItem(LS_SELECTED, id); } catch {}
+  }, []);
 
   const wireListeners = useCallback((provider: EIP1193Provider) => {
     const onAccountsChanged = (accs: Address[]) => setAccount(accs?.[0] ?? null);
@@ -109,17 +142,16 @@ export default function useChainWalletEvm(initialChain: Chain = mainnet): EvmWal
 
   const connect = useCallback(async () => {
     const provider = providerRef.current;
-    if (!provider) throw new Error('No EIP-1193 provider selected/found');
+    if (!provider) throw new Error('No EIP-1193 provider selected');
 
     const addresses = (await provider.request({ method: 'eth_requestAccounts' })) as Address[];
     const hexChainId = (await provider.request({ method: 'eth_chainId' })) as `0x${string}`;
-    const wc = createWalletClient({ chain, transport: custom(provider) });
 
+    const wc = createWalletClient({ chain, transport: custom(provider) });
     setWalletClient(wc);
     setAccount(addresses?.[0] ?? null);
     setChainId(Number(hexChainId));
-    setProviderPublicClient(createPublicClient({ chain, transport: custom(provider) })); // ✅ okuma da provider’dan
-
+    setProviderPublicClient(createPublicClient({ chain, transport: custom(provider) })); // read via wallet provider
     wireListeners(provider);
   }, [chain, wireListeners]);
 
@@ -147,18 +179,24 @@ export default function useChainWalletEvm(initialChain: Chain = mainnet): EvmWal
       if (err?.code === 4902) {
         await provider.request({
           method: 'wallet_addEthereumChain',
-          params: [{ chainId: toHexChainId(next.id), chainName: next.name, nativeCurrency: next.nativeCurrency,
-            rpcUrls: next.rpcUrls.default.http, blockExplorerUrls: next.blockExplorers ? [next.blockExplorers.default.url] : [] }],
+          params: [{
+            chainId: toHexChainId(next.id),
+            chainName: next.name,
+            nativeCurrency: next.nativeCurrency,
+            rpcUrls: next.rpcUrls.default.http,
+            blockExplorerUrls: next.blockExplorers ? [next.blockExplorers.default.url] : [],
+          }],
         });
-      } else { throw err; }
+      } else {
+        throw err;
+      }
     }
     setChain(next);
     setChainId(next.id);
-    // ✅ provider üzerinden public client’ı yeni chain ile yeniden kur
     setProviderPublicClient(createPublicClient({ chain: next, transport: custom(provider) }));
   }, []);
 
-  // cleanup on unmount
+  // cleanup
   useEffect(() => {
     return () => {
       const provider = providerRef.current as any;
@@ -170,63 +208,46 @@ export default function useChainWalletEvm(initialChain: Chain = mainnet): EvmWal
     };
   }, []);
 
-  // ✅ Eager detection: yetkili provider varsa otomatik bağlan
+  // Optional eager-connect (sadece istenirse veya önceki seçim varsa)
   useEffect(() => {
     if (!isReady || wallets.length === 0) return;
+
+    const hadPrev = typeof window !== 'undefined' && !!localStorage.getItem(LS_SELECTED);
+    if (!autoConnect && !hadPrev) return;
+
     let cancelled = false;
     (async () => {
-      for (const w of wallets) {
-        try {
-          const accs = (await w.provider.request({ method: 'eth_accounts' })) as Address[];
-          if (!accs || accs.length === 0) continue;
-          if (cancelled) return;
+      const first = hadPrev
+        ? wallets.find(w => w.id === localStorage.getItem(LS_SELECTED)!)
+        : wallets[0];
+      if (!first) return;
 
-          setSelectedId(w.id);
-          const hex = (await w.provider.request({ method: 'eth_chainId' })) as `0x${string}`;
-          const wc = createWalletClient({ chain, transport: custom(w.provider) });
+      const accs = (await first.provider.request({ method: 'eth_accounts' })) as Address[];
+      if (!accs || accs.length === 0 || cancelled) return;
 
-          wireListeners(w.provider);
-          setWalletClient(wc);
-          setAccount(accs[0]);
-          setChainId(Number(hex));
-          setProviderPublicClient(createPublicClient({ chain, transport: custom(w.provider) })); // ✅
-          break;
-        } catch { /* diğer sağlayıcıya geç */ }
-      }
+      setSelectedId(first.id);
+      const hex = (await first.provider.request({ method: 'eth_chainId' })) as `0x${string}`;
+      const wc = createWalletClient({ chain, transport: custom(first.provider) });
+      wireListeners(first.provider);
+      setWalletClient(wc);
+      setAccount(accs[0]);
+      setChainId(Number(hex));
+      setProviderPublicClient(createPublicClient({ chain, transport: custom(first.provider) }));
     })();
-    return () => { cancelled = true; };
-  }, [isReady, wallets, chain, wireListeners]);
 
-  // Seçimi sonradan değiştirirse tekrar eager bağla
-  useEffect(() => {
-    if (!isReady || !selected?.provider) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const accs = (await selected.provider.request({ method: 'eth_accounts' })) as Address[];
-        if (!accs || accs.length === 0 || cancelled) return;
-        const hex = (await selected.provider.request({ method: 'eth_chainId' })) as `0x${string}`;
-        const wc = createWalletClient({ chain, transport: custom(selected.provider) });
-
-        wireListeners(selected.provider);
-        setWalletClient(wc);
-        setAccount(accs[0]);
-        setChainId(Number(hex));
-        setProviderPublicClient(createPublicClient({ chain, transport: custom(selected.provider) })); // ✅
-      } catch { /* sessiz */ }
-    })();
     return () => { cancelled = true; };
-  }, [isReady, selected?.id, chain, wireListeners]);
+  }, [isReady, wallets, chain, autoConnect, wireListeners]);
 
   return {
     isReady,
     isConnected,
+    needsChainSwitch,
     account,
     chainId,
     chain,
     wallets,
     walletClient,
-    publicClient, // ✅ artık provider üzerinden okuyor (CORS yok)
+    publicClient,
     selectWallet,
     connect,
     disconnect,

@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import CountUp from 'react-countup';
 
 import CoincarneModal from '@/components/CoincarneModal';
+import CoincarneModalEvm from '@/components/CoincarneModalEvm';
 import ConnectWalletCTA from '@/components/wallet/ConnectWalletCTA';
 import ChainSwitcher from '@/components/ChainSwitcher';
 import TrustPledge from '@/components/TrustPledge';
@@ -19,45 +20,37 @@ import { useChain } from '@/app/providers/ChainProvider';
 import useChainWalletEvm from '@/hooks/useChainWalletEvm';
 import useChainTokensEvm, { TokenBalance } from '@/hooks/useChainTokensEvm';
 import { fetchErc20UnitPrice, fetchNativeUnitPrice } from '@/lib/pricing/client';
-import CoincarneModalEvm from '@/components/CoincarneModalEvm';
+import { mainnet, bsc, polygon, base, arbitrum, type Chain as EvmChain } from 'viem/chains';
+
+const CHAIN_MAP: Record<string, EvmChain> = {
+  ethereum: mainnet,
+  bsc,
+  polygon,
+  base,
+  arbitrum,
+};
 
 export default function HomePage() {
   const router = useRouter();
-  const { chain } = useChain();
+  const { chain } = useChain(); // 'solana' | 'ethereum' | 'bsc' | ...
 
-  // ---------- Solana wallet ----------
+  // ---------- Solana ----------
   const { publicKey, connected } = useWallet();
   const pubkeyBase58 = useMemo(() => publicKey?.toBase58() ?? null, [publicKey]);
 
-  // ---------- Admin checks ----------
+  // Admin (aynı kalsın)
   const [isAdminWallet, setIsAdminWallet] = useState(false);
   const [isAdminSession, setIsAdminSession] = useState(false);
-
-  const checkAdminSession = async (signal?: AbortSignal) => {
-    try {
-      const res = await fetch('/api/admin/whoami?strict=0', {
-        credentials: 'include',
-        cache: 'no-store',
-        headers: { 'x-admin-sync': '1' },
-        signal,
-      });
-      if (!res.ok) return setIsAdminSession(false);
-      const data = await res.json().catch(() => ({} as any));
-      setIsAdminSession(Boolean((data as any)?.ok));
-    } catch { setIsAdminSession(false); }
-  };
-
   useEffect(() => {
     const ac = new AbortController();
-    checkAdminSession(ac.signal);
+    (async () => {
+      try {
+        const res = await fetch('/api/admin/whoami?strict=0', { credentials: 'include', cache: 'no-store', headers: { 'x-admin-sync': '1' }, signal: ac.signal });
+        setIsAdminSession(res.ok && Boolean((await res.json().catch(() => ({} as any)))?.ok));
+      } catch { setIsAdminSession(false); }
+    })();
     return () => ac.abort();
   }, [pubkeyBase58, connected]);
-
-  useEffect(() => {
-    const handler = () => checkAdminSession();
-    window.addEventListener('focus', handler);
-    return () => window.removeEventListener('focus', handler);
-  }, []);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -65,39 +58,28 @@ export default function HomePage() {
       if (!connected || !pubkeyBase58) return setIsAdminWallet(false);
       try {
         const res = await fetch(`/api/admin/is-allowed?wallet=${pubkeyBase58}`, { cache: 'no-store', signal: ac.signal });
-        const j = await res.json().catch(() => null);
-        setIsAdminWallet(Boolean((j as any)?.allowed));
+        setIsAdminWallet(Boolean((await res.json().catch(() => null) as any)?.allowed));
       } catch { setIsAdminWallet(false); }
     })();
     return () => ac.abort();
   }, [pubkeyBase58, connected]);
 
-  // ---------- Solana tokens ----------
-  const {
-    tokens,
-    loading: tokensLoading,
-    refreshing,
-    error: tokensError,
-    refetchTokens,
-  } = useWalletTokens({
-    autoRefetchOnFocus: true,
-    autoRefetchOnAccountChange: true,
-    pollMs: 20000,
-  });
+  // Solana tokenları
+  const { tokens, loading: tokensLoading, refreshing, error: tokensError, refetchTokens } =
+    useWalletTokens({ autoRefetchOnFocus: true, autoRefetchOnAccountChange: true, pollMs: 20000 });
 
-  // ---------- Solana modal ----------
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showSolModal, setShowSolModal] = useState(false);
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const mint = e.target.value;
+    const token = tokens.find((t) => t.mint === mint) || null;
+    setSelectedToken(token);
+    setShowSolModal(Boolean(token));
+  };
 
-  // ---------- Global & user stats ----------
-  const [globalStats, setGlobalStats] = useState({
-    totalUsd: 0,
-    totalParticipants: 0,
-    uniqueDeadcoins: 0,
-    mostPopularDeadcoin: '',
-  });
+  // ---------- Global stats ----------
+  const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0, uniqueDeadcoins: 0, mostPopularDeadcoin: '' });
   const [userContribution, setUserContribution] = useState(0);
-
   useEffect(() => {
     const ac = new AbortController();
     (async () => {
@@ -109,35 +91,31 @@ export default function HomePage() {
     })();
     return () => ac.abort();
   }, []);
-
   useEffect(() => {
     if (!pubkeyBase58 || !connected) return;
     const ac = new AbortController();
     (async () => {
       try {
-        const [globalRes, userRes] = await Promise.all([
+        const [g, u] = await Promise.all([
           fetch('/api/coincarnation/stats', { cache: 'no-store', signal: ac.signal }),
           fetch(`/api/claim/${pubkeyBase58}`, { cache: 'no-store', signal: ac.signal }),
         ]);
-        const globalData = await globalRes.json().catch(() => ({}));
-        const userData = await userRes.json().catch(() => ({}));
-        if ((globalData as any)?.success) setGlobalStats(globalData);
-        if ((userData as any)?.success) setUserContribution(Number((userData as any)?.data?.total_usd_contributed || 0));
+        const gd = await g.json().catch(() => ({}));
+        const ud = await u.json().catch(() => ({}));
+        if ((gd as any)?.success) setGlobalStats(gd);
+        if ((ud as any)?.success) setUserContribution(Number((ud as any)?.data?.total_usd_contributed || 0));
       } catch {}
     })();
     return () => ac.abort();
   }, [pubkeyBase58, connected]);
 
-  // ---------- Solana handlers ----------
-  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const mint = e.target.value;
-    const token = tokens.find((t) => t.mint === mint) || null;
-    setSelectedToken(token);
-    setShowSolModal(Boolean(token));
-  };
+  // ---------- EVM ----------
+  const desiredEvmChain = CHAIN_MAP[chain as keyof typeof CHAIN_MAP] ?? mainnet;
+  const evm = useChainWalletEvm(desiredEvmChain, { autoConnect: false }); // 👈 otomatik bağlanma yok
 
-  // ---------- EVM wallet + tokens (Solana ile aynı UX) ----------
-  const evm = useChainWalletEvm(); // EIP-6963 + eager detect
+  // Eğer bağlı ve ağ farklıysa, token listelemeyi bekletelim:
+  const allowEvmListing = evm.isConnected && !evm.needsChainSwitch;
+
   const {
     loading: evmLoading,
     error: evmError,
@@ -145,7 +123,7 @@ export default function HomePage() {
     reload: evmReload,
   } = useChainTokensEvm(
     evm.chain,
-    (evm.account as any) ?? null,
+    (allowEvmListing ? (evm.account as any) : null),
     { publicClient: evm.publicClient },
     {
       covalent: process.env.NEXT_PUBLIC_COVALENT_KEY ? { apiKey: process.env.NEXT_PUBLIC_COVALENT_KEY } : undefined,
@@ -165,7 +143,6 @@ export default function HomePage() {
 
   const [selectedEvm, setSelectedEvm] = useState<TokenBalance | null>(null);
   const [showEvmModal, setShowEvmModal] = useState(false);
-
   const handleEvmSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const idx = Number(e.target.value);
     const tok = Number.isFinite(idx) ? evmBalances[idx] : null;
@@ -175,8 +152,7 @@ export default function HomePage() {
 
   // ---------- Stats UI ----------
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
-  const sharePercentageNum = Math.max(0, Math.min(100, shareRatio * 100));
-  const sharePercentage = sharePercentageNum.toFixed(2);
+  const sharePercentage = Math.max(0, Math.min(100, shareRatio * 100)).toFixed(2);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
@@ -186,15 +162,9 @@ export default function HomePage() {
       </div>
 
       <section className="text-center py-4 w-full">
-        <h1 className="text-4xl md:text-5xl font-extrabold mb-2">
-          Turn Deadcoins into a Fair Future.
-        </h1>
-        <p className="text-lg md:text-xl text-pink-400 mb-1">
-          This is not a swap. This is reincarnation.
-        </p>
-        <p className="text-sm text-gray-300 max-w-xl mx-auto">
-          Burning wealth inequality. One deadcoin at a time.
-        </p>
+        <h1 className="text-4xl md:text-5xl font-extrabold mb-2">Turn Deadcoins into a Fair Future.</h1>
+        <p className="text-lg md:text-xl text-pink-400 mb-1">This is not a swap. This is reincarnation.</p>
+        <p className="text-sm text-gray-300 max-w-xl mx-auto">Burning wealth inequality. One deadcoin at a time.</p>
       </section>
 
       <div className="w-full flex md:hidden justify-center my-5">
@@ -206,19 +176,16 @@ export default function HomePage() {
 
       <div className="w-full max-w-5xl bg-gradient-to-br from-gray-900 via-zinc-800 to-gray-900 p-8 rounded-2xl border border-purple-700 shadow-2xl">
         <h2 className="text-lg mb-1 text-left">You give</h2>
-        <p className="text-xs text-gray-400 text-left mb-2">
-          Walking deadcoins, memecoins, any unsupported assets…
-        </p>
+        <p className="text-xs text-gray-400 text-left mb-2">Walking deadcoins, memecoins, any unsupported assets…</p>
 
         {chain === 'solana' ? (
+          // ---------- SOLANA BLOĞU ----------
           <>
             {publicKey ? (
               <>
                 {tokensLoading && tokens.length === 0 ? (
-                  <div className="space-y-2 mb-4" data-testid="tokens-skeleton" aria-busy="true">
-                    {[...Array(6)].map((_, i) => (
-                      <Skeleton key={i} className="h-10 w-full" />
-                    ))}
+                  <div className="space-y-2 mb-4" aria-busy="true">
+                    {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
                   </div>
                 ) : (
                   <>
@@ -228,30 +195,23 @@ export default function HomePage() {
                         <span>Syncing tokens…</span>
                       </div>
                     )}
-
-                    <label className="sr-only" htmlFor="token-select">
-                      Select a token to Coincarnate
-                    </label>
+                    <label className="sr-only" htmlFor="token-select">Select a token to Coincarnate</label>
                     <select
                       id="token-select"
                       className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
                       value={selectedToken?.mint || ''}
                       onChange={handleSelectChange}
                     >
-                      <option value="" disabled>
-                        👉 Select a token to Coincarnate
-                      </option>
-                      {tokens.map((token, idx) => (
-                        <option key={idx} value={token.mint}>
-                          {token.symbol ?? token.mint.slice(0, 4)} — {token.amount.toFixed(4)}
+                      <option value="" disabled>👉 Select a token to Coincarnate</option>
+                      {tokens.map((t, i) => (
+                        <option key={i} value={t.mint}>
+                          {t.symbol ?? t.mint.slice(0, 4)} — {t.amount.toFixed(4)}
                         </option>
                       ))}
                     </select>
 
                     {!tokensLoading && tokens.length === 0 && tokensError && (
-                      <p className="text-xs text-red-400 mb-2">
-                        Token fetch error: {String(tokensError)}
-                      </p>
+                      <p className="text-xs text-red-400 mb-2">Token fetch error: {String(tokensError)}</p>
                     )}
                   </>
                 )}
@@ -261,63 +221,93 @@ export default function HomePage() {
             )}
           </>
         ) : (
+          // ---------- EVM BLOĞU ----------
           <>
-            {evm.isConnected ? (
-              evmLoading && evmBalances.length === 0 ? (
-                <div className="space-y-2 mb-4" aria-busy="true">
-                  {[...Array(4)].map((_, i) => (
-                    <Skeleton key={i} className="h-10 w-full" />
-                  ))}
-                </div>
-              ) : evmBalances.length === 0 ? (
-                <>
-                  {evmError ? (
-                    <p className="text-xs text-red-400 mb-2">
-                      Token fetch error: {String(evmError)}
-                    </p>
-                  ) : (
-                    <p className="text-gray-400">No tokens detected on {evm.chain.name}.</p>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
-                    <span className="opacity-80">Network:</span>
-                    <span className="font-medium">{evm.chain.name}</span>
-                    <button onClick={evmReload} className="ml-auto underline">reload</button>
-                  </div>
-
-                  <label className="sr-only" htmlFor="evm-token-select">
-                    Select a token to Coincarnate
-                  </label>
-                  <select
-                    id="evm-token-select"
-                    className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
-                    value={selectedEvm ? evmBalances.findIndex((b) => b === selectedEvm) : ''}
-                    onChange={handleEvmSelectChange}
-                  >
-                    <option value="" disabled>
-                      👉 Select a token to Coincarnate
-                    </option>
-                    {evmBalances.map((t, i) => (
-                      <option key={`${t.contract ?? 'native'}-${i}`} value={i}>
-                        {t.symbol}
-                        {t.contract ? ` (${t.contract.slice(0, 6)}…${t.contract.slice(-4)})` : ' (native)'} — {Number(t.amount).toFixed(4)}
-                        {typeof t.usdValue === 'number' ? ` — ~$${Number(t.usdValue).toFixed(2)}` : ''}
-                      </option>
+            {/* 1) Cüzdan seçme ekranı */}
+            {!evm.isConnected && (
+              <>
+                {evm.wallets.length === 0 ? (
+                  <p className="text-gray-400">
+                    Open your EVM wallet (MetaMask, Rabby, OKX…) then refresh to pick it here.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                    {evm.wallets.map(w => (
+                      <button
+                        key={w.id}
+                        onClick={async () => { evm.selectWallet(w.id); await evm.connect(); }}
+                        className="flex items-center gap-2 bg-gray-800 border border-gray-600 rounded p-3 hover:bg-gray-700"
+                      >
+                        {w.icon ? <img src={w.icon} alt="" className="h-5 w-5 rounded" /> : <span>🦊</span>}
+                        <span className="text-sm font-medium">{w.name}</span>
+                      </button>
                     ))}
-                  </select>
-                </>
-              )
-            ) : (
-              <p className="text-gray-400">Connect your wallet to see your tokens.</p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* 2) Network uyumsuzsa anahtarlama çağrısı */}
+            {evm.isConnected && evm.needsChainSwitch && (
+              <div className="flex items-center gap-3">
+                <p className="text-amber-300 text-sm">
+                  Please switch your wallet to <b>{desiredEvmChain.name}</b> to list tokens.
+                </p>
+                <button
+                  onClick={() => evm.switchChain(desiredEvmChain)}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded text-sm"
+                >
+                  Switch Network
+                </button>
+              </div>
+            )}
+
+            {/* 3) Token listesi */}
+            {allowEvmListing && (
+              <>
+                {evmLoading && evmBalances.length === 0 ? (
+                  <div className="space-y-2 mb-4" aria-busy="true">
+                    {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+                  </div>
+                ) : evmBalances.length === 0 ? (
+                  <>
+                    {evmError ? (
+                      <p className="text-xs text-red-400 mb-2">Token fetch error: {String(evmError)}</p>
+                    ) : (
+                      <p className="text-gray-400">No tokens detected on {evm.chain.name}.</p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+                      <span className="opacity-80">Network:</span>
+                      <span className="font-medium">{evm.chain.name}</span>
+                      <button onClick={evmReload} className="ml-auto underline">reload</button>
+                    </div>
+
+                    <label className="sr-only" htmlFor="evm-token-select">Select a token to Coincarnate</label>
+                    <select
+                      id="evm-token-select"
+                      className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
+                      value={selectedEvm ? evmBalances.findIndex(b => b === selectedEvm) : ''}
+                      onChange={handleEvmSelectChange}
+                    >
+                      <option value="" disabled>👉 Select a token to Coincarnate</option>
+                      {evmBalances.map((t, i) => (
+                        <option key={`${t.contract ?? 'native'}-${i}`} value={i}>
+                          {t.symbol}{t.contract ? ` (${t.contract.slice(0,6)}…${t.contract.slice(-4)})` : ' (native)'} — {Number(t.amount).toFixed(4)}
+                          {typeof t.usdValue === 'number' ? ` — ~$${Number(t.usdValue).toFixed(2)}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                )}
+              </>
             )}
           </>
         )}
 
-        <div className="text-2xl my-4 text-center" aria-hidden>
-          ↔️
-        </div>
+        <div className="text-2xl my-4 text-center" aria-hidden>↔️</div>
 
         <h2 className="text-lg text-left mb-2">You receive</h2>
         <p className="text-xs text-gray-400 text-left mb-2">
@@ -325,63 +315,39 @@ export default function HomePage() {
         </p>
 
         <div className="mt-4">
-          <div
-            className="w-full bg-gray-800 rounded-full h-6 overflow-hidden relative border border-gray-600"
-            aria-label="Your share of the Fair Future Fund"
-          >
-            <div
-              className="h-6 bg-gradient-to-r from-yellow-800 via-green-500 to-yellow-300"
-              style={{ width: `${sharePercentage}%` }}
-            />
-            <span className="absolute inset-0 flex items-center justify-center text-xs text-yellow-200 font-bold">
-              {sharePercentage}%
-            </span>
+          <div className="w-full bg-gray-800 rounded-full h-6 overflow-hidden relative border border-gray-600" aria-label="Your share">
+            <div className="h-6 bg-gradient-to-r from-yellow-800 via-green-500 to-yellow-300" style={{ width: `${sharePercentage}%` }} />
+            <span className="absolute inset-0 flex items-center justify-center text-xs text-yellow-200 font-bold">{sharePercentage}%</span>
           </div>
-
-          <p className="text-sm text-gray-300 mt-2 text-left">
-            🌍 Your personal contribution to the Fair Future Fund (% of total)
-          </p>
+          <p className="text-sm text-gray-300 mt-2 text-left">🌍 Your personal contribution to the Fair Future Fund (% of total)</p>
         </div>
       </div>
 
-      <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
-        🌐 Global Coincarnation Statistics
-      </h2>
+      <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">🌐 Global Coincarnation Statistics</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 my-6 w-full max-w-5xl">
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600">
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
             <p className="text-sm text-white font-semibold mb-1">Total Participants</p>
-            <p className="text-lg font-bold text-white">
-              <CountUp end={globalStats.totalParticipants} duration={2} />
-            </p>
+            <p className="text-lg font-bold text-white"><CountUp end={globalStats.totalParticipants} duration={2} /></p>
           </div>
         </div>
-
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-green-400 via-green-500 to-green-600">
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
             <p className="text-sm text-white font-semibold mb-1">Total USD Revived</p>
-            <p className="text-lg font-bold text-white">
-              $<CountUp end={globalStats.totalUsd} decimals={2} duration={2} />
-            </p>
+            <p className="text-lg font-bold text-white">$<CountUp end={globalStats.totalUsd} decimals={2} duration={2} /></p>
           </div>
         </div>
-
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-pink-400 via-pink-500 to-pink-600">
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
             <p className="text-sm text-white font-semibold mb-1">Unique Deadcoins</p>
-            <p className="text-lg font-bold text-white">
-              <CountUp end={globalStats.uniqueDeadcoins} duration={2} />
-            </p>
+            <p className="text-lg font-bold text-white"><CountUp end={globalStats.uniqueDeadcoins} duration={2} /></p>
           </div>
         </div>
-
         <div className="rounded-xl p-[2px] bg-gradient-to-br from-purple-400 via-purple-500 to-purple-600">
           <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
             <p className="text-sm text-white font-semibold mb-1">Most Popular Deadcoin</p>
-            <p className="text-lg font-bold text-white">
-              {globalStats.mostPopularDeadcoin || 'No deadcoin yet'}
-            </p>
+            <p className="text-lg font-bold text-white">{globalStats.mostPopularDeadcoin || 'No deadcoin yet'}</p>
           </div>
         </div>
       </div>
@@ -390,27 +356,18 @@ export default function HomePage() {
         <div className="w-full max-w-5xl flex justify-center">
           <button
             onClick={() => router.push('/profile')}
-            className="bg-gradient-to-r from-green-500 to-teal-500 hover:from-emerald-400 hover:to-cyan-400
-                       text-white font-semibold py-3 px-6 rounded-xl shadow-green-500/50
-                       hover:scale-110 hover:-translate-y-1 transition-all duration-300 flex items-center gap-2 mt-2"
+            className="bg-gradient-to-r from-green-500 to-teal-500 hover:from-emerald-400 hover:to-cyan-400 text-white font-semibold py-3 px-6 rounded-xl shadow-green-500/50 hover:scale-110 hover:-translate-y-1 transition-all duration-300 flex items-center gap-2 mt-2"
           >
-            <span>🧾</span>
-            <span>Go to Profile</span>
+            <span>🧾</span><span>Go to Profile</span>
           </button>
         </div>
       )}
 
-      <div className="w-full max-w-5xl">
-        <TrustPledge compact />
-      </div>
+      <div className="w-full max-w-5xl"><TrustPledge compact /></div>
 
       <div className="w-full max-w-5xl mt-2 text-center">
-        <a
-          href="/docs"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-sm"
-        >
-          <span>📘</span>
-          <span>Read the Docs</span>
+        <a href="/docs" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-sm">
+          <span>📘</span><span>Read the Docs</span>
         </a>
       </div>
 
@@ -418,46 +375,22 @@ export default function HomePage() {
       {showSolModal && selectedToken && chain === 'solana' && (
         <CoincarneModal
           token={selectedToken}
-          onClose={() => {
-            setSelectedToken(null);
-            setShowSolModal(false);
-          }}
+          onClose={() => { setSelectedToken(null); setShowSolModal(false); }}
           refetchTokens={refetchTokens}
           onGoToProfileRequest={() => router.push('/profile')}
         />
       )}
 
-      {showEvmModal && selectedEvm && chain !== 'solana' && evm.isConnected && (
+      {showEvmModal && selectedEvm && chain !== 'solana' && evm.isConnected && !evm.needsChainSwitch && (
         <CoincarneModalEvm
-          token={{
-            isNative: selectedEvm.isNative,
-            symbol: selectedEvm.symbol,
-            decimals: selectedEvm.decimals,
-            contract: selectedEvm.contract,
-            name: selectedEvm.name,
-          }}
+          token={{ isNative: selectedEvm.isNative, symbol: selectedEvm.symbol, decimals: selectedEvm.decimals, contract: selectedEvm.contract, name: selectedEvm.name }}
           chain={evm.chain}
           account={evm.account as any}
           walletClient={evm.walletClient}
           publicClient={evm.publicClient}
-          onClose={() => {
-            setSelectedEvm(null);
-            setShowEvmModal(false);
-          }}
+          onClose={() => { setSelectedEvm(null); setShowEvmModal(false); }}
           onGoToProfileRequest={() => router.push('/profile')}
         />
-      )}
-
-      {(isAdminSession || (connected && isAdminWallet)) && (
-        <div className="mt-4">
-          <a
-            href={isAdminSession ? '/admin/tokens' : '/admin/login'}
-            className="text-sm text-gray-400 hover:text-gray-200 underline underline-offset-4
-                      focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500 rounded"
-          >
-            Go to Admin Panel
-          </a>
-        </div>
       )}
     </div>
   );
