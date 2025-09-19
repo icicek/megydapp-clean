@@ -204,12 +204,11 @@ export default function useChainWalletEvm(initialChain: Chain = mainnet): EvmWal
     }
     setChain(next);
     setChainId(next.id);
-    // Recreate walletClient for the new chain
-    setWalletClient(createWalletClient({ chain: next, transport: custom(provider) }));
   }, []);
 
   const isReady = typeof window !== 'undefined';
 
+  // --- cleanup on unmount ---
   useEffect(() => {
     return () => { // unmount
       const provider = providerRef.current as any;
@@ -220,6 +219,76 @@ export default function useChainWalletEvm(initialChain: Chain = mainnet): EvmWal
       }
     };
   }, []);
+
+  // --- NEW: Eager detection (already-authorized accounts) ---
+  // 1) Tüm keşfedilmiş sağlayıcıları dolaş; eth_accounts ile yetkili olanı bul.
+  useEffect(() => {
+    if (!isReady || wallets.length === 0) return;
+    let cancelled = false;
+
+    (async () => {
+      for (const w of wallets) {
+        try {
+          const accs = (await w.provider.request({ method: 'eth_accounts' })) as Address[];
+          if (!accs || accs.length === 0) continue;
+
+          if (cancelled) return;
+          // bu sağlayıcıyı seç ve state'i doldur
+          setSelectedId(w.id);
+
+          const hex = (await w.provider.request({ method: 'eth_chainId' })) as `0x${string}`;
+          const wc = createWalletClient({ chain, transport: custom(w.provider) });
+
+          // listeners
+          const onAccountsChanged = (a: Address[]) => setAccount(a?.[0] ?? null);
+          const onChainChanged = (nextHex: `0x${string}`) => setChainId(Number(nextHex));
+          w.provider.on?.('accountsChanged', onAccountsChanged);
+          w.provider.on?.('chainChanged', onChainChanged);
+          (providerRef as any).listeners = { onAccountsChanged, onChainChanged };
+
+          setWalletClient(wc);
+          setAccount(accs[0]);
+          setChainId(Number(hex));
+          break;
+        } catch {
+          // provider izin vermeyebilir; diğerine geç
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [isReady, wallets, chain]);
+
+  // 2) Eğer bir provider zaten seçildiyse, onunla eager check yap (ör. kullanıcı id'yi sonradan seçtiyse).
+  useEffect(() => {
+    if (!isReady || !selected?.provider) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const accs = (await selected.provider.request({ method: 'eth_accounts' })) as Address[];
+        if (!accs || accs.length === 0) return;
+        if (cancelled) return;
+
+        const hex = (await selected.provider.request({ method: 'eth_chainId' })) as `0x${string}`;
+        const wc = createWalletClient({ chain, transport: custom(selected.provider) });
+
+        const onAccountsChanged = (a: Address[]) => setAccount(a?.[0] ?? null);
+        const onChainChanged = (nextHex: `0x${string}`) => setChainId(Number(nextHex));
+        selected.provider.on?.('accountsChanged', onAccountsChanged);
+        selected.provider.on?.('chainChanged', onChainChanged);
+        (providerRef as any).listeners = { onAccountsChanged, onChainChanged };
+
+        setWalletClient(wc);
+        setAccount(accs[0]);
+        setChainId(Number(hex));
+      } catch {
+        // sessiz geç
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [isReady, selected?.id, chain]);
 
   return {
     isReady,
