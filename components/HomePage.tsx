@@ -1,7 +1,6 @@
-// components/HomePage.tsx
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useRouter } from 'next/navigation';
 import CountUp from 'react-countup';
@@ -9,6 +8,7 @@ import CountUp from 'react-countup';
 import CoincarneModal from '@/components/CoincarneModal';
 import CoincarneModalEvm from '@/components/CoincarneModalEvm';
 import ConnectWalletCTA from '@/components/wallet/ConnectWalletCTA';
+import EvmWalletMenu from '@/components/wallet/EvmWalletMenu';
 import ChainSwitcher from '@/components/ChainSwitcher';
 import TrustPledge from '@/components/TrustPledge';
 import Skeleton from '@/components/ui/Skeleton';
@@ -42,50 +42,11 @@ export default function HomePage() {
   const { chain } = useChain(); // 'solana' | 'ethereum' | 'bsc' | 'polygon' | 'base' | 'arbitrum'
   const isEvm = chain !== 'solana';
 
-  // ---------- Solana ----------
+  /** ---------------- SOLANA ---------------- */
   const { publicKey, connected } = useWallet();
   const pubkeyBase58 = useMemo(() => publicKey?.toBase58() ?? null, [publicKey]);
 
-  // ---------- Admin checks ----------
-  const [isAdminWallet, setIsAdminWallet] = useState(false);
-  const [isAdminSession, setIsAdminSession] = useState(false);
-
-  useEffect(() => {
-    const ac = new AbortController();
-    (async () => {
-      try {
-        const res = await fetch('/api/admin/whoami?strict=0', {
-          credentials: 'include',
-          cache: 'no-store',
-          headers: { 'x-admin-sync': '1' },
-          signal: ac.signal,
-        });
-        setIsAdminSession(res.ok && Boolean((await res.json().catch(() => ({} as any)))?.ok));
-      } catch {
-        setIsAdminSession(false);
-      }
-    })();
-    return () => ac.abort();
-  }, [pubkeyBase58, connected]);
-
-  useEffect(() => {
-    const ac = new AbortController();
-    (async () => {
-      if (!connected || !pubkeyBase58) return setIsAdminWallet(false);
-      try {
-        const res = await fetch(`/api/admin/is-allowed?wallet=${pubkeyBase58}`, {
-          cache: 'no-store',
-          signal: ac.signal,
-        });
-        setIsAdminWallet(Boolean((await res.json().catch(() => null) as any)?.allowed));
-      } catch {
-        setIsAdminWallet(false);
-      }
-    })();
-    return () => ac.abort();
-  }, [pubkeyBase58, connected]);
-
-  // ---------- Solana tokenları ----------
+  // tokens (sol)
   const {
     tokens,
     loading: tokensLoading,
@@ -108,7 +69,7 @@ export default function HomePage() {
     setShowSolModal(Boolean(token));
   };
 
-  // ---------- Global stats ----------
+  /** ---------------- GLOBAL STATS ---------------- */
   const [globalStats, setGlobalStats] = useState({
     totalUsd: 0,
     totalParticipants: 0,
@@ -149,15 +110,21 @@ export default function HomePage() {
     return () => ac.abort();
   }, [pubkeyBase58, connected]);
 
-  // ---------- EVM ----------
+  /** ---------------- EVM ---------------- */
   const desiredEvmChain = CHAIN_MAP[chain as keyof typeof CHAIN_MAP] ?? mainnet;
   const evm = useChainWalletEvm(desiredEvmChain, { autoConnect: false });
 
-  // needsSwitch: sadece cüzdan bağlıysa hesaplanır
-  const needsSwitch =
-    evm.isConnected && typeof evm.chainId === 'number' && evm.chainId !== evm.chain.id;
+  // seçili chain'e otomatik geçiş: her chain için yalnızca 1 deneme
+  const switchTried = useRef<number | null>(null);
+  useEffect(() => {
+    if (!isEvm || !evm.isConnected) return;
+    if (evm.chainId === desiredEvmChain.id) return;
+    if (switchTried.current === desiredEvmChain.id) return;
+    switchTried.current = desiredEvmChain.id;
+    evm.switchChain(desiredEvmChain).catch(() => {});
+  }, [isEvm, evm.isConnected, evm.chainId, desiredEvmChain]);
 
-  const allowEvmListing = evm.isConnected && !needsSwitch;
+  const allowEvmListing = evm.isConnected && evm.chainId === desiredEvmChain.id;
 
   const {
     loading: evmLoading,
@@ -183,6 +150,7 @@ export default function HomePage() {
         const { unitPrice } = await fetchErc20UnitPrice(t.chainId, t.contract);
         return unitPrice > 0 ? unitPrice * amt : 0;
       },
+      // minAmount varsayılan: 0 (tüm bakiyeler). Dilersen 0.000001 yapabilirsin.
     }
   );
 
@@ -196,52 +164,33 @@ export default function HomePage() {
     setShowEvmModal(Boolean(tok));
   };
 
-  // ---------- Stats UI ----------
+  /** ---------------- UI DERIVED ---------------- */
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
   const sharePercentage = Math.max(0, Math.min(100, shareRatio * 100)).toFixed(2);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
-      {/* Top bar (desktop): Solana'da Connect Wallet görünür, EVM'de gizli */}
+      {/* ÜST BAR (desktop) — EVM'de ConnectWallet yok, onun yerine EvmWalletMenu var */}
       <div className="w-full hidden md:flex justify-end mt-2 mb-2 gap-3">
         <ChainSwitcher />
-        {!isEvm && <ConnectWalletCTA />}
+        {isEvm ? (
+          <EvmWalletMenu evm={evm} targetChain={desiredEvmChain} />
+        ) : (
+          <ConnectWalletCTA />
+        )}
       </div>
 
       {/* Mobile header */}
       <div className="w-full flex md:hidden justify-center my-4">
         <div className="w-full max-w-xs flex items-center justify-between gap-3">
           <ChainSwitcher />
-          {!isEvm && <ConnectWalletCTA />}
-        </div>
-      </div>
-
-      {/* EVM: Connect Wallet satırının ALTINDA cüzdan seçimi — sadece bağlı DEĞİLSE */}
-      {isEvm && !evm.isConnected && (
-        <div className="w-full flex justify-end -mt-2 mb-4">
-          {evm.wallets.length === 0 ? (
-            <div className="text-sm text-gray-400">
-              Open your EVM wallet (MetaMask, Rabby, OKX…) and refresh to pick it here.
-            </div>
+          {isEvm ? (
+            <EvmWalletMenu evm={evm} targetChain={desiredEvmChain} />
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {evm.wallets.map((w) => (
-                <button
-                  key={w.id}
-                  onClick={async () => {
-                    evm.selectWallet(w.id);
-                    await evm.connect();
-                  }}
-                  className="flex items-center gap-2 bg-gray-800 border border-gray-600 rounded px-3 py-2 hover:bg-gray-700 text-sm"
-                >
-                  {w.icon ? <img src={w.icon} alt="" className="h-4 w-4 rounded" /> : <span>🦊</span>}
-                  <span>{w.name}</span>
-                </button>
-              ))}
-            </div>
+            <ConnectWalletCTA />
           )}
         </div>
-      )}
+      </div>
 
       <section className="text-center py-2 w-full">
         <h1 className="text-4xl md:text-5xl font-extrabold mb-2">
@@ -261,7 +210,7 @@ export default function HomePage() {
           Walking deadcoins, memecoins, any unsupported assets…
         </p>
 
-        {/** ---------- SOLANA ---------- */}
+        {/* -------- SOLANA -------- */}
         {!isEvm ? (
           <>
             {publicKey ? (
@@ -312,24 +261,10 @@ export default function HomePage() {
             )}
           </>
         ) : (
-          /** ---------- EVM ---------- */
+          /* -------- EVM -------- */
           <>
             {!evm.isConnected && (
               <p className="text-gray-400">Connect your wallet to see your tokens.</p>
-            )}
-
-            {evm.isConnected && needsSwitch && (
-              <div className="flex items-center gap-3">
-                <p className="text-amber-300 text-sm">
-                  Please switch your wallet to <b>{desiredEvmChain.name}</b> to list tokens.
-                </p>
-                <button
-                  onClick={() => evm.switchChain(desiredEvmChain)}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded text-sm"
-                >
-                  Switch Network
-                </button>
-              </div>
             )}
 
             {allowEvmListing && (
@@ -508,7 +443,7 @@ export default function HomePage() {
         selectedEvm &&
         isEvm &&
         evm.isConnected &&
-        !needsSwitch && (
+        evm.chainId === desiredEvmChain.id && (
           <CoincarneModalEvm
             token={{
               isNative: selectedEvm.isNative,
