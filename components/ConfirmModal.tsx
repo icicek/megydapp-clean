@@ -1,7 +1,7 @@
 // components/ConfirmModal.tsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Dialog,
   DialogOverlay,
@@ -9,24 +9,34 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { TokenCategory } from '@/app/api/utils/classifyToken';
 import DeadcoinVoteButton from '@/components/community/DeadcoinVoteButton';
+import { TokenCategory } from '@/app/api/utils/classifyToken';
 
 interface ConfirmModalProps {
   tokenSymbol: string;
-  usdValue: number;
-  amount: number;
+  usdValue: number; // total USD (if you already computed), can be 0
+  amount: number;   // token units (human)
   tokenCategory: TokenCategory | null;
   priceSources: { price: number; source: string }[];
   fetchStatus: 'loading' | 'found' | 'not_found' | 'error';
   isOpen: boolean;
-  onConfirm: () => void;
+
+  /** onConfirm can be sync or async */
+  onConfirm: () => void | Promise<void>;
   onCancel: () => void;
   onDeadcoinVote: (vote: 'yes' | 'no') => void;
 
-  // ✅ Opsiyonel: list status & oy butonu için gerekli
+  /** Optional: for list status & vote button */
   tokenMint?: string;
+
+  /** Optional: EVM hints */
+  tokenContract?: string;     // e.g. 0x... (shows alongside)
+  networkLabel?: string;      // e.g. 'Ethereum', 'Base', ...
   currentWallet?: string | null;
+
+  /** Optional: external busy & label control */
+  confirmBusy?: boolean;
+  confirmLabel?: string;
 }
 
 type ListStatus = 'healthy' | 'walking_dead' | 'deadcoin' | 'redlist' | 'blacklist';
@@ -44,13 +54,20 @@ export default function ConfirmModal({
   onDeadcoinVote,
   tokenMint,
   currentWallet,
+  tokenContract,
+  networkLabel,
+  confirmBusy = false,
+  confirmLabel,
 }: ConfirmModalProps) {
   const [voteMessage, setVoteMessage] = useState('');
   const [listStatus, setListStatus] = useState<ListStatus | null>(null);
   const [statusAt, setStatusAt] = useState<string | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
+  const [internalBusy, setInternalBusy] = useState(false);
 
-  // 🔎 Opsiyonel: tokenMint sağlanırsa liste durumunu çek
+  const busy = confirmBusy || internalBusy;
+
+  // 🔎 Token list status (optional)
   useEffect(() => {
     let abort = false;
     async function load() {
@@ -78,29 +95,39 @@ export default function ConfirmModal({
 
   useEffect(() => {
     if (!isOpen) return;
+    // light debug info
     console.debug('ConfirmModal props', {
       fetchStatus, usdValue, amount, priceSources,
-      firstSource: priceSources?.[0] ?? null,
+      firstSource: Array.isArray(priceSources) ? priceSources[0] : null,
     });
   }, [isOpen, fetchStatus, usdValue, amount, priceSources]);
 
-  // Debug paneli URL parametresi ile aç/kapat
   const showDebug =
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).has('debug');
 
-  // ✅ Güvenli USD (birim fiyat * amount)
-  const firstUnit = Array.isArray(priceSources) && priceSources[0]?.price ? Number(priceSources[0].price) : 0;
-  const derivedUsd = usdValue > 0 ? usdValue : (firstUnit > 0 ? firstUnit * Math.max(1, amount) : 0);
+  // ✅ Safe USD derivation (unit price * amount) if needed
+  const firstUnit = useMemo(() => {
+    const p = Array.isArray(priceSources) && priceSources[0]?.price ? Number(priceSources[0].price) : 0;
+    return Number.isFinite(p) ? p : 0;
+  }, [priceSources]);
 
-  // ✅ Kurallar: Blacklist/Redlist → sert engel; Deadcoin → izin ver
+  const derivedUsd = useMemo(() => {
+    const total = usdValue > 0 ? usdValue : (firstUnit > 0 ? firstUnit * Math.max(1, amount) : 0);
+    return Number.isFinite(total) ? total : 0;
+  }, [usdValue, firstUnit, amount]);
+
+  // ✅ Rules: Black/Red list hard block; Deadcoin allowed
   const isHardBlocked = listStatus === 'blacklist' || listStatus === 'redlist';
   const isDeadcoin =
     listStatus === 'deadcoin' ||
     fetchStatus === 'not_found' ||
     (fetchStatus === 'found' && derivedUsd === 0);
 
-  // 💬 Liste durumu için üstte ince uyarı bandı
+  // UI helpers
+  const short = (s?: string | null) =>
+    s && s.length > 12 ? `${s.slice(0, 6)}…${s.slice(-4)}` : s ?? '';
+
   const renderListBanner = () => {
     if (statusLoading) return null;
     if (!listStatus) return null;
@@ -145,13 +172,29 @@ export default function ConfirmModal({
     return null;
   };
 
+  async function handleConfirmClick() {
+    try {
+      const maybe = onConfirm?.();
+      if (maybe && typeof (maybe as any).then === 'function') {
+        setInternalBusy(true);
+        await (maybe as Promise<void>);
+      }
+    } finally {
+      setInternalBusy(false);
+    }
+  }
+
+  const confirmBtnDisabled =
+    busy || isHardBlocked || fetchStatus === 'loading' || fetchStatus === 'error';
+
+  const effectiveConfirmLabel =
+    confirmLabel ??
+    (busy ? 'Processing…' : `Confirm Coincarnation${amount ? ` (${amount} ${tokenSymbol})` : ''}`);
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onCancel(); }}>
-      {/* Overlay ekledik */}
       <DialogOverlay />
-
       <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-50 shadow-lg">
-        {/* Radix için gerçek Title + Description (Title görünür, Description gizli de olabilir) */}
         <DialogTitle className="text-white">Confirm Coincarnation</DialogTitle>
         <DialogDescription className="sr-only">
           Review value, status and confirm to proceed with coincarnation.
@@ -160,18 +203,13 @@ export default function ConfirmModal({
         {showDebug && (
           <div className="text-xs text-gray-300 bg-gray-900/60 rounded p-2 mt-2">
             <div>fetchStatus: <b>{fetchStatus}</b></div>
-            <div>
-              usdValue: <b>{String(usdValue)}</b>{" "}
-              <span>(typeof: <b>{typeof usdValue}</b>)</span>
-            </div>
+            <div>usdValue: <b>{String(usdValue)}</b></div>
             <div>derivedUsd: <b>{String(derivedUsd)}</b></div>
             <div>amount: <b>{String(amount)}</b></div>
             <div>priceSources: <b>{Array.isArray(priceSources) ? priceSources.length : 0}</b></div>
             {Array.isArray(priceSources) && priceSources[0] && (
               <>
-                <div>
-                  first source: <b>{priceSources[0].source}</b> @ <b>{String(priceSources[0].price)}</b>
-                </div>
+                <div>first source: <b>{priceSources[0].source}</b> @ <b>{String(priceSources[0].price)}</b></div>
                 <div>price typeof: <b>{typeof priceSources[0].price}</b></div>
               </>
             )}
@@ -181,14 +219,18 @@ export default function ConfirmModal({
           </div>
         )}
 
-        <div className="mt-3 text-sm text-white">
-          <p>
-            You are about to coincarnate <strong>{tokenSymbol}</strong> ({amount} units).
-          </p>
+        <div className="mt-3 text-sm text-white space-y-1">
+          <p>You are about to coincarnate <strong>{tokenSymbol}</strong> ({amount} units).</p>
+          {(networkLabel || tokenContract || tokenMint) && (
+            <div className="text-xs text-gray-300 space-y-0.5">
+              {networkLabel && <div>Network: <b>{networkLabel}</b></div>}
+              {tokenContract && <div>Contract: <b title={tokenContract}>{short(tokenContract)}</b></div>}
+              {tokenMint && <div>Mint: <b title={tokenMint}>{short(tokenMint)}</b></div>}
+            </div>
+          )}
         </div>
 
         <div className="space-y-3 text-sm text-white mt-4">
-          {/* 🔔 Liste durumu (opsiyonel) */}
           {renderListBanner()}
 
           {fetchStatus === 'loading' && (
@@ -197,7 +239,6 @@ export default function ConfirmModal({
             </div>
           )}
 
-          {/* ☠️ Deadcoin mesajı */}
           {(isDeadcoin && (fetchStatus === 'found' || fetchStatus === 'not_found')) && (
             <div className="bg-yellow-700 text-white p-3 rounded">
               ☠️ <strong>This token is treated as a Deadcoin.</strong><br />
@@ -205,15 +246,13 @@ export default function ConfirmModal({
             </div>
           )}
 
-          {/* ✅ Değer bulundu (ve engel yok) */}
           {fetchStatus === 'found' && !isHardBlocked && derivedUsd > 0 && (
             <div className="bg-green-700 text-white p-3 rounded font-medium">
               ✅ Estimated value: <strong>${derivedUsd.toString()}</strong>
             </div>
           )}
 
-          {/* Kaynak listesi */}
-          {(fetchStatus === 'found' || fetchStatus === 'not_found') && priceSources.length > 0 && (
+          {(fetchStatus === 'found' || fetchStatus === 'not_found') && Array.isArray(priceSources) && priceSources.length > 0 && (
             <div>
               <p className="font-medium">Price Sources:</p>
               <ul className="list-disc list-inside">
@@ -226,7 +265,6 @@ export default function ConfirmModal({
             </div>
           )}
 
-          {/* 🗳️ Oy butonu */}
           {listStatus === 'walking_dead' && tokenMint && fetchStatus === 'found' && derivedUsd > 0 && (
             <div className="mt-2">
               <p className="text-xs text-orange-200 mb-2">
@@ -238,9 +276,7 @@ export default function ConfirmModal({
                 mint={tokenMint}
                 onVoted={(res) => {
                   onDeadcoinVote('yes');
-                  if (res?.applied) {
-                    setListStatus('deadcoin');
-                  }
+                  if (res?.applied) setListStatus('deadcoin');
                   setVoteMessage(
                     res?.applied
                       ? '✅ Threshold reached – marked as Deadcoin.'
@@ -259,15 +295,16 @@ export default function ConfirmModal({
           <button
             onClick={onCancel}
             className="bg-gray-400 text-black px-4 py-2 rounded"
+            disabled={busy}
           >
             Cancel
           </button>
           <button
-            onClick={onConfirm}
-            className="bg-blue-600 text-white px-4 py-2 rounded"
-            disabled={isHardBlocked || fetchStatus === 'loading' || fetchStatus === 'error'}
+            onClick={handleConfirmClick}
+            className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+            disabled={confirmBtnDisabled}
           >
-            Confirm Coincarnation
+            {effectiveConfirmLabel}
           </button>
         </div>
       </DialogContent>

@@ -25,28 +25,35 @@ function toNum(v: any, d = 0): number {
 
 export async function POST(req: NextRequest) {
   console.log('✅ /api/coincarnation/record API called');
-
-  // 🛡️ Global kill-switch (yalnızca write uçlarında)
   await requireAppEnabled();
 
   try {
+    const idemHeader = req.headers.get('Idempotency-Key') || null;
     const body = await req.json();
+
     const {
       wallet_address,
       token_symbol,
       token_contract,
       token_amount,
       usd_value,
-      transaction_signature,
+
+      // Solana / EVM tx fields
+      transaction_signature, // Solana
+      tx_hash,               // EVM
+      tx_block,              // optional block number
+
+      // Optional idempotency
+      idempotency_key,
+
+      // Misc
       network,
       user_agent,
       referral_code,
     } = body ?? {};
 
     const timestamp = new Date().toISOString();
-    console.log('📦 Incoming data (coincarnation/record):', body);
 
-    // ---- Basit doğrulamalar (payload) ----
     if (!wallet_address || !token_symbol) {
       return NextResponse.json(
         { success: false, error: 'wallet_address and token_symbol are required' },
@@ -57,8 +64,15 @@ export async function POST(req: NextRequest) {
     const tokenAmountNum = toNum(token_amount, 0);
     const usdValueNum = toNum(usd_value, 0);
     const networkNorm = String(network || 'solana');
+    const idemKey = (idempotency_key || idemHeader || '').trim() || null;
 
-    // 1) SOL için USD 0 engeli (mantıksal koruma)
+    // normalize tx
+    const txHashOrSig =
+      (tx_hash && String(tx_hash).trim()) ||
+      (transaction_signature && String(transaction_signature).trim()) ||
+      null;
+
+    // 1) Mantıksal koruma: SOL zero USD engeli
     if (usdValueNum === 0 && String(token_symbol).toUpperCase() === 'SOL') {
       console.error('❌ FATAL: SOL token reported with 0 USD value. Rejecting.');
       return NextResponse.json(
@@ -67,7 +81,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2) Redlist/Blacklist guard
+    // 2) Redlist/Blacklist guard (mint varsa kontrol)
     const hasMint = Boolean(token_contract && token_contract !== 'SOL');
     if (hasMint) {
       const reg = await getStatusRow(token_contract!);
@@ -92,7 +106,6 @@ export async function POST(req: NextRequest) {
 
     if (hasMint) {
       if (usdValueNum === 0) {
-        // Fiyat 0 → Deadcoin kabul (CorePoint-only)
         initialDecision = {
           status: 'deadcoin',
           voteSuggested: false,
@@ -100,7 +113,6 @@ export async function POST(req: NextRequest) {
           metrics: { vol: 0, liq: 0 },
         };
       } else {
-        // Hacim/likidite vb. ek kurallar computeStatusDecision içinde
         initialDecision = await computeStatusDecision(token_contract!);
       }
     }
@@ -109,9 +121,46 @@ export async function POST(req: NextRequest) {
     const voteSuggested = Boolean(initialDecision?.voteSuggested);
     const decisionMetrics = initialDecision?.metrics ?? null;
 
-    // ---- Participants (referral) ----
+    // 4) Idempotency pre-checks
+    // 4.a: Eğer aynı (network, tx_hash|transaction_signature) varsa duplicate
+    if (txHashOrSig) {
+      const dup = await sql`
+        SELECT id FROM contributions
+        WHERE network = ${networkNorm}
+          AND (tx_hash = ${txHashOrSig} OR transaction_signature = ${txHashOrSig})
+        LIMIT 1
+      `;
+      if (dup.length > 0) {
+        return NextResponse.json({ success: true, duplicate: true, id: dup[0].id, via: 'tx_hash/transaction_signature' });
+      }
+    }
+
+    // 4.b: Eğer aynı idempotency_key varsa:
+    if (idemKey) {
+      const dup2 = await sql`
+        SELECT id, tx_hash FROM contributions WHERE idempotency_key = ${idemKey} LIMIT 1
+      `;
+      if (dup2.length > 0) {
+        // Niyet kaydı önceden açılmış, şimdi tx gelmişse → UPDATE ile tamamla
+        if (txHashOrSig && !dup2[0].tx_hash) {
+          const updated = await sql`
+            UPDATE contributions
+               SET tx_hash = ${txHashOrSig},
+                   transaction_signature = COALESCE(transaction_signature, ${txHashOrSig}),
+                   tx_block = ${tx_block ?? null}
+             WHERE id = ${dup2[0].id}
+             RETURNING id
+          `;
+          return NextResponse.json({ success: true, updated: true, id: updated[0].id, via: 'idempotency_key' });
+        }
+        // Aksi halde duplicate
+        return NextResponse.json({ success: true, duplicate: true, id: dup2[0].id, via: 'idempotency_key' });
+      }
+    }
+
+    // 5) Participants (network scoped) + referral
     const existing = await sql`
-      SELECT * FROM participants WHERE wallet_address = ${wallet_address}
+      SELECT * FROM participants WHERE wallet_address = ${wallet_address} AND network = ${networkNorm}
     `;
 
     let userReferralCode: string;
@@ -133,8 +182,9 @@ export async function POST(req: NextRequest) {
       }
 
       await sql`
-        INSERT INTO participants (wallet_address, referral_code, referrer_wallet)
-        VALUES (${wallet_address}, ${userReferralCode}, ${referrerWallet})
+        INSERT INTO participants (wallet_address, network, referral_code, referrer_wallet)
+        VALUES (${wallet_address}, ${networkNorm}, ${userReferralCode}, ${referrerWallet})
+        ON CONFLICT (wallet_address, network) DO NOTHING
       `;
     } else {
       userReferralCode = existing[0].referral_code;
@@ -142,13 +192,14 @@ export async function POST(req: NextRequest) {
         userReferralCode = generateReferralCode();
         await sql`
           UPDATE participants
-          SET referral_code = ${userReferralCode}
-          WHERE wallet_address = ${wallet_address}
+             SET referral_code = ${userReferralCode}
+           WHERE wallet_address = ${wallet_address} AND network = ${networkNorm}
         `;
       }
     }
 
-    // ---- Contribution kaydı ----
+    // 6) Contribution INSERT (niyet kaydı veya tam kayıt)
+    let insertedId: number | null = null;
     try {
       const insertResult = await sql`
         INSERT INTO contributions (
@@ -159,6 +210,9 @@ export async function POST(req: NextRequest) {
           token_amount,
           usd_value,
           transaction_signature,
+          tx_hash,
+          tx_block,
+          idempotency_key,
           user_agent,
           timestamp,
           referral_code,
@@ -170,20 +224,44 @@ export async function POST(req: NextRequest) {
           ${networkNorm},
           ${tokenAmountNum},
           ${usdValueNum},
-          ${transaction_signature || null},
+          ${transaction_signature || txHashOrSig || null},
+          ${tx_hash || txHashOrSig || null},
+          ${tx_block ?? null},
+          ${idemKey},
           ${user_agent || ''},
           ${timestamp},
           ${userReferralCode},
           ${referrerWallet}
-        ) RETURNING *;
+        )
+        ON CONFLICT (network, tx_hash) DO NOTHING
+        RETURNING id;
       `;
-      console.log('✅ INSERT result (with RETURNING):', insertResult);
+      if (insertResult.length > 0) {
+        insertedId = insertResult[0].id as number;
+      }
     } catch (insertError: any) {
       console.error('❌ Contribution INSERT failed:', insertError);
-      // Kayıt hatası olsa bile mantıklı bir cevap verelim
     }
 
-    // ---- Registry ilk kaydı ----
+    // Conflict olduysa mevcut kaydı bul (tx veya idem üzerinden)
+    if (!insertedId && txHashOrSig) {
+      const ex = await sql`
+        SELECT id FROM contributions WHERE network=${networkNorm} AND tx_hash=${tx_hash || txHashOrSig} LIMIT 1
+      `;
+      if (ex.length > 0) {
+        return NextResponse.json({ success: true, duplicate: true, id: ex[0].id, via: 'tx_hash' });
+      }
+    }
+    if (!insertedId && idemKey) {
+      const ex2 = await sql`
+        SELECT id FROM contributions WHERE idempotency_key=${idemKey} LIMIT 1
+      `;
+      if (ex2.length > 0) {
+        return NextResponse.json({ success: true, duplicate: true, id: ex2[0].id, via: 'idempotency_key' });
+      }
+    }
+
+    // 7) Registry ilk kaydı (yalnızca mint varsa)
     let registryCreated = false;
     if (hasMint) {
       const res = await ensureFirstSeenRegistry(token_contract!, {
@@ -193,7 +271,7 @@ export async function POST(req: NextRequest) {
         meta: {
           from: 'record_api',
           network: networkNorm,
-          tx: transaction_signature || null,
+          tx: txHashOrSig,
           decisionReason: initialDecision?.reason ?? null,
           vol: decisionMetrics?.vol ?? null,
           liq: decisionMetrics?.liq ?? null,
@@ -203,14 +281,15 @@ export async function POST(req: NextRequest) {
       registryCreated = !!res?.created;
     }
 
-    // ---- Kullanıcı numarası ----
+    // 8) Kullanıcı numarası
     const result = await sql`
-      SELECT id FROM participants WHERE wallet_address = ${wallet_address}
+      SELECT id FROM participants WHERE wallet_address = ${wallet_address} AND network = ${networkNorm}
     `;
     const number = result[0]?.id ?? 0;
 
     return NextResponse.json({
       success: true,
+      id: insertedId || null,
       number,
       referral_code: userReferralCode,
       message: '✅ Coincarnation recorded successfully',
