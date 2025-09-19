@@ -149,32 +149,86 @@ export default function useChainTokensEvm(
     setLoading(true);
     setError(null);
     try {
-      const viaIndexer = await fetchViaCovalent();
-      const list = viaIndexer ?? await fetchViaOnChain();
-
-      if (getUsdValue) {
-        const withPrices = await Promise.all(
-          list.map(async (t) => {
-            try {
-              const p = await getUsdValue(t); // EXPECTS TOTAL USD
-              return { ...t, usdValue: p };
-            } catch {
-              return t;
-            }
-          })
-        );
-        withPrices.sort((a, b) => (Number(b.usdValue ?? 0) - Number(a.usdValue ?? 0)));
-        setBalances(withPrices);
+      // 1) Native'i anında getir ve göster
+      const nativeMeta = NATIVE_BY_CHAIN[chain.id] ?? { symbol: 'ETH', name: 'Ether' };
+      const nativeRaw = await publicClient.getBalance({ address });
+      const native: TokenBalance = {
+        chainId: chain.id,
+        isNative: true,
+        symbol: nativeMeta.symbol,
+        name: nativeMeta.name,
+        decimals: 18,
+        raw: nativeRaw,
+        amount: formatUnits(nativeRaw, 18),
+        usdValue: undefined,
+        logoUrl: null,
+      };
+      setBalances([native]); // hemen görünsün
+  
+      // 2) Covalent'i 6sn ile deneriz, olmazsa on-chain
+      const withTimeout = <T,>(p: Promise<T>, ms = 6000) =>
+        new Promise<T>((resolve) => {
+          let done = false;
+          const timer = setTimeout(() => { if (!done) resolve(null as any); }, ms);
+          p.then((v) => { if (!done) { done = true; clearTimeout(timer); resolve(v); } })
+           .catch(() => { if (!done) { done = true; clearTimeout(timer); resolve(null as any); } });
+        });
+  
+      let list: TokenBalance[] | null = await withTimeout(fetchViaCovalent());
+      if (!list) {
+        // 3) On-chain (ERC-20’ler)
+        const erc20s: TokenBalance[] = [];
+        for (const t of tokenList) {
+          try {
+            const raw = await publicClient.readContract({
+              address: t.address,
+              abi: ERC20_ABI,
+              functionName: 'balanceOf',
+              args: [address],
+            }) as bigint;
+            if (raw === 0n) continue;
+            erc20s.push({
+              chainId: chain.id,
+              isNative: false,
+              contract: t.address,
+              symbol: t.symbol,
+              name: t.name,
+              decimals: t.decimals,
+              raw,
+              amount: formatUnits(raw, t.decimals),
+              usdValue: undefined,
+              logoUrl: null,
+            });
+          } catch {}
+        }
+        list = [native, ...erc20s];
       } else {
-        list.sort((a, b) => (a.isNative === b.isNative ? Number(b.amount) - Number(a.amount) : a.isNative ? -1 : 1));
-        setBalances(list);
+        // Covalent yolundan dönen list ile native’i birleştir (çifte native varsa filtrele)
+        const covNoNative = list.filter(x => !x.isNative);
+        list = [native, ...covNoNative];
       }
+  
+      // 4) opsiyonel pricing
+      const finalList = [...list];
+      if (getUsdValue) {
+        for (let i = 0; i < finalList.length; i++) {
+          try {
+            const p = await getUsdValue(finalList[i]);
+            if (typeof p === 'number') finalList[i] = { ...finalList[i], usdValue: p };
+          } catch {}
+        }
+        finalList.sort((a, b) => (b.usdValue ?? 0) - (a.usdValue ?? 0));
+      } else {
+        finalList.sort((a, b) => (a.isNative === b.isNative ? Number(b.amount) - Number(a.amount) : a.isNative ? -1 : 1));
+      }
+  
+      setBalances(finalList.filter(t => Number(t.amount) > minAmount));
     } catch (e: any) {
       setError(e?.message || 'Failed to load EVM tokens');
     } finally {
       setLoading(false);
     }
-  }, [address, fetchViaCovalent, fetchViaOnChain, getUsdValue]);
+  }, [address, chain.id, publicClient, tokenList, getUsdValue, minAmount, fetchViaCovalent]);  
 
   useEffect(() => { void load(); }, [load]);
 
