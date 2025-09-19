@@ -37,45 +37,10 @@ const CHAIN_MAP: Record<string, EvmChain> = {
   arbitrum,
 };
 
-/** Mini helper: bağlıyken başka cüzdan seç */
-function ChangeEvmWallet({
-  wallets,
-  onPick,
-}: {
-  wallets: { id: string; name: string; icon?: string }[];
-  onPick: (id: string) => Promise<void>;
-}) {
-  const [open, setOpen] = useState(false);
-  if (!wallets || wallets.length < 2) return null;
-  return (
-    <div className="relative">
-      <button onClick={() => setOpen((v) => !v)} className="underline hover:text-white">
-        Change wallet
-      </button>
-      {open && (
-        <div className="absolute right-0 mt-2 w-56 rounded border border-gray-700 bg-gray-900 p-2 shadow-xl z-10">
-          {wallets.map((w) => (
-            <button
-              key={w.id}
-              onClick={async () => {
-                setOpen(false);
-                await onPick(w.id);
-              }}
-              className="w-full text-left flex items-center gap-2 px-2 py-2 rounded hover:bg-gray-800 text-sm"
-            >
-              {w.icon ? <img src={w.icon} className="h-4 w-4 rounded" alt="" /> : <span>🦊</span>}
-              <span className="truncate">{w.name}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function HomePage() {
   const router = useRouter();
   const { chain } = useChain(); // 'solana' | 'ethereum' | 'bsc' | 'polygon' | 'base' | 'arbitrum'
+  const isEvm = chain !== 'solana';
 
   // ---------- Solana ----------
   const { publicKey, connected } = useWallet();
@@ -186,9 +151,13 @@ export default function HomePage() {
 
   // ---------- EVM ----------
   const desiredEvmChain = CHAIN_MAP[chain as keyof typeof CHAIN_MAP] ?? mainnet;
-  const evm = useChainWalletEvm(desiredEvmChain, { autoConnect: false }); // kullanıcı seçsin
+  const evm = useChainWalletEvm(desiredEvmChain, { autoConnect: false });
 
-  const allowEvmListing = evm.isConnected && !evm.needsChainSwitch;
+  // needsSwitch: sadece cüzdan bağlıysa hesaplanır
+  const needsSwitch =
+    evm.isConnected && typeof evm.chainId === 'number' && evm.chainId !== evm.chain.id;
+
+  const allowEvmListing = evm.isConnected && !needsSwitch;
 
   const {
     loading: evmLoading,
@@ -233,15 +202,23 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
-      {/* Top bar (desktop) */}
+      {/* Top bar (desktop): Solana'da Connect Wallet görünür, EVM'de gizli */}
       <div className="w-full hidden md:flex justify-end mt-2 mb-2 gap-3">
         <ChainSwitcher />
-        <ConnectWalletCTA />
+        {!isEvm && <ConnectWalletCTA />}
       </div>
 
-      {/* EVM: Connect Wallet'ın ALTINDA cüzdan seçimi (desktop) */}
-      {chain !== 'solana' && !evm.isConnected && (
-        <div className="w-full hidden md:flex justify-end -mt-2 mb-4">
+      {/* Mobile header */}
+      <div className="w-full flex md:hidden justify-center my-4">
+        <div className="w-full max-w-xs flex items-center justify-between gap-3">
+          <ChainSwitcher />
+          {!isEvm && <ConnectWalletCTA />}
+        </div>
+      </div>
+
+      {/* EVM: Connect Wallet satırının ALTINDA cüzdan seçimi — sadece bağlı DEĞİLSE */}
+      {isEvm && !evm.isConnected && (
+        <div className="w-full flex justify-end -mt-2 mb-4">
           {evm.wallets.length === 0 ? (
             <div className="text-sm text-gray-400">
               Open your EVM wallet (MetaMask, Rabby, OKX…) and refresh to pick it here.
@@ -266,66 +243,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Mobile header */}
-      <div className="w-full flex md:hidden justify-center my-4">
-        <div className="w-full max-w-xs flex items-center justify-between gap-3">
-          <ChainSwitcher />
-          <ConnectWalletCTA />
-        </div>
-      </div>
-
-      {/* EVM: Connect Wallet'ın ALTINDA cüzdan seçimi (mobile) */}
-      {chain !== 'solana' && !evm.isConnected && (
-        <div className="w-full md:hidden flex justify-center -mt-2 mb-4">
-          {evm.wallets.length === 0 ? (
-            <div className="text-sm text-gray-400">
-              Open your EVM wallet app and refresh to select it.
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2 w-full max-w-sm">
-              {evm.wallets.map((w) => (
-                <button
-                  key={w.id}
-                  onClick={async () => {
-                    evm.selectWallet(w.id);
-                    await evm.connect();
-                  }}
-                  className="flex items-center gap-2 bg-gray-800 border border-gray-600 rounded px-3 py-2 hover:bg-gray-700 text-sm"
-                >
-                  {w.icon ? <img src={w.icon} alt="" className="h-4 w-4 rounded" /> : <span>🦊</span>}
-                  <span className="truncate">{w.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* EVM: bağlandıktan sonra hızlı cüzdan/hesap alanı */}
-      {chain !== 'solana' && evm.isConnected && (
-        <div className="w-full flex justify-end -mt-1 mb-3">
-          <div className="flex items-center gap-2 text-xs text-gray-300">
-            <span>Wallet:</span>
-            <span className="font-mono">
-              {evm.account
-                ? `${String(evm.account).slice(0, 6)}…${String(evm.account).slice(-4)}`
-                : '—'}
-            </span>
-            <button onClick={evm.disconnect} className="underline hover:text-white">
-              Disconnect
-            </button>
-            <ChangeEvmWallet
-              wallets={evm.wallets}
-              onPick={async (id) => {
-                await evm.disconnect();
-                evm.selectWallet(id);
-                await evm.connect();
-              }}
-            />
-          </div>
-        </div>
-      )}
-
       <section className="text-center py-2 w-full">
         <h1 className="text-4xl md:text-5xl font-extrabold mb-2">
           Turn Deadcoins into a Fair Future.
@@ -344,8 +261,8 @@ export default function HomePage() {
           Walking deadcoins, memecoins, any unsupported assets…
         </p>
 
-        {chain === 'solana' ? (
-          // ---------- SOLANA ----------
+        {/** ---------- SOLANA ---------- */}
+        {!isEvm ? (
           <>
             {publicKey ? (
               <>
@@ -395,13 +312,13 @@ export default function HomePage() {
             )}
           </>
         ) : (
-          // ---------- EVM ----------
+          /** ---------- EVM ---------- */
           <>
             {!evm.isConnected && (
               <p className="text-gray-400">Connect your wallet to see your tokens.</p>
             )}
 
-            {evm.isConnected && evm.needsChainSwitch && (
+            {evm.isConnected && needsSwitch && (
               <div className="flex items-center gap-3">
                 <p className="text-amber-300 text-sm">
                   Please switch your wallet to <b>{desiredEvmChain.name}</b> to list tokens.
@@ -589,9 +506,9 @@ export default function HomePage() {
 
       {showEvmModal &&
         selectedEvm &&
-        chain !== 'solana' &&
+        isEvm &&
         evm.isConnected &&
-        !evm.needsChainSwitch && (
+        !needsSwitch && (
           <CoincarneModalEvm
             token={{
               isNative: selectedEvm.isNative,
