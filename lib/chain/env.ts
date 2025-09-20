@@ -1,4 +1,4 @@
-// lib/chain/env.ts
+// /lib/chain/env.ts
 import type { Chain } from '@/lib/chain/types';
 
 const read = (k: string) => (process.env[k] ?? '').toString().trim();
@@ -9,6 +9,7 @@ const DEST = {
   bsc: read('NEXT_PUBLIC_DEST_BSC'),
   polygon: read('NEXT_PUBLIC_DEST_POLYGON'),
   base: read('NEXT_PUBLIC_DEST_BASE'),
+  arbitrum: read('NEXT_PUBLIC_DEST_ARBITRUM'),
 } as const;
 
 const SOL_BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -35,12 +36,4 @@ export function getDestAddress(chain: Chain): string {
   return v;
 }
 
-export const EVM_CHAIN_ID_HEX = {
-  ethereum: '0x1',
-  bsc: '0x38',
-  polygon: '0x89',
-  base: '0x2105',
-} as const;
-
-// (isteğe bağlı) runtime debug için export et
 export const __DEST_DEBUG__ = DEST;

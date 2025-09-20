@@ -7,6 +7,7 @@ import { useChain } from '@/app/providers/ChainProvider';
 // ---- Solana modal akışı (mevcut sistemle uyumlu) ----
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { EVM_CHAIN_ID_HEX, evmChainKeyFromHex } from '@/lib/chain/evm';
 
 export type WalletBrand =
   | 'phantom'
@@ -32,23 +33,7 @@ const DEFAULT_CHAIN: Chain = 'solana';
 const LAST_BRAND_KEY = 'cc_lastBrand';
 const LAST_CHAIN_KEY = 'cc_lastChain';
 
-// EVM chainId hex map
-const EVM_CHAIN_HEX_BY_KEY: Partial<Record<Chain, `0x${string}`>> = {
-  ethereum: '0x1',
-  bsc: '0x38',
-  polygon: '0x89',
-  base: '0x2105',
-  arbitrum: '0xa4b1',
-};
 
-function evmChainKeyFromHex(hex?: string | number | null): Chain | null {
-  if (!hex) return null;
-  const h = typeof hex === 'number' ? `0x${hex.toString(16)}` : String(hex).toLowerCase();
-  for (const [key, v] of Object.entries(EVM_CHAIN_HEX_BY_KEY)) {
-    if (v?.toLowerCase() === h) return key as Chain;
-  }
-  return null;
-}
 
 function isSolanaBrand(b: WalletBrand | null): boolean {
   return b === 'phantom' || b === 'solflare' || b === 'backpack';
@@ -187,7 +172,7 @@ export function WalletHubProvider({ children }: { children: React.ReactNode }) {
       setChain('solana'); // no-op
       return;
     }
-    const hex = EVM_CHAIN_HEX_BY_KEY[next];
+    const hex = EVM_CHAIN_ID_HEX[next as Exclude<typeof next, 'solana'>];
     if (!hex || !evm.current) return;
     await evm.current.request({
       method: 'wallet_switchEthereumChain',

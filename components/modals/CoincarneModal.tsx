@@ -3,9 +3,10 @@
 import React, { useMemo, useState } from 'react';
 import { useChain } from '@/app/providers/ChainProvider';
 import useChainWallet from '@/hooks/useChainWallet';
-import { getDestAddress, EVM_CHAIN_ID_HEX } from '@/lib/chain/env';
+import { getDestAddress } from '@/lib/chain/env';
 import { sendNative } from '@/lib/chain/evmTransfer';
 import { txExplorer } from '@/lib/explorer';
+import { EVM_CHAIN_ID_HEX, isEvmChainKey } from '@/lib/chain/evm';
 
 export default function CoincarneModal() {
   const { chain } = useChain();
@@ -19,31 +20,41 @@ export default function CoincarneModal() {
   const dest = useMemo(() => {
     try {
       return getDestAddress(chain);
-    } catch (e: any) {
+    } catch {
       return '';
     }
   }, [chain]);
 
-  const decimals = 18; // native coin’lerin tamamı için 18 (ETH/BNB/MATIC/BASE)
+  const decimals = 18; // EVM native: ETH/BNB/MATIC/BASE/ARB
 
   async function ensureCorrectNetwork() {
     if (typeof window === 'undefined') return;
     const eth = (window as any).ethereum;
     if (!eth || chain === 'solana') return;
 
-    const want = EVM_CHAIN_ID_HEX[chain];
+    if (!isEvmChainKey(chain)) return; 
+    const want = EVM_CHAIN_ID_HEX[chain]; 
+
     try {
       const current = await eth.request({ method: 'eth_chainId' });
-      if (current?.toLowerCase() === want.toLowerCase()) return;
-      // switch
+      if (String(current)?.toLowerCase() === want.toLowerCase()) return;
+
       await eth.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: want }],
       });
     } catch (e: any) {
-      // Eğer ağ ekli değilse addEthereumChain deneyebiliriz (minimum paramlarla):
       if (String(e?.code) === '4902') {
-        const paramsMap: any = {
+        const paramsMap: Record<
+          typeof chain,
+          {
+            chainId: `0x${string}`;
+            chainName: string;
+            nativeCurrency: { name: string; symbol: string; decimals: number };
+            rpcUrls: string[];
+            blockExplorerUrls: string[];
+          }
+        > = {
           ethereum: {
             chainId: '0x1',
             chainName: 'Ethereum Mainnet',
@@ -72,12 +83,20 @@ export default function CoincarneModal() {
             rpcUrls: (process.env.NEXT_PUBLIC_BASE_RPC || '').split(',').filter(Boolean),
             blockExplorerUrls: ['https://basescan.org'],
           },
+          arbitrum: {
+            chainId: '0xa4b1',
+            chainName: 'Arbitrum One',
+            nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+            rpcUrls: (process.env.NEXT_PUBLIC_ARBITRUM_RPC || '').split(',').filter(Boolean),
+            blockExplorerUrls: ['https://arbiscan.io'],
+          },
         };
+
         const p = paramsMap[chain];
         if (p?.rpcUrls?.length) {
           await eth.request({ method: 'wallet_addEthereumChain', params: [p] });
         } else {
-          throw new Error('Please add the network in your wallet.');
+          throw new Error('Please add the network in your wallet (missing RPC URL).');
         }
       } else {
         throw e;
@@ -90,7 +109,6 @@ export default function CoincarneModal() {
     setErr(null);
     setTx(null);
 
-    // Basit guard
     if (!dest) {
       setErr('Destination address is not configured. Please set NEXT_PUBLIC_DEST_* env.');
       return;
@@ -101,11 +119,9 @@ export default function CoincarneModal() {
     }
 
     try {
-      // Bağlı değilse bağlan
       if (!connected) {
         await connect();
       }
-      // EVM ise ağ uyumunu sağla
       if (chain !== 'solana') {
         await ensureCorrectNetwork();
       }
@@ -113,11 +129,8 @@ export default function CoincarneModal() {
       setSubmitting(true);
 
       if (chain === 'solana') {
-        // TODO: mevcut Solana gönderim akışınızı burada çağırın.
-        // Örn: await sendSol({ to: dest, amount: Number(amount), decimals: 9 });
-        throw new Error('Solana flow is not wired here. Keep using your existing modal logic.');
+        throw new Error('Solana flow is not wired here. Use your existing Solana modal.');
       } else {
-        // EVM: native coin transfer
         const hash = await sendNative({
           to: dest as `0x${string}`,
           amount: Number(amount),
@@ -137,10 +150,9 @@ export default function CoincarneModal() {
 
   return (
     <div className="p-4">
-      {/* Zincire göre uyarı */}
       {chain === 'solana' ? (
         <p className="text-xs text-amber-400 mb-3">
-          TODO: This modal keeps using your existing Solana flow. (EVM branch is enabled below.)
+          This component uses EVM branch. Keep Solana with your existing modal flow.
         </p>
       ) : (
         <p className="text-xs text-gray-400 mb-3">
@@ -151,11 +163,7 @@ export default function CoincarneModal() {
       <form onSubmit={onSubmit} className="space-y-3">
         <div>
           <label className="block text-sm mb-1">Destination</label>
-          <input
-            value={dest}
-            readOnly
-            className="w-full rounded bg-zinc-800 px-3 py-2 text-sm opacity-80"
-          />
+          <input value={dest} readOnly className="w-full rounded bg-zinc-800 px-3 py-2 text-sm opacity-80" />
         </div>
 
         <div>

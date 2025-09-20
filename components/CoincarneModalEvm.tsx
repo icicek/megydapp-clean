@@ -1,4 +1,4 @@
-// components/CoincarneModalEvm.tsx
+// /components/CoincarneModalEvm.tsx
 'use client';
 
 import React, { useMemo, useState } from 'react';
@@ -51,7 +51,10 @@ export default function CoincarneModalEvm({
         <div className="mt-3 text-sm">
           <div className="text-gray-300">Token</div>
           <div className="font-semibold">
-            {token.symbol} {token.contract ? <span className="text-xs opacity-70">({token.contract.slice(0,6)}…{token.contract.slice(-4)})</span> : <span className="text-xs opacity-70">(native)</span>}
+            {token.symbol}{' '}
+            {token.contract
+              ? <span className="text-xs opacity-70">({token.contract.slice(0,6)}…{token.contract.slice(-4)})</span>
+              : <span className="text-xs opacity-70">(native)</span>}
           </div>
         </div>
 
