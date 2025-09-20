@@ -20,13 +20,16 @@ import { PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
 import { connection } from '@/lib/solanaConnection';
 import CoincarnationResult from '@/components/CoincarnationResult';
 import ConfirmModal from '@/components/ConfirmModal';
-import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
-import { TokenCategory } from '@/app/api/utils/classifyToken';
-import { checkTokenLiquidityAndVolume } from '@/app/api/utils/checkTokenLiquidityAndVolume';
+// ❌ server util import ETME (client’ta patlatır):
+// import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
+// import { checkTokenLiquidityAndVolume } from '@/app/api/utils/checkTokenLiquidityAndVolume';
 import { useInternalBalance, quantize } from '@/hooks/useInternalBalance';
 import { getDestAddress } from '@/lib/chain/env';
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
+
+// Local tip – server’dan type import etmeyelim:
+type TokenCategory = 'healthy' | 'deadcoin' | 'unknown';
 
 interface TokenInfo {
   mint: string;
@@ -67,7 +70,6 @@ export default function CoincarneModal({
     } catch (e: any) {
       setDestSol(null);
       setDestErr('Destination address is not configured. Please set NEXT_PUBLIC_DEST_SOL.');
-      // Konsola ayrıntı bas (dev için faydalı)
       // eslint-disable-next-line no-console
       console.warn('NEXT_PUBLIC_DEST_SOL error:', e?.message || e);
     }
@@ -80,29 +82,11 @@ export default function CoincarneModal({
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [priceView, setPriceView] = useState<PriceView>({ fetchStatus: 'loading', usdValue: 0, priceSources: [] });
-  const [tokenCategory, setTokenCategory] = useState<TokenCategory | null>(null);
+  const [tokenCategory, setTokenCategory] = useState<TokenCategory>('unknown');
   const [priceStatus, setPriceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   // ---------- Symbol handling ----------
-  const [symbol, setSymbol] = useState<string | undefined>(token.symbol);
-  useEffect(() => {
-    setSymbol(token.symbol);
-  }, [token.mint, token.symbol]);
-
-  useEffect(() => {
-    let abort = false;
-    if (!symbol) {
-      fetchTokenMetadata(token.mint)
-        .then((meta) => {
-          if (!abort && meta?.symbol) setSymbol(meta.symbol);
-        })
-        .catch(() => {});
-    }
-    return () => {
-      abort = true;
-    };
-  }, [token.mint, symbol]);
-
+  const [symbol] = useState<string | undefined>(token.symbol); // sadece prop’tan al
   const displaySymbol = symbol ?? token.mint.slice(0, 4);
   const isSOLToken = token.mint === 'SOL' || symbol?.toUpperCase() === 'SOL';
 
@@ -161,7 +145,7 @@ export default function CoincarneModal({
         usdValue: Number.isFinite(total) ? total : 0,
         priceSources: sources,
       });
-      setTokenCategory((prev) => prev ?? 'healthy');
+      setTokenCategory('healthy');
       setConfirmModalOpen(true);
       setPriceStatus('ready');
     } catch (err) {
@@ -242,19 +226,15 @@ export default function CoincarneModal({
 
       setResultData({ tokenFrom: tokenSymbolForImage, number: userNumber, imageUrl });
       setConfirmModalOpen(false);
-      if (refetchTokens) refetchTokens();
+      refetchTokens?.();
 
-      // (opsiyonel) arkada L/V işlemleri
+      // (opsiyonel) arkada L/V işlemleri — client’ta server util import etmeyelim
       try {
-        checkTokenLiquidityAndVolume(token)
-          .then(({ category }) => {
-            fetch('/api/lv/apply', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ mint: token.mint, category }),
-            }).catch((err) => console.warn('⚠️ lv/apply error:', err));
-          })
-          .catch((e) => console.warn('⚠️ Post-tx L/V error:', e));
+        await fetch('/api/lv/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mint: token.mint, category: tokenCategory }),
+        }).catch((err) => console.warn('⚠️ lv/apply error:', err));
       } catch {}
     } catch (err) {
       console.error('❌ Transaction error:', err);
@@ -294,7 +274,7 @@ export default function CoincarneModal({
           usdValue={priceView.usdValue}
           tokenSymbol={displaySymbol}
           amount={parseFloat(amountInput)}
-          tokenCategory={tokenCategory}
+          tokenCategory={tokenCategory ?? 'unknown'}
           priceSources={priceView.priceSources}
           fetchStatus={priceView.fetchStatus}
           tokenMint={isSOLToken ? WSOL_MINT : token.mint}
@@ -304,11 +284,8 @@ export default function CoincarneModal({
       )}
 
       <Dialog open onOpenChange={onClose}>
-        {/* Artık kendi overlay komponentimizi kullanıyoruz */}
         <DialogOverlay />
-
         <DialogContent className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center">
-          {/* A11y için gizli başlık + açıklama (Radix uyarıları susar) */}
           <DialogTitle className="sr-only">
             Coincarnate {displaySymbol}
           </DialogTitle>
@@ -329,12 +306,10 @@ export default function CoincarneModal({
             />
           ) : (
             <>
-              {/* Görsel başlık (isteğe bağlı) */}
               <h2 className="text-2xl font-bold text-center mb-3">
                 🔥 Coincarnate {displaySymbol}
               </h2>
 
-              {/* ✅ Internal balance aware status line */}
               <p className="text-sm text-gray-400 text-center mb-2">
                 {balLoading
                   ? 'Fetching balance…'
@@ -345,7 +320,6 @@ export default function CoincarneModal({
                   : `Balance: ${token.amount.toFixed(4)} ${displaySymbol}`}
               </p>
 
-              {/* Env eksikse kullanıcıyı uyar */}
               {destErr && (
                 <p className="text-xs text-amber-400 text-center mb-2">
                   {destErr}
