@@ -1,13 +1,24 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { Chain } from '@/lib/chain/types';
 import { useChain } from '@/app/providers/ChainProvider';
 
-// ---- Solana modal akışı (mevcut sistemle uyumlu) ----
+// ---- Solana modal & cüzdan ----
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
-import { EVM_CHAIN_ID_HEX, evmChainKeyFromHex } from '@/lib/chain/evm';
+import type { WalletName } from '@solana/wallet-adapter-base';
+
+// ---- EVM yardımcıları ----
+import { EVM_CHAIN_ID_HEX, evmChainKeyFromHex, isEvmChainKey } from '@/lib/chain/evm';
 
 export type WalletBrand =
   | 'phantom'
@@ -18,11 +29,14 @@ export type WalletBrand =
   | 'trust'
   | 'walletconnect';
 
+type SolanaBrand = 'phantom' | 'solflare' | 'backpack';
+type EvmBrand = 'metamask' | 'rabby' | 'trust' | 'walletconnect';
+
 type WalletHubState = {
   ready: boolean;
   brand: WalletBrand | null;
   isConnected: boolean;
-  account: string | null;       // solana: base58, evm: 0x...
+  account: string | null; // solana: base58, evm: 0x...
   chainKey: Chain;
   connect: (brand: WalletBrand) => Promise<void>;
   disconnect: () => Promise<void>;
@@ -33,12 +47,10 @@ const DEFAULT_CHAIN: Chain = 'solana';
 const LAST_BRAND_KEY = 'cc_lastBrand';
 const LAST_CHAIN_KEY = 'cc_lastChain';
 
-
-
-function isSolanaBrand(b: WalletBrand | null): boolean {
+function isSolanaBrand(b: WalletBrand | null): b is SolanaBrand {
   return b === 'phantom' || b === 'solflare' || b === 'backpack';
 }
-function isEvmBrand(b: WalletBrand | null): boolean {
+function isEvmBrand(b: WalletBrand | null): b is EvmBrand {
   return b === 'metamask' || b === 'rabby' || b === 'trust' || b === 'walletconnect';
 }
 
@@ -60,27 +72,32 @@ export function useWalletHub() {
 export function WalletHubProvider({ children }: { children: React.ReactNode }) {
   const { chain, setChain } = useChain();
 
-  // ---- Solana modal hooks (mevcut akış) ----
-  const { publicKey, connected, wallet, disconnect: solDisconnect } = useWallet();
+  // ---- Solana hooks ----
+  const {
+    publicKey,
+    connected,
+    disconnect: solDisconnect,
+    select: solSelect,
+    connect: solConnect,
+  } = useWallet();
   const { setVisible } = useWalletModal();
 
   const [brand, setBrand] = useState<WalletBrand | null>(null);
   const [evmAccount, setEvmAccount] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
-  // Solana public key string
   const solAccount = useMemo(
     () => (publicKey ? publicKey.toBase58() : null),
     [publicKey]
   );
 
-  // “effective chain”: Solana brand varsa zorunlu solana, aksi halde ChainProvider’daki chain
+  // “effective” chain: Solana brand bağlıysa her zaman 'solana', aksi halde ChainProvider zinciri
   const chainKey: Chain = useMemo(() => {
     if (isSolanaBrand(brand)) return 'solana';
     return chain;
   }, [brand, chain]);
 
-  // Persist last brand/chain
+  // Persist brand/chain
   useEffect(() => {
     try {
       if (brand) localStorage.setItem(LAST_BRAND_KEY, brand);
@@ -115,9 +132,7 @@ export function WalletHubProvider({ children }: { children: React.ReactNode }) {
   // EVM events
   useEffect(() => {
     if (!evm.current) return;
-    const onAccountsChanged = (accs: string[]) => {
-      setEvmAccount(accs?.[0] || null);
-    };
+    const onAccountsChanged = (accs: string[]) => setEvmAccount(accs?.[0] || null);
     const onChainChanged = (hex: string) => {
       const ck = evmChainKeyFromHex(hex);
       if (ck) setChain(ck);
@@ -131,35 +146,57 @@ export function WalletHubProvider({ children }: { children: React.ReactNode }) {
   }, [setChain]);
 
   // ---- Public API ----
-  const connect = useCallback(async (b: WalletBrand) => {
-    setBrand(b);
+  const connect = useCallback(
+    async (b: WalletBrand) => {
+      setBrand(b);
 
-    if (isSolanaBrand(b)) {
-      // Mevcut Solana modalını aç → kullanıcı hangi adaptörü isterse onu seçer
-      setChain('solana');
-      setVisible(true);
-      return;
-    }
+      if (isSolanaBrand(b)) {
+        // Marka -> adapter adı eşlemesi (WalletName branded type!)
+        const nameMap = {
+          phantom: 'Phantom' as WalletName,
+          solflare: 'Solflare' as WalletName,
+          backpack: 'Backpack' as WalletName,
+        } satisfies Record<SolanaBrand, WalletName>;
 
-    if (isEvmBrand(b)) {
-      if (!evm.current) throw new Error('No EVM wallet detected');
-      const accs: string[] = await evm.current.request({ method: 'eth_requestAccounts' });
-      const primary = accs[0];
-      if (!primary) throw new Error('No EVM account returned');
-      setEvmAccount(primary);
+        setChain('solana');
 
-      const hex: string = await evm.current.request({ method: 'eth_chainId' });
-      const ck = evmChainKeyFromHex(hex) || 'ethereum';
-      setChain(ck);
-      return;
-    }
+        // 1) Adapter’ı seç
+        solSelect(nameMap[b]);
 
-    throw new Error('Unsupported wallet brand');
-  }, [setChain, setVisible]);
+        try {
+          // 2) Bağlan (extension yoksa WalletModal devreye girer)
+          await solConnect();
+        } catch (err) {
+          // Kurulu değil / hazır değil ise kullanıcıya modal göster
+          setVisible(true);
+          throw err;
+        }
+        return;
+      }
+
+      if (isEvmBrand(b)) {
+        if (!evm.current) throw new Error('No EVM wallet detected');
+        const accs: string[] = await evm.current.request({ method: 'eth_requestAccounts' });
+        const primary = accs[0];
+        if (!primary) throw new Error('No EVM account returned');
+        setEvmAccount(primary);
+
+        const hex: string = await evm.current.request({ method: 'eth_chainId' });
+        const ck = evmChainKeyFromHex(hex) || 'ethereum';
+        setChain(ck);
+        return;
+      }
+
+      throw new Error('Unsupported wallet brand');
+    },
+    [setChain, solSelect, solConnect, setVisible]
+  );
 
   const disconnect = useCallback(async () => {
     if (isSolanaBrand(brand)) {
-      try { await solDisconnect(); } catch {}
+      try {
+        await solDisconnect();
+      } catch {}
     } else if (isEvmBrand(brand)) {
       // EVM'de standart disconnect yok → local state sıfırla
       setEvmAccount(null);
@@ -167,34 +204,40 @@ export function WalletHubProvider({ children }: { children: React.ReactNode }) {
     setBrand(null);
   }, [brand, solDisconnect]);
 
-  const switchChain = useCallback(async (next: Chain) => {
-    if (isSolanaBrand(brand)) {
-      setChain('solana'); // no-op
-      return;
-    }
-    const hex = EVM_CHAIN_ID_HEX[next as Exclude<typeof next, 'solana'>];
-    if (!hex || !evm.current) return;
-    await evm.current.request({
-      method: 'wallet_switchEthereumChain',
-      params: [{ chainId: hex }],
-    });
-    setChain(next);
-  }, [brand, setChain]);
+  const switchChain = useCallback(
+    async (next: Chain) => {
+      if (isSolanaBrand(brand)) {
+        setChain('solana'); // no-op
+        return;
+      }
+      if (!isEvmChainKey(next)) return;
 
-  // Tek bir "account" değeri yüzeye çıkar:
+      if (!evm.current) throw new Error('No EVM wallet available');
+      await evm.current.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: EVM_CHAIN_ID_HEX[next] }],
+      });
+      setChain(next);
+    },
+    [brand, setChain]
+  );
+
   const account: string | null = isSolanaBrand(brand) ? solAccount : evmAccount;
   const isConnected = isSolanaBrand(brand) ? !!(connected && solAccount) : !!evmAccount;
 
-  const value = useMemo<WalletHubState>(() => ({
-    ready,
-    brand,
-    isConnected,
-    account,
-    chainKey,
-    connect,
-    disconnect,
-    switchChain,
-  }), [ready, brand, isConnected, account, chainKey, connect, disconnect, switchChain]);
+  const value = useMemo<WalletHubState>(
+    () => ({
+      ready,
+      brand,
+      isConnected,
+      account,
+      chainKey,
+      connect,
+      disconnect,
+      switchChain,
+    }),
+    [ready, brand, isConnected, account, chainKey, connect, disconnect, switchChain]
+  );
 
   return <WalletHubContext.Provider value={value}>{children}</WalletHubContext.Provider>;
 }
