@@ -10,7 +10,10 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import DeadcoinVoteButton from '@/components/community/DeadcoinVoteButton';
-import { TokenCategory } from '@/app/api/utils/classifyToken';
+// ❌ server-only import'u kaldırdık:
+// import { TokenCategory } from '@/app/api/utils/classifyToken';
+// ✅ aynı ismi koruyan client-safe local type:
+type TokenCategory = 'healthy' | 'deadcoin' | 'unknown';
 
 interface ConfirmModalProps {
   tokenSymbol: string;
