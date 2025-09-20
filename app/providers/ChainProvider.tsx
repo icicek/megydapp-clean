@@ -8,7 +8,7 @@ type ChainContextState = {
   setChain: (c: Chain) => void;
 };
 
-const ALLOWED: Chain[] = ['solana', 'ethereum', 'bsc', 'polygon', 'base'];
+const ALLOWED: Chain[] = ['solana', 'ethereum', 'bsc', 'polygon', 'base', 'arbitrum'];
 
 const ChainContext = createContext<ChainContextState>({
   chain: 'solana',

@@ -1,4 +1,4 @@
-export type Chain = 'solana' | 'ethereum' | 'bsc' | 'polygon' | 'base';
+export type Chain = 'solana' | 'ethereum' | 'bsc' | 'polygon' | 'base' | 'arbitrum';
 
 export interface ChainAdapter {
   connect: () => Promise<void>;

@@ -7,11 +7,9 @@ import CountUp from 'react-countup';
 
 import CoincarneModal from '@/components/CoincarneModal';
 import CoincarneModalEvm from '@/components/CoincarneModalEvm';
-import ConnectWalletCTA from '@/components/wallet/ConnectWalletCTA';
-import EvmWalletMenu from '@/components/wallet/EvmWalletMenu';
-import ChainSwitcher from '@/components/ChainSwitcher';
 import TrustPledge from '@/components/TrustPledge';
 import Skeleton from '@/components/ui/Skeleton';
+import ConnectBar from '@/components/wallet/ConnectBar';
 
 import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
 import { useChain } from '@/app/providers/ChainProvider';
@@ -170,25 +168,15 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
-      {/* ÜST BAR (desktop) — EVM'de ConnectWallet yok, onun yerine EvmWalletMenu var */}
+      {/* ÜST BAR (desktop) — unified connect + chain chips */}
       <div className="w-full hidden md:flex justify-end mt-2 mb-2 gap-3">
-        <ChainSwitcher />
-        {isEvm ? (
-          <EvmWalletMenu evm={evm} targetChain={desiredEvmChain} />
-        ) : (
-          <ConnectWalletCTA />
-        )}
+        <ConnectBar />
       </div>
 
       {/* Mobile header */}
       <div className="w-full flex md:hidden justify-center my-4">
         <div className="w-full max-w-xs flex items-center justify-between gap-3">
-          <ChainSwitcher />
-          {isEvm ? (
-            <EvmWalletMenu evm={evm} targetChain={desiredEvmChain} />
-          ) : (
-            <ConnectWalletCTA />
-          )}
+          <ConnectBar />
         </div>
       </div>
 

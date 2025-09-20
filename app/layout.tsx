@@ -6,6 +6,7 @@ import { ReactNode } from 'react';
 import WalletConnectionProvider from '@/components/WalletConnectionProvider';
 import { APP_URL, absoluteUrl } from '@/app/lib/origin';
 import { ChainProvider } from '@/app/providers/ChainProvider';
+import { WalletHubProvider } from '@/app/providers/WalletHub';
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -34,7 +35,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <ChainProvider>
           <WalletConnectionProvider>
-            {children}
+            <WalletHubProvider>
+              {children}
+            </WalletHubProvider>
           </WalletConnectionProvider>
         </ChainProvider>
       </body>
