@@ -11,6 +11,7 @@ import React, {
 } from 'react';
 import type { Chain } from '@/lib/chain/types';
 import { useChain } from '@/app/providers/ChainProvider';
+import { pickInjectedProvider, overrideGlobalEthereum, restoreGlobalEthereum } from '@/lib/evm/providers';
 
 // ---- Solana modal & cüzdan ----
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -175,17 +176,25 @@ export function WalletHubProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (isEvmBrand(b)) {
-        if (!evm.current) throw new Error('No EVM wallet detected');
-        const accs: string[] = await evm.current.request({ method: 'eth_requestAccounts' });
-        const primary = accs[0];
+        // 1) İstenen markaya uygun sağlayıcıyı bul
+        const provider = pickInjectedProvider(b);
+        if (!provider) throw new Error('No EVM wallet detected');
+      
+        // 2) Global ethereum'u bu sağlayıcıyla override et (viem & diğer kodlar için)
+        overrideGlobalEthereum(provider);
+        evm.current = provider;
+      
+        // 3) Bağlan ve chain bilgisini çek
+        const accs: string[] = await provider.request({ method: 'eth_requestAccounts' });
+        const primary = accs?.[0];
         if (!primary) throw new Error('No EVM account returned');
         setEvmAccount(primary);
-
-        const hex: string = await evm.current.request({ method: 'eth_chainId' });
+      
+        const hex: string = await provider.request({ method: 'eth_chainId' });
         const ck = evmChainKeyFromHex(hex) || 'ethereum';
         setChain(ck);
         return;
-      }
+      }      
 
       throw new Error('Unsupported wallet brand');
     },
@@ -198,9 +207,10 @@ export function WalletHubProvider({ children }: { children: React.ReactNode }) {
         await solDisconnect();
       } catch {}
     } else if (isEvmBrand(brand)) {
-      // EVM'de standart disconnect yok → local state sıfırla
       setEvmAccount(null);
+      restoreGlobalEthereum();   // orijinal window.ethereum'a dön
     }
+        
     setBrand(null);
   }, [brand, solDisconnect]);
 

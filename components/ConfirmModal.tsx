@@ -9,7 +9,21 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import DeadcoinVoteButton from '@/components/community/DeadcoinVoteButton';
+
+import dynamic from 'next/dynamic';
+
+type DeadcoinVoteButtonProps = {
+  mint: string;
+  onVoted?: (res: { applied?: boolean; votesYes?: number; threshold?: number }) => void;
+  label?: string;
+  className?: string;
+};
+
+const DeadcoinVoteButton = dynamic(
+  () => import('@/components/community/DeadcoinVoteButton'),
+  { ssr: false }
+) as React.ComponentType<DeadcoinVoteButtonProps>;
+
 // ❌ server-only import'u kaldırdık:
 // import { TokenCategory } from '@/app/api/utils/classifyToken';
 // ✅ aynı ismi koruyan client-safe local type:
