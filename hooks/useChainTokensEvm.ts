@@ -17,18 +17,19 @@ export type TokenBalance = {
 
 type Clients = { publicClient: any }; // Viem PublicClient
 
-type Options = {
+export type Options = {
   covalent?: { apiKey: string } | undefined;
   getUsdValue?: (t: TokenBalance) => Promise<number>;
+  /** human amount filtresi; default 0 */
+  minAmount?: number;
 };
 
 function fmt(amountWei: bigint, decimals: number): number {
-  // quick & safe formatter without float overflow for typical balances
   const s = amountWei.toString();
   const pad = Math.max(decimals - s.length, 0);
   const whole = pad > 0 ? '0' : s.slice(0, s.length - decimals);
   const frac = (pad > 0 ? '0'.repeat(pad) + s : s.slice(-decimals)) || '';
-  const num = Number(`${whole || '0'}.${frac.slice(0, 18)}`); // cap precision
+  const num = Number(`${whole || '0'}.${frac.slice(0, 18)}`); // precision cap
   return Number.isFinite(num) ? num : 0;
 }
 
@@ -38,7 +39,9 @@ export default function useChainTokensEvm(
   clients: Clients,
   opts: Options = {}
 ) {
-  const { covalent, getUsdValue } = opts;
+  const { covalent, getUsdValue, minAmount } = opts;
+  const threshold = typeof minAmount === 'number' ? minAmount : 0;
+
   const [balances, setBalances] = useState<TokenBalance[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown | null>(null);
@@ -54,6 +57,11 @@ export default function useChainTokensEvm(
       chainId: chain.id,
     } as const;
   }, [chain]);
+
+  const applyMin = useCallback(
+    (list: TokenBalance[]) => list.filter((t) => (t?.amount ?? 0) >= threshold),
+    [threshold]
+  );
 
   const fetchNative = useCallback(async () => {
     const { publicClient } = clients;
@@ -73,8 +81,7 @@ export default function useChainTokensEvm(
 
   const fetchWithCovalent = useCallback(async () => {
     if (!covalent?.apiKey || !account) return [] as TokenBalance[];
-    // Minimal multi-chain balances fetch (ERC-20 + native) using Covalent
-    // Docs: https://www.covalenthq.com/docs/api/balances/
+    // Covalent chain alias’ları
     const chainAlias: Record<number, string> = {
       1: 'eth-mainnet',
       56: 'bsc-mainnet',
@@ -84,7 +91,6 @@ export default function useChainTokensEvm(
     };
     const chainName = chainAlias[chain.id];
     if (!chainName) {
-      // chain desteklenmiyorsa sadece native
       const n = await fetchNative();
       return n ? [n] : [];
     }
@@ -95,7 +101,6 @@ export default function useChainTokensEvm(
       cache: 'no-store',
     });
     if (!res.ok) {
-      // covalent başarısız → native’e dön
       const n = await fetchNative();
       return n ? [n] : [];
     }
@@ -110,7 +115,6 @@ export default function useChainTokensEvm(
         const symbol = String(it?.contract_ticker_symbol || (isNative ? nativeTemplate.symbol : 'TOKEN'));
         const name = String(it?.contract_name || (isNative ? nativeTemplate.name : 'Token'));
         const contract = isNative ? undefined : (String(it?.contract_address) as `0x${string}`);
-        // covalent amount in wei-like (string)
         const raw = BigInt(it?.balance ?? '0');
         const amount = fmt(raw, decimals);
 
@@ -122,13 +126,12 @@ export default function useChainTokensEvm(
       } catch {}
     }
 
-    // Eğer hiçbir şey yoksa en azından native
     if (list.length === 0) {
       const n = await fetchNative();
       if (n) list.push(n);
     }
     return list;
-  }, [covalent?.apiKey, account, chain.id, fetchNative, nativeTemplate]);
+  }, [covalent?.apiKey, account, chain.id, fetchNative, nativeTemplate, getUsdValue]);
 
   const reload = useCallback(async () => {
     if (!account) {
@@ -142,23 +145,25 @@ export default function useChainTokensEvm(
     setLoading(true);
     setError(null);
     try {
-      const list = covalent?.apiKey ? await fetchWithCovalent() : (await Promise.all([fetchNative()])).filter(Boolean) as TokenBalance[];
+      const list = covalent?.apiKey
+        ? await fetchWithCovalent()
+        : (await Promise.all([fetchNative()])).filter(Boolean) as TokenBalance[];
+
       if (!ac.signal.aborted) {
-        setBalances(list);
+        setBalances(applyMin(list));
       }
     } catch (e) {
       if (!ac.signal.aborted) {
         setError(e);
-        // yine de native dene
         try {
           const n = await fetchNative();
-          setBalances(n ? [n] : []);
+          setBalances(applyMin(n ? [n] : []));
         } catch {}
       }
     } finally {
       if (!ac.signal.aborted) setLoading(false);
     }
-  }, [account, covalent?.apiKey, fetchWithCovalent, fetchNative]);
+  }, [account, covalent?.apiKey, fetchWithCovalent, fetchNative, applyMin]);
 
   useEffect(() => {
     reload();
