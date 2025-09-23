@@ -87,7 +87,11 @@ export default function EvmCoincarnationPanel() {
           ))}
         </select>
         {loading && <div className="text-xs opacity-70">Loading balances…</div>}
-        {error && <div className="text-xs text-red-400">Error: {error}</div>}
+        {!!error && (
+          <div className="text-xs text-red-400">
+            Error: {error instanceof Error ? error.message : String(error)}
+          </div>
+        )}
         <button onClick={reload} className="text-xs underline opacity-80">reload</button>
       </div>
 
