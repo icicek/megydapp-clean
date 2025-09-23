@@ -21,14 +21,14 @@ jest.mock('@/lib/utils', () => ({
   fetchSolanaTokenList: jest.fn(),
 }));
 
-jest.mock('@/app/api/utils/fetchTokenMetadata', () => ({
-  fetchTokenMetadata: jest.fn(),
+jest.mock('@/lib/client/fetchTokenMetadataClient', () => ({
+  fetchTokenMetadataClient: jest.fn(),
 }));
 
 const mockUseWallet = require('@solana/wallet-adapter-react').useWallet as jest.Mock;
 const mockConn = require('@/lib/solanaConnection').connection as any;
 const mockTokenList = require('@/lib/utils').fetchSolanaTokenList as jest.Mock;
-const mockFetchMeta = require('@/app/api/utils/fetchTokenMetadata').fetchTokenMetadata as jest.Mock;
+const mockFetchMeta = require('@/lib/client/fetchTokenMetadataClient').fetchTokenMetadataClient as jest.Mock;
 
 describe('useWalletTokens', () => {
   afterEach(() => {

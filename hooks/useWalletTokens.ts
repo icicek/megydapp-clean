@@ -6,7 +6,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 import { connection } from '@/lib/solanaConnection';
 import { fetchSolanaTokenList } from '@/lib/utils';
-import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
+import { fetchTokenMetadataClient as fetchTokenMetadata } from '@/lib/client/fetchTokenMetadataClient';
 
 export interface TokenInfo {
   mint: string;

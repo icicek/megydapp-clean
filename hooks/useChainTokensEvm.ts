@@ -1,236 +1,169 @@
+// hooks/useChainTokensEvm.ts
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Address, Chain, formatUnits } from 'viem';
-import { ERC20_ABI } from '@/lib/evm/erc20';
-import { TOKEN_LIST, NATIVE_BY_CHAIN, type ListedToken } from '@/lib/evm/tokenList';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Address, Chain as EvmChain } from 'viem';
 
 export type TokenBalance = {
-  chainId: number;
   isNative: boolean;
-  contract?: `0x${string}`; // undefined for native
   symbol: string;
-  name: string;
   decimals: number;
-  amount: string;           // human string
-  raw: bigint;              // raw amount
-  usdValue?: number | null; // optional, to be filled by your pricing pipeline (TOTAL USD)
-  logoUrl?: string | null;
+  contract?: `0x${string}`;
+  name?: string;
+  amount: number;       // human units
+  usdValue?: number;    // optional computed
+  chainId: number;
 };
 
-type Clients = {
-  publicClient: any; // viem PublicClient
-};
+type Clients = { publicClient: any }; // Viem PublicClient
 
 type Options = {
-  covalent?: { apiKey: string };                       // optional indexer
-  getUsdValue?: (t: TokenBalance) => Promise<number | null>; // returns TOTAL USD for that balance
-  minAmount?: number;                                  // filter threshold
+  covalent?: { apiKey: string } | undefined;
+  getUsdValue?: (t: TokenBalance) => Promise<number>;
 };
 
+function fmt(amountWei: bigint, decimals: number): number {
+  // quick & safe formatter without float overflow for typical balances
+  const s = amountWei.toString();
+  const pad = Math.max(decimals - s.length, 0);
+  const whole = pad > 0 ? '0' : s.slice(0, s.length - decimals);
+  const frac = (pad > 0 ? '0'.repeat(pad) + s : s.slice(-decimals)) || '';
+  const num = Number(`${whole || '0'}.${frac.slice(0, 18)}`); // cap precision
+  return Number.isFinite(num) ? num : 0;
+}
+
 export default function useChainTokensEvm(
-  chain: Chain,
-  address: Address | null,
+  chain: EvmChain,
+  account: Address | null,
   clients: Clients,
   opts: Options = {}
 ) {
-  const { publicClient } = clients;
-  const { covalent, getUsdValue, minAmount = 0 } = opts;
-
-  const [loading, setLoading] = useState(false);
+  const { covalent, getUsdValue } = opts;
   const [balances, setBalances] = useState<TokenBalance[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<unknown | null>(null);
+  const acRef = useRef<AbortController | null>(null);
 
-  const tokenList = useMemo<ListedToken[]>(
-    () => TOKEN_LIST[chain.id] ?? [],
-    [chain.id]
-  );
-
-  const fetchViaCovalent = useCallback(async (): Promise<TokenBalance[] | null> => {
-    if (!address) return null;
-    try {
-      const endpoint = covalent?.apiKey
-        ? `https://api.covalenthq.com/v1/${chain.id}/address/${address}/balances_v2/?no-nft-fetch=true&quote-currency=USD&key=${covalent.apiKey}`
-        : `/api/indexer/covalent?chainId=${chain.id}&address=${address}`;
-
-      const res = await fetch(endpoint, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`Covalent ${res.status}`);
-      const json = await res.json();
-      const items = json?.data?.items ?? [];
-
-      const nativeMeta = NATIVE_BY_CHAIN[chain.id] ?? { symbol: 'ETH', name: 'Ether' };
-      const out: TokenBalance[] = [];
-
-      for (const it of items) {
-        const isNative =
-          it.contract_address === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' ||
-          it.type === 'native';
-        const decimals = Number(it.contract_decimals ?? (isNative ? 18 : 18));
-        const raw = BigInt(it.balance ?? '0');
-        const amountNum = Number(formatUnits(raw, decimals));
-        if (amountNum <= minAmount) continue;
-
-        out.push({
-          chainId: chain.id,
-          isNative,
-          contract: isNative ? undefined : (it.contract_address as `0x${string}`),
-          symbol: isNative ? nativeMeta.symbol : (it.contract_ticker_symbol ?? 'TKN'),
-          name:   isNative ? nativeMeta.name   : (it.contract_name ?? 'Token'),
-          decimals,
-          amount: formatUnits(raw, decimals),
-          raw,
-          usdValue: typeof it?.quote === 'number' ? it.quote : undefined, // this is TOTAL USD from Covalent
-          logoUrl: it?.logo_url ?? null,
-        });
-      }
-      return out;
-    } catch (e: any) {
-      console.warn('Covalent fallback → on-chain. Reason:', e?.message || e);
-      return null;
-    }
-  }, [address, chain.id, covalent?.apiKey, minAmount]);
-
-  const fetchViaOnChain = useCallback(async (): Promise<TokenBalance[]> => {
-    if (!address) return [];
-    const nativeMeta = NATIVE_BY_CHAIN[chain.id] ?? { symbol: 'ETH', name: 'Ether' };
-
-    // 1) Native balance
-    const nativeRaw = await publicClient.getBalance({ address });
-    const native: TokenBalance = {
-      chainId: chain.id,
+  const nativeTemplate = useMemo(() => {
+    const nc = chain.nativeCurrency || { name: 'Native', symbol: 'COIN', decimals: 18 };
+    return {
       isNative: true,
-      symbol: nativeMeta.symbol,
-      name: nativeMeta.name,
-      decimals: 18,
-      raw: nativeRaw,
-      amount: formatUnits(nativeRaw, 18),
-      usdValue: undefined,
-      logoUrl: null,
-    };
+      symbol: nc.symbol || 'COIN',
+      name: nc.name || 'Native',
+      decimals: Number(nc.decimals ?? 18),
+      chainId: chain.id,
+    } as const;
+  }, [chain]);
 
-    // 2) ERC-20s from curated list (fallback)
-    const erc20s: TokenBalance[] = [];
-    for (const t of tokenList) {
-      try {
-        const raw = await publicClient.readContract({
-          address: t.address,
-          abi: ERC20_ABI,
-          functionName: 'balanceOf',
-          args: [address],
-        }) as bigint;
-
-        if (raw === 0n) continue;
-
-        erc20s.push({
-          chainId: chain.id,
-          isNative: false,
-          contract: t.address,
-          symbol: t.symbol,
-          name: t.name,
-          decimals: t.decimals,
-          raw,
-          amount: formatUnits(raw, t.decimals),
-          usdValue: undefined,
-          logoUrl: null,
-        });
-      } catch {
-        // skip unreachable tokens
+  const fetchNative = useCallback(async () => {
+    const { publicClient } = clients;
+    if (!publicClient || !account) return null;
+    try {
+      const wei: bigint = await publicClient.getBalance({ address: account });
+      const amount = fmt(wei, nativeTemplate.decimals);
+      const t: TokenBalance = { ...nativeTemplate, amount };
+      if (getUsdValue) {
+        try { t.usdValue = await getUsdValue(t); } catch {}
       }
+      return t;
+    } catch (e) {
+      throw e;
+    }
+  }, [clients, account, nativeTemplate, getUsdValue]);
+
+  const fetchWithCovalent = useCallback(async () => {
+    if (!covalent?.apiKey || !account) return [] as TokenBalance[];
+    // Minimal multi-chain balances fetch (ERC-20 + native) using Covalent
+    // Docs: https://www.covalenthq.com/docs/api/balances/
+    const chainAlias: Record<number, string> = {
+      1: 'eth-mainnet',
+      56: 'bsc-mainnet',
+      137: 'matic-mainnet',
+      8453: 'base-mainnet',
+      42161: 'arbitrum-one',
+    };
+    const chainName = chainAlias[chain.id];
+    if (!chainName) {
+      // chain desteklenmiyorsa sadece native
+      const n = await fetchNative();
+      return n ? [n] : [];
     }
 
-    return [native, ...erc20s].filter(t => Number(t.amount) > minAmount);
-  }, [address, publicClient, chain.id, tokenList, minAmount]);
+    const url = `https://api.covalenthq.com/v1/${chainName}/address/${account}/balances_v2/?no-nft=true`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${covalent.apiKey}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      // covalent başarısız → native’e dön
+      const n = await fetchNative();
+      return n ? [n] : [];
+    }
+    const j = await res.json().catch(() => ({}));
+    const items = Array.isArray(j?.data?.items) ? j.data.items : [];
 
-  const load = useCallback(async () => {
-    if (!address) {
+    const list: TokenBalance[] = [];
+    for (const it of items) {
+      try {
+        const isNative = Boolean(it?.native_token);
+        const decimals = Number(it?.contract_decimals ?? (isNative ? nativeTemplate.decimals : 18));
+        const symbol = String(it?.contract_ticker_symbol || (isNative ? nativeTemplate.symbol : 'TOKEN'));
+        const name = String(it?.contract_name || (isNative ? nativeTemplate.name : 'Token'));
+        const contract = isNative ? undefined : (String(it?.contract_address) as `0x${string}`);
+        // covalent amount in wei-like (string)
+        const raw = BigInt(it?.balance ?? '0');
+        const amount = fmt(raw, decimals);
+
+        const t: TokenBalance = { isNative, symbol, name, decimals, contract, amount, chainId: chain.id };
+        if (getUsdValue) {
+          try { t.usdValue = await getUsdValue(t); } catch {}
+        }
+        list.push(t);
+      } catch {}
+    }
+
+    // Eğer hiçbir şey yoksa en azından native
+    if (list.length === 0) {
+      const n = await fetchNative();
+      if (n) list.push(n);
+    }
+    return list;
+  }, [covalent?.apiKey, account, chain.id, fetchNative, nativeTemplate]);
+
+  const reload = useCallback(async () => {
+    if (!account) {
       setBalances([]);
       return;
     }
+    acRef.current?.abort();
+    const ac = new AbortController();
+    acRef.current = ac;
+
     setLoading(true);
     setError(null);
     try {
-      // 1) Native'i anında getir ve göster
-      const nativeMeta = NATIVE_BY_CHAIN[chain.id] ?? { symbol: 'ETH', name: 'Ether' };
-      const nativeRaw = await publicClient.getBalance({ address });
-      const native: TokenBalance = {
-        chainId: chain.id,
-        isNative: true,
-        symbol: nativeMeta.symbol,
-        name: nativeMeta.name,
-        decimals: 18,
-        raw: nativeRaw,
-        amount: formatUnits(nativeRaw, 18),
-        usdValue: undefined,
-        logoUrl: null,
-      };
-      setBalances([native]); // hemen görünsün
-  
-      // 2) Covalent'i 6sn ile deneriz, olmazsa on-chain
-      const withTimeout = <T,>(p: Promise<T>, ms = 6000) =>
-        new Promise<T>((resolve) => {
-          let done = false;
-          const timer = setTimeout(() => { if (!done) resolve(null as any); }, ms);
-          p.then((v) => { if (!done) { done = true; clearTimeout(timer); resolve(v); } })
-           .catch(() => { if (!done) { done = true; clearTimeout(timer); resolve(null as any); } });
-        });
-  
-      let list: TokenBalance[] | null = await withTimeout(fetchViaCovalent());
-      if (!list) {
-        // 3) On-chain (ERC-20’ler)
-        const erc20s: TokenBalance[] = [];
-        for (const t of tokenList) {
-          try {
-            const raw = await publicClient.readContract({
-              address: t.address,
-              abi: ERC20_ABI,
-              functionName: 'balanceOf',
-              args: [address],
-            }) as bigint;
-            if (raw === 0n) continue;
-            erc20s.push({
-              chainId: chain.id,
-              isNative: false,
-              contract: t.address,
-              symbol: t.symbol,
-              name: t.name,
-              decimals: t.decimals,
-              raw,
-              amount: formatUnits(raw, t.decimals),
-              usdValue: undefined,
-              logoUrl: null,
-            });
-          } catch {}
-        }
-        list = [native, ...erc20s];
-      } else {
-        // Covalent yolundan dönen list ile native’i birleştir (çifte native varsa filtrele)
-        const covNoNative = list.filter(x => !x.isNative);
-        list = [native, ...covNoNative];
+      const list = covalent?.apiKey ? await fetchWithCovalent() : (await Promise.all([fetchNative()])).filter(Boolean) as TokenBalance[];
+      if (!ac.signal.aborted) {
+        setBalances(list);
       }
-  
-      // 4) opsiyonel pricing
-      const finalList = [...list];
-      if (getUsdValue) {
-        for (let i = 0; i < finalList.length; i++) {
-          try {
-            const p = await getUsdValue(finalList[i]);
-            if (typeof p === 'number') finalList[i] = { ...finalList[i], usdValue: p };
-          } catch {}
-        }
-        finalList.sort((a, b) => (b.usdValue ?? 0) - (a.usdValue ?? 0));
-      } else {
-        finalList.sort((a, b) => (a.isNative === b.isNative ? Number(b.amount) - Number(a.amount) : a.isNative ? -1 : 1));
+    } catch (e) {
+      if (!ac.signal.aborted) {
+        setError(e);
+        // yine de native dene
+        try {
+          const n = await fetchNative();
+          setBalances(n ? [n] : []);
+        } catch {}
       }
-  
-      setBalances(finalList.filter(t => Number(t.amount) > minAmount));
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load EVM tokens');
     } finally {
-      setLoading(false);
+      if (!ac.signal.aborted) setLoading(false);
     }
-  }, [address, chain.id, publicClient, tokenList, getUsdValue, minAmount, fetchViaCovalent]);  
+  }, [account, covalent?.apiKey, fetchWithCovalent, fetchNative]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    reload();
+    return () => acRef.current?.abort();
+  }, [reload]);
 
-  return { loading, error, balances, reload: load };
+  return { balances, loading, error, reload };
 }

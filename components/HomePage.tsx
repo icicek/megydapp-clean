@@ -122,7 +122,7 @@ export default function HomePage() {
     evm.switchChain(desiredEvmChain).catch(() => {});
   }, [isEvm, evm.isConnected, evm.chainId, desiredEvmChain]);
 
-  const allowEvmListing = evm.isConnected && evm.chainId === desiredEvmChain.id;
+  const allowEvmListing = evm.isConnected;
 
   const {
     loading: evmLoading,

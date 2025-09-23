@@ -9,6 +9,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import dynamic from 'next/dynamic';
 import { useWallet } from '@solana/wallet-adapter-react';
 import {
   getAssociatedTokenAddress,
@@ -18,17 +19,49 @@ import {
 } from '@solana/spl-token';
 import { PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
 import { connection } from '@/lib/solanaConnection';
-import CoincarnationResult from '@/components/CoincarnationResult';
-import ConfirmModal from '@/components/ConfirmModal';
-// ❌ server util import ETME (client’ta patlatır):
-// import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
-// import { checkTokenLiquidityAndVolume } from '@/app/api/utils/checkTokenLiquidityAndVolume';
 import { useInternalBalance, quantize } from '@/hooks/useInternalBalance';
 import { getDestAddress } from '@/lib/chain/env';
 
-const WSOL_MINT = 'So11111111111111111111111111111111111111112';
+/* -------- Dynamic imports (default export + cast) -------- */
 
-// Local tip – server’dan type import etmeyelim:
+type CoincarnationResultProps = {
+  tokenFrom: string;
+  number: number;
+  imageUrl: string;
+  onRecoincarnate: () => void;
+  onGoToProfile: () => void;
+};
+const CoincarnationResult = dynamic(
+  () => import('@/components/CoincarnationResult'),
+  { ssr: false }
+) as React.ComponentType<CoincarnationResultProps>;
+
+type ConfirmModalProps = {
+  isOpen: boolean;
+  onCancel: () => void;
+  onConfirm: () => void | Promise<void>;
+  usdValue: number;
+  tokenSymbol: string;
+  amount: number;
+  tokenCategory: 'healthy' | 'deadcoin' | 'unknown';
+  priceSources: { price: number; source: string }[];
+  fetchStatus: 'loading' | 'found' | 'not_found' | 'error';
+  tokenMint?: string;
+  currentWallet?: string | null;
+  onDeadcoinVote: (vote: 'yes' | 'no') => void;
+  tokenContract?: string;
+  networkLabel?: string;
+  confirmBusy?: boolean;
+  confirmLabel?: string;
+};
+const ConfirmModal = dynamic(
+  () => import('@/components/ConfirmModal'),
+  { ssr: false }
+) as React.ComponentType<ConfirmModalProps>;
+
+/* -------- Local types & consts -------- */
+
+const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 type TokenCategory = 'healthy' | 'deadcoin' | 'unknown';
 
 interface TokenInfo {
@@ -59,38 +92,45 @@ export default function CoincarneModal({
 }: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
 
-  // ---------- Env'den Solana hedef adresini çek ----------
+  // Env’den hedef adres
   const [destSol, setDestSol] = useState<PublicKey | null>(null);
   const [destErr, setDestErr] = useState<string | null>(null);
   useEffect(() => {
     try {
-      const addr = getDestAddress('solana'); // .env'den okur ve formatını doğrular
+      const addr = getDestAddress('solana');
       setDestSol(new PublicKey(addr));
       setDestErr(null);
     } catch (e: any) {
       setDestSol(null);
       setDestErr('Destination address is not configured. Please set NEXT_PUBLIC_DEST_SOL.');
-      // eslint-disable-next-line no-console
       console.warn('NEXT_PUBLIC_DEST_SOL error:', e?.message || e);
     }
   }, []);
 
-  // ---------- Local UI state ----------
+  // Local UI state
   const [loading, setLoading] = useState(false);
   const [amountInput, setAmountInput] = useState('');
-  const [resultData, setResultData] = useState<{ tokenFrom: string; number: number; imageUrl: string } | null>(null);
+  const [resultData, setResultData] = useState<{
+    tokenFrom: string;
+    number: number;
+    imageUrl: string;
+  } | null>(null);
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [priceView, setPriceView] = useState<PriceView>({ fetchStatus: 'loading', usdValue: 0, priceSources: [] });
+  const [priceView, setPriceView] = useState<PriceView>({
+    fetchStatus: 'loading',
+    usdValue: 0,
+    priceSources: [],
+  });
   const [tokenCategory, setTokenCategory] = useState<TokenCategory>('unknown');
   const [priceStatus, setPriceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
-  // ---------- Symbol handling ----------
-  const [symbol] = useState<string | undefined>(token.symbol); // sadece prop’tan al
+  // Symbol & token basics
+  const [symbol] = useState<string | undefined>(token.symbol);
   const displaySymbol = symbol ?? token.mint.slice(0, 4);
   const isSOLToken = token.mint === 'SOL' || symbol?.toUpperCase() === 'SOL';
 
-  // ---------- Internal balance ----------
+  // Internal balance
   const {
     balance: internalBalance,
     loading: balLoading,
@@ -98,7 +138,7 @@ export default function CoincarneModal({
     isSOL: isSolFromHook,
   } = useInternalBalance(token.mint, { isSOL: isSOLToken });
 
-  // ---------- Prepare confirm ----------
+  // Prepare Confirm
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
@@ -158,7 +198,7 @@ export default function CoincarneModal({
     }
   };
 
-  // ---------- Send transaction + record ----------
+  // Send transaction + record
   const handleSend = async () => {
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
@@ -202,7 +242,7 @@ export default function CoincarneModal({
         signature = await sendTransaction(tx, connection);
       }
 
-      // ✅ Backend'e kayıt
+      // Backend kayıt
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -228,7 +268,7 @@ export default function CoincarneModal({
       setConfirmModalOpen(false);
       refetchTokens?.();
 
-      // (opsiyonel) arkada L/V işlemleri — client’ta server util import etmeyelim
+      // (opsiyonel) post-tx tetik
       try {
         await fetch('/api/lv/apply', {
           method: 'POST',
@@ -244,7 +284,7 @@ export default function CoincarneModal({
     }
   };
 
-  // ---------- Percent buttons ----------
+  // Percent buttons
   const handlePercentage = (percent: number) => {
     if (!internalBalance) return;
     let calculated = (internalBalance.amount * percent) / 100;
@@ -283,7 +323,7 @@ export default function CoincarneModal({
         />
       )}
 
-      <Dialog open onOpenChange={onClose}>
+      <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
         <DialogOverlay />
         <DialogContent className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center">
           <DialogTitle className="sr-only">
@@ -351,7 +391,7 @@ export default function CoincarneModal({
 
               <button
                 onClick={handlePrepareConfirm}
-                disabled={loading || !amountInput}
+                disabled={loading || !amountInput || !!destErr}
                 className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 text-black font-extrabold py-3 rounded-xl"
               >
                 {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate ${displaySymbol} Now`}
