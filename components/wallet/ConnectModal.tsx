@@ -17,14 +17,12 @@ type Props = {
   onClose: () => void;
 };
 
-/** adapter.name eşleşmeleri */
 const NAME_MAP = {
   phantom: 'Phantom',
   solflare: 'Solflare',
   backpack: 'Backpack',
   walletconnect: 'WalletConnect',
 } as const;
-
 type Brand = keyof typeof NAME_MAP;
 
 const BRANDS: { id: Brand; label: string; note?: string }[] = [
@@ -40,17 +38,17 @@ export default function ConnectModal({ open, onClose }: Props) {
   const [clicked, setClicked] = useState<Brand | null>(null);
 
   useEffect(() => {
-    if (connected) {
+    if (connected && open) {
       setErr(null);
       setClicked(null);
       onClose();
     }
-  }, [connected, onClose]);
+  }, [connected, open, onClose]);
 
   const installed = useMemo(() => {
     const map = new Set<string>();
     for (const w of wallets) {
-      const rs = (w as any).readyState;
+      const rs = (w as any).readyState ?? (w.adapter as any).readyState;
       if (rs === 'Installed' || rs === 'Loadable') map.add(w.adapter.name);
     }
     return map;
@@ -64,15 +62,9 @@ export default function ConnectModal({ open, onClose }: Props) {
       const target = wallets.find((w) => w.adapter.name === label);
       if (!target) throw new Error(`${label} adapter not available`);
 
-      // 1) Select (WalletName tipi şart)
       select(target.adapter.name as WalletName);
-
-      // 2) State otursun diye microtask/raf beklet
       await new Promise((r) => setTimeout(r, 0));
-
-      // 3) Connect — tek tıkta popup/deeplink
       await connect();
-      // success -> useEffect modalı kapatır
     } catch (e: any) {
       setErr(e?.message || String(e) || 'Failed to connect.');
       setClicked(null);
@@ -81,8 +73,10 @@ export default function ConnectModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogOverlay />
-      <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-50 shadow-lg">
+      {/* Eğer DialogOverlay export edilmiyorsa bu satırı kaldır:
+          <DialogOverlay className="z-[90]" /> */}
+      <DialogOverlay className="z-[90]" />
+      <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-[100] shadow-lg">
         <DialogTitle className="text-white">Connect a Solana wallet</DialogTitle>
         <DialogDescription className="sr-only">
           Choose a wallet to connect to Coincarnation.

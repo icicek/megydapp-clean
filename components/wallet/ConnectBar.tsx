@@ -16,12 +16,13 @@ export default function ConnectBar() {
     return a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '';
   }, [publicKey]);
 
-  // Menü dışında tıklayınca kapat
+  // Menü dışında tıklayınca kapat (tip sadeleştirme)
   useEffect(() => {
     if (!menuOpen) return;
     const onDown = (e: MouseEvent) => {
       if (!menuRef.current) return;
-      if (!menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      const target = e.target as HTMLElement | null;
+      if (target && !menuRef.current.contains(target)) setMenuOpen(false);
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
@@ -30,7 +31,6 @@ export default function ConnectBar() {
   async function handleCopy() {
     if (!publicKey) return;
     await navigator.clipboard.writeText(publicKey.toBase58());
-    // kısa bir “copied” geri bildirimi
     const el = document.getElementById('cc-copy-toast');
     if (el) {
       el.classList.remove('opacity-0');
@@ -40,7 +40,6 @@ export default function ConnectBar() {
 
   return (
     <div className="relative flex items-center justify-end w-full">
-      {/* Bağlı değilse: tek buton */}
       {!connected ? (
         <>
           <button
@@ -53,7 +52,6 @@ export default function ConnectBar() {
         </>
       ) : (
         <>
-          {/* Bağlıyken: tek chip + açılır menü (mobilde özellikle kompakt) */}
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen((v) => !v)}
@@ -93,8 +91,9 @@ export default function ConnectBar() {
                 <button
                   role="menuitem"
                   onClick={() => {
+                    // ⚠️ yarış durumunu bitirmek için küçük bir tik bekletiyoruz
                     setMenuOpen(false);
-                    setOpenModal(true);
+                    setTimeout(() => setOpenModal(true), 0);
                   }}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm"
                 >
@@ -105,7 +104,7 @@ export default function ConnectBar() {
                   role="menuitem"
                   onClick={() => {
                     setMenuOpen(false);
-                    disconnect().catch(() => {});
+                    setTimeout(() => disconnect().catch(() => {}), 0);
                   }}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm text-red-300"
                 >
@@ -115,7 +114,6 @@ export default function ConnectBar() {
             )}
           </div>
 
-          {/* Kısa “copied” geri bildirimi */}
           <div
             id="cc-copy-toast"
             className="pointer-events-none absolute -bottom-8 right-0 text-xs bg-black/70 border border-white/10 rounded px-2 py-1 opacity-0 transition-opacity"
@@ -123,7 +121,7 @@ export default function ConnectBar() {
             Copied
           </div>
 
-          {/* Cüzdan değiştirme modali */}
+          {/* Modal menünün DIŞINDA ve controlled */}
           <ConnectModal open={openModal} onClose={() => setOpenModal(false)} />
         </>
       )}
