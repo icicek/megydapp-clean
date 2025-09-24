@@ -8,6 +8,8 @@ import { APP_URL, absoluteUrl } from '@/app/lib/origin';
 import { ChainProvider } from '@/app/providers/ChainProvider';
 import { WalletHubProvider } from '@/app/providers/WalletHub';
 import DebugTrap from '@/components/DebugTrap';
+import './globals.css';
+import Providers from './providers';
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -30,16 +32,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <body>
-        <ChainProvider>
-          <WalletConnectionProvider>
-            <DebugTrap />
-            {children}
-          </WalletConnectionProvider>
-        </ChainProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
