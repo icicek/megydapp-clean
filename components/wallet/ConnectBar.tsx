@@ -16,13 +16,14 @@ export default function ConnectBar() {
     return a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '';
   }, [publicKey]);
 
-  // Menü dışında tıklayınca kapat (tip sadeleştirme)
+  // Menü dışında tıklayınca kapat
   useEffect(() => {
     if (!menuOpen) return;
     const onDown = (e: MouseEvent) => {
-      if (!menuRef.current) return;
       const target = e.target as HTMLElement | null;
-      if (target && !menuRef.current.contains(target)) setMenuOpen(false);
+      if (menuRef.current && target && !menuRef.current.contains(target)) {
+        setMenuOpen(false);
+      }
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
@@ -91,9 +92,9 @@ export default function ConnectBar() {
                 <button
                   role="menuitem"
                   onClick={() => {
-                    // ⚠️ yarış durumunu bitirmek için küçük bir tik bekletiyoruz
+                    // dropdown unmount → SONRA modal aç
                     setMenuOpen(false);
-                    setTimeout(() => setOpenModal(true), 0);
+                    requestAnimationFrame(() => setOpenModal(true));
                   }}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm"
                 >
@@ -114,6 +115,7 @@ export default function ConnectBar() {
             )}
           </div>
 
+          {/* Kısa “copied” geri bildirimi */}
           <div
             id="cc-copy-toast"
             className="pointer-events-none absolute -bottom-8 right-0 text-xs bg-black/70 border border-white/10 rounded px-2 py-1 opacity-0 transition-opacity"

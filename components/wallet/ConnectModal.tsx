@@ -33,7 +33,7 @@ const BRANDS: { id: Brand; label: string; note?: string }[] = [
 ];
 
 export default function ConnectModal({ open, onClose }: Props) {
-  const { select, connect, connected, connecting, wallets } = useWallet();
+  const { select, connect, connected, connecting, wallets, wallet } = useWallet();
   const [err, setErr] = useState<string | null>(null);
   const [clicked, setClicked] = useState<Brand | null>(null);
 
@@ -54,6 +54,17 @@ export default function ConnectModal({ open, onClose }: Props) {
     return map;
   }, [wallets]);
 
+  // Seçim context’e işleyene kadar bekle (max ~600ms), sonra connect et
+  async function waitForSelection(expectedName: string, timeoutMs = 600) {
+    const start = performance.now();
+    while (performance.now() - start < timeoutMs) {
+      if (wallet?.adapter?.name === expectedName) return;
+      // iki frame beklemek, React 19 commitlerini güvene alır
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+    }
+    // Süre dolsa da connect deneyeceğiz (bazı adapterler yine de hazır olabilir)
+  }
+
   async function handleClick(brand: Brand) {
     setErr(null);
     setClicked(brand);
@@ -62,9 +73,15 @@ export default function ConnectModal({ open, onClose }: Props) {
       const target = wallets.find((w) => w.adapter.name === label);
       if (!target) throw new Error(`${label} adapter not available`);
 
+      // 1) Seç
       select(target.adapter.name as WalletName);
-      await new Promise((r) => setTimeout(r, 0));
+
+      // 2) Seçimin gerçekten context'e oturmasını bekle
+      await waitForSelection(target.adapter.name);
+
+      // 3) Bağlan (tek tıkta)
       await connect();
+      // success → useEffect modalı kapatır
     } catch (e: any) {
       setErr(e?.message || String(e) || 'Failed to connect.');
       setClicked(null);
@@ -73,8 +90,7 @@ export default function ConnectModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      {/* Eğer DialogOverlay export edilmiyorsa bu satırı kaldır:
-          <DialogOverlay className="z-[90]" /> */}
+      {/* Eğer DialogOverlay export edilmiyorsa bu satırı silebilirsin */}
       <DialogOverlay className="z-[90]" />
       <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-[100] shadow-lg">
         <DialogTitle className="text-white">Connect a Solana wallet</DialogTitle>
