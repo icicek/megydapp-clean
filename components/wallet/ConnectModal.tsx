@@ -1,145 +1,143 @@
+// components/wallet/ConnectModal.tsx
 'use client';
 
-import React from 'react';
-import { useWalletHub, WalletBrand } from '@/app/providers/WalletHub';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Dialog,
+  DialogOverlay,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { useWallet } from '@solana/wallet-adapter-react';
+import type { WalletName } from '@solana/wallet-adapter-base';
 
-type CardProps = {
-  brand: WalletBrand;
-  title: string;
-  subtitle?: string;
-  installedBadge?: boolean;
-  onClick: () => void;
+
+type Props = {
+  open: boolean;
+  onClose: () => void;
 };
 
-function WalletCard({ brand, title, subtitle, installedBadge, onClick }: CardProps) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full text-left p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors
-                 flex items-center justify-between gap-3"
-    >
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-lg bg-white/10 flex items-center justify-center text-lg">
-          {title[0]}
-        </div>
-        <div>
-          <div className="font-semibold">{title}</div>
-          {subtitle && <div className="text-xs text-gray-400">{subtitle}</div>}
-        </div>
-      </div>
-      {installedBadge && (
-        <span className="text-[10px] px-2 py-1 rounded bg-green-600/70 border border-green-400/50">
-          Installed
-        </span>
-      )}
-    </button>
-  );
-}
+/**
+ * Marka -> wallet-adapter "name" eşlemesi.
+ * Bu string'ler adapter'ların `wallet.name` değerleri ile aynı olmalı.
+ */
+const NAME_MAP = {
+  phantom: 'Phantom',
+  solflare: 'Solflare',
+  backpack: 'Backpack',
+  walletconnect: 'WalletConnect',
+} as const;
 
-export default function ConnectModal({
-  isOpen,
-  onClose,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-}) {
-  const hub = useWalletHub();
+type Brand = keyof typeof NAME_MAP;
 
-  // Basit EIP-6963 “installed” tespiti (masaüstünde varsa bonus rozet)
-  const hasEthereum = typeof window !== 'undefined' && (window as any).ethereum;
-  const isInstalled = (brand: WalletBrand) => {
-    if (!hasEthereum) return false;
-    // Minimal sezgi: MetaMask/Rabby/Trust için window.ethereum varlığı yeterli.
-    return brand === 'metamask' || brand === 'rabby' || brand === 'trust';
-  };
+const BRANDS: { id: Brand; label: string; note?: string }[] = [
+  { id: 'phantom', label: 'Phantom' },
+  { id: 'solflare', label: 'Solflare' },
+  { id: 'backpack', label: 'Backpack' },
+  { id: 'walletconnect', label: 'WalletConnect', note: 'QR / Mobile' },
+];
 
-  const connect = async (brand: WalletBrand) => {
-    try {
-      await hub.connect(brand);
+export default function ConnectModal({ open, onClose }: Props) {
+  const { select, connect, connected, connecting, wallet, wallets } = useWallet();
+  const [err, setErr] = useState<string | null>(null);
+  const [clicked, setClicked] = useState<Brand | null>(null);
+
+  // Bağlanınca modalı kapat
+  useEffect(() => {
+    if (connected) {
+      setErr(null);
+      setClicked(null);
       onClose();
-    } catch (e) {
-      console.error('connect error:', e);
     }
-  };
+  }, [connected, onClose]);
 
-  if (!isOpen) return null;
+  // Kurulu adaptörleri hızlı keşfet (Sadece görsel rozet için opsiyonel)
+  const installed = useMemo(() => {
+    const map = new Set<string>();
+    for (const w of wallets) {
+      if ((w as any).readyState === 'Installed' || (w as any).readyState === 'Loadable') {
+        map.add(w.adapter.name);
+      }
+    }
+    return map;
+  }, [wallets]);
+
+  async function handleClick(brand: Brand) {
+    setErr(null);
+    setClicked(brand);
+    try {
+      const label = NAME_MAP[brand]; // 'Phantom' | 'Solflare' | ...
+      const target = wallets.find(w => w.adapter.name === label);
+      if (!target) {
+        throw new Error(`${label} adapter not available`);
+      }
+  
+      // select -> WalletName tipinde olmalı
+      select(target.adapter.name as WalletName);
+  
+      // adapter değişimini microtask'ta tamamlasın
+      await Promise.resolve();
+  
+      // connect -> popup/deeplink açılır
+      await connect();
+  
+      // başarı -> useEffect(modal close) zaten kapatıyor
+    } catch (e: any) {
+      setErr(e?.message || String(e) || 'Failed to connect.');
+      setClicked(null);
+    }
+  }  
 
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="absolute inset-x-0 top-10 mx-auto w-full max-w-md p-1">
-        <div className="rounded-2xl bg-gradient-to-br from-indigo-600/40 via-fuchsia-700/20 to-purple-700/40 p-[1px]">
-          <div className="rounded-2xl bg-black/85 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold">Connect a Wallet</h3>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogOverlay />
+      <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-50 shadow-lg">
+        <DialogTitle className="text-white">Connect a Solana wallet</DialogTitle>
+        <DialogDescription className="sr-only">
+          Choose a wallet to connect to Coincarnation.
+        </DialogDescription>
+
+        <div className="grid grid-cols-2 gap-3 mt-4">
+          {BRANDS.map((b) => {
+            const isBusy = connecting && clicked === b.id;
+            const isInstalled = installed.has(NAME_MAP[b.id]);
+            return (
               <button
-                onClick={onClose}
-                className="text-sm px-2 py-1 rounded border border-white/10 hover:bg-white/10"
+                key={b.id}
+                onClick={() => handleClick(b.id)}
+                disabled={connecting}
+                className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-3 text-left transition disabled:opacity-60"
               >
-                ✕
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">{b.label}</span>
+                  {isInstalled && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-600/30 border border-emerald-500/50">
+                      Installed
+                    </span>
+                  )}
+                </div>
+                {b.note && <div className="text-xs text-gray-400 mt-1">{b.note}</div>}
+                {isBusy && (
+                  <div className="mt-2 text-[11px] text-gray-400 flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                    Connecting…
+                  </div>
+                )}
               </button>
-            </div>
-
-            <div className="space-y-2">
-              {/* Solana markaları: mevcut modal akışını tetikler */}
-              <WalletCard
-                brand="phantom"
-                title="Phantom (Solana)"
-                subtitle="Opens your Solana modal"
-                onClick={() => connect('phantom')}
-              />
-              <WalletCard
-                brand="solflare"
-                title="Solflare (Solana)"
-                subtitle="Opens your Solana modal"
-                onClick={() => connect('solflare')}
-              />
-              <WalletCard
-                brand="backpack"
-                title="Backpack (Solana)"
-                subtitle="Opens your Solana modal"
-                onClick={() => connect('backpack')}
-              />
-
-              <div className="h-[1px] my-2 bg-white/10" />
-
-              {/* EVM markaları */}
-              <WalletCard
-                brand="metamask"
-                title="MetaMask"
-                subtitle="Connect to EVM networks"
-                installedBadge={isInstalled('metamask')}
-                onClick={() => connect('metamask')}
-              />
-              <WalletCard
-                brand="rabby"
-                title="Rabby"
-                subtitle="Connect to EVM networks"
-                installedBadge={isInstalled('rabby')}
-                onClick={() => connect('rabby')}
-              />
-              <WalletCard
-                brand="trust"
-                title="Trust Wallet"
-                subtitle="Connect to EVM networks"
-                installedBadge={isInstalled('trust')}
-                onClick={() => connect('trust')}
-              />
-
-              <WalletCard
-                brand="walletconnect"
-                title="WalletConnect (QR / Deep Link)"
-                subtitle="Mobile-friendly (coming next step)"
-                onClick={() => connect('walletconnect')}
-              />
-            </div>
-
-            <p className="text-[11px] text-gray-400 mt-3">
-              By connecting, you agree to the Terms. Never share your seed phrase.
-            </p>
-          </div>
+            );
+          })}
         </div>
-      </div>
-    </div>
+
+        {err && <div className="mt-3 text-sm text-red-400">{err}</div>}
+
+        {/* Alt menü: bağlı cüzdan menüsü için alan (isteğe bağlı) */}
+        {wallet && !connected && (
+          <div className="mt-4 text-xs text-gray-400">
+            Selected: <b>{wallet.adapter.name}</b>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
