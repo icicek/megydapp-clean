@@ -127,7 +127,7 @@ export default function ConnectBar() {
         </>
       )}
 
-      {/* Modal: her iki durumda da DIŞARIDA tek instance olarak render */}
+      {/* Modal: DIŞARIDA tek instance olarak render */}
       <ConnectModal open={openModal} onClose={() => setOpenModal(false)} />
     </div>
   );

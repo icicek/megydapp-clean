@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { useWallet } from '@solana/wallet-adapter-react';
 import type { WalletName } from '@solana/wallet-adapter-base';
+import { flushSync } from 'react-dom';
 
 type Props = { open: boolean; onClose: () => void };
 
@@ -54,24 +55,43 @@ export default function ConnectModal({ open, onClose }: Props) {
     return map;
   }, [wallets]);
 
+  function isNotSelected(e: any) {
+    const s = (e?.name || '') + ' ' + (e?.message || '');
+    return /WalletNotSelectedError/i.test(s);
+  }
+
   async function handleClick(brand: Brand) {
     if (busy) return;
     setErr(null);
     setClicked(brand);
     setBusy(true);
 
+    const label = NAME_MAP[brand];
+
     try {
-      const label = NAME_MAP[brand];
-      // 1) Seç
-      select(label as WalletName);
-      // 2) Aynı kullanıcı jesti içinde bağlan
-      await connect();
+      // ❗️KRİTİK: select'i *senkron* commit et → ardından connect
+      flushSync(() => {
+        select(label as WalletName);
+      });
+
+      try {
+        await connect();
+      } catch (e: any) {
+        // Bazı ortamlarda bir tik gecikme gerekebilir
+        if (isNotSelected(e)) {
+          await Promise.resolve(); // microtask
+          await connect();
+        } else {
+          throw e;
+        }
+      }
       // success → useEffect modalı kapatır
     } catch (e: any) {
       const s = (e?.name || '') + ' ' + (e?.message || '');
       let msg = e?.message || String(e) || 'Failed to connect.';
       if (/UserRejected|4001/i.test(s)) msg = 'Request was rejected.';
       else if (/WindowClosed|PopupClosed/i.test(s)) msg = 'Wallet window was closed.';
+      else if (isNotSelected(e)) msg = 'Wallet not selected (retry).';
       setErr(msg);
       setBusy(false);
       setClicked(null);
@@ -90,7 +110,7 @@ export default function ConnectModal({ open, onClose }: Props) {
 
         <div className="grid grid-cols-2 gap-3 mt-4">
           {BRANDS.map((b) => {
-            const isBusy = (busy || connecting) && clicked === b.id;
+            const isBusy = (busy || connecting) && clicked === b.id; // sadece seçili kartta spinner
             const isInstalled = installed.has(NAME_MAP[b.id]);
             return (
               <button
