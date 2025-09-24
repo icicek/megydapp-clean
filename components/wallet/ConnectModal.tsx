@@ -33,14 +33,14 @@ export default function ConnectModal({ open, onClose }: Props) {
   const [err, setErr] = useState<string | null>(null);
   const [clicked, setClicked] = useState<Brand | null>(null);
   const [busy, setBusy] = useState(false);
-  const attemptRef = useRef<number>(0); // eşzamanlı / sarkan denemeleri iptal etmek için
+  const attemptRef = useRef(0);
 
-  // Modal açıldığında UI sıfırla
+  // Modal açıldığında UI reset
   useEffect(() => {
     if (open) { setErr(null); setClicked(null); setBusy(false); }
   }, [open]);
 
-  // Bağlandığında modalı kapat
+  // Bağlanınca modal kapan
   useEffect(() => {
     if (connected && open) {
       setErr(null); setClicked(null); setBusy(false);
@@ -57,95 +57,72 @@ export default function ConnectModal({ open, onClose }: Props) {
     return map;
   }, [wallets]);
 
-  // ---------- util ----------
+  // utils
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   function withTimeout<T>(p: Promise<T>, ms: number, tag = 'op') {
     let id: any;
     const t = new Promise<never>((_, rej) => { id = setTimeout(() => rej(new Error(`${tag}:timeout`)), ms); });
     return Promise.race([p, t]).finally(() => clearTimeout(id));
   }
-  function isUserRejected(e: any) {
-    const s = (e?.name || '') + ' ' + (e?.message || '');
-    return /UserRejected|UserRejectedRequest|4001/i.test(s);
-  }
-  function isWindowClosed(e: any) {
-    const s = (e?.name || '') + ' ' + (e?.message || '');
-    return /WindowClosed|PopupClosed/i.test(s);
-  }
-  function isNotSelectedOrReady(e: any) {
-    const s = (e?.name || '') + ' ' + (e?.message || '');
-    return /WalletNotSelectedError|WalletNotReady|ReadyState|not detected/i.test(s);
-  }
+  const isUserRejected = (e: any) => /UserRejected|UserRejectedRequest|4001/i.test((e?.name||'')+' '+(e?.message||''));
+  const isWindowClosed = (e: any) => /WindowClosed|PopupClosed/i.test((e?.name||'')+' '+(e?.message||''));
+
   async function disconnectSafely() {
     try { await wallet?.adapter?.disconnect?.(); } catch {}
     try { await disconnect?.(); } catch {}
   }
 
-  // ---------- çekirdek: tek denemelik bağlanma (user-gesture içinde çağrılır) ----------
-  async function tryOnce(label: string, attempt: number) {
+  /** Tek deneme: aynı tıklama zincirinde adapter.connect() çağrılır,
+   *  connect event’i/promise/timeout hangisi önce gelirse onunla sonuçlanır. */
+  async function tryConnectOnce(label: string, timeoutMs: number) {
     const entry = wallets.find((w) => w.adapter.name === label);
     if (!entry) throw new Error(`${label} adapter not available`);
     const adapter = entry.adapter;
 
-    // Her seferde temiz başlangıç — yarım kalmış state'i at
-    await disconnectSafely();
+    // Seçimi kaydet (provider state)
+    try { select(adapter.name as WalletName); } catch {}
 
-    // Seçimi kalıcı kıl (WalletProvider state'i için)
-    select(adapter.name as WalletName);
-
-    // Event'leri dinle
+    // Event dinleyicileri
+    let done = false;
     const off: Array<() => void> = [];
-    const on = (ev: string, fn: any) => {
-      (adapter as any).on?.(ev, fn);
-      off.push(() => (adapter as any).off?.(ev, fn));
-    };
+    const on = (ev: string, fn: any) => { (adapter as any).on?.(ev, fn); off.push(() => (adapter as any).off?.(ev, fn)); };
 
-    // Promise: event veya connect() resolve/reject'ten hangisi önce gelirse
-    const connectedByEvent = new Promise<void>((resolve, reject) => {
-      on('connect', () => resolve());
-      on('error', (e: any) => reject(e));
-      on('disconnect', () => reject(new Error('disconnected-during-connect')));
+    const byEvent = new Promise<void>((resolve, reject) => {
+      on('connect', () => { if (!done) { done = true; resolve(); } });
+      on('error', (e: any) => { if (!done) { done = true; reject(e); } });
+      on('disconnect', () => { if (!done) { done = true; reject(new Error('disconnected-during-connect')); } });
     });
 
-    // Aynı tıklama zincirinde doğrudan adapter.connect() → user-gesture korunur
+    // Aynı click zincirinde doğrudan adapter.connect → user-gesture korunur
     const byCall = (adapter as any).connect ? (adapter as any).connect() : connect();
 
     try {
-      // 1)  adapter.connect  ***VEYA***  connect event'i  ***VE***  hard-timeout
-      await withTimeout(Promise.race([byCall, connectedByEvent]), 8000, 'connect');
-      // Stale attempt'ı yoksay
-      if (attemptRef.current !== attempt) throw new Error('stale-attempt');
-      return; // success
+      await withTimeout(Promise.race([byCall, byEvent]), timeoutMs, 'connect');
     } finally {
       off.forEach((f) => f());
     }
   }
 
-  // ---------- üst seviye: otomatik tek retry ile sağlam bağlan ----------
+  /** Sağlam bağlanma: 1) temizlemeden dene 2) timeout/çökerse disconnect→tekrar dene */
   async function connectRobust(label: string) {
     const myAttempt = ++attemptRef.current;
-    try {
-      await tryOnce(label, myAttempt);
-      return; // ilk denemede başarı
-    } catch (e: any) {
-      // Kullanıcı reddi/pencere kapama → net mesajla bitir
-      if (isUserRejected(e) || isWindowClosed(e)) throw e;
 
-      // Not selected / not ready / timeout / disconnect vb. → 1 kez daha dene
-      await sleep(200); // minik tampon
-      if (attemptRef.current !== myAttempt) throw new Error('stale-attempt');
-      try {
-        await tryOnce(label, myAttempt);
-        return;
-      } catch (e2: any) {
-        // yine kullanıcı iptali ise ilet; değilse zaman aşımı mesajı
-        if (isUserRejected(e2) || isWindowClosed(e2)) throw e2;
-        if (isNotSelectedOrReady(e2) || /timeout|stale-attempt|disconnected-during-connect/i.test(String(e2?.message || e2))) {
-          throw new Error('Wallet did not respond. Please try again.');
-        }
-        throw e2;
-      }
+    // 1) Önce direkt dene (temiz bağlantı şansı yüksek; user-gesture kaybolmasın)
+    try {
+      await tryConnectOnce(label, 10000);
+      return;
+    } catch (e: any) {
+      if (attemptRef.current !== myAttempt) throw new Error('stale');
+      if (isUserRejected(e) || isWindowClosed(e)) throw e;
+      // düşüp ikinci denemeye geçeceğiz
     }
+
+    // 2) Temizle + kısa nefes + tekrar dene
+    await disconnectSafely();
+    await sleep(150);
+    if (attemptRef.current !== myAttempt) throw new Error('stale');
+
+    await tryConnectOnce(label, 10000);
   }
 
   async function handleClick(brand: Brand) {
@@ -161,6 +138,7 @@ export default function ConnectModal({ open, onClose }: Props) {
       const msg =
         isUserRejected(e) ? 'Request was rejected.' :
         isWindowClosed(e) ? 'Wallet window was closed.' :
+        e?.message?.includes('timeout') ? 'Wallet did not respond. Please try again.' :
         e?.message || String(e) || 'Failed to connect.';
       setErr(msg);
       setClicked(null);
@@ -170,7 +148,7 @@ export default function ConnectModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      {/* ui/dialog Overlay export etmiyorsa import ve bu satırı kaldırabilirsiniz */}
+      {/* ui/dialog Overlay export edilmiyorsa import ve bu satırı kaldırın */}
       <DialogOverlay className="z-[90]" />
       <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-[100] shadow-lg">
         <DialogTitle className="text-white">Connect a Solana wallet</DialogTitle>
