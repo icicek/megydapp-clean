@@ -56,43 +56,70 @@ export default function ConnectModal({ open, onClose }: Props) {
   }, [wallets]);
 
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  const nextFrame = () =>
-    new Promise<void>((r) => requestAnimationFrame(() => r()));
+  const twoFrames = () =>
+    new Promise<void>((r) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => r()))
+    );
 
-  // select -> commit bekle -> connect (WalletNotSelectedError için retry)
-  async function connectWithRetry(label: string) {
+  async function waitForSelection(expectedName: string, timeoutMs = 1500) {
+    const start = performance.now();
+    // hızlı yol: zaten seçiliyse çık
+    if (wallet?.adapter?.name === expectedName) return;
+    // React 19 commit + adapter binding için birkaç deneme
+    while (performance.now() - start < timeoutMs) {
+      await twoFrames();
+      if (wallet?.adapter?.name === expectedName) return;
+      await sleep(20);
+    }
+    // Süre doldu; yine de connect deneyeceğiz (bazı adapterlar yetişebiliyor)
+  }
+
+  function isNotSelectedError(e: any) {
+    const name = e?.name || '';
+    const msg = String(e?.message || e || '');
+    return name === 'WalletNotSelectedError' || msg.includes('WalletNotSelectedError');
+  }
+  function isUserRejected(e: any) {
+    const name = e?.name || '';
+    const msg = String(e?.message || e || '');
+    return /UserRejected|UserRejectedRequest/i.test(name + ' ' + msg);
+  }
+  function isWindowClosed(e: any) {
+    const name = e?.name || '';
+    const msg = String(e?.message || e || '');
+    return /WindowClosed|PopupClosed/i.test(name + ' ' + msg);
+  }
+
+  async function connectRobust(label: string) {
     const target = wallets.find((w) => w.adapter.name === label);
     if (!target) throw new Error(`${label} adapter not available`);
 
-    const adapterName = target.adapter.name as WalletName;
-
     // 1) Seç
-    select(adapterName);
+    select(target.adapter.name as WalletName);
 
-    // 2) React 19 commit + provider seçimi için kısa bekleme
-    await Promise.resolve();      // microtask
-    await nextFrame();            // 1 frame
-    await sleep(10);              // küçük tampon
+    // 2) Seçimin gerçekten context'e yazılmasını bekle
+    await waitForSelection(target.adapter.name, 1800);
 
-    // 3) Retry ile connect
-    const MAX_ATTEMPTS = 6;
-    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+    // 3) Artan aralıklı retry ile bağlan
+    const ATTEMPTS = 10;               // ~10 deneme
+    const BASE = 80;                   // 80ms başlangıç bekleme
+    for (let i = 0; i < ATTEMPTS; i++) {
       try {
         await connect();
         return; // success
       } catch (e: any) {
-        const name = e?.name || '';
-        const msg = String(e?.message || e || '');
-        const isNotSelected =
-          name === 'WalletNotSelectedError' ||
-          msg.includes('WalletNotSelectedError');
-
-        if (isNotSelected) {
-          // Provider henüz seçimi görmedi → bekle ve yeniden dene
-          await sleep(100 + i * 100); // 100ms → 600ms arası artan bekleme
+        if (isUserRejected(e)) {
+          throw new Error('Request was rejected.');
+        }
+        if (isWindowClosed(e)) {
+          throw new Error('Wallet window was closed.');
+        }
+        if (isNotSelectedError(e)) {
+          // seçimin propagasyonu gecikti → bekle ve dene
+          await sleep(BASE * (i + 1)); // 80,160,240,... ~800ms
           continue;
         }
-        // başka bir hata ise dışarı fırlat
+        // başka bir hata → dışarı
         throw e;
       }
     }
@@ -105,10 +132,15 @@ export default function ConnectModal({ open, onClose }: Props) {
     setBusy(true);
     try {
       const label = NAME_MAP[brand];
-      await connectWithRetry(label);
-      // başarı → useEffect modalı kapatır
+      await connectRobust(label);
+      // success → useEffect kapatır
     } catch (e: any) {
-      setErr(e?.message || String(e) || 'Failed to connect.');
+      const msg =
+        e?.message === 'Request was rejected.' ||
+        e?.message === 'Wallet window was closed.'
+          ? e.message
+          : e?.message || String(e) || 'Failed to connect.';
+      setErr(msg);
       setClicked(null);
       setBusy(false);
     }
@@ -116,7 +148,7 @@ export default function ConnectModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      {/* Eğer DialogOverlay export edilmiyorsa bu satırı kaldırabilirsiniz */}
+      {/* Eğer DialogOverlay sende export edilmiyorsa bu satırı kaldır */}
       <DialogOverlay className="z-[90]" />
       <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-[100] shadow-lg">
         <DialogTitle className="text-white">Connect a Solana wallet</DialogTitle>
