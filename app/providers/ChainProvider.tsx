@@ -8,11 +8,11 @@ type ChainContextState = {
   setChain: (c: Chain) => void;
 };
 
-const ALLOWED: Chain[] = ['solana', 'ethereum', 'bsc', 'polygon', 'base', 'arbitrum'];
+// 🔒 TEMP: yalnız Solana
+const ALLOWED: Chain[] = ['solana'];
 
 const ChainContext = createContext<ChainContextState>({
   chain: 'solana',
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   setChain: () => {},
 });
 

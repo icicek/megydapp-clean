@@ -1,12 +1,12 @@
+// components/HomePage.tsx
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useRouter } from 'next/navigation';
 import CountUp from 'react-countup';
 
 import CoincarneModal from '@/components/CoincarneModal';
-import CoincarneModalEvm from '@/components/CoincarneModalEvm';
 import TrustPledge from '@/components/TrustPledge';
 import Skeleton from '@/components/ui/Skeleton';
 import ConnectBar from '@/components/wallet/ConnectBar';
@@ -14,37 +14,13 @@ import ConnectBar from '@/components/wallet/ConnectBar';
 import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
 import { useChain } from '@/app/providers/ChainProvider';
 
-// EVM
-import useChainWalletEvm from '@/hooks/useChainWalletEvm';
-import useChainTokensEvm, { TokenBalance } from '@/hooks/useChainTokensEvm';
-import { fetchErc20UnitPrice, fetchNativeUnitPrice } from '@/lib/pricing/client';
-import {
-  mainnet,
-  bsc,
-  polygon,
-  base,
-  arbitrum,
-  type Chain as EvmChain,
-} from 'viem/chains';
-
-const CHAIN_MAP: Record<string, EvmChain> = {
-  ethereum: mainnet,
-  bsc,
-  polygon,
-  base,
-  arbitrum,
-};
-
 export default function HomePage() {
   const router = useRouter();
-  const { chain } = useChain(); // 'solana' | 'ethereum' | 'bsc' | 'polygon' | 'base' | 'arbitrum'
-  const isEvm = chain !== 'solana';
-
-  /** ---------------- SOLANA ---------------- */
+  const { chain } = useChain(); // Şu an 'solana'
   const { publicKey, connected } = useWallet();
   const pubkeyBase58 = useMemo(() => publicKey?.toBase58() ?? null, [publicKey]);
 
-  // tokens (sol)
+  // -------- SOLANA TOKENLERİ --------
   const {
     tokens,
     loading: tokensLoading,
@@ -108,67 +84,13 @@ export default function HomePage() {
     return () => ac.abort();
   }, [pubkeyBase58, connected]);
 
-  /** ---------------- EVM ---------------- */
-  const desiredEvmChain = CHAIN_MAP[chain as keyof typeof CHAIN_MAP] ?? mainnet;
-  const evm = useChainWalletEvm(desiredEvmChain, { autoConnect: false });
-
-  // seçili chain'e otomatik geçiş: her chain için yalnızca 1 deneme
-  const switchTried = useRef<number | null>(null);
-  useEffect(() => {
-    if (!isEvm || !evm.isConnected) return;
-    if (evm.chainId === desiredEvmChain.id) return;
-    if (switchTried.current === desiredEvmChain.id) return;
-    switchTried.current = desiredEvmChain.id;
-    evm.switchChain(desiredEvmChain).catch(() => {});
-  }, [isEvm, evm.isConnected, evm.chainId, desiredEvmChain]);
-
-  const allowEvmListing = evm.isConnected;
-
-  const {
-    loading: evmLoading,
-    error: evmError,
-    balances: evmBalances,
-    reload: evmReload,
-  } = useChainTokensEvm(
-    evm.chain,
-    allowEvmListing ? (evm.account as any) : null,
-    { publicClient: evm.publicClient },
-    {
-      covalent: process.env.NEXT_PUBLIC_COVALENT_KEY
-        ? { apiKey: process.env.NEXT_PUBLIC_COVALENT_KEY }
-        : undefined,
-      getUsdValue: async (t) => {
-        const amt = Number(t.amount || 0);
-        if (!Number.isFinite(amt) || amt <= 0) return 0;
-        if (t.isNative) {
-          const { unitPrice } = await fetchNativeUnitPrice(t.chainId);
-          return unitPrice > 0 ? unitPrice * amt : 0;
-        }
-        if (!t.contract) return 0;
-        const { unitPrice } = await fetchErc20UnitPrice(t.chainId, t.contract);
-        return unitPrice > 0 ? unitPrice * amt : 0;
-      },
-      // minAmount varsayılan: 0 (tüm bakiyeler). Dilersen 0.000001 yapabilirsin.
-    }
-  );
-
-  const [selectedEvm, setSelectedEvm] = useState<TokenBalance | null>(null);
-  const [showEvmModal, setShowEvmModal] = useState(false);
-
-  const handleEvmSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const idx = Number(e.target.value);
-    const tok = Number.isFinite(idx) ? evmBalances[idx] : null;
-    setSelectedEvm(tok ?? null);
-    setShowEvmModal(Boolean(tok));
-  };
-
   /** ---------------- UI DERIVED ---------------- */
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
   const sharePercentage = Math.max(0, Math.min(100, shareRatio * 100)).toFixed(2);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
-      {/* ÜST BAR (desktop) — unified connect + chain chips */}
+      {/* ÜST BAR (yalnız Solana) */}
       <div className="w-full hidden md:flex justify-end mt-2 mb-2 gap-3">
         <ConnectBar />
       </div>
@@ -198,121 +120,52 @@ export default function HomePage() {
           Walking deadcoins, memecoins, any unsupported assets…
         </p>
 
-        {/* -------- SOLANA -------- */}
-        {!isEvm ? (
+        {/* -------- SADECE SOLANA -------- */}
+        {publicKey ? (
           <>
-            {publicKey ? (
+            {tokensLoading && tokens.length === 0 ? (
+              <div className="space-y-2 mb-4" aria-busy="true">
+                {[...Array(6)].map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
+              </div>
+            ) : (
               <>
-                {tokensLoading && tokens.length === 0 ? (
-                  <div className="space-y-2 mb-4" aria-busy="true">
-                    {[...Array(6)].map((_, i) => (
-                      <Skeleton key={i} className="h-10 w-full" />
-                    ))}
+                {refreshing && (
+                  <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+                    <span className="inline-block h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                    <span>Syncing tokens…</span>
                   </div>
-                ) : (
-                  <>
-                    {refreshing && (
-                      <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
-                        <span className="inline-block h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
-                        <span>Syncing tokens…</span>
-                      </div>
-                    )}
-                    <label className="sr-only" htmlFor="token-select">
-                      Select a token to Coincarnate
-                    </label>
-                    <select
-                      id="token-select"
-                      className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
-                      value={selectedToken?.mint || ''}
-                      onChange={handleSelectChange}
-                    >
-                      <option value="" disabled>
-                        👉 Select a token to Coincarnate
-                      </option>
-                      {tokens.map((token, idx) => (
-                        <option key={idx} value={token.mint}>
-                          {token.symbol ?? token.mint.slice(0, 4)} — {token.amount.toFixed(4)}
-                        </option>
-                      ))}
-                    </select>
+                )}
+                <label className="sr-only" htmlFor="token-select">
+                  Select a token to Coincarnate
+                </label>
+                <select
+                  id="token-select"
+                  className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
+                  value={selectedToken?.mint || ''}
+                  onChange={handleSelectChange}
+                >
+                  <option value="" disabled>
+                    👉 Select a token to Coincarnate
+                  </option>
+                  {tokens.map((token, idx) => (
+                    <option key={idx} value={token.mint}>
+                      {token.symbol ?? token.mint.slice(0, 4)} — {token.amount.toFixed(4)}
+                    </option>
+                  ))}
+                </select>
 
-                    {!tokensLoading && tokens.length === 0 && tokensError && (
-                      <p className="text-xs text-red-400 mb-2">
-                        Token fetch error: {String(tokensError)}
-                      </p>
-                    )}
-                  </>
+                {!tokensLoading && tokens.length === 0 && tokensError && (
+                  <p className="text-xs text-red-400 mb-2">
+                    Token fetch error: {String(tokensError)}
+                  </p>
                 )}
               </>
-            ) : (
-              <p className="text-gray-400">Connect your wallet to see your tokens.</p>
             )}
           </>
         ) : (
-          /* -------- EVM -------- */
-          <>
-            {!evm.isConnected && (
-              <p className="text-gray-400">Connect your wallet to see your tokens.</p>
-            )}
-
-            {allowEvmListing && (
-              <>
-                {evmLoading && evmBalances.length === 0 ? (
-                  <div className="space-y-2 mb-4" aria-busy="true">
-                    {[...Array(4)].map((_, i) => (
-                      <Skeleton key={i} className="h-10 w-full" />
-                    ))}
-                  </div>
-                ) : evmBalances.length === 0 ? (
-                  <>
-                    {evmError ? (
-                      <p className="text-xs text-red-400 mb-2">
-                        Token fetch error: {String(evmError)}
-                      </p>
-                    ) : (
-                      <p className="text-gray-400">No tokens detected on {evm.chain.name}.</p>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
-                      <span className="opacity-80">Network:</span>
-                      <span className="font-medium">{evm.chain.name}</span>
-                      <button onClick={evmReload} className="ml-auto underline">
-                        reload
-                      </button>
-                    </div>
-
-                    <label className="sr-only" htmlFor="evm-token-select">
-                      Select a token to Coincarnate
-                    </label>
-                    <select
-                      id="evm-token-select"
-                      className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
-                      value={selectedEvm ? evmBalances.findIndex((b) => b === selectedEvm) : ''}
-                      onChange={handleEvmSelectChange}
-                    >
-                      <option value="" disabled>
-                        👉 Select a token to Coincarnate
-                      </option>
-                      {evmBalances.map((t, i) => (
-                        <option key={`${t.contract ?? 'native'}-${i}`} value={i}>
-                          {t.symbol}
-                          {t.contract
-                            ? ` (${t.contract.slice(0, 6)}…${t.contract.slice(-4)})`
-                            : ' (native)'}{' '}
-                          — {Number(t.amount).toFixed(4)}
-                          {typeof t.usdValue === 'number'
-                            ? ` — ~$${Number(t.usdValue).toFixed(2)}`
-                            : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </>
-                )}
-              </>
-            )}
-          </>
+          <p className="text-gray-400">Connect your wallet to see your tokens.</p>
         )}
 
         <div className="text-2xl my-4 text-center" aria-hidden>
@@ -414,7 +267,7 @@ export default function HomePage() {
         </a>
       </div>
 
-      {/* Modals */}
+      {/* Modal */}
       {showSolModal && selectedToken && chain === 'solana' && (
         <CoincarneModal
           token={selectedToken}
@@ -426,31 +279,6 @@ export default function HomePage() {
           onGoToProfileRequest={() => router.push('/profile')}
         />
       )}
-
-      {showEvmModal &&
-        selectedEvm &&
-        isEvm &&
-        evm.isConnected &&
-        evm.chainId === desiredEvmChain.id && (
-          <CoincarneModalEvm
-            token={{
-              isNative: selectedEvm.isNative,
-              symbol: selectedEvm.symbol,
-              decimals: selectedEvm.decimals,
-              contract: selectedEvm.contract,
-              name: selectedEvm.name,
-            }}
-            chain={evm.chain}
-            account={evm.account as any}
-            walletClient={evm.walletClient}
-            publicClient={evm.publicClient}
-            onClose={() => {
-              setSelectedEvm(null);
-              setShowEvmModal(false);
-            }}
-            onGoToProfileRequest={() => router.push('/profile')}
-          />
-        )}
     </div>
   );
 }
