@@ -32,11 +32,21 @@ const BRANDS: { id: Brand; label: string; note?: string }[] = [
 ];
 
 export default function ConnectModal({ open, onClose }: Props) {
-  const { select, connect, connected, connecting, wallets, wallet } = useWallet();
+  const { select, connect, disconnect, connected, connecting, wallets, wallet } = useWallet();
   const [err, setErr] = useState<string | null>(null);
   const [clicked, setClicked] = useState<Brand | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Modal her açıldığında eski UI durumunu temizle
+  useEffect(() => {
+    if (open) {
+      setErr(null);
+      setClicked(null);
+      setBusy(false);
+    }
+  }, [open]);
+
+  // Bağlandığında modalı kapat
   useEffect(() => {
     if (connected && open) {
       setErr(null);
@@ -61,65 +71,73 @@ export default function ConnectModal({ open, onClose }: Props) {
       requestAnimationFrame(() => requestAnimationFrame(() => r()))
     );
 
-  async function waitForSelection(expectedName: string, timeoutMs = 1500) {
+  async function waitForSelection(expectedName: string, timeoutMs = 2000) {
     const start = performance.now();
-    // hızlı yol: zaten seçiliyse çık
     if (wallet?.adapter?.name === expectedName) return;
-    // React 19 commit + adapter binding için birkaç deneme
     while (performance.now() - start < timeoutMs) {
       await twoFrames();
       if (wallet?.adapter?.name === expectedName) return;
       await sleep(20);
     }
-    // Süre doldu; yine de connect deneyeceğiz (bazı adapterlar yetişebiliyor)
+    // Süre dolsa da connect deneyip retry yapacağız.
   }
 
   function isNotSelectedError(e: any) {
-    const name = e?.name || '';
-    const msg = String(e?.message || e || '');
-    return name === 'WalletNotSelectedError' || msg.includes('WalletNotSelectedError');
+    const s = (e?.name || '') + ' ' + (e?.message || '');
+    return /WalletNotSelectedError/i.test(s);
+  }
+  function isNotReadyError(e: any) {
+    const s = (e?.name || '') + ' ' + (e?.message || '');
+    return /WalletNotReady|ReadyState|not detected/i.test(s);
   }
   function isUserRejected(e: any) {
-    const name = e?.name || '';
-    const msg = String(e?.message || e || '');
-    return /UserRejected|UserRejectedRequest/i.test(name + ' ' + msg);
+    const s = (e?.name || '') + ' ' + (e?.message || '');
+    return /UserRejected|UserRejectedRequest|4001/i.test(s);
   }
   function isWindowClosed(e: any) {
-    const name = e?.name || '';
-    const msg = String(e?.message || e || '');
-    return /WindowClosed|PopupClosed/i.test(name + ' ' + msg);
+    const s = (e?.name || '') + ' ' + (e?.message || '');
+    return /WindowClosed|PopupClosed/i.test(s);
+  }
+
+  async function disconnectSafely() {
+    try { await wallet?.adapter?.disconnect?.(); } catch {}
+    try { await disconnect?.(); } catch {}
   }
 
   async function connectRobust(label: string) {
     const target = wallets.find((w) => w.adapter.name === label);
     if (!target) throw new Error(`${label} adapter not available`);
 
-    // 1) Seç
+    // Markayı değiştiriyorsak önce güvenli disconnect
+    if (wallet?.adapter?.name && wallet.adapter.name !== label) {
+      await disconnectSafely();
+      await twoFrames();
+    }
+
+    // 1) Select
     select(target.adapter.name as WalletName);
 
-    // 2) Seçimin gerçekten context'e yazılmasını bekle
-    await waitForSelection(target.adapter.name, 1800);
+    // 2) Seçimin context'e oturmasını bekle
+    await waitForSelection(target.adapter.name, 2000);
 
-    // 3) Artan aralıklı retry ile bağlan
-    const ATTEMPTS = 10;               // ~10 deneme
-    const BASE = 80;                   // 80ms başlangıç bekleme
+    // 3) Artan aralıklı retry ile connect
+    const ATTEMPTS = 15;      // ~15 deneme
+    const BASE = 80;          // 80ms, 160, 240, ... ~1.2s
     for (let i = 0; i < ATTEMPTS; i++) {
       try {
         await connect();
         return; // success
       } catch (e: any) {
-        if (isUserRejected(e)) {
-          throw new Error('Request was rejected.');
-        }
-        if (isWindowClosed(e)) {
-          throw new Error('Wallet window was closed.');
-        }
-        if (isNotSelectedError(e)) {
-          // seçimin propagasyonu gecikti → bekle ve dene
-          await sleep(BASE * (i + 1)); // 80,160,240,... ~800ms
+        if (isUserRejected(e)) throw new Error('Request was rejected.');
+        if (isWindowClosed(e)) throw new Error('Wallet window was closed.');
+
+        if (isNotSelectedError(e) || isNotReadyError(e)) {
+          // Seçim/ready propagasyonu gecikti; bekle ve yeniden dene
+          await sleep(BASE * (i + 1));
           continue;
         }
-        // başka bir hata → dışarı
+
+        // Diğer hatalarda doğrudan yukarı
         throw e;
       }
     }
@@ -127,13 +145,14 @@ export default function ConnectModal({ open, onClose }: Props) {
   }
 
   async function handleClick(brand: Brand) {
+    if (busy) return; // paralel denemeleri engelle
     setErr(null);
     setClicked(brand);
     setBusy(true);
     try {
       const label = NAME_MAP[brand];
       await connectRobust(label);
-      // success → useEffect kapatır
+      // success → useEffect modalı kapatır
     } catch (e: any) {
       const msg =
         e?.message === 'Request was rejected.' ||
@@ -148,7 +167,7 @@ export default function ConnectModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      {/* Eğer DialogOverlay sende export edilmiyorsa bu satırı kaldır */}
+      {/* ui/dialog içinde Overlay export edilmiyorsa bu satırı kaldırabilirsiniz */}
       <DialogOverlay className="z-[90]" />
       <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-[100] shadow-lg">
         <DialogTitle className="text-white">Connect a Solana wallet</DialogTitle>
@@ -158,13 +177,13 @@ export default function ConnectModal({ open, onClose }: Props) {
 
         <div className="grid grid-cols-2 gap-3 mt-4">
           {BRANDS.map((b) => {
-            const isBusy = (connecting || busy) && clicked === b.id;
+            const isBusy = busy && clicked === b.id; // ❗ yalnızca yerel busy
             const isInstalled = installed.has(NAME_MAP[b.id]);
             return (
               <button
                 key={b.id}
                 onClick={() => handleClick(b.id)}
-                disabled={connecting || busy}
+                disabled={busy}
                 className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-3 text-left transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-white/20"
               >
                 <div className="flex items-center justify-between">
