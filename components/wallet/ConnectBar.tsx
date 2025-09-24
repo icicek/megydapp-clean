@@ -31,12 +31,14 @@ export default function ConnectBar() {
 
   async function handleCopy() {
     if (!publicKey) return;
-    await navigator.clipboard.writeText(publicKey.toBase58());
-    const el = document.getElementById('cc-copy-toast');
-    if (el) {
-      el.classList.remove('opacity-0');
-      setTimeout(() => el.classList.add('opacity-0'), 1200);
-    }
+    try {
+      await navigator.clipboard.writeText(publicKey.toBase58());
+      const el = document.getElementById('cc-copy-toast');
+      if (el) {
+        el.classList.remove('opacity-0');
+        setTimeout(() => el.classList.add('opacity-0'), 1200);
+      }
+    } catch { /* noop */ }
   }
 
   return (
@@ -49,10 +51,10 @@ export default function ConnectBar() {
           >
             Connect wallet
           </button>
-          <ConnectModal open={openModal} onClose={() => setOpenModal(false)} />
         </>
       ) : (
         <>
+          {/* Bağlıyken: tek chip + menü */}
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen((v) => !v)}
@@ -76,7 +78,7 @@ export default function ConnectBar() {
             {menuOpen && (
               <div
                 role="menu"
-                className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-white/10 bg-zinc-900/95 backdrop-blur p-2 shadow-2xl z-50"
+                className="absolute right-0 top-full mt-2 w-52 rounded-xl border border-white/10 bg-zinc-900/95 backdrop-blur p-2 shadow-2xl z-50"
               >
                 <button
                   role="menuitem"
@@ -92,7 +94,7 @@ export default function ConnectBar() {
                 <button
                   role="menuitem"
                   onClick={() => {
-                    // dropdown unmount → SONRA modal aç
+                    // Dropdown kapansın → sonraki frame'de modalı aç
                     setMenuOpen(false);
                     requestAnimationFrame(() => setOpenModal(true));
                   }}
@@ -122,11 +124,11 @@ export default function ConnectBar() {
           >
             Copied
           </div>
-
-          {/* Modal menünün DIŞINDA ve controlled */}
-          <ConnectModal open={openModal} onClose={() => setOpenModal(false)} />
         </>
       )}
+
+      {/* Modal: her iki durumda da DIŞARIDA tek instance olarak render */}
+      <ConnectModal open={openModal} onClose={() => setOpenModal(false)} />
     </div>
   );
 }

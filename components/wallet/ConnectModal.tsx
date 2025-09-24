@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Dialog,
   DialogOverlay,
@@ -13,6 +13,7 @@ import type { WalletName } from '@solana/wallet-adapter-base';
 
 type Props = { open: boolean; onClose: () => void };
 
+/** adapter.name eşleşmeleri */
 const NAME_MAP = {
   phantom: 'Phantom',
   solflare: 'Solflare',
@@ -29,23 +30,19 @@ const BRANDS: { id: Brand; label: string; note?: string }[] = [
 ];
 
 export default function ConnectModal({ open, onClose }: Props) {
-  const { select, connect, disconnect, connected, wallets, wallet } = useWallet();
+  const { select, connect, connected, connecting, wallets } = useWallet();
   const [err, setErr] = useState<string | null>(null);
   const [clicked, setClicked] = useState<Brand | null>(null);
   const [busy, setBusy] = useState(false);
-  const attemptRef = useRef(0);
 
-  // Modal açılınca UI reset
+  // Modal her açıldığında UI state temizle
   useEffect(() => {
     if (open) { setErr(null); setClicked(null); setBusy(false); }
   }, [open]);
 
-  // Bağlanınca modal kapan
+  // Bağlanınca otomatik kapat
   useEffect(() => {
-    if (connected && open) {
-      setErr(null); setClicked(null); setBusy(false);
-      onClose();
-    }
+    if (connected && open) onClose();
   }, [connected, open, onClose]);
 
   const installed = useMemo(() => {
@@ -57,122 +54,49 @@ export default function ConnectModal({ open, onClose }: Props) {
     return map;
   }, [wallets]);
 
-  // ---------- util ----------
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  function withTimeout<T>(p: Promise<T>, ms: number, tag = 'op') {
-    let id: any;
-    const t = new Promise<never>((_, rej) => { id = setTimeout(() => rej(new Error(`${tag}:timeout`)), ms); });
-    return Promise.race([p, t]).finally(() => clearTimeout(id));
-  }
-  const isUserRejected = (e: any) => /UserRejected|UserRejectedRequest|4001/i.test((e?.name||'')+' '+(e?.message||''));
-  const isWindowClosed = (e: any) => /WindowClosed|PopupClosed/i.test((e?.name||'')+' '+(e?.message||''));
-
-  async function disconnectSafely() {
-    try { await wallet?.adapter?.disconnect?.(); } catch {}
-    try { await disconnect?.(); } catch {}
-  }
-
-  /** Tek deneme: aynı tıklama zincirinde adapter.connect() çağrılır.
-   *  connect event’i / connect() promise’i / timeout → hangisi önce gelirse. */
-  async function tryOnce(label: string, timeoutMs: number) {
-    const entry = wallets.find((w) => w.adapter.name === label);
-    if (!entry) throw new Error(`${label} adapter not available`);
-    const adapter = entry.adapter as any;
-
-    // Provider state’i için seçimi not et (await etme — gesture kaçmasın)
-    try { select(adapter.name as WalletName); } catch {}
-
-    // Event dinleyicileri (once benzeri)
-    let done = false;
-    const off: Array<() => void> = [];
-    const on = (ev: string, fn: any) => { adapter.on?.(ev, fn); off.push(() => adapter.off?.(ev, fn)); };
-
-    const byEvent = new Promise<void>((resolve, reject) => {
-      on('connect', () => { if (!done) { done = true; resolve(); } });
-      on('error', (e: any) => { if (!done) { done = true; reject(e); } });
-      on('disconnect', () => { if (!done) { done = true; reject(new Error('disconnected-during-connect')); } });
-    });
-
-    // *** KRİTİK ***: ayni click zincirinde doğrudan adapter.connect()
-    let byCall: Promise<any>;
-    try {
-      if (typeof adapter.connect === 'function') {
-        const p = adapter.connect();
-        byCall = Promise.resolve(p);
-      } else {
-        byCall = connect(); // fallback (user gesture bazen korunmaz, yine de deneriz)
-      }
-    } catch (e) {
-      byCall = Promise.reject(e as any);
-    }
-
-    try {
-      await withTimeout(Promise.race([byCall, byEvent]), timeoutMs, 'connect');
-    } finally {
-      off.forEach((f) => f());
-    }
-  }
-
-  /** Sağlam bağlanma: 1) direkt dene 2) timeout/çökerse disconnect→kısa bekle→bir kez daha dene */
-  async function connectRobust(label: string) {
-    const myAttempt = ++attemptRef.current;
-
-    try {
-      await tryOnce(label, 10000); // 10s: Phantom/Solflare popup senaryosu için geniş
-      if (attemptRef.current !== myAttempt) throw new Error('stale');
-      return;
-    } catch (e: any) {
-      if (attemptRef.current !== myAttempt) throw new Error('stale');
-      if (isUserRejected(e) || isWindowClosed(e)) throw e; // net kullanıcı aksiyonu
-    }
-
-    // Stall / başka hata → temizle & tek retry
-    await disconnectSafely();
-    await sleep(150);
-    if (attemptRef.current !== myAttempt) throw new Error('stale');
-
-    await tryOnce(label, 10000);
-    if (attemptRef.current !== myAttempt) throw new Error('stale');
-  }
-
   async function handleClick(brand: Brand) {
     if (busy) return;
     setErr(null);
     setClicked(brand);
     setBusy(true);
+
     try {
       const label = NAME_MAP[brand];
-      await connectRobust(label);
-      // success → useEffect kapatır
+      // 1) Seç
+      select(label as WalletName);
+      // 2) Aynı kullanıcı jesti içinde bağlan
+      await connect();
+      // success → useEffect modalı kapatır
     } catch (e: any) {
-      const msg =
-        isUserRejected(e) ? 'Request was rejected.' :
-        isWindowClosed(e) ? 'Wallet window was closed.' :
-        (e?.message?.includes('timeout') ? 'Wallet did not respond. Please try again.' :
-         e?.message || String(e) || 'Failed to connect.');
+      const s = (e?.name || '') + ' ' + (e?.message || '');
+      let msg = e?.message || String(e) || 'Failed to connect.';
+      if (/UserRejected|4001/i.test(s)) msg = 'Request was rejected.';
+      else if (/WindowClosed|PopupClosed/i.test(s)) msg = 'Wallet window was closed.';
       setErr(msg);
-      setClicked(null);
       setBusy(false);
+      setClicked(null);
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      {/* ui/dialog Overlay export etmiyorsa import ve bu satırı kaldırabilirsiniz */}
+      {/* Eğer DialogOverlay export edilmiyorsa bu satırı ve importu kaldırabilirsiniz */}
       <DialogOverlay className="z-[90]" />
       <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-[100] shadow-lg">
         <DialogTitle className="text-white">Connect a Solana wallet</DialogTitle>
-        <DialogDescription className="sr-only">Choose a wallet to connect</DialogDescription>
+        <DialogDescription className="sr-only">
+          Choose a wallet to connect to Coincarnation.
+        </DialogDescription>
 
         <div className="grid grid-cols-2 gap-3 mt-4">
           {BRANDS.map((b) => {
-            const isBusy = busy && clicked === b.id;
+            const isBusy = (busy || connecting) && clicked === b.id;
             const isInstalled = installed.has(NAME_MAP[b.id]);
             return (
               <button
                 key={b.id}
                 onClick={() => handleClick(b.id)}
-                disabled={busy}
+                disabled={busy || connecting}
                 className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-3 text-left transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-white/20"
               >
                 <div className="flex items-center justify-between">
