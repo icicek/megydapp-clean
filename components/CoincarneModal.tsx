@@ -21,6 +21,7 @@ import { PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
 import { connection } from '@/lib/solanaConnection';
 import { useInternalBalance, quantize } from '@/hooks/useInternalBalance';
 import { getDestAddress } from '@/lib/chain/env';
+import { __dest_debug__ } from '@/lib/chain/env';
 
 /* -------- Dynamic imports (default export + cast) -------- */
 
@@ -95,6 +96,13 @@ export default function CoincarneModal({
   // Env’den hedef adres
   const [destSol, setDestSol] = useState<PublicKey | null>(null);
   const [destErr, setDestErr] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log('[DEST DEBUG]', __dest_debug__());
+    }
+  }, []);
+  
   useEffect(() => {
     try {
       const addr = getDestAddress('solana');
