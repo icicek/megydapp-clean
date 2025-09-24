@@ -12,16 +12,12 @@ import {
 import { useWallet } from '@solana/wallet-adapter-react';
 import type { WalletName } from '@solana/wallet-adapter-base';
 
-
 type Props = {
   open: boolean;
   onClose: () => void;
 };
 
-/**
- * Marka -> wallet-adapter "name" eşlemesi.
- * Bu string'ler adapter'ların `wallet.name` değerleri ile aynı olmalı.
- */
+/** adapter.name eşleşmeleri */
 const NAME_MAP = {
   phantom: 'Phantom',
   solflare: 'Solflare',
@@ -39,11 +35,10 @@ const BRANDS: { id: Brand; label: string; note?: string }[] = [
 ];
 
 export default function ConnectModal({ open, onClose }: Props) {
-  const { select, connect, connected, connecting, wallet, wallets } = useWallet();
+  const { select, connect, connected, connecting, wallets } = useWallet();
   const [err, setErr] = useState<string | null>(null);
   const [clicked, setClicked] = useState<Brand | null>(null);
 
-  // Bağlanınca modalı kapat
   useEffect(() => {
     if (connected) {
       setErr(null);
@@ -52,13 +47,11 @@ export default function ConnectModal({ open, onClose }: Props) {
     }
   }, [connected, onClose]);
 
-  // Kurulu adaptörleri hızlı keşfet (Sadece görsel rozet için opsiyonel)
   const installed = useMemo(() => {
     const map = new Set<string>();
     for (const w of wallets) {
-      if ((w as any).readyState === 'Installed' || (w as any).readyState === 'Loadable') {
-        map.add(w.adapter.name);
-      }
+      const rs = (w as any).readyState;
+      if (rs === 'Installed' || rs === 'Loadable') map.add(w.adapter.name);
     }
     return map;
   }, [wallets]);
@@ -67,27 +60,24 @@ export default function ConnectModal({ open, onClose }: Props) {
     setErr(null);
     setClicked(brand);
     try {
-      const label = NAME_MAP[brand]; // 'Phantom' | 'Solflare' | ...
-      const target = wallets.find(w => w.adapter.name === label);
-      if (!target) {
-        throw new Error(`${label} adapter not available`);
-      }
-  
-      // select -> WalletName tipinde olmalı
+      const label = NAME_MAP[brand];
+      const target = wallets.find((w) => w.adapter.name === label);
+      if (!target) throw new Error(`${label} adapter not available`);
+
+      // 1) Select (WalletName tipi şart)
       select(target.adapter.name as WalletName);
-  
-      // adapter değişimini microtask'ta tamamlasın
-      await Promise.resolve();
-  
-      // connect -> popup/deeplink açılır
+
+      // 2) State otursun diye microtask/raf beklet
+      await new Promise((r) => setTimeout(r, 0));
+
+      // 3) Connect — tek tıkta popup/deeplink
       await connect();
-  
-      // başarı -> useEffect(modal close) zaten kapatıyor
+      // success -> useEffect modalı kapatır
     } catch (e: any) {
       setErr(e?.message || String(e) || 'Failed to connect.');
       setClicked(null);
     }
-  }  
+  }
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -130,13 +120,6 @@ export default function ConnectModal({ open, onClose }: Props) {
         </div>
 
         {err && <div className="mt-3 text-sm text-red-400">{err}</div>}
-
-        {/* Alt menü: bağlı cüzdan menüsü için alan (isteğe bağlı) */}
-        {wallet && !connected && (
-          <div className="mt-4 text-xs text-gray-400">
-            Selected: <b>{wallet.adapter.name}</b>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );
