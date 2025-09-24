@@ -1,4 +1,3 @@
-// components/wallet/ConnectModal.tsx
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -36,11 +35,13 @@ export default function ConnectModal({ open, onClose }: Props) {
   const { select, connect, connected, connecting, wallets, wallet } = useWallet();
   const [err, setErr] = useState<string | null>(null);
   const [clicked, setClicked] = useState<Brand | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (connected && open) {
       setErr(null);
       setClicked(null);
+      setBusy(false);
       onClose();
     }
   }, [connected, open, onClose]);
@@ -54,43 +55,68 @@ export default function ConnectModal({ open, onClose }: Props) {
     return map;
   }, [wallets]);
 
-  // Seçim context’e işleyene kadar bekle (max ~600ms), sonra connect et
-  async function waitForSelection(expectedName: string, timeoutMs = 600) {
-    const start = performance.now();
-    while (performance.now() - start < timeoutMs) {
-      if (wallet?.adapter?.name === expectedName) return;
-      // iki frame beklemek, React 19 commitlerini güvene alır
-      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const nextFrame = () =>
+    new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+  // select -> commit bekle -> connect (WalletNotSelectedError için retry)
+  async function connectWithRetry(label: string) {
+    const target = wallets.find((w) => w.adapter.name === label);
+    if (!target) throw new Error(`${label} adapter not available`);
+
+    const adapterName = target.adapter.name as WalletName;
+
+    // 1) Seç
+    select(adapterName);
+
+    // 2) React 19 commit + provider seçimi için kısa bekleme
+    await Promise.resolve();      // microtask
+    await nextFrame();            // 1 frame
+    await sleep(10);              // küçük tampon
+
+    // 3) Retry ile connect
+    const MAX_ATTEMPTS = 6;
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      try {
+        await connect();
+        return; // success
+      } catch (e: any) {
+        const name = e?.name || '';
+        const msg = String(e?.message || e || '');
+        const isNotSelected =
+          name === 'WalletNotSelectedError' ||
+          msg.includes('WalletNotSelectedError');
+
+        if (isNotSelected) {
+          // Provider henüz seçimi görmedi → bekle ve yeniden dene
+          await sleep(100 + i * 100); // 100ms → 600ms arası artan bekleme
+          continue;
+        }
+        // başka bir hata ise dışarı fırlat
+        throw e;
+      }
     }
-    // Süre dolsa da connect deneyeceğiz (bazı adapterler yine de hazır olabilir)
+    throw new Error('Connect timeout (please try again).');
   }
 
   async function handleClick(brand: Brand) {
     setErr(null);
     setClicked(brand);
+    setBusy(true);
     try {
       const label = NAME_MAP[brand];
-      const target = wallets.find((w) => w.adapter.name === label);
-      if (!target) throw new Error(`${label} adapter not available`);
-
-      // 1) Seç
-      select(target.adapter.name as WalletName);
-
-      // 2) Seçimin gerçekten context'e oturmasını bekle
-      await waitForSelection(target.adapter.name);
-
-      // 3) Bağlan (tek tıkta)
-      await connect();
-      // success → useEffect modalı kapatır
+      await connectWithRetry(label);
+      // başarı → useEffect modalı kapatır
     } catch (e: any) {
       setErr(e?.message || String(e) || 'Failed to connect.');
       setClicked(null);
+      setBusy(false);
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      {/* Eğer DialogOverlay export edilmiyorsa bu satırı silebilirsin */}
+      {/* Eğer DialogOverlay export edilmiyorsa bu satırı kaldırabilirsiniz */}
       <DialogOverlay className="z-[90]" />
       <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-[100] shadow-lg">
         <DialogTitle className="text-white">Connect a Solana wallet</DialogTitle>
@@ -100,14 +126,14 @@ export default function ConnectModal({ open, onClose }: Props) {
 
         <div className="grid grid-cols-2 gap-3 mt-4">
           {BRANDS.map((b) => {
-            const isBusy = connecting && clicked === b.id;
+            const isBusy = (connecting || busy) && clicked === b.id;
             const isInstalled = installed.has(NAME_MAP[b.id]);
             return (
               <button
                 key={b.id}
                 onClick={() => handleClick(b.id)}
-                disabled={connecting}
-                className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-3 text-left transition disabled:opacity-60"
+                disabled={connecting || busy}
+                className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-3 text-left transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-white/20"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-semibold">{b.label}</span>
