@@ -64,7 +64,7 @@ export function useWalletTokens(options?: Options) {
         .map(({ account }) => {
           const parsed = (account as any).data.parsed;
           return {
-            mint: parsed.info.mint,
+            mint: parsed.info.mint as string,
             amount: parseFloat(parsed.info.tokenAmount?.uiAmountString || '0'),
           };
         })
@@ -76,27 +76,49 @@ export function useWalletTokens(options?: Options) {
         tokenListRaw.unshift({ mint: 'SOL', amount: lamports / 1e9, symbol: 'SOL' });
       }
 
-      // 4) Enrich with symbol/logo (cached list + fallback metadata)
-      const tokenMetadata = await fetchSolanaTokenList();
+      // 4) Enrich with symbol/logo (Jupiter + Registry + fallback), case-insensitive
+      const list = await fetchSolanaTokenList(); // <- yeni güçlü liste
+      const metaMap = new Map(list.map((m) => [m.address.toLowerCase(), m]));
+
       const enriched = await Promise.all(
         tokenListRaw.map(async (token) => {
           if (token.mint === 'SOL') return token;
-          const meta = tokenMetadata.find((m) => m.address === token.mint);
-          if (meta) return { ...token, symbol: meta.symbol, logoURI: meta.logoURI };
-          const fallback = await fetchTokenMetadata(token.mint);
-          return { ...token, symbol: fallback?.symbol || token.mint.slice(0, 4) };
+
+          const meta = metaMap.get(token.mint.toLowerCase());
+          if (meta?.symbol || meta?.logoURI) {
+            return {
+              ...token,
+              symbol: meta.symbol || token.symbol || token.mint.slice(0, 4),
+              logoURI: meta.logoURI,
+            };
+          }
+
+          // Fallback: tekil metadata (ör. Helius, Solscan, vs. – client helper’ın döndürdüğü)
+          try {
+            const fallback = await fetchTokenMetadata(token.mint);
+            if (fallback?.symbol || fallback?.logoURI) {
+              return {
+                ...token,
+                symbol: fallback.symbol || token.mint.slice(0, 4),
+                logoURI: fallback.logoURI,
+              };
+            }
+          } catch {
+            // ignore
+          }
+
+          // En kötü ihtimalle mint'in kısa hali
+          return { ...token, symbol: token.mint.slice(0, 4) };
         })
       );
 
       setTokens(enriched);
       setHasLoadedOnce(true);
-      if (!silent) setError(null); // initial success clears error
+      if (!silent) setError(null);
     } catch (e: any) {
-      // Only surface error if this is the initial/foreground fetch
       if (!silent || !hasLoadedOnce) {
         setError(e?.message || 'Failed to fetch tokens');
       }
-      // keep previous tokens for UX
     } finally {
       inflightRef.current = false;
       setLoading(false);
