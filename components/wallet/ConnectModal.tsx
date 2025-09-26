@@ -14,7 +14,6 @@ import { flushSync } from 'react-dom';
 
 type Props = { open: boolean; onClose: () => void };
 
-/** adapter.name eşleşmeleri */
 const NAME_MAP = {
   phantom: 'Phantom',
   solflare: 'Solflare',
@@ -31,17 +30,15 @@ const BRANDS: { id: Brand; label: string; note?: string }[] = [
 ];
 
 export default function ConnectModal({ open, onClose }: Props) {
-  const { select, connect, connected, connecting, wallets } = useWallet();
+  const { select, connect, disconnect, connected, connecting, wallets } = useWallet();
   const [err, setErr] = useState<string | null>(null);
   const [clicked, setClicked] = useState<Brand | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Modal her açıldığında UI state temizle
   useEffect(() => {
     if (open) { setErr(null); setClicked(null); setBusy(false); }
   }, [open]);
 
-  // Bağlanınca otomatik kapat
   useEffect(() => {
     if (connected && open) onClose();
   }, [connected, open, onClose]);
@@ -55,10 +52,14 @@ export default function ConnectModal({ open, onClose }: Props) {
     return map;
   }, [wallets]);
 
-  function isNotSelected(e: any) {
-    const s = (e?.name || '') + ' ' + (e?.message || '');
-    return /WalletNotSelectedError/i.test(s);
-  }
+  const isNotSelected = (e: any) =>
+    /WalletNotSelectedError/i.test(((e?.name || '') + ' ' + (e?.message || '')));
+
+  const timeout = <T,>(p: Promise<T>, ms = 8000) =>
+    Promise.race<T>([
+      p,
+      new Promise<T>((_, rej) => setTimeout(() => rej(new Error('connect-timeout')), ms)),
+    ]);
 
   async function handleClick(brand: Brand) {
     if (busy) return;
@@ -69,29 +70,37 @@ export default function ConnectModal({ open, onClose }: Props) {
     const label = NAME_MAP[brand];
 
     try {
-      // ❗️KRİTİK: select'i *senkron* commit et → ardından connect
+      // 1) Seçimi SENKRON flush et
       flushSync(() => {
         select(label as WalletName);
       });
 
+      // 2) Bağlan (timeout ile)
       try {
-        await connect();
+        await timeout(connect());
       } catch (e: any) {
-        // Bazı ortamlarda bir tik gecikme gerekebilir
         if (isNotSelected(e)) {
-          await Promise.resolve(); // microtask
-          await connect();
+          // Bazı ortamlarda bir microtask gecikme gerekebiliyor
+          await Promise.resolve();
+          await timeout(connect());
         } else {
           throw e;
         }
       }
-      // success → useEffect modalı kapatır
+      // success → useEffect kapatır
     } catch (e: any) {
+      // UI'yı asla kilitleme — temizle ve mesaj göster
       const s = (e?.name || '') + ' ' + (e?.message || '');
-      let msg = e?.message || String(e) || 'Failed to connect.';
-      if (/UserRejected|4001/i.test(s)) msg = 'Request was rejected.';
-      else if (/WindowClosed|PopupClosed/i.test(s)) msg = 'Wallet window was closed.';
-      else if (isNotSelected(e)) msg = 'Wallet not selected (retry).';
+      let msg =
+        /connect-timeout/i.test(s)
+          ? 'Wallet did not respond. Please try again.'
+          : /UserRejected|4001/i.test(s)
+          ? 'Request was rejected.'
+          : /WindowClosed|PopupClosed/i.test(s)
+          ? 'Wallet window was closed.'
+          : e?.message || String(e) || 'Failed to connect.';
+
+      try { await disconnect(); } catch {}
       setErr(msg);
       setBusy(false);
       setClicked(null);
@@ -100,17 +109,15 @@ export default function ConnectModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      {/* Eğer DialogOverlay export edilmiyorsa bu satırı ve importu kaldırabilirsiniz */}
+      {/* Eğer DialogOverlay export edilmiyorsa bu satırı kaldırabilirsiniz */}
       <DialogOverlay className="z-[90]" />
       <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-[100] shadow-lg">
         <DialogTitle className="text-white">Connect a Solana wallet</DialogTitle>
-        <DialogDescription className="sr-only">
-          Choose a wallet to connect to Coincarnation.
-        </DialogDescription>
+        <DialogDescription className="sr-only">Choose a wallet to connect to Coincarnation.</DialogDescription>
 
         <div className="grid grid-cols-2 gap-3 mt-4">
           {BRANDS.map((b) => {
-            const isBusy = (busy || connecting) && clicked === b.id; // sadece seçili kartta spinner
+            const isBusy = (busy || connecting) && clicked === b.id;
             const isInstalled = installed.has(NAME_MAP[b.id]);
             return (
               <button

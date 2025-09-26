@@ -38,7 +38,7 @@ export default function ConnectBar() {
         el.classList.remove('opacity-0');
         setTimeout(() => el.classList.add('opacity-0'), 1200);
       }
-    } catch { /* noop */ }
+    } catch {}
   }
 
   return (
@@ -54,7 +54,6 @@ export default function ConnectBar() {
         </>
       ) : (
         <>
-          {/* Bağlıyken: tek chip + menü */}
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen((v) => !v)}
@@ -64,13 +63,7 @@ export default function ConnectBar() {
             >
               <span className="hidden sm:inline text-xs opacity-80">SOL</span>
               <span className="font-mono">{shortAddr}</span>
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                className={`transition ${menuOpen ? 'rotate-180' : ''}`}
-              >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={`transition ${menuOpen ? 'rotate-180' : ''}`}>
                 <path d="M7 10l5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </button>
@@ -82,10 +75,7 @@ export default function ConnectBar() {
               >
                 <button
                   role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    handleCopy();
-                  }}
+                  onClick={() => { setMenuOpen(false); handleCopy(); }}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm"
                 >
                   Copy address
@@ -94,8 +84,8 @@ export default function ConnectBar() {
                 <button
                   role="menuitem"
                   onClick={() => {
-                    // Dropdown kapansın → sonraki frame'de modalı aç
                     setMenuOpen(false);
+                    // dropdown unmount → SONRA modal aç
                     requestAnimationFrame(() => setOpenModal(true));
                   }}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm"
@@ -117,7 +107,6 @@ export default function ConnectBar() {
             )}
           </div>
 
-          {/* Kısa “copied” geri bildirimi */}
           <div
             id="cc-copy-toast"
             className="pointer-events-none absolute -bottom-8 right-0 text-xs bg-black/70 border border-white/10 rounded px-2 py-1 opacity-0 transition-opacity"
@@ -127,7 +116,7 @@ export default function ConnectBar() {
         </>
       )}
 
-      {/* Modal: DIŞARIDA tek instance olarak render */}
+      {/* Modal: DIŞARIDA tek instance */}
       <ConnectModal open={openModal} onClose={() => setOpenModal(false)} />
     </div>
   );
