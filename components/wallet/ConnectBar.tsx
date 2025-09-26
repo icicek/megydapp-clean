@@ -16,7 +16,6 @@ export default function ConnectBar() {
     return a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '';
   }, [publicKey]);
 
-  // Menü dışında tıklayınca kapat
   useEffect(() => {
     if (!menuOpen) return;
     const onDown = (e: MouseEvent) => {
@@ -85,7 +84,7 @@ export default function ConnectBar() {
                   role="menuitem"
                   onClick={() => {
                     setMenuOpen(false);
-                    // dropdown unmount → SONRA modal aç
+                    // dropdown tamamen kapansın → sonraki frame'de modalı aç
                     requestAnimationFrame(() => setOpenModal(true));
                   }}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm"
