@@ -1,4 +1,3 @@
-// components/wallet/ConnectModal.tsx
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -15,10 +14,10 @@ import { flushSync } from 'react-dom';
 
 type Props = { open: boolean; onClose: () => void };
 
-// UI'de göstereceğimiz markalar
-export type Brand = 'phantom' | 'solflare' | 'backpack' | 'walletconnect';
+// UI kartları (sabit sıra)
+type Brand = 'phantom' | 'solflare' | 'backpack' | 'walletconnect';
 type UIItem = { key: Brand; label: string; note?: string };
-type Card   = { key: Brand; label: string; note?: string; installed: boolean };
+type Card   = { key: Brand; label: string; note?: string; installed: boolean; adapterName?: string };
 
 const UI: UIItem[] = [
   { key: 'phantom',       label: 'Phantom' },
@@ -27,44 +26,59 @@ const UI: UIItem[] = [
   { key: 'walletconnect', label: 'WalletConnect', note: 'QR / Mobile' },
 ];
 
-// ---- utils
+// ---- helpers --------------------------------------------------------------
+
+const normalize = (s: string) => s.toLowerCase().replace(/[^a-z]/g, ''); // "Solflare (Extension)" -> "solflareextension"
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-const timeout = <T,>(p: Promise<T>, ms = 10000) =>
+const timeout = <T,>(p: Promise<T>, ms = 10_000) =>
   Promise.race<T>([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error('connect-timeout')), ms))]);
 
-const isNotSelected  = (e: any) => /WalletNotSelectedError/i.test(((e?.name || '') + ' ' + (e?.message || '')));
-const isUserRejected = (e: any) => /UserRejected|4001/i.test(((e?.name || '') + ' ' + (e?.message || '')));
-const isPopupClosed  = (e: any) => /WindowClosed|PopupClosed/i.test(((e?.name || '') + ' ' + (e?.message || '')));
+const isNotSelected  = (e: any) => /walletnotselectederror/i.test(((e?.name || '') + ' ' + (e?.message || '')).toLowerCase());
+const isUserRejected = (e: any) => /userrejected|4001/.test(((e?.name || '') + ' ' + (e?.message || '')).toLowerCase());
+const isPopupClosed  = (e: any) => /windowclosed|popupclosed/.test(((e?.name || '') + ' ' + (e?.message || '')).toLowerCase());
 
 export default function ConnectModal({ open, onClose }: Props) {
-  const { select, connect, disconnect, connected, wallets } = useWallet();
+  const { select, connect, disconnect, connected, connecting, wallets } = useWallet();
   const [err, setErr] = useState<string | null>(null);
   const [clicked, setClicked] = useState<Brand | null>(null);
   const [busy, setBusy] = useState(false);
 
   // Modal açılınca temizle
-  useEffect(() => { if (open) { setErr(null); setClicked(null); setBusy(false); } }, [open]);
+  useEffect(() => {
+    if (open) { setErr(null); setClicked(null); setBusy(false); }
+  }, [open]);
 
-  // Bağlanınca kapan
-  useEffect(() => { if (connected && open) onClose(); }, [connected, open, onClose]);
+  // Bağlanınca kapat
+  useEffect(() => {
+    if (connected && open) onClose();
+  }, [connected, open, onClose]);
 
-  // Kart listesi (note + installed bilgisiyle)
-  const cards = useMemo<Card[]>(() => {
-    return UI.map(({ key, label, note }) => {
-      const entry = wallets.find(w => w.adapter.name.toLowerCase().includes(key));
-      const installed = !!entry && (
-        (entry as any).readyState === 'Installed' || (entry as any).readyState === 'Loadable' ||
-        (entry?.adapter as any)?.readyState === 'Installed' || (entry?.adapter as any)?.readyState === 'Loadable'
-      );
-      return { key, label, note, installed };
-    });
+  // Cihazdaki gerçek adapter'ları markalara haritala
+  const mapByBrand = useMemo(() => {
+    const m = new Map<Brand, { adapterName: string; installed: boolean }>();
+    for (const w of wallets) {
+      const nm = normalize(w.adapter.name); // "phantom", "solflareextension", "walletconnect" vs.
+      const installed =
+        ((w as any).readyState === 'Installed' || (w as any).readyState === 'Loadable' ||
+         (w.adapter as any).readyState === 'Installed' || (w.adapter as any).readyState === 'Loadable');
+
+      if (nm.includes('phantom'))        m.set('phantom', { adapterName: w.adapter.name, installed });
+      else if (nm.includes('solflare'))  m.set('solflare', { adapterName: w.adapter.name, installed });
+      else if (nm.includes('backpack'))  m.set('backpack', { adapterName: w.adapter.name, installed });
+      else if (nm.includes('walletconnect')) m.set('walletconnect', { adapterName: w.adapter.name, installed });
+    }
+    return m;
   }, [wallets]);
 
-  // Seçilecek gerçek adapter adını bul
-  function adapterNameFor(brand: Brand): string | null {
-    const found = wallets.find(w => w.adapter.name.toLowerCase().includes(brand));
-    return found?.adapter?.name ?? null; // ör: "Solflare", "Solflare (Extension)" vs.
-  }
+  // UI kartları (Installed rozeti ve gerçek adapterName ile)
+  const cards = useMemo<Card[]>(() => {
+    return UI.map(({ key, label, note }) => {
+      const hit = mapByBrand.get(key);
+      return { key, label, note, installed: !!hit?.installed, adapterName: hit?.adapterName };
+    });
+  }, [mapByBrand]);
+
+  // ---- core: seçim + bağlanma ------------------------------------------------
 
   async function handleClick(brand: Brand) {
     if (busy) return;
@@ -73,22 +87,28 @@ export default function ConnectModal({ open, onClose }: Props) {
     setBusy(true);
 
     try {
-      const targetName = adapterNameFor(brand);
-      if (!targetName) throw new Error('Selected wallet adapter is not available.');
+      const hit = mapByBrand.get(brand);
+      if (!hit?.adapterName) throw new Error('Selected wallet adapter is not available.');
 
-      // 1) select'i SENKRON commit et (race'i keser)
-      flushSync(() => { select(targetName as WalletName); });
+      // Önceki yarım kalmış denemeyi temizle (connecting takılı kaldıysa)
+      if (connecting) {
+        try { await disconnect(); } catch {}
+        await sleep(50);
+      }
 
-      // 2) connect: sadece WalletNotSelectedError için artan beklemeli tekrar dene
+      // 1) select → SENKRON commit (race'i kes)
+      flushSync(() => { select(hit.adapterName as WalletName); });
+
+      // 2) connect → sadece "NotSelected" için kısa backoff'larla tekrar dene
       const backoff = [0, 16, 32, 64, 128, 256, 512] as const;
       for (let i = 0; i < backoff.length; i++) {
         try {
-          await timeout(connect(), 10000);
+          await timeout(connect(), 10_000);
           return; // success (connected effect kapatır)
         } catch (e: any) {
           if (isNotSelected(e)) { await sleep(backoff[i]); continue; }
-          if (isUserRejected(e) || isPopupClosed(e)) throw e; // net kullanıcı aksiyonu
-          throw e;
+          if (isUserRejected(e) || isPopupClosed(e)) throw e;
+          throw e; // farklı hata -> dışarı
         }
       }
       throw new Error('WalletNotSelectedError');
@@ -100,6 +120,7 @@ export default function ConnectModal({ open, onClose }: Props) {
         isPopupClosed(e)  ? 'Wallet window was closed.' :
         isNotSelected(e)  ? 'Wallet not selected — please try again.' :
         e?.message || String(e) || 'Failed to connect.';
+      // UI'yi kilitleme
       try { await disconnect(); } catch {}
       setErr(msg);
       setBusy(false);
@@ -109,7 +130,7 @@ export default function ConnectModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      {/* Eğer DialogOverlay export edilmiyorsa bu satırı kaldırın */}
+      {/* DialogOverlay export edilmiyorsa bu satırı kaldırın */}
       <DialogOverlay className="z-[90]" />
       <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-[100] shadow-lg">
         <DialogTitle className="text-white">Connect a Solana wallet</DialogTitle>
