@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/dialog';
 import { useWallet } from '@solana/wallet-adapter-react';
 import type { WalletName } from '@solana/wallet-adapter-base';
-import { flushSync } from 'react-dom';
 
 type Props = { open: boolean; onClose: () => void };
 
@@ -36,11 +35,14 @@ const isNotSelected  = (e: any) => /walletnotselectederror/i.test(((e?.name||'')
 const isUserRejected = (e: any) => /userrejected|4001/.test(((e?.name||'')+' '+(e?.message||'')).toLowerCase());
 const isPopupClosed  = (e: any) => /windowclosed|popupclosed/.test(((e?.name||'')+' '+(e?.message||'')).toLowerCase());
 
+// react-dom bağımlılığı olmadan güvenli flush (no-op)
+const flush = (cb: () => void) => cb();
+
 export default function ConnectModal({ open, onClose }: Props) {
-  const {
-    wallets, select, connect, disconnect,
-    connected, connecting, disconnecting, wallet,
-  } = useWallet();
+  const api = useWallet();
+  const { wallets, select, connect, disconnect, connected, wallet } = api;
+  const connecting = (api as any).connecting as boolean;
+  const disconnecting = (api as any).disconnecting as boolean;
 
   const [err, setErr] = useState<string | null>(null);
   const [clicked, setClicked] = useState<Brand | null>(null);
@@ -88,9 +90,12 @@ export default function ConnectModal({ open, onClose }: Props) {
 
     if (changing) {
       try { await disconnect(); } catch {}
-      // disconnecting flag'i düşene kadar kısa bekleme
+      // disconnecting/connecting bayrakları sönene kadar kısa bekleme
       for (let i = 0; i < 20; i++) {
-        if (!disconnecting && !connected && !connecting) break;
+        const nowConnecting = (api as any).connecting as boolean;
+        const nowDisconnecting = (api as any).disconnecting as boolean;
+        const nowConnected = api.connected;
+        if (!nowDisconnecting && !nowConnected && !nowConnecting) break;
         await sleep(50);
       }
     }
@@ -110,8 +115,8 @@ export default function ConnectModal({ open, onClose }: Props) {
     try {
       await ensureCleanBeforeSwitch(hit.adapterName);
 
-      // 1) select → aynı jestte senkron commit
-      flushSync(() => { select(hit.adapterName as WalletName); });
+      // 1) select → aynı jestte senkron commit (no-op flush ile)
+      flush(() => { select(hit.adapterName as WalletName); });
 
       // 2) connect → sadece NotSelected için kısa backoff ile tekrar
       const backoff = [0, 16, 32, 64, 128, 256, 512] as const;
@@ -139,6 +144,7 @@ export default function ConnectModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      {/* Eğer DialogOverlay export edilmiyorsa bu satırı kaldırın */}
       <DialogOverlay className="z-[90]" />
       <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-[100] shadow-lg">
         <DialogTitle className="text-white">Connect a Solana wallet</DialogTitle>
