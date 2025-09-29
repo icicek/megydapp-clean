@@ -94,14 +94,16 @@ export default function ConnectBar() {
 
                 <button
                   role="menuitem"
-                  onClick={() => {
+                  onClick={async () => {
                     setMenuOpen(false);
-                    setTimeout(() => disconnect().catch(() => {}), 0);
+                    try { await disconnect(); } catch {}
                   }}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm text-red-300"
                 >
                   Disconnect
                 </button>
+                // ...
+
               </div>
             )}
           </div>
