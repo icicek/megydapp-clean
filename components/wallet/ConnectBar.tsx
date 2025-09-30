@@ -4,9 +4,21 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import ConnectModal from '@/components/wallet/ConnectModal';
+import WalletBrandIcon, { Brand } from '@/components/wallet/WalletBrandIcon';
+
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
+const toBrand = (name?: string): Brand | undefined => {
+  if (!name) return undefined;
+  const n = norm(name);
+  if (n.includes('phantom')) return 'phantom';
+  if (n.includes('solflare')) return 'solflare';
+  if (n.includes('backpack')) return 'backpack';
+  if (n.includes('walletconnect')) return 'walletconnect';
+  return undefined;
+};
 
 export default function ConnectBar() {
-  const { connected, publicKey, disconnect } = useWallet();
+  const { connected, publicKey, disconnect, wallet } = useWallet();
 
   const [openModal, setOpenModal] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -16,6 +28,8 @@ export default function ConnectBar() {
     const a = publicKey?.toBase58();
     return a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '';
   }, [publicKey]);
+
+  const brand = useMemo<Brand | undefined>(() => toBrand(wallet?.adapter?.name), [wallet?.adapter?.name]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -46,16 +60,27 @@ export default function ConnectBar() {
         <>
           <div className="relative" ref={menuRef}>
             <button
-              onClick={() => setMenuOpen((v) => !v)}
-              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-2 text-sm shadow"
+              onClick={() => setMenuOpen(v => !v)}
+              className="relative flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-2 text-sm shadow"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
             >
-              <span className="hidden sm:inline text-xs opacity-80">SOL</span>
-              <span className="font-mono">{shortAddr}</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={`transition ${menuOpen ? 'rotate-180' : ''}`}>
-                <path d="M7 10l5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
+              {/* soft glow */}
+              <span
+                aria-hidden
+                className="pointer-events-none absolute -inset-0.5 rounded-2xl blur opacity-30"
+                style={{ background: 'radial-gradient(60% 60% at 30% 20%, rgba(80,200,120,.35), rgba(0,0,0,0))' }}
+              />
+              <span className="relative flex items-center gap-2">
+                {brand && <WalletBrandIcon brand={brand} className="h-4 w-4" />}
+                <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded-full border border-white/15 bg-gradient-to-r from-emerald-500/20 to-cyan-500/20">
+                  SOL
+                </span>
+                <span className="font-mono">{shortAddr}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={`transition ${menuOpen ? 'rotate-180' : ''}`}>
+                  <path d="M7 10l5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </span>
             </button>
 
             {menuOpen && (
@@ -97,7 +122,6 @@ export default function ConnectBar() {
         </>
       )}
 
-      {/* Tek instance modal */}
       <ConnectModal open={openModal} onClose={() => setOpenModal(false)} />
     </div>
   );
