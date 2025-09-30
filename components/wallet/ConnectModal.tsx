@@ -2,39 +2,35 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Dialog, DialogOverlay, DialogContent, DialogTitle, DialogDescription,
-} from '@/components/ui/dialog';
+import { Dialog, DialogOverlay, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useWallet } from '@solana/wallet-adapter-react';
 import type { WalletName } from '@solana/wallet-adapter-base';
 import { connectStable } from '@/lib/solana/connectStable';
 
 type Props = { open: boolean; onClose: () => void };
-export type Brand = 'phantom' | 'solflare' | 'backpack';
+export type Brand = 'phantom' | 'solflare' | 'backpack' | 'walletconnect';
 
 type UIItem = { key: Brand; label: string; note?: string };
 type Card   = { key: Brand; label: string; note?: string; installed: boolean; adapterName?: string };
 
 const UI: UIItem[] = [
-  { key: 'phantom',  label: 'Phantom'  },
+  { key: 'phantom',  label: 'Phantom' },
   { key: 'solflare', label: 'Solflare' },
   { key: 'backpack', label: 'Backpack' },
+  { key: 'walletconnect', label: 'WalletConnect', note: 'QR / Mobile' },
 ];
 
-const INSTALL_URL: Record<Brand, string> = {
+const INSTALL_URL: Record<Exclude<Brand,'walletconnect'>, string> = {
   phantom:  'https://phantom.app/download',
   solflare: 'https://solflare.com/download',
   backpack: 'https://www.backpack.app/download',
 };
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export default function ConnectModal({ open, onClose }: Props) {
   const api = useWallet();
-  const { wallets, select, disconnect, connected } = api;
-  const connecting = (api as any).connecting as boolean;
-  const disconnecting = (api as any).disconnecting as boolean;
+  const { wallets, select, disconnect } = api;
 
   const [err, setErr] = useState<string | null>(null);
   const [clicked, setClicked] = useState<Brand | null>(null);
@@ -42,8 +38,6 @@ export default function ConnectModal({ open, onClose }: Props) {
 
   // Modal açılınca temizle
   useEffect(() => { if (open) { setErr(null); setClicked(null); setBusy(false); } }, [open]);
-  // Bağlanınca kapat
-  useEffect(() => { if (connected && open) onClose(); }, [connected, open, onClose]);
 
   // Wallet Standard → marka eşleme
   const mapByBrand = useMemo(() => {
@@ -52,9 +46,10 @@ export default function ConnectModal({ open, onClose }: Props) {
       const n = norm(w.adapter.name);
       const rs = (w as any).readyState ?? (w.adapter as any).readyState;
       const installed = rs === 'Installed' || rs === 'Loadable';
-      if (n.includes('phantom'))  m.set('phantom',  { adapterName: w.adapter.name, installed });
-      if (n.includes('solflare')) m.set('solflare', { adapterName: w.adapter.name, installed });
-      if (n.includes('backpack')) m.set('backpack', { adapterName: w.adapter.name, installed });
+      if (n.includes('phantom'))       m.set('phantom',       { adapterName: w.adapter.name, installed });
+      if (n.includes('solflare'))      m.set('solflare',      { adapterName: w.adapter.name, installed });
+      if (n.includes('backpack'))      m.set('backpack',      { adapterName: w.adapter.name, installed });
+      if (n.includes('walletconnect')) m.set('walletconnect', { adapterName: w.adapter.name, installed: true });
     }
     return m;
   }, [wallets]);
@@ -67,47 +62,35 @@ export default function ConnectModal({ open, onClose }: Props) {
     [mapByBrand]
   );
 
-  // Disconnect/connecting durumlarını temizlemeden cüzdan değiştirmeyelim
-  const ensureCleanBeforeSwitch = async () => {
-    if (!connecting && !disconnecting && !connected) return;
-    try { await disconnect(); } catch {}
-    for (let i = 0; i < 20; i++) {
-      const nowConnecting = (api as any).connecting as boolean;
-      const nowDisconnecting = (api as any).disconnecting as boolean;
-      const nowConnected = api.connected;
-      if (!nowDisconnecting && !nowConnected && !nowConnecting) break;
-      await sleep(40);
-    }
-  };
-
   async function handlePick(brand: Brand) {
     if (busy) return;
     setErr(null); setClicked(brand); setBusy(true);
 
     const hit = mapByBrand.get(brand);
 
-    // YOKSA → Install sayfası
-    if (!hit?.adapterName || !hit.installed) {
+    // WalletConnect yoksa → projeyi ayarlamadın demektir
+    if (brand === 'walletconnect' && !hit?.adapterName) {
+      setErr('WalletConnect is not configured. Please set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID.');
+      setBusy(false); setClicked(null);
+      return;
+    }
+
+    // Extension cüzdanı yüklü değilse → indirme sayfasına
+    if ((brand === 'phantom' || brand === 'solflare' || brand === 'backpack') && (!hit?.adapterName || !hit.installed)) {
       window.open(INSTALL_URL[brand], '_blank', 'noopener,noreferrer');
-      setBusy(false);
-      setClicked(null);
+      setBusy(false); setClicked(null);
       return;
     }
 
     try {
-      // 0) temizle
-      await ensureCleanBeforeSwitch();
+      // select + adapter.connect (connectStable içinde)
+      await select(hit!.adapterName as WalletName);
+      await connectStable(hit!.adapterName!, api);
 
-      // 1) select + ADAPTER.CONNECT → tekli ve stabil
-      await select(hit.adapterName as WalletName);
-      await connectStable(hit.adapterName, api);
-
-      // Başarılı → effect modalı kapatır
+      // ✔ Başarılı → burada KAPAT
+      onClose();
     } catch (e: any) {
-      const s = (e?.name || '') + ' ' + (e?.message || '');
-      let msg = e?.message || String(e) || 'Failed to connect.';
-      if (/connect-timeout/i.test(s)) msg = 'Wallet did not respond. Please try again.';
-      setErr(msg);
+      setErr(e?.message || String(e) || 'Failed to connect.');
       try { await disconnect(); } catch {}
       setBusy(false); setClicked(null);
     }
@@ -126,13 +109,17 @@ export default function ConnectModal({ open, onClose }: Props) {
             return (
               <button
                 key={key}
-                onPointerDown={() => handlePick(key)} // popup engelleyiciye karşı
+                onPointerDown={() => handlePick(key)}
                 disabled={busy}
                 className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-3 text-left transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-white/20"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-semibold">{label}</span>
-                  {installed ? (
+                  {key === 'walletconnect' ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-600/30 border border-indigo-500/50">
+                      QR / Mobile
+                    </span>
+                  ) : installed ? (
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-600/30 border border-emerald-500/50">
                       Installed
                     </span>

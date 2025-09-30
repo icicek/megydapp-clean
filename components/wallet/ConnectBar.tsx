@@ -1,3 +1,4 @@
+// components/wallet/ConnectBar.tsx
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -20,37 +21,27 @@ export default function ConnectBar() {
     if (!menuOpen) return;
     const onDown = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
-      if (menuRef.current && target && !menuRef.current.contains(target)) {
-        setMenuOpen(false);
-      }
+      if (menuRef.current && target && !menuRef.current.contains(target)) setMenuOpen(false);
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, [menuOpen]);
 
-  async function handleCopy() {
+  function openExplorer() {
     if (!publicKey) return;
-    try {
-      await navigator.clipboard.writeText(publicKey.toBase58());
-      const el = document.getElementById('cc-copy-toast');
-      if (el) {
-        el.classList.remove('opacity-0');
-        setTimeout(() => el.classList.add('opacity-0'), 1200);
-      }
-    } catch {}
+    const url = `https://explorer.solana.com/address/${publicKey.toBase58()}?cluster=mainnet`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   return (
     <div className="relative flex items-center justify-end w-full">
       {!connected ? (
-        <>
-          <button
-            onClick={() => setOpenModal(true)}
-            className="rounded-xl px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm md:text-base shadow"
-          >
-            Connect wallet
-          </button>
-        </>
+        <button
+          onClick={() => setOpenModal(true)}
+          className="rounded-xl px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm md:text-base shadow"
+        >
+          Connect wallet
+        </button>
       ) : (
         <>
           <div className="relative" ref={menuRef}>
@@ -68,13 +59,10 @@ export default function ConnectBar() {
             </button>
 
             {menuOpen && (
-              <div
-                role="menu"
-                className="absolute right-0 top-full mt-2 w-52 rounded-xl border border-white/10 bg-zinc-900/95 backdrop-blur p-2 shadow-2xl z-50"
-              >
+              <div role="menu" className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-white/10 bg-zinc-900/95 backdrop-blur p-2 shadow-2xl z-50">
                 <button
                   role="menuitem"
-                  onClick={() => { setMenuOpen(false); handleCopy(); }}
+                  onClick={() => { setMenuOpen(false); navigator.clipboard.writeText(publicKey!.toBase58()).catch(()=>{}); }}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm"
                 >
                   Copy address
@@ -82,11 +70,7 @@ export default function ConnectBar() {
 
                 <button
                   role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    // dropdown tamamen kapansın → sonraki frame'de modalı aç
-                    requestAnimationFrame(() => setOpenModal(true));
-                  }}
+                  onClick={() => { setMenuOpen(false); requestAnimationFrame(() => setOpenModal(true)); }}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm"
                 >
                   Change wallet
@@ -94,30 +78,26 @@ export default function ConnectBar() {
 
                 <button
                   role="menuitem"
-                  onClick={async () => {
-                    setMenuOpen(false);
-                    try { await disconnect(); } catch {}
-                  }}
+                  onClick={() => { setMenuOpen(false); openExplorer(); }}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm"
+                >
+                  View on Explorer
+                </button>
+
+                <button
+                  role="menuitem"
+                  onClick={async () => { setMenuOpen(false); try { await disconnect(); } catch {} }}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm text-red-300"
                 >
                   Disconnect
                 </button>
-                // ...
-
               </div>
             )}
-          </div>
-
-          <div
-            id="cc-copy-toast"
-            className="pointer-events-none absolute -bottom-8 right-0 text-xs bg-black/70 border border-white/10 rounded px-2 py-1 opacity-0 transition-opacity"
-          >
-            Copied
           </div>
         </>
       )}
 
-      {/* Modal: DIŞARIDA tek instance */}
+      {/* Tek instance modal */}
       <ConnectModal open={openModal} onClose={() => setOpenModal(false)} />
     </div>
   );
