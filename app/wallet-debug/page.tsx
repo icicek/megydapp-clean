@@ -30,35 +30,32 @@ export default function WalletDebug() {
     try {
       const entry = wallets.find(w => w.adapter.name === name);
       if (!entry) return console.warn('wallet not found:', name);
-      if (entry.readyState !== 'Installed') {
+      if (entry.readyState !== 'Installed')
         return console.warn('wallet not installed/ready:', name, entry.readyState);
-      }
-
-      // 1) önce select
+  
+      // 1) context’te seçimi yap
       await select(entry.adapter.name as unknown as WalletName<string>);
-
-      // 2) state’in apply olması için minik bir microtask/yield
-      await sleep(50);
-
-      // 3) connect’i dene; “seçilmedi” yarışı için 2 kez daha deneyebilir
+  
+      // 2) Yarışı tamamen ortadan kaldırmak için ADAPTER’A direkt bağlan
+      //    (context de seçili olduğu için state düzgün güncellenecek)
       let lastErr: unknown = null;
       for (let i = 0; i < 3; i++) {
         try {
-          await connect();
-          console.log('[connect] success:', name);
+          await entry.adapter.connect();
+          console.log('[connect] success via adapter:', name);
           lastErr = null;
           break;
         } catch (e) {
           lastErr = e;
-          console.warn('[connect retry]', i + 1, e);
-          await sleep(100);
+          console.warn('[adapter connect retry]', i + 1, e);
+          await sleep(120);
         }
       }
       if (lastErr) throw lastErr;
     } catch (e) {
       console.error('[connect] error:', e);
     }
-  };
+  };  
 
   return (
     <div style={{ padding: 20 }}>
