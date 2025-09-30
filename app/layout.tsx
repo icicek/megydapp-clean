@@ -1,15 +1,10 @@
+// app/layout.tsx
 import '@solana/wallet-adapter-react-ui/styles.css';
 import './globals.css';
 
 import type { Metadata } from 'next';
-import { ReactNode } from 'react';
-import WalletConnectionProvider from '@/components/WalletConnectionProvider';
-import { APP_URL, absoluteUrl } from '@/app/lib/origin';
-import { ChainProvider } from '@/app/providers/ChainProvider';
-import { WalletHubProvider } from '@/app/providers/WalletHub';
-import DebugTrap from '@/components/DebugTrap';
-import './globals.css';
 import Providers from './providers';
+import { APP_URL, absoluteUrl } from '@/app/lib/origin';
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),

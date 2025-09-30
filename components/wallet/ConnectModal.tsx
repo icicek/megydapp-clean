@@ -7,31 +7,32 @@ import {
 } from '@/components/ui/dialog';
 import { useWallet } from '@solana/wallet-adapter-react';
 import type { WalletName } from '@solana/wallet-adapter-base';
+import { connectStable } from '@/lib/solana/connectStable';
 
 type Props = { open: boolean; onClose: () => void };
+export type Brand = 'phantom' | 'solflare' | 'backpack';
 
-export type Brand = 'phantom' | 'solflare' | 'backpack' | 'walletconnect';
 type UIItem = { key: Brand; label: string; note?: string };
 type Card   = { key: Brand; label: string; note?: string; installed: boolean; adapterName?: string };
 
 const UI: UIItem[] = [
-  { key: 'phantom',       label: 'Phantom' },
-  { key: 'solflare',      label: 'Solflare' },
-  { key: 'backpack',      label: 'Backpack' },
-  { key: 'walletconnect', label: 'WalletConnect', note: 'QR / Mobile' },
+  { key: 'phantom',  label: 'Phantom'  },
+  { key: 'solflare', label: 'Solflare' },
+  { key: 'backpack', label: 'Backpack' },
 ];
+
+const INSTALL_URL: Record<Brand, string> = {
+  phantom:  'https://phantom.app/download',
+  solflare: 'https://solflare.com/download',
+  backpack: 'https://www.backpack.app/download',
+};
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-const timeout = <T,>(p: Promise<T>, ms = 10_000) =>
-  Promise.race<T>([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error('connect-timeout')), ms))]);
-const isNotSelected  = (e: any) => /walletnotselectederror/i.test(((e?.name||'')+' '+(e?.message||'')).toLowerCase());
-const isUserRejected = (e: any) => /userrejected|4001/.test(((e?.name||'')+' '+(e?.message||'')).toLowerCase());
-const isPopupClosed  = (e: any) => /windowclosed|popupclosed/.test(((e?.name||'')+' '+(e?.message||'')).toLowerCase());
 
 export default function ConnectModal({ open, onClose }: Props) {
   const api = useWallet();
-  const { wallets, select, connect, disconnect, connected, wallet } = api;
+  const { wallets, select, disconnect, connected } = api;
   const connecting = (api as any).connecting as boolean;
   const disconnecting = (api as any).disconnecting as boolean;
 
@@ -44,58 +45,38 @@ export default function ConnectModal({ open, onClose }: Props) {
   // Bağlanınca kapat
   useEffect(() => { if (connected && open) onClose(); }, [connected, open, onClose]);
 
-  // Cihaz adapter’larını markalara eşle
+  // Wallet Standard → marka eşleme
   const mapByBrand = useMemo(() => {
     const m = new Map<Brand, { adapterName: string; installed: boolean }>();
     for (const w of wallets) {
       const n = norm(w.adapter.name);
-      const installed =
-        ((w as any).readyState === 'Installed' || (w as any).readyState === 'Loadable' ||
-         (w.adapter as any).readyState === 'Installed' || (w.adapter as any).readyState === 'Loadable');
-
-      if (n.includes('phantom')) m.set('phantom', { adapterName: w.adapter.name, installed });
-      else if (n.includes('solflare')) m.set('solflare', { adapterName: w.adapter.name, installed });
-      else if (n.includes('backpack')) m.set('backpack', { adapterName: w.adapter.name, installed });
-      else if (n.includes('walletconnect')) m.set('walletconnect', { adapterName: w.adapter.name, installed });
+      const rs = (w as any).readyState ?? (w.adapter as any).readyState;
+      const installed = rs === 'Installed' || rs === 'Loadable';
+      if (n.includes('phantom'))  m.set('phantom',  { adapterName: w.adapter.name, installed });
+      if (n.includes('solflare')) m.set('solflare', { adapterName: w.adapter.name, installed });
+      if (n.includes('backpack')) m.set('backpack', { adapterName: w.adapter.name, installed });
     }
     return m;
   }, [wallets]);
 
-  // UI kartları
-  const cards = useMemo<Card[]>(() =>
-    UI.map(({ key, label, note }) => {
+  const cards = useMemo<Card[]>(
+    () => UI.map(({ key, label, note }) => {
       const hit = mapByBrand.get(key);
       return { key, label, note, installed: !!hit?.installed, adapterName: hit?.adapterName };
     }),
-  [mapByBrand]);
+    [mapByBrand]
+  );
 
-  // Bağlanma denemesini tek yere topla
-  const tryConnect = async () => {
-    const backoff = [0, 16, 32, 64, 128, 256, 512] as const;
-    for (let i = 0; i < backoff.length; i++) {
-      try { await timeout(connect(), 10_000); return; }
-      catch (e: any) {
-        if (isNotSelected(e)) { await sleep(backoff[i]); continue; }
-        if (isUserRejected(e) || isPopupClosed(e)) throw e;
-        throw e;
-      }
-    }
-    throw new Error('WalletNotSelectedError');
-  };
-
-  // 🔒 Disconnect tamam olmadan cüzdan değişme
-  const ensureCleanBeforeSwitch = async (targetName: string) => {
-    const changing =
-      (!!wallet && wallet.adapter?.name !== targetName) || connecting || disconnecting || connected;
-
-    if (!changing) return;
+  // Disconnect/connecting durumlarını temizlemeden cüzdan değiştirmeyelim
+  const ensureCleanBeforeSwitch = async () => {
+    if (!connecting && !disconnecting && !connected) return;
     try { await disconnect(); } catch {}
     for (let i = 0; i < 20; i++) {
       const nowConnecting = (api as any).connecting as boolean;
       const nowDisconnecting = (api as any).disconnecting as boolean;
       const nowConnected = api.connected;
       if (!nowDisconnecting && !nowConnected && !nowConnecting) break;
-      await sleep(50);
+      await sleep(40);
     }
   };
 
@@ -104,42 +85,31 @@ export default function ConnectModal({ open, onClose }: Props) {
     setErr(null); setClicked(brand); setBusy(true);
 
     const hit = mapByBrand.get(brand);
-    if (!hit?.adapterName) {
-      setErr('Selected wallet adapter is not available.');
-      setBusy(false); setClicked(null); return;
+
+    // YOKSA → Install sayfası
+    if (!hit?.adapterName || !hit.installed) {
+      window.open(INSTALL_URL[brand], '_blank', 'noopener,noreferrer');
+      setBusy(false);
+      setClicked(null);
+      return;
     }
 
     try {
-      // 0) Mevcut bağlantıyı TEMİZLE (await)
-      await ensureCleanBeforeSwitch(hit.adapterName);
+      // 0) temizle
+      await ensureCleanBeforeSwitch();
 
-      // 1) Kullanıcı jestinde select → HEMEN connect denemesi (await etmeden başlat)
-      select(hit.adapterName as WalletName);
-      // İlk denemeyi bekletmeden başlat (popup engellenmesin)
-      const first = tryConnect();
+      // 1) select + ADAPTER.CONNECT → tekli ve stabil
+      await select(hit.adapterName as WalletName);
+      await connectStable(hit.adapterName, api);
 
-      // 2) İlk deneme başarısız olursa yakala
-      try { await first; }
-      catch (e: any) {
-        // NotSelected dışı ise doğrudan hata
-        if (!isNotSelected(e)) throw e;
-        // NotSelected ise: çok kısa gecikme + temizle + tekrar seç + tekrar connect
-        try { await disconnect(); } catch {}
-        await sleep(50);
-        select(hit.adapterName as WalletName);
-        await tryConnect();
-      }
-      // success → effect modalı kapatır
+      // Başarılı → effect modalı kapatır
     } catch (e: any) {
       const s = (e?.name || '') + ' ' + (e?.message || '');
-      const msg =
-        /connect-timeout/i.test(s) ? 'Wallet did not respond. Please try again.' :
-        isUserRejected(e) ? 'Request was rejected.' :
-        isPopupClosed(e)  ? 'Wallet window was closed.' :
-        isNotSelected(e)  ? 'Wallet not selected — please try again.' :
-        e?.message || String(e) || 'Failed to connect.';
+      let msg = e?.message || String(e) || 'Failed to connect.';
+      if (/connect-timeout/i.test(s)) msg = 'Wallet did not respond. Please try again.';
+      setErr(msg);
       try { await disconnect(); } catch {}
-      setErr(msg); setBusy(false); setClicked(null);
+      setBusy(false); setClicked(null);
     }
   }
 
@@ -156,16 +126,19 @@ export default function ConnectModal({ open, onClose }: Props) {
             return (
               <button
                 key={key}
-                // 🔑 Popup engelleyicileri için onPointerDown
-                onPointerDown={() => handlePick(key)}
+                onPointerDown={() => handlePick(key)} // popup engelleyiciye karşı
                 disabled={busy}
                 className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-3 text-left transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-white/20"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-semibold">{label}</span>
-                  {installed && (
+                  {installed ? (
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-600/30 border border-emerald-500/50">
                       Installed
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-700 border border-zinc-600">
+                      Install
                     </span>
                   )}
                 </div>
