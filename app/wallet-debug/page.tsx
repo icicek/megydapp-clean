@@ -1,22 +1,47 @@
 'use client';
-import React,{useMemo,useState,useCallback} from 'react';
+
+import { useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import type { WalletName } from '@solana/wallet-adapter-base';
-import WalletDoctor from '@/components/wallet/WalletDoctor';
-const norm=(s:string)=>s.toLowerCase().replace(/[^a-z]/g,'');
-export default function Page(){
-  const {wallets,select,connect,disconnect}=useWallet();
-  const [msg,setMsg]=useState('');
-  const phantom=useMemo(()=>wallets.find(w=>norm(w.adapter.name).includes('phantom'))?.adapter.name,[wallets]);
-  const solflare=useMemo(()=>wallets.find(w=>norm(w.adapter.name).includes('solflare'))?.adapter.name,[wallets]);
-  const go=useCallback(async(name?:string)=>{setMsg('');try{if(!name)throw new Error('adapter not found');select(name as WalletName);await connect();setMsg('connected ✓');}catch(e:any){setMsg(`${e?.name||''} ${e?.message||String(e)}`);}},[select,connect]);
-  return(<div className="p-8 text-white"><h1 className="text-xl mb-4">Wallet Debug</h1>
-    <div className="flex gap-2">
-      <button className="px-3 py-2 bg-indigo-600 rounded" onClick={()=>go(phantom)}>Connect Phantom</button>
-      <button className="px-3 py-2 bg-indigo-600 rounded" onClick={()=>go(solflare)}>Connect Solflare</button>
-      <button className="px-3 py-2 bg-zinc-700 rounded" onClick={()=>disconnect()}>Disconnect</button>
+
+export default function WalletDebug() {
+  const { wallets, wallet, connected, connecting, disconnecting, select, connect, disconnect, publicKey } = useWallet();
+
+  useEffect(() => {
+    console.log('[mount] wallet-debug mounted');
+    return () => console.log('[unmount] wallet-debug unmounted');
+  }, []);
+
+  useEffect(() => {
+    console.log('[wallets]', wallets.map(w => `${w.adapter.name} (${w.readyState})`));
+  }, [wallets]);
+
+  useEffect(() => {
+    console.log('[state]', {
+      selected: wallet?.adapter.name ?? null,
+      connected, connecting, disconnecting,
+      pubkey: publicKey?.toBase58?.()
+    });
+  }, [wallet, connected, connecting, disconnecting, publicKey]);
+
+  const connectByName = async (name: string) => {
+    try {
+      const w = wallets.find(w => w.adapter.name === name);
+      if (!w) return console.log('wallet not found:', name);
+      await select(w.adapter.name as unknown as WalletName<string>);
+      await connect();
+      console.log('[connect] success:', name);
+    } catch (e) {
+      console.error('[connect] error:', e);
+    }
+  };
+
+  return (
+    <div style={{ padding: 20 }}>
+      <button onClick={() => connectByName('Phantom')} style={{ marginRight: 12 }}>Connect Phantom</button>
+      <button onClick={() => connectByName('Solflare')} style={{ marginRight: 12 }}>Connect Solflare</button>
+      <button onClick={() => connectByName('Backpack')} style={{ marginRight: 12 }}>Connect Backpack</button>
+      <button onClick={() => disconnect()}>Disconnect</button>
     </div>
-    <div className="mt-3 text-sm text-red-300">{msg}</div>
-    <WalletDoctor/>
-  </div>);
+  );
 }
