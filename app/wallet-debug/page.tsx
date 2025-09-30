@@ -24,13 +24,37 @@ export default function WalletDebug() {
     });
   }, [wallet, connected, connecting, disconnecting, publicKey]);
 
+  const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
+
   const connectByName = async (name: string) => {
     try {
-      const w = wallets.find(w => w.adapter.name === name);
-      if (!w) return console.log('wallet not found:', name);
-      await select(w.adapter.name as unknown as WalletName<string>);
-      await connect();
-      console.log('[connect] success:', name);
+      const entry = wallets.find(w => w.adapter.name === name);
+      if (!entry) return console.warn('wallet not found:', name);
+      if (entry.readyState !== 'Installed') {
+        return console.warn('wallet not installed/ready:', name, entry.readyState);
+      }
+
+      // 1) önce select
+      await select(entry.adapter.name as unknown as WalletName<string>);
+
+      // 2) state’in apply olması için minik bir microtask/yield
+      await sleep(50);
+
+      // 3) connect’i dene; “seçilmedi” yarışı için 2 kez daha deneyebilir
+      let lastErr: unknown = null;
+      for (let i = 0; i < 3; i++) {
+        try {
+          await connect();
+          console.log('[connect] success:', name);
+          lastErr = null;
+          break;
+        } catch (e) {
+          lastErr = e;
+          console.warn('[connect retry]', i + 1, e);
+          await sleep(100);
+        }
+      }
+      if (lastErr) throw lastErr;
     } catch (e) {
       console.error('[connect] error:', e);
     }
