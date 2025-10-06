@@ -141,31 +141,36 @@ export default function ConnectModal({ open, onClose }: Props) {
                 layout
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
-                onClick={() => handlePick(key)}   // onPointerDown değil; scroll’a saygı
+                onClick={() => handlePick(key)}
                 disabled={busy}
-                className="relative flex flex-col items-start justify-start h-[8.5rem]
-                           rounded-2xl border border-white/12 bg-white/[0.04] hover:bg-white/[0.07]
-                           px-4 py-3 overflow-hidden outline-none focus:outline-none select-none"
+                className="relative grid grid-rows-[auto_1fr_auto] h-[8.5rem]
+                          rounded-2xl border border-white/12 bg-white/[0.04] hover:bg-white/[0.07]
+                          pl-4 pr-14 pt-5 pb-3 overflow-hidden outline-none focus:outline-none select-none"
               >
-                {/* “Son kullanılan” için hafif ring (kalın çerçeve yok) */}
+                {/* son kullanılan için hafif ring */}
                 {isLast && (
-                  <span aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-emerald-400/40" />
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-emerald-400/40"
+                  />
                 )}
 
-                {/* Başlık */}
+                {/* rozet: sağ-üst; metinle çakışmayı önlemek için kartta pr-14 var */}
+                <span
+                  className={`absolute top-2 right-2 z-10 text-[10px] px-2 py-0.5 rounded-full border ${badge.cls}`}
+                >
+                  {badge.text}
+                </span>
+
+                {/* 1) Başlık satırı */}
                 <div className="relative z-10 flex items-center gap-2">
                   <WalletBrandBadge brand={key} size={24} className="h-6 w-6 shrink-0" />
                   <span className="font-semibold">{label}</span>
                 </div>
 
-                {/* Rozet: sağ-üst, taşma yapmaz */}
-                <span className={`absolute top-2 right-2 z-10 text-[10px] px-2 py-0.5 rounded-full border ${badge.cls}`}>
-                  {badge.text}
-                </span>
-
-                {/* Kısa açıklama — 2 satır clamp (plugin yoksa inline style çalışır) */}
+                {/* 2) Açıklama (2 satır clamp) — orta bölme */}
                 <div
-                  className="relative z-10 text-xs text-gray-300 mt-1"
+                  className="relative z-10 text-xs text-gray-300 mt-2 self-start"
                   style={{
                     display: '-webkit-box',
                     WebkitLineClamp: 2,
@@ -176,13 +181,13 @@ export default function ConnectModal({ open, onClose }: Props) {
                   {desc}{note ? ` — ${note}` : ''}
                 </div>
 
-                {/* Install linki (kurulu değilse & WC değilse) */}
+                {/* 3) Alt link (her zaman en altta) */}
                 {!installed && key !== 'walletconnect' && (
                   <a
                     href={INSTALL_URL[key as keyof typeof INSTALL_URL]}
                     target="_blank"
                     rel="noreferrer"
-                    className="relative z-10 mt-auto text-[11px] text-gray-300 underline"
+                    className="relative z-10 self-end text-[11px] text-gray-300 underline"
                     onClick={(e) => e.stopPropagation()}
                   >
                     Not installed? Get {label}
