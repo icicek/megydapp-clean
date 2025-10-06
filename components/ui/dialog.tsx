@@ -1,60 +1,75 @@
+// components/ui/dialog.tsx
 'use client';
 
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 
-// Basit class birleştirici
-function cx(...a: Array<string | false | null | undefined>) {
-  return a.filter(Boolean).join(' ');
+interface DialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: React.ReactNode;
 }
 
-export const Dialog = DialogPrimitive.Root;
-export const DialogTrigger = DialogPrimitive.Trigger;
-export const DialogClose = DialogPrimitive.Close;
-export const DialogPortal = DialogPrimitive.Portal;
+/** Root + Portal sarmalayıcısı */
+export function Dialog({ open, onOpenChange, children }: DialogProps) {
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>{children}</DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
 
-export const DialogOverlay = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Overlay>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Overlay
-    ref={ref}
-    {...props}
-    // Blur YOK, karartma VAR; z-index overlay < content
-    className={cx(
-      'fixed inset-0 z-[90] bg-black/60 backdrop-blur-0',
-      // animasyon class’ları varsa sorun etmez; yoksa da çalışır
-      'data-[state=open]:animate-in data-[state=closed]:animate-out',
-      'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-      className
-    )}
-  />
-));
-DialogOverlay.displayName = 'DialogOverlay';
+/** Opsiyonel overlay: İstersen modallarda kullan */
+export function DialogOverlay({ className = '' }: { className?: string }) {
+  return (
+    <DialogPrimitive.Overlay
+      className={`fixed inset-0 bg-black/70 backdrop-blur-sm z-40 ${className}`}
+    />
+  );
+}
 
-export const DialogContent = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DialogPortal>
-    <DialogOverlay />
+type ContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+  className?: string;
+};
+
+/** İçerik: default stiller + tüm Content prop’larını geçirir (aria vs. dahil) */
+export function DialogContent({ children, className = '', ...props }: ContentProps) {
+  return (
     <DialogPrimitive.Content
-      ref={ref}
+      className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+                  bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-50 shadow-lg ${className}`}
       {...props}
-      // Merkezde, overlay’in ÜSTÜNDE
-      className={cx(
-        'fixed z-[100] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
-        'outline-none',
-        // responsive genişlik/verdiğin class’larla override edilebilir
-        'w-[92vw] max-w-md',
-        className
-      )}
     >
       {children}
     </DialogPrimitive.Content>
-  </DialogPortal>
-));
-DialogContent.displayName = 'DialogContent';
+  );
+}
 
-export const DialogTitle = DialogPrimitive.Title;
-export const DialogDescription = DialogPrimitive.Description;
+/** Başlık (Title) */
+export const DialogTitle = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Title>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
+>(({ className = '', ...props }, ref) => (
+  <DialogPrimitive.Title
+    ref={ref}
+    className={`text-lg font-semibold leading-none tracking-tight ${className}`}
+    {...props}
+  />
+));
+DialogTitle.displayName = 'DialogTitle';
+
+/** Açıklama (Description) — a11y uyarılarını susturmak için */
+export const DialogDescription = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Description>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
+>(({ className = '', ...props }, ref) => (
+  <DialogPrimitive.Description
+    ref={ref}
+    className={className}
+    {...props}
+  />
+));
+DialogDescription.displayName = 'DialogDescription';
+
+/** İsteğe bağlı kapatma (Close) export’u */
+export const DialogClose = DialogPrimitive.Close;
