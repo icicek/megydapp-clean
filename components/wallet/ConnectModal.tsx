@@ -29,7 +29,7 @@ const UI: UIItem[] = [
   { key: 'walletconnect', label: 'WalletConnect', note: 'QR / Mobile', desc: 'Use mobile wallets via QR' },
 ];
 
-const INSTALL_URL: Record<Exclude<Brand, 'walletconnect'>, string> = {
+const INSTALL_URL: Record<Exclude<Brand,'walletconnect'>, string> = {
   phantom:  'https://phantom.app/download',
   solflare: 'https://solflare.com/download',
   backpack: 'https://www.backpack.app/download',
@@ -42,10 +42,10 @@ export default function ConnectModal({ open, onClose }: Props) {
   const api = useWallet();
   const { wallets, select, disconnect } = api;
 
-  const [err, setErr]         = useState<string | null>(null);
-  const [clicked, setClicked] = useState<Brand | null>(null);
-  const [busy, setBusy]       = useState(false);
-  const [last, setLast]       = useState<Brand | null>(null);
+  const [err, setErr]           = useState<string | null>(null);
+  const [clicked, setClicked]   = useState<Brand | null>(null);
+  const [busy, setBusy]         = useState(false);
+  const [last, setLast]         = useState<Brand | null>(null);
 
   useEffect(() => { if (open) setLast((localStorage.getItem(LAST_KEY) as Brand) || null); }, [open]);
   useEffect(() => { if (open) { setErr(null); setClicked(null); setBusy(false); } }, [open]);
@@ -106,33 +106,13 @@ export default function ConnectModal({ open, onClose }: Props) {
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogOverlay className="z-[90]" />
-
-      {/* relative: floating X için anchor */}
-      <DialogContent className="relative bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md max-h-[85vh] overflow-y-auto overscroll-contain z-[100] shadow-2xl border border-white/10">
-
-        {/* Floating close button (cam efekti) */}
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute top-3 right-3 z-[130] inline-flex items-center justify-center
-                     h-9 w-9 rounded-xl bg-black/30 backdrop-blur border border-white/15
-                     hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20 shadow-lg"
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden>
-            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-        </button>
-
-        {/* Şeffaf sticky başlık (şerit yok) */}
-        <div className="sticky top-0 -m-6 mb-4 px-6 pt-3 pb-2 z-[120] pointer-events-none">
-          <DialogTitle className="text-white/95 text-base font-semibold pointer-events-auto drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]">
-            Connect a Solana wallet
-          </DialogTitle>
-        </div>
+      {/* Scroll: max-h + overflow → mobil/desk uyumlu */}
+      <DialogContent className="bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md max-h-[85vh] overflow-y-auto overscroll-contain z-[100] shadow-2xl border border-white/10">
+        <DialogTitle className="text-white">Connect a Solana wallet</DialogTitle>
         <DialogDescription className="sr-only">Choose a wallet to connect to Coincarnation.</DialogDescription>
 
-        {/* Kartlar — mobil 1, ≥sm 2 sütun */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6 touch-pan-y">
+        {/* Mobil tek sütun, ≥640px iki sütun */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 touch-pan-y">
           {cards.map(({ key, label, note, desc, installed }) => {
             const isBusy = busy && clicked === key;
             const isLast = last === key;
@@ -147,30 +127,31 @@ export default function ConnectModal({ open, onClose }: Props) {
                 layout
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
-                onClick={() => handlePick(key)}  // scroll’u bozmaz
+                onClick={() => handlePick(key)}   // onPointerDown değil; scroll’a saygı
                 disabled={busy}
-                className="relative grid grid-rows-[auto_1fr_auto] h-[8.5rem]
+                className="relative flex flex-col items-start justify-start h-[8.5rem]
                            rounded-2xl border border-white/12 bg-white/[0.04] hover:bg-white/[0.07]
-                           pl-4 pr-14 pt-5 pb-3 overflow-hidden outline-none focus:outline-none select-none"
+                           px-4 py-3 overflow-hidden outline-none focus:outline-none select-none"
               >
+                {/* “Son kullanılan” için hafif ring (kalın çerçeve yok) */}
                 {isLast && (
                   <span aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-emerald-400/40" />
                 )}
 
-                {/* rozet: sağ-üst; metinle çakışmaması için kartta pr-14 var */}
-                <span className={`absolute top-2 right-2 z-10 text-[10px] px-2 py-0.5 rounded-full border ${badge.cls}`}>
-                  {badge.text}
-                </span>
-
-                {/* 1) Başlık */}
+                {/* Başlık */}
                 <div className="relative z-10 flex items-center gap-2">
                   <WalletBrandBadge brand={key} size={24} className="h-6 w-6 shrink-0" />
                   <span className="font-semibold">{label}</span>
                 </div>
 
-                {/* 2) Açıklama (2 satır clamp) */}
+                {/* Rozet: sağ-üst, taşma yapmaz */}
+                <span className={`absolute top-2 right-2 z-10 text-[10px] px-2 py-0.5 rounded-full border ${badge.cls}`}>
+                  {badge.text}
+                </span>
+
+                {/* Kısa açıklama — 2 satır clamp (plugin yoksa inline style çalışır) */}
                 <div
-                  className="relative z-10 text-xs text-gray-300 mt-2 self-start"
+                  className="relative z-10 text-xs text-gray-300 mt-1"
                   style={{
                     display: '-webkit-box',
                     WebkitLineClamp: 2,
@@ -181,13 +162,13 @@ export default function ConnectModal({ open, onClose }: Props) {
                   {desc}{note ? ` — ${note}` : ''}
                 </div>
 
-                {/* 3) Alt link (kurulu değilse) */}
+                {/* Install linki (kurulu değilse & WC değilse) */}
                 {!installed && key !== 'walletconnect' && (
                   <a
                     href={INSTALL_URL[key as keyof typeof INSTALL_URL]}
                     target="_blank"
                     rel="noreferrer"
-                    className="relative z-10 self-end text-[11px] text-gray-300 underline"
+                    className="relative z-10 mt-auto text-[11px] text-gray-300 underline"
                     onClick={(e) => e.stopPropagation()}
                   >
                     Not installed? Get {label}
@@ -206,7 +187,7 @@ export default function ConnectModal({ open, onClose }: Props) {
           })}
         </div>
 
-        {/* Need a wallet? */}
+        {/* Need a wallet? — sade içerik, küçük ikonlar */}
         <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.04] p-3">
           <div className="text-sm font-semibold mb-2">Need a wallet?</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[12px] text-gray-300">
