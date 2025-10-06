@@ -1,7 +1,7 @@
 // components/CoincarneModal.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogOverlay,
@@ -22,6 +22,8 @@ import { connection } from '@/lib/solanaConnection';
 import { useInternalBalance, quantize } from '@/hooks/useInternalBalance';
 import { getDestAddress } from '@/lib/chain/env';
 import { __dest_debug__ } from '@/lib/chain/env';
+// ✨ tek-kaynak token meta
+import { getTokenMeta } from '@/lib/solana/tokenMeta';
 
 /* -------- Dynamic imports (default export + cast) -------- */
 
@@ -133,10 +135,24 @@ export default function CoincarneModal({
   const [tokenCategory, setTokenCategory] = useState<TokenCategory>('unknown');
   const [priceStatus, setPriceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
-  // Symbol & token basics
-  const [symbol] = useState<string | undefined>(token.symbol);
-  const displaySymbol = symbol ?? token.mint.slice(0, 4);
-  const isSOLToken = token.mint === 'SOL' || symbol?.toUpperCase() === 'SOL';
+  // ✨ ÇÖZÜMLENMİŞ SEMBOL (tek kaynak + EN-US fallback)
+  const [displaySymbol, setDisplaySymbol] = useState<string>(
+    (token.symbol || token.mint.slice(0, 4)).toLocaleUpperCase('en-US')
+  );
+  useEffect(() => {
+    let off = false;
+    (async () => {
+      const meta = await getTokenMeta(token.mint, token.symbol);
+      if (!off && meta?.symbol) setDisplaySymbol(meta.symbol);
+    })();
+    return () => { off = true; };
+  }, [token.mint, token.symbol]);
+
+  // SOL mü?
+  const isSOLToken = useMemo(
+    () => token.mint === 'SOL' || displaySymbol.toUpperCase() === 'SOL',
+    [token.mint, displaySymbol]
+  );
 
   // Internal balance
   const {
@@ -250,13 +266,13 @@ export default function CoincarneModal({
         signature = await sendTransaction(tx, connection);
       }
 
-      // Backend kayıt
+      // Backend kayıt — ✨ sembolü de tek kaynaktan
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           wallet_address: publicKey.toBase58(),
-          token_symbol: symbol || '',
+          token_symbol: displaySymbol,           // <-- was token.symbol
           token_contract: token.mint,
           network: 'solana',
           token_amount: amountToSend,
