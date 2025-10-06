@@ -105,14 +105,32 @@ export default function ConnectModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogOverlay className="z-[90]" />
+      {/* sadece karartma — projede global blur varsa bunu baskılar */}
+      <DialogOverlay className="z-[90] bg-black/55 backdrop-blur-0" />
+
       {/* Scroll: max-h + overflow → mobil/desk uyumlu */}
-      <DialogContent className="bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md max-h-[85vh] overflow-y-auto overscroll-contain z-[100] shadow-2xl border border-white/10">
+      <DialogContent
+        className="relative bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md max-h-[85vh]
+                   overflow-y-auto overscroll-contain z-[100] shadow-2xl border border-white/10 focus:outline-none"
+      >
+        {/* Close (✕) — kartlara değmesin diye yukarıda, grid’e de mt-5 veriyoruz */}
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute top-3 right-3 z-[130] inline-flex items-center justify-center
+                     h-9 w-9 rounded-xl bg-black/30 backdrop-blur border border-white/15
+                     hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20 shadow-lg"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden>
+            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        </button>
+
         <DialogTitle className="text-white">Connect a Solana wallet</DialogTitle>
         <DialogDescription className="sr-only">Choose a wallet to connect to Coincarnation.</DialogDescription>
 
         {/* Mobil tek sütun, ≥640px iki sütun */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 touch-pan-y">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5 touch-pan-y">
           {cards.map(({ key, label, note, desc, installed }) => {
             const isBusy = busy && clicked === key;
             const isLast = last === key;
@@ -129,14 +147,19 @@ export default function ConnectModal({ open, onClose }: Props) {
                 whileTap={{ scale: 0.99 }}
                 onClick={() => handlePick(key)}   // onPointerDown değil; scroll’a saygı
                 disabled={busy}
-                className="relative flex flex-col items-start justify-start h-[8.5rem]
+                className="relative grid grid-rows-[auto_1fr_auto] h-[8.5rem]
                            rounded-2xl border border-white/12 bg-white/[0.04] hover:bg-white/[0.07]
-                           px-4 py-3 overflow-hidden outline-none focus:outline-none select-none"
+                           pl-4 pr-14 pt-5 pb-3 overflow-hidden text-left select-none"
               >
                 {/* “Son kullanılan” için hafif ring (kalın çerçeve yok) */}
                 {isLast && (
                   <span aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-emerald-400/40" />
                 )}
+
+                {/* Rozet: sağ-üst, taşma yapmaz */}
+                <span className={`absolute top-2 right-2 z-10 text-[10px] px-2 py-0.5 rounded-full border ${badge.cls}`}>
+                  {badge.text}
+                </span>
 
                 {/* Başlık */}
                 <div className="relative z-10 flex items-center gap-2">
@@ -144,14 +167,9 @@ export default function ConnectModal({ open, onClose }: Props) {
                   <span className="font-semibold">{label}</span>
                 </div>
 
-                {/* Rozet: sağ-üst, taşma yapmaz */}
-                <span className={`absolute top-2 right-2 z-10 text-[10px] px-2 py-0.5 rounded-full border ${badge.cls}`}>
-                  {badge.text}
-                </span>
-
-                {/* Kısa açıklama — 2 satır clamp (plugin yoksa inline style çalışır) */}
+                {/* Kısa açıklama — 2 satır clamp */}
                 <div
-                  className="relative z-10 text-xs text-gray-300 mt-1"
+                  className="relative z-10 text-xs text-gray-300 mt-2 self-start"
                   style={{
                     display: '-webkit-box',
                     WebkitLineClamp: 2,
@@ -168,7 +186,7 @@ export default function ConnectModal({ open, onClose }: Props) {
                     href={INSTALL_URL[key as keyof typeof INSTALL_URL]}
                     target="_blank"
                     rel="noreferrer"
-                    className="relative z-10 mt-auto text-[11px] text-gray-300 underline"
+                    className="relative z-10 self-end text-[11px] text-gray-300 underline"
                     onClick={(e) => e.stopPropagation()}
                   >
                     Not installed? Get {label}
@@ -187,7 +205,7 @@ export default function ConnectModal({ open, onClose }: Props) {
           })}
         </div>
 
-        {/* Need a wallet? — sade içerik, küçük ikonlar */}
+        {/* Need a wallet? — sade içerik */}
         <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.04] p-3">
           <div className="text-sm font-semibold mb-2">Need a wallet?</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[12px] text-gray-300">
