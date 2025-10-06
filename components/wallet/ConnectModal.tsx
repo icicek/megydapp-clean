@@ -101,7 +101,7 @@ export default function ConnectModal({ open, onClose }: Props) {
         <DialogDescription className="sr-only">Choose a wallet to connect to Coincarnation.</DialogDescription>
 
         {/* mobil tek sütun, >=640px iki sütun */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 touch-pan-y">  // ✅ dikey kaydır
           {cards.map(({ key, label, note, desc, installed }) => {
             const isBusy = busy && clicked === key;
             const isLast = last === key;
@@ -116,10 +116,12 @@ export default function ConnectModal({ open, onClose }: Props) {
                 layout
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
-                onPointerDown={() => handlePick(key)}
+                // ⛳️ ESKİ: onPointerDown={() => handlePick(key)}
+                onClick={() => handlePick(key)}                  // ✅ scroll’u bozmaz
                 disabled={busy}
-                className="relative flex flex-col items-start justify-start min-h-[7.25rem] rounded-2xl border border-white/12
-                           bg-white/[0.04] hover:bg-white/[0.07] px-4 py-3 overflow-hidden outline-none focus:outline-none"
+                className="relative flex flex-col items-start justify-start min-h-[7.25rem]
+                          rounded-2xl border border-white/12 bg-white/[0.04] hover:bg-white/[0.07]
+                          px-4 py-3 overflow-hidden outline-none focus:outline-none select-none"  // ✅ seçilmesin
               >
                 {/* hafif highlight (kalın çerçeve yok) */}
                 {isLast && <span aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-emerald-400/40" />}
