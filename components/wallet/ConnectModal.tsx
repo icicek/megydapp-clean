@@ -6,7 +6,11 @@ import { Dialog, DialogOverlay, DialogContent, DialogTitle, DialogDescription } 
 import { useWallet } from '@solana/wallet-adapter-react';
 import type { WalletName } from '@solana/wallet-adapter-base';
 import { connectStable } from '@/lib/solana/connectStable';
+
+import WalletBrandBadge from '@/components/wallet/WalletBrandBadge';
 import WalletBrandIcon, { Brand } from '@/components/wallet/WalletBrandIcon';
+
+import { motion } from 'framer-motion';
 
 type Props = { open: boolean; onClose: () => void };
 
@@ -14,9 +18,9 @@ type UIItem = { key: Brand; label: string; note?: string; desc: string };
 type Card = { key: Brand; label: string; note?: string; desc: string; installed: boolean; adapterName?: string };
 
 const UI: UIItem[] = [
-  { key: 'phantom',  label: 'Phantom',      desc: 'Popular & beginner-friendly' },
-  { key: 'solflare', label: 'Solflare',     desc: 'Ledger support, in-app staking' },
-  { key: 'backpack', label: 'Backpack',     desc: 'xNFTs & power-user features' },
+  { key: 'phantom',  label: 'Phantom',  desc: 'Popular & beginner-friendly' },
+  { key: 'solflare', label: 'Solflare', desc: 'Ledger support, in-app staking' },
+  { key: 'backpack', label: 'Backpack', desc: 'xNFTs & power-user features' },
   { key: 'walletconnect', label: 'WalletConnect', note: 'QR / Mobile', desc: 'Use mobile wallets via QR' },
 ];
 
@@ -27,6 +31,7 @@ const INSTALL_URL: Record<Exclude<Brand,'walletconnect'>, string> = {
 };
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
+const LAST_KEY = 'cc:lastWalletBrand';
 
 export default function ConnectModal({ open, onClose }: Props) {
   const api = useWallet();
@@ -35,6 +40,12 @@ export default function ConnectModal({ open, onClose }: Props) {
   const [err, setErr] = useState<string | null>(null);
   const [clicked, setClicked] = useState<Brand | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // En son bağlı cüzdan
+  const [last, setLast] = useState<Brand | null>(null);
+  useEffect(() => {
+    if (open) setLast((localStorage.getItem(LAST_KEY) as Brand) || null);
+  }, [open]);
 
   useEffect(() => { if (open) { setErr(null); setClicked(null); setBusy(false); } }, [open]);
 
@@ -52,13 +63,17 @@ export default function ConnectModal({ open, onClose }: Props) {
     return m;
   }, [wallets]);
 
-  const cards = useMemo<Card[]>(
-    () => UI.map(({ key, label, note, desc }) => {
+  // Son tercih başa gelsin
+  const cards: Card[] = useMemo(() => {
+    const arr = UI.map(({ key, label, note, desc }) => {
       const hit = mapByBrand.get(key);
       return { key, label, note, desc, installed: !!hit?.installed, adapterName: hit?.adapterName };
-    }),
-    [mapByBrand]
-  );
+    });
+    if (last) {
+      arr.sort((a, b) => (a.key === last ? -1 : b.key === last ? 1 : 0));
+    }
+    return arr;
+  }, [mapByBrand, last]);
 
   async function handlePick(brand: Brand) {
     if (busy) return;
@@ -81,7 +96,8 @@ export default function ConnectModal({ open, onClose }: Props) {
     try {
       await select(hit!.adapterName as WalletName);
       await connectStable(hit!.adapterName!, api);
-      onClose(); // ✅ yalnız başarılı bağlantıdan sonra kapat
+      localStorage.setItem(LAST_KEY, brand); // ✅ hatırla
+      onClose(); // başarıda kapat
     } catch (e: any) {
       setErr(e?.message || String(e) || 'Failed to connect.');
       try { await disconnect(); } catch {}
@@ -99,16 +115,23 @@ export default function ConnectModal({ open, onClose }: Props) {
         <div className="grid grid-cols-2 gap-3 mt-4">
           {cards.map(({ key, label, note, desc, installed }) => {
             const isBusy = busy && clicked === key;
+            const isLast = last === key;
             return (
-              <button
+              <motion.button
                 key={key}
+                layout
+                whileHover={{ scale: 1.015 }}
+                whileTap={{ scale: 0.99 }}
                 onPointerDown={() => handlePick(key)}
                 disabled={busy}
-                className="rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 p-3 text-left transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-white/20"
+                className={`rounded-2xl border px-3 py-3 text-left transition disabled:opacity-60 focus:outline-none focus:ring-2
+                 ${isLast ? 'border-emerald-400/60 bg-emerald-500/[0.06]' : 'border-white/10 bg-white/5 hover:bg-white/10'}`
+                }
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <WalletBrandIcon brand={key} className="h-6 w-6" />
+                    {/* gerçek logo varsa o, yoksa fallback ikon */}
+                    <WalletBrandBadge brand={key} size={24} className="h-6 w-6" />
                     <span className="font-semibold">{label}</span>
                   </div>
                   {key === 'walletconnect' ? (
@@ -133,7 +156,7 @@ export default function ConnectModal({ open, onClose }: Props) {
                     Connecting…
                   </div>
                 )}
-              </button>
+              </motion.button>
             );
           })}
         </div>
@@ -144,7 +167,7 @@ export default function ConnectModal({ open, onClose }: Props) {
           <div className="grid grid-cols-2 gap-3 text-[12px] text-gray-300">
             <div className="rounded-lg p-3 bg-black/20 border border-white/10">
               <div className="flex items-center gap-2 mb-1">
-                <WalletBrandIcon brand="phantom" />
+                <WalletBrandBadge brand="phantom" />
                 <div className="font-medium">Phantom</div>
               </div>
               <ul className="list-disc pl-4 space-y-0.5">
@@ -157,7 +180,7 @@ export default function ConnectModal({ open, onClose }: Props) {
 
             <div className="rounded-lg p-3 bg-black/20 border border-white/10">
               <div className="flex items-center gap-2 mb-1">
-                <WalletBrandIcon brand="solflare" />
+                <WalletBrandBadge brand="solflare" />
                 <div className="font-medium">Solflare</div>
               </div>
               <ul className="list-disc pl-4 space-y-0.5">

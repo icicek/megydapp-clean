@@ -4,7 +4,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import ConnectModal from '@/components/wallet/ConnectModal';
-import WalletBrandIcon, { Brand } from '@/components/wallet/WalletBrandIcon';
+import WalletBrandBadge from '@/components/wallet/WalletBrandBadge';
+import { Brand } from '@/components/wallet/WalletBrandIcon';
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
 const toBrand = (name?: string): Brand | undefined => {
@@ -65,14 +66,13 @@ export default function ConnectBar() {
               aria-haspopup="menu"
               aria-expanded={menuOpen}
             >
-              {/* soft glow */}
               <span
                 aria-hidden
                 className="pointer-events-none absolute -inset-0.5 rounded-2xl blur opacity-30"
                 style={{ background: 'radial-gradient(60% 60% at 30% 20%, rgba(80,200,120,.35), rgba(0,0,0,0))' }}
               />
               <span className="relative flex items-center gap-2">
-                {brand && <WalletBrandIcon brand={brand} className="h-4 w-4" />}
+                {brand && <WalletBrandBadge brand={brand} size={16} className="h-4 w-4" />}
                 <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded-full border border-white/15 bg-gradient-to-r from-emerald-500/20 to-cyan-500/20">
                   SOL
                 </span>
