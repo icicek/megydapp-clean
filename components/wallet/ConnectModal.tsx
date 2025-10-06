@@ -5,12 +5,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogOverlay, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useWallet } from '@solana/wallet-adapter-react';
 import type { WalletName } from '@solana/wallet-adapter-base';
-import { connectStable } from '@/lib/solana/connectStable';
+import { motion } from 'framer-motion';
 
 import WalletBrandBadge from '@/components/wallet/WalletBrandBadge';
 import WalletBrandIcon, { Brand } from '@/components/wallet/WalletBrandIcon';
-
-import { motion } from 'framer-motion';
+import { connectStable } from '@/lib/solana/connectStable';
 
 type Props = { open: boolean; onClose: () => void };
 
@@ -41,12 +40,9 @@ export default function ConnectModal({ open, onClose }: Props) {
   const [clicked, setClicked] = useState<Brand | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // En son bağlı cüzdan
+  // son kullanılan cüzdan (highlight için)
   const [last, setLast] = useState<Brand | null>(null);
-  useEffect(() => {
-    if (open) setLast((localStorage.getItem(LAST_KEY) as Brand) || null);
-  }, [open]);
-
+  useEffect(() => { if (open) setLast((localStorage.getItem(LAST_KEY) as Brand) || null); }, [open]);
   useEffect(() => { if (open) { setErr(null); setClicked(null); setBusy(false); } }, [open]);
 
   const mapByBrand = useMemo(() => {
@@ -63,15 +59,13 @@ export default function ConnectModal({ open, onClose }: Props) {
     return m;
   }, [wallets]);
 
-  // Son tercih başa gelsin
+  // son tercih başa gelsin
   const cards: Card[] = useMemo(() => {
     const arr = UI.map(({ key, label, note, desc }) => {
       const hit = mapByBrand.get(key);
       return { key, label, note, desc, installed: !!hit?.installed, adapterName: hit?.adapterName };
     });
-    if (last) {
-      arr.sort((a, b) => (a.key === last ? -1 : b.key === last ? 1 : 0));
-    }
+    if (last) arr.sort((a, b) => (a.key === last ? -1 : b.key === last ? 1 : 0));
     return arr;
   }, [mapByBrand, last]);
 
@@ -82,11 +76,8 @@ export default function ConnectModal({ open, onClose }: Props) {
     const hit = mapByBrand.get(brand);
 
     if (brand === 'walletconnect' && !hit?.adapterName) {
-      setErr('WalletConnect is not configured. Please set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID.');
-      setBusy(false); setClicked(null);
-      return;
+      setErr('WalletConnect is not configured.'); setBusy(false); setClicked(null); return;
     }
-
     if ((brand === 'phantom' || brand === 'solflare' || brand === 'backpack') && (!hit?.adapterName || !hit.installed)) {
       window.open(INSTALL_URL[brand], '_blank', 'noopener,noreferrer');
       setBusy(false); setClicked(null);
@@ -96,8 +87,8 @@ export default function ConnectModal({ open, onClose }: Props) {
     try {
       await select(hit!.adapterName as WalletName);
       await connectStable(hit!.adapterName!, api);
-      localStorage.setItem(LAST_KEY, brand); // ✅ hatırla
-      onClose(); // başarıda kapat
+      localStorage.setItem(LAST_KEY, brand);
+      onClose();
     } catch (e: any) {
       setErr(e?.message || String(e) || 'Failed to connect.');
       try { await disconnect(); } catch {}
@@ -108,50 +99,74 @@ export default function ConnectModal({ open, onClose }: Props) {
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogOverlay className="z-[90]" />
-      <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-[100] shadow-2xl border border-white/10">
+      <DialogContent className="bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md z-[100] shadow-2xl border border-white/10">
         <DialogTitle className="text-white">Connect a Solana wallet</DialogTitle>
         <DialogDescription className="sr-only">Choose a wallet to connect to Coincarnation.</DialogDescription>
 
-        <div className="grid grid-cols-2 gap-3 mt-4">
+        {/* mobilde tek sütun, >=640px iki sütun */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
           {cards.map(({ key, label, note, desc, installed }) => {
             const isBusy = busy && clicked === key;
             const isLast = last === key;
+            const badge =
+              key === 'walletconnect' ? { text: 'QR', cls: 'bg-indigo-600/30 border-indigo-500/50' } :
+              installed              ? { text: 'Installed', cls: 'bg-emerald-600/30 border-emerald-500/50' } :
+                                       { text: 'Install',   cls: 'bg-zinc-700/50   border-zinc-500/50' };
+
             return (
               <motion.button
                 key={key}
                 layout
-                whileHover={{ scale: 1.015 }}
+                whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
                 onPointerDown={() => handlePick(key)}
                 disabled={busy}
-                className={`rounded-2xl border px-3 py-3 text-left transition disabled:opacity-60 focus:outline-none focus:ring-2
-                 ${isLast ? 'border-emerald-400/60 bg-emerald-500/[0.06]' : 'border-white/10 bg-white/5 hover:bg-white/10'}`
-                }
+                // üst hizalı sabit yükseklik + taşma yok
+                className="relative flex flex-col items-start justify-start min-h-36 rounded-2xl border border-white/12
+                           bg-white/[0.04] hover:bg-white/[0.07] px-4 py-3 overflow-hidden outline-none focus:outline-none"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {/* gerçek logo varsa o, yoksa fallback ikon */}
-                    <WalletBrandBadge brand={key} size={24} className="h-6 w-6" />
-                    <span className="font-semibold">{label}</span>
-                  </div>
-                  {key === 'walletconnect' ? (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-600/30 border border-indigo-500/50">QR</span>
-                  ) : installed ? (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-600/30 border border-emerald-500/50">Installed</span>
-                  ) : (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-700 border border-zinc-600">Install</span>
-                  )}
-                </div>
-
-                <div className="text-xs text-gray-300 mt-1">{desc}{note ? ` — ${note}` : ''}</div>
-                {!installed && key !== 'walletconnect' && (
-                  <div className="text-[11px] text-gray-400 mt-2">
-                    Not installed? <span className="underline">Get {label}</span>
-                  </div>
+                {/* yumuşak 'last used' parıltısı – kalın çerçeve yok */}
+                {isLast && (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-emerald-400/40"
+                  />
                 )}
 
+                {/* başlık */}
+                <div className="relative z-10 flex items-center gap-2">
+                  <WalletBrandBadge brand={key} size={24} className="h-6 w-6 shrink-0" />
+                  <span className="font-semibold">{label}</span>
+                </div>
+
+                {/* rozet – kartın içinde sağ-üstte, taşma yapmaz */}
+                <span
+                  className={`absolute top-2 right-2 z-10 text-[10px] px-2 py-0.5 rounded-full border ${badge.cls}`}
+                >
+                  {badge.text}
+                </span>
+
+                {/* kısa açıklama */}
+                <div className="relative z-10 text-xs text-gray-300 mt-1 line-clamp-2">
+                  {desc}{note ? ` — ${note}` : ''}
+                </div>
+
+                {/* Install CTA – sadece kurulu değilse ve WC değilse */}
+                {!installed && key !== 'walletconnect' && (
+                  <a
+                    href={INSTALL_URL[key as keyof typeof INSTALL_URL]}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="relative z-10 mt-2 text-[11px] text-gray-300 underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Not installed? Get {label}
+                  </a>
+                )}
+
+                {/* busy göstergesi – sağ altta */}
                 {isBusy && (
-                  <div className="mt-2 text-[11px] text-gray-400 flex items-center gap-2">
+                  <div className="absolute right-2 bottom-2 z-10 text-[11px] text-gray-400 flex items-center gap-2">
                     <span className="inline-block h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
                     Connecting…
                   </div>
@@ -164,7 +179,7 @@ export default function ConnectModal({ open, onClose }: Props) {
         {/* Need a wallet? */}
         <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.04] p-3">
           <div className="text-sm font-semibold mb-2">Need a wallet?</div>
-          <div className="grid grid-cols-2 gap-3 text-[12px] text-gray-300">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[12px] text-gray-300">
             <div className="rounded-lg p-3 bg-black/20 border border-white/10">
               <div className="flex items-center gap-2 mb-1">
                 <WalletBrandBadge brand="phantom" />
