@@ -14,6 +14,9 @@ import ConnectBar from '@/components/wallet/ConnectBar';
 import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
 import { useChain } from '@/app/providers/ChainProvider';
 
+// 🔽 Tek-kaynak token meta çözümleyici
+import { getTokenMeta } from '@/lib/solana/tokenMeta';
+
 export default function HomePage() {
   const router = useRouter();
   const { chain } = useChain(); // Şu an 'solana'
@@ -42,6 +45,31 @@ export default function HomePage() {
     setSelectedToken(token);
     setShowSolModal(Boolean(token));
   };
+
+  // 🔽 Cihazdan bağımsız, tutarlı semboller için meta çözümleri
+  const [resolvedMeta, setResolvedMeta] = useState<
+    Record<string, { symbol: string; name?: string; logoURI?: string; verified?: boolean }>
+  >({});
+
+  useEffect(() => {
+    if (!tokens.length) {
+      setResolvedMeta({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        tokens.map(async (t) => {
+          const meta = await getTokenMeta(t.mint, t.symbol); // EN-US fallback içerir
+          return [t.mint, { symbol: meta.symbol, name: meta.name, logoURI: meta.logoURI, verified: meta.verified }] as const;
+        })
+      );
+      if (!cancelled) setResolvedMeta(Object.fromEntries(entries));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tokens]);
 
   /** ---------------- GLOBAL STATS ---------------- */
   const [globalStats, setGlobalStats] = useState({
@@ -149,11 +177,18 @@ export default function HomePage() {
                   <option value="" disabled>
                     👉 Select a token to Coincarnate
                   </option>
-                  {tokens.map((token, idx) => (
-                    <option key={idx} value={token.mint}>
-                      {token.symbol ?? token.mint.slice(0, 4)} — {token.amount.toFixed(4)}
-                    </option>
-                  ))}
+                  {tokens.map((token) => {
+                    const meta = resolvedMeta[token.mint];
+                    const label =
+                      meta?.symbol ||
+                      token.symbol ||
+                      token.mint.slice(0, 4).toLocaleUpperCase('en-US'); // locale-safe fallback
+                    return (
+                      <option key={token.mint} value={token.mint}>
+                        {label} — {token.amount.toFixed(4)}
+                      </option>
+                    );
+                  })}
                 </select>
 
                 {!tokensLoading && tokens.length === 0 && tokensError && (
