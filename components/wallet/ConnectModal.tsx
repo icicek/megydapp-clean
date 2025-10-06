@@ -1,4 +1,3 @@
-// components/wallet/ConnectModal.tsx
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -11,26 +10,20 @@ import {
 } from '@/components/ui/dialog';
 import { useWallet } from '@solana/wallet-adapter-react';
 import type { WalletName } from '@solana/wallet-adapter-base';
-import { motion } from 'framer-motion';
-import { connectStable } from '@/lib/solana/connectStable';
 
-/** ---------------------------------------------------
- *  0) Mini ErrorBoundary – render hatasında boş kalmasın
- * --------------------------------------------------- */
+/* ---------------- Error Boundary (modal içi) ---------------- */
 class ModalErrorBoundary extends React.Component<{ children: React.ReactNode }, { err?: any }> {
-  constructor(props: any) { super(props); this.state = { err: undefined }; }
-  static getDerivedStateFromError(err: any) { return { err }; }
-  componentDidCatch(err: any, info: any) { /* isteğe bağlı log */ console.error('[ConnectModal crash]', err, info); }
-  render() {
-    if (this.state.err) {
-      const msg = (this.state.err?.message || String(this.state.err)).slice(0, 300);
+  constructor(p: any){ super(p); this.state = { err: undefined }; }
+  static getDerivedStateFromError(err: any){ return { err }; }
+  componentDidCatch(err:any, info:any){ console.error('[ConnectModal crash]', err, info); }
+  render(){
+    if (this.state.err){
+      const msg = (this.state.err?.message || String(this.state.err)).slice(0, 400);
       return (
         <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-200 text-sm">
           <div className="font-semibold mb-1">Wallet UI failed to render</div>
-          <div className="opacity-80">{msg}</div>
-          <div className="mt-2 text-xs opacity-70">
-            Tip: Hard refresh (⌘⇧R / Ctrl+F5). If persists, share this log.
-          </div>
+          <div className="opacity-80 whitespace-pre-wrap">{msg}</div>
+          <div className="mt-2 text-xs opacity-70">Press Esc or click ✕ to close.</div>
         </div>
       );
     }
@@ -38,21 +31,18 @@ class ModalErrorBoundary extends React.Component<{ children: React.ReactNode }, 
   }
 }
 
-/** ---------------------------------------------------
- *  1) Yerel Brand & Badge (dış bağımlılıksız)
- * --------------------------------------------------- */
-type Brand = 'phantom' | 'solflare' | 'backpack' | 'walletconnect';
+/* ---------------- Yerel Brand & Rozet ---------------- */
+type WalletBrand = 'phantom' | 'solflare' | 'backpack' | 'walletconnect';
 
-function BrandBadge({ brand, size = 24, className = '' }: { brand: Brand; size?: number; className?: string }) {
+function BrandBadge({
+  brand, size = 24, className = '',
+}: { brand: WalletBrand; size?: number; className?: string }) {
   const color =
     brand === 'phantom' ? '#8b5cf6' :
     brand === 'solflare' ? '#f97316' :
     brand === 'backpack' ? '#ef4444' :
     '#60a5fa';
-  const letter =
-    brand === 'phantom' ? 'P' :
-    brand === 'solflare' ? 'S' :
-    brand === 'backpack' ? 'B' : 'W';
+  const letter = brand === 'phantom' ? 'P' : brand === 'solflare' ? 'S' : brand === 'backpack' ? 'B' : 'W';
   return (
     <span
       className={`inline-flex items-center justify-center rounded-full text-[12px] font-bold text-black/80 ${className}`}
@@ -64,21 +54,18 @@ function BrandBadge({ brand, size = 24, className = '' }: { brand: Brand; size?:
   );
 }
 
-/** --------------------------------------------------- */
-
+/* ---------------- Tipler/İçerik ---------------- */
 type Props = { open: boolean; onClose: () => void };
+type Card = { key: WalletBrand; label: string; note?: string; desc: string; installed: boolean; adapterName?: string };
 
-type UIItem = { key: Brand; label: string; note?: string; desc: string };
-type Card   = { key: Brand; label: string; note?: string; desc: string; installed: boolean; adapterName?: string };
-
-const UI: UIItem[] = [
+const UI: ReadonlyArray<Pick<Card, 'key' | 'label' | 'note' | 'desc'>> = [
   { key: 'phantom',  label: 'Phantom',  desc: 'Popular & beginner-friendly' },
   { key: 'solflare', label: 'Solflare', desc: 'Ledger support, in-app staking' },
   { key: 'backpack', label: 'Backpack', desc: 'xNFTs & power-user features' },
   { key: 'walletconnect', label: 'WalletConnect', note: 'QR / Mobile', desc: 'Use mobile wallets via QR' },
 ];
 
-const INSTALL_URL: Record<Exclude<Brand,'walletconnect'>, string> = {
+const INSTALL_URL: Record<'phantom'|'solflare'|'backpack', string> = {
   phantom:  'https://phantom.app/download',
   solflare: 'https://solflare.com/download',
   backpack: 'https://www.backpack.app/download',
@@ -87,21 +74,27 @@ const INSTALL_URL: Record<Exclude<Brand,'walletconnect'>, string> = {
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
 const LAST_KEY = 'cc:lastWalletBrand';
 
+// link tıklarında kartın click’ini tetiklememek için:
+const stopPropagationOnMouseDown: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
+  e.stopPropagation();
+};
+
 export default function ConnectModal({ open, onClose }: Props) {
   const api = useWallet();
-  const wallets = api.wallets ?? [];                 // ← guard
+  const wallets = api.wallets ?? [];
   const { select, disconnect } = api;
 
   const [err, setErr]         = useState<string | null>(null);
-  const [clicked, setClicked] = useState<Brand | null>(null);
+  const [clicked, setClicked] = useState<WalletBrand | null>(null);
   const [busy, setBusy]       = useState(false);
-  const [last, setLast]       = useState<Brand | null>(null);
+  const [last, setLast]       = useState<WalletBrand | null>(null);
 
-  useEffect(() => { if (open) setLast((localStorage.getItem(LAST_KEY) as Brand) || null); }, [open]);
+  useEffect(() => { if (open) console.log('[ConnectModal] open'); }, [open]);
+  useEffect(() => { if (open) setLast((localStorage.getItem(LAST_KEY) as WalletBrand) || null); }, [open]);
   useEffect(() => { if (open) { setErr(null); setClicked(null); setBusy(false); } }, [open]);
 
   const mapByBrand = useMemo(() => {
-    const m = new Map<Brand, { adapterName: string; installed: boolean }>();
+    const m = new Map<WalletBrand, { adapterName: string; installed: boolean }>();
     for (const w of wallets) {
       const name = w?.adapter?.name ?? '';
       if (!name) continue;
@@ -117,26 +110,27 @@ export default function ConnectModal({ open, onClose }: Props) {
   }, [wallets]);
 
   const cards: Card[] = useMemo(() => {
-    const arr = UI.map(({ key, label, note, desc }) => {
-      const hit = mapByBrand.get(key);
-      return { key, label, note, desc, installed: !!hit?.installed, adapterName: hit?.adapterName };
+    const arr: Card[] = UI.map(({ key, label, note, desc }) => {
+      const hit = mapByBrand.get(key as WalletBrand);
+      return { key: key as WalletBrand, label, note, desc, installed: !!hit?.installed, adapterName: hit?.adapterName };
     });
     if (last) arr.sort((a, b) => (a.key === last ? -1 : b.key === last ? 1 : 0));
     return arr;
   }, [mapByBrand, last]);
 
-  async function handlePick(brand: Brand) {
+  async function handlePick(brand: WalletBrand) {
     if (busy) return;
     setErr(null); setClicked(brand); setBusy(true);
-
     const hit = mapByBrand.get(brand);
 
+    // WalletConnect adapter yoksa:
     if (brand === 'walletconnect' && !hit?.adapterName) {
       setErr('WalletConnect is not configured.');
       setBusy(false); setClicked(null);
       return;
     }
 
+    // Yüklü değilse mağaza sayfasına
     if ((brand === 'phantom' || brand === 'solflare' || brand === 'backpack') && (!hit?.adapterName || !hit.installed)) {
       window.open(INSTALL_URL[brand], '_blank', 'noopener,noreferrer');
       setBusy(false); setClicked(null);
@@ -145,11 +139,11 @@ export default function ConnectModal({ open, onClose }: Props) {
 
     try {
       await select(hit!.adapterName as WalletName);
-      await connectStable(hit!.adapterName!, api);
+      await api.connect();
       localStorage.setItem(LAST_KEY, brand);
       onClose();
     } catch (e: any) {
-      setErr(e?.message || String(e) || 'Failed to connect.');
+      setErr(e?.name + ' ' + (e?.message || 'Failed to connect.'));
       try { await disconnect(); } catch {}
       setBusy(false); setClicked(null);
     }
@@ -157,10 +151,11 @@ export default function ConnectModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      {/* Overlay: tıklama handler’ı yok; Radix default dışarı tıkta kapatır */}
       <DialogOverlay className="z-[90]" />
-      <DialogContent className="relative bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md max-h-[85vh] overflow-y-auto overscroll-contain z-[100] shadow-2xl border border-white/10">
 
-        {/* Floating close button – cam efekti, köşede, hiçbir şeye değmiyor */}
+      <DialogContent className="relative bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md max-h-[85vh] overflow-y-auto overscroll-contain z-[100] shadow-2xl border border-white/10">
+        {/* Floating X */}
         <button
           onClick={onClose}
           aria-label="Close"
@@ -182,33 +177,25 @@ export default function ConnectModal({ open, onClose }: Props) {
         <DialogDescription className="sr-only">Choose a wallet to connect to Coincarnation.</DialogDescription>
 
         <ModalErrorBoundary>
-          {/* Wallet grid – mobil 1, ≥sm 2 sütun */}
+          {/* Kartlar */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6 touch-pan-y">
-            {cards.map(({ key, label, note, desc, installed }) => {
+            {cards.map(({ key, label, note, desc, installed }: Card) => {
               const isBusy = busy && clicked === key;
-              const isLast = last === key;
               const badge =
                 key === 'walletconnect' ? { text: 'QR',        cls: 'bg-indigo-600/30 border-indigo-500/50' } :
                 installed              ? { text: 'Installed', cls: 'bg-emerald-600/30 border-emerald-500/50' } :
                                          { text: 'Install',   cls: 'bg-zinc-700/50   border-zinc-500/50' };
 
               return (
-                <motion.button
+                <button
                   key={key}
-                  layout
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  onClick={() => handlePick(key)}  // click → scroll bozulmaz
+                  onClick={() => handlePick(key)}
                   disabled={busy}
                   className="relative grid grid-rows-[auto_1fr_auto] h-[8.5rem]
                              rounded-2xl border border-white/12 bg-white/[0.04] hover:bg-white/[0.07]
-                             pl-4 pr-14 pt-5 pb-3 overflow-hidden outline-none focus:outline-none select-none"
+                             pl-4 pr-14 pt-5 pb-3 overflow-hidden text-left"
                 >
-                  {isLast && (
-                    <span aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-emerald-400/40" />
-                  )}
-
-                  {/* rozet */}
+                  {/* badge */}
                   <span className={`absolute top-2 right-2 z-10 text-[10px] px-2 py-0.5 rounded-full border ${badge.cls}`}>
                     {badge.text}
                   </span>
@@ -222,12 +209,7 @@ export default function ConnectModal({ open, onClose }: Props) {
                   {/* açıklama */}
                   <div
                     className="relative z-10 text-xs text-gray-300 mt-2 self-start"
-                    style={{
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                    }}
+                    style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
                   >
                     {desc}{note ? ` — ${note}` : ''}
                   </div>
@@ -239,7 +221,7 @@ export default function ConnectModal({ open, onClose }: Props) {
                       target="_blank"
                       rel="noreferrer"
                       className="relative z-10 self-end text-[11px] text-gray-300 underline"
-                      onClick={(e) => e.stopPropagation()}
+                      onMouseDown={stopPropagationOnMouseDown}
                     >
                       Not installed? Get {label}
                     </a>
@@ -252,7 +234,7 @@ export default function ConnectModal({ open, onClose }: Props) {
                       Connecting…
                     </div>
                   )}
-                </motion.button>
+                </button>
               );
             })}
           </div>
