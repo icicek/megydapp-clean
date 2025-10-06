@@ -151,8 +151,8 @@ export default function ConnectModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      {/* Overlay: tıklama handler’ı yok; Radix default dışarı tıkta kapatır */}
-      <DialogOverlay className="z-[90]" />
+      {/* Overlay: blur’ı kapatıyoruz */}
+      <DialogOverlay className="z-[90] bg-black/60 backdrop-blur-0" />
 
       <DialogContent className="relative bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md max-h-[85vh] overflow-y-auto overscroll-contain z-[100] shadow-2xl border border-white/10">
         {/* Floating X */}
@@ -168,17 +168,17 @@ export default function ConnectModal({ open, onClose }: Props) {
           </svg>
         </button>
 
-        {/* Şeffaf sticky başlık */}
-        <div className="sticky top-0 -m-6 mb-4 px-6 pt-3 pb-2 z-[120] pointer-events-none">
-          <DialogTitle className="text-white/95 text-base font-semibold pointer-events-auto drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]">
+        {/* Basit başlık (sticky/negatif margin yok) */}
+        <div className="mb-3">
+          <DialogTitle className="text-white text-base font-semibold">
             Connect a Solana wallet
           </DialogTitle>
+          <DialogDescription className="sr-only">Choose a wallet to connect to Coincarnation.</DialogDescription>
         </div>
-        <DialogDescription className="sr-only">Choose a wallet to connect to Coincarnation.</DialogDescription>
 
         <ModalErrorBoundary>
           {/* Kartlar */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6 touch-pan-y">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
             {cards.map(({ key, label, note, desc, installed }: Card) => {
               const isBusy = busy && clicked === key;
               const badge =
