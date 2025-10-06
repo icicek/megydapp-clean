@@ -110,12 +110,22 @@ export default function ConnectModal({ open, onClose }: Props) {
       <DialogContent className="bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md max-h-[85vh] overflow-y-auto overscroll-contain z-[100] shadow-2xl border border-white/10">
 
         {/* Sticky header: başlık + kapatma */}
-        <div className="sticky top-0 -m-6 mb-3 p-3 pl-6 pr-3 bg-zinc-900/85 backdrop-blur border-b border-white/10 z-[120] flex items-center justify-between">
-          <DialogTitle className="text-white text-base font-semibold">Connect a Solana wallet</DialogTitle>
+        <div
+          className="sticky top-0 -m-6 mb-3 px-6 pt-3 pb-2 z-[120] flex items-center justify-between
+                    pointer-events-none"   // ← üst şerit tıklamayı kapmıyor
+        >
+          <DialogTitle
+            className="text-white/95 text-base font-semibold pointer-events-auto
+                      drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]"
+          >
+            Connect a Solana wallet
+          </DialogTitle>
+
           <button
             onClick={onClose}
             aria-label="Close"
-            className="inline-flex items-center justify-center h-8 w-8 rounded-lg hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
+            className="pointer-events-auto inline-flex items-center justify-center h-8 w-8
+                      rounded-lg hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
           >
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden>
               <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
