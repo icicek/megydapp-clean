@@ -106,22 +106,35 @@ export default function ConnectModal({ open, onClose }: Props) {
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogOverlay className="z-[90]" />
-      <DialogContent className="relative bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md max-h-[85vh] overflow-y-auto overscroll-contain z-[100] shadow-2xl border border-white/10">
-        {/* ✕ Kapatma — SADE EKLEME */}
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute top-3 right-3 z-[130] inline-flex items-center justify-center
-                     h-9 w-9 rounded-xl bg-black/30 backdrop-blur border border-white/15
-                     hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20 shadow-lg"
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden>
-            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-        </button>
+      {/* Scroll: max-h + overflow → mobil/desk uyumlu */}
+      <DialogContent className="bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md max-h-[85vh] overflow-y-auto overscroll-contain z-[100] shadow-2xl border border-white/10">
 
-        <DialogTitle className="text-white">Connect a Solana wallet</DialogTitle>
+        {/* Sticky header: başlık + kapatma */}
+        <div
+          className="sticky top-0 -m-6 mb-3 px-6 pt-3 pb-2 z-[120] flex items-center justify-between
+                    pointer-events-none"   // ← üst şerit tıklamayı kapmıyor
+        >
+          <DialogTitle
+            className="text-white/95 text-base font-semibold pointer-events-auto
+                      drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]"
+          >
+            Connect a Solana wallet
+          </DialogTitle>
+
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="pointer-events-auto inline-flex items-center justify-center h-8 w-8
+                      rounded-lg hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden>
+              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </div>
+
         <DialogDescription className="sr-only">Choose a wallet to connect to Coincarnation.</DialogDescription>
+
 
         {/* Mobil tek sütun, ≥640px iki sütun */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 touch-pan-y">
@@ -141,25 +154,34 @@ export default function ConnectModal({ open, onClose }: Props) {
                 whileTap={{ scale: 0.99 }}
                 onClick={() => handlePick(key)}
                 disabled={busy}
-                className="relative flex flex-col items-start justify-start h-[8.5rem]
-                           rounded-2xl border border-white/12 bg-white/[0.04] hover:bg-white/[0.07]
-                           px-4 py-3 overflow-hidden outline-none focus:outline-none select-none"
+                className="relative grid grid-rows-[auto_1fr_auto] h-[8.5rem]
+                          rounded-2xl border border-white/12 bg-white/[0.04] hover:bg-white/[0.07]
+                          pl-4 pr-14 pt-5 pb-3 overflow-hidden outline-none focus:outline-none select-none"
               >
+                {/* son kullanılan için hafif ring */}
                 {isLast && (
-                  <span aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-emerald-400/40" />
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-emerald-400/40"
+                  />
                 )}
 
+                {/* rozet: sağ-üst; metinle çakışmayı önlemek için kartta pr-14 var */}
+                <span
+                  className={`absolute top-2 right-2 z-10 text-[10px] px-2 py-0.5 rounded-full border ${badge.cls}`}
+                >
+                  {badge.text}
+                </span>
+
+                {/* 1) Başlık satırı */}
                 <div className="relative z-10 flex items-center gap-2">
                   <WalletBrandBadge brand={key} size={24} className="h-6 w-6 shrink-0" />
                   <span className="font-semibold">{label}</span>
                 </div>
 
-                <span className={`absolute top-2 right-2 z-10 text-[10px] px-2 py-0.5 rounded-full border ${badge.cls}`}>
-                  {badge.text}
-                </span>
-
+                {/* 2) Açıklama (2 satır clamp) — orta bölme */}
                 <div
-                  className="relative z-10 text-xs text-gray-300 mt-1"
+                  className="relative z-10 text-xs text-gray-300 mt-2 self-start"
                   style={{
                     display: '-webkit-box',
                     WebkitLineClamp: 2,
@@ -170,18 +192,20 @@ export default function ConnectModal({ open, onClose }: Props) {
                   {desc}{note ? ` — ${note}` : ''}
                 </div>
 
+                {/* 3) Alt link (her zaman en altta) */}
                 {!installed && key !== 'walletconnect' && (
                   <a
                     href={INSTALL_URL[key as keyof typeof INSTALL_URL]}
                     target="_blank"
                     rel="noreferrer"
-                    className="relative z-10 mt-auto text-[11px] text-gray-300 underline"
+                    className="relative z-10 self-end text-[11px] text-gray-300 underline"
                     onClick={(e) => e.stopPropagation()}
                   >
                     Not installed? Get {label}
                   </a>
                 )}
 
+                {/* Busy göstergesi — sağ alt */}
                 {isBusy && (
                   <div className="absolute right-2 bottom-2 z-10 text-[11px] text-gray-400 flex items-center gap-2">
                     <span className="inline-block h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
@@ -189,10 +213,12 @@ export default function ConnectModal({ open, onClose }: Props) {
                   </div>
                 )}
               </motion.button>
+
             );
           })}
         </div>
 
+        {/* Need a wallet? — sade içerik, küçük ikonlar */}
         <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.04] p-3">
           <div className="text-sm font-semibold mb-2">Need a wallet?</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[12px] text-gray-300">
