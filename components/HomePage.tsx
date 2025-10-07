@@ -135,10 +135,10 @@ export default function HomePage() {
           Burning wealth inequality. One deadcoin at a time.
         </p>
 
-        {/* 🔽 Mobilde başlıkların ALTINDA Connect — ortalı ve kısa */}
-        <div className="md:hidden mt-4 flex justify-center">
-          <div className="md:hidden mt-4 flex">
-            <ConnectBar variant="heroMobile" size="sm" className="ml-auto" />
+        {/* Mobil: başlıkların ALTINDA, sağa sabit */}
+        <div className="md:hidden mt-4 relative w-full h-11">
+          <div className="absolute right-0 top-0">
+            <ConnectBar size="sm" />
           </div>
         </div>
       </section>
