@@ -109,15 +109,14 @@ export default function ConnectModal({ open, onClose }: Props) {
 
       <DialogContent className="bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md max-h-[85vh] overflow-y-auto overscroll-contain z-[100] shadow-2xl border border-white/10">
 
-        {/* Sticky header: tam opak, alt çizgili; tıklamalar yalnızca butona geçer */}
+        {/* Sticky header: ŞEFFAF, tıklamalar yalnızca butona geçer */}
         <div
           className="sticky top-0 -m-6 px-6 pt-3 pb-2 z-[120] flex items-center justify-between
-                     pointer-events-none bg-zinc-900/95 backdrop-blur
-                     border-b border-white/10"
+                    pointer-events-none bg-transparent"
         >
           <DialogTitle
             className="text-white/95 text-base font-semibold pointer-events-auto
-                       drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]"
+                      drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]"
           >
             Connect a Solana wallet
           </DialogTitle>
@@ -126,7 +125,7 @@ export default function ConnectModal({ open, onClose }: Props) {
             onClick={onClose}
             aria-label="Close"
             className="pointer-events-auto inline-flex items-center justify-center h-8 w-8
-                       rounded-lg hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
+                      rounded-lg hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
           >
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden>
               <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
