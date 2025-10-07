@@ -137,8 +137,8 @@ export default function HomePage() {
 
         {/* 🔽 Mobilde başlıkların ALTINDA Connect — ortalı ve kısa */}
         <div className="md:hidden mt-4 flex justify-center">
-          <div className="md:hidden mt-4 flex justify-end">
-            <ConnectBar variant="heroMobile" size="sm" />
+          <div className="md:hidden mt-4 flex">
+            <ConnectBar variant="heroMobile" size="sm" className="ml-auto" />
           </div>
         </div>
       </section>

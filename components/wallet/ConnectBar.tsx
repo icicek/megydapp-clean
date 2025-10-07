@@ -104,7 +104,7 @@ export default function ConnectBar({ variant = 'default', size = 'md', className
   }
 
   // ——— Görsel sınıflar (boyut/yerleşim) ———
-  const wrap = `relative flex items-center w-full ${variant === 'heroMobile' ? 'justify-end' : 'justify-end'} ${className}`;
+  const wrap = `relative flex items-center w-auto ${variant === 'heroMobile' ? 'ml-auto' : ''} ${className}`;
   const heightCls = size === 'sm' ? 'h-10 text-sm' : 'h-11 text-base';
   const padBtn    = size === 'sm' ? 'px-4' : 'px-5';
   const padPill   = size === 'sm' ? 'px-3' : 'px-4';
