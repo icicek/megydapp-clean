@@ -117,20 +117,14 @@ export default function HomePage() {
   const sharePercentage = Math.max(0, Math.min(100, shareRatio * 100)).toFixed(2);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center p-6 space-y-8">
-      {/* ÜST BAR (yalnız Solana) */}
+    <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center px-6 pt-4 pb-6 space-y-8">
+      {/* ÜST BAR (yalnız Solana, masaüstü) */}
       <div className="w-full hidden md:flex justify-end mt-2 mb-2 gap-3">
         <ConnectBar />
       </div>
 
-      {/* Mobile header */}
-      <div className="w-full flex md:hidden justify-center my-4">
-        <div className="w-full max-w-xs flex items-center justify-between gap-3">
-          <ConnectBar />
-        </div>
-      </div>
-
-      <section className="text-center py-2 w-full">
+      {/* Hero */}
+      <section className="text-center pt-2 pb-2 w-full">
         <h1 className="text-4xl md:text-5xl font-extrabold mb-2">
           Turn Deadcoins into a Fair Future.
         </h1>
@@ -140,6 +134,13 @@ export default function HomePage() {
         <p className="text-sm text-gray-300 max-w-xl mx-auto">
           Burning wealth inequality. One deadcoin at a time.
         </p>
+
+        {/* 🔽 Mobilde başlıkların ALTINDA Connect — masaüstünde gizli */}
+        <div className="md:hidden mt-4 flex justify-center">
+          <div className="w-full max-w-xs">
+            <ConnectBar />
+          </div>
+        </div>
       </section>
 
       <div className="w-full max-w-5xl bg-gradient-to-br from-gray-900 via-zinc-800 to-gray-900 p-8 rounded-2xl border border-purple-700 shadow-2xl">
