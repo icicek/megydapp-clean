@@ -106,17 +106,18 @@ export default function ConnectModal({ open, onClose }: Props) {
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogOverlay className="z-[90]" />
-      {/* Scroll: max-h + overflow → mobil/desk uyumlu */}
+
       <DialogContent className="bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md max-h-[85vh] overflow-y-auto overscroll-contain z-[100] shadow-2xl border border-white/10">
 
-        {/* Sticky header: başlık + kapatma */}
+        {/* Sticky header: tam opak, alt çizgili; tıklamalar yalnızca butona geçer */}
         <div
-          className="sticky top-0 -m-6 mb-3 px-6 pt-3 pb-2 z-[120] flex items-center justify-between
-                    pointer-events-none"   // ← üst şerit tıklamayı kapmıyor
+          className="sticky top-0 -m-6 px-6 pt-3 pb-2 z-[120] flex items-center justify-between
+                     pointer-events-none bg-zinc-900/95 backdrop-blur
+                     border-b border-white/10"
         >
           <DialogTitle
             className="text-white/95 text-base font-semibold pointer-events-auto
-                      drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]"
+                       drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]"
           >
             Connect a Solana wallet
           </DialogTitle>
@@ -125,7 +126,7 @@ export default function ConnectModal({ open, onClose }: Props) {
             onClick={onClose}
             aria-label="Close"
             className="pointer-events-auto inline-flex items-center justify-center h-8 w-8
-                      rounded-lg hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
+                       rounded-lg hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
           >
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden>
               <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -133,11 +134,13 @@ export default function ConnectModal({ open, onClose }: Props) {
           </button>
         </div>
 
+        {/* Header ile grid arası güvenli boşluk — kartların üstteki X’e “değmemesi” için */}
+        <div className="h-3 sm:h-4" />
+
         <DialogDescription className="sr-only">Choose a wallet to connect to Coincarnation.</DialogDescription>
 
-
         {/* Mobil tek sütun, ≥640px iki sütun */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 touch-pan-y">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-8 touch-pan-y">
           {cards.map(({ key, label, note, desc, installed }) => {
             const isBusy = busy && clicked === key;
             const isLast = last === key;
@@ -155,10 +158,10 @@ export default function ConnectModal({ open, onClose }: Props) {
                 onClick={() => handlePick(key)}
                 disabled={busy}
                 className="relative grid grid-rows-[auto_1fr_auto] h-[8.5rem]
-                          rounded-2xl border border-white/12 bg-white/[0.04] hover:bg-white/[0.07]
-                          pl-4 pr-14 pt-5 pb-3 overflow-hidden outline-none focus:outline-none select-none"
+                           rounded-2xl border border-white/12 bg-white/[0.04] hover:bg-white/[0.07]
+                           pl-4 pr-14 pt-5 pb-3 overflow-hidden outline-none focus:outline-none select-none"
               >
-                {/* son kullanılan için hafif ring */}
+                {/* Son kullanılan için hafif ring */}
                 {isLast && (
                   <span
                     aria-hidden
@@ -166,7 +169,7 @@ export default function ConnectModal({ open, onClose }: Props) {
                   />
                 )}
 
-                {/* rozet: sağ-üst; metinle çakışmayı önlemek için kartta pr-14 var */}
+                {/* Rozet: sağ-üst */}
                 <span
                   className={`absolute top-2 right-2 z-10 text-[10px] px-2 py-0.5 rounded-full border ${badge.cls}`}
                 >
@@ -179,7 +182,7 @@ export default function ConnectModal({ open, onClose }: Props) {
                   <span className="font-semibold">{label}</span>
                 </div>
 
-                {/* 2) Açıklama (2 satır clamp) — orta bölme */}
+                {/* 2) Açıklama */}
                 <div
                   className="relative z-10 text-xs text-gray-300 mt-2 self-start"
                   style={{
@@ -192,7 +195,7 @@ export default function ConnectModal({ open, onClose }: Props) {
                   {desc}{note ? ` — ${note}` : ''}
                 </div>
 
-                {/* 3) Alt link (her zaman en altta) */}
+                {/* 3) Alt link */}
                 {!installed && key !== 'walletconnect' && (
                   <a
                     href={INSTALL_URL[key as keyof typeof INSTALL_URL]}
@@ -205,7 +208,7 @@ export default function ConnectModal({ open, onClose }: Props) {
                   </a>
                 )}
 
-                {/* Busy göstergesi — sağ alt */}
+                {/* Busy göstergesi */}
                 {isBusy && (
                   <div className="absolute right-2 bottom-2 z-10 text-[11px] text-gray-400 flex items-center gap-2">
                     <span className="inline-block h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
@@ -213,13 +216,12 @@ export default function ConnectModal({ open, onClose }: Props) {
                   </div>
                 )}
               </motion.button>
-
             );
           })}
         </div>
 
-        {/* Need a wallet? — sade içerik, küçük ikonlar */}
-        <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.04] p-3">
+        {/* Need a wallet? */}
+        <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.04] p-3">
           <div className="text-sm font-semibold mb-2">Need a wallet?</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[12px] text-gray-300">
             <div className="rounded-lg p-3 bg-black/20 border border-white/10">
