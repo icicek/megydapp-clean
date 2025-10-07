@@ -159,7 +159,12 @@ export default function ConnectBar({ size = 'md', className = '' }: Props) {
               <span className="relative z-10 inline-flex items-center gap-2 whitespace-nowrap">
                 {/* Marka rozeti — varsa enum ile, yoksa adapter.icon ile */}
                 {brand ? (
-                  <WalletBrandBadge brand={brand} size={16} className="h-4 w-4 shrink-0" />
+                  <WalletBrandBadge
+                  brand={(brand ?? 'walletconnect') as Brand}
+                  iconSrc={(wallet?.adapter as any)?.icon}
+                  size={16}
+                  className="h-4 w-4 shrink-0"
+                />                
                 ) : adapterIcon ? (
                   <img src={adapterIcon} alt="" className="h-4 w-4 rounded-[4px] shrink-0" />
                 ) : null}
