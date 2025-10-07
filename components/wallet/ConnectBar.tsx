@@ -1,14 +1,13 @@
 // components/wallet/ConnectBar.tsx
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useId } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import ConnectModal from '@/components/wallet/ConnectModal';
 import WalletBrandBadge from '@/components/wallet/WalletBrandBadge';
 import type { Brand } from '@/components/wallet/WalletBrandIcon';
 
 type Props = {
-  /** Mobil/hero altında daha kısa görünüm için */
   size?: 'sm' | 'md';
   className?: string;
 };
@@ -27,26 +26,35 @@ function toBrand(name?: string | null): Brand | undefined {
     n.includes('mobile wallet adapter') ||
     n.includes('solana mobile') ||
     n.includes('mwa')
-  ) {
-    return 'walletconnect';
-  }
+  ) return 'walletconnect';
   return undefined;
 }
 
-/** Küçük SOL chip — logo + “SOL” etiketi */
+/** Küçük, her cihazda net görünen SOL chip */
 function SolanaChip({ size = 14 }: { size?: number }) {
+  const gid = useId(); // gradient id benzersiz
+  const gradId = `solg-${gid}`;
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-[2px] rounded-full border border-white/15 bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 shrink-0">
+    <span className="inline-flex items-center gap-1 px-2 py-[2px] rounded-full border border-white/15 bg-white/10 shrink-0">
       <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
         <defs>
-          <linearGradient id="solg" x1="0" y1="0" x2="1" y2="1">
+          <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="#00FFA3" />
             <stop offset="100%" stopColor="#DC1FFF" />
           </linearGradient>
         </defs>
-        <path d="M6 7h14l-3 3H3l3-3Z" fill="url(#solg)" />
-        <path d="M6 10.5h14l-3 3H3l3-3Z" fill="url(#solg)" opacity="0.85" />
-        <path d="M6 14h14l-3 3H3l3-3Z" fill="url(#solg)" />
+        {/* 3 kalın bar — küçük ölçekte de net */}
+        <g fill={`url(#${gradId})`}>
+          <rect x="4" y="5"   width="16" height="3.2" rx="1.6" />
+          <rect x="4" y="10.5" width="16" height="3.2" rx="1.6" />
+          <rect x="4" y="16"  width="16" height="3.2" rx="1.6" />
+        </g>
+        {/* gradient desteklenmezse görünür kalsın */}
+        <g fill="#14f195" opacity="0.001">
+          <rect x="4" y="5"   width="16" height="3.2" rx="1.6" />
+          <rect x="4" y="10.5" width="16" height="3.2" rx="1.6" />
+          <rect x="4" y="16"  width="16" height="3.2" rx="1.6" />
+        </g>
       </svg>
       <span className="text-[10px] font-semibold tracking-wide">SOL</span>
     </span>
@@ -60,7 +68,6 @@ export default function ConnectBar({ size = 'md', className = '' }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  // brand: adapter → yoksa last fallback
   const [lastBrand, setLastBrand] = useState<Brand | undefined>(undefined);
   useEffect(() => {
     try { setLastBrand((localStorage.getItem(LAST_KEY) as Brand | null) || undefined); } catch {}
@@ -73,14 +80,16 @@ export default function ConnectBar({ size = 'md', className = '' }: Props) {
     }
   }, [wallet?.adapter?.name]);
 
-  const brand = useMemo<Brand | undefined>(() => toBrand(wallet?.adapter?.name) || lastBrand, [wallet?.adapter?.name, lastBrand]);
+  const brand = useMemo<Brand | undefined>(
+    () => toBrand(wallet?.adapter?.name) || lastBrand,
+    [wallet?.adapter?.name, lastBrand]
+  );
 
   const shortAddr = useMemo(() => {
     const a = publicKey?.toBase58();
     return a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '';
   }, [publicKey]);
 
-  // dışarı tıkla → menüyü kapat
   useEffect(() => {
     if (!menuOpen) return;
     const onDown = (e: MouseEvent) => {
@@ -109,18 +118,15 @@ export default function ConnectBar({ size = 'md', className = '' }: Props) {
     return `https://solscan.io/address/${a}`;
   }
 
-  // ——— görsel sınıflar ———
   const heightCls = size === 'sm' ? 'h-10 text-sm' : 'h-11 text-base';
   const padBtn    = size === 'sm' ? 'px-4' : 'px-5';
   const padPill   = size === 'sm' ? 'px-3' : 'px-4';
 
-  // Adapter ikon fallback (brand çıkaramazsak yine logo göster)
   const adapterIcon: string | undefined = (wallet?.adapter as any)?.icon;
 
   return (
     <div className={`relative flex items-center w-auto ${className}`}>
       {!connected ? (
-        // ——— Bağlı değilken: kompakt ve ışıltılı buton ———
         <button
           onClick={() => setOpenModal(true)}
           className={`group relative inline-flex items-center justify-center rounded-2xl ${heightCls} ${padBtn}
@@ -138,7 +144,6 @@ export default function ConnectBar({ size = 'md', className = '' }: Props) {
           />
         </button>
       ) : (
-        // ——— Bağlıyken: zarif pill (logo + SOL + adres + chevron) ———
         <>
           <div className="relative" ref={menuRef}>
             <button
@@ -148,34 +153,29 @@ export default function ConnectBar({ size = 'md', className = '' }: Props) {
               aria-haspopup="menu"
               aria-expanded={menuOpen}
             >
-              {/* parıltı */}
               <span
                 aria-hidden
                 className="pointer-events-none absolute -inset-0.5 rounded-2xl blur opacity-30 z-0"
                 style={{ background: 'radial-gradient(60% 60% at 30% 20%, rgba(80,200,120,.35), rgba(0,0,0,0))' }}
               />
-
-              {/* içerik: tek satır, sıkı */}
               <span className="relative z-10 inline-flex items-center gap-2 whitespace-nowrap">
-                {/* Marka rozeti — varsa enum ile, yoksa adapter.icon ile */}
+                {/* cüzdan markası: enum ya da adapter.icon fallback */}
                 {brand ? (
                   <WalletBrandBadge
-                  brand={(brand ?? 'walletconnect') as Brand}
-                  iconSrc={(wallet?.adapter as any)?.icon}
-                  size={16}
-                  className="h-4 w-4 shrink-0"
-                />                
+                    brand={brand as Brand}
+                    iconSrc={adapterIcon}
+                    size={16}
+                    className="h-4 w-4 shrink-0"
+                  />
                 ) : adapterIcon ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={adapterIcon} alt="" className="h-4 w-4 rounded-[4px] shrink-0" />
                 ) : null}
 
-                {/* SOL chip */}
                 <SolanaChip size={14} />
 
-                {/* Adres (taşmayı önlemek için limit + truncate) */}
                 <span className="font-mono text-sm max-w-[7.5rem] truncate">{shortAddr}</span>
 
-                {/* chevron */}
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={`transition shrink-0 ${menuOpen ? 'rotate-180' : ''}`}>
                   <path d="M7 10l5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
@@ -240,7 +240,6 @@ export default function ConnectBar({ size = 'md', className = '' }: Props) {
         </>
       )}
 
-      {/* Tek instancelı modal */}
       <ConnectModal open={openModal} onClose={() => setOpenModal(false)} />
     </div>
   );
