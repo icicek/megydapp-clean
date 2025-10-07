@@ -8,7 +8,7 @@ import WalletBrandBadge from '@/components/wallet/WalletBrandBadge';
 import type { Brand } from '@/components/wallet/WalletBrandIcon';
 
 type Props = {
-  /** (Opsiyonel) Mobil/hero kullanımı için boyut vs. */
+  /** Mobil/hero altında daha kısa görünüm için */
   size?: 'sm' | 'md';
   className?: string;
 };
@@ -21,8 +21,13 @@ function toBrand(name?: string | null): Brand | undefined {
   if (n.includes('phantom')) return 'phantom';
   if (n.includes('solflare')) return 'solflare';
   if (n.includes('backpack')) return 'backpack';
-  // Mobil adapter adlarını da kapsa: "solana mobile wallet adapter", "mobile wallet adapter", "mwa"
-  if (n.includes('walletconnect') || n.includes('mobile') || n.includes('solana mobile') || n.includes('mwa')) {
+  // Mobile adapter / WalletConnect ailesi
+  if (
+    n.includes('walletconnect') ||
+    n.includes('mobile wallet adapter') ||
+    n.includes('solana mobile') ||
+    n.includes('mwa')
+  ) {
     return 'walletconnect';
   }
   return undefined;
@@ -109,6 +114,9 @@ export default function ConnectBar({ size = 'md', className = '' }: Props) {
   const padBtn    = size === 'sm' ? 'px-4' : 'px-5';
   const padPill   = size === 'sm' ? 'px-3' : 'px-4';
 
+  // Adapter ikon fallback (brand çıkaramazsak yine logo göster)
+  const adapterIcon: string | undefined = (wallet?.adapter as any)?.icon;
+
   return (
     <div className={`relative flex items-center w-auto ${className}`}>
       {!connected ? (
@@ -136,7 +144,7 @@ export default function ConnectBar({ size = 'md', className = '' }: Props) {
             <button
               onClick={() => setMenuOpen((v) => !v)}
               className={`relative flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10
-                          ${padPill} ${heightCls} shadow overflow-hidden`}
+                          ${padPill} ${heightCls} shadow`}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
             >
@@ -147,15 +155,19 @@ export default function ConnectBar({ size = 'md', className = '' }: Props) {
                 style={{ background: 'radial-gradient(60% 60% at 30% 20%, rgba(80,200,120,.35), rgba(0,0,0,0))' }}
               />
 
-              {/* içerik */}
-              <span className="relative z-10 inline-flex items-center gap-2 min-w-0">
-                {/* Marka rozeti — mobilde de görünür */}
-                {brand && <WalletBrandBadge brand={brand} size={16} className="h-4 w-4 shrink-0" />}
+              {/* içerik: tek satır, sıkı */}
+              <span className="relative z-10 inline-flex items-center gap-2 whitespace-nowrap">
+                {/* Marka rozeti — varsa enum ile, yoksa adapter.icon ile */}
+                {brand ? (
+                  <WalletBrandBadge brand={brand} size={16} className="h-4 w-4 shrink-0" />
+                ) : adapterIcon ? (
+                  <img src={adapterIcon} alt="" className="h-4 w-4 rounded-[4px] shrink-0" />
+                ) : null}
 
                 {/* SOL chip */}
                 <SolanaChip size={14} />
 
-                {/* Adres (taşmaması için küçük bir sınır) */}
+                {/* Adres (taşmayı önlemek için limit + truncate) */}
                 <span className="font-mono text-sm max-w-[7.5rem] truncate">{shortAddr}</span>
 
                 {/* chevron */}
