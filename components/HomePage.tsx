@@ -136,8 +136,8 @@ export default function HomePage() {
         </p>
 
         {/* Mobil: başlıkların ALTINDA, sağa sabit */}
-        <div className="md:hidden mt-4 relative w-full h-11">
-          <div className="absolute right-0 top-0">
+        <div className="md:hidden relative w-full h-11 mt-2">
+          <div className="absolute right-0 top-0 translate-y-5">
             <ConnectBar size="sm" />
           </div>
         </div>
