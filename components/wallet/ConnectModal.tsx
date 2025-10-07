@@ -134,12 +134,12 @@ export default function ConnectModal({ open, onClose }: Props) {
         </div>
 
         {/* Header ile grid arası güvenli boşluk — kartların üstteki X’e “değmemesi” için */}
-        <div className="h-3 sm:h-4" />
+        <div className="h-6 sm:h-8" />
 
         <DialogDescription className="sr-only">Choose a wallet to connect to Coincarnation.</DialogDescription>
 
         {/* Mobil tek sütun, ≥640px iki sütun */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-8 touch-pan-y">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-12 sm:mt-14 touch-pan-y">
           {cards.map(({ key, label, note, desc, installed }) => {
             const isBusy = busy && clicked === key;
             const isLast = last === key;
