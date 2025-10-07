@@ -8,9 +8,9 @@ import WalletBrandBadge from '@/components/wallet/WalletBrandBadge';
 import type { Brand } from '@/components/wallet/WalletBrandIcon';
 
 type Props = {
-  /** Mobil hero altında ortalamak için 'heroMobile'. Masaüstünde/varsayılan için 'default'. */
+  /** Mobil hero altında konum için: 'heroMobile'. Varsayılan: 'default'. */
   variant?: 'default' | 'heroMobile';
-  /** Dikey yüksekliği: mobil için 'sm' önerilir. */
+  /** Dikey ölçü: mobil için 'sm' önerilir. */
   size?: 'sm' | 'md';
   className?: string;
 };
@@ -28,7 +28,7 @@ function toBrand(name?: string | null): Brand | undefined {
 }
 
 /** Küçük SOL chip — logo + “SOL” etiketi */
-function SolanaChip({ size = 16 }: { size?: number }) {
+function SolanaChip({ size = 14 }: { size?: number }) {
   return (
     <span className="inline-flex items-center gap-1 px-2 py-[2px] rounded-full border border-white/15 bg-gradient-to-r from-emerald-500/20 to-cyan-500/20">
       <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
@@ -100,35 +100,44 @@ export default function ConnectBar({ variant = 'default', size = 'md', className
   function explorerUrl() {
     const a = publicKey?.toBase58();
     if (!a) return '#';
-    // mainnet için solscan
     return `https://solscan.io/address/${a}`;
   }
 
-  // --------- Görsel sınıflar (boyut/yerleşim) ----------
-  const wrapJustify = variant === 'heroMobile' ? 'justify-center' : 'justify-end';
-  const wrapWidth   = variant === 'heroMobile' ? 'w-full' : 'w-full';
-  const innerWidth  = variant === 'heroMobile' ? 'w-full max-w-xs' : '';
-
-  const heightCls   = size === 'sm' ? 'h-10 text-sm' : 'h-11 text-base';
-  const btnPadCls   = size === 'sm' ? 'px-4' : 'px-5';
-  const pillPadCls  = size === 'sm' ? 'px-3' : 'px-4';
+  // ——— Görsel sınıflar (boyut/yerleşim) ———
+  const wrap = `relative flex items-center w-full ${variant === 'heroMobile' ? 'justify-end' : 'justify-end'} ${className}`;
+  const heightCls = size === 'sm' ? 'h-10 text-sm' : 'h-11 text-base';
+  const padBtn    = size === 'sm' ? 'px-4' : 'px-5';
+  const padPill   = size === 'sm' ? 'px-3' : 'px-4';
 
   return (
-    <div className={`relative flex items-center ${wrapJustify} ${wrapWidth} ${className}`}>
+    <div className={wrap}>
       {!connected ? (
+        // ——— Bağlı değilken: Sağda, kompakt ve ışıltılı buton ———
         <button
           onClick={() => setOpenModal(true)}
-          className={`rounded-2xl ${heightCls} ${btnPadCls} bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow inline-flex items-center justify-center ${innerWidth}`}
-          style={{ lineHeight: 1 }} // dikeyde daha kompakt
+          className={`group relative inline-flex items-center justify-center rounded-2xl ${heightCls} ${padBtn}
+                      font-semibold text-white bg-gradient-to-br from-indigo-600 via-indigo-500 to-violet-600
+                      hover:from-indigo-500 hover:to-fuchsia-600
+                      shadow-[0_8px_24px_rgba(99,102,241,0.35)] ring-1 ring-white/10
+                      focus:outline-none focus:ring-2 focus:ring-indigo-400/40`}
+          style={{ lineHeight: 1 }}
         >
-          Connect wallet
+          <span className="relative z-10">Connect wallet</span>
+          {/* parlaklık */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition"
+            style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.06) 40%, rgba(255,255,255,0) 100%)' }}
+          />
         </button>
       ) : (
+        // ——— Bağlıyken: Sağda, zarif pill ———
         <>
-          <div className={`relative ${innerWidth}`} ref={menuRef}>
+          <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className={`relative flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 ${pillPadCls} ${heightCls} shadow overflow-hidden w-full`}
+              className={`relative flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10
+                          ${padPill} ${heightCls} shadow overflow-hidden`}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
             >
@@ -139,18 +148,11 @@ export default function ConnectBar({ variant = 'default', size = 'md', className
                 style={{ background: 'radial-gradient(60% 60% at 30% 20%, rgba(80,200,120,.35), rgba(0,0,0,0))' }}
               />
               {/* içerik üstte */}
-              <span className="relative z-10 inline-flex items-center gap-2 w-full justify-between">
-                {/* (opsiyonel) cüzdan marka rozeti */}
+              <span className="relative z-10 inline-flex items-center gap-2">
                 {brand && <WalletBrandBadge brand={brand} size={16} className="h-4 w-4 shrink-0" />}
-
-                {/* SOL chip — soldaki boşluk yerine gerçek logo */}
                 <SolanaChip size={14} />
-
-                {/* adres */}
-                <span className="font-mono text-sm flex-1 text-center">{shortAddr}</span>
-
-                {/* chevron */}
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={`transition shrink-0 ${menuOpen ? 'rotate-180' : ''}`}>
+                <span className="font-mono text-sm">{shortAddr}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={`transition ${menuOpen ? 'rotate-180' : ''}`}>
                   <path d="M7 10l5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </span>
