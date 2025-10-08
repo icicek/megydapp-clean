@@ -22,9 +22,19 @@ type Options = {
   pollMs?: number;
 };
 
+/* ---------------------------------- DEBUG --------------------------------- */
+const DEBUG_TOKENS = true;
+const dbg = (...args: any[]) => {
+  if (!DEBUG_TOKENS) return;
+  // DevTools Console’da “[TOKENS]” ile filtreleyebilirsin
+  // eslint-disable-next-line no-console
+  console.log('[TOKENS]', ...args);
+};
+/* -------------------------------------------------------------------------- */
+
 export function useWalletTokens(options?: Options) {
   const { publicKey, connected } = useWallet();
-  const { connection: providerConnection } = useConnection(); // doğru kullanım
+  const { connection: providerConnection } = useConnection(); // ← WalletAdapter'ın connection'ı
   const connection = providerConnection ?? fallbackConnection;
 
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
@@ -34,8 +44,11 @@ export function useWalletTokens(options?: Options) {
   const [error, setError] = useState<string | null>(null); // only for initial load errors
 
   const inflightRef = useRef(false);
-  const reqIdRef = useRef(0);
+  const reqIdRef = useRef(0); // latest-only guard
 
+  /* --------------------------- Helpers: parsers/fetch --------------------------- */
+
+  // getParsed* dönen hesapları -> {mint, amount} listesine çevir
   const mapParsed = (accs: any[]): { mint: string; amount: number }[] => {
     const out: { mint: string; amount: number }[] = [];
     for (const { account } of accs) {
@@ -59,38 +72,54 @@ export function useWalletTokens(options?: Options) {
     return out;
   };
 
-  const fetchFromOwnerParsed = async (owner: any, commitment: 'processed' | 'confirmed' | 'finalized') => {
+  // Normal yol: owner bazlı parsed token hesapları (SPL v1 + Token-2022)
+  const fetchFromOwnerParsed = async (
+    owner: any,
+    commitment: 'processed' | 'confirmed' | 'finalized'
+  ) => {
     const [v1Res, v22Res] = await Promise.allSettled([
       connection.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID }, commitment),
       connection.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_2022_PROGRAM_ID }, commitment),
     ]);
 
-    const allParsed: any[] = [
-      ...(v1Res.status === 'fulfilled' ? v1Res.value.value : []),
-      ...(v22Res.status === 'fulfilled' ? v22Res.value.value : []),
-    ];
-    return mapParsed(allParsed);
+    const v1 = v1Res.status === 'fulfilled' ? v1Res.value.value : [];
+    const v22 = v22Res.status === 'fulfilled' ? v22Res.value.value : [];
+
+    dbg('owner-parsed v1 status', v1Res.status, v1Res.status === 'fulfilled' ? v1.length : v1Res.reason);
+    dbg('owner-parsed v22 status', v22Res.status, v22Res.status === 'fulfilled' ? v22.length : v22Res.reason);
+    dbg('owner-parsed total', v1.length + v22.length);
+
+    return mapParsed([...v1, ...v22]);
   };
 
-  // Fallback: bazı RPC’lerde owner bazlı parsed çağrı boş döner → program bazlı parsed taraması
-  const fetchFromProgramParsedFallback = async (owner: any, commitment: 'processed' | 'confirmed' | 'finalized') => {
+  // Fallback: bazı RPC’lerde owner-parsed boş döner → program-parsed taraması
+  const fetchFromProgramParsedFallback = async (
+    owner: any,
+    commitment: 'processed' | 'confirmed' | 'finalized'
+  ) => {
+    dbg('fallback -> program-parsed scan starting');
+
     const ownerB58 = owner.toBase58();
     const filters = [{ memcmp: { offset: 32, bytes: ownerB58 } }]; // token account: owner @ offset 32
 
     const [v1Res, v22Res] = await Promise.allSettled([
-      // Token v1 (165 byte data size), ama dataSize koymasak da olur
       connection.getParsedProgramAccounts(TOKEN_PROGRAM_ID, { filters, commitment }),
-      // Token-2022: data size değişken; sadece memcmp ile tarıyoruz
       connection.getParsedProgramAccounts(TOKEN_2022_PROGRAM_ID, { filters, commitment }),
     ]);
 
-    const allParsed: any[] = [
-      ...(v1Res.status === 'fulfilled' ? v1Res.value : []),
-      ...(v22Res.status === 'fulfilled' ? v22Res.value : []),
-    ].map((x) => ({ account: x.account }));
+    const v1 = v1Res.status === 'fulfilled' ? v1Res.value : [];
+    const v22 = v22Res.status === 'fulfilled' ? v22Res.value : [];
 
-    return mapParsed(allParsed);
+    dbg('program-parsed v1', v1Res.status, v1Res.status === 'fulfilled' ? v1.length : v1Res.reason);
+    dbg('program-parsed v22', v22Res.status, v22Res.status === 'fulfilled' ? v22.length : v22Res.reason);
+    dbg('program-parsed total', v1.length + v22.length);
+
+    // mapParsed beklentisi: { account } alanı olan obje
+    const shaped = [...v1, ...v22].map((x: any) => ({ account: x.account }));
+    return mapParsed(shaped);
   };
+
+  /* --------------------------------- Fetcher --------------------------------- */
 
   const doFetch = useCallback(async (silent: boolean) => {
     if (!publicKey || !connected) {
@@ -109,15 +138,31 @@ export function useWalletTokens(options?: Options) {
     if (hasLoadedOnce && silent) setRefreshing(true);
 
     try {
+      dbg('Owner', publicKey.toBase58());
+
+      // RPC endpoint & version
+      try {
+        const ep =
+          (connection as any).rpcEndpoint ??
+          (connection as any)._rpcEndpoint ??
+          'unknown-endpoint';
+        dbg('RPC endpoint', ep);
+        const ver = await connection.getVersion();
+        dbg('RPC version', ver);
+      } catch (e) {
+        dbg('getVersion failed', e);
+      }
+
       const owner = publicKey;
       const commitment: 'confirmed' = 'confirmed';
 
-      // 1) Önce normal yol
+      // 1) Normal yol
       let positive = await fetchFromOwnerParsed(owner, commitment);
 
-      // 2) Boşsa fallback ile tara
+      // 2) Boşsa fallback tara
       if (positive.length === 0) {
         positive = await fetchFromProgramParsedFallback(owner, commitment);
+        dbg('fallback -> program-parsed total (after)', positive.length);
       }
 
       // 3) Aynı mint'leri birleştir
@@ -127,13 +172,18 @@ export function useWalletTokens(options?: Options) {
       // 4) Native SOL ekle (pseudo token)
       try {
         const lamports = await connection.getBalance(owner, commitment);
+        dbg('native SOL (lamports)', lamports, '=> SOL', lamports / 1e9);
         if (lamports > 0) merged.set('SOL', (merged.get('SOL') ?? 0) + lamports / 1e9);
-      } catch { /* ignore */ }
+      } catch (e) {
+        dbg('getBalance failed', e);
+      }
 
       // 5) Ham liste (büyükten küçüğe)
       const tokenListRaw: TokenInfo[] = Array.from(merged.entries())
         .map(([mint, amount]) => ({ mint, amount }))
         .sort((a, b) => b.amount - a.amount);
+
+      dbg('raw token count', tokenListRaw.length, tokenListRaw.slice(0, 5));
 
       // İlk anda “çıplak” listeyi göster (metadata bekletmesin)
       if (reqIdRef.current === myReq) {
@@ -144,6 +194,7 @@ export function useWalletTokens(options?: Options) {
               : { ...t, symbol: t.mint.slice(0, 4) }
           )
         );
+        dbg('setTokens (raw/early)', tokenListRaw.length);
         setHasLoadedOnce(true);
         if (!silent) setError(null);
       }
@@ -174,7 +225,9 @@ export function useWalletTokens(options?: Options) {
                 logoURI: fb.logoURI,
               };
             }
-          } catch { /* ignore */ }
+          } catch {
+            // ignore
+          }
 
           return { ...token, symbol: token.mint.slice(0, 4) };
         })
@@ -182,9 +235,10 @@ export function useWalletTokens(options?: Options) {
 
       if (reqIdRef.current !== myReq) return;
       setTokens(enriched);
+      dbg('setTokens (enriched)', enriched.length, enriched.slice(0, 5));
     } catch (e: any) {
       if (!silent || !hasLoadedOnce) setError(e?.message || 'Failed to fetch tokens');
-      // hata olsa bile state’leri bırakma
+      dbg('fetch error', e);
     } finally {
       if (reqIdRef.current === myReq) {
         setLoading(false);
@@ -209,10 +263,11 @@ export function useWalletTokens(options?: Options) {
       setRefreshing(false);
       setError(null);
     }
+    // publicKey string’e sabitleyerek doğru tetiklenmesini sağlıyoruz
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, publicKey?.toBase58()]);
 
-  // Arka plan eşitleme
+  // Arka plan eşitleme (focus / accountChanged / polling)
   useEffect(() => {
     if (!connected) return;
     const { autoRefetchOnFocus = true, autoRefetchOnAccountChange = true, pollMs } = options || {};
