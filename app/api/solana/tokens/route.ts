@@ -3,18 +3,16 @@ import { NextResponse } from 'next/server';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 
-// Bu route Node.js runtime'da çalışsın (Edge sınırlamalarından kaçın)
 export const runtime = 'nodejs';
 
-// .env.local içine birini eklemen yeterli (ilk bulunan kullanılır):
-// SOLANA_RPC=https://mainnet.helius-rpc.com/?api-key=XXXXX
-// veya ALCHEMY_SOLANA_RPC=https://solana-mainnet.g.alchemy.com/v2/XXXXX
-// veya QUICKNODE_SOLANA_RPC=https://<your-endpoint>.quiknode.pro/XXXXX/
+// Server-side öncelikli RPC adayları (gizli .env + mevcut NEXT_PUBLIC'ler)
 const RPC_CANDIDATES = [
-  process.env.SOLANA_RPC,
+  process.env.SOLANA_RPC,                 // önerilen: Helius/Alchemy/QuickNode gibi
   process.env.ALCHEMY_SOLANA_RPC,
   process.env.QUICKNODE_SOLANA_RPC,
-  'https://api.mainnet-beta.solana.com', // son çare
+  process.env.NEXT_PUBLIC_SOLANA_RPC,     // mevcut public env'lerin server'da fallback olarak okunması
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL, // "
+  'https://api.mainnet-beta.solana.com',  // en sonda son çare
 ].filter(Boolean) as string[];
 
 function mapParsed(accs: any[]) {
@@ -29,11 +27,8 @@ function mapParsed(accs: any[]) {
     let ui = typeof amt.uiAmount === 'number' ? amt.uiAmount : undefined;
     if (ui == null) {
       const raw = typeof amt.amount === 'string' ? amt.amount : '0';
-      try {
-        ui = Number(BigInt(raw)) / Math.pow(10, decimals);
-      } catch {
-        ui = Number(raw) / Math.pow(10, decimals);
-      }
+      try { ui = Number(BigInt(raw)) / Math.pow(10, decimals); }
+      catch { ui = Number(raw) / Math.pow(10, decimals); }
     }
     if (ui > 0) out.push({ mint, amount: ui });
   }
@@ -41,10 +36,10 @@ function mapParsed(accs: any[]) {
 }
 
 async function fetchFromOwnerParsed(conn: Connection, owner: PublicKey) {
-  const commitment: 'confirmed' = 'confirmed';
+  const c: 'confirmed' = 'confirmed';
   const [v1Res, v22Res] = await Promise.allSettled([
-    conn.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID }, commitment),
-    conn.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_2022_PROGRAM_ID }, commitment),
+    conn.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID }, c),
+    conn.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_2022_PROGRAM_ID }, c),
   ]);
   const v1 = v1Res.status === 'fulfilled' ? v1Res.value.value : [];
   const v22 = v22Res.status === 'fulfilled' ? v22Res.value.value : [];
@@ -52,16 +47,27 @@ async function fetchFromOwnerParsed(conn: Connection, owner: PublicKey) {
 }
 
 async function fetchFromProgramParsedFallback(conn: Connection, owner: PublicKey) {
-  const commitment: 'confirmed' = 'confirmed';
+  const c: 'confirmed' = 'confirmed';
   const filters = [{ memcmp: { offset: 32, bytes: owner.toBase58() } }];
   const [v1Res, v22Res] = await Promise.allSettled([
-    conn.getParsedProgramAccounts(TOKEN_PROGRAM_ID, { filters, commitment }),
-    conn.getParsedProgramAccounts(TOKEN_2022_PROGRAM_ID, { filters, commitment }),
+    conn.getParsedProgramAccounts(TOKEN_PROGRAM_ID, { filters, commitment: c }),
+    conn.getParsedProgramAccounts(TOKEN_2022_PROGRAM_ID, { filters, commitment: c }),
   ]);
   const v1 = v1Res.status === 'fulfilled' ? v1Res.value : [];
   const v22 = v22Res.status === 'fulfilled' ? v22Res.value : [];
   const shaped = [...v1, ...v22].map((x: any) => ({ account: x.account }));
   return mapParsed(shaped);
+}
+
+async function pickConnection(): Promise<Connection | null> {
+  for (const ep of RPC_CANDIDATES) {
+    try {
+      const conn = new Connection(ep!, 'confirmed');
+      await conn.getVersion(); // probe
+      return conn;
+    } catch { /* diğer adaya geç */ }
+  }
+  return null;
 }
 
 export async function GET(req: Request) {
@@ -72,23 +78,12 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, error: 'Missing owner' }, { status: 400 });
     }
 
-    const owner = new PublicKey(ownerStr);
-
-    // Çalışan bir RPC seç
-    let conn: Connection | null = null;
-    for (const ep of RPC_CANDIDATES) {
-      try {
-        const test = new Connection(ep!, 'confirmed');
-        await test.getVersion(); // probe
-        conn = test;
-        break;
-      } catch {
-        // diğer adaya geç
-      }
-    }
+    const conn = await pickConnection();
     if (!conn) {
       return NextResponse.json({ success: false, error: 'RPC not reachable' }, { status: 502 });
     }
+
+    const owner = new PublicKey(ownerStr);
 
     // 1) Owner-parsed
     let positive = await fetchFromOwnerParsed(conn, owner);
@@ -106,9 +101,7 @@ export async function GET(req: Request) {
     try {
       const lamports = await conn.getBalance(owner, 'confirmed');
       if (lamports > 0) merged.set('SOL', (merged.get('SOL') ?? 0) + lamports / 1e9);
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
 
     // 5) Ham liste
     const tokens = Array.from(merged.entries())
