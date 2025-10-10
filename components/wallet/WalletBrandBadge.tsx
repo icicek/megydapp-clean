@@ -33,10 +33,11 @@ export default function WalletBrandBadge({
         alt={`${brand} logo`}
         width={size}
         height={size}
-        style={{ width: size, height: size }}
+        style={{ width: size, height: size, display: 'block' }}
         className={className}
         draggable={false}
         decoding="async"
+        loading="eager"
         onError={() => setMode('file')}
       />
     );
@@ -51,10 +52,11 @@ export default function WalletBrandBadge({
         alt={`${brand} logo`}
         width={size}
         height={size}
-        style={{ width: size, height: size }}
+        style={{ width: size, height: size, display: 'block' }}
         className={className}
         draggable={false}
         decoding="async"
+        loading="eager"
         onError={() => setMode('fallback')}
       />
     );
