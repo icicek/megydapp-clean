@@ -16,16 +16,45 @@ import { motion } from 'framer-motion';
 import WalletBrandBadge from '@/components/wallet/WalletBrandBadge';
 import { Brand } from '@/components/wallet/WalletBrandIcon';
 import { connectStable } from '@/lib/solana/connectStable';
+import { logEvent } from '@/lib/analytics';
 
 type Props = { open: boolean; onClose: () => void };
 
 type UIItem = { key: Brand; label: string; note?: string; desc: string };
 type Card   = { key: Brand; label: string; note?: string; desc: string; installed: boolean; adapterName?: string };
 
+/** ---------------- Mobile / InApp / Deeplink helpers ---------------- */
+const isMobileUA = () => {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+  return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Windows Phone/i.test(ua);
+};
+
+const isInAppBrowserUA = () => {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  // Basit in-app tespiti (Instagram/Facebook/Twitter vs.)
+  return /(Instagram|FBAN|FBAV|Messenger|Line|Twitter)/i.test(ua);
+};
+
+const hasInjectedWallet = () => {
+  if (typeof window === 'undefined') return false;
+  const w: any = window as any;
+  return Boolean(
+    (w.solana && (w.solana.isPhantom || w.solana.isSolflare || w.solana.isBackpack)) ||
+    w.backpack
+  );
+};
+
+const phantomBrowseLink  = (url: string) => `https://phantom.app/ul/v1/browse?url=${encodeURIComponent(url)}`;
+const solflareBrowseLink = (url: string) => `https://solflare.com/ul/v1/browse?url=${encodeURIComponent(url)}`;
+const backpackBrowseLink = (url: string) => `https://backpack.app/ul/v1/browse?url=${encodeURIComponent(url)}`;
+
+/** ---------------- UI data ---------------- */
 const UI: UIItem[] = [
-  { key: 'phantom',  label: 'Phantom',  desc: 'Popular & beginner-friendly' },
-  { key: 'solflare', label: 'Solflare', desc: 'Ledger support, in-app staking' },
-  { key: 'backpack', label: 'Backpack', desc: 'xNFTs & power-user features' },
+  { key: 'phantom',  label: 'Phantom',        desc: 'Popular & beginner-friendly' },
+  { key: 'solflare', label: 'Solflare',       desc: 'Ledger support, in-app staking' },
+  { key: 'backpack', label: 'Backpack',       desc: 'xNFTs & power-user features' },
   { key: 'walletconnect', label: 'WalletConnect', note: 'QR / Mobile', desc: 'Use mobile wallets via QR' },
 ];
 
@@ -47,9 +76,16 @@ export default function ConnectModal({ open, onClose }: Props) {
   const [busy, setBusy]         = useState(false);
   const [last, setLast]         = useState<Brand | null>(null);
 
+  // Smart panel (inline sheet) state
+  const [showSmart, setShowSmart] = useState(false);
+
+  // Capture current URL for deeplink browse
+  const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+
   useEffect(() => { if (open) setLast((localStorage.getItem(LAST_KEY) as Brand) || null); }, [open]);
   useEffect(() => { if (open) { setErr(null); setClicked(null); setBusy(false); } }, [open]);
 
+  /** Wallets → installed map */
   const mapByBrand = useMemo(() => {
     const m = new Map<Brand, { adapterName: string; installed: boolean }>();
     for (const w of wallets) {
@@ -64,6 +100,11 @@ export default function ConnectModal({ open, onClose }: Props) {
     return m;
   }, [wallets]);
 
+  const anyAdapterInstalled = useMemo(() => {
+    for (const [, v] of mapByBrand) if (v.installed) return true;
+    return false;
+  }, [mapByBrand]);
+
   const cards: Card[] = useMemo(() => {
     const arr = UI.map(({ key, label, note, desc }) => {
       const hit = mapByBrand.get(key);
@@ -73,39 +114,170 @@ export default function ConnectModal({ open, onClose }: Props) {
     return arr;
   }, [mapByBrand, last]);
 
+  /** SmartConnect inline panel’ını açma + analytics */
+  useEffect(() => {
+    if (!open) return;
+    const shouldSmart = isMobileUA() && !hasInjectedWallet() && !anyAdapterInstalled;
+    setShowSmart(shouldSmart);
+    if (shouldSmart) {
+      logEvent('smart_connect_shown', {
+        inApp: isInAppBrowserUA(),
+        path: typeof window !== 'undefined' ? window.location.pathname : '',
+      });
+      if (isInAppBrowserUA()) {
+        logEvent('smart_connect_inapp_hint_shown');
+      }
+    }
+  }, [open, anyAdapterInstalled]);
+
+  /** Kart seçimi */
   async function handlePick(brand: Brand) {
     if (busy) return;
     setErr(null); setClicked(brand); setBusy(true);
 
     const hit = mapByBrand.get(brand);
+    const mobile = isMobileUA();
+    const injected = hasInjectedWallet();
 
+    // Analytics: attempt
+    logEvent('wallet_connect_attempt', { brand });
+
+    // WalletConnect guard
     if (brand === 'walletconnect' && !hit?.adapterName) {
       setErr('WalletConnect is not configured.');
       setBusy(false); setClicked(null);
       return;
     }
 
+    // Smart behavior: Mobile + no injection → Browse deeplinks
+    if (mobile && !injected && (brand === 'phantom' || brand === 'solflare' || brand === 'backpack')) {
+      try {
+        const href =
+          brand === 'phantom'  ? phantomBrowseLink(currentUrl)  :
+          brand === 'solflare' ? solflareBrowseLink(currentUrl) :
+                                  backpackBrowseLink(currentUrl);
+
+        // iOS gesture şartı: bu fonksiyon butondan çağrıldığı için güvenli.
+        logEvent(
+          brand === 'phantom'  ? 'smart_connect_open_in_phantom'  :
+          brand === 'solflare' ? 'smart_connect_open_in_solflare' :
+                                 'smart_connect_open_in_backpack',
+          { inApp: isInAppBrowserUA() }
+        );
+
+        window.location.href = href;
+        return; // navigation
+      } catch (e) {
+        setShowSmart(true);
+        setBusy(false); setClicked(null);
+        return;
+      }
+    }
+
+    // Masaüstü: kurulu değilse store linki
     if ((brand === 'phantom' || brand === 'solflare' || brand === 'backpack') && (!hit?.adapterName || !hit.installed)) {
-      window.open(INSTALL_URL[brand], '_blank', 'noopener,noreferrer');
+      if (!mobile) {
+        window.open(INSTALL_URL[brand], '_blank', 'noopener,noreferrer');
+        setBusy(false); setClicked(null);
+        return;
+      }
+      setShowSmart(true);
       setBusy(false); setClicked(null);
       return;
     }
 
+    // Normal connect akışı
     try {
       await select(hit!.adapterName as WalletName);
       await connectStable(hit!.adapterName!, api);
       localStorage.setItem(LAST_KEY, brand);
+      logEvent('wallet_connect_success', { brand });
       onClose();
     } catch (e: any) {
       setErr(e?.message || String(e) || 'Failed to connect.');
+      logEvent('wallet_connect_error', { brand, message: e?.message || String(e) });
       try { await disconnect(); } catch {}
       setBusy(false); setClicked(null);
     }
   }
 
+  /** SmartConnect inline panel (modal içi) */
+  const SmartPanel = () => {
+    if (!showSmart) return null;
+
+    const copyLink = async () => {
+      try {
+        await navigator.clipboard.writeText(currentUrl);
+        alert('Link copied. You can paste it into your wallet’s in-app browser.');
+      } catch {
+        prompt('Copy this link:', currentUrl);
+      }
+    };
+
+    return (
+      <div className="rounded-xl border border-amber-400/30 bg-amber-300/10 p-3 mb-4">
+        <div className="text-sm font-semibold text-amber-200">Smart Connect (Mobile)</div>
+
+        <p className="text-xs text-amber-100/90 mt-1">
+          Your browser doesn’t inject a wallet. Open this DApp inside your wallet’s in-app browser or use WalletConnect.
+        </p>
+
+        {isInAppBrowserUA() && (
+          <div className="mt-2 text-[11px] text-amber-100/90">
+            You seem to be in an in-app browser (e.g., Instagram/Facebook). Tap the menu and choose
+            <span className="px-1 mx-1 rounded bg-white/10 border border-white/10">Open in Safari</span>
+            or use one of the buttons below.
+          </div>
+        )}
+
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <button
+            className="w-full rounded-lg py-2 text-sm border border-white/15 bg-white/5 hover:bg-white/10"
+            onClick={() => { logEvent('smart_connect_open_in_phantom'); window.location.href = phantomBrowseLink(currentUrl); }}
+          >
+            Open in Phantom
+          </button>
+          <button
+            className="w-full rounded-lg py-2 text-sm border border-white/15 bg-white/5 hover:bg-white/10"
+            onClick={() => { logEvent('smart_connect_open_in_solflare'); window.location.href = solflareBrowseLink(currentUrl); }}
+          >
+            Open in Solflare
+          </button>
+          <button
+            className="w-full rounded-lg py-2 text-sm border border-white/15 bg-white/5 hover:bg-white/10"
+            onClick={() => { logEvent('smart_connect_open_in_backpack'); window.location.href = backpackBrowseLink(currentUrl); }}
+          >
+            Open in Backpack
+          </button>
+          <button
+            className="w-full rounded-lg py-2 text-sm border border-white/15 bg-white/5 hover:bg-white/10"
+            onClick={() => { logEvent('smart_connect_walletconnect_hint'); alert('Use “WalletConnect” below to connect with other mobile wallets.'); }}
+          >
+            Other wallets (WalletConnect)
+          </button>
+        </div>
+
+        <div className="mt-2 flex gap-2">
+          <button
+            className="px-3 py-1.5 text-xs rounded-md border border-white/15 bg-white/5 hover:bg-white/10"
+            onClick={copyLink}
+          >
+            Copy link
+          </button>
+          <button
+            className="px-3 py-1.5 text-xs rounded-md border border-white/15 bg-white/5 hover:bg-white/10"
+            onClick={() => setShowSmart(false)}
+          >
+            Hide
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      {/* Overlay → yumuşak fade in/out */}
+      {/* Overlay → smooth fade */}
       <DialogOverlay
         className="z-[90] bg-black/60
                    data-[state=open]:animate-in data-[state=closed]:animate-out
@@ -113,7 +285,7 @@ export default function ConnectModal({ open, onClose }: Props) {
                    duration-200"
       />
 
-      {/* Content → fade + slide-up in/out */}
+      {/* Content → fade + slide-up */}
       <DialogContent
         className="bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md max-h-[85vh]
                    overflow-y-auto overscroll-contain z-[100] shadow-2xl border border-white/10
@@ -123,7 +295,7 @@ export default function ConnectModal({ open, onClose }: Props) {
                    sm:data-[state=open]:slide-in-from-bottom-2
                    duration-250"
       >
-        {/* Şeffaf sticky header */}
+        {/* Transparent sticky header */}
         <div
           className="sticky top-0 -m-6 px-6 pt-3 pb-2 z-[120] flex items-center justify-between
                      pointer-events-none bg-transparent"
@@ -147,13 +319,16 @@ export default function ConnectModal({ open, onClose }: Props) {
           </button>
         </div>
 
-        {/* Güvenli boşluk → kartlar X’e değmesin */}
+        {/* Safe gap */}
         <div className="h-6 sm:h-8" />
 
         <DialogDescription className="sr-only">Choose a wallet to connect to Coincarnation.</DialogDescription>
 
-        {/* Kartlar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-12 sm:mt-14 touch-pan-y">
+        {/* ✅ Smart Connect inline panel */}
+        <SmartPanel />
+
+        {/* Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6 sm:mt-8 touch-pan-y">
           {cards.map(({ key, label, note, desc, installed }) => {
             const isBusy = busy && clicked === key;
             const isLast = last === key;
@@ -204,7 +379,7 @@ export default function ConnectModal({ open, onClose }: Props) {
                   {desc}{note ? ` — ${note}` : ''}
                 </div>
 
-                {!installed && key !== 'walletconnect' && (
+                {!installed && key !== 'walletconnect' && !isMobileUA() && (
                   <a
                     href={INSTALL_URL[key as keyof typeof INSTALL_URL]}
                     target="_blank"
