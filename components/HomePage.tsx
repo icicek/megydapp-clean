@@ -17,6 +17,9 @@ import { useChain } from '@/app/providers/ChainProvider';
 // 🔽 Tek-kaynak token meta çözümleyici
 import { getTokenMeta } from '@/lib/solana/tokenMeta';
 
+// PROD'da 60s, DEV'de 20s polling
+const POLL_MS = process.env.NODE_ENV === 'production' ? 60000 : 20000;
+
 export default function HomePage() {
   const router = useRouter();
   const { chain } = useChain(); // Şu an 'solana'
@@ -33,7 +36,7 @@ export default function HomePage() {
   } = useWalletTokens({
     autoRefetchOnFocus: true,
     autoRefetchOnAccountChange: true,
-    pollMs: 20000,
+    pollMs: POLL_MS, // ⬅️ prod: 60s, dev: 20s
   });
 
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
@@ -138,6 +141,7 @@ export default function HomePage() {
         {/* Mobil: başlıkların ALTINDA, sağa sabit */}
         <div className="md:hidden relative w-full h-11 mt-2">
           <div className="absolute right-0 top-0 translate-y-5">
+            {/* ConnectBar sende size prop’unu desteklemiyorsa size="sm" kısmını kaldır. */}
             <ConnectBar size="sm" />
           </div>
         </div>
