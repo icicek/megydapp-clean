@@ -49,7 +49,7 @@ const hasInjectedWallet = () => {
 };
 
 const phantomBrowseLink  = (url: string) => `https://phantom.app/ul/v1/browse?url=${encodeURIComponent(url)}`;
-// Solflare: path-parameter + ref REQUIRED
+// Solflare: path-parameter + ref
 const buildSolflareLinks = (url: string, ref: string) => ({
   scheme: `solflare://ul/v1/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(ref)}`,
   https:  `https://solflare.com/ul/v1/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(ref)}`,
@@ -88,7 +88,7 @@ function RedirectConfirm({
   open: boolean;
   brand: 'phantom' | 'solflare' | 'backpack';
   mode?: 'browse' | 'direct';
-  href?: string; // browse modunda gerçek <a href> için
+  href?: string; // browse modunda anchor nav için
   onCancel: () => void;
   onContinue: () => void | Promise<void>;
 }) {
@@ -128,7 +128,6 @@ function RedirectConfirm({
               Cancel
             </button>
 
-            {/* Browse modunda href varsa her marka için <a>; yoksa button (ör. iOS Solflare) */}
             {mode === 'browse' && href ? (
               <a
                 href={href}
@@ -247,7 +246,7 @@ export default function ConnectModal({ open, onClose }: Props) {
     }
   }
 
-  /** Solflare: iOS → scheme→https; Android → doğrudan https (scheme hata ekranına düşebiliyor) */
+  /** Solflare: iOS → scheme→https; Android → anchor (scheme) kullanıyoruz */
   function launchSolflare(url: string) {
     setDeeplinkTrying('solflare');
     setDeeplinkFailed(false);
@@ -256,8 +255,8 @@ export default function ConnectModal({ open, onClose }: Props) {
     const { scheme, https } = buildSolflareLinks(url, ref);
 
     if (isAndroid()) {
-      // Android: unknown scheme hata ekranı gösterebiliyor → direkt https
-      window.location.href = https;
+      // Android ConfirmLayer’da anchor ile scheme navigasyon yapıyoruz; buraya normalde düşmez.
+      window.location.href = scheme;
       return;
     }
 
@@ -302,14 +301,14 @@ export default function ConnectModal({ open, onClose }: Props) {
     // Mobil + no injection → confirm
     if (mobile && !injected && (brand === 'phantom' || brand === 'solflare' || brand === 'backpack')) {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const solAndroidHref = isAndroid() ? buildSolflareLinks(currentUrl, origin).https : undefined;
+      const solAndroidHref = isAndroid() ? buildSolflareLinks(currentUrl, origin).scheme : undefined; // ANDROID: scheme ile anchor
 
       setConfirm({
         brand: brand as 'phantom' | 'solflare' | 'backpack',
         href:
           brand === 'phantom'  ? phantomBrowseLink(currentUrl)  :
           brand === 'backpack' ? backpackBrowseLink(currentUrl) :
-          solAndroidHref, // Solflare: Android'de href ver; iOS'ta button onClick → launchSolflare
+          solAndroidHref, // Solflare: Android'de anchor; iOS'ta button → launchSolflare
         mode: 'browse',
       });
       return;
@@ -384,7 +383,7 @@ export default function ConnectModal({ open, onClose }: Props) {
             className="w-full rounded-lg py-2 text-sm border border-white/15 bg-white/5 hover:bg-white/10"
             onClick={() => {
               const origin = typeof window !== 'undefined' ? window.location.origin : '';
-              const solAndroidHref = isAndroid() ? buildSolflareLinks(currentUrl, origin).https : undefined;
+              const solAndroidHref = isAndroid() ? buildSolflareLinks(currentUrl, origin).scheme : undefined;
               logEvent('smart_connect_open_in_solflare', { inApp: isInAppBrowserUA() });
               setConfirm({ brand: 'solflare', mode: 'browse', href: solAndroidHref }); // Android: <a>, iOS: button
             }}
@@ -447,6 +446,16 @@ export default function ConnectModal({ open, onClose }: Props) {
               >
                 Try again
               </button>
+              {isAndroid() && (
+                <a
+                  className="px-3 py-1.5 text-xs rounded-md border border-white/15 bg-white/5 hover:bg-white/10"
+                  href="https://play.google.com/store/apps/details?id=com.solflare.mobile"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Get Solflare (Play Store)
+                </a>
+              )}
               <button
                 className="px-3 py-1.5 text-xs rounded-md border border-white/15 bg-white/5 hover:bg-white/10"
                 onClick={() => handlePick('walletconnect')}
@@ -465,13 +474,13 @@ export default function ConnectModal({ open, onClose }: Props) {
     if (!confirm) return null;
     const { brand, mode = 'browse' } = confirm;
 
-    // Browse için deeplink URL (Android Solflare dahil)
+    // Browse için deeplink URL
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const solAndroidHref = isAndroid() ? buildSolflareLinks(currentUrl, origin).https : undefined;
+    const solAndroidHref = isAndroid() ? buildSolflareLinks(currentUrl, origin).scheme : undefined; // ANDROID scheme
     const href =
       brand === 'phantom'  ? phantomBrowseLink(currentUrl)  :
       brand === 'backpack' ? backpackBrowseLink(currentUrl) :
-      solAndroidHref; // Solflare: Android'de anchor; iOS'ta undefined → button
+      solAndroidHref; // Solflare: Android anchor; iOS'ta undefined → button
 
     const continueHandler = async () => {
       if (mode === 'direct') {
@@ -489,13 +498,12 @@ export default function ConnectModal({ open, onClose }: Props) {
         return;
       }
 
-      // BROWSE:
+      // iOS Solflare: button → scheme→https fallback
       if (brand === 'solflare' && !href) {
-        // iOS Solflare: scheme→https fallback içerir
         launchSolflare(currentUrl);
         setConfirm(null);
       }
-      // Phantom/Backpack/Android-Solflare: anchor default nav çalışıyor
+      // Phantom/Backpack/Android-Solflare: anchor default nav
     };
 
     return (
@@ -518,11 +526,11 @@ export default function ConnectModal({ open, onClose }: Props) {
                    data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 duration-200"
       />
       <DialogContent
-        className="bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md max-h-[85vh]
-                   overflow-y-auto overscroll-contain z-[100] shadow-2xl border border-white/10
+        className="bg-zinc-900 text-white p-6 rounded-2xl w/[92vw] max-w-md max-h/[85vh]
+                   overflow-y-auto overscroll-contain z/[100] shadow-2xl border border-white/10
                    data-[state=open]:animate-in data-[state=closed]:animate-out
                    data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0
-                   data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-1
+                   data/[state=open]:slide-in-from-bottom-4 data/[state=closed]:slide-out-to-bottom-1
                    sm:data-[state=open]:slide-in-from-bottom-2 duration-250"
       >
         {/* Header */}
