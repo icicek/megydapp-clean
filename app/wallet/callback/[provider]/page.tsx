@@ -18,26 +18,25 @@ function decodePayload(
   const walletPub = bs58.decode(walletPub58); // 32 bytes
   const data = bs58.decode(data58);
   const nonce = bs58.decode(nonce58);
-
   const opened = nacl.box.open(data, nonce, walletPub, ephSecretKey);
   if (!opened) throw new Error('decrypt_failed');
   const json = new TextDecoder().decode(opened);
   return JSON.parse(json); // { public_key, session, ... }
 }
 
-function pickEncryptionKeyParam(provider: Provider, sp: URLSearchParams) {
-  // cüzdana göre değişebilir; esnek tara:
+function pickEncryptionKeyParam(provider: string, sp: URLSearchParams) {
   return (
     sp.get(`${provider}_encryption_public_key`) ||
     sp.get('wallet_encryption_public_key') ||
     sp.get('encryption_public_key') ||
-    sp.get('phantom_encryption_public_key') || // backward compat
+    sp.get('phantom_encryption_public_key') ||
     ''
   );
 }
 
-export default function WalletCallbackPage({ params }: { params: { provider: Provider } }) {
-  const provider = params.provider;
+// NOTE: props'u any alıyoruz; Next 15 bazı durumlarda params'ı Promise olarak tipliyor.
+export default function WalletCallbackPage(props: any) {
+  const provider = String(props?.params?.provider || 'phantom') as Provider;
   const router = useRouter();
   const [status, setStatus] = useState<'working'|'ok'|'error'>('working');
   const [message, setMessage] = useState<string>('Decrypting…');
