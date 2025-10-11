@@ -31,17 +31,13 @@ const isMobileUA = () => {
   const ua = navigator.userAgent || navigator.vendor || (window as any).opera || '';
   return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Windows Phone/i.test(ua);
 };
-
+const isAndroid = () => typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
 const isInAppBrowserUA = () => {
   if (typeof window === 'undefined') return false;
   const ua = navigator.userAgent || '';
   return /(Instagram|FBAN|FBAV|Messenger|Line|Twitter)/i.test(ua);
 };
-
-const isIOS = () => {
-  if (typeof window === 'undefined') return false;
-  return /iPad|iPhone|iPod/.test(navigator.userAgent);
-};
+const isIOS = () => typeof window !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
 
 const hasInjectedWallet = () => {
   if (typeof window === 'undefined') return false;
@@ -92,7 +88,7 @@ function RedirectConfirm({
   open: boolean;
   brand: 'phantom' | 'solflare' | 'backpack';
   mode?: 'browse' | 'direct';
-  href?: string; // browse modunda Phantom/Backpack için gerçek <a href>
+  href?: string; // browse modunda gerçek <a href> için
   onCancel: () => void;
   onContinue: () => void | Promise<void>;
 }) {
@@ -132,12 +128,11 @@ function RedirectConfirm({
               Cancel
             </button>
 
-            {/* Browse modunda Phantom/Backpack → gerçek <a href>; Solflare → button (scheme→https fallback) */}
-            {mode === 'browse' && href && brand !== 'solflare' ? (
+            {/* Browse modunda href varsa her marka için <a>; yoksa button (ör. iOS Solflare) */}
+            {mode === 'browse' && href ? (
               <a
                 href={href}
                 className="flex-1 text-center rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm hover:bg-emerald-400/20"
-                onClick={() => {/* anchor default navigation */}}
               >
                 {label}
               </a>
@@ -237,7 +232,7 @@ export default function ConnectModal({ open, onClose }: Props) {
     };
   }, []);
 
-  /** Deeplink launcher */
+  /** Deeplink launcher (Phantom/Backpack) */
   function launchDeeplink(href: string, brand: 'phantom' | 'solflare' | 'backpack') {
     setDeeplinkTrying(brand);
     setDeeplinkFailed(false);
@@ -252,7 +247,7 @@ export default function ConnectModal({ open, onClose }: Props) {
     }
   }
 
-  /** Solflare: scheme → https fallback */
+  /** Solflare: iOS → scheme→https; Android → doğrudan https (scheme hata ekranına düşebiliyor) */
   function launchSolflare(url: string) {
     setDeeplinkTrying('solflare');
     setDeeplinkFailed(false);
@@ -260,6 +255,13 @@ export default function ConnectModal({ open, onClose }: Props) {
     const ref = typeof window !== 'undefined' ? window.location.origin : '';
     const { scheme, https } = buildSolflareLinks(url, ref);
 
+    if (isAndroid()) {
+      // Android: unknown scheme hata ekranı gösterebiliyor → direkt https
+      window.location.href = https;
+      return;
+    }
+
+    // iOS: önce app scheme, 200ms sonra görünürse https fallback
     const started = Date.now();
     const fallback = setTimeout(() => {
       if (document.visibilityState === 'visible' && Date.now() - started > 120) {
@@ -268,7 +270,6 @@ export default function ConnectModal({ open, onClose }: Props) {
     }, 200);
 
     try {
-      // First try app scheme
       window.location.href = scheme;
     } catch {
       clearTimeout(fallback);
@@ -300,12 +301,15 @@ export default function ConnectModal({ open, onClose }: Props) {
 
     // Mobil + no injection → confirm
     if (mobile && !injected && (brand === 'phantom' || brand === 'solflare' || brand === 'backpack')) {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const solAndroidHref = isAndroid() ? buildSolflareLinks(currentUrl, origin).https : undefined;
+
       setConfirm({
         brand: brand as 'phantom' | 'solflare' | 'backpack',
         href:
           brand === 'phantom'  ? phantomBrowseLink(currentUrl)  :
           brand === 'backpack' ? backpackBrowseLink(currentUrl) :
-          undefined, // Solflare: href yok; button onClick → launchSolflare
+          solAndroidHref, // Solflare: Android'de href ver; iOS'ta button onClick → launchSolflare
         mode: 'browse',
       });
       return;
@@ -379,8 +383,10 @@ export default function ConnectModal({ open, onClose }: Props) {
           <button
             className="w-full rounded-lg py-2 text-sm border border-white/15 bg-white/5 hover:bg-white/10"
             onClick={() => {
+              const origin = typeof window !== 'undefined' ? window.location.origin : '';
+              const solAndroidHref = isAndroid() ? buildSolflareLinks(currentUrl, origin).https : undefined;
               logEvent('smart_connect_open_in_solflare', { inApp: isInAppBrowserUA() });
-              setConfirm({ brand: 'solflare', mode: 'browse' }); // href yok
+              setConfirm({ brand: 'solflare', mode: 'browse', href: solAndroidHref }); // Android: <a>, iOS: button
             }}
           >
             Open in Solflare
@@ -459,11 +465,13 @@ export default function ConnectModal({ open, onClose }: Props) {
     if (!confirm) return null;
     const { brand, mode = 'browse' } = confirm;
 
-    // Browse için deeplink URL (Phantom/Backpack anchor’a verilecek)
+    // Browse için deeplink URL (Android Solflare dahil)
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const solAndroidHref = isAndroid() ? buildSolflareLinks(currentUrl, origin).https : undefined;
     const href =
       brand === 'phantom'  ? phantomBrowseLink(currentUrl)  :
       brand === 'backpack' ? backpackBrowseLink(currentUrl) :
-      undefined; // Solflare: href yok; button onClick → launchSolflare
+      solAndroidHref; // Solflare: Android'de anchor; iOS'ta undefined → button
 
     const continueHandler = async () => {
       if (mode === 'direct') {
@@ -482,12 +490,12 @@ export default function ConnectModal({ open, onClose }: Props) {
       }
 
       // BROWSE:
-      if (brand === 'solflare') {
-        // scheme→https fallback içerir
+      if (brand === 'solflare' && !href) {
+        // iOS Solflare: scheme→https fallback içerir
         launchSolflare(currentUrl);
         setConfirm(null);
       }
-      // Phantom/Backpack'te anchor default navigation çalışacağı için burada ekstra bir şey yok
+      // Phantom/Backpack/Android-Solflare: anchor default nav çalışıyor
     };
 
     return (
