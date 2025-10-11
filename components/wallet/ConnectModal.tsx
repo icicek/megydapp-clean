@@ -53,8 +53,11 @@ const hasInjectedWallet = () => {
 };
 
 const phantomBrowseLink  = (url: string) => `https://phantom.app/ul/v1/browse?url=${encodeURIComponent(url)}`;
-const solflareSchemeLink = (url: string) => `solflare://ul/v1/browse?url=${encodeURIComponent(url)}`;
-const solflareHttpsLink  = (url: string) => `https://solflare.com/ul/v1/browse?url=${encodeURIComponent(url)}`;
+// Solflare: path-parameter + ref REQUIRED
+const buildSolflareLinks = (url: string, ref: string) => ({
+  scheme: `solflare://ul/v1/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(ref)}`,
+  https:  `https://solflare.com/ul/v1/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(ref)}`,
+});
 const backpackBrowseLink = (url: string) => `https://backpack.app/ul/v1/browse?url=${encodeURIComponent(url)}`;
 
 /** ---------------- UI data ---------------- */
@@ -134,10 +137,7 @@ function RedirectConfirm({
               <a
                 href={href}
                 className="flex-1 text-center rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm hover:bg-emerald-400/20"
-                // anchor default navigation → engelleme yok
-                onClick={() => {
-                  // sheet’i kapatmaya gerek yok; sayfa navigasyona gidiyor
-                }}
+                onClick={() => {/* anchor default navigation */}}
               >
                 {label}
               </a>
@@ -256,18 +256,25 @@ export default function ConnectModal({ open, onClose }: Props) {
   function launchSolflare(url: string) {
     setDeeplinkTrying('solflare');
     setDeeplinkFailed(false);
+
+    const ref = typeof window !== 'undefined' ? window.location.origin : '';
+    const { scheme, https } = buildSolflareLinks(url, ref);
+
     const started = Date.now();
     const fallback = setTimeout(() => {
       if (document.visibilityState === 'visible' && Date.now() - started > 120) {
-        try { window.location.href = solflareHttpsLink(url); } catch {}
+        try { window.location.href = https; } catch {}
       }
     }, 200);
+
     try {
-      window.location.href = solflareSchemeLink(url);
+      // First try app scheme
+      window.location.href = scheme;
     } catch {
       clearTimeout(fallback);
-      window.location.href = solflareHttpsLink(url);
+      window.location.href = https;
     }
+
     setTimeout(() => {
       if (document.visibilityState === 'visible') setDeeplinkFailed(true);
     }, 2500);
@@ -297,8 +304,8 @@ export default function ConnectModal({ open, onClose }: Props) {
         brand: brand as 'phantom' | 'solflare' | 'backpack',
         href:
           brand === 'phantom'  ? phantomBrowseLink(currentUrl)  :
-          brand === 'solflare' ? solflareHttpsLink(currentUrl)  :
-                                 backpackBrowseLink(currentUrl),
+          brand === 'backpack' ? backpackBrowseLink(currentUrl) :
+          undefined, // Solflare: href yok; button onClick → launchSolflare
         mode: 'browse',
       });
       return;
@@ -371,7 +378,10 @@ export default function ConnectModal({ open, onClose }: Props) {
           </button>
           <button
             className="w-full rounded-lg py-2 text-sm border border-white/15 bg-white/5 hover:bg-white/10"
-            onClick={() => { logEvent('smart_connect_open_in_solflare', { inApp: isInAppBrowserUA() }); setConfirm({ brand: 'solflare', href: solflareHttpsLink(currentUrl), mode: 'browse' }); }}
+            onClick={() => {
+              logEvent('smart_connect_open_in_solflare', { inApp: isInAppBrowserUA() });
+              setConfirm({ brand: 'solflare', mode: 'browse' }); // href yok
+            }}
           >
             Open in Solflare
           </button>
@@ -453,7 +463,7 @@ export default function ConnectModal({ open, onClose }: Props) {
     const href =
       brand === 'phantom'  ? phantomBrowseLink(currentUrl)  :
       brand === 'backpack' ? backpackBrowseLink(currentUrl) :
-                            solflareHttpsLink(currentUrl); // solflare'ı button ile handle edeceğiz
+      undefined; // Solflare: href yok; button onClick → launchSolflare
 
     const continueHandler = async () => {
       if (mode === 'direct') {
