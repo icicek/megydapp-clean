@@ -84,11 +84,12 @@ function Portal({ children }: { children: React.ReactNode }) {
 
 /** ---------------- Heads-up confirm (rendered in Portal) ---------------- */
 function RedirectConfirm({
-  open, brand, mode = 'browse', onCancel, onContinue,
+  open, brand, mode = 'browse', href, onCancel, onContinue,
 }: {
   open: boolean;
   brand: 'phantom' | 'solflare' | 'backpack';
   mode?: 'browse' | 'direct';
+  href?: string; // browse modunda Phantom/Backpack için gerçek <a href>
   onCancel: () => void;
   onContinue: () => void | Promise<void>;
 }) {
@@ -110,24 +111,45 @@ function RedirectConfirm({
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-[999] flex items-center justify-center">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+        {/* backdrop */}
         <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
-        <div className="relative w-[92vw] max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-5 text-white shadow-2xl">
+
+        {/* content */}
+        <div className="relative w-[92vw] max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-5 text-white shadow-2xl pointer-events-auto">
           <div className="text-base font-semibold">Heads-up</div>
           <p className="mt-2 text-sm text-gray-200">{message}</p>
+
           <div className="mt-4 flex gap-2">
             <button
+              type="button"
               onClick={onCancel}
               className="flex-1 rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
             >
               Cancel
             </button>
-            <button
-              onClick={onContinue}
-              className="flex-1 rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm hover:bg-emerald-400/20"
-            >
-              {label}
-            </button>
+
+            {/* Browse modunda Phantom/Backpack → gerçek <a href>; Solflare → button (scheme→https fallback) */}
+            {mode === 'browse' && href && brand !== 'solflare' ? (
+              <a
+                href={href}
+                className="flex-1 text-center rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm hover:bg-emerald-400/20"
+                // anchor default navigation → engelleme yok
+                onClick={() => {
+                  // sheet’i kapatmaya gerek yok; sayfa navigasyona gidiyor
+                }}
+              >
+                {label}
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={onContinue}
+                className="flex-1 rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm hover:bg-emerald-400/20"
+              >
+                {label}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -427,6 +449,12 @@ export default function ConnectModal({ open, onClose }: Props) {
     if (!confirm) return null;
     const { brand, mode = 'browse' } = confirm;
 
+    // Browse için deeplink URL (Phantom/Backpack anchor’a verilecek)
+    const href =
+      brand === 'phantom'  ? phantomBrowseLink(currentUrl)  :
+      brand === 'backpack' ? backpackBrowseLink(currentUrl) :
+                            solflareHttpsLink(currentUrl); // solflare'ı button ile handle edeceğiz
+
     const continueHandler = async () => {
       if (mode === 'direct') {
         try {
@@ -443,14 +471,13 @@ export default function ConnectModal({ open, onClose }: Props) {
         return;
       }
 
+      // BROWSE:
       if (brand === 'solflare') {
+        // scheme→https fallback içerir
         launchSolflare(currentUrl);
-      } else if (brand === 'phantom') {
-        launchDeeplink(phantomBrowseLink(currentUrl), 'phantom');
-      } else {
-        launchDeeplink(backpackBrowseLink(currentUrl), 'backpack');
+        setConfirm(null);
       }
-      setConfirm(null);
+      // Phantom/Backpack'te anchor default navigation çalışacağı için burada ekstra bir şey yok
     };
 
     return (
@@ -458,6 +485,7 @@ export default function ConnectModal({ open, onClose }: Props) {
         open
         brand={brand}
         mode={mode}
+        href={href}
         onCancel={() => setConfirm(null)}
         onContinue={continueHandler}
       />
