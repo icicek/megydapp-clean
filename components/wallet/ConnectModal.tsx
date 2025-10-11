@@ -39,12 +39,21 @@ const isInAppBrowserUA = () => {
   return /(Instagram|FBAN|FBAV|Messenger|Line|Twitter)/i.test(ua);
 };
 
+/** Cüzdanların in-app browser’ı mı? (UA tabanlı hızlı kontrol) */
+const isWalletInAppUA = () => {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  // Solflare ve Phantom mobil UA’larında isimleri görünüyor; Backpack (xNFT) bazen "xNFT" içerir
+  return /(Solflare|Phantom|Backpack|xNFT)/i.test(ua);
+};
+
 const hasInjectedWallet = () => {
   if (typeof window === 'undefined') return false;
   const w: any = window as any;
   return Boolean(
-    (w.solana && (w.solana.isPhantom || w.solana.isSolflare || w.solana.isBackpack)) ||
-    w.backpack
+    (w.solana && (w.solana.isPhantom || w.solana.isSolflare || w.solana.isBackpack || typeof w.solana?.connect === 'function')) ||
+    w.backpack ||
+    (w.solflare && typeof w.solflare?.connect === 'function')
   );
 };
 
@@ -209,7 +218,7 @@ export default function ConnectModal({ open, onClose }: Props) {
   /* SmartConnect açılışı + analytics */
   useEffect(() => {
     if (!open) return;
-    const shouldSmart = isMobileUA() && !hasInjectedWallet() && !anyAdapterInstalled;
+    const shouldSmart = isMobileUA() && !hasInjectedWallet() && !anyAdapterInstalled && !isWalletInAppUA();
     setShowSmart(shouldSmart);
     if (shouldSmart) {
       logEvent('smart_connect_shown', {
@@ -234,8 +243,9 @@ export default function ConnectModal({ open, onClose }: Props) {
     };
   }, []);
 
-  /* Deeplink launcher (generic, şu an Phantom/Backpack için kullanılıyor) */
+  /* Deeplink launcher (generic) */
   function launchDeeplink(href: string, brand: 'phantom' | 'solflare' | 'backpack') {
+    if (isWalletInAppUA()) return; // in-app’te deeplink yok
     setDeeplinkTrying(brand);
     setDeeplinkFailed(false);
     const t = setTimeout(() => {
@@ -249,8 +259,9 @@ export default function ConnectModal({ open, onClose }: Props) {
     }
   }
 
-  /* Solflare: iOS → scheme→https fallback; Android → scheme, 350ms sonra yeni sekmede https */
+  /* Solflare: iOS → scheme→https; Android → scheme, 350ms sonra yeni sekmede https */
   function launchSolflare(url: string) {
+    if (isWalletInAppUA()) return; // Solflare in-app’teysek hiç çalıştırma
     setDeeplinkTrying('solflare');
     setDeeplinkFailed(false);
 
@@ -258,22 +269,18 @@ export default function ConnectModal({ open, onClose }: Props) {
     const { scheme, https } = buildSolflareLinks(url, ref);
 
     if (isAndroid()) {
-      // 1) Uygulamayı scheme ile dene
       let timedOut = false;
-      const to = setTimeout(() => {
+      setTimeout(() => {
         timedOut = true;
         try { window.open(https, '_blank', 'noopener'); } catch {}
       }, 350);
-
-      try { window.location.href = scheme; } catch { /* ignore */ }
-
+      try { window.location.href = scheme; } catch {}
       setTimeout(() => {
         if (document.visibilityState === 'visible' && !timedOut) {
           try { window.open(https, '_blank', 'noopener'); } catch {}
           setDeeplinkFailed(true);
         }
       }, 2500);
-
       return;
     }
 
@@ -296,7 +303,7 @@ export default function ConnectModal({ open, onClose }: Props) {
 
     const hit = mapByBrand.get(brand);
     const mobile = isMobileUA();
-    const injected = hasInjectedWallet();
+    const envHasWallet = hasInjectedWallet() || isWalletInAppUA(); // kritik değişiklik
 
     logEvent('wallet_connect_attempt', { brand });
 
@@ -306,8 +313,8 @@ export default function ConnectModal({ open, onClose }: Props) {
       return;
     }
 
-    // Mobil + no injection → Smart heads-up
-    if (mobile && !injected && (brand === 'phantom' || brand === 'solflare' || brand === 'backpack')) {
+    // Mobil + ortamda cüzdan yoksa → Heads-up
+    if (mobile && !envHasWallet && (brand === 'phantom' || brand === 'solflare' || brand === 'backpack')) {
       setConfirm({
         brand: brand as 'phantom' | 'solflare' | 'backpack',
         href:
@@ -319,19 +326,14 @@ export default function ConnectModal({ open, onClose }: Props) {
       return;
     }
 
-    // Masaüstü: kurulu değilse mağaza linki
-    if ((brand === 'phantom' || brand === 'solflare' || brand === 'backpack') && (!hit?.adapterName || !hit.installed)) {
-      if (!mobile) {
-        window.open(INSTALL_URL[brand], '_blank', 'noopener,noreferrer');
-        setClicked(null);
-        return;
-      }
-      setShowSmart(true);
+    // Masaüstü + kurulu değil → mağaza; fakat in-app UA ise direkt dene
+    if (!envHasWallet && !mobile && (brand === 'phantom' || brand === 'solflare' || brand === 'backpack') && (!hit?.adapterName || !hit.installed)) {
+      window.open(INSTALL_URL[brand], '_blank', 'noopener,noreferrer');
       setClicked(null);
       return;
     }
 
-    // Normal connect akışı
+    // Normal connect akışı (in-app dahil)
     try {
       setBusy(true);
       await select(hit!.adapterName as WalletName);
@@ -380,10 +382,7 @@ export default function ConnectModal({ open, onClose }: Props) {
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
           <button
             className="w-full rounded-lg py-2 text-sm border border-white/15 bg-white/5 hover:bg-white/10"
-            onClick={() => {
-              logEvent('smart_connect_open_in_phantom', { inApp: isInAppBrowserUA() });
-              setConfirm({ brand: 'phantom', href: phantomBrowseLink(currentUrl), mode: 'browse' });
-            }}
+            onClick={() => { logEvent('smart_connect_open_in_phantom', { inApp: isInAppBrowserUA() }); setConfirm({ brand: 'phantom', href: phantomBrowseLink(currentUrl), mode: 'browse' }); }}
           >
             Open in Phantom
           </button>
@@ -391,17 +390,14 @@ export default function ConnectModal({ open, onClose }: Props) {
             className="w-full rounded-lg py-2 text-sm border border-white/15 bg-white/5 hover:bg-white/10"
             onClick={() => {
               logEvent('smart_connect_open_in_solflare', { inApp: isInAppBrowserUA() });
-              setConfirm({ brand: 'solflare', mode: 'browse' }); // href vermiyoruz → button onContinue
+              setConfirm({ brand: 'solflare', mode: 'browse' }); // href yok → launchSolflare
             }}
           >
             Open in Solflare
           </button>
           <button
             className="w-full rounded-lg py-2 text-sm border border-white/15 bg-white/5 hover:bg-white/10"
-            onClick={() => {
-              logEvent('smart_connect_open_in_backpack', { inApp: isInAppBrowserUA() });
-              setConfirm({ brand: 'backpack', href: backpackBrowseLink(currentUrl), mode: 'browse' });
-            }}
+            onClick={() => { logEvent('smart_connect_open_in_backpack', { inApp: isInAppBrowserUA() }); setConfirm({ brand: 'backpack', href: backpackBrowseLink(currentUrl), mode: 'browse' }); }}
           >
             Open in Backpack
           </button>
@@ -412,7 +408,7 @@ export default function ConnectModal({ open, onClose }: Props) {
             Other wallets (WalletConnect)
           </button>
 
-          {/* Direct Connect (Phantom) */}
+          {/* Direct Connect (Phantom) — opsiyonel */}
           <button
             className="w-full rounded-lg py-2 text-sm border border-purple-400/40 bg-purple-400/10 hover:bg-purple-400/20"
             onClick={() => {
@@ -505,7 +501,6 @@ export default function ConnectModal({ open, onClose }: Props) {
         return;
       }
 
-      // Solflare → button ile programatik akış
       if (brand === 'solflare') {
         launchSolflare(currentUrl);
         setConfirm(null);
