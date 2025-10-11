@@ -18,6 +18,7 @@ import { Brand } from '@/components/wallet/WalletBrandIcon';
 import { connectStable } from '@/lib/solana/connectStable';
 import { logEvent } from '@/lib/analytics';
 
+/** ---------------- Types ---------------- */
 type Props = { open: boolean; onClose: () => void };
 
 type UIItem = { key: Brand; label: string; note?: string; desc: string };
@@ -33,8 +34,13 @@ const isMobileUA = () => {
 const isInAppBrowserUA = () => {
   if (typeof window === 'undefined') return false;
   const ua = navigator.userAgent || '';
-  // Basit in-app tespiti (Instagram/Facebook/Twitter vs.)
+  // Basit in-app tespiti (Instagram/Facebook/Twitter/Messenger vs.)
   return /(Instagram|FBAN|FBAV|Messenger|Line|Twitter)/i.test(ua);
+};
+
+const isIOS = () => {
+  if (typeof window === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent);
 };
 
 const hasInjectedWallet = () => {
@@ -67,6 +73,7 @@ const INSTALL_URL: Record<Exclude<Brand,'walletconnect'>, string> = {
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
 const LAST_KEY = 'cc:lastWalletBrand';
 
+/** ---------------- Component ---------------- */
 export default function ConnectModal({ open, onClose }: Props) {
   const api = useWallet();
   const { wallets, select, disconnect } = api;
@@ -79,7 +86,11 @@ export default function ConnectModal({ open, onClose }: Props) {
   // Smart panel (inline sheet) state
   const [showSmart, setShowSmart] = useState(false);
 
-  // Capture current URL for deeplink browse
+  // Deeplink denemesi durumu (Adım 5–6)
+  const [deeplinkTrying, setDeeplinkTrying] = useState<null | 'phantom' | 'solflare' | 'backpack'>(null);
+  const [deeplinkFailed, setDeeplinkFailed] = useState(false);
+
+  // Current URL
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
 
   useEffect(() => { if (open) setLast((localStorage.getItem(LAST_KEY) as Brand) || null); }, [open]);
@@ -130,6 +141,26 @@ export default function ConnectModal({ open, onClose }: Props) {
     }
   }, [open, anyAdapterInstalled]);
 
+  /** Deeplink başlatıcı (iOS/in-app fallback için 2.5s kuralı) */
+  function launchDeeplink(href: string, brand: 'phantom' | 'solflare' | 'backpack') {
+    setDeeplinkTrying(brand);
+    setDeeplinkFailed(false);
+
+    // 2.5s sonra hâlâ bu sayfadaysak fallback ipuçlarını göster
+    const t = setTimeout(() => {
+      setDeeplinkFailed(true);
+    }, 2500);
+
+    try {
+      // user gesture içinde çağrılıyor (buton onClick)
+      window.location.href = href;
+      // Navigation başarılı olursa sayfa değişecek; clearTimeout gerekmiyor.
+    } catch {
+      clearTimeout(t);
+      setDeeplinkFailed(true);
+    }
+  }
+
   /** Kart seçimi */
   async function handlePick(brand: Brand) {
     if (busy) return;
@@ -157,7 +188,6 @@ export default function ConnectModal({ open, onClose }: Props) {
           brand === 'solflare' ? solflareBrowseLink(currentUrl) :
                                   backpackBrowseLink(currentUrl);
 
-        // iOS gesture şartı: bu fonksiyon butondan çağrıldığı için güvenli.
         logEvent(
           brand === 'phantom'  ? 'smart_connect_open_in_phantom'  :
           brand === 'solflare' ? 'smart_connect_open_in_solflare' :
@@ -165,9 +195,12 @@ export default function ConnectModal({ open, onClose }: Props) {
           { inApp: isInAppBrowserUA() }
         );
 
-        window.location.href = href;
-        return; // navigation
-      } catch (e) {
+        launchDeeplink(href,
+          brand === 'phantom'  ? 'phantom'  :
+          brand === 'solflare' ? 'solflare' : 'backpack'
+        );
+        return;
+      } catch {
         setShowSmart(true);
         setBusy(false); setClicked(null);
         return;
@@ -181,6 +214,7 @@ export default function ConnectModal({ open, onClose }: Props) {
         setBusy(false); setClicked(null);
         return;
       }
+      // Mobil ama adapter yok → Smart panel
       setShowSmart(true);
       setBusy(false); setClicked(null);
       return;
@@ -233,19 +267,19 @@ export default function ConnectModal({ open, onClose }: Props) {
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
           <button
             className="w-full rounded-lg py-2 text-sm border border-white/15 bg-white/5 hover:bg-white/10"
-            onClick={() => { logEvent('smart_connect_open_in_phantom'); window.location.href = phantomBrowseLink(currentUrl); }}
+            onClick={() => { logEvent('smart_connect_open_in_phantom'); launchDeeplink(phantomBrowseLink(currentUrl), 'phantom'); }}
           >
             Open in Phantom
           </button>
           <button
             className="w-full rounded-lg py-2 text-sm border border-white/15 bg-white/5 hover:bg-white/10"
-            onClick={() => { logEvent('smart_connect_open_in_solflare'); window.location.href = solflareBrowseLink(currentUrl); }}
+            onClick={() => { logEvent('smart_connect_open_in_solflare'); launchDeeplink(solflareBrowseLink(currentUrl), 'solflare'); }}
           >
             Open in Solflare
           </button>
           <button
             className="w-full rounded-lg py-2 text-sm border border-white/15 bg-white/5 hover:bg-white/10"
-            onClick={() => { logEvent('smart_connect_open_in_backpack'); window.location.href = backpackBrowseLink(currentUrl); }}
+            onClick={() => { logEvent('smart_connect_open_in_backpack'); launchDeeplink(backpackBrowseLink(currentUrl), 'backpack'); }}
           >
             Open in Backpack
           </button>
@@ -254,6 +288,23 @@ export default function ConnectModal({ open, onClose }: Props) {
             onClick={() => { logEvent('smart_connect_walletconnect_hint'); alert('Use “WalletConnect” below to connect with other mobile wallets.'); }}
           >
             Other wallets (WalletConnect)
+          </button>
+          <button
+            className="w-full rounded-lg py-2 text-sm border border-purple-400/40 bg-purple-400/10 hover:bg-purple-400/20"
+            onClick={async () => {
+              try {
+                // keep within a user gesture; dynamic import to avoid initial bundle size
+                const { openPhantomDirectConnect } = await import('@/lib/wallet/direct/phantom');
+                await openPhantomDirectConnect({
+                  appUrl: window.location.origin,
+                  redirectLink: `${window.location.origin}/phantom/callback`,
+                });
+              } catch (e) {
+                alert('Direct Connect failed to start.');
+              }
+            }}
+          >
+            Direct Connect (Phantom)
           </button>
         </div>
 
@@ -271,6 +322,33 @@ export default function ConnectModal({ open, onClose }: Props) {
             Hide
           </button>
         </div>
+
+        {/* Açılmadı mı? Fallback kutusu */}
+        {deeplinkTrying && deeplinkFailed && (
+          <div className="mt-3 rounded-lg border border-red-400/30 bg-red-400/10 p-3">
+            <div className="text-sm font-semibold text-red-200">Didn’t open?</div>
+            <ul className="list-disc pl-5 text-xs text-red-100/90 mt-1 space-y-1">
+              <li>Try again and keep the screen unlocked.</li>
+              {isIOS() && <li>Tap the menu and choose <b>“Open in Safari”</b>. In some in-app browsers it’s required.</li>}
+              <li>Use <b>WalletConnect</b> below for other wallets.</li>
+              <li>Or <b>Copy link</b> and open it from your wallet’s in-app browser.</li>
+            </ul>
+            <div className="flex gap-2 mt-2">
+              <button
+                className="px-3 py-1.5 text-xs rounded-md border border-white/15 bg-white/5 hover:bg-white/10"
+                onClick={() => setDeeplinkFailed(false)}
+              >
+                Try again
+              </button>
+              <button
+                className="px-3 py-1.5 text-xs rounded-md border border-white/15 bg-white/5 hover:bg-white/10"
+                onClick={() => handlePick('walletconnect')}
+              >
+                Start WalletConnect
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -379,6 +457,7 @@ export default function ConnectModal({ open, onClose }: Props) {
                   {desc}{note ? ` — ${note}` : ''}
                 </div>
 
+                {/* Masaüstünde kurulu değilse store linki (mobilde SmartPanel öneriyoruz) */}
                 {!installed && key !== 'walletconnect' && !isMobileUA() && (
                   <a
                     href={INSTALL_URL[key as keyof typeof INSTALL_URL]}
