@@ -12,6 +12,7 @@ import {
 import { useWallet } from '@solana/wallet-adapter-react';
 import type { WalletName } from '@solana/wallet-adapter-base';
 import { motion } from 'framer-motion';
+import { createPortal } from 'react-dom';
 
 import WalletBrandBadge from '@/components/wallet/WalletBrandBadge';
 import { Brand } from '@/components/wallet/WalletBrandIcon';
@@ -73,7 +74,15 @@ const INSTALL_URL: Record<Exclude<Brand,'walletconnect'>, string> = {
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
 const LAST_KEY = 'cc:lastWalletBrand';
 
-/** ---------------- Heads-up confirm (also used for Direct Connect) ---------------- */
+/** ---------------- Small portal helper ---------------- */
+function Portal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  return createPortal(children, document.body);
+}
+
+/** ---------------- Heads-up confirm (rendered in Portal) ---------------- */
 function RedirectConfirm({
   open, brand, mode = 'browse', onCancel, onContinue,
 }: {
@@ -100,51 +109,50 @@ function RedirectConfirm({
       : 'For a better experience, you’ll be taken to your wallet’s in-app browser to continue.';
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
-      <div className="relative w-[92vw] max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-5 text-white shadow-2xl">
-        <div className="text-base font-semibold">Heads-up</div>
-        <p className="mt-2 text-sm text-gray-200">{message}</p>
-        <div className="mt-4 flex gap-2">
-          <button
-            onClick={onCancel}
-            className="flex-1 rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onContinue}
-            className="flex-1 rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm hover:bg-emerald-400/20"
-          >
-            {label}
-          </button>
+    <Portal>
+      <div className="fixed inset-0 z-[999] flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
+        <div className="relative w-[92vw] max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-5 text-white shadow-2xl">
+          <div className="text-base font-semibold">Heads-up</div>
+          <p className="mt-2 text-sm text-gray-200">{message}</p>
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={onCancel}
+              className="flex-1 rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onContinue}
+              className="flex-1 rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm hover:bg-emerald-400/20"
+            >
+              {label}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Portal>
   );
 }
 
-/** ---------------- Component ---------------- */
+/** ====================================================================== */
+
 export default function ConnectModal({ open, onClose }: Props) {
   const api = useWallet();
   const { wallets, select, disconnect } = api;
 
   const [err, setErr]           = useState<string | null>(null);
   const [clicked, setClicked]   = useState<Brand | null>(null);
-  const [busy, setBusy]         = useState(false);              // sadece gerçek connect akışında true
+  const [busy, setBusy]         = useState(false);
   const [last, setLast]         = useState<Brand | null>(null);
 
-  // Smart panel (inline sheet) state
   const [showSmart, setShowSmart] = useState(false);
 
-  // Deeplink fallback durumu
   const [deeplinkTrying, setDeeplinkTrying] = useState<null | 'phantom' | 'solflare' | 'backpack'>(null);
   const [deeplinkFailed, setDeeplinkFailed] = useState(false);
 
-  // Confirm modal (browse/direct)
   const [confirm, setConfirm] = useState<null | { brand: 'phantom' | 'solflare' | 'backpack'; href?: string; mode?: 'browse' | 'direct' }>(null);
 
-  // Current URL
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
 
   useEffect(() => { if (open) setLast((localStorage.getItem(LAST_KEY) as Brand) || null); }, [open]);
@@ -179,7 +187,7 @@ export default function ConnectModal({ open, onClose }: Props) {
     return arr;
   }, [mapByBrand, last]);
 
-  /** SmartConnect inline panel’ını açma + analytics */
+  /** SmartConnect panel açılışı + analytics */
   useEffect(() => {
     if (!open) return;
     const shouldSmart = isMobileUA() && !hasInjectedWallet() && !anyAdapterInstalled;
@@ -193,7 +201,7 @@ export default function ConnectModal({ open, onClose }: Props) {
     }
   }, [open, anyAdapterInstalled]);
 
-  /** Spinner takılmasın: görünürlük/odak değişince reset */
+  /** Spinner takılmasın */
   useEffect(() => {
     const reset = () => { setBusy(false); setClicked(null); };
     const onVis = () => { if (document.visibilityState === 'visible') reset(); };
@@ -207,7 +215,7 @@ export default function ConnectModal({ open, onClose }: Props) {
     };
   }, []);
 
-  /** Deeplink başlatıcı */
+  /** Deeplink launcher */
   function launchDeeplink(href: string, brand: 'phantom' | 'solflare' | 'backpack') {
     setDeeplinkTrying(brand);
     setDeeplinkFailed(false);
@@ -222,7 +230,7 @@ export default function ConnectModal({ open, onClose }: Props) {
     }
   }
 
-  /** Solflare için şema-önce, https fallback */
+  /** Solflare: scheme → https fallback */
   function launchSolflare(url: string) {
     setDeeplinkTrying('solflare');
     setDeeplinkFailed(false);
@@ -261,7 +269,7 @@ export default function ConnectModal({ open, onClose }: Props) {
       return;
     }
 
-    // Mobil + no injection → önce heads-up confirm
+    // Mobil + no injection → confirm
     if (mobile && !injected && (brand === 'phantom' || brand === 'solflare' || brand === 'backpack')) {
       setConfirm({
         brand: brand as 'phantom' | 'solflare' | 'backpack',
@@ -286,7 +294,7 @@ export default function ConnectModal({ open, onClose }: Props) {
       return;
     }
 
-    // Normal connect akışı (spinner burada gösterilecek)
+    // Normal connect akışı
     try {
       setBusy(true);
       await select(hit!.adapterName as WalletName);
@@ -303,7 +311,7 @@ export default function ConnectModal({ open, onClose }: Props) {
     }
   }
 
-  /** SmartConnect inline panel (modal içi) */
+  /** -------- Smart panel (modal içi) -------- */
   const SmartPanel = () => {
     if (!showSmart) return null;
 
@@ -358,11 +366,11 @@ export default function ConnectModal({ open, onClose }: Props) {
             Other wallets (WalletConnect)
           </button>
 
-          {/* ✅ Direct Connect (Phantom) */}
+          {/* Direct Connect (Phantom) */}
           <button
             className="w-full rounded-lg py-2 text-sm border border-purple-400/40 bg-purple-400/10 hover:bg-purple-400/20"
             onClick={() => {
-              logEvent('direct_connect_start');
+              logEvent('direct_connect_start', { provider: 'phantom' });
               setConfirm({ brand: 'phantom', mode: 'direct' });
             }}
           >
@@ -385,13 +393,12 @@ export default function ConnectModal({ open, onClose }: Props) {
           </button>
         </div>
 
-        {/* Açılmadı mı? Fallback kutusu */}
         {deeplinkTrying && deeplinkFailed && (
           <div className="mt-3 rounded-lg border border-red-400/30 bg-red-400/10 p-3">
             <div className="text-sm font-semibold text-red-200">Didn’t open?</div>
             <ul className="list-disc pl-5 text-xs text-red-100/90 mt-1 space-y-1">
               <li>Try again and keep the screen unlocked.</li>
-              {isIOS() && <li>Tap the menu and choose <b>“Open in Safari”</b>. In some in-app browsers it’s required.</li>}
+              {isIOS() && <li>Tap the menu and choose <b>“Open in Safari”</b>.</li>}
               <li>Use <b>WalletConnect</b> below for other wallets.</li>
               <li>Or <b>Copy link</b> and open it from your wallet’s in-app browser.</li>
             </ul>
@@ -415,19 +422,18 @@ export default function ConnectModal({ open, onClose }: Props) {
     );
   };
 
-  /** Confirm modal: browse/deeplink veya Direct Connect */
+  /** -------- ConfirmLayer (return'den önce, tek tanım) -------- */
   const ConfirmLayer = () => {
     if (!confirm) return null;
-    const { brand, href, mode = 'browse' } = confirm;
+    const { brand, mode = 'browse' } = confirm;
 
     const continueHandler = async () => {
       if (mode === 'direct') {
         try {
-          // user gesture içinde kalır
-          const { openPhantomDirectConnect } = await import('@/lib/wallet/direct/phantom');
-          await openPhantomDirectConnect({
+          const { openDirectConnect } = await import('@/lib/wallet/direct/direct');
+          await openDirectConnect('phantom', {
             appUrl: window.location.origin,
-            redirectLink: `${window.location.origin}/phantom/callback`,
+            redirectLink: `${window.location.origin}/wallet/callback/phantom`,
           });
         } catch {
           alert('Direct Connect failed to start.');
@@ -437,7 +443,6 @@ export default function ConnectModal({ open, onClose }: Props) {
         return;
       }
 
-      // browse deeplinks
       if (brand === 'solflare') {
         launchSolflare(currentUrl);
       } else if (brand === 'phantom') {
@@ -459,35 +464,26 @@ export default function ConnectModal({ open, onClose }: Props) {
     );
   };
 
+  /** -------------------- RENDER -------------------- */
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogOverlay
-        className="z-[90] bg-black/60
-                   data-[state=open]:animate-in data-[state=closed]:animate-out
-                   data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0
-                   duration-200"
+        className="z-[90] bg-black/60 data-[state=open]:animate-in data-[state=closed]:animate-out
+                   data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 duration-200"
       />
-
       <DialogContent
         className="bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md max-h-[85vh]
                    overflow-y-auto overscroll-contain z-[100] shadow-2xl border border-white/10
                    data-[state=open]:animate-in data-[state=closed]:animate-out
                    data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0
                    data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-1
-                   sm:data-[state=open]:slide-in-from-bottom-2
-                   duration-250"
+                   sm:data-[state=open]:slide-in-from-bottom-2 duration-250"
       >
-        <div
-          className="sticky top-0 -m-6 px-6 pt-3 pb-2 z-[100] flex items-center justify-between
-                     pointer-events-none bg-transparent"
-        >
-          <DialogTitle
-            className="text-white/95 text-base font-semibold pointer-events-auto
-                       drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]"
-          >
+        {/* Header */}
+        <div className="sticky top-0 -m-6 px-6 pt-3 pb-2 z-[100] flex items-center justify-between pointer-events-none">
+          <DialogTitle className="text-white/95 text-base font-semibold pointer-events-auto">
             Connect a Solana wallet
           </DialogTitle>
-
           <button
             onClick={onClose}
             aria-label="Close"
@@ -501,10 +497,11 @@ export default function ConnectModal({ open, onClose }: Props) {
         </div>
 
         <div className="h-6 sm:h-8" />
-        <DialogDescription className="sr-only">Choose a wallet to connect to Coincarnation.</DialogDescription>
+        <DialogDescription className="sr-only">Choose a wallet to connect.</DialogDescription>
 
         <SmartPanel />
 
+        {/* Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6 sm:mt-8 touch-pan-y">
           {cards.map(({ key, label, note, desc, installed }) => {
             const isBusy = busy && clicked === key;
@@ -527,23 +524,19 @@ export default function ConnectModal({ open, onClose }: Props) {
                            pl-4 pr-14 pt-5 pb-3 overflow-hidden outline-none focus:outline-none select-none"
               >
                 {isLast && <span aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-emerald-400/40" />}
-
                 <span className={`absolute top-2 right-2 z-10 text-[10px] px-2 py-0.5 rounded-full border ${badge.cls}`}>
                   {badge.text}
                 </span>
-
                 <div className="relative z-10 flex items-center gap-2">
                   <WalletBrandBadge brand={key} size={24} className="h-6 w-6 shrink-0" />
                   <span className="font-semibold">{label}</span>
                 </div>
-
                 <div
                   className="relative z-10 text-xs text-gray-300 mt-2 self-start"
                   style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
                 >
                   {desc}{note ? ` — ${note}` : ''}
                 </div>
-
                 {!installed && key !== 'walletconnect' && !isMobileUA() && (
                   <a
                     href={INSTALL_URL[key as keyof typeof INSTALL_URL]}
@@ -555,7 +548,6 @@ export default function ConnectModal({ open, onClose }: Props) {
                     Not installed? Get {label}
                   </a>
                 )}
-
                 {isBusy && (
                   <div className="absolute right-2 bottom-2 z-10 text-[11px] text-gray-400 flex items-center gap-2">
                     <span className="inline-block h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
@@ -602,39 +594,8 @@ export default function ConnectModal({ open, onClose }: Props) {
         {err && <div className="mt-3 text-sm text-red-400">{err}</div>}
       </DialogContent>
 
-      {/* Heads-up confirm layer */}
-      {confirm && (
-        <RedirectConfirm
-          open
-          brand={confirm.brand}
-          mode={confirm.mode}
-          onCancel={() => setConfirm(null)}
-          onContinue={async () => {
-            if (confirm.mode === 'direct') {
-              try {
-                const { openPhantomDirectConnect } = await import('@/lib/wallet/direct/phantom');
-                await openPhantomDirectConnect({
-                  appUrl: window.location.origin,
-                  redirectLink: `${window.location.origin}/phantom/callback`,
-                });
-              } catch {
-                alert('Direct Connect failed to start.');
-              } finally {
-                setConfirm(null);
-              }
-              return;
-            }
-            if (confirm.brand === 'solflare') {
-              launchSolflare(currentUrl);
-            } else if (confirm.brand === 'phantom') {
-              launchDeeplink(phantomBrowseLink(currentUrl), 'phantom');
-            } else {
-              launchDeeplink(backpackBrowseLink(currentUrl), 'backpack');
-            }
-            setConfirm(null);
-          }}
-        />
-      )}
+      {/* Heads-up confirm via Portal */}
+      <ConfirmLayer />
     </Dialog>
   );
 }
