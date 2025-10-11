@@ -1,4 +1,5 @@
 // app/api/wallet/connect/[provider]/route.ts
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { assertAllowedRedirect } from '@/app/api/_lib/url';
 
@@ -8,8 +9,9 @@ const PROVIDER_BASE: Record<string, string> = {
   backpack: 'https://backpack.app/ul/v1/connect',
 };
 
-export async function GET(req: Request, { params }: { params: { provider: string } }) {
-  const provider = (params.provider || '').toLowerCase();
+// Not: 2. param ANY. İçeride daraltıyoruz.
+export async function GET(req: NextRequest, context: any) {
+  const provider = String(context?.params?.provider || '').toLowerCase();
   const base = PROVIDER_BASE[provider];
   if (!base) {
     return NextResponse.json({ ok: false, error: 'unsupported_provider' }, { status: 400 });
@@ -31,7 +33,7 @@ export async function GET(req: Request, { params }: { params: { provider: string
     ul.searchParams.set('app_url', appUrl);
     ul.searchParams.set('redirect_link', redirect || appUrl);
     ul.searchParams.set('dapp_encryption_public_key', dappPub);
-    if (state)  ul.searchParams.set('state', state);
+    if (state)   ul.searchParams.set('state', state);
     if (cluster) ul.searchParams.set('cluster', cluster);
 
     return NextResponse.json({ ok: true, url: ul.toString() });

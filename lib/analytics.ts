@@ -9,27 +9,17 @@ type AllowedEvent =
   | 'wallet_connect_attempt'
   | 'wallet_connect_success'
   | 'wallet_connect_error'
-  | 'direct_connect_start'   // ✅ eklendi
-  | 'direct_connect_done';   // ✅ eklendi
+  | 'direct_connect_start'   // <—
+  | 'direct_connect_done';   // <—
 
 type Props = Record<string, unknown>;
 
 export function logEvent(name: AllowedEvent, props: Props = {}) {
   try {
-    // Console fallback
-    // eslint-disable-next-line no-console
     console.log('[analytics]', name, props);
-
-    // Google Analytics (gtag) örneği:
     if (typeof window !== 'undefined' && (window as any).gtag) {
       (window as any).gtag('event', name, props);
     }
-
-    // Amplitude örneği:
-    // if ((window as any).amplitude?.getInstance) {
-    //   (window as any).amplitude.getInstance().logEvent(name, props);
-    // }
-  } catch {
-    // yut
-  }
+    // amplitude vb. burada
+  } catch {}
 }
