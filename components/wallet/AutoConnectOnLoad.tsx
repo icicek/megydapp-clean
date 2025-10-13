@@ -3,13 +3,19 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { WalletReadyState } from '@solana/wallet-adapter-base';
+import { WalletName, WalletReadyState } from '@solana/wallet-adapter-base';
 import { logEvent } from '@/lib/analytics';
 
 type AttemptMethod = 'immediate' | 'gesture' | 'manual' | 'silent_onlyIfTrusted';
 
+const BRAND_TO_WALLET: Record<string, WalletName | string> = {
+  phantom: 'Phantom',
+  solflare: 'Solflare',
+  backpack: 'Backpack',
+};
+
 export default function AutoConnectOnLoad() {
-  const { publicKey, connect, wallet } = useWallet();
+  const { publicKey, connect, wallet, select } = useWallet();
   const adapter = wallet?.adapter;
 
   // UI
@@ -31,26 +37,55 @@ export default function AutoConnectOnLoad() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ac = params.get('ac') === '1';
-    const brand = (params.get('brand') || '').toLowerCase(); // 'phantom' | 'solflare' | 'backpack' ...
+    const brand = (params.get('brand') || '').toLowerCase(); // 'phantom'|'solflare'|'backpack'
     if (!ac || publicKey) return;
 
+    // --- 0) Önce hedef cüzdanı select() et (çok kritik) ---
+    const desiredName = BRAND_TO_WALLET[brand];
+    if (desiredName) {
+      const current = wallet?.adapter?.name;
+      if (current !== desiredName) {
+        try {
+          // select tetikleyip adapter'ın oluşmasını bekleyeceğiz
+          select(desiredName as WalletName);
+          logEvent?.('autoconnect_select_wallet', { brand, to: desiredName });
+        } catch (e: any) {
+          logEvent?.('autoconnect_select_wallet_error', { brand, message: e?.message || String(e) });
+        }
+      }
+    }
+
+    // Adapter hazır olana kadar kısa bir “poll” (maks 1.2s) — Phantom/Android injection gecikmesi için
+    const waitAdapterReady = async () => {
+      const maxWait = 1200;
+      const step = 120;
+      let waited = 0;
+      while (waited <= maxWait) {
+        const a = ((): typeof adapter => {
+          // wallet referansı closure içinde sabit kalmasın diye runtime okuyalım
+          const w = (window as any).__lastWalletState?.wallet || wallet; // fallback
+          return (w?.adapter ?? adapter) as typeof adapter;
+        })();
+        const ready =
+          a &&
+          (a.readyState === WalletReadyState.Installed ||
+            a.readyState === WalletReadyState.Loadable);
+        if (ready) return true;
+        await sleep(step);
+        waited += step;
+      }
+      return false;
+    };
+
+    // UA/brand tespiti
     const ua = navigator.userAgent;
     const isAndroid = /Android/i.test(ua);
     const isPhantomUA = /Phantom/i.test(ua) || (window as any)?.solana?.isPhantom === true;
     const isSolflareUA = /Solflare/i.test(ua) || (window as any)?.solflare === true;
-
-    // Brand/UA tabanlı ayarlar
     const isPhantomAndroid = isAndroid && (brand === 'phantom' || isPhantomUA);
     const isSolflare = brand === 'solflare' || isSolflareUA;
 
-    // Phantom Android'de injection geç gelebilir → immediate denemeyi kapat, gesture'a bırak.
-    // Solflare'de immediate + backoff kalabilir.
-    const landingDelayMs = isPhantomAndroid ? 500 : 300;
-
-    const adapterReady =
-      adapter &&
-      (adapter.readyState === WalletReadyState.Installed ||
-        adapter.readyState === WalletReadyState.Loadable);
+    const landingDelayMs = isPhantomAndroid ? 600 : 300;
 
     const clearUrlParams = () => {
       try {
@@ -67,10 +102,15 @@ export default function AutoConnectOnLoad() {
       logEvent?.('autoconnect_attempt', { method, brand });
 
       try {
-        // Backoff adımları
         const backoffs = isPhantomAndroid ? [400, 800, 1200, 1600] : [250, 600, 1000, 1500];
 
         await sleep(landingDelayMs);
+
+        // Adapter hazır mı? (select sonrası bekle)
+        const ready = await waitAdapterReady();
+        if (!ready) {
+          logEvent?.('autoconnect_skip', { reason: 'adapter_not_ready_after_select', brand });
+        }
 
         for (let i = 0; i < backoffs.length; i++) {
           if (document.visibilityState !== 'visible') {
@@ -78,59 +118,51 @@ export default function AutoConnectOnLoad() {
             break;
           }
 
-          // Phantom Android: immediate yerine gesture’da connect, ama sessiz denemeyi bir kez yapacağız (aşağıda).
-          const canImmediateTry = !isPhantomAndroid;
+          // Phantom Android: önce sessiz (onlyIfTrusted) — UI açmadan
+          if (isPhantomAndroid && method === 'silent_onlyIfTrusted') {
+            const provider: any =
+              (window as any).solana ||
+              (window as any).phantom?.solana ||
+              (window as any).window?.solana;
+
+            if (provider?.connect) {
+              try {
+                await provider.connect({ onlyIfTrusted: true });
+                logEvent?.('autoconnect_success', { method, tryIndex: i, brand });
+                clearUrlParams();
+                setShowFallbackCTA(false);
+                setConnectingNow(false);
+                lockedRef.current = false;
+                return;
+              } catch (e: any) {
+                logEvent?.('autoconnect_error', {
+                  method,
+                  tryIndex: i,
+                  brand,
+                  message: e?.message || String(e),
+                });
+              }
+            }
+            // Sessiz deneme tek hakkımız — gesture’a bırak
+            break;
+          }
 
           try {
-            if (isPhantomAndroid && method === 'silent_onlyIfTrusted') {
-              // UI açmadan sessiz bağlanma denemesi: daha önce trust verilmişse başarılı olur
-              const provider: any =
-                (window as any).solana ||
-                (window as any).phantom?.solana ||
-                (window as any).window?.solana;
-
-              if (provider?.connect) {
-                try {
-                  await provider.connect({ onlyIfTrusted: true });
-                  logEvent?.('autoconnect_success', { method, tryIndex: i, brand });
-                  clearUrlParams();
-                  setConnectingNow(false);
-                  lockedRef.current = false;
-                  setShowFallbackCTA(false);
-                  return;
-                } catch (e: any) {
-                  // Sessiz deneme başarısız → gesture’a geçilecek
-                  logEvent?.('autoconnect_error', {
-                    method,
-                    tryIndex: i,
-                    brand,
-                    message: e?.message || String(e),
-                  });
-                }
-              }
-              // Sessiz deneme yaptıktan sonra döngüden çık (gesture akışına bırak)
-              break;
+            const a = ((): typeof adapter => wallet?.adapter ?? adapter)();
+            if (a?.connect) {
+              await a.connect();
+            } else if (connect) {
+              await connect();
+            } else {
+              throw new Error('no-adapter-or-connect');
             }
 
-            if ((canImmediateTry && method === 'immediate') || method === 'gesture' || method === 'manual') {
-              if (adapter?.connect) {
-                await adapter.connect();
-              } else if (connect) {
-                await connect();
-              } else {
-                throw new Error('no-adapter-or-connect');
-              }
-
-              logEvent?.('autoconnect_success', { method, tryIndex: i, brand });
-              clearUrlParams();
-              setConnectingNow(false);
-              lockedRef.current = false;
-              setShowFallbackCTA(false);
-              return;
-            }
-
-            // Aksi halde biraz bekle ve tekrar döngüle
-            await sleep(backoffs[i]);
+            logEvent?.('autoconnect_success', { method, tryIndex: i, brand });
+            clearUrlParams();
+            setShowFallbackCTA(false);
+            setConnectingNow(false);
+            lockedRef.current = false;
+            return;
           } catch (e: any) {
             logEvent?.('autoconnect_error', {
               method,
@@ -151,15 +183,15 @@ export default function AutoConnectOnLoad() {
     };
 
     // --- Strateji ---
-    // 1) Phantom Android → önce SESSİZ (onlyIfTrusted) — UI yok.
+    // 1) Phantom Android → önce sessiz onlyIfTrusted (UI açmadan)
     if (isPhantomAndroid) {
       doConnect('silent_onlyIfTrusted');
-    } else if (adapterReady) {
-      // 2) Diğerleri (özellikle Solflare) → immediate dene
+    } else {
+      // 2) Solflare & diğerleri → immediate
       doConnect('immediate');
     }
 
-    // 3) İlk gesture’da dene (Phantom Android’de asıl yol bu)
+    // 3) İlk gesture’da dene
     if (!boundGestureRef.current) {
       const onFirstGesture = () => {
         if (gestureHandlerRef.current) {
@@ -174,7 +206,7 @@ export default function AutoConnectOnLoad() {
       window.addEventListener('touchstart', onFirstGesture, { once: true });
       boundGestureRef.current = true;
 
-      // 7s sonra hâlâ yoksa CTA göster
+      // 7s sonra hâlâ yoksa CTA
       const t = window.setTimeout(() => {
         if (!publicKey) {
           logEvent?.('autoconnect_timeout', { brand });
@@ -184,17 +216,17 @@ export default function AutoConnectOnLoad() {
       cleanupTimersRef.current.push(t);
     }
 
-    // 4) Sayfa görünür olduğunda tekrar şans (özellikle app switch sonrası)
+    // 4) görünür olduğunda (ör. uygulamalar arasında geçişte) yeniden fırsat
     const onVisible = () => {
       if (!publicKey && !lockedRef.current) {
-        if (isPhantomAndroid) {
-          // görünür olunca gesture bekleyelim; Phantom genelde gesture ister
-          return;
-        }
-        if (adapterReady) doConnect('immediate');
+        if (isPhantomAndroid) return; // Phantom genelde gesture istiyor
+        doConnect('immediate');
       }
     };
     document.addEventListener('visibilitychange', onVisible);
+
+    // küçük: runtime’da wallet durumunu kaydet (waitAdapterReady için)
+    (window as any).__lastWalletState = { wallet };
 
     return () => {
       if (gestureHandlerRef.current) {
@@ -205,7 +237,7 @@ export default function AutoConnectOnLoad() {
       cleanupTimersRef.current.forEach((t) => window.clearTimeout(t));
       cleanupTimersRef.current = [];
     };
-  }, [wallet, adapter, publicKey, connect]);
+  }, [wallet, adapter, publicKey, connect, select]);
 
   if (publicKey) return null;
 
@@ -217,8 +249,7 @@ export default function AutoConnectOnLoad() {
         onClick={() => {
           const brand = (new URLSearchParams(window.location.search).get('brand') || '').toLowerCase();
           logEvent?.('autoconnect_manual_retry_click', { brand });
-          // manual → gesture semantiği
-          document.dispatchEvent(new Event('pointerdown'));
+          document.dispatchEvent(new Event('pointerdown')); // gesture akışını tetikle
         }}
         className="px-4 py-2 rounded-lg shadow-md bg-indigo-600 text-white font-semibold disabled:opacity-60"
       >
