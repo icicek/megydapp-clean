@@ -1,5 +1,6 @@
 // lib/analytics.ts
-type AllowedEvent =
+// Tip: Hem bilinen eventler için union, hem de gerektiğinde başka event adlarına izin:
+export type KnownEventName =
   | 'smart_connect_shown'
   | 'smart_connect_inapp_hint_shown'
   | 'smart_connect_open_in_phantom'
@@ -9,17 +10,31 @@ type AllowedEvent =
   | 'wallet_connect_attempt'
   | 'wallet_connect_success'
   | 'wallet_connect_error'
-  | 'direct_connect_start'   // <—
-  | 'direct_connect_done';   // <—
+  | 'direct_connect_start'
+  | 'direct_connect_done'
+  | 'autoconnect_attempt'
+  | 'autoconnect_success'
+  | 'autoconnect_error'
+  | 'autoconnect_skip';
 
-type Props = Record<string, unknown>;
+// Union + “branded string” hilesi => bilinmeyen string’lere de izin verir
+export type EventName = KnownEventName | (string & {});
 
-export function logEvent(name: AllowedEvent, props: Props = {}) {
+// Parametreler serbest biçimli
+export type EventParams = Record<string, unknown> | undefined;
+
+export function logEvent(name: EventName, params?: EventParams): void {
   try {
-    console.log('[analytics]', name, props);
-    if (typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', name, props);
-    }
-    // amplitude vb. burada
-  } catch {}
+    // Google Analytics varsa
+    const gtag = (typeof window !== 'undefined' && (window as any).gtag) || null;
+    if (gtag) gtag('event', name, params ?? {});
+
+    // PostHog varsa
+    const ph = (typeof window !== 'undefined' && (window as any).posthog) || null;
+    if (ph?.capture) ph.capture(name as string, params ?? {});
+
+    // Başka bir telemetry sistemi varsa buraya ekleyebilirsin.
+  } catch {
+    // no-op
+  }
 }
