@@ -3,143 +3,179 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { logEvent } from '@/lib/analytics'; // yolunu projene göre koru
+import { WalletReadyState } from '@solana/wallet-adapter-base';
+import { logEvent } from '@/lib/analytics';
+
+type AttemptMethod = 'immediate' | 'gesture' | 'manual';
 
 export default function AutoConnectOnLoad() {
   const { publicKey, connect, wallet } = useWallet();
-  const adapter = wallet?.adapter; // ✅ DOĞRU: adapter buradan gelir
+  const adapter = wallet?.adapter;
 
-  const triedRef = useRef(false);
-  const gestureBoundRef = useRef(false);
-  const gestureHandlerRef = useRef<((e: Event) => void) | null>(null);
+  // Guards & UI
   const [showFallbackCTA, setShowFallbackCTA] = useState(false);
+  const [connectingNow, setConnectingNow] = useState(false);
+
+  // Locks & timers
+  const lockedRef = useRef(false);
+  const boundGestureRef = useRef(false);
+  const gestureHandlerRef = useRef<((e: Event) => void) | null>(null);
+  const cleanupTimersRef = useRef<number[]>([]);
+
+  // Helpers
+  const sleep = (ms: number) =>
+    new Promise<void>((res) => {
+      const t = window.setTimeout(() => res(), ms);
+      cleanupTimersRef.current.push(t);
+    });
 
   useEffect(() => {
-    // URL paramlarını effect içinde oku (SSR uyumlu)
     const params = new URLSearchParams(window.location.search);
     const ac = params.get('ac') === '1';
     const brand = params.get('brand') || null;
 
-    if (!ac) return;
-    if (triedRef.current) return;
+    // In-app’a yeni inişte küçük bir gecikme (injection hazır olsun)
+    const landingDelayMs = 300;
 
-    let timeoutHandle: number | undefined;
+    if (!ac || publicKey) return;
 
-    async function attemptAutoConnect(reason: 'immediate' | 'gesture') {
-      if (triedRef.current) return;
-      triedRef.current = true;
-      logEvent?.('autoconnect_attempt', { method: reason, brand });
+    const isDomVisible = () => document.visibilityState === 'visible';
+    const adapterReady =
+      adapter &&
+      (adapter.readyState === WalletReadyState.Installed ||
+        adapter.readyState === WalletReadyState.Loadable);
+
+    const clearUrlParams = () => {
+      try {
+        const newUrl = window.location.pathname + window.location.hash;
+        history.replaceState(null, '', newUrl);
+      } catch {}
+    };
+
+    const doConnect = async (method: AttemptMethod) => {
+      if (lockedRef.current || publicKey) return;
+      lockedRef.current = true;
+      setConnectingNow(true);
+      setShowFallbackCTA(false);
+
+      logEvent?.('autoconnect_attempt', { method, brand });
 
       try {
-        if (adapter?.connect) {
-          await adapter.connect(); // çoğu cüzdan için gesture gerekebilir
-        } else if (connect) {
-          await connect(); // wallet-adapter fallback
-        } else {
-          throw new Error('no-adapter-or-connect');
+        // Toplamda 4 deneme: 250 → 600 → 1000 → 1500 ms
+        const backoffs = [250, 600, 1000, 1500];
+
+        // Landing delay (özellikle in-app geçişlerinden hemen sonra)
+        await sleep(landingDelayMs);
+
+        for (let i = 0; i < backoffs.length; i++) {
+          // Görünür değilken veya adapter hazır değilken deneme yapma
+          if (!isDomVisible()) {
+            logEvent?.('autoconnect_skip', { reason: 'document_hidden', brand });
+            break;
+          }
+          if (!adapterReady) {
+            logEvent?.('autoconnect_skip', { reason: 'adapter_not_ready', i, brand });
+            await sleep(backoffs[i]);
+            continue;
+          }
+
+          try {
+            if (adapter?.connect) {
+              await adapter.connect();
+            } else if (connect) {
+              await connect();
+            } else {
+              throw new Error('no-adapter-or-connect');
+            }
+
+            // Başarılı
+            logEvent?.('autoconnect_success', { method, tryIndex: i, brand });
+            clearUrlParams();
+            setConnectingNow(false);
+            lockedRef.current = false;
+            setShowFallbackCTA(false);
+            return;
+          } catch (e: any) {
+            // Bazı cüzdanlar gesture/odak/izin yüzünden ilk denemede atar; backoff ile sür
+            logEvent?.('autoconnect_error', {
+              method,
+              tryIndex: i,
+              brand,
+              message: e?.message || String(e),
+            });
+            await sleep(backoffs[i]);
+          }
         }
 
-        logEvent?.('autoconnect_success', { method: reason, brand });
-
-        // ✅ Başarı sonrası ?ac & brand paramlarını temizle
-        try {
-          const newUrl = window.location.pathname + window.location.hash;
-          history.replaceState(null, '', newUrl);
-        } catch {}
-
-        setShowFallbackCTA(false);
-        return;
-      } catch (err: any) {
-        console.warn('autoconnect failed', err);
-        logEvent?.('autoconnect_error', {
-          method: reason,
-          brand,
-          message: err?.message || String(err),
-        });
-
-        // kısa gecikme sonrası görünür CTA
-        timeoutHandle = window.setTimeout(() => setShowFallbackCTA(true), 600);
+        // Buraya düştüyse başarısız — CTA göster
+        setShowFallbackCTA(true);
+      } finally {
+        setConnectingNow(false);
+        lockedRef.current = false;
       }
+    };
+
+    // 1) Şartlar uygunsa “immediate” dene (gesture gerekmeyebilir)
+    if (adapterReady) {
+      doConnect('immediate');
     }
 
-    // 1) Adapter zaten hazırsa hemen dene
-    if (adapter && (adapter as any).connected !== undefined) {
-      attemptAutoConnect('immediate');
-    }
-
-    // 2) Değilse ilk kullanıcı etkileşimine bağla (gesture)
-    if (!gestureBoundRef.current) {
-      const onFirstGesture = (e: Event) => {
+    // 2) İlk kullanıcı etkileşimine bağla (gesture gerekirse)
+    if (!boundGestureRef.current) {
+      const onFirstGesture = () => {
         // unbind
         if (gestureHandlerRef.current) {
-            window.removeEventListener('pointerdown', gestureHandlerRef.current);
-            window.removeEventListener('touchstart', gestureHandlerRef.current);
-          }
-          gestureBoundRef.current = false;
-        attemptAutoConnect('gesture');
+          window.removeEventListener('pointerdown', gestureHandlerRef.current);
+          window.removeEventListener('touchstart', gestureHandlerRef.current);
+        }
+        boundGestureRef.current = false;
+        doConnect('gesture');
       };
       gestureHandlerRef.current = onFirstGesture;
       window.addEventListener('pointerdown', onFirstGesture, { once: true });
       window.addEventListener('touchstart', onFirstGesture, { once: true });
-      gestureBoundRef.current = true;
+      boundGestureRef.current = true;
 
-      // 6s güvenlik süresi
-      timeoutHandle = window.setTimeout(() => {
-        if (!triedRef.current) {
+      // 7s sonra hâlâ bağlanamadıysa CTA’yı aç
+      const t = window.setTimeout(() => {
+        if (!publicKey) {
           logEvent?.('autoconnect_timeout', { brand });
           setShowFallbackCTA(true);
         }
-      }, 6000);
+      }, 7000);
+      cleanupTimersRef.current.push(t);
     }
 
     return () => {
-      if (timeoutHandle) window.clearTimeout(timeoutHandle);
+      // Temizle
       if (gestureHandlerRef.current) {
         window.removeEventListener('pointerdown', gestureHandlerRef.current);
         window.removeEventListener('touchstart', gestureHandlerRef.current);
       }
+      cleanupTimersRef.current.forEach((t) => window.clearTimeout(t));
+      cleanupTimersRef.current = [];
     };
-  }, [wallet, adapter, connect]);
+  }, [wallet, adapter, publicKey, connect]);
 
-  if (publicKey) return null; // zaten bağlı
-  // ?ac=1 yoksa da görünme — minimal davranış
-  // (CTA yalnızca timeout veya hata sonrasında çıkacak)
+  // Zaten bağlıysa görünme
+  if (publicKey) return null;
 
-  return (
-    <>
-      {showFallbackCTA && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-          <button
-            onClick={async () => {
-              const brand = new URLSearchParams(window.location.search).get('brand') || null;
-              logEvent?.('autoconnect_manual_retry', { brand });
-              try {
-                if (adapter?.connect) {
-                  await adapter.connect();
-                } else if (connect) {
-                  await connect();
-                } else {
-                  throw new Error('no-adapter-or-connect');
-                }
-                logEvent?.('autoconnect_success_manual', { brand });
-                try {
-                  const newUrl = window.location.pathname + window.location.hash;
-                  history.replaceState(null, '', newUrl);
-                } catch {}
-              } catch (e: any) {
-                console.warn('manual retry failed', e);
-                logEvent?.('autoconnect_error_manual', {
-                  brand,
-                  message: e?.message || String(e),
-                });
-              }
-            }}
-            className="px-4 py-2 rounded-lg shadow-md bg-indigo-600 text-white font-semibold"
-          >
-            Tap once to connect
-          </button>
-        </div>
-      )}
-    </>
-  );
+  // Fallback CTA (tek dokunuşla dene)
+  return showFallbackCTA ? (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+      <button
+        disabled={connectingNow}
+        onClick={() => {
+          const brand = new URLSearchParams(window.location.search).get('brand') || null;
+          logEvent?.('autoconnect_manual_retry_click', { brand });
+          // manual = gesture semantiğine yakın; tek sefer daha deneyelim
+          // Not: doConnect’i effect dışına taşımamak için gesture event’ini tetikleyecek basit bir yol:
+          document.dispatchEvent(new Event('pointerdown'));
+        }}
+        className="px-4 py-2 rounded-lg shadow-md bg-indigo-600 text-white font-semibold disabled:opacity-60"
+      >
+        {connectingNow ? 'Connecting…' : 'Tap once to connect'}
+      </button>
+    </div>
+  ) : null;
 }
