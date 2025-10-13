@@ -43,7 +43,6 @@ const isInAppBrowserUA = () => {
 const isWalletInAppUA = () => {
   if (typeof window === 'undefined') return false;
   const ua = navigator.userAgent || '';
-  // Solflare / Phantom / Backpack tarayıcıları UA'da adlarını gösterir
   return /(Solflare|Phantom|Backpack|xNFT)/i.test(ua);
 };
 
@@ -108,7 +107,7 @@ function RedirectConfirm({
   open: boolean;
   brand: 'phantom' | 'solflare' | 'backpack';
   mode?: 'browse' | 'direct';
-  href?: string; // browse modunda Phantom/Backpack (ve bazı Android Solflare) için gerçek <a href>
+  href?: string; // browse modunda Phantom/Backpack (ve Android Solflare) için gerçek <a href>
   onCancel: () => void;
   onContinue: () => void | Promise<void>;
 }) {
@@ -313,7 +312,7 @@ export default function ConnectModal({ open, onClose }: Props) {
 
     const hit = mapByBrand.get(brand);
     const mobile = isMobileUA();
-    const envHasWallet = hasInjectedWallet() || isWalletInAppUA(); // kritik: in-app'te Heads-up YOK
+    const envHasWallet = hasInjectedWallet() || isWalletInAppUA(); // in-app'te Heads-up YOK
 
     logEvent('wallet_connect_attempt', { brand });
 
@@ -323,7 +322,7 @@ export default function ConnectModal({ open, onClose }: Props) {
       return;
     }
 
-    // Mobil + ortamda cüzdan yoksa → Heads-up (deeplink ile in-app browser'a taşı)
+    // Mobil + ortamda cüzdan yoksa → Heads-up (deeplink ile in-app browser'a taşı, AC paramı ile)
     if (mobile && !envHasWallet && (brand === 'phantom' || brand === 'solflare' || brand === 'backpack')) {
       const urlWithAC = withAutoConnect(currentUrl, brand as 'phantom'|'solflare'|'backpack');
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -408,7 +407,7 @@ export default function ConnectModal({ open, onClose }: Props) {
             className="w-full rounded-lg py-2 text-sm border border-white/15 bg-white/5 hover:bg-white/10"
             onClick={() => {
               logEvent('smart_connect_open_in_solflare', { inApp: isInAppBrowserUA() });
-              setConfirm({ brand: 'solflare', mode: 'browse' }); // href yok → iOS'ta button; Android anchor ConfirmLayer'da hesaplanıyor
+              setConfirm({ brand: 'solflare', mode: 'browse' });
             }}
           >
             Open in Solflare
@@ -501,7 +500,6 @@ export default function ConnectModal({ open, onClose }: Props) {
     if (!confirm) return null;
     const { brand, mode = 'browse' } = confirm;
 
-    // Browse için deeplink URL (Phantom/Backpack). Solflare için Android'de scheme anchor; iOS'ta href yok → button.
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const urlAC =
       brand === 'phantom'  ? withAutoConnect(currentUrl, 'phantom')  :
@@ -531,11 +529,9 @@ export default function ConnectModal({ open, onClose }: Props) {
       }
 
       if (brand === 'solflare' && !href) {
-        // iOS Solflare: programatik scheme→https fallback
         launchSolflare(urlAC);
         setConfirm(null);
       }
-      // Phantom/Backpack/Android-Solflare: anchor default nav çalışır
     };
 
     return (
