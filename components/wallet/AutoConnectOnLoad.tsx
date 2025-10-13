@@ -1,193 +1,145 @@
 // components/wallet/AutoConnectOnLoad.tsx
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import type { WalletName } from '@solana/wallet-adapter-base';
-import { connectStable } from '@/lib/solana/connectStable';
-import { logEvent } from '@/lib/analytics';
-
-const LAST_KEY = 'cc:lastWalletBrand';
-
-function hasAnyInjected() {
-  if (typeof window === 'undefined') return false;
-  const w: any = window as any;
-  // Phantom/Solflare/Backpack değişik şekillerde enjekte edebiliyor
-  return !!(w.solana || w.phantom || w.solflare || w.backpack);
-}
-
-// Bazı cüzdanlarda connect user gesture isteyebilir → ilk etkileşimde tekrar dene
-function armFirstGestureOnce(fn: () => void) {
-  let armed = true;
-  const once = async () => {
-    if (!armed) return;
-    armed = false;
-    try {
-      remove();
-      await Promise.resolve(fn());
-    } catch {
-      // no-op
-    }
-  };
-  const remove = () => {
-    document.removeEventListener('touchstart', once);
-    document.removeEventListener('mousedown', once);
-    document.removeEventListener('keydown', once);
-  };
-  document.addEventListener('touchstart', once, { once: true, passive: true });
-  document.addEventListener('mousedown', once, { once: true });
-  document.addEventListener('keydown', once, { once: true });
-  return remove;
-}
+import { logEvent } from '@/lib/analytics'; // yolunu projene göre koru
 
 export default function AutoConnectOnLoad() {
-  const api = useWallet();
-  const { wallets, select, connected } = api;
+  const { publicKey, connect, wallet } = useWallet();
+  const adapter = wallet?.adapter; // ✅ DOĞRU: adapter buradan gelir
 
-  // en son değerleri interval içinde kullanmak için ref’ler
-  const walletsRef = useRef(wallets);
-  const connectedRef = useRef(connected);
-  useEffect(() => { walletsRef.current = wallets; }, [wallets]);
-  useEffect(() => { connectedRef.current = connected; }, [connected]);
-
-  // brand -> adapterName
-  const adapters = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const w of wallets) {
-      const name = w.adapter.name.toLowerCase();
-      if (name.includes('phantom'))  m.set('phantom',  w.adapter.name);
-      if (name.includes('solflare')) m.set('solflare', w.adapter.name);
-      if (name.includes('backpack')) m.set('backpack', w.adapter.name);
-    }
-    return m;
-  }, [wallets]);
-
-  const runnerRef = useRef<number | null>(null); // interval id
-  const armedGestureRef = useRef<null | (() => void)>(null); // gesture remover
+  const triedRef = useRef(false);
+  const gestureBoundRef = useRef(false);
+  const gestureHandlerRef = useRef<((e: Event) => void) | null>(null);
+  const [showFallbackCTA, setShowFallbackCTA] = useState(false);
 
   useEffect(() => {
-    // URL paramı yoksa çık
-    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    // URL paramlarını effect içinde oku (SSR uyumlu)
+    const params = new URLSearchParams(window.location.search);
     const ac = params.get('ac') === '1';
+    const brand = params.get('brand') || null;
+
     if (!ac) return;
+    if (triedRef.current) return;
 
-    // Wallet adapter listesi gelene kadar bekle (kritik!)
-    if (wallets.length === 0) return;
+    let timeoutHandle: number | undefined;
 
-    // zaten bağlanmışsa çık
-    if (connected) return;
-
-    // zaten bir runner çalışıyorsa tekrar başlatma
-    if (runnerRef.current !== null) return;
-
-    const brandParam = (params.get('brand') || localStorage.getItem(LAST_KEY) || '').toLowerCase();
-    const brand =
-      brandParam.includes('phantom')  ? 'phantom'  :
-      brandParam.includes('solflare') ? 'solflare' :
-      brandParam.includes('backpack') ? 'backpack' : null;
-
-    logEvent('autoconnect_attempt', { brand: brand || 'unknown' });
-
-    const MAX_MS = 6000;
-    const STEP   = 200;
-    const started = Date.now();
-
-    const tryConnect = async () => {
-      if (connectedRef.current) return true;
-
-      const injected = hasAnyInjected();
-
-      // adapter seçimi: istenen adapter öncelikli; yoksa Installed/Loadable ilk adapter
-      const wl = walletsRef.current;
-      const desiredAdapter = brand ? adapters.get(brand) : undefined;
-      const fallbackAdapter =
-        wl.find(w => {
-          const rs = (w as any).readyState ?? (w.adapter as any).readyState;
-          return rs === 'Installed' || rs === 'Loadable';
-        })?.adapter.name;
-
-      const adapterName = desiredAdapter || fallbackAdapter;
-
-      if (!injected || !adapterName) return false;
+    async function attemptAutoConnect(reason: 'immediate' | 'gesture') {
+      if (triedRef.current) return;
+      triedRef.current = true;
+      logEvent?.('autoconnect_attempt', { method: reason, brand });
 
       try {
-        await select(adapterName as WalletName);
-        await connectStable(adapterName as WalletName, api);
+        if (adapter?.connect) {
+          await adapter.connect(); // çoğu cüzdan için gesture gerekebilir
+        } else if (connect) {
+          await connect(); // wallet-adapter fallback
+        } else {
+          throw new Error('no-adapter-or-connect');
+        }
 
-        // Başarılı → URL temizle
+        logEvent?.('autoconnect_success', { method: reason, brand });
+
+        // ✅ Başarı sonrası ?ac & brand paramlarını temizle
         try {
-          const url = new URL(window.location.href);
-          url.searchParams.delete('ac');
-          url.searchParams.delete('brand');
-          window.history.replaceState({}, '', url.toString());
+          const newUrl = window.location.pathname + window.location.hash;
+          history.replaceState(null, '', newUrl);
         } catch {}
 
-        logEvent('autoconnect_success', { brand: brand || 'unknown', adapter: adapterName });
-        return true;
-      } catch (e: any) {
-        const msg = (e?.message || String(e) || '').toLowerCase();
+        setShowFallbackCTA(false);
+        return;
+      } catch (err: any) {
+        console.warn('autoconnect failed', err);
+        logEvent?.('autoconnect_error', {
+          method: reason,
+          brand,
+          message: err?.message || String(err),
+        });
 
-        // gesture gerekli ise: ilk etkileşime bağlanmayı arma
-        if (/gesture|user gesture|required|request denied|rejected/.test(msg)) {
-          if (!armedGestureRef.current) {
-            armedGestureRef.current = armFirstGestureOnce(async () => {
-              try {
-                await select(adapterName as WalletName);
-                await connectStable(adapterName as WalletName, api);
+        // kısa gecikme sonrası görünür CTA
+        timeoutHandle = window.setTimeout(() => setShowFallbackCTA(true), 600);
+      }
+    }
 
-                try {
-                  const url = new URL(window.location.href);
-                  url.searchParams.delete('ac');
-                  url.searchParams.delete('brand');
-                  window.history.replaceState({}, '', url.toString());
-                } catch {}
+    // 1) Adapter zaten hazırsa hemen dene
+    if (adapter && (adapter as any).connected !== undefined) {
+      attemptAutoConnect('immediate');
+    }
 
-                logEvent('autoconnect_success', { brand: brand || 'unknown', adapter: adapterName, via: 'gesture' });
-              } catch (err: any) {
-                logEvent('autoconnect_error', { brand: brand || 'unknown', message: err?.message || String(err) });
-              }
-            });
+    // 2) Değilse ilk kullanıcı etkileşimine bağla (gesture)
+    if (!gestureBoundRef.current) {
+      const onFirstGesture = (e: Event) => {
+        // unbind
+        if (gestureHandlerRef.current) {
+            window.removeEventListener('pointerdown', gestureHandlerRef.current);
+            window.removeEventListener('touchstart', gestureHandlerRef.current);
           }
-          // interval çalışmaya devam etsin; injection/adapter değişirse daha erken yakalar
-          return false;
+          gestureBoundRef.current = false;
+        attemptAutoConnect('gesture');
+      };
+      gestureHandlerRef.current = onFirstGesture;
+      window.addEventListener('pointerdown', onFirstGesture, { once: true });
+      window.addEventListener('touchstart', onFirstGesture, { once: true });
+      gestureBoundRef.current = true;
+
+      // 6s güvenlik süresi
+      timeoutHandle = window.setTimeout(() => {
+        if (!triedRef.current) {
+          logEvent?.('autoconnect_timeout', { brand });
+          setShowFallbackCTA(true);
         }
+      }, 6000);
+    }
 
-        // başka hata → logla ama denemeyi sürdür (süre bitene kadar)
-        logEvent('autoconnect_error', { brand: brand || 'unknown', message: e?.message || String(e) });
-        return false;
-      }
-    };
-
-    const tick = async () => {
-      const ok = await tryConnect();
-      if (ok || Date.now() - started > MAX_MS) {
-        // bitti
-        if (!ok) {
-          const injected = hasAnyInjected();
-          logEvent('autoconnect_skip', { reason: injected ? 'no-adapter' : 'no-injection', brand: brand || 'unknown' });
-        }
-        if (runnerRef.current !== null) window.clearInterval(runnerRef.current);
-        runnerRef.current = null;
-      }
-    };
-
-    // hemen bir dene, sonra aralık kur
-    tick();
-    runnerRef.current = window.setInterval(tick, STEP);
-
-    // cleanup
     return () => {
-      if (runnerRef.current !== null) {
-        window.clearInterval(runnerRef.current);
-        runnerRef.current = null;
-      }
-      if (armedGestureRef.current) {
-        armedGestureRef.current(); // listener’ları kaldır
-        armedGestureRef.current = null;
+      if (timeoutHandle) window.clearTimeout(timeoutHandle);
+      if (gestureHandlerRef.current) {
+        window.removeEventListener('pointerdown', gestureHandlerRef.current);
+        window.removeEventListener('touchstart', gestureHandlerRef.current);
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallets.length, connected, adapters]); // wallets/adapters hazır olmadan başlamamak için
+  }, [wallet, adapter, connect]);
 
-  return null;
+  if (publicKey) return null; // zaten bağlı
+  // ?ac=1 yoksa da görünme — minimal davranış
+  // (CTA yalnızca timeout veya hata sonrasında çıkacak)
+
+  return (
+    <>
+      {showFallbackCTA && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+          <button
+            onClick={async () => {
+              const brand = new URLSearchParams(window.location.search).get('brand') || null;
+              logEvent?.('autoconnect_manual_retry', { brand });
+              try {
+                if (adapter?.connect) {
+                  await adapter.connect();
+                } else if (connect) {
+                  await connect();
+                } else {
+                  throw new Error('no-adapter-or-connect');
+                }
+                logEvent?.('autoconnect_success_manual', { brand });
+                try {
+                  const newUrl = window.location.pathname + window.location.hash;
+                  history.replaceState(null, '', newUrl);
+                } catch {}
+              } catch (e: any) {
+                console.warn('manual retry failed', e);
+                logEvent?.('autoconnect_error_manual', {
+                  brand,
+                  message: e?.message || String(e),
+                });
+              }
+            }}
+            className="px-4 py-2 rounded-lg shadow-md bg-indigo-600 text-white font-semibold"
+          >
+            Tap once to connect
+          </button>
+        </div>
+      )}
+    </>
+  );
 }
