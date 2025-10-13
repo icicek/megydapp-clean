@@ -6,13 +6,13 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletReadyState } from '@solana/wallet-adapter-base';
 import { logEvent } from '@/lib/analytics';
 
-type AttemptMethod = 'immediate' | 'gesture' | 'manual';
+type AttemptMethod = 'immediate' | 'gesture' | 'manual' | 'silent_onlyIfTrusted';
 
 export default function AutoConnectOnLoad() {
   const { publicKey, connect, wallet } = useWallet();
   const adapter = wallet?.adapter;
 
-  // Guards & UI
+  // UI
   const [showFallbackCTA, setShowFallbackCTA] = useState(false);
   const [connectingNow, setConnectingNow] = useState(false);
 
@@ -22,7 +22,6 @@ export default function AutoConnectOnLoad() {
   const gestureHandlerRef = useRef<((e: Event) => void) | null>(null);
   const cleanupTimersRef = useRef<number[]>([]);
 
-  // Helpers
   const sleep = (ms: number) =>
     new Promise<void>((res) => {
       const t = window.setTimeout(() => res(), ms);
@@ -32,14 +31,22 @@ export default function AutoConnectOnLoad() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ac = params.get('ac') === '1';
-    const brand = params.get('brand') || null;
-
-    // In-app’a yeni inişte küçük bir gecikme (injection hazır olsun)
-    const landingDelayMs = 300;
-
+    const brand = (params.get('brand') || '').toLowerCase(); // 'phantom' | 'solflare' | 'backpack' ...
     if (!ac || publicKey) return;
 
-    const isDomVisible = () => document.visibilityState === 'visible';
+    const ua = navigator.userAgent;
+    const isAndroid = /Android/i.test(ua);
+    const isPhantomUA = /Phantom/i.test(ua) || (window as any)?.solana?.isPhantom === true;
+    const isSolflareUA = /Solflare/i.test(ua) || (window as any)?.solflare === true;
+
+    // Brand/UA tabanlı ayarlar
+    const isPhantomAndroid = isAndroid && (brand === 'phantom' || isPhantomUA);
+    const isSolflare = brand === 'solflare' || isSolflareUA;
+
+    // Phantom Android'de injection geç gelebilir → immediate denemeyi kapat, gesture'a bırak.
+    // Solflare'de immediate + backoff kalabilir.
+    const landingDelayMs = isPhantomAndroid ? 500 : 300;
+
     const adapterReady =
       adapter &&
       (adapter.readyState === WalletReadyState.Installed ||
@@ -57,46 +64,74 @@ export default function AutoConnectOnLoad() {
       lockedRef.current = true;
       setConnectingNow(true);
       setShowFallbackCTA(false);
-
       logEvent?.('autoconnect_attempt', { method, brand });
 
       try {
-        // Toplamda 4 deneme: 250 → 600 → 1000 → 1500 ms
-        const backoffs = [250, 600, 1000, 1500];
+        // Backoff adımları
+        const backoffs = isPhantomAndroid ? [400, 800, 1200, 1600] : [250, 600, 1000, 1500];
 
-        // Landing delay (özellikle in-app geçişlerinden hemen sonra)
         await sleep(landingDelayMs);
 
         for (let i = 0; i < backoffs.length; i++) {
-          // Görünür değilken veya adapter hazır değilken deneme yapma
-          if (!isDomVisible()) {
+          if (document.visibilityState !== 'visible') {
             logEvent?.('autoconnect_skip', { reason: 'document_hidden', brand });
             break;
           }
-          if (!adapterReady) {
-            logEvent?.('autoconnect_skip', { reason: 'adapter_not_ready', i, brand });
-            await sleep(backoffs[i]);
-            continue;
-          }
+
+          // Phantom Android: immediate yerine gesture’da connect, ama sessiz denemeyi bir kez yapacağız (aşağıda).
+          const canImmediateTry = !isPhantomAndroid;
 
           try {
-            if (adapter?.connect) {
-              await adapter.connect();
-            } else if (connect) {
-              await connect();
-            } else {
-              throw new Error('no-adapter-or-connect');
+            if (isPhantomAndroid && method === 'silent_onlyIfTrusted') {
+              // UI açmadan sessiz bağlanma denemesi: daha önce trust verilmişse başarılı olur
+              const provider: any =
+                (window as any).solana ||
+                (window as any).phantom?.solana ||
+                (window as any).window?.solana;
+
+              if (provider?.connect) {
+                try {
+                  await provider.connect({ onlyIfTrusted: true });
+                  logEvent?.('autoconnect_success', { method, tryIndex: i, brand });
+                  clearUrlParams();
+                  setConnectingNow(false);
+                  lockedRef.current = false;
+                  setShowFallbackCTA(false);
+                  return;
+                } catch (e: any) {
+                  // Sessiz deneme başarısız → gesture’a geçilecek
+                  logEvent?.('autoconnect_error', {
+                    method,
+                    tryIndex: i,
+                    brand,
+                    message: e?.message || String(e),
+                  });
+                }
+              }
+              // Sessiz deneme yaptıktan sonra döngüden çık (gesture akışına bırak)
+              break;
             }
 
-            // Başarılı
-            logEvent?.('autoconnect_success', { method, tryIndex: i, brand });
-            clearUrlParams();
-            setConnectingNow(false);
-            lockedRef.current = false;
-            setShowFallbackCTA(false);
-            return;
+            if ((canImmediateTry && method === 'immediate') || method === 'gesture' || method === 'manual') {
+              if (adapter?.connect) {
+                await adapter.connect();
+              } else if (connect) {
+                await connect();
+              } else {
+                throw new Error('no-adapter-or-connect');
+              }
+
+              logEvent?.('autoconnect_success', { method, tryIndex: i, brand });
+              clearUrlParams();
+              setConnectingNow(false);
+              lockedRef.current = false;
+              setShowFallbackCTA(false);
+              return;
+            }
+
+            // Aksi halde biraz bekle ve tekrar döngüle
+            await sleep(backoffs[i]);
           } catch (e: any) {
-            // Bazı cüzdanlar gesture/odak/izin yüzünden ilk denemede atar; backoff ile sür
             logEvent?.('autoconnect_error', {
               method,
               tryIndex: i,
@@ -107,7 +142,7 @@ export default function AutoConnectOnLoad() {
           }
         }
 
-        // Buraya düştüyse başarısız — CTA göster
+        // Başarısız → CTA
         setShowFallbackCTA(true);
       } finally {
         setConnectingNow(false);
@@ -115,15 +150,18 @@ export default function AutoConnectOnLoad() {
       }
     };
 
-    // 1) Şartlar uygunsa “immediate” dene (gesture gerekmeyebilir)
-    if (adapterReady) {
+    // --- Strateji ---
+    // 1) Phantom Android → önce SESSİZ (onlyIfTrusted) — UI yok.
+    if (isPhantomAndroid) {
+      doConnect('silent_onlyIfTrusted');
+    } else if (adapterReady) {
+      // 2) Diğerleri (özellikle Solflare) → immediate dene
       doConnect('immediate');
     }
 
-    // 2) İlk kullanıcı etkileşimine bağla (gesture gerekirse)
+    // 3) İlk gesture’da dene (Phantom Android’de asıl yol bu)
     if (!boundGestureRef.current) {
       const onFirstGesture = () => {
-        // unbind
         if (gestureHandlerRef.current) {
           window.removeEventListener('pointerdown', gestureHandlerRef.current);
           window.removeEventListener('touchstart', gestureHandlerRef.current);
@@ -136,7 +174,7 @@ export default function AutoConnectOnLoad() {
       window.addEventListener('touchstart', onFirstGesture, { once: true });
       boundGestureRef.current = true;
 
-      // 7s sonra hâlâ bağlanamadıysa CTA’yı aç
+      // 7s sonra hâlâ yoksa CTA göster
       const t = window.setTimeout(() => {
         if (!publicKey) {
           logEvent?.('autoconnect_timeout', { brand });
@@ -146,30 +184,40 @@ export default function AutoConnectOnLoad() {
       cleanupTimersRef.current.push(t);
     }
 
+    // 4) Sayfa görünür olduğunda tekrar şans (özellikle app switch sonrası)
+    const onVisible = () => {
+      if (!publicKey && !lockedRef.current) {
+        if (isPhantomAndroid) {
+          // görünür olunca gesture bekleyelim; Phantom genelde gesture ister
+          return;
+        }
+        if (adapterReady) doConnect('immediate');
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
     return () => {
-      // Temizle
       if (gestureHandlerRef.current) {
         window.removeEventListener('pointerdown', gestureHandlerRef.current);
         window.removeEventListener('touchstart', gestureHandlerRef.current);
       }
+      document.removeEventListener('visibilitychange', onVisible);
       cleanupTimersRef.current.forEach((t) => window.clearTimeout(t));
       cleanupTimersRef.current = [];
     };
   }, [wallet, adapter, publicKey, connect]);
 
-  // Zaten bağlıysa görünme
   if (publicKey) return null;
 
-  // Fallback CTA (tek dokunuşla dene)
+  // CTA: tek dokunuşla dene
   return showFallbackCTA ? (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
       <button
         disabled={connectingNow}
         onClick={() => {
-          const brand = new URLSearchParams(window.location.search).get('brand') || null;
+          const brand = (new URLSearchParams(window.location.search).get('brand') || '').toLowerCase();
           logEvent?.('autoconnect_manual_retry_click', { brand });
-          // manual = gesture semantiğine yakın; tek sefer daha deneyelim
-          // Not: doConnect’i effect dışına taşımamak için gesture event’ini tetikleyecek basit bir yol:
+          // manual → gesture semantiği
           document.dispatchEvent(new Event('pointerdown'));
         }}
         className="px-4 py-2 rounded-lg shadow-md bg-indigo-600 text-white font-semibold disabled:opacity-60"
