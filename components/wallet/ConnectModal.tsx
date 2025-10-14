@@ -3,11 +3,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Dialog,
-  DialogOverlay,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
+  Dialog, DialogOverlay, DialogContent, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
 import { useWallet } from '@solana/wallet-adapter-react';
 import type { WalletName } from '@solana/wallet-adapter-base';
@@ -38,8 +34,6 @@ const isInAppBrowserUA = () => {
   const ua = navigator.userAgent || '';
   return /(Instagram|FBAN|FBAV|Messenger|Line|Twitter)/i.test(ua);
 };
-
-/** Wallet in-app browser kontrolü */
 const isWalletInAppUA = () => {
   if (typeof window === 'undefined') return false;
   const ua = navigator.userAgent || '';
@@ -48,7 +42,6 @@ const isWalletInAppUA = () => {
     || (window as any)?.solflare
     || (window as any)?.backpack;
 };
-
 const hasInjectedWallet = () => {
   if (typeof window === 'undefined') return false;
   const w: any = window as any;
@@ -61,14 +54,10 @@ const hasInjectedWallet = () => {
 
 const phantomBrowseLink  = (url: string) => `https://phantom.app/ul/v1/browse?url=${encodeURIComponent(url)}`;
 const backpackBrowseLink = (url: string) => `https://backpack.app/ul/v1/browse?url=${encodeURIComponent(url)}`;
-
-/** Solflare (browse): URL path + ref zorunlu */
 const buildSolflareLinks = (url: string, ref: string) => ({
   scheme: `solflare://ul/v1/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(ref)}`,
   https:  `https://solflare.com/ul/v1/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(ref)}`,
 });
-
-/** DApp URL'ine autoconnect paramı ekle (ac=1 & brand=...) */
 function withAutoConnect(u: string, brand: 'phantom'|'solflare'|'backpack') {
   try {
     const url = new URL(u);
@@ -77,8 +66,6 @@ function withAutoConnect(u: string, brand: 'phantom'|'solflare'|'backpack') {
     return url.toString();
   } catch { return u; }
 }
-
-/** Heads-up uçuş işareti (geri dönünce reset için) */
 function markFlight(brand: 'phantom' | 'solflare' | 'backpack') {
   try {
     const now = Date.now();
@@ -101,7 +88,6 @@ const INSTALL_URL: Record<Exclude<Brand,'walletconnect'>, string> = {
   solflare: 'https://solflare.com/download',
   backpack: 'https://www.backpack.app/download',
 };
-
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
 const LAST_KEY = 'cc:lastWalletBrand';
 
@@ -113,16 +99,17 @@ function Portal({ children }: { children: React.ReactNode }) {
   return createPortal(children, document.body);
 }
 
-/* ───────────── Heads-up confirm (rendered in Portal) ───────────── */
+/* ───────────── Heads-up confirm (Portal) ───────────── */
 function RedirectConfirm({
-  open, brand, mode = 'browse', href, onCancel, onContinue,
+  open, brand, mode = 'browse', href, onCancel, onContinue, onResolved,
 }: {
   open: boolean;
   brand: 'phantom' | 'solflare' | 'backpack';
   mode?: 'browse' | 'direct';
-  href?: string; // browse modunda Phantom/Backpack (ve Android Solflare) için gerçek <a href>
+  href?: string;
   onCancel: () => void;
   onContinue: () => void | Promise<void>;
+  onResolved: () => void;
 }) {
   if (!open) return null;
 
@@ -140,8 +127,9 @@ function RedirectConfirm({
       ? 'To connect securely, you’ll be taken to Phantom to approve and then return here.'
       : 'For a better experience, you’ll be taken to your wallet’s in-app browser to continue.';
 
-  // Anchor tıklamasında uçuşu işaretle
   const onClickAnchor = () => {
+    // Navigasyon ÖNCESİ: state reset—BFCache dönüşünde takılı kalmasın
+    onResolved();
     markFlight(brand);
     try { logEvent('smart_connect_flight_marked', { brand }); } catch {}
   };
@@ -149,10 +137,7 @@ function RedirectConfirm({
   return (
     <Portal>
       <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-        {/* backdrop */}
-        <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
-
-        {/* content */}
+        <div className="absolute inset-0 bg-black/60" onClick={() => { onResolved(); onCancel(); }} />
         <div className="relative w-[92vw] max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-5 text-white shadow-2xl pointer-events-auto">
           <div className="text-base font-semibold">Heads-up</div>
           <p className="mt-2 text-sm text-gray-200">{message}</p>
@@ -160,7 +145,7 @@ function RedirectConfirm({
           <div className="mt-4 flex gap-2">
             <button
               type="button"
-              onClick={onCancel}
+              onClick={() => { onResolved(); onCancel(); }}
               className="flex-1 rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
             >
               Cancel
@@ -178,7 +163,8 @@ function RedirectConfirm({
               <button
                 type="button"
                 onClick={async () => {
-                  // iOS Solflare veya Direct Phantom: devamdan önce uçuşu işaretle
+                  // Continue’da da önce reset et
+                  onResolved();
                   markFlight(brand);
                   try { logEvent('smart_connect_flight_marked', { brand }); } catch {}
                   await onContinue();
@@ -217,8 +203,50 @@ export default function ConnectModal({ open, onClose }: Props) {
 
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
 
-  useEffect(() => { if (open) setLast((localStorage.getItem(LAST_KEY) as Brand) || null); }, [open]);
-  useEffect(() => { if (open) { setErr(null); setClicked(null); setBusy(false); } }, [open]);
+  // Modal her açıldığında confirm dahil tüm transient state'i sıfırla
+  useEffect(() => {
+    if (!open) return;
+    setErr(null);
+    setClicked(null);
+    setBusy(false);
+    setDeeplinkTrying(null);
+    setDeeplinkFailed(false);
+    setConfirm(null);                 // ✅ kritik
+    setLast((localStorage.getItem(LAST_KEY) as Brand) || null);
+  }, [open]);
+
+  // Dış tarayıcıya dönüşte (pageshow / visibilitychange / focus / smartconnect:reset) state reset
+  useEffect(() => {
+    const resetTransient = () => {
+      // Sadece dış tarayıcıda reset—cüzdan in-app değilsek
+      if (typeof window === 'undefined') return;
+      const ua = navigator.userAgent || '';
+      const inApp =
+        /Phantom|Solflare|Backpack|xNFT/i.test(ua) ||
+        (window as any)?.solana?.isPhantom ||
+        (window as any)?.solflare ||
+        (window as any)?.backpack;
+
+      if (document.visibilityState === 'visible' && !inApp) {
+        setConfirm(null);
+        setClicked(null);
+        setBusy(false);
+        setDeeplinkTrying(null);
+        setDeeplinkFailed(false);
+        setErr(null);
+      }
+    };
+    window.addEventListener('pageshow', resetTransient);
+    document.addEventListener('visibilitychange', resetTransient);
+    window.addEventListener('focus', resetTransient);
+    window.addEventListener('smartconnect:reset', resetTransient as EventListener);
+    return () => {
+      window.removeEventListener('pageshow', resetTransient);
+      document.removeEventListener('visibilitychange', resetTransient);
+      window.removeEventListener('focus', resetTransient);
+      window.removeEventListener('smartconnect:reset', resetTransient as EventListener);
+    };
+  }, []);
 
   /* Wallets → installed map */
   const mapByBrand = useMemo(() => {
@@ -249,10 +277,9 @@ export default function ConnectModal({ open, onClose }: Props) {
     return arr;
   }, [mapByBrand, last]);
 
-  /* SmartConnect açılışı + analytics */
+  /* SmartConnect flags */
   useEffect(() => {
     if (!open) return;
-    // In-app'teysek Heads-up görünmesin
     const shouldSmart = isMobileUA() && !hasInjectedWallet() && !anyAdapterInstalled && !isWalletInAppUA();
     setShowSmart(shouldSmart);
     if (shouldSmart) {
@@ -264,40 +291,9 @@ export default function ConnectModal({ open, onClose }: Props) {
     }
   }, [open, anyAdapterInstalled]);
 
-  /* Spinner takılmasın */
-  useEffect(() => {
-    const reset = () => { setBusy(false); setClicked(null); };
-    const onVis = () => { if (document.visibilityState === 'visible') reset(); };
-    window.addEventListener('focus', reset);
-    window.addEventListener('blur', reset);
-    document.addEventListener('visibilitychange', onVis);
-    return () => {
-      window.removeEventListener('focus', reset);
-      window.removeEventListener('blur', reset);
-      document.removeEventListener('visibilitychange', onVis);
-    };
-  }, []);
-
-  /* Deeplink launcher (generic) — in-app'te çalıştırma (kullanılmıyor ama dursun) */
-  function launchDeeplink(href: string, brand: 'phantom' | 'solflare' | 'backpack') {
-    if (isWalletInAppUA()) return;
-    setDeeplinkTrying(brand);
-    setDeeplinkFailed(false);
-    const t = setTimeout(() => {
-      if (document.visibilityState === 'visible') setDeeplinkFailed(true);
-    }, 2500);
-    try {
-      markFlight(brand);
-      window.location.href = href;
-    } catch {
-      clearTimeout(t);
-      setDeeplinkFailed(true);
-    }
-  }
-
-  /* Solflare: iOS → scheme→https; Android → scheme, 350ms sonra yeni sekmede https (intent sorununu aşar) */
+  /* Launchers */
   function launchSolflare(url: string) {
-    if (isWalletInAppUA()) return; // Solflare in-app’teysek hiç çalıştırma
+    if (isWalletInAppUA()) return;
     setDeeplinkTrying('solflare');
     setDeeplinkFailed(false);
 
@@ -310,7 +306,7 @@ export default function ConnectModal({ open, onClose }: Props) {
         timedOut = true;
         try { window.open(https, '_blank', 'noopener'); } catch {}
       }, 350);
-      try { markFlight('solflare'); window.location.href = scheme; } catch {}
+      try { markFlight('solflare'); setConfirm(null); window.location.href = scheme; } catch {}
       setTimeout(() => {
         if (document.visibilityState === 'visible' && !timedOut) {
           try { window.open(https, '_blank', 'noopener'); } catch {}
@@ -320,18 +316,16 @@ export default function ConnectModal({ open, onClose }: Props) {
       return;
     }
 
-    // iOS akışı
     const started = Date.now();
     const fb = setTimeout(() => {
       if (document.visibilityState === 'visible' && Date.now() - started > 120) {
         try { window.location.href = https; } catch {}
       }
     }, 200);
-    try { markFlight('solflare'); window.location.href = scheme; } catch { clearTimeout(fb); window.location.href = https; }
+    try { markFlight('solflare'); setConfirm(null); window.location.href = scheme; } catch { clearTimeout(fb); window.location.href = https; }
     setTimeout(() => { if (document.visibilityState === 'visible') setDeeplinkFailed(true); }, 2500);
   }
 
-  /* Kart seçimi */
   async function handlePick(brand: Brand) {
     if (busy) return;
     setErr(null);
@@ -339,7 +333,7 @@ export default function ConnectModal({ open, onClose }: Props) {
 
     const hit = mapByBrand.get(brand);
     const mobile = isMobileUA();
-    const envHasWallet = hasInjectedWallet() || isWalletInAppUA(); // in-app'te Heads-up YOK
+    const envHasWallet = hasInjectedWallet() || isWalletInAppUA();
 
     logEvent('wallet_connect_attempt', { brand });
 
@@ -349,7 +343,6 @@ export default function ConnectModal({ open, onClose }: Props) {
       return;
     }
 
-    // Mobil + ortamda cüzdan yoksa → Heads-up (deeplink ile in-app browser'a taşı, AC paramı ile)
     if (mobile && !envHasWallet && (brand === 'phantom' || brand === 'solflare' || brand === 'backpack')) {
       const urlWithAC = withAutoConnect(currentUrl, brand as 'phantom'|'solflare'|'backpack');
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -360,20 +353,18 @@ export default function ConnectModal({ open, onClose }: Props) {
         href:
           brand === 'phantom'  ? phantomBrowseLink(urlWithAC)  :
           brand === 'backpack' ? backpackBrowseLink(urlWithAC) :
-          solAndroidScheme, // Android Solflare: anchor ile scheme; iOS'ta button → launchSolflare
+          solAndroidScheme,
         mode: 'browse',
       });
       return;
     }
 
-    // Masaüstü + kurulu değil → mağaza
     if (!envHasWallet && !mobile && (brand === 'phantom' || brand === 'solflare' || brand === 'backpack') && (!hit?.adapterName || !hit.installed)) {
       window.open(INSTALL_URL[brand], '_blank', 'noopener,noreferrer');
       setClicked(null);
       return;
     }
 
-    // Normal connect akışı (in-app dahil)
     try {
       setBusy(true);
       await select(hit!.adapterName as WalletName);
@@ -390,7 +381,6 @@ export default function ConnectModal({ open, onClose }: Props) {
     }
   }
 
-  /* ───────────── Smart panel (modal içi) ───────────── */
   const SmartPanel = () => {
     if (!showSmart) return null;
 
@@ -406,11 +396,9 @@ export default function ConnectModal({ open, onClose }: Props) {
     return (
       <div className="rounded-xl border border-amber-400/30 bg-amber-300/10 p-3 mb-4">
         <div className="text-sm font-semibold text-amber-200">Smart Connect (Mobile)</div>
-
         <p className="text-xs text-amber-100/90 mt-1">
           Your browser doesn’t inject a wallet. Open this DApp inside your wallet’s in-app browser or use WalletConnect.
         </p>
-
         {isInAppBrowserUA() && (
           <div className="mt-2 text-[11px] text-amber-100/90">
             You seem to be in an in-app browser (e.g., Instagram/Facebook). Tap the menu and choose
@@ -456,7 +444,7 @@ export default function ConnectModal({ open, onClose }: Props) {
             Other wallets (WalletConnect)
           </button>
 
-          {/* Direct Connect (Phantom) — opsiyonel/phase-2 */}
+          {/* Direct Connect (Phantom) — phase-2 */}
           <button
             className="w-full rounded-lg py-2 text-sm border border-purple-400/40 bg-purple-400/10 hover:bg-purple-400/20"
             onClick={() => {
@@ -469,16 +457,10 @@ export default function ConnectModal({ open, onClose }: Props) {
         </div>
 
         <div className="mt-2 flex gap-2">
-          <button
-            className="px-3 py-1.5 text-xs rounded-md border border-white/15 bg-white/5 hover:bg-white/10"
-            onClick={copyLink}
-          >
+          <button className="px-3 py-1.5 text-xs rounded-md border border-white/15 bg-white/5 hover:bg-white/10" onClick={copyLink}>
             Copy link
           </button>
-          <button
-            className="px-3 py-1.5 text-xs rounded-md border border-white/15 bg-white/5 hover:bg-white/10"
-            onClick={() => setShowSmart(false)}
-          >
+          <button className="px-3 py-1.5 text-xs rounded-md border border-white/15 bg-white/5 hover:bg-white/10" onClick={() => setShowSmart(false)}>
             Hide
           </button>
         </div>
@@ -492,37 +474,12 @@ export default function ConnectModal({ open, onClose }: Props) {
               <li>Use <b>WalletConnect</b> below for other wallets.</li>
               <li>Or <b>Copy link</b> and open it from your wallet’s in-app browser.</li>
             </ul>
-            <div className="flex gap-2 mt-2">
-              <button
-                className="px-3 py-1.5 text-xs rounded-md border border-white/15 bg-white/5 hover:bg-white/10"
-                onClick={() => setDeeplinkFailed(false)}
-              >
-                Try again
-              </button>
-              {isAndroid() && (
-                <a
-                  className="px-3 py-1.5 text-xs rounded-md border border-white/15 bg-white/5 hover:bg-white/10"
-                  href="https://play.google.com/store/apps/details?id=com.solflare.mobile"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Get Solflare (Play Store)
-                </a>
-              )}
-              <button
-                className="px-3 py-1.5 text-xs rounded-md border border-white/15 bg-white/5 hover:bg-white/10"
-                onClick={() => handlePick('walletconnect')}
-              >
-                Start WalletConnect
-              </button>
-            </div>
           </div>
         )}
       </div>
     );
   };
 
-  /* ───────────── ConfirmLayer (portal altı) ───────────── */
   const ConfirmLayer = () => {
     if (!confirm) return null;
     const { brand, mode = 'browse' } = confirm;
@@ -542,7 +499,6 @@ export default function ConnectModal({ open, onClose }: Props) {
       if (mode === 'direct') {
         try {
           const { openDirectConnect } = await import('@/lib/wallet/direct/direct');
-          // uçuşu işaretleme RedirectConfirm içinde yapılıyor
           await openDirectConnect('phantom', {
             appUrl: window.location.origin,
             redirectLink: `${window.location.origin}/wallet/callback/phantom`,
@@ -557,7 +513,6 @@ export default function ConnectModal({ open, onClose }: Props) {
       }
 
       if (brand === 'solflare' && !href) {
-        // iOS Solflare akışı
         launchSolflare(urlAC);
         setConfirm(null);
       }
@@ -571,56 +526,38 @@ export default function ConnectModal({ open, onClose }: Props) {
         href={href}
         onCancel={() => setConfirm(null)}
         onContinue={continueHandler}
+        onResolved={() => setConfirm(null)}   // ✅ navigasyon öncesi kapat
       />
     );
   };
 
-  /* ───────────────────────── RENDER ───────────────────────── */
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogOverlay
-        className="z-[90] bg-black/60 data-[state=open]:animate-in data-[state=closed]:animate-out
-                   data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 duration-200"
-      />
-      <DialogContent
-        className="bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md max-h-[85vh]
-                   overflow-y-auto overscroll-contain z-[100] shadow-2xl border border-white/10
-                   data-[state=open]:animate-in data-[state=closed]:animate-out
-                   data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0
-                   data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-1
-                   sm:data-[state=open]:slide-in-from-bottom-2 duration-250"
-      >
-        {/* Header */}
+      <DialogOverlay className="z-[90] bg-black/60 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 duration-200" />
+      <DialogContent className="bg-zinc-900 text-white p-6 rounded-2xl w-[92vw] max-w-md max-h-[85vh] overflow-y-auto overscroll-contain z-[100] shadow-2xl border border-white/10 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-1 sm:data-[state=open]:slide-in-from-bottom-2 duration-250">
         <div className="sticky top-0 -m-6 px-6 pt-3 pb-2 z-[100] flex items-center justify-between pointer-events-none">
-          <DialogTitle className="text-white/95 text-base font-semibold pointer-events-auto">
-            Connect a Solana wallet
-          </DialogTitle>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="pointer-events-auto inline-flex items-center justify-center h-8 w-8
-                       rounded-lg hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
-          >
-            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden>
-              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
+          <DialogTitle className="text-white/95 text-base font-semibold pointer-events-auto">Connect a Solana wallet</DialogTitle>
+          <button onClick={onClose} aria-label="Close" className="pointer-events-auto inline-flex items-center justify-center h-8 w-8 rounded-lg hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
           </button>
         </div>
 
         <div className="h-6 sm:h-8" />
         <DialogDescription className="sr-only">Choose a wallet to connect.</DialogDescription>
 
+        {/* Smart Panel */}
         <SmartPanel />
 
         {/* Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6 sm:mt-8 touch-pan-y">
-          {cards.map(({ key, label, note, desc, installed }) => {
+          {UI.map(({ key, label, note, desc }) => {
+            const hit = (mapByBrand.get(key) || { installed: false }) as { installed: boolean; adapterName?: string };
             const isBusy = busy && clicked === key;
             const isLast = last === key;
             const badge =
               key === 'walletconnect' ? { text: 'QR',        cls: 'bg-indigo-600/30 border-indigo-500/50' } :
-              installed              ? { text: 'Installed', cls: 'bg-emerald-600/30 border-emerald-500/50' } :
-                                       { text: 'Install',   cls: 'bg-zinc-700/50   border-zinc-500/50' };
+              hit.installed           ? { text: 'Installed', cls: 'bg-emerald-600/30 border-emerald-500/50' } :
+                                        { text: 'Install',   cls: 'bg-zinc-700/50   border-zinc-500/50' };
 
             return (
               <motion.button
@@ -630,25 +567,18 @@ export default function ConnectModal({ open, onClose }: Props) {
                 whileTap={{ scale: 0.99 }}
                 onClick={() => handlePick(key)}
                 disabled={busy}
-                className="relative grid grid-rows-[auto_1fr_auto] h-[8.5rem]
-                           rounded-2xl border border-white/12 bg-white/[0.04] hover:bg-white/[0.07]
-                           pl-4 pr-14 pt-5 pb-3 overflow-hidden outline-none focus:outline-none select-none"
+                className="relative grid grid-rows-[auto_1fr_auto] h-[8.5rem] rounded-2xl border border-white/12 bg-white/[0.04] hover:bg-white/[0.07] pl-4 pr-14 pt-5 pb-3 overflow-hidden outline-none focus:outline-none select-none"
               >
                 {isLast && <span aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-emerald-400/40" />}
-                <span className={`absolute top-2 right-2 z-10 text-[10px] px-2 py-0.5 rounded-full border ${badge.cls}`}>
-                  {badge.text}
-                </span>
+                <span className={`absolute top-2 right-2 z-10 text-[10px] px-2 py-0.5 rounded-full border ${badge.cls}`}>{badge.text}</span>
                 <div className="relative z-10 flex items-center gap-2">
                   <WalletBrandBadge brand={key} size={24} className="h-6 w-6 shrink-0" />
                   <span className="font-semibold">{label}</span>
                 </div>
-                <div
-                  className="relative z-10 text-xs text-gray-300 mt-2 self-start"
-                  style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-                >
+                <div className="relative z-10 text-xs text-gray-300 mt-2 self-start" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                   {desc}{note ? ` — ${note}` : ''}
                 </div>
-                {!installed && key !== 'walletconnect' && !isMobileUA() && (
+                {!hit.installed && key !== 'walletconnect' && !isMobileUA() && (
                   <a
                     href={INSTALL_URL[key as keyof typeof INSTALL_URL]}
                     target="_blank"
@@ -670,42 +600,10 @@ export default function ConnectModal({ open, onClose }: Props) {
           })}
         </div>
 
-        {/* Need a wallet? */}
-        <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.04] p-3">
-          <div className="text-sm font-semibold mb-2">Need a wallet?</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[12px] text-gray-300">
-            <div className="rounded-lg p-3 bg-black/20 border border-white/10">
-              <div className="flex items-center gap-2 mb-1">
-                <WalletBrandBadge brand="phantom" size={18} />
-                <div className="font-medium">Phantom</div>
-              </div>
-              <ul className="list-disc pl-4 space-y-0.5">
-                <li>Best for starters</li>
-                <li>Great UX, mobile + desktop</li>
-                <li>Auto-detect tokens/NFTs</li>
-              </ul>
-              <a href={INSTALL_URL.phantom} target="_blank" className="underline mt-2 inline-block">Install Phantom</a>
-            </div>
-
-            <div className="rounded-lg p-3 bg-black/20 border border-white/10">
-              <div className="flex items-center gap-2 mb-1">
-                <WalletBrandBadge brand="solflare" size={18} />
-                <div className="font-medium">Solflare</div>
-              </div>
-              <ul className="list-disc pl-4 space-y-0.5">
-                <li>Ledger compatible</li>
-                <li>Built-in staking</li>
-                <li>Mobile + desktop</li>
-              </ul>
-              <a href={INSTALL_URL.solflare} target="_blank" className="underline mt-2 inline-block">Install Solflare</a>
-            </div>
-          </div>
-        </div>
-
         {err && <div className="mt-3 text-sm text-red-400">{err}</div>}
       </DialogContent>
 
-      {/* Heads-up confirm via Portal */}
+      {/* Heads-up confirm */}
       <ConfirmLayer />
     </Dialog>
   );

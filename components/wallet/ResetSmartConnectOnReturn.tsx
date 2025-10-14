@@ -1,3 +1,4 @@
+// components/wallet/ResetSmartConnectOnReturn.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -5,10 +6,8 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { logEvent } from '@/lib/analytics';
 
 function isWalletInAppUA() {
-  const ua = navigator.userAgent;
-  // Phantom/Solflare/Backpack in-app tarayıcı sinyalleri
-  if (/Phantom/i.test(ua) || /Solflare/i.test(ua) || /Backpack/i.test(ua)) return true;
-  // Bazı cüzdanlar window işaretleri bırakır
+  const ua = navigator.userAgent || '';
+  if (/Phantom|Solflare|Backpack|xNFT/i.test(ua)) return true;
   if ((window as any)?.solana?.isPhantom) return true;
   if ((window as any)?.solflare) return true;
   if ((window as any)?.backpack) return true;
@@ -20,58 +19,49 @@ export default function ResetSmartConnectOnReturn() {
 
   async function resetFlow(reason: string) {
     try {
-      // URL'den ?ac & ?brand paramlarını kaldır
-      const url = new URL(window.location.href);
-      if (url.searchParams.has('ac') || url.searchParams.has('brand')) {
-        url.searchParams.delete('ac');
-        url.searchParams.delete('brand');
-        history.replaceState(null, '', url.pathname + url.hash);
+      // URL query temizliği
+      const u = new URL(window.location.href);
+      if (u.searchParams.has('ac') || u.searchParams.has('brand')) {
+        u.searchParams.delete('ac');
+        u.searchParams.delete('brand');
+        history.replaceState(null, '', u.pathname + u.hash);
       }
 
-      // Local/session izlerini temizle
+      // Uçuş ve geçici anahtarlar
       const KEYS = [
-        'sc:flight',                // bu akış için ekleyeceğiz (aşağıya bkz.)
-        'sc:brand',
-        'sc:ac',
-        'sc:inProgress',
-        'wallethub:lastBrand',
-        'wallethub:lastChain',
+        'sc:flight', 'sc:brand', 'sc:ac', 'sc:inProgress',
+        'wallethub:lastBrand', 'wallethub:lastChain',
       ];
-      KEYS.forEach((k) => {
+      KEYS.forEach(k => {
         try { localStorage.removeItem(k); } catch {}
         try { sessionStorage.removeItem(k); } catch {}
       });
 
-      // Bağlı değilsek no-op; bağlıysa sessizce kopar
+      // Bağlıysa sessiz disconnect
       try { await wallet?.adapter?.disconnect?.(); } catch {}
       try { await disconnect?.(); } catch {}
 
-      // UI’lara haber vermek istersen:
+      // Modal/Connect bileşenlerine sinyal
       try { window.dispatchEvent(new CustomEvent('smartconnect:reset')); } catch {}
 
       logEvent?.('smart_connect_reset_on_return', { reason });
-    } catch (e: any) {
-      // Sessiz geç
-    }
+    } catch { /* no-op */ }
   }
 
   useEffect(() => {
     const handler = () => {
-      // Sayfa görünür ve dış tarayıcıdaysak resetle
+      // Dış tarayıcıya dönmüş ve görünürsek resetle
       if (document.visibilityState !== 'visible') return;
       if (isWalletInAppUA()) return;
 
-      // Bir önceki adımda bir cüzdan tarayıcısına gittiğimizi işaretlediysek (sc:flight),
-      // ve şimdi dış tarayıcıya geri döndüysek → reset
+      // Önceden bir uçuş işareti varsa reset
       const flight = localStorage.getItem('sc:flight');
       if (flight) resetFlow('external_browser_return');
     };
 
-    // Hem BFCache dönüşü hem app-switch senaryoları
     window.addEventListener('pageshow', handler);
     document.addEventListener('visibilitychange', handler);
     window.addEventListener('focus', handler);
-
     return () => {
       window.removeEventListener('pageshow', handler);
       document.removeEventListener('visibilitychange', handler);
