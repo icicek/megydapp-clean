@@ -369,6 +369,7 @@ export default function ConnectModal({ open, onClose }: Props) {
       setBusy(true);
       await select(hit!.adapterName as WalletName);
       await connectStable(hit!.adapterName!, api);
+      try { localStorage.removeItem('sc:flight'); } catch {}
       localStorage.setItem(LAST_KEY, brand);
       logEvent('wallet_connect_success', { brand });
       onClose();
