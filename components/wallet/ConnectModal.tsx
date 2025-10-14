@@ -39,11 +39,14 @@ const isInAppBrowserUA = () => {
   return /(Instagram|FBAN|FBAV|Messenger|Line|Twitter)/i.test(ua);
 };
 
-/** Cüzdanların in-app browser’ı mı? (UA tabanlı hızlı kontrol) */
+/** Wallet in-app browser kontrolü */
 const isWalletInAppUA = () => {
   if (typeof window === 'undefined') return false;
   const ua = navigator.userAgent || '';
-  return /(Solflare|Phantom|Backpack|xNFT)/i.test(ua);
+  return /(Solflare|Phantom|Backpack|xNFT)/i.test(ua)
+    || (window as any)?.solana?.isPhantom
+    || (window as any)?.solflare
+    || (window as any)?.backpack;
 };
 
 const hasInjectedWallet = () => {
@@ -73,6 +76,16 @@ function withAutoConnect(u: string, brand: 'phantom'|'solflare'|'backpack') {
     url.searchParams.set('brand', brand);
     return url.toString();
   } catch { return u; }
+}
+
+/** Heads-up uçuş işareti (geri dönünce reset için) */
+function markFlight(brand: 'phantom' | 'solflare' | 'backpack') {
+  try {
+    const now = Date.now();
+    localStorage.setItem('sc:flight', JSON.stringify({ brand, ts: now }));
+    localStorage.setItem('sc:brand', brand);
+    localStorage.setItem('sc:ac', '1');
+  } catch {}
 }
 
 /* ───────────────────────── UI data ───────────────────────── */
@@ -127,6 +140,12 @@ function RedirectConfirm({
       ? 'To connect securely, you’ll be taken to Phantom to approve and then return here.'
       : 'For a better experience, you’ll be taken to your wallet’s in-app browser to continue.';
 
+  // Anchor tıklamasında uçuşu işaretle
+  const onClickAnchor = () => {
+    markFlight(brand);
+    try { logEvent('smart_connect_flight_marked', { brand }); } catch {}
+  };
+
   return (
     <Portal>
       <div className="fixed inset-0 z-[9999] flex items-center justify-center">
@@ -150,6 +169,7 @@ function RedirectConfirm({
             {mode === 'browse' && href ? (
               <a
                 href={href}
+                onClick={onClickAnchor}
                 className="flex-1 text-center rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm hover:bg-emerald-400/20"
               >
                 {label}
@@ -157,7 +177,12 @@ function RedirectConfirm({
             ) : (
               <button
                 type="button"
-                onClick={onContinue}
+                onClick={async () => {
+                  // iOS Solflare veya Direct Phantom: devamdan önce uçuşu işaretle
+                  markFlight(brand);
+                  try { logEvent('smart_connect_flight_marked', { brand }); } catch {}
+                  await onContinue();
+                }}
                 className="flex-1 rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm hover:bg-emerald-400/20"
               >
                 {label}
@@ -227,6 +252,7 @@ export default function ConnectModal({ open, onClose }: Props) {
   /* SmartConnect açılışı + analytics */
   useEffect(() => {
     if (!open) return;
+    // In-app'teysek Heads-up görünmesin
     const shouldSmart = isMobileUA() && !hasInjectedWallet() && !anyAdapterInstalled && !isWalletInAppUA();
     setShowSmart(shouldSmart);
     if (shouldSmart) {
@@ -252,7 +278,7 @@ export default function ConnectModal({ open, onClose }: Props) {
     };
   }, []);
 
-  /* Deeplink launcher (generic) — in-app'te çalıştırma */
+  /* Deeplink launcher (generic) — in-app'te çalıştırma (kullanılmıyor ama dursun) */
   function launchDeeplink(href: string, brand: 'phantom' | 'solflare' | 'backpack') {
     if (isWalletInAppUA()) return;
     setDeeplinkTrying(brand);
@@ -261,6 +287,7 @@ export default function ConnectModal({ open, onClose }: Props) {
       if (document.visibilityState === 'visible') setDeeplinkFailed(true);
     }, 2500);
     try {
+      markFlight(brand);
       window.location.href = href;
     } catch {
       clearTimeout(t);
@@ -283,7 +310,7 @@ export default function ConnectModal({ open, onClose }: Props) {
         timedOut = true;
         try { window.open(https, '_blank', 'noopener'); } catch {}
       }, 350);
-      try { window.location.href = scheme; } catch {}
+      try { markFlight('solflare'); window.location.href = scheme; } catch {}
       setTimeout(() => {
         if (document.visibilityState === 'visible' && !timedOut) {
           try { window.open(https, '_blank', 'noopener'); } catch {}
@@ -300,7 +327,7 @@ export default function ConnectModal({ open, onClose }: Props) {
         try { window.location.href = https; } catch {}
       }
     }, 200);
-    try { window.location.href = scheme; } catch { clearTimeout(fb); window.location.href = https; }
+    try { markFlight('solflare'); window.location.href = scheme; } catch { clearTimeout(fb); window.location.href = https; }
     setTimeout(() => { if (document.visibilityState === 'visible') setDeeplinkFailed(true); }, 2500);
   }
 
@@ -515,6 +542,7 @@ export default function ConnectModal({ open, onClose }: Props) {
       if (mode === 'direct') {
         try {
           const { openDirectConnect } = await import('@/lib/wallet/direct/direct');
+          // uçuşu işaretleme RedirectConfirm içinde yapılıyor
           await openDirectConnect('phantom', {
             appUrl: window.location.origin,
             redirectLink: `${window.location.origin}/wallet/callback/phantom`,
@@ -529,6 +557,7 @@ export default function ConnectModal({ open, onClose }: Props) {
       }
 
       if (brand === 'solflare' && !href) {
+        // iOS Solflare akışı
         launchSolflare(urlAC);
         setConfirm(null);
       }
