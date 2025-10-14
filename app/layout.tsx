@@ -8,22 +8,40 @@ import { APP_URL, absoluteUrl } from '@/app/lib/origin';
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
-  title: 'Coincarnation',
-  description: 'Rescue your deadcoins. Coincarnate now!',
+  title: 'Coincarnation — Unite Deadcoins. Fund the Future.',
+  description: 'Unite deadcoins, rescue value, and join the Fair Future Fund. Coincarnate now.',
+  alternates: {
+    canonical: APP_URL,
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
   openGraph: {
-    title: 'Coincarnation',
-    description: 'Revive your deadcoins. Coincarnate them for $MEGY.',
+    type: 'website',
     url: APP_URL,
     siteName: 'Coincarnation',
-    images: [{ url: absoluteUrl('/og-image.png'), width: 1200, height: 630, alt: 'Coincarnation' }],
+    title: 'Coincarnation — Unite Deadcoins. Fund the Future.',
+    description: 'Unite deadcoins, rescue value, and join the Fair Future Fund.',
+    images: [
+      {
+        url: absoluteUrl('/og-image.png'),
+        width: 1200,
+        height: 630,
+        alt: 'Coincarnation — Unite Deadcoins. Fund the Future.',
+      },
+    ],
     locale: 'en_US',
-    type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Coincarnation',
-    description: 'Trade your deadcoins for $MEGY and join the future.',
+    title: 'Coincarnation — Unite Deadcoins. Fund the Future.',
+    description: 'Unite deadcoins, rescue value, and join the Fair Future Fund.',
     images: [absoluteUrl('/og-image.png')],
+  },
+  // (opsiyonel) favicon vs.
+  icons: {
+    icon: '/favicon.ico',
   },
 };
 
