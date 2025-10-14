@@ -1,7 +1,7 @@
 // components/wallet/AutoConnectOnLoad.tsx
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletName, WalletReadyState } from '@solana/wallet-adapter-base';
 import { logEvent } from '@/lib/analytics';
@@ -15,17 +15,14 @@ const BRAND_TO_WALLET: Record<string, WalletName | string> = {
 };
 
 export default function AutoConnectOnLoad() {
-  const { publicKey, connect, wallet, select } = useWallet();
+  const { publicKey, wallet, connect, select } = useWallet();
   const adapter = wallet?.adapter;
 
-  // UI
   const [showFallbackCTA, setShowFallbackCTA] = useState(false);
-  const [connectingNow, setConnectingNow] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [needsFirstTap, setNeedsFirstTap] = useState(false); // 👈 Phantom Android gate
 
-  // Locks & timers
   const lockedRef = useRef(false);
-  const boundGestureRef = useRef(false);
-  const gestureHandlerRef = useRef<((e: Event) => void) | null>(null);
   const cleanupTimersRef = useRef<number[]>([]);
 
   const sleep = (ms: number) =>
@@ -34,226 +31,235 @@ export default function AutoConnectOnLoad() {
       cleanupTimersRef.current.push(t);
     });
 
+  const clearUrlParams = useCallback(() => {
+    try {
+      const newUrl = window.location.pathname + window.location.hash;
+      history.replaceState(null, '', newUrl);
+    } catch {}
+  }, []);
+
   useEffect(() => {
+    if (publicKey) return;
+
     const params = new URLSearchParams(window.location.search);
     const ac = params.get('ac') === '1';
-    const brand = (params.get('brand') || '').toLowerCase(); // 'phantom'|'solflare'|'backpack'
-    if (!ac || publicKey) return;
+    const brand = (params.get('brand') || '').toLowerCase();
+    if (!ac) return;
 
-    // --- 0) Önce hedef cüzdanı select() et (çok kritik) ---
-    const desiredName = BRAND_TO_WALLET[brand];
-    if (desiredName) {
-      const current = wallet?.adapter?.name;
-      if (current !== desiredName) {
-        try {
-          // select tetikleyip adapter'ın oluşmasını bekleyeceğiz
-          select(desiredName as WalletName);
-          logEvent?.('autoconnect_select_wallet', { brand, to: desiredName });
-        } catch (e: any) {
-          logEvent?.('autoconnect_select_wallet_error', { brand, message: e?.message || String(e) });
-        }
-      }
-    }
-
-    // Adapter hazır olana kadar kısa bir “poll” (maks 1.2s) — Phantom/Android injection gecikmesi için
-    const waitAdapterReady = async () => {
-      const maxWait = 1200;
-      const step = 120;
-      let waited = 0;
-      while (waited <= maxWait) {
-        const a = ((): typeof adapter => {
-          // wallet referansı closure içinde sabit kalmasın diye runtime okuyalım
-          const w = (window as any).__lastWalletState?.wallet || wallet; // fallback
-          return (w?.adapter ?? adapter) as typeof adapter;
-        })();
-        const ready =
-          a &&
-          (a.readyState === WalletReadyState.Installed ||
-            a.readyState === WalletReadyState.Loadable);
-        if (ready) return true;
-        await sleep(step);
-        waited += step;
-      }
-      return false;
-    };
-
-    // UA/brand tespiti
+    // UA & brand detection
     const ua = navigator.userAgent;
     const isAndroid = /Android/i.test(ua);
     const isPhantomUA = /Phantom/i.test(ua) || (window as any)?.solana?.isPhantom === true;
     const isSolflareUA = /Solflare/i.test(ua) || (window as any)?.solflare === true;
+
     const isPhantomAndroid = isAndroid && (brand === 'phantom' || isPhantomUA);
     const isSolflare = brand === 'solflare' || isSolflareUA;
 
-    const landingDelayMs = isPhantomAndroid ? 600 : 300;
-
-    const clearUrlParams = () => {
+    // 0) Ensure target wallet selected (critical)
+    const desiredName = BRAND_TO_WALLET[brand];
+    if (desiredName && wallet?.adapter?.name !== desiredName) {
       try {
-        const newUrl = window.location.pathname + window.location.hash;
-        history.replaceState(null, '', newUrl);
-      } catch {}
-    };
+        select(desiredName as WalletName);
+        logEvent?.('autoconnect_select_wallet', { brand, to: desiredName });
+      } catch (e: any) {
+        logEvent?.('autoconnect_select_wallet_error', { brand, message: e?.message || String(e) });
+      }
+    }
+
+    const adapterReady = () =>
+      !!(wallet?.adapter &&
+        (wallet.adapter.readyState === WalletReadyState.Installed ||
+          wallet.adapter.readyState === WalletReadyState.Loadable));
 
     const doConnect = async (method: AttemptMethod) => {
       if (lockedRef.current || publicKey) return;
       lockedRef.current = true;
-      setConnectingNow(true);
+      setConnecting(true);
       setShowFallbackCTA(false);
       logEvent?.('autoconnect_attempt', { method, brand });
 
       try {
-        const backoffs = isPhantomAndroid ? [400, 800, 1200, 1600] : [250, 600, 1000, 1500];
-
-        await sleep(landingDelayMs);
-
-        // Adapter hazır mı? (select sonrası bekle)
-        const ready = await waitAdapterReady();
-        if (!ready) {
-          logEvent?.('autoconnect_skip', { reason: 'adapter_not_ready_after_select', brand });
+        const a = wallet?.adapter ?? adapter;
+        if (a?.connect) {
+          await a.connect();
+        } else if (connect) {
+          await connect();
+        } else {
+          throw new Error('no-adapter-or-connect');
         }
-
-        for (let i = 0; i < backoffs.length; i++) {
-          if (document.visibilityState !== 'visible') {
-            logEvent?.('autoconnect_skip', { reason: 'document_hidden', brand });
-            break;
-          }
-
-          // Phantom Android: önce sessiz (onlyIfTrusted) — UI açmadan
-          if (isPhantomAndroid && method === 'silent_onlyIfTrusted') {
-            const provider: any =
-              (window as any).solana ||
-              (window as any).phantom?.solana ||
-              (window as any).window?.solana;
-
-            if (provider?.connect) {
-              try {
-                await provider.connect({ onlyIfTrusted: true });
-                logEvent?.('autoconnect_success', { method, tryIndex: i, brand });
-                clearUrlParams();
-                setShowFallbackCTA(false);
-                setConnectingNow(false);
-                lockedRef.current = false;
-                return;
-              } catch (e: any) {
-                logEvent?.('autoconnect_error', {
-                  method,
-                  tryIndex: i,
-                  brand,
-                  message: e?.message || String(e),
-                });
-              }
-            }
-            // Sessiz deneme tek hakkımız — gesture’a bırak
-            break;
-          }
-
-          try {
-            const a = ((): typeof adapter => wallet?.adapter ?? adapter)();
-            if (a?.connect) {
-              await a.connect();
-            } else if (connect) {
-              await connect();
-            } else {
-              throw new Error('no-adapter-or-connect');
-            }
-
-            logEvent?.('autoconnect_success', { method, tryIndex: i, brand });
-            clearUrlParams();
-            setShowFallbackCTA(false);
-            setConnectingNow(false);
-            lockedRef.current = false;
-            return;
-          } catch (e: any) {
-            logEvent?.('autoconnect_error', {
-              method,
-              tryIndex: i,
-              brand,
-              message: e?.message || String(e),
-            });
-            await sleep(backoffs[i]);
-          }
-        }
-
-        // Başarısız → CTA
+        logEvent?.('autoconnect_success', { method, brand });
+        clearUrlParams();
+        setNeedsFirstTap(false);
+      } catch (e: any) {
+        logEvent?.('autoconnect_error', { method, brand, message: e?.message || String(e) });
+        // Show fallback for non-Phantom or later manual retry
         setShowFallbackCTA(true);
       } finally {
-        setConnectingNow(false);
+        setConnecting(false);
         lockedRef.current = false;
       }
     };
 
-    // --- Strateji ---
-    // 1) Phantom Android → önce sessiz onlyIfTrusted (UI açmadan)
-    if (isPhantomAndroid) {
-      doConnect('silent_onlyIfTrusted');
-    } else {
-      // 2) Solflare & diğerleri → immediate
-      doConnect('immediate');
-    }
+    const trySilentIfTrusted = async () => {
+      // Phantom provider (window.solana) direct silent connect
+      const provider: any =
+        (window as any).solana ||
+        (window as any).phantom?.solana ||
+        (window as any).window?.solana;
 
-    // 3) İlk gesture’da dene
-    if (!boundGestureRef.current) {
-      const onFirstGesture = () => {
-        if (gestureHandlerRef.current) {
-          window.removeEventListener('pointerdown', gestureHandlerRef.current);
-          window.removeEventListener('touchstart', gestureHandlerRef.current);
-        }
-        boundGestureRef.current = false;
-        doConnect('gesture');
-      };
-      gestureHandlerRef.current = onFirstGesture;
-      window.addEventListener('pointerdown', onFirstGesture, { once: true });
-      window.addEventListener('touchstart', onFirstGesture, { once: true });
-      boundGestureRef.current = true;
-
-      // 7s sonra hâlâ yoksa CTA
-      const t = window.setTimeout(() => {
-        if (!publicKey) {
-          logEvent?.('autoconnect_timeout', { brand });
-          setShowFallbackCTA(true);
-        }
-      }, 7000);
-      cleanupTimersRef.current.push(t);
-    }
-
-    // 4) görünür olduğunda (ör. uygulamalar arasında geçişte) yeniden fırsat
-    const onVisible = () => {
-      if (!publicKey && !lockedRef.current) {
-        if (isPhantomAndroid) return; // Phantom genelde gesture istiyor
-        doConnect('immediate');
+      if (!provider?.connect) return false;
+      try {
+        logEvent?.('autoconnect_attempt', { method: 'silent_onlyIfTrusted', brand });
+        await provider.connect({ onlyIfTrusted: true });
+        logEvent?.('autoconnect_success', { method: 'silent_onlyIfTrusted', brand });
+        clearUrlParams();
+        return true;
+      } catch (e: any) {
+        logEvent?.('autoconnect_error', {
+          method: 'silent_onlyIfTrusted',
+          brand,
+          message: e?.message || String(e),
+        });
+        return false;
       }
     };
-    document.addEventListener('visibilitychange', onVisible);
 
-    // küçük: runtime’da wallet durumunu kaydet (waitAdapterReady için)
-    (window as any).__lastWalletState = { wallet };
+    (async () => {
+      // Small landing delay for in-app injection stabilization
+      const landingDelay = isPhantomAndroid ? 600 : 300;
+      await sleep(landingDelay);
+
+      // Wait briefly for adapter readiness after select()
+      const maxWait = 1200;
+      const step = 120;
+      let waited = 0;
+      while (waited <= maxWait && !adapterReady()) {
+        await sleep(step);
+        waited += step;
+      }
+
+      if (isPhantomAndroid) {
+        // 1) Silent (onlyIfTrusted). If user trusted before, this auto-connects.
+        const ok = await trySilentIfTrusted();
+        if (ok) return;
+
+        // 2) Otherwise, require a REAL first tap (not programmatic).
+        // Render a full-screen tap-catcher so any tap counts as a proper gesture.
+        setNeedsFirstTap(true);
+        setShowFallbackCTA(false);
+        logEvent?.('autoconnect_waiting_first_tap', { brand: 'phantom' });
+        return;
+      }
+
+      // Non-Phantom (e.g., Solflare) — immediate try with light backoff
+      const backoffs = [250, 600, 1000];
+      for (let i = 0; i < backoffs.length; i++) {
+        if (document.visibilityState !== 'visible') break;
+        try {
+          await doConnect('immediate');
+          return;
+        } catch {
+          // doConnect already logs; wait and retry
+        }
+        await sleep(backoffs[i]);
+      }
+
+      setShowFallbackCTA(true);
+    })();
 
     return () => {
-      if (gestureHandlerRef.current) {
-        window.removeEventListener('pointerdown', gestureHandlerRef.current);
-        window.removeEventListener('touchstart', gestureHandlerRef.current);
-      }
-      document.removeEventListener('visibilitychange', onVisible);
       cleanupTimersRef.current.forEach((t) => window.clearTimeout(t));
       cleanupTimersRef.current = [];
     };
-  }, [wallet, adapter, publicKey, connect, select]);
+  }, [publicKey, wallet, adapter, connect, select, clearUrlParams]);
 
+  // Already connected — render nothing
   if (publicKey) return null;
 
-  // CTA: tek dokunuşla dene
+  // 🛡 Phantom Android First-Tap Gate: full-screen transparent button
+  if (needsFirstTap) {
+    const onFirstTap = async () => {
+      if (lockedRef.current) return;
+      setConnecting(true);
+      lockedRef.current = true;
+      logEvent?.('autoconnect_first_tap', { brand: 'phantom' });
+      try {
+        // Connect INSIDE the real user gesture handler
+        const a = wallet?.adapter ?? adapter;
+        if (a?.connect) {
+          await a.connect();
+        } else if (connect) {
+          await connect();
+        } else {
+          throw new Error('no-adapter-or-connect');
+        }
+        logEvent?.('autoconnect_success', { method: 'gesture', brand: 'phantom' });
+        clearUrlParams();
+        setNeedsFirstTap(false);
+      } catch (e: any) {
+        logEvent?.('autoconnect_error', {
+          method: 'gesture',
+          brand: 'phantom',
+          message: e?.message || String(e),
+        });
+        // Keep the gate so user can try again; also show a visible CTA pill
+        setShowFallbackCTA(true);
+      } finally {
+        setConnecting(false);
+        lockedRef.current = false;
+      }
+    };
+
+    return (
+      <button
+        onClick={onFirstTap}
+        className="fixed inset-0 z-[1000] cursor-pointer"
+        aria-label="Tap to connect"
+        // Transparent full-screen catcher
+        style={{ background: 'transparent' }}
+      >
+        {/* Small visible hint at bottom */}
+        <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 rounded-xl px-4 py-2 shadow-md bg-black/60 text-white text-sm font-semibold">
+          {connecting ? 'Connecting…' : 'Tap once to connect with Phantom'}
+        </div>
+      </button>
+    );
+  }
+
+  // Generic small CTA (for non-Phantom or retries)
   return showFallbackCTA ? (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
       <button
-        disabled={connectingNow}
+        disabled={connecting}
         onClick={() => {
-          const brand = (new URLSearchParams(window.location.search).get('brand') || '').toLowerCase();
-          logEvent?.('autoconnect_manual_retry_click', { brand });
-          document.dispatchEvent(new Event('pointerdown')); // gesture akışını tetikle
+          // Use a REAL click to trigger connect (non-Phantom paths benefit too)
+          const el = document.activeElement as HTMLElement | null;
+          el?.blur?.();
+          // Call connect directly here (real gesture)
+          (async () => {
+            const params = new URLSearchParams(window.location.search);
+            const brand = (params.get('brand') || '').toLowerCase();
+            logEvent?.('autoconnect_manual_retry_click', { brand });
+            try {
+              const a = wallet?.adapter ?? adapter;
+              if (a?.connect) {
+                await a.connect();
+              } else if (connect) {
+                await connect();
+              } else {
+                throw new Error('no-adapter-or-connect');
+              }
+              logEvent?.('autoconnect_success', { method: 'manual', brand });
+              clearUrlParams();
+              setShowFallbackCTA(false);
+            } catch (e: any) {
+              logEvent?.('autoconnect_error', { method: 'manual', brand, message: e?.message || String(e) });
+            }
+          })();
         }}
         className="px-4 py-2 rounded-lg shadow-md bg-indigo-600 text-white font-semibold disabled:opacity-60"
       >
-        {connectingNow ? 'Connecting…' : 'Tap once to connect'}
+        {connecting ? 'Connecting…' : 'Tap once to connect'}
       </button>
     </div>
   ) : null;
