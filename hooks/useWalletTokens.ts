@@ -10,7 +10,9 @@ import { fetchTokenMetadataClient as fetchTokenMetadata } from '@/lib/client/fet
 
 export interface TokenInfo {
   mint: string;
-  amount: number;
+  amount: number;             // UI için sayı (liste sıralama vb.)
+  uiAmountString?: string;    // Güvenli gösterim (string)
+  decimals?: number;          // Gerekirse işlemde kullanılır
   symbol?: string;
   logoURI?: string;
 }
@@ -23,6 +25,21 @@ type Options = {
 
 const DEBUG_TOKENS = true;
 const dbg = (...args: any[]) => { if (DEBUG_TOKENS) console.log('[TOKENS]', ...args); };
+
+/** raw u64 (string) + decimals -> ui string (BigInt/float kullanmadan) */
+function rawToUiString(raw: string, decimals: number): string {
+  if (!raw) return '0';
+  const s = String(raw).replace(/^0+/, '') || '0';
+  if (!decimals) return s;
+  if (s.length <= decimals) {
+    const zeros = '0'.repeat(decimals - s.length);
+    const frac = (zeros + s).replace(/0+$/, '');
+    return frac ? `0.${frac}` : '0';
+  }
+  const int = s.slice(0, s.length - decimals) || '0';
+  const frac = s.slice(s.length - decimals).replace(/0+$/, '');
+  return frac ? `${int}.${frac}` : int;
+}
 
 export function useWalletTokens(options?: Options) {
   const { publicKey, connected } = useWallet();
@@ -38,48 +55,78 @@ export function useWalletTokens(options?: Options) {
   const inflightRef = useRef(false);
   const reqIdRef = useRef(0);
 
-  // ---- Client RPC helper (sadece server route yoksa kullanılır) ----
+  // ---- Client RPC helper (server route başarısızsa) ----
   const mapParsed = (accs: any[]) => {
-    const out: { mint: string; amount: number }[] = [];
+    const out: { mint: string; amount: number; uiAmountString?: string; decimals?: number }[] = [];
     for (const { account } of accs) {
-      const info = (account as any)?.data?.parsed?.info;
-      const amt = info?.tokenAmount;
-      const mint: string | undefined = info?.mint;
-      if (!mint || !amt) continue;
+      try {
+        const info = (account as any)?.data?.parsed?.info;
+        const amt = info?.tokenAmount;
+        const mint: string | undefined = info?.mint;
+        if (!mint || !amt) continue;
 
-      const decimals = Number(amt.decimals ?? 0);
-      let ui = typeof amt.uiAmount === 'number' ? amt.uiAmount : undefined;
-      if (ui == null) {
-        const raw = typeof amt.amount === 'string' ? amt.amount : '0';
-        try { ui = Number(BigInt(raw)) / Math.pow(10, decimals); }
-        catch { ui = Number(raw) / Math.pow(10, decimals); }
+        const decimals: number = Number(amt.decimals ?? 0);
+        // JSON parsed alanları: uiAmountString > uiAmount > amount/decimals
+        let uiStr: string | undefined = typeof amt.uiAmountString === 'string'
+          ? amt.uiAmountString
+          : (typeof amt.uiAmount === 'number' ? String(amt.uiAmount) : undefined);
+
+        if (!uiStr) {
+          const raw = typeof amt.amount === 'string' ? amt.amount : '0';
+          uiStr = rawToUiString(raw, decimals);
+        }
+
+        const uiNum = Number(uiStr);
+        if (Number.isFinite(uiNum) && uiNum > 0) {
+          out.push({ mint, amount: uiNum, uiAmountString: uiStr, decimals });
+        }
+      } catch {
+        // bu hesabı atla
       }
-      if (ui > 0) out.push({ mint, amount: ui });
     }
     return out;
   };
 
   const clientRpcFetch = useCallback(async (owner: any) => {
-    // 403 riski nedeniyle yalnızca server route olmazsa deneyelim
     try {
       const [v1Res, v22Res] = await Promise.allSettled([
         connection.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID }, 'confirmed'),
         connection.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_2022_PROGRAM_ID }, 'confirmed'),
       ]);
+
       const v1 = v1Res.status === 'fulfilled' ? v1Res.value.value : [];
       const v22 = v22Res.status === 'fulfilled' ? v22Res.value.value : [];
+
       const positive = mapParsed([...v1, ...v22]);
 
-      const merged = new Map<string, number>();
-      for (const t of positive) merged.set(t.mint, (merged.get(t.mint) ?? 0) + t.amount);
+      // Mint bazında miktarları birleştir
+      const merged = new Map<string, { amount: number; uiAmountString?: string; decimals?: number }>();
+      for (const t of positive) {
+        const prev = merged.get(t.mint);
+        if (!prev) merged.set(t.mint, { amount: t.amount, uiAmountString: t.uiAmountString, decimals: t.decimals });
+        else merged.set(t.mint, {
+          amount: prev.amount + t.amount,
+          uiAmountString: (prev.uiAmountString && t.uiAmountString)
+            ? String(Number(prev.uiAmountString) + Number(t.uiAmountString))
+            : String(prev.amount + t.amount),
+          decimals: t.decimals ?? prev.decimals,
+        });
+      }
 
+      // Native SOL
       try {
         const lamports = await connection.getBalance(owner, 'confirmed');
-        if (lamports > 0) merged.set('SOL', (merged.get('SOL') ?? 0) + lamports / 1e9);
+        if (lamports > 0) {
+          merged.set('SOL', {
+            amount: lamports / 1e9,
+            uiAmountString: rawToUiString(String(lamports), 9),
+            decimals: 9,
+          });
+        }
       } catch {}
 
       return Array.from(merged.entries())
-        .map(([mint, amount]) => ({ mint, amount }))
+        .map(([mint, v]) => ({ mint, amount: v.amount, uiAmountString: v.uiAmountString, decimals: v.decimals }))
         .sort((a, b) => b.amount - a.amount);
     } catch (e) {
       dbg('clientRpcFetch error', e);
@@ -107,7 +154,7 @@ export function useWalletTokens(options?: Options) {
       const owner = publicKey.toBase58();
       dbg('Owner', owner);
 
-      // 1) ÖNCE SERVER ROUTE (403/CORS yok, API key gizli)
+      // 1) ÖNCE SERVER ROUTE
       let tokenListRaw: TokenInfo[] = [];
       try {
         const res = await fetch(`/api/solana/tokens?owner=${owner}`, { cache: 'no-store' });
@@ -126,17 +173,25 @@ export function useWalletTokens(options?: Options) {
         dbg('server route fetch failed', e);
       }
 
-      // 2) Server route başarısızsa CLIENT RPC dene (son çare)
+      // 2) Server route yoksa CLIENT RPC
       if (!tokenListRaw.length) {
         dbg('fallback to client RPC (may 403 in browser)');
-        tokenListRaw = await clientRpcFetch(publicKey);
+        const rpcList = await clientRpcFetch(publicKey);
+        tokenListRaw = rpcList.map((t) => ({
+          mint: t.mint,
+          amount: t.amount,
+          uiAmountString: t.uiAmountString,
+          decimals: t.decimals,
+        }));
       }
 
       // 3) İlk anda ham/erken göster
       if (reqIdRef.current === myReq) {
         setTokens(
           tokenListRaw.map((t) =>
-            t.mint === 'SOL' ? { ...t, symbol: 'SOL' } : { ...t, symbol: t.symbol || t.mint.slice(0, 4) }
+            t.mint === 'SOL'
+              ? { ...t, symbol: 'SOL' }
+              : { ...t, symbol: t.symbol || t.mint.slice(0, 4) }
           )
         );
         setHasLoadedOnce(true);
