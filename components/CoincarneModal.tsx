@@ -12,9 +12,12 @@ import {
 import dynamic from 'next/dynamic';
 import { useWallet } from '@solana/wallet-adapter-react';
 import {
-  getAssociatedTokenAddress,
-  createTransferInstruction,
-  createAssociatedTokenAccountInstruction,
+  // ✅ yeni importlar:
+  TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+  createTransferCheckedInstruction,
+  createAssociatedTokenAccountIdempotentInstruction,
   getMint,
 } from '@solana/spl-token';
 import { PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
@@ -86,6 +89,15 @@ type PriceView = {
   usdValue: number;
   priceSources: { price: number; source: string }[];
 };
+
+// uiAmount → u64 string (decimals’e göre)
+function toU64(ui: string | number, d: number): string {
+  const s = String(ui ?? '0').replace(/[^0-9.]/g, '');
+  const [i = '0', f = ''] = s.split('.');
+  const frac = (f + '0'.repeat(d)).slice(0, d);
+  const joined = `${i}${frac}`.replace(/^0+/, '');
+  return joined.length ? joined : '0';
+}
 
 export default function CoincarneModal({
   token,
@@ -248,20 +260,53 @@ export default function CoincarneModal({
         );
         signature = await sendTransaction(tx, connection);
       } else {
-        // SPL token transfer
+        // ✅ SPL token transfer (Token v1 veya Token-2022 otomatik)
         const mint = new PublicKey(token.mint);
-        const fromATA = await getAssociatedTokenAddress(mint, publicKey);
-        const toATA = await getAssociatedTokenAddress(mint, destSol);
-        const mintInfo = await getMint(connection, mint);
-        const decimals = mintInfo.decimals;
-        const adjustedAmount = Math.floor(amountToSend * Math.pow(10, decimals));
 
+        // 1) Mint hangi programda?
+        const mintAcc = await connection.getAccountInfo(mint, 'confirmed');
+        if (!mintAcc) throw new Error('mint-not-found');
+        const is2022 = mintAcc.owner.equals(TOKEN_2022_PROGRAM_ID);
+        const program = is2022 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
+
+        // 2) Decimals
+        const mintInfo = await getMint(connection, mint, 'confirmed', program);
+        const decimals = mintInfo.decimals ?? 0;
+
+        // 3) ATA’lar (programa göre!)
+        const fromATA = getAssociatedTokenAddressSync(mint, publicKey, false, program);
+        const toATA   = getAssociatedTokenAddressSync(mint, destSol,   false, program);
+
+        // 4) İxs (idempotent ATA create + checked transfer)
         const ixs: any[] = [];
-        const toAtaInfo = await connection.getAccountInfo(toATA);
+
+        const toAtaInfo = await connection.getAccountInfo(toATA, 'confirmed');
         if (!toAtaInfo) {
-          ixs.push(createAssociatedTokenAccountInstruction(publicKey, toATA, destSol, mint));
+          ixs.push(
+            createAssociatedTokenAccountIdempotentInstruction(
+              publicKey,  // payer
+              toATA,      // ata
+              destSol,    // owner
+              mint,       // mint
+              program     // 🔑 doğru program
+            )
+          );
         }
-        ixs.push(createTransferInstruction(fromATA, toATA, publicKey, adjustedAmount));
+
+        const raw = Number(toU64(amountToSend, decimals));
+        ixs.push(
+          createTransferCheckedInstruction(
+            fromATA,
+            mint,
+            toATA,
+            publicKey, // owner
+            raw,
+            decimals,
+            [],        // multisig signer yok
+            program    // 🔑 doğru program
+          )
+        );
+
         const tx = new Transaction().add(...ixs);
         signature = await sendTransaction(tx, connection);
       }
@@ -272,7 +317,7 @@ export default function CoincarneModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           wallet_address: publicKey.toBase58(),
-          token_symbol: displaySymbol,           // <-- was token.symbol
+          token_symbol: displaySymbol,
           token_contract: token.mint,
           network: 'solana',
           token_amount: amountToSend,
