@@ -32,8 +32,11 @@ const TOKEN_LIST_URL =
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 const TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 
-// Hedef (hazine) — .env üzerinden
-const DEST_SOLANA = process.env.NEXT_PUBLIC_DEST_SOLANA as string | undefined;
+// Hedef (hazine) — public değişkenler (mevcudu bozmadan)
+const DEST_SOLANA =
+  (process.env.NEXT_PUBLIC_DEST_SOL as string | undefined) ||
+  (process.env.NEXT_PUBLIC_DEST_SOLANA as string | undefined);
+
 
 // Küçük bir fee/rent tamponu
 const MIN_LAMPORT_BUFFER = 300_000n; // ~0.0003 SOL
