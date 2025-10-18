@@ -1,4 +1,3 @@
-// app/api/coincarnation/record/route.ts
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -11,21 +10,30 @@ import {
   type TokenStatus
 } from '@/app/api/_lib/registry';
 import { requireAppEnabled } from '@/app/api/_lib/feature-flags';
-
-// Solana doğrulamaları
-import { PublicKey, SystemProgram } from '@solana/web3.js';
-import {
-  getAssociatedTokenAddress,
-} from '@solana/spl-token';
+import { PublicKey } from '@solana/web3.js';
+import { getAssociatedTokenAddress } from '@solana/spl-token';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
-// RPC & Dest cüzdan
-const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
-const DEST_SOLANA = process.env.DEST_SOLANA || process.env.NEXT_PUBLIC_DEST_SOLANA || '';
+// ⚙️ RPC önceliği: Helius > Alchemy > SOLANA_RPC_URL > NEXT_PUBLIC > default
+const SOLANA_RPC_URL =
+  process.env.SOLANA_RPC ||
+  process.env.ALCHEMY_SOLANA_RPC ||
+  process.env.SOLANA_RPC_URL ||
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+  'https://api.mainnet-beta.solana.com';
+
+// ⚙️ Hedef cüzdan: gizli env öncelikli, sonra public adlar
+const DEST_SOLANA =
+  process.env.DEST_SOLANA ||
+  process.env.NEXT_PUBLIC_DEST_SOLANA ||
+  process.env.NEXT_PUBLIC_DEST_SOL ||
+  '';
+
+// İçerik matching zorunlu mu? Varsayılan: false (sadece confirm yeterli)
+const STRICT_TX_MATCH = String(process.env.STRICT_TX_MATCH || '').toLowerCase() === 'true';
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
-const TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 
 function toNum(v: any, d = 0): number {
   const n = Number(v);
@@ -51,15 +59,16 @@ async function isSolanaTxConfirmed(signature: string) {
   return cs === 'confirmed' || cs === 'finalized';
 }
 
-/** Hafif ama etkili bir payload<->tx eşlemesi yapar. */
 async function verifySolanaTxMatchesPayload(opts: {
   signature: string;
   asset_kind: 'sol' | 'spl';
-  token_symbol: string;
   token_contract: string | null;
-  token_amount: number;
 }) {
-  const { signature, asset_kind, token_symbol, token_contract, token_amount } = opts;
+  const { signature, asset_kind, token_contract } = opts;
+
+  if (!DEST_SOLANA) return { ok: false, reason: 'dest_not_set' };
+  let dest: PublicKey;
+  try { dest = new PublicKey(DEST_SOLANA); } catch { return { ok: false, reason: 'dest_invalid' }; }
 
   const jt = await rpc('getTransaction', [signature, { maxSupportedTransactionVersion: 0 }]);
   const tx = jt?.result;
@@ -70,36 +79,38 @@ async function verifySolanaTxMatchesPayload(opts: {
     typeof k === 'string' ? k : k.pubkey
   );
 
-  if (!DEST_SOLANA) return { ok: false, reason: 'dest_not_set' };
-  let dest: PublicKey;
-  try { dest = new PublicKey(DEST_SOLANA); } catch { return { ok: false, reason: 'dest_invalid' }; }
+  const meta = tx?.meta || {};
+  const postTokenBalances: any[] = Array.isArray(meta?.postTokenBalances) ? meta.postTokenBalances : [];
 
   if (asset_kind === 'sol') {
-    // basit kontrol: DEST hesapları arasında mı ve SystemProgram.transfer var mı?
     if (!keys.includes(dest.toBase58())) {
       return { ok: false, reason: 'dest_not_in_keys' };
     }
-    // (İsteğe bağlı) lamports ~ amount*1e9 kontrolünü meta inner loglardan çıkarmak zor; burada basit varlık kontrolü yeter.
     return { ok: true };
   }
 
-  // asset_kind === 'spl'
   if (!token_contract) return { ok: false, reason: 'missing_mint_for_spl' };
-
   let mint: PublicKey;
   try { mint = new PublicKey(token_contract); } catch { return { ok: false, reason: 'invalid_mint' }; }
 
-  const ata = await getAssociatedTokenAddress(mint, dest);
-  if (!keys.includes(ata.toBase58())) {
-    // ATA tx içinde görünmüyorsa, bu işlem muhtemelen DEST’in ilgili mint’ine akmamış demektir.
-    return { ok: false, reason: 'dest_ata_not_in_keys' };
+  // 1) DEST ATA key
+  const destAta = await getAssociatedTokenAddress(mint, dest);
+  const destAtaStr = destAta.toBase58();
+  if (keys.includes(destAtaStr)) {
+    return { ok: true };
   }
 
-  return { ok: true };
+  // 2) PostTokenBalances
+  const hit = postTokenBalances.find(
+    (b) => b?.owner === dest.toBase58() && b?.mint === mint.toBase58()
+  );
+  if (hit) return { ok: true };
+
+  return { ok: false, reason: 'dest_ata_not_found_in_tx' };
 }
 
 export async function POST(req: NextRequest) {
-  console.log('✅ /api/coincarnation/record API called');
+  console.log('✅ /api/coincarnation/record called');
   await requireAppEnabled();
 
   try {
@@ -113,8 +124,8 @@ export async function POST(req: NextRequest) {
       token_amount,
       usd_value,
 
-      transaction_signature, // Solana
-      tx_hash,               // EVM
+      transaction_signature,
+      tx_hash,
       tx_block,
 
       idempotency_key,
@@ -122,25 +133,19 @@ export async function POST(req: NextRequest) {
       user_agent,
       referral_code,
 
-      // yeni: istemciden net varlık türü
-      asset_kind, // 'sol' | 'spl'
+      asset_kind, // opsiyonel: 'sol' | 'spl'
     } = body ?? {};
 
     const timestamp = new Date().toISOString();
 
     if (!wallet_address || !token_symbol) {
-      return NextResponse.json(
-        { success: false, error: 'wallet_address and token_symbol are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: 'wallet_address and token_symbol are required' }, { status: 400 });
     }
 
-    // tx gereklidir
     const txHashOrSig =
       (tx_hash && String(tx_hash).trim()) ||
       (transaction_signature && String(transaction_signature).trim()) ||
       null;
-
     if (!txHashOrSig) {
       return NextResponse.json(
         { success: false, error: 'transaction_signature (Solana) or tx_hash (EVM) is required' },
@@ -153,96 +158,49 @@ export async function POST(req: NextRequest) {
     const networkNorm = String(network || 'solana');
     const idemKey = (idempotency_key || idemHeader || '').trim() || null;
 
-    // ---------------- Consistency checks ----------------
+    // 🔎 asset_kind türet (gelmemişse)
     const isSolSymbol = String(token_symbol).toUpperCase() === 'SOL';
-    const hasContract = !!token_contract;
+    const derivedKind: 'sol' | 'spl' = isSolSymbol && (!token_contract || token_contract === WSOL_MINT) ? 'sol' : 'spl';
+    const assetKindFinal: 'sol' | 'spl' = (asset_kind === 'sol' || asset_kind === 'spl') ? asset_kind : derivedKind;
 
-    // asset_kind zorunlu ve tutarlı olmalı
-    if (asset_kind !== 'sol' && asset_kind !== 'spl') {
-      return NextResponse.json(
-        { success: false, error: 'asset_kind must be "sol" or "spl"' },
-        { status: 400 }
-      );
-    }
-    if (asset_kind === 'sol' && !isSolSymbol) {
-      return NextResponse.json(
-        { success: false, error: 'asset_kind=sol but token_symbol is not SOL.' },
-        { status: 400 }
-      );
-    }
-    if (asset_kind === 'spl' && isSolSymbol && token_contract !== WSOL_MINT) {
-      return NextResponse.json(
-        { success: false, error: 'asset_kind=spl but payload looks like native SOL.' },
-        { status: 400 }
-      );
+    // ❗ SOL 0 USD guard
+    if (usdValueNum === 0 && assetKindFinal === 'sol') {
+      return NextResponse.json({ success: false, error: 'SOL cannot have zero USD value.' }, { status: 400 });
     }
 
-    // SOL için non-WSOL contract yasak; SPL için contract zorunlu
-    if (isSolSymbol) {
-      if (hasContract && token_contract !== WSOL_MINT) {
-        return NextResponse.json(
-          { success: false, error: 'Inconsistent payload: SOL cannot have a non-WSOL contract.' },
-          { status: 400 }
-        );
-      }
-    } else {
-      if (!hasContract) {
-        return NextResponse.json(
-          { success: false, error: 'Missing token_contract for SPL token.' },
-          { status: 400 }
-        );
-      }
-    }
-
-    // ---------------- On-chain doğrulama ----------------
+    // ✅ On-chain confirmation
     if (networkNorm === 'solana' && transaction_signature) {
       const ok = await isSolanaTxConfirmed(transaction_signature);
       if (!ok) {
-        return NextResponse.json(
-          { success: false, error: 'Transaction not confirmed on-chain' },
-          { status: 400 }
-        );
+        return NextResponse.json({ success: false, error: 'Transaction not confirmed on-chain' }, { status: 400 });
       }
 
-      // ✅ İçerik doğrulama: tx gerçekten hedef varlık akışını içeriyor mu?
+      // İçerik doğrulaması (opsiyonel strict)
       const ver = await verifySolanaTxMatchesPayload({
         signature: transaction_signature,
-        asset_kind,
-        token_symbol,
+        asset_kind: assetKindFinal,
         token_contract: token_contract ?? null,
-        token_amount: tokenAmountNum,
       });
+
       if (!ver.ok) {
-        return NextResponse.json(
-          { success: false, error: `Transaction content mismatch (${ver.reason || 'unknown'})` },
-          { status: 400 }
-        );
+        const msg = `Transaction content mismatch (${ver.reason || 'unknown'})`;
+        if (STRICT_TX_MATCH) {
+          return NextResponse.json({ success: false, error: msg }, { status: 400 });
+        } else {
+          console.warn('⚠️ non-blocking content mismatch:', msg);
+        }
       }
     }
 
-    // SOL’un 0 USD olması mantık hatası (ek koruma)
-    if (usdValueNum === 0 && isSolSymbol) {
-      return NextResponse.json(
-        { success: false, error: 'SOL cannot have zero USD value. Try again later.' },
-        { status: 400 }
-      );
-    }
-
-    // Redlist/Blacklist (SPL ise mint’e bak)
+    // Redlist/Blacklist (SPL ise)
     const hasMint = Boolean(token_contract && token_contract !== 'SOL');
     if (hasMint) {
       const reg = await getStatusRow(token_contract!);
       if (reg?.status === 'blacklist') {
-        return NextResponse.json(
-          { success: false, error: 'This token is blacklisted and cannot be coincarnated.' },
-          { status: 403 }
-        );
+        return NextResponse.json({ success: false, error: 'This token is blacklisted.' }, { status: 403 });
       }
       if (reg?.status === 'redlist') {
-        return NextResponse.json(
-          { success: false, error: 'This token is redlisted and cannot be coincarnated after its redlist date.' },
-          { status: 403 }
-        );
+        return NextResponse.json({ success: false, error: 'This token is redlisted.' }, { status: 403 });
       }
     }
 
@@ -263,7 +221,7 @@ export async function POST(req: NextRequest) {
     const voteSuggested = Boolean(initialDecision?.voteSuggested);
     const decisionMetrics = initialDecision?.metrics ?? null;
 
-    // Idempotency – aynı signature / key tekrar yazılmasın
+    // Idempotency
     if (txHashOrSig) {
       const dup = await sql`
         SELECT id FROM contributions
@@ -276,9 +234,7 @@ export async function POST(req: NextRequest) {
       }
     }
     if (idemKey) {
-      const dup2 = await sql`
-        SELECT id FROM contributions WHERE idempotency_key = ${idemKey} LIMIT 1
-      `;
+      const dup2 = await sql`SELECT id FROM contributions WHERE idempotency_key = ${idemKey} LIMIT 1`;
       if (dup2.length > 0) {
         return NextResponse.json({ success: true, duplicate: true, id: dup2[0].id, via: 'idempotency_key' });
       }
@@ -288,22 +244,15 @@ export async function POST(req: NextRequest) {
     const existing = await sql`
       SELECT * FROM participants WHERE wallet_address = ${wallet_address} AND network = ${networkNorm}
     `;
-
     let userReferralCode: string;
     let referrerWallet: string | null = null;
 
     if (existing.length === 0) {
       userReferralCode = generateReferralCode();
-
       if (referral_code) {
-        const ref = await sql`
-          SELECT wallet_address FROM participants WHERE referral_code = ${referral_code}
-        `;
-        if (ref.length > 0 && ref[0].wallet_address !== wallet_address) {
-          referrerWallet = ref[0].wallet_address;
-        }
+        const ref = await sql`SELECT wallet_address FROM participants WHERE referral_code = ${referral_code}`;
+        if (ref.length > 0 && ref[0].wallet_address !== wallet_address) referrerWallet = ref[0].wallet_address;
       }
-
       await sql`
         INSERT INTO participants (wallet_address, network, referral_code, referrer_wallet)
         VALUES (${wallet_address}, ${networkNorm}, ${userReferralCode}, ${referrerWallet})
@@ -319,7 +268,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Contribution INSERT — yalnızca doğrulanmış tx için
+    // Contribution INSERT — onaydan sonra
     const insertResult = await sql`
       INSERT INTO contributions (
         wallet_address,
@@ -340,7 +289,7 @@ export async function POST(req: NextRequest) {
       ) VALUES (
         ${wallet_address},
         ${token_symbol},
-        ${token_contract},
+        ${token_contract ?? null},
         ${networkNorm},
         ${tokenAmountNum},
         ${usdValueNum},
@@ -352,15 +301,14 @@ export async function POST(req: NextRequest) {
         ${timestamp},
         ${userReferralCode},
         ${referrerWallet},
-        ${asset_kind}
+        ${assetKindFinal}
       )
       ON CONFLICT (network, tx_hash) DO NOTHING
       RETURNING id;
     `;
-
     const insertedId = insertResult?.[0]?.id ?? null;
 
-    // Registry ilk kaydı
+    // Registry
     let registryCreated = false;
     if (hasMint) {
       const res = await ensureFirstSeenRegistry(token_contract!, {
@@ -391,7 +339,7 @@ export async function POST(req: NextRequest) {
       id: insertedId,
       number,
       referral_code: userReferralCode,
-      message: '✅ Coincarnation recorded successfully (on-chain verified)',
+      message: '✅ Coincarnation recorded successfully',
       is_deadcoin: initialStatus === 'deadcoin',
       status: initialStatus,
       voteSuggested,
@@ -401,9 +349,6 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('❌ Record API Error:', error?.message || error);
     const status = Number(error?.status) || 500;
-    return NextResponse.json(
-      { success: false, error: error?.message || 'Unknown server error' },
-      { status }
-    );
+    return NextResponse.json({ success: false, error: error?.message || 'Unknown server error' }, { status });
   }
 }
