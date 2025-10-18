@@ -4,23 +4,48 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import { generateReferralCode } from '@/app/api/utils/generateReferralCode';
-
-// Registry helpers
 import {
   ensureFirstSeenRegistry,
   computeStatusDecision,
   getStatusRow,
   type TokenStatus
 } from '@/app/api/_lib/registry';
-
-// 🔽 Feature flags (global kill-switch)
 import { requireAppEnabled } from '@/app/api/_lib/feature-flags';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
+// ✅ Solana RPC (onay kontrolü)
+const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+
 function toNum(v: any, d = 0): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : d;
+}
+
+async function isSolanaTxConfirmed(signature: string) {
+  try {
+    const r = await fetch(SOLANA_RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // getSignatureStatuses returns confirmations + err
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'getSignatureStatuses',
+        params: [[signature], { searchTransactionHistory: true }],
+      }),
+      cache: 'no-store',
+    });
+    const j = await r.json();
+    const status = j?.result?.value?.[0] || null;
+    // err === null ve confirmationStatus confirmed/finalized yeterli
+    if (!status) return false;
+    if (status.err !== null) return false;
+    const cs = status.confirmationStatus as string | undefined;
+    return cs === 'confirmed' || cs === 'finalized';
+  } catch {
+    return false;
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -38,15 +63,11 @@ export async function POST(req: NextRequest) {
       token_amount,
       usd_value,
 
-      // Solana / EVM tx fields
       transaction_signature, // Solana
       tx_hash,               // EVM
-      tx_block,              // optional block number
+      tx_block,
 
-      // Optional idempotency
       idempotency_key,
-
-      // Misc
       network,
       user_agent,
       referral_code,
@@ -61,18 +82,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const tokenAmountNum = toNum(token_amount, 0);
-    const usdValueNum = toNum(usd_value, 0);
-    const networkNorm = String(network || 'solana');
-    const idemKey = (idempotency_key || idemHeader || '').trim() || null;
-
-    // normalize tx
+    // ⛔ Artık imzasız/txsiz kayıt YOK
     const txHashOrSig =
       (tx_hash && String(tx_hash).trim()) ||
       (transaction_signature && String(transaction_signature).trim()) ||
       null;
 
-    // 1) Mantıksal koruma: SOL zero USD engeli
+    if (!txHashOrSig) {
+      return NextResponse.json(
+        { success: false, error: 'transaction_signature (Solana) or tx_hash (EVM) is required' },
+        { status: 400 }
+      );
+    }
+
+    const tokenAmountNum = toNum(token_amount, 0);
+    const usdValueNum = toNum(usd_value, 0);
+    const networkNorm = String(network || 'solana');
+    const idemKey = (idempotency_key || idemHeader || '').trim() || null;
+
+    // 🔒 On-chain doğrulama (Solana)
+    if (networkNorm === 'solana' && transaction_signature) {
+      const ok = await isSolanaTxConfirmed(transaction_signature);
+      if (!ok) {
+        return NextResponse.json(
+          { success: false, error: 'Transaction not confirmed on-chain' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // SOL’un 0 USD olması mantık hatası (ek koruma)
     if (usdValueNum === 0 && String(token_symbol).toUpperCase() === 'SOL') {
       console.error('❌ FATAL: SOL token reported with 0 USD value. Rejecting.');
       return NextResponse.json(
@@ -81,8 +120,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2) Redlist/Blacklist guard (mint varsa kontrol)
-    const hasMint = Boolean(token_contract && token_contract !== 'SOL');
+    // Redlist/Blacklist
+    const hasMint = Boolean(token_contract && token_contract !== 'SOL' && token_contract !== WSOL_MINT);
     if (hasMint) {
       const reg = await getStatusRow(token_contract!);
       if (reg?.status === 'blacklist') {
@@ -99,19 +138,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3) Statü kararı (deadcoin akışı dahil)
+    // Statü kararı
     let initialDecision:
       | { status: TokenStatus; voteSuggested?: boolean; reason?: string; metrics?: { vol: number; liq: number } }
       | null = null;
 
     if (hasMint) {
       if (usdValueNum === 0) {
-        initialDecision = {
-          status: 'deadcoin',
-          voteSuggested: false,
-          reason: 'tx_usd_zero',
-          metrics: { vol: 0, liq: 0 },
-        };
+        initialDecision = { status: 'deadcoin', voteSuggested: false, reason: 'tx_usd_zero', metrics: { vol: 0, liq: 0 } };
       } else {
         initialDecision = await computeStatusDecision(token_contract!);
       }
@@ -121,8 +155,7 @@ export async function POST(req: NextRequest) {
     const voteSuggested = Boolean(initialDecision?.voteSuggested);
     const decisionMetrics = initialDecision?.metrics ?? null;
 
-    // 4) Idempotency pre-checks
-    // 4.a: Eğer aynı (network, tx_hash|transaction_signature) varsa duplicate
+    // Idempotency (tx veya key)
     if (txHashOrSig) {
       const dup = await sql`
         SELECT id FROM contributions
@@ -134,31 +167,17 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, duplicate: true, id: dup[0].id, via: 'tx_hash/transaction_signature' });
       }
     }
-
-    // 4.b: Eğer aynı idempotency_key varsa:
     if (idemKey) {
       const dup2 = await sql`
-        SELECT id, tx_hash FROM contributions WHERE idempotency_key = ${idemKey} LIMIT 1
+        SELECT id FROM contributions WHERE idempotency_key = ${idemKey} LIMIT 1
       `;
       if (dup2.length > 0) {
-        // Niyet kaydı önceden açılmış, şimdi tx gelmişse → UPDATE ile tamamla
-        if (txHashOrSig && !dup2[0].tx_hash) {
-          const updated = await sql`
-            UPDATE contributions
-               SET tx_hash = ${txHashOrSig},
-                   transaction_signature = COALESCE(transaction_signature, ${txHashOrSig}),
-                   tx_block = ${tx_block ?? null}
-             WHERE id = ${dup2[0].id}
-             RETURNING id
-          `;
-          return NextResponse.json({ success: true, updated: true, id: updated[0].id, via: 'idempotency_key' });
-        }
-        // Aksi halde duplicate
+        // Eğer ilkinde niyet kaydı kalsaydı burada güncelleyebilirdik; ama artık niyet kaydı yapmıyoruz.
         return NextResponse.json({ success: true, duplicate: true, id: dup2[0].id, via: 'idempotency_key' });
       }
     }
 
-    // 5) Participants (network scoped) + referral
+    // Participants + referral
     const existing = await sql`
       SELECT * FROM participants WHERE wallet_address = ${wallet_address} AND network = ${networkNorm}
     `;
@@ -175,9 +194,6 @@ export async function POST(req: NextRequest) {
         `;
         if (ref.length > 0 && ref[0].wallet_address !== wallet_address) {
           referrerWallet = ref[0].wallet_address;
-          console.log('🔁 referrerWallet matched:', referrerWallet);
-        } else {
-          console.log('⚠️ referral_code invalid or self-referencing');
         }
       }
 
@@ -187,81 +203,55 @@ export async function POST(req: NextRequest) {
         ON CONFLICT (wallet_address, network) DO NOTHING
       `;
     } else {
-      userReferralCode = existing[0].referral_code;
-      if (!userReferralCode) {
-        userReferralCode = generateReferralCode();
+      userReferralCode = existing[0].referral_code || generateReferralCode();
+      if (!existing[0].referral_code) {
         await sql`
-          UPDATE participants
-             SET referral_code = ${userReferralCode}
-           WHERE wallet_address = ${wallet_address} AND network = ${networkNorm}
+          UPDATE participants SET referral_code = ${userReferralCode}
+          WHERE wallet_address = ${wallet_address} AND network = ${networkNorm}
         `;
       }
     }
 
-    // 6) Contribution INSERT (niyet kaydı veya tam kayıt)
-    let insertedId: number | null = null;
-    try {
-      const insertResult = await sql`
-        INSERT INTO contributions (
-          wallet_address,
-          token_symbol,
-          token_contract,
-          network,
-          token_amount,
-          usd_value,
-          transaction_signature,
-          tx_hash,
-          tx_block,
-          idempotency_key,
-          user_agent,
-          timestamp,
-          referral_code,
-          referrer_wallet
-        ) VALUES (
-          ${wallet_address},
-          ${token_symbol},
-          ${token_contract},
-          ${networkNorm},
-          ${tokenAmountNum},
-          ${usdValueNum},
-          ${transaction_signature || txHashOrSig || null},
-          ${tx_hash || txHashOrSig || null},
-          ${tx_block ?? null},
-          ${idemKey},
-          ${user_agent || ''},
-          ${timestamp},
-          ${userReferralCode},
-          ${referrerWallet}
-        )
-        ON CONFLICT (network, tx_hash) DO NOTHING
-        RETURNING id;
-      `;
-      if (insertResult.length > 0) {
-        insertedId = insertResult[0].id as number;
-      }
-    } catch (insertError: any) {
-      console.error('❌ Contribution INSERT failed:', insertError);
-    }
+    // Contribution INSERT — artık SADECE on-chain onaydan sonra
+    const insertResult = await sql`
+      INSERT INTO contributions (
+        wallet_address,
+        token_symbol,
+        token_contract,
+        network,
+        token_amount,
+        usd_value,
+        transaction_signature,
+        tx_hash,
+        tx_block,
+        idempotency_key,
+        user_agent,
+        timestamp,
+        referral_code,
+        referrer_wallet
+      ) VALUES (
+        ${wallet_address},
+        ${token_symbol},
+        ${token_contract},
+        ${networkNorm},
+        ${tokenAmountNum},
+        ${usdValueNum},
+        ${transaction_signature || null},
+        ${tx_hash || null},
+        ${tx_block ?? null},
+        ${idemKey},
+        ${user_agent || ''},
+        ${timestamp},
+        ${userReferralCode},
+        ${referrerWallet}
+      )
+      ON CONFLICT (network, tx_hash) DO NOTHING
+      RETURNING id;
+    `;
 
-    // Conflict olduysa mevcut kaydı bul (tx veya idem üzerinden)
-    if (!insertedId && txHashOrSig) {
-      const ex = await sql`
-        SELECT id FROM contributions WHERE network=${networkNorm} AND tx_hash=${tx_hash || txHashOrSig} LIMIT 1
-      `;
-      if (ex.length > 0) {
-        return NextResponse.json({ success: true, duplicate: true, id: ex[0].id, via: 'tx_hash' });
-      }
-    }
-    if (!insertedId && idemKey) {
-      const ex2 = await sql`
-        SELECT id FROM contributions WHERE idempotency_key=${idemKey} LIMIT 1
-      `;
-      if (ex2.length > 0) {
-        return NextResponse.json({ success: true, duplicate: true, id: ex2[0].id, via: 'idempotency_key' });
-      }
-    }
+    const insertedId = insertResult?.[0]?.id ?? null;
 
-    // 7) Registry ilk kaydı (yalnızca mint varsa)
+    // Registry ilk kaydı
     let registryCreated = false;
     if (hasMint) {
       const res = await ensureFirstSeenRegistry(token_contract!, {
@@ -281,7 +271,7 @@ export async function POST(req: NextRequest) {
       registryCreated = !!res?.created;
     }
 
-    // 8) Kullanıcı numarası
+    // Kullanıcı numarası
     const result = await sql`
       SELECT id FROM participants WHERE wallet_address = ${wallet_address} AND network = ${networkNorm}
     `;
@@ -289,10 +279,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      id: insertedId || null,
+      id: insertedId,
       number,
       referral_code: userReferralCode,
-      message: '✅ Coincarnation recorded successfully',
+      message: '✅ Coincarnation recorded successfully (on-chain confirmed)',
       is_deadcoin: initialStatus === 'deadcoin',
       status: initialStatus,
       voteSuggested,
@@ -308,3 +298,6 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+// WSOL mint local copy (server’da da lazım)
+const WSOL_MINT = 'So11111111111111111111111111111111111111112';

@@ -1,34 +1,37 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-import { PublicKey } from '@solana/web3.js';
+import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import {
   getAssociatedTokenAddress,
   getAccount,
+  createAssociatedTokenAccountInstruction,
+  createTransferInstruction,
 } from '@solana/spl-token';
-import {
-  Dialog,
-  DialogContent,
-} from '@radix-ui/react-dialog';
+import * as crypto from 'crypto';
+
+type ListStatus = 'healthy' | 'walking_dead' | 'deadcoin' | 'redlist' | 'blacklist';
 
 interface TokenInfo {
-  address: string;
+  address: string; // mint
   symbol: string;
   name: string;
   logoURI?: string;
   decimals: number;
 }
 
-type ListStatus = 'healthy' | 'walking_dead' | 'deadcoin' | 'redlist' | 'blacklist';
-
 const TOKEN_LIST_URL =
   'https://cdn.jsdelivr.net/gh/solana-labs/token-list@main/src/tokens/solana.tokenlist.json';
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
+// 🚨 Hedef cüzdan (proje hazinesi) — .env üzerinden alın
+const DEST_SOLANA = process.env.NEXT_PUBLIC_DEST_SOLANA as string; // ör: HPBNVF9ATsnkDhGmQB4xoLC5tWBWQbTyBjsiQAN3dYXH
+// Minimum güvenli fee/rent tamponu (lamports)
+const MIN_LAMPORT_BUFFER = 300_000n; // ~0.0003 SOL
 
 export default function CoincarneForm() {
-  const { publicKey } = useWallet();
+  const { publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
 
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
@@ -40,25 +43,24 @@ export default function CoincarneForm() {
   const [participantNumber, setParticipantNumber] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // (Opsiyonel) pre-flight sonucu debug göstermek istersek:
-  const [preflightInfo, setPreflightInfo] = useState<{
-    status?: ListStatus | null;
-    usdTotal?: number;
-    source?: string;
-    isDeadcoin?: boolean;
-  } | null>(null);
+  const showDebug =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('debug');
+
+  const destKey = useMemo(() => {
+    try { return DEST_SOLANA ? new PublicKey(DEST_SOLANA) : null; } catch { return null; }
+  }, []);
 
   useEffect(() => {
     const fetchTokens = async () => {
       try {
         const res = await fetch(TOKEN_LIST_URL);
         const data = await res.json();
-        setTokens(data.tokens as TokenInfo[]);
+        setTokens((data?.tokens || []) as TokenInfo[]);
       } catch (err) {
         console.error('Token list fetch error:', err);
       }
     };
-
     fetchTokens();
   }, []);
 
@@ -71,15 +73,12 @@ export default function CoincarneForm() {
         const solAmount = lamports / 1e9;
         setAvailableAmount(solAmount);
       } else {
-        const tokenAddress = new PublicKey(token.address);
-        const ata = await getAssociatedTokenAddress(tokenAddress, publicKey);
+        const tokenMint = new PublicKey(token.address);
+        const ata = await getAssociatedTokenAddress(tokenMint, publicKey);
         const tokenAccount = await connection.getAccountInfo(ata);
-
         if (tokenAccount) {
           const parsed = await getAccount(connection, ata);
-          const raw = parsed.amount;
-          const decimals = token.decimals || 6;
-          const realAmount = Number(raw) / Math.pow(10, decimals);
+          const realAmount = Number(parsed.amount) / Math.pow(10, token.decimals || 6);
           setAvailableAmount(realAmount);
         } else {
           setAvailableAmount(0);
@@ -92,28 +91,16 @@ export default function CoincarneForm() {
   };
 
   const handleSelect = (tokenSymbol: string) => {
-    const token = tokens.find((t) => t.symbol === tokenSymbol);
+    let token = tokens.find((t) => t.symbol === tokenSymbol) || null;
+    if (!token && tokenSymbol === 'SOL') {
+      token = { symbol: 'SOL', name: 'Solana', address: WSOL_MINT, decimals: 9 };
+    }
     if (token) {
       setSelectedToken(token);
       setAmount('');
       setConfirmed(false);
       setModalOpen(true);
-      setPreflightInfo(null);
       fetchWalletBalance(token);
-    } else if (tokenSymbol === 'SOL') {
-      const solToken: TokenInfo = {
-        symbol: 'SOL',
-        name: 'Solana',
-        address: '',
-        decimals: 9,
-        logoURI: '',
-      };
-      setSelectedToken(solToken);
-      setAmount('');
-      setConfirmed(false);
-      setModalOpen(true);
-      setPreflightInfo(null);
-      fetchWalletBalance(solToken);
     }
   };
 
@@ -123,22 +110,82 @@ export default function CoincarneForm() {
     setAmount(val);
   };
 
+  async function ensureHasFeeBudget(owner: PublicKey, extraRentLamports: bigint = 0n) {
+    const bal = BigInt(await connection.getBalance(owner));
+    if (bal < MIN_LAMPORT_BUFFER + extraRentLamports) {
+      throw new Error('Insufficient SOL for fees/rent. Please top up a bit of SOL and try again.');
+    }
+  }
+
+  async function buildAndSendSolTransfer(amtSol: number) {
+    if (!publicKey || !destKey) throw new Error('Wallet or destination not ready');
+    const lamports = BigInt(Math.floor(amtSol * 1e9));
+    await ensureHasFeeBudget(publicKey); // basit kontrol
+
+    const tx = new Transaction();
+    tx.add(SystemProgram.transfer({ fromPubkey: publicKey, toPubkey: destKey, lamports: Number(lamports) }));
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+    tx.recentBlockhash = blockhash;
+    tx.feePayer = publicKey;
+
+    const sig = await sendTransaction(tx, connection, { skipPreflight: false });
+    await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+    return sig;
+  }
+
+  async function buildAndSendSplTransfer(token: TokenInfo, amtUi: number) {
+    if (!publicKey || !destKey) throw new Error('Wallet or destination not ready');
+    const mint = new PublicKey(token.address);
+    const amountBn = BigInt(Math.floor(amtUi * Math.pow(10, token.decimals)));
+
+    const fromAta = await getAssociatedTokenAddress(mint, publicKey);
+    const toAta = await getAssociatedTokenAddress(mint, destKey);
+
+    const ixes = [];
+
+    // Dest ATA yoksa oluştur
+    const toInfo = await connection.getAccountInfo(toAta);
+    if (!toInfo) {
+      // ATA create ~ (rent) gerektirir → küçük bir tampon kontrolü yapalım
+      await ensureHasFeeBudget(publicKey, 2039280n); // ~0.00203928 SOL (yakl.)
+      ixes.push(createAssociatedTokenAccountInstruction(publicKey, toAta, destKey, mint));
+    } else {
+      await ensureHasFeeBudget(publicKey); // sadece fee için basit kontrol
+    }
+
+    ixes.push(
+      createTransferInstruction(
+        fromAta,
+        toAta,
+        publicKey,
+        Number(amountBn),
+      )
+    );
+
+    const tx = new Transaction().add(...ixes);
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+    tx.recentBlockhash = blockhash;
+    tx.feePayer = publicKey;
+
+    const sig = await sendTransaction(tx, connection, { skipPreflight: false });
+    await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+    return sig;
+  }
+
   const handleConfirm = async () => {
     if (!amount || !selectedToken || !publicKey) return;
+    if (!destKey) {
+      alert('Destination wallet is not configured. Please set NEXT_PUBLIC_DEST_SOLANA.');
+      return;
+    }
 
     const amt = parseFloat(amount);
-    if (Number.isNaN(amt) || !(amt > 0)) return;
+    if (!Number.isFinite(amt) || amt <= 0) return;
 
     setIsProcessing(true);
-
     try {
-      // 0) Mint'i normalize et (SOL → WSOL)
-      const mint =
-        selectedToken.symbol === 'SOL' || !selectedToken.address
-          ? WSOL_MINT
-          : selectedToken.address;
-
-      // 1) Liste durumu — blacklist/redlist engeli
+      // 1) Ön kontroller: redlist/blacklist
+      const mint = selectedToken.symbol === 'SOL' ? WSOL_MINT : selectedToken.address;
       let listStatus: ListStatus | null = null;
       try {
         const stRes = await fetch(`/api/status?mint=${encodeURIComponent(mint)}`, { cache: 'no-store' });
@@ -146,105 +193,79 @@ export default function CoincarneForm() {
           const stJson = await stRes.json();
           listStatus = (stJson?.status as ListStatus) ?? null;
         }
-      } catch {
-        // sessiz geç (server sorunları işlemi engellemesin; ama aşağıda price ile deadcoin path'i kontrol ederiz)
-      }
-
+      } catch {}
       if (listStatus === 'blacklist' || listStatus === 'redlist') {
-        setPreflightInfo({ status: listStatus });
         alert('⛔ This token is blocked (blacklist/redlist). Coincarnation is not allowed.');
         setIsProcessing(false);
-        return; // ❌ sert engel
+        return;
       }
 
-      // 2) Fiyat kontrolü — deadcoin akışına izin ver
+      // 2) Fiyat / deadcoin bilgisi (UI için opsiyonel)
       let usdTotal = 0;
-      let sourceName: string | undefined;
-      let isDeadcoin = false;
       try {
         const qs = new URLSearchParams({ mint, amount: String(amt) });
-        const prRes = await fetch(`/api/proxy/price?${qs}`, { cache: 'no-store' });
-        const prJson = await prRes.json();
-
-        const ok = !!prJson?.ok || !!prJson?.success;
-        const unit = Number(prJson?.priceUsd ?? 0);
-        const summed = Number(prJson?.usdValue ?? 0);
-        usdTotal = ok ? (summed > 0 ? summed : unit * amt) : 0;
-
-        if (ok) {
-          if (Array.isArray(prJson?.sources) && prJson.sources.length) {
-            sourceName = prJson.sources[0]?.source;
-          } else if (prJson?.source) {
-            sourceName = String(prJson.source);
-          }
+        const pr = await fetch(`/api/proxy/price?${qs}`, { cache: 'no-store' });
+        const j = await pr.json();
+        if (j?.ok || j?.success) {
+          usdTotal = Number(j.usdValue ?? 0) || Number(j.priceUsd ?? 0) * amt || 0;
         }
+      } catch {}
 
-        isDeadcoin = !ok || !(usdTotal > 0);
-      } catch {
-        // price alınamadı → deadcoin kabul et
-        isDeadcoin = true;
+      // 3) 🔐 ASIL TRANSFER — zincire gönder
+      let signature: string;
+      if (selectedToken.symbol === 'SOL') {
+        signature = await buildAndSendSolTransfer(amt);
+      } else {
+        signature = await buildAndSendSplTransfer(selectedToken, amt);
       }
 
-      setPreflightInfo({
-        status: listStatus,
-        usdTotal,
-        source: sourceName,
-        isDeadcoin,
+      // 4) On-chain onayı aldık → yalnızca şimdi DB’ye yaz
+      const idem = crypto.randomUUID();
+      const payload = {
+        wallet_address: publicKey.toBase58(),
+        token_symbol: selectedToken.symbol,
+        token_contract: selectedToken.symbol === 'SOL' ? null : selectedToken.address,
+        token_amount: amt,
+        usd_value: usdTotal || 0,
+        network: 'solana',
+        transaction_signature: signature,
+        idempotency_key: idem,
+        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+      };
+
+      const rec = await fetch('/api/coincarnation/record', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idem,
+        },
+        body: JSON.stringify(payload),
       });
 
-      // 3) (Bu form akışında) kayıt — mevcut payload'ı BOZMADAN bırakıyoruz
+      if (!rec.ok) {
+        const err = await rec.json().catch(() => ({}));
+        throw new Error(err?.error || 'Record API failed');
+      }
+
+      // 5) UI başarı
       const lastNum = parseInt(localStorage.getItem('lastCoincarnator') || '100', 10);
       const newNumber = lastNum + 1;
       setParticipantNumber(newNumber);
-
-      const tx = {
-        wallet: publicKey.toBase58(),
-        token: selectedToken.symbol,
-        amount: amt,
-        number: newNumber,
-        timestamp: new Date().toISOString(),
-        // Not: /api/record payload’ını değiştirmiyoruz
-        // (Gerekirse server tarafı /api/record → /api/coincarnation/record'a yönlendirilebilir)
-      };
-
-      await fetch('/api/record', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(tx),
-      });
-
-      localStorage.setItem('lastCoincarnation', JSON.stringify(tx));
-      localStorage.setItem('lastCoincarnator', newNumber.toString());
+      localStorage.setItem('lastCoincarnator', String(newNumber));
       setConfirmed(true);
-    } catch (err) {
-      console.error('❌ Error sending to backend:', err);
-      alert('❌ Failed to record your coincarnation.');
+    } catch (e: any) {
+      console.error('❌ Coincarnation failed:', e);
+      alert(e?.message || 'Transaction failed.');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const generateTweetText = () => {
-    return encodeURIComponent(
-      `🚀 I just Coincarne'd my $${selectedToken?.symbol} for $MEGY.\n` +
-      `👻 Coincarnator #${participantNumber} reporting in.\n\n` +
-      `💥 Reviving deadcoins for a better future.\n` +
-      `🔗 Join us: https://coincarnation.com`
-    );
-  };
-
-  // Debug paneli URL parametresiyle aç/kapat (opsiyonel)
-  const showDebug =
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).has('debug');
-
   return (
     <div className="bg-gray-900 mt-10 p-6 rounded-xl w-full max-w-2xl border border-gray-700">
       <h2 className="text-2xl font-bold mb-4 text-white">🔥 Coincarne Your Tokens</h2>
 
-      {!publicKey && (
-        <p className="text-yellow-400">Please connect your wallet to continue.</p>
-      )}
+      {!publicKey && <p className="text-yellow-400">Please connect your wallet to continue.</p>}
 
       {publicKey && (
         <div className="text-white space-y-4">
@@ -262,17 +283,17 @@ export default function CoincarneForm() {
             ))}
           </select>
 
-          <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-            <DialogContent className="bg-gray-900 border border-white rounded-2xl p-6 w-full max-w-md text-center">
+          {/* Modal (basit) */}
+          {modalOpen && selectedToken && (
+            <div className="bg-gray-900 border border-white rounded-2xl p-6 w-full max-w-md text-center mx-auto">
               {isProcessing ? (
                 <div className="flex flex-col items-center justify-center py-8">
                   <img src="/icons/hourglass.svg" className="w-10 h-10 mb-4 animate-spin" alt="Coincarnating..." />
                   <p className="text-white text-lg font-semibold">🕒 Coincarnating...</p>
                 </div>
-              ) : selectedToken && !confirmed ? (
+              ) : !confirmed ? (
                 <>
                   <h2 className="text-xl font-bold mb-4">Coincarnate {selectedToken.symbol}</h2>
-
                   {availableAmount !== null && (
                     <p className="text-sm text-gray-400 mb-2">
                       Available: {availableAmount.toFixed(4)} {selectedToken.symbol}
@@ -295,14 +316,10 @@ export default function CoincarneForm() {
                     className="mt-4 w-full p-2 rounded bg-gray-800 border border-gray-600 text-white"
                   />
 
-                  {/* (opsiyonel) debug / küçük preflight etiketi */}
-                  {showDebug && preflightInfo && (
-                    <div className="text-xs text-left bg-gray-800/60 rounded p-2 mt-3">
-                      <div>listStatus: <b>{preflightInfo.status ?? '—'}</b></div>
-                      <div>usdTotal: <b>{preflightInfo.usdTotal ?? 0}</b></div>
-                      <div>source: <b>{preflightInfo.source ?? '—'}</b></div>
-                      <div>isDeadcoin: <b>{String(preflightInfo.isDeadcoin ?? false)}</b></div>
-                    </div>
+                  {showDebug && (
+                    <p className="mt-3 text-xs text-yellow-400">
+                      Transfers are on-chain first; database writes only after confirmation.
+                    </p>
                   )}
 
                   <button
@@ -311,6 +328,13 @@ export default function CoincarneForm() {
                   >
                     Confirm Coincarnation
                   </button>
+
+                  <button
+                    onClick={() => { setModalOpen(false); setSelectedToken(null); setAmount(''); }}
+                    className="mt-2 w-full bg-gray-700 hover:bg-gray-600 py-2 rounded-xl"
+                  >
+                    Cancel
+                  </button>
                 </>
               ) : (
                 <>
@@ -318,9 +342,7 @@ export default function CoincarneForm() {
                   <p className="text-sm text-yellow-400 mb-2">
                     ✅ {amount} {selectedToken?.symbol} registered successfully.
                   </p>
-                  <p className="text-sm text-cyan-400 mb-4">
-                    👻 Coincarnator #{participantNumber}
-                  </p>
+                  <p className="text-sm text-cyan-400 mb-4">👻 Coincarnator #{participantNumber}</p>
 
                   <div className="space-y-2 mt-4">
                     <button
@@ -331,7 +353,6 @@ export default function CoincarneForm() {
                         setAvailableAmount(null);
                         setConfirmed(false);
                         setParticipantNumber(null);
-                        setPreflightInfo(null);
                       }}
                       className="w-full py-2 rounded-xl bg-gray-700 hover:bg-gray-600"
                     >
@@ -339,28 +360,16 @@ export default function CoincarneForm() {
                     </button>
 
                     <button
-                      onClick={() => {
-                        window.location.href = '/claim';
-                      }}
+                      onClick={() => { window.location.href = '/claim'; }}
                       className="w-full py-2 rounded-xl bg-blue-700 hover:bg-blue-600"
                     >
                       👤 Go to Profile
                     </button>
-
-                    <a
-                      href={`https://twitter.com/intent/tweet?text=${generateTweetText()}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <button className="w-full py-2 rounded-xl bg-green-700 hover:bg-green-600">
-                        🐦 Share on X
-                      </button>
-                    </a>
                   </div>
                 </>
               )}
-            </DialogContent>
-          </Dialog>
+            </div>
+          )}
         </div>
       )}
     </div>
