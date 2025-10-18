@@ -2,15 +2,19 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import {
+  PublicKey,
+  SystemProgram,
+  Transaction,
+} from '@solana/web3.js';
 import {
   getAssociatedTokenAddress,
   getAccount,
   createAssociatedTokenAccountInstruction,
   createTransferInstruction,
 } from '@solana/spl-token';
-import * as crypto from 'crypto';
 
+// ---------------------- Types ----------------------
 type ListStatus = 'healthy' | 'walking_dead' | 'deadcoin' | 'redlist' | 'blacklist';
 
 interface TokenInfo {
@@ -21,13 +25,17 @@ interface TokenInfo {
   decimals: number;
 }
 
+// ---------------------- Consts ----------------------
 const TOKEN_LIST_URL =
   'https://cdn.jsdelivr.net/gh/solana-labs/token-list@main/src/tokens/solana.tokenlist.json';
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
-// 🚨 Hedef cüzdan (proje hazinesi) — .env üzerinden alın
-const DEST_SOLANA = process.env.NEXT_PUBLIC_DEST_SOLANA as string; // ör: HPBNVF9ATsnkDhGmQB4xoLC5tWBWQbTyBjsiQAN3dYXH
-// Minimum güvenli fee/rent tamponu (lamports)
+const TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+
+// Hedef (hazine) — .env üzerinden
+const DEST_SOLANA = process.env.NEXT_PUBLIC_DEST_SOLANA as string | undefined;
+
+// Küçük bir fee/rent tamponu
 const MIN_LAMPORT_BUFFER = 300_000n; // ~0.0003 SOL
 
 export default function CoincarneForm() {
@@ -48,7 +56,11 @@ export default function CoincarneForm() {
     new URLSearchParams(window.location.search).has('debug');
 
   const destKey = useMemo(() => {
-    try { return DEST_SOLANA ? new PublicKey(DEST_SOLANA) : null; } catch { return null; }
+    try {
+      return DEST_SOLANA ? new PublicKey(DEST_SOLANA) : null;
+    } catch {
+      return null;
+    }
   }, []);
 
   useEffect(() => {
@@ -92,9 +104,17 @@ export default function CoincarneForm() {
 
   const handleSelect = (tokenSymbol: string) => {
     let token = tokens.find((t) => t.symbol === tokenSymbol) || null;
+
+    // Yalnızca gerçekten SOL seçilince SOL objesi yarat
     if (!token && tokenSymbol === 'SOL') {
-      token = { symbol: 'SOL', name: 'Solana', address: WSOL_MINT, decimals: 9 };
+      token = {
+        symbol: 'SOL',
+        name: 'Solana',
+        address: WSOL_MINT,
+        decimals: 9,
+      };
     }
+
     if (token) {
       setSelectedToken(token);
       setAmount('');
@@ -120,10 +140,17 @@ export default function CoincarneForm() {
   async function buildAndSendSolTransfer(amtSol: number) {
     if (!publicKey || !destKey) throw new Error('Wallet or destination not ready');
     const lamports = BigInt(Math.floor(amtSol * 1e9));
-    await ensureHasFeeBudget(publicKey); // basit kontrol
+    if (lamports <= 0n) throw new Error('Invalid SOL amount');
+    await ensureHasFeeBudget(publicKey);
 
-    const tx = new Transaction();
-    tx.add(SystemProgram.transfer({ fromPubkey: publicKey, toPubkey: destKey, lamports: Number(lamports) }));
+    const tx = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: publicKey,
+        toPubkey: destKey,
+        lamports: Number(lamports),
+      })
+    );
+
     const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
     tx.recentBlockhash = blockhash;
     tx.feePayer = publicKey;
@@ -135,31 +162,28 @@ export default function CoincarneForm() {
 
   async function buildAndSendSplTransfer(token: TokenInfo, amtUi: number) {
     if (!publicKey || !destKey) throw new Error('Wallet or destination not ready');
+    if (!token.address) throw new Error('Invalid token (missing mint)');
     const mint = new PublicKey(token.address);
     const amountBn = BigInt(Math.floor(amtUi * Math.pow(10, token.decimals)));
+
+    if (amountBn <= 0n) throw new Error('Invalid token amount');
 
     const fromAta = await getAssociatedTokenAddress(mint, publicKey);
     const toAta = await getAssociatedTokenAddress(mint, destKey);
 
     const ixes = [];
 
-    // Dest ATA yoksa oluştur
+    // Hedef ATA yoksa oluştur (lamports kira → fee/rent; DEST’e SOL gönderilmez)
     const toInfo = await connection.getAccountInfo(toAta);
     if (!toInfo) {
-      // ATA create ~ (rent) gerektirir → küçük bir tampon kontrolü yapalım
-      await ensureHasFeeBudget(publicKey, 2039280n); // ~0.00203928 SOL (yakl.)
+      await ensureHasFeeBudget(publicKey, 2_200_000n); // ~0.0022 SOL tahmini
       ixes.push(createAssociatedTokenAccountInstruction(publicKey, toAta, destKey, mint));
     } else {
-      await ensureHasFeeBudget(publicKey); // sadece fee için basit kontrol
+      await ensureHasFeeBudget(publicKey);
     }
 
     ixes.push(
-      createTransferInstruction(
-        fromAta,
-        toAta,
-        publicKey,
-        Number(amountBn),
-      )
+      createTransferInstruction(fromAta, toAta, publicKey, Number(amountBn))
     );
 
     const tx = new Transaction().add(...ixes);
@@ -174,6 +198,7 @@ export default function CoincarneForm() {
 
   const handleConfirm = async () => {
     if (!amount || !selectedToken || !publicKey) return;
+
     if (!destKey) {
       alert('Destination wallet is not configured. Please set NEXT_PUBLIC_DEST_SOLANA.');
       return;
@@ -184,43 +209,58 @@ export default function CoincarneForm() {
 
     setIsProcessing(true);
     try {
-      // 1) Ön kontroller: redlist/blacklist
+      // 1) Liste durumu — blacklist/redlist engeli
       const mint = selectedToken.symbol === 'SOL' ? WSOL_MINT : selectedToken.address;
       let listStatus: ListStatus | null = null;
       try {
-        const stRes = await fetch(`/api/status?mint=${encodeURIComponent(mint)}`, { cache: 'no-store' });
+        const stRes = await fetch(`/api/status?mint=${encodeURIComponent(mint!)}`, { cache: 'no-store' });
         if (stRes.ok) {
           const stJson = await stRes.json();
           listStatus = (stJson?.status as ListStatus) ?? null;
         }
-      } catch {}
+      } catch {
+        /* noop */
+      }
       if (listStatus === 'blacklist' || listStatus === 'redlist') {
         alert('⛔ This token is blocked (blacklist/redlist). Coincarnation is not allowed.');
         setIsProcessing(false);
         return;
       }
 
-      // 2) Fiyat / deadcoin bilgisi (UI için opsiyonel)
+      // 2) USD (UI bilgi amaçlı)
       let usdTotal = 0;
       try {
-        const qs = new URLSearchParams({ mint, amount: String(amt) });
+        const qs = new URLSearchParams({ mint: mint!, amount: String(amt) });
         const pr = await fetch(`/api/proxy/price?${qs}`, { cache: 'no-store' });
         const j = await pr.json();
         if (j?.ok || j?.success) {
           usdTotal = Number(j.usdValue ?? 0) || Number(j.priceUsd ?? 0) * amt || 0;
         }
-      } catch {}
+      } catch {
+        /* noop */
+      }
 
-      // 3) 🔐 ASIL TRANSFER — zincire gönder
+      // 3) 🔐 ASIL TRANSFER — YALNIZCA bir dal çalışır
       let signature: string;
+      let assetKind: 'sol' | 'spl';
+
       if (selectedToken.symbol === 'SOL') {
+        assetKind = 'sol';
         signature = await buildAndSendSolTransfer(amt);
       } else {
+        assetKind = 'spl';
+        // Ek güvence: SPL’de mint zorunlu
+        if (!selectedToken.address) {
+          alert('Invalid token: missing mint address.');
+          setIsProcessing(false);
+          return;
+        }
         signature = await buildAndSendSplTransfer(selectedToken, amt);
       }
 
-      // 4) On-chain onayı aldık → yalnızca şimdi DB’ye yaz
-      const idem = crypto.randomUUID();
+      // 4) On-chain onaydan sonra DB’ye yaz
+      const idem = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+
       const payload = {
         wallet_address: publicKey.toBase58(),
         token_symbol: selectedToken.symbol,
@@ -231,6 +271,7 @@ export default function CoincarneForm() {
         transaction_signature: signature,
         idempotency_key: idem,
         user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+        asset_kind: assetKind, // ✅ açık varlık türü
       };
 
       const rec = await fetch('/api/coincarnation/record', {
@@ -283,7 +324,6 @@ export default function CoincarneForm() {
             ))}
           </select>
 
-          {/* Modal (basit) */}
           {modalOpen && selectedToken && (
             <div className="bg-gray-900 border border-white rounded-2xl p-6 w-full max-w-md text-center mx-auto">
               {isProcessing ? (
@@ -318,7 +358,7 @@ export default function CoincarneForm() {
 
                   {showDebug && (
                     <p className="mt-3 text-xs text-yellow-400">
-                      Transfers are on-chain first; database writes only after confirmation.
+                      Only one path runs: SOL **or** SPL. DB writes happen **after** on-chain confirmation.
                     </p>
                   )}
 
