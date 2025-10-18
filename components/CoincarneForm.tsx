@@ -165,11 +165,10 @@ export default function CoincarneForm() {
     return sig;
   }
 
-  // 🔁 Record helper: önce yeni endpoint, olmazsa legacy endpoint
+  // Yeni → kayıt: önce yeni endpoint, olmazsa legacy
   async function recordContribution(payload: any) {
     const idem = payload.idempotency_key;
 
-    // 1) Yeni endpoint
     let res = await fetch('/api/coincarnation/record', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idem },
@@ -180,7 +179,6 @@ export default function CoincarneForm() {
       const txt = await res.text();
       console.error('[record] /api/coincarnation/record failed:', res.status, txt);
 
-      // 2) Legacy fallback
       const res2 = await fetch('/api/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idem },
@@ -250,7 +248,7 @@ export default function CoincarneForm() {
         signature = await buildAndSendSplTransfer(selectedToken, amt);
       }
 
-      // 4) Record — after chain confirm
+      // 4) Record
       const idem =
         (typeof self !== 'undefined' && (self as any).crypto?.randomUUID?.()) ||
         `${Date.now()}-${Math.random()}`;
@@ -269,7 +267,6 @@ export default function CoincarneForm() {
       };
 
       const rec = await recordContribution(payload);
-
       if (!rec.ok) {
         const txt = await rec.text();
         alert(`Record failed:\n${txt}`);
@@ -347,7 +344,7 @@ export default function CoincarneForm() {
 
                   {showDebug && (
                     <p className="mt-3 text-xs text-yellow-400">
-                      Records: tries /api/coincarnation/record then falls back to /api/record. Errors shown verbosely.
+                      Records: tries /api/coincarnation/record then /api/record; errors shown verbosely.
                     </p>
                   )}
 

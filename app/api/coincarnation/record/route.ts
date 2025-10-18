@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs'; // 🔑 Edge yerine Node.js
 
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
@@ -21,12 +22,15 @@ const SOLANA_RPC_URL =
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
   'https://api.mainnet-beta.solana.com';
 
-// Hazine adresi (server gizli > public)
+// Hedef cüzdan (server gizli > public)
 const DEST_SOLANA =
   process.env.DEST_SOLANA ||
   process.env.NEXT_PUBLIC_DEST_SOLANA ||
   process.env.NEXT_PUBLIC_DEST_SOL ||
   '';
+
+// On-chain confirm’i zorunlu tutma (varsayılan: false = gevşek)
+const DISABLE_CONFIRM = String(process.env.DISABLE_CONFIRM || '').toLowerCase() === 'true';
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
@@ -54,8 +58,8 @@ async function isSolanaTxConfirmed(signature: string) {
     const cs = status.confirmationStatus as string | undefined;
     return cs === 'confirmed' || cs === 'finalized';
   } catch (e) {
-    console.warn('⚠️ getSignatureStatuses failed, skipping confirm check:', (e as any)?.message || e);
-    return true; // confirm check fail → engellemeyelim
+    console.warn('⚠️ getSignatureStatuses failed:', (e as any)?.message || e);
+    return true; // ağ hatası → engelleme
   }
 }
 
@@ -85,13 +89,13 @@ export async function POST(req: NextRequest) {
       user_agent,
       referral_code,
 
-      asset_kind, // opsiyonel: 'sol' | 'spl'
+      asset_kind, // opsiyonel
     } = body ?? {};
 
     const timestamp = new Date().toISOString();
 
+    // ——— Temel alanlar ———
     if (!wallet_address || !token_symbol) {
-      console.error('❌ bad request: wallet_address/token_symbol missing');
       return NextResponse.json({ success: false, error: 'wallet_address and token_symbol are required' }, { status: 400 });
     }
 
@@ -100,7 +104,6 @@ export async function POST(req: NextRequest) {
       (transaction_signature && String(transaction_signature).trim()) ||
       null;
     if (!txHashOrSig) {
-      console.error('❌ bad request: missing tx hash/signature');
       return NextResponse.json(
         { success: false, error: 'transaction_signature (Solana) or tx_hash (EVM) is required' },
         { status: 400 }
@@ -112,25 +115,21 @@ export async function POST(req: NextRequest) {
     const networkNorm = String(network || 'solana');
     const idemKey = (idempotency_key || idemHeader || '').trim() || null;
 
-    // Türetilmiş asset kind
+    // ——— Varlık türü türet ———
     const isSolSymbol = String(token_symbol).toUpperCase() === 'SOL';
     const derivedKind: 'sol' | 'spl' = isSolSymbol && (!token_contract || token_contract === WSOL_MINT) ? 'sol' : 'spl';
     const assetKindFinal: 'sol' | 'spl' = (asset_kind === 'sol' || asset_kind === 'spl') ? asset_kind : derivedKind;
 
-    if (usdValueNum === 0 && assetKindFinal === 'sol') {
-      console.warn('⚠️ SOL with 0 USD value, allowing but suspicious.');
-    }
-
-    // On-chain confirmation (gevşek)
-    if (networkNorm === 'solana' && transaction_signature) {
+    // ——— On-chain confirm (gevşek) ———
+    if (!DISABLE_CONFIRM && networkNorm === 'solana' && transaction_signature) {
       const ok = await isSolanaTxConfirmed(transaction_signature);
       if (!ok) {
-        console.error('❌ not confirmed on-chain');
-        return NextResponse.json({ success: false, error: 'Transaction not confirmed on-chain' }, { status: 400 });
+        // confirm alınamadı → uyar, ama engelleme
+        console.warn('⚠️ tx not confirmed yet, proceeding anyway:', transaction_signature);
       }
     }
 
-    // Redlist/Blacklist (SPL ise)
+    // ——— Redlist/Blacklist (best effort) ———
     const hasMint = Boolean(token_contract && token_contract !== 'SOL');
     if (hasMint) {
       try {
@@ -142,11 +141,11 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ success: false, error: 'This token is redlisted.' }, { status: 403 });
         }
       } catch (e) {
-        console.warn('⚠️ registry check failed, proceeding:', (e as any)?.message || e);
+        console.warn('⚠️ registry check failed, continuing:', (e as any)?.message || e);
       }
     }
 
-    // Idempotency
+    // ——— Idempotency ———
     try {
       if (txHashOrSig) {
         const dup = await sql`
@@ -156,14 +155,12 @@ export async function POST(req: NextRequest) {
           LIMIT 1
         `;
         if (dup.length > 0) {
-          console.log('↩️ duplicate via tx hash/sig, id:', dup[0].id);
           return NextResponse.json({ success: true, duplicate: true, id: dup[0].id, via: 'tx_hash/transaction_signature' });
         }
       }
       if (idemKey) {
         const dup2 = await sql`SELECT id FROM contributions WHERE idempotency_key = ${idemKey} LIMIT 1`;
         if (dup2.length > 0) {
-          console.log('↩️ duplicate via idempotency_key, id:', dup2[0].id);
           return NextResponse.json({ success: true, duplicate: true, id: dup2[0].id, via: 'idempotency_key' });
         }
       }
@@ -171,7 +168,7 @@ export async function POST(req: NextRequest) {
       console.warn('⚠️ idempotency check failed, continuing:', (e as any)?.message || e);
     }
 
-    // Participants + referral
+    // ——— Participants ———
     let userReferralCode = '';
     let referrerWallet: string | null = null;
     try {
@@ -203,7 +200,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'participants upsert failed' }, { status: 500 });
     }
 
-    // Contribution INSERT
+    // ——— Contributions ———
     let insertedId: number | null = null;
     try {
       const insertResult = await sql`
@@ -250,7 +247,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'contribution insert failed' }, { status: 500 });
     }
 
-    // Registry (best effort)
+    // ——— Registry (best effort) ———
     if (hasMint) {
       try {
         const initialDecision =
@@ -268,7 +265,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Kullanıcı numarası
+    // ——— Kullanıcı numarası ———
     let number = 0;
     try {
       const result = await sql`
