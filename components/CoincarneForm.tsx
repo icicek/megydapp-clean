@@ -26,7 +26,7 @@ const TOKEN_LIST_URL =
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 const MIN_LAMPORT_BUFFER = 300_000n;
 
-// ⚙️ Hazine adresi: mevcut ismi bozma
+// Hazine adresi: mevcut isim -> fallback
 const DEST_SOLANA =
   (process.env.NEXT_PUBLIC_DEST_SOL as string | undefined) ||
   (process.env.NEXT_PUBLIC_DEST_SOLANA as string | undefined);
@@ -165,6 +165,37 @@ export default function CoincarneForm() {
     return sig;
   }
 
+  // 🔁 Record helper: önce yeni endpoint, olmazsa legacy endpoint
+  async function recordContribution(payload: any) {
+    const idem = payload.idempotency_key;
+
+    // 1) Yeni endpoint
+    let res = await fetch('/api/coincarnation/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idem },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const txt = await res.text();
+      console.error('[record] /api/coincarnation/record failed:', res.status, txt);
+
+      // 2) Legacy fallback
+      const res2 = await fetch('/api/record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idem },
+        body: JSON.stringify(payload),
+      });
+      if (!res2.ok) {
+        const txt2 = await res2.text();
+        console.error('[record] /api/record failed:', res2.status, txt2);
+        throw new Error(`Record failed.\n/coincarnation/record: ${res.status} ${txt}\n/record: ${res2.status} ${txt2}`);
+      }
+      return res2;
+    }
+    return res;
+  }
+
   const handleConfirm = async () => {
     if (!amount || !selectedToken || !publicKey) return;
 
@@ -191,7 +222,7 @@ export default function CoincarneForm() {
         return;
       }
 
-      // 2) USD (UI info)
+      // 2) USD (opsiyonel)
       let usdTotal = 0;
       try {
         const qs = new URLSearchParams({ mint, amount: String(amt) });
@@ -202,7 +233,7 @@ export default function CoincarneForm() {
         }
       } catch {}
 
-      // 3) On-chain transfer (exactly one path)
+      // 3) On-chain transfer
       let signature = '';
       let assetKind: 'sol' | 'spl';
 
@@ -237,20 +268,16 @@ export default function CoincarneForm() {
         asset_kind: assetKind,
       };
 
-      const rec = await fetch('/api/coincarnation/record', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idem },
-        body: JSON.stringify(payload),
-      });
+      const rec = await recordContribution(payload);
 
       if (!rec.ok) {
         const txt = await rec.text();
-        console.error('Record API error:', txt);
-        alert(`Record API failed:\n${txt}`);
+        alert(`Record failed:\n${txt}`);
         setIsProcessing(false);
         return;
       }
 
+      // 5) UI success
       const lastNum = parseInt(localStorage.getItem('lastCoincarnator') || '100', 10);
       const newNumber = lastNum + 1;
       setParticipantNumber(newNumber);
@@ -320,7 +347,7 @@ export default function CoincarneForm() {
 
                   {showDebug && (
                     <p className="mt-3 text-xs text-yellow-400">
-                      DB write happens only after on-chain confirmation. Errors will be shown verbosely.
+                      Records: tries /api/coincarnation/record then falls back to /api/record. Errors shown verbosely.
                     </p>
                   )}
 
