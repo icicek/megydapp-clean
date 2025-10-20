@@ -1,12 +1,11 @@
 'use client';
 
 import React, { ReactNode } from 'react';
-import { APP_URL } from '@/app/lib/origin';
+import { ShareOnXAfterCoincarne } from '@/components/share/ShareOnX';
 
 interface Props {
   tokenFrom: string;
   number: number;
-  imageUrl: string;
   onRecoincarnate: () => void;
   onGoToProfile: () => void;
   children?: ReactNode;
@@ -15,35 +14,30 @@ interface Props {
 export default function CoincarnationResult({
   tokenFrom,
   number,
-  imageUrl,
   onRecoincarnate,
   onGoToProfile,
-  children, 
+  children,
 }: Props) {
-  const tweetText = `🚀 I just swapped my $${tokenFrom} for $MEGY. Coincarnator #${number} reporting in.\n\n🌐 We're uniting deadcoins to rescue billions.\n\n🔗 Join us 👉 ${APP_URL}`;
-  const tweetLink = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
-
   return (
     <div className="text-center p-4">
       <h2 className="text-2xl font-bold mb-4">
         🎉 Success! Welcome, Coincarnator #{number}!
       </h2>
 
-      <a
-        href={tweetLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block max-w-sm mx-auto bg-black rounded-lg p-4 hover:opacity-90 transition border border-gray-700"
-      >
-        <div className="text-blue-400 font-bold text-xl">SHARE</div>
-        <div className="text-purple-400 font-semibold">YOUR VICTORY</div>
-        <div className="text-yellow-400 font-semibold">MILLIONS ARE WAITING</div>
-        <div className="mt-2 text-pink-500 font-bold bg-white/10 inline-block px-4 py-2 rounded mt-4">
-          🐦 SHARE ON X
-        </div>
-      </a>
+      {/* Merkezi Share on X butonu */}
+      <ShareOnXAfterCoincarne
+        symbol={tokenFrom}
+        participantNumber={number}
+        className="block max-w-sm mx-auto bg-black rounded-lg p-4 hover:opacity-90 transition border border-gray-700 text-center"
+        onShared={async () => {
+          try {
+            await fetch('/api/share/record', { method: 'POST' });
+          } catch {
+            /* noop */
+          }
+        }}
+      />
 
-      {/* 👇 Bu kısım sayesinde dışarıdan gelen buton da görünür */}
       {children && <div className="mt-4">{children}</div>}
 
       <p className="text-lg mt-6 mb-4">

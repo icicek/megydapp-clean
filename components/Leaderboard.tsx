@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { ShareRankOnX } from '@/components/share/ShareOnX';
 
 interface LeaderboardEntry {
   wallet_address: string;
@@ -57,9 +58,6 @@ export default function Leaderboard() {
   const visibleData = showAll ? data : data.slice(0, 10);
 
   const tweetMessage = `Everyone says “hodl.”\nI said “revive.”\nNow I’m #${userRank} on the #Coincarnation Leaderboard.\nWhat’s your excuse?\n→ https://coincarnation.com`;
-
-  const tweetText = encodeURIComponent(tweetMessage);
-  const tweetUrl = `https://twitter.com/intent/tweet?text=${tweetText}`;
 
   const handleCopy = async () => {
     try {
@@ -149,15 +147,15 @@ export default function Leaderboard() {
                   You are currently ranked{' '}
                   <span className="text-white font-bold">#{userRank}</span> in the ecosystem.
                 </p>
-                <div className="text-center mt-2 space-y-1">
-                  <a
-                    href={tweetUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block text-sm text-blue-400 hover:text-blue-300 underline transition"
-                  >
-                    Share your rank on X
-                  </a>
+                <div className="text-center mt-2 space-y-2">
+                  <ShareRankOnX
+                    rank={userRank}
+                    url="https://coincarnation.com"
+                    className="inline-block text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md transition"
+                    onShared={async () => {
+                      try { await fetch('/api/share/record', { method: 'POST' }); } catch {}
+                    }}
+                  />
                   <br />
                   <button
                     onClick={handleCopy}

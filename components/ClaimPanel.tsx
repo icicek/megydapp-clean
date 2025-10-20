@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import CorePointChart from './CorePointChart';
 import Leaderboard from './Leaderboard';
+import { ShareOnXFromTxItem } from '@/components/share/ShareOnX';
 import { APP_URL } from '@/app/lib/origin';
 
 const asBool = (v: unknown): boolean => {
@@ -33,29 +34,6 @@ export default function ClaimPanel() {
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
   const [distributionPool, setDistributionPool] = useState(0);
   const [copied, setCopied] = useState(false);
-
-  // Share handler (değiştirmedik)
-  const handleShare = async () => {
-    if (!publicKey) return;
-    const wallet_address = publicKey.toBase58();
-    const tweetText = encodeURIComponent(
-      `I just revived my walking deadcoins through #Coincarnation and earned $MEGY 💥🔥
-Join the revolution at ${APP_URL}`
-    );
-    const tweetURL = `https://twitter.com/intent/tweet?text=${tweetText}`;
-    window.open(tweetURL, '_blank');
-
-    try {
-      const res = await fetch('/api/share/record', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet_address }),
-      });
-      await res.json().catch(() => ({}));
-    } catch {
-      /* noop */
-    }
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -422,36 +400,22 @@ Join the revolution at ${APP_URL}`
                         {tx.timestamp ? formatDate(tx.timestamp) : 'N/A'}
                       </td>
                       <td className="px-4 py-2 text-center">
-                        <button
-                          onClick={async () => {
-                            const referral = data.referral_code;
-                            const referralLink = referral
-                              ? `https://coincarnation.com?r=${referral}`
-                              : 'https://coincarnation.com';
-
-                            const tweetText = encodeURIComponent(
-                              `I just coincarnated $${tx.token_symbol} into $MEGY ⚡️\n` +
-                                `The crypto resurrection has begun.\n` +
-                                `Join the revival → ${referralLink}`
-                            );
-
-                            const tweetURL = `https://twitter.com/intent/tweet?text=${tweetText}`;
-                            window.open(tweetURL, '_blank');
-
+                        <ShareOnXFromTxItem
+                          symbol={tx.token_symbol}
+                          amount={tx.token_amount}
+                          txSignature={tx.transaction_signature ?? tx.tx_hash ?? undefined}
+                          url={data.referral_code ? `${APP_URL}?r=${data.referral_code}` : APP_URL}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
+                          onShared={async () => {
                             try {
                               await fetch('/api/share/record', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ wallet_address: publicKey?.toBase58() }),
                               });
-                            } catch {
-                              /* noop */
-                            }
+                            } catch { /* noop */ }
                           }}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
-                        >
-                          Share on X
-                        </button>
+                        />
                       </td>
                     </tr>
                   ))}
