@@ -30,10 +30,9 @@ export default function DocsIndexPage() {
           <h1 className="text-2xl md:text-3xl font-bold">Coincarnation — Whitepaper</h1>
           <p className="text-white/70 mt-2 max-w-2xl">
             A pool-proportional contribution & distribution protocol to revive stranded
-            crypto value into <strong>$MEGY</strong>. Read section by section using the
-            contents menu, or start with the overview below.
+            crypto value into <strong>$MEGY</strong>. Use the contents menu to jump into
+            sections, or start with the overview below.
           </p>
-
         </div>
 
         <div className="mt-4">
@@ -46,7 +45,7 @@ export default function DocsIndexPage() {
         </div>
       </section>
 
-      {/* Quick section grid */}
+      {/* Sections grid (with badges) */}
       <section className="rounded-2xl border border-white/10 bg-[#0b0f18] p-6">
         <h2 className="text-lg font-semibold">Browse sections</h2>
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -56,10 +55,26 @@ export default function DocsIndexPage() {
                 href={`/docs/${s.slug}`}
                 className="block p-4 hover:bg-white/5 rounded-xl"
               >
-                <div className="text-sm font-semibold">{s.title}</div>
-                {s.summary && (
-                  <div className="text-xs text-white/60 mt-1">{s.summary}</div>
-                )}
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold">{s.title}</div>
+                    {s.summary && (
+                      <div className="text-xs text-white/60 mt-1">{s.summary}</div>
+                    )}
+                  </div>
+                  <div className="shrink-0 text-[10px] text-white/60 space-x-2">
+                    {s.updatedAt && (
+                      <span className="inline-block rounded-full border border-white/10 px-2 py-0.5">
+                        {s.updatedAt}
+                      </span>
+                    )}
+                    {typeof s.words === "number" && (
+                      <span className="inline-block rounded-full border border-white/10 px-2 py-0.5">
+                        ~{Math.max(1, Math.round(s.words / 200))}m
+                      </span>
+                    )}
+                  </div>
+                </div>
               </Link>
             </li>
           ))}
