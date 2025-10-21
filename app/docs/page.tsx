@@ -1,66 +1,46 @@
 // app/docs/page.tsx
-import Link from 'next/link';
-import TrustPledge from '@/components/TrustPledge';
+import Link from "next/link";
+import { DOC_SECTIONS } from "./config";
 
 export const metadata = {
-  title: 'Documentation — Coincarnation',
-  description: 'Start here: Trust Pledge, Whitepaper, and protocol docs.',
+  title: "Whitepaper — Coincarnation",
+  description:
+    "Economic design, pool-proportional distribution, governance, valuation, and risk controls.",
 };
 
-function DocCard({
-  href,
-  title,
-  desc,
-}: {
-  href: string;
-  title: string;
-  desc: string;
-}) {
+export default function DocsIndexPage() {
   return (
-    <Link
-      href={href}
-      className="rounded-2xl border border-white/10 bg-[#0b0f18] p-5 hover:bg-white/5 transition-colors"
-    >
-      <div className="text-lg font-semibold">{title}</div>
-      <div className="text-sm text-white/70 mt-1">{desc}</div>
-      <div className="text-xs text-white/50 mt-3">Read →</div>
-    </Link>
-  );
-}
+    <div className="rounded-2xl border border-white/10 bg-[#0b0f18] p-6">
+      <h1 className="text-2xl font-bold">Coincarnation — Whitepaper</h1>
+      <p className="text-white/70 mt-2">
+        Explore the protocol across focused sections. Use the sidebar to jump,
+        or browse below.
+      </p>
 
-export default function DocsPage() {
-  return (
-    <main className="min-h-screen bg-[#090d15] text-white">
-      <div className="mx-auto max-w-5xl px-6 py-10 space-y-10">
-        {/* Hero */}
-        <header className="space-y-2">
-          <h1 className="text-3xl font-bold">Documentation</h1>
-          <p className="text-white/70 max-w-3xl">
-            Everything you need to understand Coincarnation: the fairness model,
-            phase mechanics, governance, and implementation details.
-          </p>
-        </header>
+      <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+        {DOC_SECTIONS.map((s) => (
+          <li key={s.slug} className="rounded-xl border border-white/10">
+            <Link
+              href={`/docs/${s.slug}`}
+              className="block p-4 hover:bg-white/5 rounded-xl"
+            >
+              <div className="text-sm font-semibold">{s.title}</div>
+              {s.summary && (
+                <div className="text-xs text-white/60 mt-1">{s.summary}</div>
+              )}
+            </Link>
+          </li>
+        ))}
+      </ul>
 
-        {/* Trust Pledge on top (full) */}
-        <TrustPledge compact={false} />
-
-        {/* Quick links */}
-        <section className="space-y-3">
-          <h2 className="text-xl font-semibold">Start here</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <DocCard
-              href="/trust"
-              title="Trust Pledge (Full)"
-              desc="Our fairness, floor guard, transparency and safety principles in depth."
-            />
-            <DocCard
-              href="/docs/whitepaper"
-              title="Whitepaper"
-              desc="Economics, distribution mechanics, phase policy, governance, and roadmap."
-            />
-          </div>
-        </section>
+      <div className="mt-6">
+        <Link
+          href={`/docs/${DOC_SECTIONS[0].slug}`}
+          className="inline-flex items-center rounded-lg bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-semibold"
+        >
+          Start reading →
+        </Link>
       </div>
-    </main>
+    </div>
   );
 }
