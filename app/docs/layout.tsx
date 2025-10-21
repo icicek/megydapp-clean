@@ -158,3 +158,8 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
     </div>
   );
 }
+<div className="mt-2 text-xs text-white/50">
+  <Link href="/docs/print" className="underline">
+    Print / PDF view
+  </Link>
+</div>

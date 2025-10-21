@@ -1,6 +1,7 @@
 // app/docs/print/page.tsx
 import Link from "next/link";
 import { DOC_SECTIONS } from "../config";
+import PrintToolbar from "./PrintToolbar";
 
 export const metadata = {
   title: "Coincarnation — Whitepaper (Print)",
@@ -11,6 +12,8 @@ export default function DocsPrintPage() {
   return (
     <div className="min-h-screen bg-white text-black">
       <div className="mx-auto max-w-3xl px-6 py-8">
+        <PrintToolbar />
+
         <header className="mb-8">
           <h1 className="text-3xl font-bold">Coincarnation — Whitepaper</h1>
           <p className="text-black/70 mt-2">
@@ -31,7 +34,6 @@ export default function DocsPrintPage() {
               {s.summary && (
                 <p className="text-black/70 mb-3">{s.summary}</p>
               )}
-              {/* prose defaults yok; print görünümü sade */}
               <div className="text-[15px] leading-relaxed">
                 <Content />
               </div>

@@ -157,19 +157,43 @@ export const DOC_SECTIONS: DocSection[] = [
   {
     slug: "governance-and-admin",
     title: "Governance & Admin Controls",
-    updatedAt: "2025-10-15",
-    words: 140,
-    summary: "Multisig, feature flags, audit logs, emergency procedures.",
+    updatedAt: "2025-10-21",
+    words: 420,
+    summary: "Multisig, feature flags, audit logs, emergency procedures, and operational discipline.",
     Content: () => (
       <>
+        <h3 className="font-semibold mb-2">6.1 Roles & AuthN/AuthZ</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Multisig treasury/admin; hardware-wallet auth for panel.</li>
-          <li>
-            Feature flags: <code>app_enabled</code>, <code>claim_open</code>,{" "}
-            <code>distribution_pool</code>, <code>coin_rate</code>, <code>cron_enabled</code>.
-          </li>
-          <li>Admin audit logs and optional on-chain reference hashes.</li>
-          <li>Global kill-switch; per-token pause via registry.</li>
+          <li><strong>Treasury Multisig:</strong> custody & sensitive parameter changes.</li>
+          <li><strong>Admin Panel:</strong> hardware-wallet signMessage → nonce → verify → {`coincarnation_admin`} cookie (HttpOnly, SameSite).</li>
+          <li><strong>Role separation:</strong> Ops (runtime toggles), Risk (registry/policy), Finance (treasury), Audit (read-only export).</li>
+        </ul>
+  
+        <h3 className="font-semibold mt-4 mb-2">6.2 Feature Flags</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          <li><code>app_enabled</code>: global kill-switch.</li>
+          <li><code>claim_open</code>: snapshot sonrası talep penceresi kontrolü.</li>
+          <li><code>distribution_pool</code>, <code>coin_rate</code>: faz havuzu ve referans oran parametreleri.</li>
+          <li><code>cron_enabled</code>: reclassifier cron guard.</li>
+        </ul>
+  
+        <h3 className="font-semibold mt-4 mb-2">6.3 Change Management</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          <li><strong>Cooldowns:</strong> kritik parametrelerde değişim aralığı; “announce → grace → apply”.</li>
+          <li><strong>On-chain ref-hash (opsiyonel):</strong> parametre set’lerinin hash’i zincire yazılarak kamu doğrulanabilirliği.</li>
+          <li><strong>CSV & public dashboards:</strong> dış denetime uygun görünürlük.</li>
+        </ul>
+  
+        <h3 className="font-semibold mt-4 mb-2">6.4 Emergency Procedures</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Global pause (<code>app_enabled=false</code>), per-token intake stop (registry).</li>
+          <li>Blacklist tespiti → geçmiş katkılara ilişkin <em>opsiyonel</em> iade akışı.</li>
+        </ul>
+  
+        <h3 className="font-semibold mt-4 mb-2">6.5 Auditability</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          <li><code>admin_audit</code> tablosu: kim/neyi/ne zaman değiştirdi.</li>
+          <li>Her cron koşusu → <code>cron_runs</code> ve diff’ler → <code>token_audit</code>.</li>
         </ul>
       </>
     ),
@@ -177,16 +201,44 @@ export const DOC_SECTIONS: DocSection[] = [
   {
     slug: "registry-and-policy",
     title: "Token Registry & Policy",
-    updatedAt: "2025-10-15",
-    words: 110,
-    summary:
-      "healthy / walking_dead / deadcoin / redlist / blacklist; refunds (blacklist only).",
+    updatedAt: "2025-10-21",
+    words: 460,
+    summary: "Status matrix, intake rules, redlist/blacklist semantics, reclassification & refunds.",
     Content: () => (
       <>
-        <p>
-          Statuses define intake rules and review/rollback mechanics, including optional refunds
-          (blacklist-only) to the originating wallet via a guided flow.
-        </p>
+        <h3 className="font-semibold mb-2">7.1 Status Matrix</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          <li><code>healthy</code>: normal intake.</li>
+          <li><code>walking_dead</code>: intake açık, gözlem altında.</li>
+          <li><code>deadcoin</code>: revival odaklı, özel görseller/etiketleme.</li>
+          <li><code>redlist</code>: eklenme tarihinden sonra <strong>yeni katkı engelli</strong>; geçmiş katkılar geçerli.</li>
+          <li><code>blacklist</code>: tamamen engelli; geçmiş katkılar <strong>geçersiz</strong>; opsiyonel iade.</li>
+        </ul>
+  
+        <h3 className="font-semibold mt-4 mb-2">7.2 Intake Rules & Guards</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Ön kontrol: network uyumu, mint/address formatı, min-liq/pricing eşiği.</li>
+          <li>Valuation pipeline’ı başarıya ulaşmadan intake tamamlanmaz.</li>
+          <li>Per-token cap ve per-wallet cap opsiyonel.</li>
+        </ul>
+  
+        <h3 className="font-semibold mt-4 mb-2">7.3 Redlist vs Blacklist</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          <li><strong>Redlist:</strong> ileriye dönük yasak; geriye dönük katkılar korunur.</li>
+          <li><strong>Blacklist:</strong> geriye dönük <em>geçersiz</em>; kullanıcıya opsiyonel iade akışı (orijinal cüzdana).</li>
+        </ul>
+  
+        <h3 className="font-semibold mt-4 mb-2">7.4 Reclassification</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Cron job: yaş, fiyat hareketsizliği, oy/vaka tetikleyicileri ile <code>walking_dead → deadcoin</code> eskalasyonu.</li>
+          <li>Tüm statü değişiklikleri <code>token_audit</code>’e yazılır.</li>
+        </ul>
+  
+        <h3 className="font-semibold mt-4 mb-2">7.5 Refunds (Blacklist-only)</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>İade opsiyonel ve yalnızca <code>blacklist</code> için.</li>
+          <li>Her iade talebi tekilleştirilir, orijinal gönderen cüzdana yönlendirilir.</li>
+        </ul>
       </>
     ),
   },
@@ -226,16 +278,36 @@ export const DOC_SECTIONS: DocSection[] = [
   {
     slug: "security-compliance",
     title: "Security, Risk & Compliance",
-    updatedAt: "2025-10-09",
-    words: 140,
-    summary:
-      "Origin/CSRF guards, JWT admin, idempotency, rate limits, disclaimers.",
+    updatedAt: "2025-10-21",
+    words: 500,
+    summary: "Origin/CSRF, JWT cookies, idempotency & replay guards, data hygiene, legal posture.",
     Content: () => (
       <>
+        <h3 className="font-semibold mb-2">11.1 Application Security</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Strict origin checks, CSRF guards, and JWT-backed admin sessions.</li>
-          <li>Idempotency for writes; replay protection; rate limits.</li>
-          <li>Clear disclaimers; non-custodial posture where possible.</li>
+          <li>Admin cookie: HttpOnly, SameSite, kısa ömür; origin ve CSRF kontrolü.</li>
+          <li>Idempotency keys & replay protection tüm yazma işlemlerinde.</li>
+          <li>Rate-limits; admin alanları için wallet allowlist.</li>
+          <li>Signed caching & server-side price proxy (mobil uyum & CORS).</li>
+        </ul>
+  
+        <h3 className="font-semibold mt-4 mb-2">11.2 Data Hygiene</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>PII minimizasyonu; kullanıcı ajanı/İP gibi alanlar yalnızca operasyonel ölçüde.</li>
+          <li>Log rotasyonu & saklama süresi; yalnızca gerekliyse tutulur.</li>
+        </ul>
+  
+        <h3 className="font-semibold mt-4 mb-2">11.3 Legal Posture</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Açık “no investment advice” beyanı; protokol kurallarının önceliği.</li>
+          <li>Non-custodial yaklaşım (teknik olarak mümkün olduğu ölçüde).</li>
+          <li>Yargı farkındalığı; yaptırım/sanction taraması <em>yapmıyoruz</em>, fakat ortakların regülasyonlarına uyumlu entegrasyon yolları değerlendirilebilir.</li>
+        </ul>
+  
+        <h3 className="font-semibold mt-4 mb-2">11.4 Transparency</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Public dashboards; <code>export.csv</code> ve bağımsız denetime elverişli izlek.</li>
+          <li>Parametre değişimleri için “announce → grace → apply” ve (opsiyonel) on-chain ref-hash.</li>
         </ul>
       </>
     ),

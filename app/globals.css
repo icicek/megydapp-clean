@@ -24,3 +24,13 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+/* Hide UI chrome in print, optimize page breaks */
+@media print {
+  .no-print { display: none !important; }
+  a { color: black !important; text-decoration: none !important; }
+  /* Denemeye bağlı olarak başlıklardan sonra sayfa kırmaları: */
+  h1 { break-after: avoid; }
+  h2 { break-before: auto; break-after: avoid; }
+  article { break-inside: avoid; }
+  /* Kenar boşlukları – tarayıcıdan “More settings → Margins: Default/None” ile oynayabilirsin */
+}
