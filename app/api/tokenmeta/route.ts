@@ -1,108 +1,71 @@
 // app/api/tokenmeta/route.ts
 import { NextResponse } from 'next/server';
-import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
-import { PROGRAM_ID as METADATA_PROGRAM_ID, Metadata } from '@metaplex-foundation/mpl-token-metadata';
+import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
+import { publicKey as umiPublicKey } from '@metaplex-foundation/umi';
+import {
+  findMetadataPda,
+  fetchMetadata,
+} from '@metaplex-foundation/mpl-token-metadata';
 
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
-
-type MetaOut = { symbol: string; name: string; uri?: string };
-
-let MEMO: Record<string, MetaOut> = {};
-let LAST_CLEAN = Date.now();
-
-const WSOL_MINT = 'So11111111111111111111111111111111111111112';
-
-function getConnection() {
-  // Sizin ortam değişkenlerinizle uyumlu genişletilmiş fallback sırası:
-  const endpoint =
-    process.env.NEXT_PUBLIC_SOLANA_RPC?.trim() || // sizde bu var
-    process.env.NEXT_PUBLIC_SOLANA_RPC_URL?.trim() || // sizde bu da var
-    process.env.SOLANA_RPC?.trim() ||
-    process.env.ALCHEMY_SOLANA_RPC?.trim() ||
-    clusterApiUrl('mainnet-beta');
-  return new Connection(endpoint, 'confirmed');
-}
+export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const mintParam = searchParams.get('mints');
-    if (!mintParam) {
-      // 400 yerine yumuşatılmış 200 + açıklama isterseniz, aşağıyı 200 yapabilirsiniz.
-      return NextResponse.json({ success: false, error: 'mints required' }, { status: 400 });
+    const mint = searchParams.get('mint');
+    const cluster = searchParams.get('cluster') || 'mainnet-beta';
+
+    if (!mint) {
+      return NextResponse.json(
+        { ok: false, error: 'Missing ?mint=<address>' },
+        { status: 400 }
+      );
     }
 
-    // mints virgülle ayrılır; whitespace temizle
-    const rawMints = mintParam.split(',').map(s => s.trim()).filter(Boolean);
+    const endpoint =
+      cluster === 'devnet'
+        ? 'https://api.devnet.solana.com'
+        : 'https://api.mainnet-beta.solana.com';
 
-    // SOL → WSOL normalize + geçersiz PublicKey guard
-    const normalized: string[] = [];
-    for (const m of rawMints) {
-      const mint = m.toUpperCase() === 'SOL' ? WSOL_MINT : m;
+    const umi = createUmi(endpoint);
+    const mintPk = umiPublicKey(mint);
+
+    const metadataPda = findMetadataPda(umi, { mint: mintPk });
+    const metadata = await fetchMetadata(umi, metadataPda);
+
+    // Umi: fields are top-level (not metadata.data.*)
+    const name = (metadata.name ?? '').trim();
+    const symbol = (metadata.symbol ?? '').trim();
+    const uri = (metadata.uri ?? '').trim();
+
+    let json: any = null;
+    if (uri && /^https?:\/\//i.test(uri)) {
       try {
-        // Geçersiz mint'leri direkt atla (500 yerine data: null döneceğiz)
-        new PublicKey(mint);
-        normalized.push(mint);
-      } catch {
-        // Geçersizse normalized'a eklemiyoruz; aşağıda null döneceğiz
-      }
-    }
-
-    const uncached = normalized.filter(m => !MEMO[m]);
-
-    if (uncached.length) {
-      const conn = getConnection();
-
-      // PDA adreslerini güvenli şekilde üret
-      const pdas: PublicKey[] = uncached.map(m => {
-        const mintKey = new PublicKey(m);
-        const [pda] = PublicKey.findProgramAddressSync(
-          [Buffer.from('metadata'), METADATA_PROGRAM_ID.toBuffer(), mintKey.toBuffer()],
-          METADATA_PROGRAM_ID
-        );
-        return pda;
-      });
-
-      const infos = await conn.getMultipleAccountsInfo(pdas);
-      for (let i = 0; i < infos.length; i++) {
-        const info = infos[i];
-        const mint = uncached[i];
-        if (!info?.data) continue;
-        try {
-          const [meta] = Metadata.deserialize(info.data);
-          const name = (meta.data.name || '').trim().replace(/\0+$/, '');
-          const symbol = (meta.data.symbol || '').trim().replace(/\0+$/, '');
-          const uri = (meta.data.uri || '').trim().replace(/\0+$/, '');
-          if (symbol) {
-            MEMO[mint] = { symbol, name: name || symbol, uri };
-          } else {
-            // Metadata var ama symbol yoksa yine de en azından name ile dolduralım
-            MEMO[mint] = { symbol: '', name: name || '', uri };
-          }
-        } catch {
-          // parse edilemediyse cache'e yazma; data[mint] null döneriz
+        const res = await fetch(uri, { cache: 'no-store' });
+        if (res.ok) {
+          json = await res.json();
         }
-      }
-
-      // basit hafıza temizliği (24 saat)
-      const now = Date.now();
-      if (now - LAST_CLEAN > 24 * 60 * 60 * 1000) {
-        MEMO = {};
-        LAST_CLEAN = now;
+      } catch {
+        json = null;
       }
     }
 
-    // Çıkış; geçersiz/parse edilemeyen mint'ler için null
-    const out: Record<string, MetaOut | null> = {};
-    for (const m of rawMints) {
-      const key = m.toUpperCase() === 'SOL' ? WSOL_MINT : m;
-      out[m] = MEMO[key] || null;
-    }
-
-    return NextResponse.json({ success: true, data: out });
-  } catch (e: any) {
-    // Beklenmeyen durumda bile anlaşılır mesaj verelim
-    return NextResponse.json({ success: false, error: e?.message || String(e) }, { status: 500 });
+    return NextResponse.json({
+      ok: true,
+      mint,
+      cluster,
+      name,
+      symbol,
+      uri,
+      onchain: metadata,
+      json,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { ok: false, error: err?.message || String(err) },
+      { status: 500 }
+    );
   }
 }
