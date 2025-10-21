@@ -3,12 +3,18 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { DOC_SECTIONS } from "../config";
 
+// Next 15'te params Promise olabildiği için tipleri async/await ile ele alıyoruz
 export async function generateStaticParams() {
   return DOC_SECTIONS.map((s) => ({ slug: s.slug }));
 }
 
-export function generateMetadata({ params }: { params: { slug: string } }) {
-  const idx = DOC_SECTIONS.findIndex((s) => s.slug === params.slug);
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const idx = DOC_SECTIONS.findIndex((s) => s.slug === slug);
   if (idx === -1) return {};
   const section = DOC_SECTIONS[idx];
   return {
@@ -17,22 +23,28 @@ export function generateMetadata({ params }: { params: { slug: string } }) {
   };
 }
 
-export default function DocSectionPage({ params }: { params: { slug: string } }) {
-  const idx = DOC_SECTIONS.findIndex((s) => s.slug === params.slug);
+export default async function DocSectionPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const idx = DOC_SECTIONS.findIndex((s) => s.slug === slug);
   if (idx === -1) notFound();
-  const section = DOC_SECTIONS[idx];
-  const Prev =
-    idx > 0 ? DOC_SECTIONS[idx - 1] : null;
-  const Next =
-    idx < DOC_SECTIONS.length - 1 ? DOC_SECTIONS[idx + 1] : null;
 
+  const section = DOC_SECTIONS[idx];
+  const Prev = idx > 0 ? DOC_SECTIONS[idx - 1] : null;
+  const Next = idx < DOC_SECTIONS.length - 1 ? DOC_SECTIONS[idx + 1] : null;
   const Content = section.Content;
 
   return (
     <article className="rounded-2xl border border-white/10 bg-[#0b0f18] p-6">
       <header className="mb-6">
         <div className="text-xs text-white/50">
-          <Link href="/docs" className="underline">Whitepaper</Link> / {section.title}
+          <Link href="/docs" className="underline">
+            Whitepaper
+          </Link>{" "}
+          / {section.title}
         </div>
         <h1 className="text-2xl font-bold mt-2">{section.title}</h1>
         {section.summary && (
@@ -53,7 +65,9 @@ export default function DocSectionPage({ params }: { params: { slug: string } })
           >
             ← {Prev.title}
           </Link>
-        ) : <span />}
+        ) : (
+          <span />
+        )}
 
         {Next ? (
           <Link
@@ -62,7 +76,9 @@ export default function DocSectionPage({ params }: { params: { slug: string } })
           >
             {Next.title} →
           </Link>
-        ) : <span />}
+        ) : (
+          <span />
+        )}
       </footer>
     </article>
   );
