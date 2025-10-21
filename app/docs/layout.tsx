@@ -80,16 +80,29 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
               );
             })}
           </nav>
-          <div className="mt-4 text-xs text-white/50 space-y-1">
-            <Link href="/" className="underline">
-              ← Back to Home
+            {/* Sidebar footer (desktop) */}
+            <div className="mt-4 text-xs text-white/60">
+            {/* Print first */}
+            <Link
+                href="/docs/print"
+                className="group inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 hover:bg-white/5 transition"
+            >
+                <span className="text-base leading-none">🖨️</span>
+                <span>Print / PDF view</span>
             </Link>
-            <div className="mt-2">
-              <Link href="/docs/print" className="underline">
-                Print / PDF view
-              </Link>
+
+            {/* separator */}
+            <div className="my-3 border-t border-white/10" />
+
+            {/* Back to Home (placed last, subtler) */}
+            <Link
+                href="/"
+                className="group inline-flex items-center gap-1.5 text-white/60 hover:text-white transition"
+            >
+                <span className="-ml-0.5">←</span>
+                <span>Back to Home</span>
+            </Link>
             </div>
-          </div>
         </aside>
 
         {/* Main content */}
@@ -150,17 +163,31 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
               );
             })}
           </nav>
-
-          <div className="mt-auto p-4 text-xs text-white/50 border-t border-white/10 space-y-1">
-            <Link href="/" className="underline" onClick={() => setOpen(false)}>
-              ← Back to Home
+            {/* Drawer footer (mobile) */}
+            <div className="mt-auto p-4 text-xs text-white/60 border-t border-white/10 space-y-2">
+            {/* Print first */}
+            <Link
+                href="/docs/print"
+                onClick={() => setOpen(false)}
+                className="group flex items-center justify-between rounded-md border border-white/10 px-3 py-2 hover:bg-white/5 transition"
+            >
+                <span className="inline-flex items-center gap-1.5">
+                <span className="text-base leading-none">🖨️</span>
+                <span>Print / PDF view</span>
+                </span>
+                <span className="opacity-60 group-hover:opacity-100">↗</span>
             </Link>
-            <div>
-              <Link href="/docs/print" className="underline" onClick={() => setOpen(false)}>
-                Print / PDF view
-              </Link>
+
+            {/* Back to Home (last, subtle) */}
+            <Link
+                href="/"
+                onClick={() => setOpen(false)}
+                className="group inline-flex items-center gap-1.5 text-white/60 hover:text-white transition"
+            >
+                <span>←</span>
+                <span>Back to Home</span>
+            </Link>
             </div>
-          </div>
         </div>
       </div>
     </div>
