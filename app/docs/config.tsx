@@ -5,14 +5,17 @@ export type DocSection = {
     slug: string;
     title: string;
     summary?: string;
-    // Keep content as JSX to avoid MDX complexity for now.
+    updatedAt?: string; // ISO
+    words?: number;     // approx read time calc
     Content: () => React.ReactElement;
-  };
+  };  
   
   export const DOC_SECTIONS: DocSection[] = [
     {
       slug: "abstract",
       title: "Abstract",
+      updatedAt: "2025-10-20",
+      words: 160,
       summary:
         "Protocol intent: revive stranded value into MEGY via pool-proportional phases, with auditable, transparent rules.",
       Content: () => (
@@ -30,6 +33,8 @@ export type DocSection = {
     {
       slug: "problem-and-motivation",
       title: "Problem & Motivation",
+      updatedAt: "2025-10-20",
+      words: 160,
       summary:
         "Billions in illiquid tokens; need transparent conversion into a common, future-oriented unit.",
       Content: () => (
@@ -48,6 +53,8 @@ export type DocSection = {
     {
       slug: "system-overview",
       title: "System Overview",
+      updatedAt: "2025-10-20",
+      words: 160,
       summary:
         "Inputs → valuation → pool phase → pro-rata allocation → snapshot/claim.",
       Content: () => (
@@ -64,6 +71,8 @@ export type DocSection = {
     {
       slug: "distribution-mechanics",
       title: "Distribution Mechanics (Pool-Proportional)",
+      updatedAt: "2025-10-20",
+      words: 160,
       summary:
         "Phase variables, floor policy, effective pool, caps/vesting.",
       Content: () => (
@@ -90,6 +99,8 @@ export type DocSection = {
     {
       slug: "valuation",
       title: "Valuation & Price Integrity",
+      updatedAt: "2025-10-20",
+      words: 160,
       summary:
         "Priority stack: CoinGecko → Raydium → Jupiter → CMC; safeguards and caches.",
       Content: () => (
@@ -112,6 +123,8 @@ export type DocSection = {
     {
       slug: "governance-and-admin",
       title: "Governance & Admin Controls",
+      updatedAt: "2025-10-20",
+      words: 160,
       summary:
         "Multisig, feature flags, audit logs, emergency procedures.",
       Content: () => (
@@ -128,6 +141,8 @@ export type DocSection = {
     {
       slug: "registry-and-policy",
       title: "Token Registry & Policy",
+      updatedAt: "2025-10-20",
+      words: 160,
       summary:
         "healthy / walking_dead / deadcoin / redlist / blacklist; refunds (blacklist only).",
       Content: () => (
@@ -142,6 +157,8 @@ export type DocSection = {
     {
       slug: "snapshot-claim-fees",
       title: "Snapshot, Claim & Fees",
+      updatedAt: "2025-10-20",
+      words: 160,
       summary:
         "Dual trigger, $0.5 SOL fee example, partial claims, claim records.",
       Content: () => (
@@ -157,6 +174,8 @@ export type DocSection = {
     {
       slug: "corepoint-pvc",
       title: "CorePoint & PVC",
+      updatedAt: "2025-10-20",
+      words: 160,
       summary:
         "Real-time score (contributions, referrals, shares, deadcoin multipliers) → leaderboards, PVC.",
       Content: () => (
@@ -171,6 +190,8 @@ export type DocSection = {
     {
       slug: "security-compliance",
       title: "Security, Risk & Compliance",
+      updatedAt: "2025-10-20",
+      words: 160,
       summary:
         "Origin/CSRF guards, JWT admin, idempotency, rate limits, disclaimers.",
       Content: () => (
@@ -186,6 +207,8 @@ export type DocSection = {
     {
       slug: "roadmap",
       title: "Roadmap",
+      updatedAt: "2025-10-20",
+      words: 160,
       summary:
         "Phase-1 Solana, Phase-2 EVM, Phase-3 governance & audits.",
       Content: () => (
@@ -201,6 +224,8 @@ export type DocSection = {
     {
       slug: "disclaimers",
       title: "Disclaimers",
+      updatedAt: "2025-10-20",
+      words: 160,
       summary:
         "Informational document; parameters may evolve through governance.",
       Content: () => (
