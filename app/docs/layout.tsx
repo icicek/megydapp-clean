@@ -80,10 +80,15 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
               );
             })}
           </nav>
-          <div className="mt-4 text-xs text-white/50">
+          <div className="mt-4 text-xs text-white/50 space-y-1">
             <Link href="/" className="underline">
               ← Back to Home
             </Link>
+            <div className="mt-2">
+              <Link href="/docs/print" className="underline">
+                Print / PDF view
+              </Link>
+            </div>
           </div>
         </aside>
 
@@ -122,8 +127,6 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
               onClick={() => setOpen(false)}
               className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 hover:bg-white/5"
             >
-              {/* X */}
-              <span className="sr-only">Close</span>
               ✕
             </button>
           </div>
@@ -148,18 +151,18 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
             })}
           </nav>
 
-          <div className="mt-auto p-4 text-xs text-white/50 border-t border-white/10">
+          <div className="mt-auto p-4 text-xs text-white/50 border-t border-white/10 space-y-1">
             <Link href="/" className="underline" onClick={() => setOpen(false)}>
               ← Back to Home
             </Link>
+            <div>
+              <Link href="/docs/print" className="underline" onClick={() => setOpen(false)}>
+                Print / PDF view
+              </Link>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 }
-<div className="mt-2 text-xs text-white/50">
-  <Link href="/docs/print" className="underline">
-    Print / PDF view
-  </Link>
-</div>
