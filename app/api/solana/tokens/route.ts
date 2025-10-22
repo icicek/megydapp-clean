@@ -4,13 +4,15 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 
 export const runtime = 'nodejs';
+export const revalidate = 0;
+export const dynamic = 'force-dynamic';
 
 // Multi-provider sıra (ilk çalışan kullanılır)
 const RPC_CANDIDATES = [
   process.env.SOLANA_RPC,                 // Helius (önerilen)
   process.env.ALCHEMY_SOLANA_RPC,         // Alchemy (yedek)
   process.env.QUICKNODE_SOLANA_RPC,       // QuickNode (varsa)
-  process.env.NEXT_PUBLIC_SOLANA_RPC,     // public fallback (server'da yine işe yarar)
+  process.env.NEXT_PUBLIC_SOLANA_RPC,     // public fallback
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL, // public fallback
   'https://api.mainnet-beta.solana.com',  // son çare
 ].filter(Boolean) as string[];
@@ -20,8 +22,11 @@ const CACHE_TTL_MS = 30_000;
 type CacheEntry = { at: number; body: any; rpcUsed?: string };
 const cache = new Map<string, CacheEntry>();
 
-// Ayrıca CDN/Edge için cache header'ı: 30 sn canlı, 120 sn SWR
+// CDN/Edge için cache header'ı: 30 sn canlı, 120 sn SWR
 const CDN_CACHE_HEADER = 's-maxage=30, stale-while-revalidate=120';
+
+// Native SOL'u UI'da doğru ticker/ikonla göstermek için WSOL mint'ine mapliyoruz
+const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
 function isRateLimitedOrForbidden(err: unknown) {
   const s = String((err as any)?.message || err || '');
@@ -35,8 +40,22 @@ function isRateLimitedOrForbidden(err: unknown) {
   );
 }
 
-function mapParsed(accs: any[]) {
-  const out: { mint: string; amount: number }[] = [];
+type ParsedRow = {
+  mint: string;
+  raw: bigint;      // integer amount
+  decimals: number; // tokenAmount.decimals
+};
+
+function safeBigInt(n: string): bigint {
+  try { return BigInt(n); } catch { return BigInt(0); }
+}
+
+/**
+ * getParsedTokenAccountsByOwner / getParsedProgramAccounts sonuçlarını tek tipe indirger.
+ * Her hesap için mint + raw + decimals döner. (ui hesaplamayı UI/raporda yaparız)
+ */
+function extractRows(accs: any[]): ParsedRow[] {
+  const out: ParsedRow[] = [];
   for (const { account } of accs) {
     const info = account?.data?.parsed?.info;
     const amt = info?.tokenAmount;
@@ -44,13 +63,9 @@ function mapParsed(accs: any[]) {
     if (!mint || !amt) continue;
 
     const decimals = Number(amt.decimals ?? 0);
-    let ui = typeof amt.uiAmount === 'number' ? amt.uiAmount : undefined;
-    if (ui == null) {
-      const raw = typeof amt.amount === 'string' ? amt.amount : '0';
-      try { ui = Number(BigInt(raw)) / Math.pow(10, decimals); }
-      catch { ui = Number(raw) / Math.pow(10, decimals); }
-    }
-    if (ui > 0) out.push({ mint, amount: ui });
+    const raw = safeBigInt(typeof amt.amount === 'string' ? amt.amount : '0');
+    // boş/kapalı hesaplar hamda 0 olur; UI isterse filtreler
+    out.push({ mint, raw, decimals: Number.isFinite(decimals) ? decimals : 0 });
   }
   return out;
 }
@@ -70,7 +85,7 @@ async function fetchOnce(conn: Connection, owner: PublicKey) {
 
   // 2) parsed boşsa program-parsed fallback
   if (accs.length === 0) {
-    const filters = [{ memcmp: { offset: 32, bytes: owner.toBase58() } }];
+    const filters = [{ memcmp: { offset: 32, bytes: owner.toBase58() } }]; // owner alanı 32..64
     const [p1, p2] = await Promise.allSettled([
       conn.getParsedProgramAccounts(TOKEN_PROGRAM_ID, { filters, commitment: c }),
       conn.getParsedProgramAccounts(TOKEN_2022_PROGRAM_ID, { filters, commitment: c }),
@@ -80,28 +95,53 @@ async function fetchOnce(conn: Connection, owner: PublicKey) {
     accs = [...v1, ...v2].map((x: any) => ({ account: x.account }));
   }
 
-  // 3) map + merge
-  const positive = mapParsed(accs);
-  const merged = new Map<string, number>();
-  for (const t of positive) merged.set(t.mint, (merged.get(t.mint) ?? 0) + t.amount);
+  // 3) normalize
+  const rows = extractRows(accs);
 
-  // 4) SOL
+  // 4) merge by mint (ham miktarları topla; decimals aynı mint için sabittir)
+  const merged = new Map<string, { raw: bigint; decimals: number }>();
+  for (const r of rows) {
+    const prev = merged.get(r.mint);
+    if (!prev) merged.set(r.mint, { raw: r.raw, decimals: r.decimals });
+    else merged.set(r.mint, { raw: prev.raw + r.raw, decimals: prev.decimals });
+  }
+
+  // 5) Native SOL'u ekle (WSOL mint ile, decimals=9) — UI token list ile eşleşsin
   try {
     const lamports = await conn.getBalance(owner, c);
-    if (lamports > 0) merged.set('SOL', (merged.get('SOL') ?? 0) + lamports / 1e9);
-  } catch {}
+    if (lamports > 0) {
+      const prev = merged.get(WSOL_MINT);
+      const raw = BigInt(lamports); // 1e9 lamports = 1 SOL
+      if (!prev) merged.set(WSOL_MINT, { raw, decimals: 9 });
+      else merged.set(WSOL_MINT, { raw: prev.raw + raw, decimals: prev.decimals });
+    }
+  } catch {
+    // SOL okunamadıysa es geç
+  }
 
-  // 5) token list
-  return Array.from(merged.entries())
-    .map(([mint, amount]) => ({ mint, amount }))
+  // 6) response model: { mint, raw, decimals, amount } — amount: ui (number)
+  // amount = Number(raw) / 10^decimals → çok büyük tokenlerde precision kaybı UI için kabul edilebilir;
+  // UI'da mümkünse raw + decimals ile formatlansın.
+  const tokens = Array.from(merged.entries())
+    .map(([mint, { raw, decimals }]) => {
+      const amount =
+        decimals > 0
+          ? Number(raw) / Math.pow(10, decimals)
+          : Number(raw);
+      return { mint, raw: raw.toString(), decimals, amount };
+    })
     .sort((a, b) => b.amount - a.amount);
+
+  return tokens;
 }
 
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const owner = url.searchParams.get('owner');
-    if (!owner) return NextResponse.json({ success: false, error: 'Missing owner' }, { status: 400 });
+    if (!owner) {
+      return NextResponse.json({ success: false, error: 'Missing owner' }, { status: 400 });
+    }
 
     const cacheKey = owner;
     const now = Date.now();
@@ -119,27 +159,24 @@ export async function GET(req: Request) {
     let lastErr: any = null;
     let lastRpc = '';
 
-    // Failover: sırayla bütün RPC'ler
     for (const ep of RPC_CANDIDATES) {
       try {
         const conn = new Connection(ep, 'confirmed');
         const tokens = await fetchOnce(conn, new PublicKey(owner));
 
-        const body = { success: true, tokens };
+        const body = { success: true, tokens, wsolMint: WSOL_MINT };
         const res = NextResponse.json(body);
         res.headers.set('x-cache', 'MISS');
         res.headers.set('x-rpc-used', ep);
         res.headers.set('Cache-Control', CDN_CACHE_HEADER);
 
-        // sıcak cache’e yaz
         cache.set(cacheKey, { at: now, body, rpcUsed: ep });
-
         return res;
       } catch (e) {
         lastErr = e;
         lastRpc = ep;
-        if (isRateLimitedOrForbidden(e)) continue; // sıradakine geç
-        // başka bir hata da olsa denemeye devam ediyoruz
+        if (isRateLimitedOrForbidden(e)) continue; // rate/forbidden → sıradaki RPC
+        // başka hatalarda da sıradakine geçmeye devam et
       }
     }
 
