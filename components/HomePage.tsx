@@ -50,10 +50,15 @@ export default function HomePage() {
   };
 
   // 🔽 Cihazdan bağımsız, tutarlı semboller için meta çözümleri
-  const [resolvedMeta, setResolvedMeta] = useState<
-    Record<string, { symbol: string; name?: string; logoURI?: string; verified?: boolean }>
-  >({});
-
+  type ResolvedTokenMeta = {
+    symbol: string | null;
+    name?: string | null;
+    logoURI?: string | null;
+    verified?: boolean;
+  };
+  
+  const [resolvedMeta, setResolvedMeta] = useState<Record<string, ResolvedTokenMeta>>({});
+  
   useEffect(() => {
     if (!tokens.length) {
       setResolvedMeta({});
@@ -61,18 +66,29 @@ export default function HomePage() {
     }
     let cancelled = false;
     (async () => {
-      const entries = await Promise.all(
+      const pairs = await Promise.all(
         tokens.map(async (t) => {
-          const meta = await getTokenMeta(t.mint, t.symbol); // EN-US fallback içerir
-          return [t.mint, { symbol: meta.symbol, name: meta.name, logoURI: meta.logoURI, verified: meta.verified }] as const;
+          const meta = await getTokenMeta(t.mint, t.symbol);
+          const value: ResolvedTokenMeta = {
+            symbol: meta.symbol,
+            name: meta.name ?? null,
+            logoURI: meta.logoURI ?? null,
+            verified: meta.verified,
+          };
+          return { mint: t.mint, value };
         })
       );
-      if (!cancelled) setResolvedMeta(Object.fromEntries(entries));
+  
+      if (!cancelled) {
+        const map: Record<string, ResolvedTokenMeta> = {};
+        for (const { mint, value } of pairs) map[mint] = value;
+        setResolvedMeta(map);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [tokens]);
+  }, [tokens]);  
 
   /** ---------------- GLOBAL STATS ---------------- */
   const [globalStats, setGlobalStats] = useState({
@@ -185,9 +201,10 @@ export default function HomePage() {
                   {tokens.map((token) => {
                     const meta = resolvedMeta[token.mint];
                     const label =
-                      meta?.symbol ||
-                      token.symbol ||
-                      token.mint.slice(0, 4).toLocaleUpperCase('en-US'); // locale-safe fallback
+                      meta?.symbol ??
+                      token.symbol ??
+                      token.mint.slice(0, 4).toUpperCase();
+
                     return (
                       <option key={token.mint} value={token.mint}>
                         {label} — {token.amount.toFixed(4)}
