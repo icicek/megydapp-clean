@@ -80,29 +80,30 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
               );
             })}
           </nav>
-            {/* Sidebar footer (desktop) */}
-            <div className="mt-4 text-xs text-white/60">
+
+          {/* Sidebar footer (desktop) */}
+          <div className="mt-4 text-xs text-white/60">
             {/* Print first */}
             <Link
-                href="/docs/print"
-                className="group inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 hover:bg-white/5 transition"
+              href="/docs/print"
+              className="group inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 hover:bg-white/5 transition"
             >
-                <span className="text-base leading-none">🖨️</span>
-                <span>Print / PDF view</span>
+              <span className="text-base leading-none">🖨️</span>
+              <span>Print / PDF view</span>
             </Link>
 
             {/* separator */}
             <div className="my-3 border-t border-white/10" />
 
-            {/* Back to Home (placed last, subtler) */}
+            {/* Back to Home (last, subtle) */}
             <Link
-                href="/"
-                className="group inline-flex items-center gap-1.5 text-white/60 hover:text-white transition"
+              href="/"
+              className="group inline-flex items-center gap-1.5 text-white/60 hover:text-white transition"
             >
-                <span className="-ml-0.5">←</span>
-                <span>Back to Home</span>
+              <span className="-ml-0.5">←</span>
+              <span>Back to Home</span>
             </Link>
-            </div>
+          </div>
         </aside>
 
         {/* Main content */}
@@ -163,31 +164,32 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
               );
             })}
           </nav>
-            {/* Drawer footer (mobile) */}
-            <div className="mt-auto p-4 text-xs text-white/60 border-t border-white/10 space-y-2">
+
+          {/* Drawer footer (mobile) */}
+          <div className="mt-auto p-4 text-xs text-white/60 border-t border-white/10 space-y-2">
             {/* Print first */}
             <Link
-                href="/docs/print"
-                onClick={() => setOpen(false)}
-                className="group flex items-center justify-between rounded-md border border-white/10 px-3 py-2 hover:bg-white/5 transition"
+              href="/docs/print"
+              onClick={() => setOpen(false)}
+              className="group flex items-center justify-between rounded-md border border-white/10 px-3 py-2 hover:bg-white/5 transition"
             >
-                <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5">
                 <span className="text-base leading-none">🖨️</span>
                 <span>Print / PDF view</span>
-                </span>
-                <span className="opacity-60 group-hover:opacity-100">↗</span>
+              </span>
+              <span className="opacity-60 group-hover:opacity-100">↗</span>
             </Link>
 
             {/* Back to Home (last, subtle) */}
             <Link
-                href="/"
-                onClick={() => setOpen(false)}
-                className="group inline-flex items-center gap-1.5 text-white/60 hover:text-white transition"
+              href="/"
+              onClick={() => setOpen(false)}
+              className="group inline-flex items-center gap-1.5 text-white/60 hover:text-white transition"
             >
-                <span>←</span>
-                <span>Back to Home</span>
+              <span>←</span>
+              <span>Back to Home</span>
             </Link>
-            </div>
+          </div>
         </div>
       </div>
     </div>

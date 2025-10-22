@@ -25,13 +25,13 @@ export const DOC_SECTIONS: DocSection[] = [
           revives stranded crypto value (“deadcoins” & “walking-deadcoins”) into a
           common unit, <strong>$MEGY</strong>. Instead of relying on a volatile market
           price, each phase opens a fixed supply pool and allocates MEGY
-          <em>pro-rata</em> by contributed USD value. The design emphasizes fairness,
-          auditability, and resilience via multi-source valuation, transparent floor
+          <em> pro-rata</em> by contributed USD value. The design emphasizes fairness,
+          auditability, and resilience via multi-source valuation, a transparent floor
           policy, public dashboards, and explicit governance controls.
         </p>
         <p>
           Practically, participants contribute supported assets; the protocol normalizes
-          them to USD using a priority pricing stack with safeguards. At snapshot, MEGY
+          them to USD using a prioritized pricing stack with safeguards. At snapshot, MEGY
           is distributed according to each wallet’s share of phase demand. Optional
           vesting, caps, and anti-sybil controls can be enabled to smooth supply and
           protect the system.
@@ -60,7 +60,7 @@ export const DOC_SECTIONS: DocSection[] = [
         <p>
           The <code>P_effective</code> depends on the phase floor policy. Settlement
           occurs at snapshot, after which users can claim their MEGY (optionally paying
-          a small network fee, e.g. $0.5 in SOL). Admin/multisig governs feature flags
+          a small network fee, e.g., $0.5 in SOL). Admin/multisig governs feature flags
           (<code>app_enabled</code>, <code>claim_open</code>) and phase parameters,
           with audit logs and optional on-chain reference hashes to ensure traceability.
         </p>
@@ -88,8 +88,7 @@ export const DOC_SECTIONS: DocSection[] = [
             Monotone floor: <code>r_floorₖ ≥ max(r_realized₍ₖ₋₁₎, r_targetₖ)</code>
           </li>
           <li>
-            Effective pool:{" "}
-            <code>P_effective = min(Pₖ, USDₖ / r_floorₖ)</code>
+            Effective pool: <code>P_effective = min(Pₖ, USDₖ / r_floorₖ)</code>
           </li>
           <li>
             Remainder <code>(Pₖ − P_effective)</code> rolls into the next phase if
@@ -153,47 +152,57 @@ export const DOC_SECTIONS: DocSection[] = [
     ),
   },
 
-  // --- Leave other sections as placeholders; we'll enrich over time ---
+  // --- The remaining sections (expanded in English) ---
   {
     slug: "governance-and-admin",
     title: "Governance & Admin Controls",
     updatedAt: "2025-10-21",
     words: 420,
-    summary: "Multisig, feature flags, audit logs, emergency procedures, and operational discipline.",
+    summary:
+      "Multisig, feature flags, audit logs, emergency procedures, and operational discipline.",
     Content: () => (
       <>
         <h3 className="font-semibold mb-2">6.1 Roles & AuthN/AuthZ</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li><strong>Treasury Multisig:</strong> custody & sensitive parameter changes.</li>
-          <li><strong>Admin Panel:</strong> hardware-wallet signMessage → nonce → verify → {`coincarnation_admin`} cookie (HttpOnly, SameSite).</li>
-          <li><strong>Role separation:</strong> Ops (runtime toggles), Risk (registry/policy), Finance (treasury), Audit (read-only export).</li>
+          <li><strong>Treasury Multisig:</strong> custody and sensitive parameter changes.</li>
+          <li>
+            <strong>Admin Panel:</strong> hardware-wallet <code>signMessage</code> → nonce → verify →{" "}
+            <code>coincarnation_admin</code> cookie (HttpOnly, SameSite).
+          </li>
+          <li>
+            <strong>Role separation:</strong> Ops (runtime toggles), Risk (registry/policy),
+            Finance (treasury), Audit (read-only export).
+          </li>
         </ul>
-  
+
         <h3 className="font-semibold mt-4 mb-2">6.2 Feature Flags</h3>
         <ul className="list-disc pl-5 space-y-1">
           <li><code>app_enabled</code>: global kill-switch.</li>
-          <li><code>claim_open</code>: snapshot sonrası talep penceresi kontrolü.</li>
-          <li><code>distribution_pool</code>, <code>coin_rate</code>: faz havuzu ve referans oran parametreleri.</li>
+          <li><code>claim_open</code>: claim window control after snapshot.</li>
+          <li>
+            <code>distribution_pool</code>, <code>coin_rate</code>: phase pool and reference rate
+            parameters.
+          </li>
           <li><code>cron_enabled</code>: reclassifier cron guard.</li>
         </ul>
-  
+
         <h3 className="font-semibold mt-4 mb-2">6.3 Change Management</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li><strong>Cooldowns:</strong> kritik parametrelerde değişim aralığı; “announce → grace → apply”.</li>
-          <li><strong>On-chain ref-hash (opsiyonel):</strong> parametre set’lerinin hash’i zincire yazılarak kamu doğrulanabilirliği.</li>
-          <li><strong>CSV & public dashboards:</strong> dış denetime uygun görünürlük.</li>
+          <li><strong>Cooldowns:</strong> change interval for critical parameters—“announce → grace → apply”.</li>
+          <li><strong>On-chain ref-hash (optional):</strong> parameter set hashes written on-chain to enable public verification.</li>
+          <li><strong>CSV & public dashboards:</strong> external-audit-friendly visibility.</li>
         </ul>
-  
+
         <h3 className="font-semibold mt-4 mb-2">6.4 Emergency Procedures</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Global pause (<code>app_enabled=false</code>), per-token intake stop (registry).</li>
-          <li>Blacklist tespiti → geçmiş katkılara ilişkin <em>opsiyonel</em> iade akışı.</li>
+          <li>Global pause (<code>app_enabled=false</code>), per-token intake stop via registry.</li>
+          <li>Blacklist detection → optional refund flow for past contributions.</li>
         </ul>
-  
+
         <h3 className="font-semibold mt-4 mb-2">6.5 Auditability</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li><code>admin_audit</code> tablosu: kim/neyi/ne zaman değiştirdi.</li>
-          <li>Her cron koşusu → <code>cron_runs</code> ve diff’ler → <code>token_audit</code>.</li>
+          <li><code>admin_audit</code> table: who changed what and when.</li>
+          <li>Each cron run → <code>cron_runs</code>; diffs written to <code>token_audit</code>.</li>
         </ul>
       </>
     ),
@@ -203,41 +212,51 @@ export const DOC_SECTIONS: DocSection[] = [
     title: "Token Registry & Policy",
     updatedAt: "2025-10-21",
     words: 460,
-    summary: "Status matrix, intake rules, redlist/blacklist semantics, reclassification & refunds.",
+    summary:
+      "Status matrix, intake rules, redlist/blacklist semantics, reclassification & refunds.",
     Content: () => (
       <>
         <h3 className="font-semibold mb-2">7.1 Status Matrix</h3>
         <ul className="list-disc pl-5 space-y-1">
           <li><code>healthy</code>: normal intake.</li>
-          <li><code>walking_dead</code>: intake açık, gözlem altında.</li>
-          <li><code>deadcoin</code>: revival odaklı, özel görseller/etiketleme.</li>
-          <li><code>redlist</code>: eklenme tarihinden sonra <strong>yeni katkı engelli</strong>; geçmiş katkılar geçerli.</li>
-          <li><code>blacklist</code>: tamamen engelli; geçmiş katkılar <strong>geçersiz</strong>; opsiyonel iade.</li>
+          <li><code>walking_dead</code>: intake allowed, under observation.</li>
+          <li><code>deadcoin</code>: revival-focused; special visuals/labeling.</li>
+          <li>
+            <code>redlist</code>: new intake <strong>blocked</strong> after add-date; past
+            contributions remain valid.
+          </li>
+          <li>
+            <code>blacklist</code>: fully disallowed; past contributions <strong>invalid</strong>;
+            optional refunds.
+          </li>
         </ul>
-  
+
         <h3 className="font-semibold mt-4 mb-2">7.2 Intake Rules & Guards</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Ön kontrol: network uyumu, mint/address formatı, min-liq/pricing eşiği.</li>
-          <li>Valuation pipeline’ı başarıya ulaşmadan intake tamamlanmaz.</li>
-          <li>Per-token cap ve per-wallet cap opsiyonel.</li>
+          <li>Pre-check: network match, mint/address format, min-liquidity/pricing threshold.</li>
+          <li>Intake doesn’t finalize until valuation pipeline yields a valid price.</li>
+          <li>Per-token cap and per-wallet cap are optional.</li>
         </ul>
-  
+
         <h3 className="font-semibold mt-4 mb-2">7.3 Redlist vs Blacklist</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li><strong>Redlist:</strong> ileriye dönük yasak; geriye dönük katkılar korunur.</li>
-          <li><strong>Blacklist:</strong> geriye dönük <em>geçersiz</em>; kullanıcıya opsiyonel iade akışı (orijinal cüzdana).</li>
+          <li><strong>Redlist:</strong> forward-looking ban; historical contributions kept.</li>
+          <li><strong>Blacklist:</strong> retroactively <em>invalid</em>; optional refund to originating wallet.</li>
         </ul>
-  
+
         <h3 className="font-semibold mt-4 mb-2">7.4 Reclassification</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Cron job: yaş, fiyat hareketsizliği, oy/vaka tetikleyicileri ile <code>walking_dead → deadcoin</code> eskalasyonu.</li>
-          <li>Tüm statü değişiklikleri <code>token_audit</code>’e yazılır.</li>
+          <li>
+            Cron job escalates <code>walking_dead → deadcoin</code> based on age, price inactivity,
+            and case/vote triggers.
+          </li>
+          <li>All status changes are written to <code>token_audit</code>.</li>
         </ul>
-  
+
         <h3 className="font-semibold mt-4 mb-2">7.5 Refunds (Blacklist-only)</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li>İade opsiyonel ve yalnızca <code>blacklist</code> için.</li>
-          <li>Her iade talebi tekilleştirilir, orijinal gönderen cüzdana yönlendirilir.</li>
+          <li>Refunds are optional and only for <code>blacklist</code> items.</li>
+          <li>Each refund is deduplicated and directed to the original sender wallet.</li>
         </ul>
       </>
     ),
@@ -254,7 +273,7 @@ export const DOC_SECTIONS: DocSection[] = [
         <ul className="list-disc pl-5 space-y-1">
           <li>Dual trigger: pool threshold + minimum time (or governance override).</li>
           <li>Small network fee (e.g., $0.5 in SOL) to claim.</li>
-          <li>Partial claim optional; each claim recorded with txid & fee receipt.</li>
+          <li>Partial claim optional; each claim recorded with txid and fee receipt.</li>
         </ul>
       </>
     ),
@@ -280,34 +299,38 @@ export const DOC_SECTIONS: DocSection[] = [
     title: "Security, Risk & Compliance",
     updatedAt: "2025-10-21",
     words: 500,
-    summary: "Origin/CSRF, JWT cookies, idempotency & replay guards, data hygiene, legal posture.",
+    summary:
+      "Origin/CSRF, JWT cookies, idempotency & replay guards, data hygiene, legal posture.",
     Content: () => (
       <>
         <h3 className="font-semibold mb-2">11.1 Application Security</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Admin cookie: HttpOnly, SameSite, kısa ömür; origin ve CSRF kontrolü.</li>
-          <li>Idempotency keys & replay protection tüm yazma işlemlerinde.</li>
-          <li>Rate-limits; admin alanları için wallet allowlist.</li>
-          <li>Signed caching & server-side price proxy (mobil uyum & CORS).</li>
+          <li>Admin cookie: HttpOnly, SameSite, short-lived; origin and CSRF checks.</li>
+          <li>Idempotency keys & replay protection on all write operations.</li>
+          <li>Rate limits; wallet allowlist for admin areas.</li>
+          <li>Signed caching & server-side price proxy (mobile-friendly & CORS-safe).</li>
         </ul>
-  
+
         <h3 className="font-semibold mt-4 mb-2">11.2 Data Hygiene</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li>PII minimizasyonu; kullanıcı ajanı/İP gibi alanlar yalnızca operasyonel ölçüde.</li>
-          <li>Log rotasyonu & saklama süresi; yalnızca gerekliyse tutulur.</li>
+          <li>PII minimization; user-agent/IP kept only to the operational extent necessary.</li>
+          <li>Log rotation & retention windows; store only when required.</li>
         </ul>
-  
+
         <h3 className="font-semibold mt-4 mb-2">11.3 Legal Posture</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Açık “no investment advice” beyanı; protokol kurallarının önceliği.</li>
-          <li>Non-custodial yaklaşım (teknik olarak mümkün olduğu ölçüde).</li>
-          <li>Yargı farkındalığı; yaptırım/sanction taraması <em>yapmıyoruz</em>, fakat ortakların regülasyonlarına uyumlu entegrasyon yolları değerlendirilebilir.</li>
+          <li>Clear “no investment advice” statement; protocol rules govern outcomes.</li>
+          <li>Non-custodial posture wherever technically feasible.</li>
+          <li>
+            Jurisdiction awareness; we do not perform sanctions screening ourselves, but
+            partner-compatible integrations can be considered where appropriate.
+          </li>
         </ul>
-  
+
         <h3 className="font-semibold mt-4 mb-2">11.4 Transparency</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Public dashboards; <code>export.csv</code> ve bağımsız denetime elverişli izlek.</li>
-          <li>Parametre değişimleri için “announce → grace → apply” ve (opsiyonel) on-chain ref-hash.</li>
+          <li>Public dashboards; <code>export.csv</code>; audit-friendly traces.</li>
+          <li>“Announce → grace → apply” for parameter changes and (optional) on-chain ref-hashes.</li>
         </ul>
       </>
     ),
