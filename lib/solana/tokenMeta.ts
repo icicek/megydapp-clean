@@ -1,19 +1,21 @@
 // lib/solana/tokenMeta.ts
-// Amaç: Mint için güvenilir {symbol, name, logoURI, verified} döndürmek.
-// Çatışma çözümü: Tokenlist 'verified' ise ve on-chain sembolü yok/kısa/şüpheli ise tokenlist'i tercih et.
+// Nihai kural (pragmatik):
+// 1) Tokenlist (/api/tokenlist) varsa, oradaki symbol/name HER ZAMAN öncelikli.
+// 2) On-chain (/api/tokenmeta) sadece tokenlist'te eksik olan alanları tamamlar.
+// 3) Son çare: null (UI zaten mint kısaltmasına düşecek).
 
 export type TokenMeta = {
   symbol: string | null;
   name: string | null;
   logoURI?: string | null;
   verified?: boolean;
-  source?: 'onchain' | 'tokenlist' | 'mixed' | 'fallback';
+  source?: 'tokenlist' | 'onchain' | 'mixed' | 'fallback';
 };
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
-// Eski kötü cache'i kırmak için versiyonlayalım
-const META_VER = 'v4';
+// Eski cache'leri kırmak için versiyon artır
+const META_VER = 'v5';
 const MEMO = new Map<string, TokenMeta>();
 
 type ListRow = {
@@ -30,13 +32,15 @@ function tidy(x: string | null | undefined) {
   return s || null;
 }
 
-function looksSuspicious(sym: string | null): boolean {
-  if (!sym) return true;
-  const s = sym.trim();
-  // 1–2 karakterli “ZN” gibi semboller çoğunlukla hatalı/placeholder oluyor
-  if (s.length <= 2) return true;
-  // “UNKNOWN”, “TOKEN”, “N/A” gibi kalıpları da istersen ekleyebilirsin
-  return false;
+async function fetchTokenMap(): Promise<Record<string, ListRow> | null> {
+  try {
+    const r = await fetch('/api/tokenlist', { cache: 'no-store' });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return (j?.data as Record<string, ListRow>) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 async function fetchOnchainMeta(
@@ -44,6 +48,7 @@ async function fetchOnchainMeta(
   cluster: 'mainnet-beta' | 'devnet' = 'mainnet-beta'
 ): Promise<{ symbol: string | null; name: string | null } | null> {
   try {
+    // Cache bypass
     const r = await fetch(
       `/api/tokenmeta?mint=${mint}&cluster=${cluster}&_=${Date.now()}`,
       { cache: 'no-store' }
@@ -57,16 +62,11 @@ async function fetchOnchainMeta(
   }
 }
 
-async function fetchTokenMap(): Promise<Record<string, ListRow> | null> {
-  try {
-    const r = await fetch('/api/tokenlist', { cache: 'no-store' });
-    if (!r.ok) return null;
-    const j = await r.json();
-    return (j?.data as Record<string, ListRow>) ?? null;
-  } catch {
-    return null;
-  }
-}
+// İsteğe bağlı: birkaç yüksek profilli alias (tokenlist boşsa son çare)
+// POPCAT
+const OVERRIDES: Record<string, { symbol: string; name?: string }> = {
+  '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr': { symbol: 'POPCAT', name: 'POPCAT' },
+};
 
 export async function getTokenMeta(
   mint: string,
@@ -77,7 +77,7 @@ export async function getTokenMeta(
   const hit = MEMO.get(key);
   if (hit) return hit;
 
-  // WSOL hızlı dönüş
+  // SOL hızlı dönüş
   if (mint === WSOL_MINT) {
     const sol: TokenMeta = {
       symbol: 'SOL',
@@ -90,51 +90,52 @@ export async function getTokenMeta(
     return sol;
   }
 
-  // 1) Kaynakları topla
-  const [oc, map] = await Promise.all([
-    fetchOnchainMeta(mint, cluster),
-    fetchTokenMap(),
-  ]);
-
-  const row = map?.[mint] || null;
-
-  // Adaylar
-  const ocSymbol = tidy(oc?.symbol);
-  const ocName = tidy(oc?.name);
-  const tlSymbol = tidy(row?.symbol);
-  const tlName = tidy(row?.name);
+  // 1) İlk olarak TOKENLIST — daima öncelikli gerçek
+  const map = await fetchTokenMap();
+  const row = map?.[mint] ?? null;
+  let tlSymbol = tidy(row?.symbol);
+  let tlName = tidy(row?.name);
   const tlLogo = row?.logoURI ?? null;
   const tlVerified = Boolean(row?.verified);
 
-  // 2) Çatışma çözümü — KURAL:
-  // - Eğer tokenlist verified ise VE:
-  //   * on-chain sembol yoksa, YA DA
-  //   * on-chain sembol "şüpheli" (<=2 uzunluk vs.)
-  //   => tokenlist sembolünü TERCIH ET.
-  // - Aksi halde on-chain'i tercih et (mevzuat gereği zinciri önde tutmak isteyebiliriz).
+  // 2) On-chain sadece eksikleri tamamlamak için
+  const oc = await fetchOnchainMeta(mint, cluster);
+  const ocSymbol = tidy(oc?.symbol);
+  const ocName = tidy(oc?.name);
+
   let symbol: string | null = null;
   let name: string | null = null;
   let logoURI: string | null = null;
   let verified = false;
   let source: TokenMeta['source'] = 'fallback';
 
-  const shouldPreferTokenlist =
-    tlVerified && (ocSymbol == null || looksSuspicious(ocSymbol));
-
-  if (shouldPreferTokenlist && tlSymbol) {
-    // Tokenlist sembolü (doğrulanmış) — isim on-chain ya da listeden
-    symbol = tlSymbol;
-    name = ocName ?? tlName ?? null;
-    logoURI = tlLogo;
-    verified = true;
-    source = ocSymbol || ocName ? 'mixed' : 'tokenlist';
-  } else {
-    // On-chain öncelikli
-    symbol = ocSymbol ?? tlSymbol ?? null;
-    name = ocName ?? tlName ?? null;
+  if (tlSymbol || tlName) {
+    // Tokenlist varsa: sembol ve ismi tokenlist'ten al
+    symbol = tlSymbol ?? null;
+    name = tlName ?? null;
     logoURI = tlLogo;
     verified = tlVerified;
-    source = ocSymbol || ocName ? 'onchain' : (tlSymbol || tlName ? 'tokenlist' : 'fallback');
+    // Eksikse on-chain ile TAMAMLA (EZME!)
+    if (!symbol && ocSymbol) symbol = ocSymbol;
+    if (!name && ocName) name = ocName;
+    source = ocSymbol || ocName ? 'mixed' : 'tokenlist';
+  } else {
+    // Tokenlist yoksa: on-chain
+    symbol = ocSymbol ?? null;
+    name = ocName ?? null;
+    logoURI = null;
+    verified = false;
+    source = 'onchain';
+
+    // On-chain de yoksa, OVERRIDES
+    if (!symbol) {
+      const o = OVERRIDES[mint];
+      if (o?.symbol) {
+        symbol = o.symbol;
+        name = name ?? o.name ?? null;
+        source = 'fallback';
+      }
+    }
   }
 
   const out: TokenMeta = { symbol, name, logoURI, verified, source };
