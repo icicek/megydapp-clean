@@ -38,7 +38,8 @@ export default function HomePage() {
     autoRefetchOnAccountChange: true,
     pollMs: POLL_MS, // ⬅️ prod: 60s, dev: 20s
   });
-
+  
+  const metaReady = tokens.length > 0 && tokens.every(t => resolvedMeta[t.mint]);
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showSolModal, setShowSolModal] = useState(false);
 
@@ -56,8 +57,8 @@ export default function HomePage() {
     logoURI?: string | null;
     verified?: boolean;
   };
-  
   const [resolvedMeta, setResolvedMeta] = useState<Record<string, ResolvedTokenMeta>>({});
+  
   
   useEffect(() => {
     if (!tokens.length) {
