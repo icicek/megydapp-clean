@@ -14,7 +14,7 @@ import ConnectBar from '@/components/wallet/ConnectBar';
 import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
 import { useChain } from '@/app/providers/ChainProvider';
 
-// 🔽 Tek-kaynak token meta çözümleyici
+// Tek-kaynak token meta çözümleyici
 import { getTokenMeta } from '@/lib/solana/tokenMeta';
 
 // PROD'da 60s, DEV'de 20s polling
@@ -49,16 +49,15 @@ export default function HomePage() {
     setShowSolModal(Boolean(token));
   };
 
-  // 🔽 Cihazdan bağımsız, tutarlı semboller için meta çözümleri
-type ResolvedTokenMeta = {
-  symbol: string | null;
-  name?: string | null;
-  logoURI?: string | null;
-  verified?: boolean;
-};
-const [resolvedMeta, setResolvedMeta] = useState<Record<string, ResolvedTokenMeta>>({});
+  // -------- Token meta çözümleyici (sadece resolver'dan gelen sembolü kullanacağız) --------
+  type ResolvedTokenMeta = {
+    symbol: string | null;
+    name?: string | null;
+    logoURI?: string | null;
+    verified?: boolean;
+  };
+  const [resolvedMeta, setResolvedMeta] = useState<Record<string, ResolvedTokenMeta>>({});
 
-  
   useEffect(() => {
     if (!tokens.length) {
       setResolvedMeta({});
@@ -78,7 +77,7 @@ const [resolvedMeta, setResolvedMeta] = useState<Record<string, ResolvedTokenMet
           return { mint: t.mint, value };
         })
       );
-  
+
       if (!cancelled) {
         const map: Record<string, ResolvedTokenMeta> = {};
         for (const { mint, value } of pairs) map[mint] = value;
@@ -88,7 +87,10 @@ const [resolvedMeta, setResolvedMeta] = useState<Record<string, ResolvedTokenMet
     return () => {
       cancelled = true;
     };
-  }, [tokens]);  
+  }, [tokens]);
+
+  // resolvedMeta yüklenmeden select'i göstermemek için:
+  const metaReady = tokens.length === 0 || tokens.every((t) => resolvedMeta[t.mint]);
 
   /** ---------------- GLOBAL STATS ---------------- */
   const [globalStats, setGlobalStats] = useState({
@@ -157,7 +159,6 @@ const [resolvedMeta, setResolvedMeta] = useState<Record<string, ResolvedTokenMet
         {/* Mobil: başlıkların ALTINDA, sağa sabit */}
         <div className="md:hidden relative w-full h-11 mt-2">
           <div className="absolute right-0 top-0 translate-y-5">
-            {/* ConnectBar sende size prop’unu desteklemiyorsa size="sm" kısmını kaldır. */}
             <ConnectBar size="sm" />
           </div>
         </div>
@@ -186,32 +187,42 @@ const [resolvedMeta, setResolvedMeta] = useState<Record<string, ResolvedTokenMet
                     <span>Syncing tokens…</span>
                   </div>
                 )}
+
                 <label className="sr-only" htmlFor="token-select">
                   Select a token to Coincarnate
                 </label>
-                <select
-                  id="token-select"
-                  className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
-                  value={selectedToken?.mint || ''}
-                  onChange={handleSelectChange}
-                >
-                  <option value="" disabled>
-                    👉 Select a token to Coincarnate
-                  </option>
-                  {tokens.map((token) => {
-                    const meta = resolvedMeta[token.mint];
-                    const label =
-                      meta?.symbol ??
-                      token.symbol ??
-                      token.mint.slice(0, 4).toUpperCase();
 
-                    return (
-                      <option key={token.mint} value={token.mint}>
-                        {label} — {token.amount.toFixed(4)}
-                      </option>
-                    );
-                  })}
-                </select>
+                {!metaReady ? (
+                  // Semboller çözülene kadar geçici disabled select
+                  <select
+                    id="token-select"
+                    className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
+                    disabled
+                  >
+                    <option>Loading symbols…</option>
+                  </select>
+                ) : (
+                  <select
+                    id="token-select"
+                    className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
+                    value={selectedToken?.mint || ''}
+                    onChange={handleSelectChange}
+                  >
+                    <option value="" disabled>
+                      👉 Select a token to Coincarnate
+                    </option>
+                    {tokens.map((token) => {
+                      const meta = resolvedMeta[token.mint];
+                      // YALNIZCA resolver'dan gelen sembolü kullan; aksi halde mint kısaltması.
+                      const label = meta?.symbol ?? token.mint.slice(0, 4).toUpperCase();
+                      return (
+                        <option key={token.mint} value={token.mint}>
+                          {label} — {token.amount.toFixed(4)}
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
 
                 {!tokensLoading && tokens.length === 0 && tokensError && (
                   <p className="text-xs text-red-400 mb-2">
