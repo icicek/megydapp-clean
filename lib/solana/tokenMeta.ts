@@ -1,8 +1,11 @@
 // lib/solana/tokenMeta.ts
-// Nihai kural (pragmatik):
-// 1) Tokenlist (/api/tokenlist) varsa, oradaki symbol/name HER ZAMAN öncelikli.
-// 2) On-chain (/api/tokenmeta) sadece tokenlist'te eksik olan alanları tamamlar.
-// 3) Son çare: null (UI zaten mint kısaltmasına düşecek).
+// Authority-first strategy (sustainable):
+// 1) Tokenlist (/api/tokenlist) is the ONLY source of truth for symbol/name.
+// 2) On-chain (/api/tokenmeta) is used ONLY to fill missing fields
+//    when there IS a tokenlist row for that mint.
+// 3) If there is NO tokenlist row, we DO NOT trust on-chain metadata for symbol/name.
+//    We return nulls so the UI falls back to mint-short (prevents wrong tickers).
+// 4) Last resort: null (UI shows short mint).
 
 export type TokenMeta = {
   symbol: string | null;
@@ -14,8 +17,10 @@ export type TokenMeta = {
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
-// Eski cache'leri kırmak için versiyon artır
-const META_VER = 'v5';
+// bump to invalidate stale caches
+const META_VER = 'v7';
+
+// per-tab memo
 const MEMO = new Map<string, TokenMeta>();
 
 type ListRow = {
@@ -32,6 +37,11 @@ function tidy(x: string | null | undefined) {
   return s || null;
 }
 
+/**
+ * Server-proxied token map built from trusted sources
+ * (e.g., tokens.jup.ag/strict + your DB registry).
+ * Shape: { [mint]: { symbol, name, logoURI?, verified?, decimals? } }
+ */
 async function fetchTokenMap(): Promise<Record<string, ListRow> | null> {
   try {
     const r = await fetch('/api/tokenlist', { cache: 'no-store' });
@@ -43,12 +53,15 @@ async function fetchTokenMap(): Promise<Record<string, ListRow> | null> {
   }
 }
 
+/**
+ * On-chain metadata via API proxy.
+ * Used only to FILL MISSING FIELDS when tokenlist has a row.
+ */
 async function fetchOnchainMeta(
   mint: string,
   cluster: 'mainnet-beta' | 'devnet' = 'mainnet-beta'
 ): Promise<{ symbol: string | null; name: string | null } | null> {
   try {
-    // Cache bypass
     const r = await fetch(
       `/api/tokenmeta?mint=${mint}&cluster=${cluster}&_=${Date.now()}`,
       { cache: 'no-store' }
@@ -62,22 +75,16 @@ async function fetchOnchainMeta(
   }
 }
 
-// İsteğe bağlı: birkaç yüksek profilli alias (tokenlist boşsa son çare)
-// POPCAT
-const OVERRIDES: Record<string, { symbol: string; name?: string }> = {
-  '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr': { symbol: 'POPCAT', name: 'POPCAT' },
-};
-
 export async function getTokenMeta(
   mint: string,
   _hintSymbol?: string | null,
   cluster: 'mainnet-beta' | 'devnet' = 'mainnet-beta'
 ): Promise<TokenMeta> {
   const key = `${META_VER}:${cluster}:${mint}`;
-  const hit = MEMO.get(key);
-  if (hit) return hit;
+  const cached = MEMO.get(key);
+  if (cached) return cached;
 
-  // SOL hızlı dönüş
+  // Fast path for SOL
   if (mint === WSOL_MINT) {
     const sol: TokenMeta = {
       symbol: 'SOL',
@@ -90,18 +97,22 @@ export async function getTokenMeta(
     return sol;
   }
 
-  // 1) İlk olarak TOKENLIST — daima öncelikli gerçek
+  // 1) Authoritative tokenlist
   const map = await fetchTokenMap();
   const row = map?.[mint] ?? null;
-  let tlSymbol = tidy(row?.symbol);
-  let tlName = tidy(row?.name);
+  const tlSymbol = tidy(row?.symbol);
+  const tlName = tidy(row?.name);
   const tlLogo = row?.logoURI ?? null;
   const tlVerified = Boolean(row?.verified);
 
-  // 2) On-chain sadece eksikleri tamamlamak için
-  const oc = await fetchOnchainMeta(mint, cluster);
-  const ocSymbol = tidy(oc?.symbol);
-  const ocName = tidy(oc?.name);
+  // 2) If tokenlist has a row, we can use on-chain ONLY to fill gaps.
+  let ocSymbol: string | null = null;
+  let ocName: string | null = null;
+  if (row) {
+    const oc = await fetchOnchainMeta(mint, cluster);
+    ocSymbol = tidy(oc?.symbol);
+    ocName = tidy(oc?.name);
+  }
 
   let symbol: string | null = null;
   let name: string | null = null;
@@ -110,32 +121,25 @@ export async function getTokenMeta(
   let source: TokenMeta['source'] = 'fallback';
 
   if (tlSymbol || tlName) {
-    // Tokenlist varsa: sembol ve ismi tokenlist'ten al
+    // Tokenlist is the source of truth
     symbol = tlSymbol ?? null;
     name = tlName ?? null;
     logoURI = tlLogo;
     verified = tlVerified;
-    // Eksikse on-chain ile TAMAMLA (EZME!)
+
+    // Fill ONLY missing fields from on-chain
     if (!symbol && ocSymbol) symbol = ocSymbol;
     if (!name && ocName) name = ocName;
-    source = ocSymbol || ocName ? 'mixed' : 'tokenlist';
+
+    source = (ocSymbol || ocName) ? 'mixed' : 'tokenlist';
   } else {
-    // Tokenlist yoksa: on-chain
-    symbol = ocSymbol ?? null;
-    name = ocName ?? null;
+    // No tokenlist row → we DON'T trust on-chain names/symbols.
+    // Return nulls so UI shows mint-short; prevents wrong tickers like "ZN".
+    symbol = null;
+    name = null;
     logoURI = null;
     verified = false;
-    source = 'onchain';
-
-    // On-chain de yoksa, OVERRIDES
-    if (!symbol) {
-      const o = OVERRIDES[mint];
-      if (o?.symbol) {
-        symbol = o.symbol;
-        name = name ?? o.name ?? null;
-        source = 'fallback';
-      }
-    }
+    source = 'fallback';
   }
 
   const out: TokenMeta = { symbol, name, logoURI, verified, source };
