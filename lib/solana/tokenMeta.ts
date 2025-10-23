@@ -18,7 +18,7 @@ export type TokenMeta = {
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
 // bump to invalidate stale caches
-const META_VER = 'v7';
+const META_VER = 'v8';
 
 // per-tab memo
 const MEMO = new Map<string, TokenMeta>();

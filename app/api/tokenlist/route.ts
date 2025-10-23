@@ -1,7 +1,20 @@
 // app/api/tokenlist/route.ts
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 
-type Meta = {
+type JupToken = {
+  address: string;      // mint
+  symbol?: string | null;
+  name?: string | null;
+  logoURI?: string | null;
+  extensions?: Record<string, string> | null;
+  tags?: string[] | null;
+  verified?: boolean | null;
+  decimals?: number | null;
+};
+
+type ListRow = {
   symbol: string;
   name: string;
   logoURI?: string;
@@ -9,46 +22,55 @@ type Meta = {
   decimals?: number | null;
 };
 
-let CACHE: Record<string, Meta> | null = null;
-let EXPIRES = 0;
-
-export const revalidate = 0;
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+function tidy(x: unknown): string | null {
+  if (!x) return null;
+  const s = String(x).replace(/\0/g, '').trim();
+  return s || null;
+}
 
 export async function GET() {
-  const now = Date.now();
+  try {
+    // 🔧 ÖNEMLİ: Doğru domain — tokens.jup.ag
+    const url = 'https://tokens.jup.ag/strict'; // güvenli / doğrulanmış liste
+    const r = await fetch(url, { cache: 'no-store' });
+    if (!r.ok) {
+      console.error('[TOKENLIST] jup fetch failed', r.status, r.statusText);
+      return NextResponse.json({ ok: true, data: {} });
+    }
 
-  if (!CACHE || now > EXPIRES) {
-    try {
-      const res = await fetch('https://token.jup.ag/all', { cache: 'no-store' });
-      if (!res.ok) throw new Error(`Upstream ${res.status}`);
+    const arr = (await r.json()) as JupToken[];
+    const map: Record<string, ListRow> = {};
 
-      const list = await res.json();
-      const map: Record<string, Meta> = {};
-      for (const t of list as any[]) {
-        map[t.address] = {
-          symbol: t.symbol,
-          name: t.name,
-          logoURI: t.logoURI,
-          verified:
-            Boolean(t.extensions?.coingeckoId) ||
-            Array.isArray(t.tags) && t.tags.includes('verified'),
-          decimals: typeof t.decimals === 'number' ? t.decimals : null,
+    for (const t of arr) {
+      const mint = tidy(t.address);
+      if (!mint) continue;
+
+      const symbol = tidy(t.symbol);
+      const name = tidy(t.name);
+      const logoURI = tidy(t.logoURI) ?? undefined;
+      const verified = Boolean(t.verified);
+      const decimals =
+        typeof t.decimals === 'number' && Number.isFinite(t.decimals)
+          ? t.decimals
+          : null;
+
+      if (symbol || name) {
+        map[mint] = {
+          symbol: symbol ?? '',
+          name: name ?? '',
+          logoURI,
+          verified,
+          decimals,
         };
       }
-      CACHE = map;
-      EXPIRES = now + 6 * 60 * 60 * 1000; // 6h
-    } catch (e) {
-      // Network/Upstream sorunu: eski cache varsa ona güven, yoksa kısa TTL ile boş dön
-      CACHE = CACHE ?? null;
-      EXPIRES = now + 5 * 60 * 1000; // 5m
     }
-  }
 
-  return NextResponse.json({
-    success: true,
-    data: CACHE,
-    ttl: Math.max(0, EXPIRES - Date.now()),
-  });
+    // İstersen burada kendi DB kayıtlarınla merge edebilirsin
+    // (token_registry → symbol/name override). Şimdilik saf Jupiter.
+
+    return NextResponse.json({ ok: true, data: map });
+  } catch (e) {
+    console.error('[TOKENLIST] exception', e);
+    return NextResponse.json({ ok: true, data: {} });
+  }
 }
