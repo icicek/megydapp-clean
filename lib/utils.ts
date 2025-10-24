@@ -29,7 +29,7 @@ export async function fetchSolanaTokenList(force = false): Promise<SolanaToken[]
 
   // 1) Jupiter
   try {
-    const res = await fetch('https://tokens.jup.ag/strict', { cache: 'force-cache' });
+    const res = await fetch('/api/tokenlist', { cache: 'force-cache' });
     if (res.ok) {
       const arr = (await res.json()) as Array<{
         address: string;
