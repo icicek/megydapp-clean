@@ -14,15 +14,12 @@ import ConnectBar from '@/components/wallet/ConnectBar';
 import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
 import { useChain } from '@/app/providers/ChainProvider';
 
-// Tek-kaynak token meta çözümleyici
-import { getTokenMeta } from '@/lib/solana/tokenMeta';
-
 // PROD'da 60s, DEV'de 20s polling
 const POLL_MS = process.env.NODE_ENV === 'production' ? 60000 : 20000;
 
 export default function HomePage() {
   const router = useRouter();
-  const { chain } = useChain(); // Şu an 'solana'
+  const { chain } = useChain(); // 'solana'
   const { publicKey, connected } = useWallet();
   const pubkeyBase58 = useMemo(() => publicKey?.toBase58() ?? null, [publicKey]);
 
@@ -48,49 +45,6 @@ export default function HomePage() {
     setSelectedToken(token);
     setShowSolModal(Boolean(token));
   };
-
-  // -------- Token meta çözümleyici (sadece resolver'dan gelen sembolü kullanacağız) --------
-  type ResolvedTokenMeta = {
-    symbol: string | null;
-    name?: string | null;
-    logoURI?: string | null;
-    verified?: boolean;
-  };
-  const [resolvedMeta, setResolvedMeta] = useState<Record<string, ResolvedTokenMeta>>({});
-
-  useEffect(() => {
-    if (!tokens.length) {
-      setResolvedMeta({});
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const pairs = await Promise.all(
-        tokens.map(async (t) => {
-          const meta = await getTokenMeta(t.mint, t.symbol);
-          const value: ResolvedTokenMeta = {
-            symbol: meta.symbol,
-            name: meta.name ?? null,
-            logoURI: meta.logoURI ?? null,
-            verified: meta.verified,
-          };
-          return { mint: t.mint, value };
-        })
-      );
-
-      if (!cancelled) {
-        const map: Record<string, ResolvedTokenMeta> = {};
-        for (const { mint, value } of pairs) map[mint] = value;
-        setResolvedMeta(map);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [tokens]);
-
-  // resolvedMeta yüklenmeden select'i göstermemek için:
-  const metaReady = tokens.length === 0 || tokens.every((t) => resolvedMeta[t.mint]);
 
   /** ---------------- GLOBAL STATS ---------------- */
   const [globalStats, setGlobalStats] = useState({
@@ -192,37 +146,24 @@ export default function HomePage() {
                   Select a token to Coincarnate
                 </label>
 
-                {!metaReady ? (
-                  // Semboller çözülene kadar geçici disabled select
-                  <select
-                    id="token-select"
-                    className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
-                    disabled
-                  >
-                    <option>Loading symbols…</option>
-                  </select>
-                ) : (
-                  <select
-                    id="token-select"
-                    className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
-                    value={selectedToken?.mint || ''}
-                    onChange={handleSelectChange}
-                  >
-                    <option value="" disabled>
-                      👉 Select a token to Coincarnate
-                    </option>
-                    {tokens.map((token) => {
-                      const meta = resolvedMeta[token.mint];
-                      // YALNIZCA resolver'dan gelen sembolü kullan; aksi halde mint kısaltması.
-                      const label = meta?.symbol ?? token.mint.slice(0, 4).toUpperCase();
-                      return (
-                        <option key={token.mint} value={token.mint}>
-                          {label} — {token.amount.toFixed(4)}
-                        </option>
-                      );
-                    })}
-                  </select>
-                )}
+                <select
+                  id="token-select"
+                  className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
+                  value={selectedToken?.mint || ''}
+                  onChange={handleSelectChange}
+                >
+                  <option value="" disabled>
+                    👉 Select a token to Coincarnate
+                  </option>
+                  {tokens.map((token) => {
+                    const sym = (token.symbol ?? token.mint.slice(0, 4)).toUpperCase();
+                    return (
+                      <option key={token.mint} value={token.mint}>
+                        {sym} — {token.amount.toFixed(4)}
+                      </option>
+                    );
+                  })}
+                </select>
 
                 {!tokensLoading && tokens.length === 0 && tokensError && (
                   <p className="text-xs text-red-400 mb-2">
