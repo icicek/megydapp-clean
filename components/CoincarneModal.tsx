@@ -12,7 +12,6 @@ import {
 import dynamic from 'next/dynamic';
 import { useWallet } from '@solana/wallet-adapter-react';
 import {
-  // ✅ yeni importlar:
   TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
   getAssociatedTokenAddressSync,
@@ -20,12 +19,12 @@ import {
   createAssociatedTokenAccountIdempotentInstruction,
   getMint,
 } from '@solana/spl-token';
+  // web3
 import { PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
 import { connection } from '@/lib/solanaConnection';
 import { useInternalBalance, quantize } from '@/hooks/useInternalBalance';
-import { getDestAddress } from '@/lib/chain/env';
-import { __dest_debug__ } from '@/lib/chain/env';
-// ✨ tek-kaynak token meta
+import { getDestAddress, __dest_debug__ } from '@/lib/chain/env';
+// token meta (fallback için)
 import { getTokenMeta } from '@/lib/solana/tokenMeta';
 
 /* -------- Dynamic imports (default export + cast) -------- */
@@ -107,16 +106,17 @@ export default function CoincarneModal({
 }: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
 
-  // Env’den hedef adres
+  /* ------------------ DEST DEBUG + DEST ADDRESS ------------------ */
   const [destSol, setDestSol] = useState<PublicKey | null>(null);
   const [destErr, setDestErr] = useState<string | null>(null);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line no-console
       console.log('[DEST DEBUG]', __dest_debug__());
     }
   }, []);
-  
+
   useEffect(() => {
     try {
       const addr = getDestAddress('solana');
@@ -129,7 +129,7 @@ export default function CoincarneModal({
     }
   }, []);
 
-  // Local UI state
+  /* ------------------ LOCAL UI STATE ------------------ */
   const [loading, setLoading] = useState(false);
   const [amountInput, setAmountInput] = useState('');
   const [resultData, setResultData] = useState<{
@@ -147,26 +147,43 @@ export default function CoincarneModal({
   const [tokenCategory, setTokenCategory] = useState<TokenCategory>('unknown');
   const [priceStatus, setPriceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
-  // ✨ ÇÖZÜMLENMİŞ SEMBOL (tek kaynak + EN-US fallback)
+  /* ------------------ SYMBOL RESOLUTION ------------------ */
+  // 1) Başlangıç: token.symbol varsa onu, yoksa mint'in ilk 4 hanesini EN-US upper
   const [displaySymbol, setDisplaySymbol] = useState<string>(
     (token.symbol || token.mint.slice(0, 4)).toLocaleUpperCase('en-US')
   );
+
+  // 2) Nihai çözüm: Önce /api/tokenlist → yoksa getTokenMeta fallback
   useEffect(() => {
     let off = false;
     (async () => {
-      const meta = await getTokenMeta(token.mint, token.symbol);
-      if (!off && meta?.symbol) setDisplaySymbol(meta.symbol);
+      try {
+        // a) Tokenlist (strict+all birleşik, server-side)
+        const res = await fetch('/api/tokenlist', { cache: 'force-cache' });
+        const json = await res.json();
+        const sym: string | null = json?.data?.[token.mint]?.symbol ?? null;
+        if (!off && sym) {
+          setDisplaySymbol(sym);
+          return;
+        }
+        // b) Fallback: on-chain / eski yoldan meta
+        const meta = await getTokenMeta(token.mint, token.symbol);
+        if (!off && meta?.symbol) {
+          setDisplaySymbol(meta.symbol);
+        }
+      } catch {
+        // sessiz geç
+      }
     })();
     return () => { off = true; };
   }, [token.mint, token.symbol]);
 
-  // SOL mü?
+  /* ------------------ SOL CHECK & BALANCE ------------------ */
   const isSOLToken = useMemo(
     () => token.mint === 'SOL' || displaySymbol.toUpperCase() === 'SOL',
     [token.mint, displaySymbol]
   );
 
-  // Internal balance
   const {
     balance: internalBalance,
     loading: balLoading,
@@ -174,7 +191,7 @@ export default function CoincarneModal({
     isSOL: isSolFromHook,
   } = useInternalBalance(token.mint, { isSOL: isSOLToken });
 
-  // Prepare Confirm
+  /* ------------------ CONFIRM PREPARE (PRICING) ------------------ */
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
@@ -234,7 +251,7 @@ export default function CoincarneModal({
     }
   };
 
-  // Send transaction + record
+  /* ------------------ SEND TX ------------------ */
   const handleSend = async () => {
     if (!publicKey || !amountInput) return;
     const amountToSend = parseFloat(amountInput);
@@ -260,7 +277,7 @@ export default function CoincarneModal({
         );
         signature = await sendTransaction(tx, connection);
       } else {
-        // ✅ SPL token transfer (Token v1 veya Token-2022 otomatik)
+        // SPL token transfer (Token v1 veya Token-2022)
         const mint = new PublicKey(token.mint);
 
         // 1) Mint hangi programda?
@@ -311,7 +328,7 @@ export default function CoincarneModal({
         signature = await sendTransaction(tx, connection);
       }
 
-      // Backend kayıt — ✨ sembolü de tek kaynaktan
+      // Backend kayıt — sembol olarak displaySymbol gönder
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -353,7 +370,7 @@ export default function CoincarneModal({
     }
   };
 
-  // Percent buttons
+  /* ------------------ PERCENT BUTTONS ------------------ */
   const handlePercentage = (percent: number) => {
     if (!internalBalance) return;
     let calculated = (internalBalance.amount * percent) / 100;
@@ -373,6 +390,7 @@ export default function CoincarneModal({
     }
   }, [resultData]);
 
+  /* ------------------ RENDER ------------------ */
   return (
     <>
       {priceStatus === 'ready' && confirmModalOpen && (
@@ -463,7 +481,7 @@ export default function CoincarneModal({
                 disabled={loading || !amountInput || !!destErr}
                 className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 text-black font-extrabold py-3 rounded-xl"
               >
-                {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate ${displaySymbol} Now`}
+                {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate {displaySymbol} Now`.replace('{displaySymbol}', displaySymbol)}
               </button>
 
               <button
