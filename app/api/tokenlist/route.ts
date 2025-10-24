@@ -1,10 +1,11 @@
 // app/api/tokenlist/route.ts
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs'; // önemli: edge yerine nodejs
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 type JupToken = {
-  address: string;      // mint
+  address: string;
   symbol?: string | null;
   name?: string | null;
   logoURI?: string | null;
@@ -20,61 +21,96 @@ type ListRow = {
   decimals?: number | null;
 };
 
-function tidy(x: unknown): string | null {
+const TIDY = (x: any) => {
   if (!x) return null;
   const s = String(x).replace(/\0/g, '').trim();
   return s || null;
+};
+
+// küçük yardımcı: timeout'lu fetch
+async function fetchWithTimeout(url: string, ms = 8000) {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const r = await fetch(url, {
+      cache: 'no-store',
+      signal: ctrl.signal,
+      headers: { 'user-agent': 'coincarnation-tokenlist/1.0 (+https://coincarnation.com)' },
+    });
+    return r;
+  } finally {
+    clearTimeout(id);
+  }
 }
 
-async function fetchList(url: string): Promise<JupToken[] | null> {
-  try {
-    const r = await fetch(url, { cache: 'no-store' });
-    if (!r.ok) return null;
-    return (await r.json()) as JupToken[];
-  } catch { return null; }
+async function getList(url: string, tries = 2): Promise<{ ok: boolean; data: JupToken[] | null; err?: string }> {
+  let lastErr = '';
+  for (let i = 0; i < tries; i++) {
+    try {
+      const r = await fetchWithTimeout(url, 8000);
+      if (!r.ok) {
+        lastErr = `HTTP ${r.status} ${r.statusText}`;
+        continue;
+      }
+      const arr = (await r.json()) as JupToken[];
+      return { ok: true, data: arr };
+    } catch (e: any) {
+      lastErr = e?.name === 'AbortError' ? 'timeout' : String(e?.message || e);
+    }
+  }
+  return { ok: false, data: null, err: lastErr };
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const debug = req.nextUrl.searchParams.get('debug') === '1';
+  const diag: any = {};
+
   try {
-    // 1) Önce STRICT (otorite)
-    const strictArr = await fetchList('https://tokens.jup.ag/strict');
-    // 2) Sonra ALL (kapsayıcı)
-    const allArr    = await fetchList('https://tokens.jup.ag/all');
+    // 1) STRICT (otorite)
+    const strictRes = await getList('https://tokens.jup.ag/strict');
+    if (debug) diag.strict = strictRes.ok ? `ok:${strictRes.data?.length}` : `fail:${strictRes.err}`;
+
+    // 2) ALL (kapsayıcı)
+    const allRes = await getList('https://tokens.jup.ag/all');
+    if (debug) diag.all = allRes.ok ? `ok:${allRes.data?.length}` : `fail:${allRes.err}`;
+
+    if (!strictRes.ok && !allRes.ok) {
+      // tamamen başarısız → açıkça hata döndür
+      return NextResponse.json({ ok: false, error: 'jupiter_fetch_failed', diag }, { status: 502 });
+    }
 
     const out: Record<string, ListRow> = {};
 
-    // STRICT: temel harita
-    if (strictArr) {
-      for (const t of strictArr) {
-        const mint = tidy(t.address);
+    // STRICT temel
+    if (strictRes.ok && strictRes.data) {
+      for (const t of strictRes.data) {
+        const mint = TIDY(t.address);
         if (!mint) continue;
         out[mint] = {
-          symbol: tidy(t.symbol),
-          name: tidy(t.name),
-          logoURI: tidy(t.logoURI) ?? undefined,
+          symbol: TIDY(t.symbol),
+          name: TIDY(t.name),
+          logoURI: TIDY(t.logoURI) ?? undefined,
           verified: Boolean(t.verified ?? true),
           decimals: typeof t.decimals === 'number' && Number.isFinite(t.decimals) ? t.decimals : null,
         };
       }
     }
 
-    // ALL: sadece eksik alanları TAMAMLA (STRICT’i EZME!)
-    if (allArr) {
-      for (const t of allArr) {
-        const mint = tidy(t.address);
+    // ALL → eksikleri tamamla (STRICT'i ezme)
+    if (allRes.ok && allRes.data) {
+      for (const t of allRes.data) {
+        const mint = TIDY(t.address);
         if (!mint) continue;
 
-        const row = out[mint] ?? {
-          symbol: null, name: null, logoURI: undefined, verified: false, decimals: null,
-        };
+        const row = out[mint] ?? { symbol: null, name: null, logoURI: undefined, verified: false, decimals: null };
 
-        const aSym = tidy(t.symbol);
-        const aNam = tidy(t.name);
-        const aLogo = tidy(t.logoURI) ?? undefined;
+        const aSym = TIDY(t.symbol);
+        const aNam = TIDY(t.name);
+        const aLogo = TIDY(t.logoURI) ?? undefined;
         const aDec = typeof t.decimals === 'number' && Number.isFinite(t.decimals) ? t.decimals : null;
 
         if (!row.symbol && aSym) row.symbol = aSym;
-        if (!row.name   && aNam) row.name   = aNam;
+        if (!row.name && aNam) row.name = aNam;
         if (!row.logoURI && aLogo) row.logoURI = aLogo;
         if (row.decimals == null && aDec != null) row.decimals = aDec;
 
@@ -82,11 +118,11 @@ export async function GET() {
       }
     }
 
-    // İsteğe bağlı: kendi DB token_registry ile buradan merge edebilirsin (STRICT > REGISTRY > ALL sırası)
-
-    return NextResponse.json({ ok: true, data: out });
-  } catch (e) {
-    console.error('[TOKENLIST] exception', e);
-    return NextResponse.json({ ok: true, data: {} });
+    const res = NextResponse.json({ ok: true, data: out, ...(debug ? { diag } : {}) });
+    res.headers.set('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+    return res;
+  } catch (e: any) {
+    diag.exception = String(e?.message || e);
+    return NextResponse.json({ ok: false, error: 'internal', diag }, { status: 500 });
   }
 }
