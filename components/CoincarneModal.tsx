@@ -19,15 +19,11 @@ import {
   createAssociatedTokenAccountIdempotentInstruction,
   getMint,
 } from '@solana/spl-token';
-  // web3
 import { PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
 import { connection } from '@/lib/solanaConnection';
 import { useInternalBalance, quantize } from '@/hooks/useInternalBalance';
 import { getDestAddress, __dest_debug__ } from '@/lib/chain/env';
-// token meta (fallback için)
 import { getTokenMeta } from '@/lib/solana/tokenMeta';
-
-/* -------- Dynamic imports (default export + cast) -------- */
 
 type CoincarnationResultProps = {
   tokenFrom: string;
@@ -148,32 +144,30 @@ export default function CoincarneModal({
   const [priceStatus, setPriceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   /* ------------------ SYMBOL RESOLUTION ------------------ */
-  // 1) Başlangıç: token.symbol varsa onu, yoksa mint'in ilk 4 hanesini EN-US upper
   const [displaySymbol, setDisplaySymbol] = useState<string>(
     (token.symbol || token.mint.slice(0, 4)).toLocaleUpperCase('en-US')
   );
 
-  // 2) Nihai çözüm: Önce /api/tokenlist → yoksa getTokenMeta fallback
+  // Nihai çözüm: önce /api/symbol (Jupiter→DexScreener→On-chain), yoksa tokenMeta
   useEffect(() => {
     let off = false;
     (async () => {
       try {
-        // a) Tokenlist (strict+all birleşik, server-side)
-        const res = await fetch('/api/tokenlist', { cache: 'force-cache' });
-        const json = await res.json();
-        const sym: string | null = json?.data?.[token.mint]?.symbol ?? null;
-        if (!off && sym) {
-          setDisplaySymbol(sym);
-          return;
+        const r = await fetch(`/api/symbol?mint=${encodeURIComponent(token.mint)}`, { cache: 'no-store' });
+        if (r.ok) {
+          const j = await r.json();
+          const sym = (j?.symbol || '').toString().trim();
+          if (!off && sym) {
+            setDisplaySymbol(sym);
+            return;
+          }
         }
-        // b) Fallback: on-chain / eski yoldan meta
+      } catch {}
+      // Fallback: eski meta
+      try {
         const meta = await getTokenMeta(token.mint, token.symbol);
-        if (!off && meta?.symbol) {
-          setDisplaySymbol(meta.symbol);
-        }
-      } catch {
-        // sessiz geç
-      }
+        if (!off && meta?.symbol) setDisplaySymbol(meta.symbol);
+      } catch {}
     })();
     return () => { off = true; };
   }, [token.mint, token.symbol]);
@@ -202,9 +196,7 @@ export default function CoincarneModal({
       setPriceStatus('loading');
       setPriceView({ fetchStatus: 'loading', usdValue: 0, priceSources: [] });
 
-      // Normalize mint: SOL → WSOL
       const mint = isSOLToken ? WSOL_MINT : token.mint;
-
       const qs = new URLSearchParams({ mint, amount: String(amountToSend) });
       const res = await fetch(`/api/proxy/price?${qs.toString()}`, { cache: 'no-store' });
       const json = await res.json();
@@ -267,7 +259,6 @@ export default function CoincarneModal({
       let signature: string;
 
       if (isSOLToken) {
-        // SOL transfer
         const tx = new Transaction().add(
           SystemProgram.transfer({
             fromPubkey: publicKey,
@@ -277,7 +268,6 @@ export default function CoincarneModal({
         );
         signature = await sendTransaction(tx, connection);
       } else {
-        // SPL token transfer (Token v1 veya Token-2022)
         const mint = new PublicKey(token.mint);
 
         // 1) Mint hangi programda?
@@ -294,18 +284,13 @@ export default function CoincarneModal({
         const fromATA = getAssociatedTokenAddressSync(mint, publicKey, false, program);
         const toATA   = getAssociatedTokenAddressSync(mint, destSol,   false, program);
 
-        // 4) İxs (idempotent ATA create + checked transfer)
+        // 4) İxs
         const ixs: any[] = [];
-
         const toAtaInfo = await connection.getAccountInfo(toATA, 'confirmed');
         if (!toAtaInfo) {
           ixs.push(
             createAssociatedTokenAccountIdempotentInstruction(
-              publicKey,  // payer
-              toATA,      // ata
-              destSol,    // owner
-              mint,       // mint
-              program     // 🔑 doğru program
+              publicKey, toATA, destSol, mint, program
             )
           );
         }
@@ -313,14 +298,7 @@ export default function CoincarneModal({
         const raw = Number(toU64(amountToSend, decimals));
         ixs.push(
           createTransferCheckedInstruction(
-            fromATA,
-            mint,
-            toATA,
-            publicKey, // owner
-            raw,
-            decimals,
-            [],        // multisig signer yok
-            program    // 🔑 doğru program
+            fromATA, mint, toATA, publicKey, raw, decimals, [], program
           )
         );
 
@@ -328,7 +306,7 @@ export default function CoincarneModal({
         signature = await sendTransaction(tx, connection);
       }
 
-      // Backend kayıt — sembol olarak displaySymbol gönder
+      // Backend kayıt
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -354,7 +332,6 @@ export default function CoincarneModal({
       setConfirmModalOpen(false);
       refetchTokens?.();
 
-      // (opsiyonel) post-tx tetik
       try {
         await fetch('/api/lv/apply', {
           method: 'POST',
@@ -375,7 +352,6 @@ export default function CoincarneModal({
     if (!internalBalance) return;
     let calculated = (internalBalance.amount * percent) / 100;
 
-    // SOL için %100'te küçük fee tamponu
     if (isSolFromHook && percent === 100 && calculated > 0.001) {
       calculated -= 0.001;
     }
@@ -390,7 +366,6 @@ export default function CoincarneModal({
     }
   }, [resultData]);
 
-  /* ------------------ RENDER ------------------ */
   return (
     <>
       {priceStatus === 'ready' && confirmModalOpen && (
@@ -481,7 +456,7 @@ export default function CoincarneModal({
                 disabled={loading || !amountInput || !!destErr}
                 className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 text-black font-extrabold py-3 rounded-xl"
               >
-                {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate {displaySymbol} Now`.replace('{displaySymbol}', displaySymbol)}
+                {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate ${displaySymbol} Now`}
               </button>
 
               <button
