@@ -497,6 +497,8 @@ export default function AdminTokensPage() {
             Logout
           </button>
 
+          <DevNotesButton />
+
           {/* Bulk Update dialog button */}
           <BulkUpdateDialog
             onDone={async () => {
@@ -506,13 +508,6 @@ export default function AdminTokensPage() {
             }}
           />
         </div>
-      </div>
-      
-      <div className="ml-auto flex items-center gap-2">
-        {/* ... mevcut butonlar: Audit Log, Control, Back to site, Logout, Refresh, Export CSV, Bulk Update ... */}
-
-        {/* ⬇️ yeni */}
-        <DevNotesButton />
       </div>
 
       {/* Filters */}
