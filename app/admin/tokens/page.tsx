@@ -144,9 +144,18 @@ function VotesBadge({ yes, threshold }: { yes: number; threshold: number }) {
     ratio >= 1 ? 'bg-red-600 text-white' :
     ratio >= 0.66 ? 'bg-amber-500 text-black' :
     'bg-neutral-200 text-black';
+
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${cls}`}>
-      YES {yes}/{threshold}
+    <span
+      className={[
+        'inline-flex items-center justify-center rounded-full font-semibold',
+        // mobil küçük, yukarı doğru büyüsün
+        'h-5 min-w-[48px] px-2 text-[10px]',
+        'sm:h-6 sm:min-w-[56px] sm:px-2 sm:text-[11px]',
+        cls,
+      ].join(' ')}
+    >
+      {`YES ${yes}/${threshold}`}
     </span>
   );
 }
@@ -255,6 +264,14 @@ export default function AdminTokensPage() {
       if (d?.success) setVoteThreshold(d.voteThreshold ?? 3);
     } catch {}
   }, []);
+
+  // — Dev Notes hızlı linkleri —
+  const devLinks = [
+    { href: '/docs/dev/tokenlist-intelligence-system', label: 'Tokenlist Intelligence System', emoji: '🧠' },
+    { href: '/docs/dev/cron-reclassifier',             label: 'Cron / Reclassifier',        emoji: '⏱️' },
+    { href: '/docs/dev/claim-flow',                    label: 'Claim Flow',                 emoji: '📄' },
+    { href: '/docs/dev/corepoint-system',              label: 'CorePoint System',           emoji: '🏆' },
+  ];
 
   // initial loads
   useEffect(() => {
@@ -502,6 +519,23 @@ export default function AdminTokensPage() {
         </div>
       </div>
 
+      {/* Dev Notes quick links */}
+      <div className="mb-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {devLinks.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10
+                        bg-white/5 hover:bg-white/10 transition-colors text-sm"
+            >
+              <span>{l.emoji}</span>
+              <span className="truncate">{l.label}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+
       {/* Filters */}
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
         <input
@@ -631,10 +665,10 @@ export default function AdminTokensPage() {
                 <tr key={it.mint} className="border-b border-gray-800">
                   {/* Mint + Copy (button pinned right) */}
                   <td className="p-2 w-[460px]">
-                    <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+                    <div className="grid gap-1 sm:grid-cols-[1fr_auto] items-start">
                       <div className="min-w-0">
                         <span className="font-mono truncate block" title={it.mint}>{it.mint}</span>
-                        <div className="text-xs text-gray-400">
+                        <div className="text-[11px] text-gray-400">
                           {nameMap[it.mint]?.symbol || nameMap[it.mint]?.name ? (
                             <>
                               {nameMap[it.mint]?.symbol ?? ''}
@@ -657,7 +691,7 @@ export default function AdminTokensPage() {
                           const ok = await copyToClipboard(it.mint);
                           if (ok) push('Copied mint', 'ok'); else push('Copy failed', 'err');
                         }}
-                        className="bg-gray-700 hover:bg-gray-600 rounded px-2 py-1 text-xs"
+                        className="bg-gray-700 hover:bg-gray-600 rounded px-2 py-1 text-[11px] w-fit sm:w-auto sm:text-xs"
                         aria-label="Copy mint"
                         title="Copy"
                       >

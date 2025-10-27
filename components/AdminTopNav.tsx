@@ -4,34 +4,35 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-// küçük yardımcı: truthy class'ları birleştirir
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(' ');
-}
+const tabs = [
+  { href: '/admin/tokens', label: 'Tokens' },
+  { href: '/admin/control', label: 'Control' },
+];
 
 export default function AdminTopNav() {
   const pathname = usePathname();
 
-  // Yalnızca /admin altında (ama /admin/login hariç) göster
-  if (!pathname?.startsWith('/admin') || pathname === '/admin/login') return null;
-
-  const isActive = (p: string) => pathname === p || pathname.startsWith(p + '/');
-  const base = 'px-2 py-1 rounded hover:bg-gray-100';
-
   return (
-    <nav className="border-b px-4 py-2 flex gap-4 text-sm bg-white/80 backdrop-blur">
-      <Link
-        href="/admin/tokens"
-        className={cx(base, isActive('/admin/tokens') && 'bg-gray-200 font-medium')}
-      >
-        Tokens
-      </Link>
-      <Link
-        href="/admin/control"
-        className={cx(base, isActive('/admin/control') && 'bg-gray-200 font-medium')}
-      >
-        Control
-      </Link>
+    <nav className="sticky top-0 z-30 bg-black/90 backdrop-blur border-b border-white/10">
+      <div className="max-w-6xl mx-auto px-4 py-2 flex gap-2">
+        {tabs.map((t) => {
+          const active = pathname?.startsWith(t.href);
+          return (
+            <Link
+              key={t.href}
+              href={t.href}
+              className={[
+                'px-3 py-1.5 rounded-lg text-sm border transition-colors',
+                active
+                  ? 'bg-white/10 border-white/20 text-white'
+                  : 'bg-white/[0.04] hover:bg-white/10 border-white/10 text-gray-200',
+              ].join(' ')}
+            >
+              {t.label}
+            </Link>
+          );
+        })}
+      </div>
     </nav>
   );
 }
