@@ -540,23 +540,6 @@ export default function AdminTokensPage() {
         </div>
       </div>
 
-      {/* Dev Notes quick links */}
-      <div className="mb-4">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {devLinks.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10
-                        bg-white/5 hover:bg-white/10 transition-colors text-sm"
-            >
-              <span>{l.emoji}</span>
-              <span className="truncate">{l.label}</span>
-            </Link>
-          ))}
-        </div>
-      </div>
-
       {/* Filters */}
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
         <input
