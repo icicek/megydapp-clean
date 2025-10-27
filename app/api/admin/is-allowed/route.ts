@@ -1,27 +1,52 @@
 // app/api/admin/is-allowed/route.ts
-import { NextResponse } from 'next/server';
-import { httpErrorFrom } from '@/app/api/_lib/http';
-
-export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const wallet = searchParams.get('wallet')?.trim();
-    if (!wallet) {
-      return NextResponse.json({ success: false, error: 'wallet required' }, { status: 400 });
-    }
-    const allowed = (process.env.ADMIN_WALLET || '')
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean);
+import { NextRequest, NextResponse } from 'next/server';
 
-    // ENV boşsa bilinçli olarak false dönüyoruz (güvenlik)
-    const isAllowed = allowed.length > 0 && allowed.includes(wallet);
-    return NextResponse.json({ success: true, allowed: isAllowed });
+function parseAllowlist(): Set<string> {
+  const one = (process.env.ADMIN_WALLET || '').trim();
+  const many = (process.env.ADMIN_WALLETS || '').trim();
+  const arr = [one, ...many.split(',')].map(s => s.trim()).filter(Boolean);
+  return new Set(arr.map(s => s.toLowerCase()));
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const url = new URL(req.url);
+    const walletParam = (url.searchParams.get('wallet') || '').toLowerCase();
+
+    // 1) Admin session cookie (HttpOnly) → varsa direkt izin
+    const adminCookie = req.cookies.get('coincarnation_admin');
+    if (adminCookie?.value) {
+      return NextResponse.json({
+        ok: true,
+        allowed: true,
+        via: 'cookie',
+        reason: 'Admin session cookie present',
+      });
+    }
+
+    // 2) ENV allowlist → cüzdan bu listede ise izin
+    const allow = parseAllowlist();
+    if (allow.size > 0 && walletParam && allow.has(walletParam)) {
+      return NextResponse.json({
+        ok: true,
+        allowed: true,
+        via: 'allowlist',
+        reason: 'Wallet is on ADMIN_WALLET(S)',
+      });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      allowed: false,
+      via: null,
+      reason:
+        allow.size === 0
+          ? 'No allowlist configured and no admin cookie found'
+          : 'Wallet not on allowlist and no admin cookie found',
+    });
   } catch (e: any) {
-    const { status, body } = httpErrorFrom(e, 500);
-    return NextResponse.json(body, { status });
+    return NextResponse.json({ ok: false, allowed: false, error: String(e?.message || e) }, { status: 500 });
   }
 }

@@ -13,6 +13,7 @@ import ConnectBar from '@/components/wallet/ConnectBar';
 
 import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
 import { useChain } from '@/app/providers/ChainProvider';
+import AdminLink from '@/components/admin/AdminLink';
 
 // PROD'da 60s, DEV'de 20s polling
 const POLL_MS = process.env.NODE_ENV === 'production' ? 60000 : 20000;
@@ -275,6 +276,8 @@ export default function HomePage() {
           <span>Read the Docs</span>
         </a>
       </div>
+
+      <AdminLink className="w-full max-w-5xl mt-3" />
 
       {/* Modal */}
       {showSolModal && selectedToken && chain === 'solana' && (
