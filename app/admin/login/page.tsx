@@ -1,8 +1,8 @@
 // app/admin/login/page.tsx
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import bs58 from 'bs58';
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -10,25 +10,25 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 
 function LoginCard() {
   const router = useRouter();
-  const sp = useSearchParams();
   const { publicKey, signMessage, connected } = useWallet();
 
   const [loading, setLoading] = useState(false);
   const [log, setLog] = useState<string>('');
   const [token, setToken] = useState<string | null>(null);
+  const [initialMsg, setInitialMsg] = useState<string>('');
 
   const walletBase58 = useMemo(() => publicKey?.toBase58() ?? '', [publicKey]);
 
-  // İlk gelişte olası hata kodunu göster (isteğe bağlı)
-  const initialMsg = useMemo(() => {
-    const e = sp?.get('e');
-    if (!e) return '';
-    if (e === 'missing') return 'Please connect your admin wallet and sign in.';
-    if (e === 'session') return 'Session missing/expired. Please sign in again.';
-    if (e === 'wallet-changed') return 'Wallet changed. Please re-authenticate.';
-    if (e === 'error') return 'Unexpected error during session check. Please sign in again.';
-    return '';
-  }, [sp]);
+  // URL'deki ?e=... parametresini SSR'siz şekilde oku (Suspense gerekmez)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const e = new URLSearchParams(window.location.search).get('e');
+    if (!e) return;
+    if (e === 'missing') setInitialMsg('Please connect your admin wallet and sign in.');
+    else if (e === 'session') setInitialMsg('Session missing/expired. Please sign in again.');
+    else if (e === 'wallet-changed') setInitialMsg('Wallet changed. Please re-authenticate.');
+    else if (e === 'error') setInitialMsg('Unexpected error during session check. Please sign in again.');
+  }, []);
 
   const handleLogin = useCallback(async () => {
     try {
@@ -45,7 +45,7 @@ function LoginCard() {
         return;
       }
 
-      // 1) Nonce al
+      // 1) Get nonce
       const nonceRes = await fetch(`/api/admin/auth/nonce?wallet=${walletBase58}`, { cache: 'no-store' });
       const nonceJson = await nonceRes.json().catch(() => ({}));
       if (!nonceRes.ok || !nonceJson?.success || !nonceJson?.message) {
@@ -54,12 +54,12 @@ function LoginCard() {
       }
       const message: string = nonceJson.message;
 
-      // 2) İmzala
+      // 2) Sign message
       const encoded = new TextEncoder().encode(message);
       const signature = await signMessage(encoded);
       const signatureB58 = bs58.encode(signature);
 
-      // 3) Doğrula → server HttpOnly cookie yazar
+      // 3) Verify → server sets HttpOnly cookie
       const verifyRes = await fetch('/api/admin/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -72,8 +72,8 @@ function LoginCard() {
       if (!verifyRes.ok || !verifyJson?.success) {
         setLog(
           `Verify error: ${verifyJson?.error || `HTTP ${verifyRes.status}`}\n` +
-          `Tip: If cookies are blocked, the HttpOnly session cookie cannot be set. ` +
-          `Please allow site cookies for coincarnation.com and try again.`
+          `Tip: If cookies are blocked, the HttpOnly session cookie cannot be set.\n` +
+          `Please allow cookies for coincarnation.com and try again.`
         );
         return;
       }
@@ -81,10 +81,8 @@ function LoginCard() {
       if (verifyJson.token) setToken(String(verifyJson.token));
       setLog('Login successful. Session cookie set. Redirecting…');
 
-      // 4) Yönlendirme: önce SPA, ardından fallback olarak hard navigate
-      try {
-        router.replace('/admin/tokens');
-      } catch {}
+      // 4) Redirect: SPA + hard navigate fallback
+      try { router.replace('/admin/tokens'); } catch {}
       setTimeout(() => {
         if (typeof window !== 'undefined' && window.location.pathname.includes('/admin/login')) {
           window.location.assign('/admin/tokens');
@@ -127,14 +125,10 @@ function LoginCard() {
       </div>
 
       <div className="text-sm text-gray-200 whitespace-pre-wrap">
-        <div>
-          <span className="text-gray-400">Wallet:</span> {walletBase58 || '—'}
-        </div>
+        <div><span className="text-gray-400">Wallet:</span> {walletBase58 || '—'}</div>
         <div className="mt-2">
-          <span className="text-gray-400">Status:</span>{' '}
-          {log || initialMsg || '—'}
+          <span className="text-gray-400">Status:</span> {log || initialMsg || '—'}
         </div>
-
         {token && (
           <div className="mt-3">
             <div className="text-gray-400 mb-1">JWT (debug):</div>
