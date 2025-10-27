@@ -9,6 +9,7 @@ import BulkUpdateDialog from '../components/BulkUpdateDialog';
 import { fetchSolanaTokenList } from '@/lib/utils';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 import Link from 'next/link';
+import DevNotesButton from '@/components/admin/DevNotesButton';
 
 /** ---------- Status typing (single source of truth) ---------- */
 const STATUSES = ['healthy','walking_dead','deadcoin','redlist','blacklist'] as const;
@@ -505,6 +506,13 @@ export default function AdminTokensPage() {
             }}
           />
         </div>
+      </div>
+      
+      <div className="ml-auto flex items-center gap-2">
+        {/* ... mevcut butonlar: Audit Log, Control, Back to site, Logout, Refresh, Export CSV, Bulk Update ... */}
+
+        {/* ⬇️ yeni */}
+        <DevNotesButton />
       </div>
 
       {/* Filters */}
