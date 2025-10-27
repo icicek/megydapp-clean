@@ -11,6 +11,9 @@ import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 import Link from 'next/link';
 import DevNotesButton from '@/components/admin/DevNotesButton';
 
+// Tek tip toolbar butonu stili
+const TB = "inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-sm whitespace-nowrap";
+
 /** ---------- Status typing (single source of truth) ---------- */
 const STATUSES = ['healthy','walking_dead','deadcoin','redlist','blacklist'] as const;
 type TokenStatus = typeof STATUSES[number];
@@ -464,49 +467,38 @@ export default function AdminTokensPage() {
       <ToastViewport toasts={toasts} />
 
       {/* TOP BAR */}
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">🛡️ Token Management</h1>
-        <div className="flex items-center gap-2">
-          {/* NEW: Quick access to Audit Log */}
-          <Link
-            href="/admin/audit"
-            className="bg-indigo-700 hover:bg-indigo-600 border border-indigo-500 rounded px-3 py-2 text-sm"
-            title="View Admin Audit Log"
-          >
-            Audit Log
+      <div className="mb-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-bold mr-auto">🛡️ Token Management</h1>
+
+          {/* Aksiyonlar (tek tip stil) */}
+          <Link href="/admin/audit" className={TB} title="View Admin Audit Log">
+            <span>📜</span><span>Audit Log</span>
           </Link>
 
-          <Link
-            href="/admin/control"
-            className="bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
-          >
-            Control
+          <Link href="/admin/control" className={TB}>
+            <span>🧩</span><span>Control</span>
           </Link>
-          
-          <button
-            onClick={() => router.push('/')}
-            className="bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
-            title="Back to site"
-          >
-            ← Back to site
-          </button>
-          <button
-            onClick={logout}
-            className="bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
-          >
-            Logout
+
+          <button onClick={() => router.push('/')} className={TB} title="Back to site">
+            <span>↩︎</span><span>Back to site</span>
           </button>
 
+          <button onClick={logout} className={TB}>
+            <span>🚪</span><span>Logout</span>
+          </button>
+
+          {/* Dev Notes hep aynı stilde */}
           <DevNotesButton />
 
-          {/* Bulk Update dialog button */}
-          <BulkUpdateDialog
-            onDone={async () => {
-              await load();
-              await loadStats();
-              push('Bulk update completed', 'ok');
-            }}
-          />
+          {/* Bulk Update (düğmeyi da aynı görünüme yaklaştıralım) */}
+          <div className="ml-1">
+            <BulkUpdateDialog
+              onDone={async () => {
+                await load(); await loadStats(); push('Bulk update completed', 'ok');
+              }}
+            />
+          </div>
         </div>
       </div>
 
@@ -516,13 +508,13 @@ export default function AdminTokensPage() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search by mint"
-          className="bg-gray-900 border border-gray-700 rounded px-3 py-2"
+          className="bg-gray-900 border border-gray-700 rounded px-3 py-2 min-w-[120px]"
           onKeyDown={(e) => { if (e.key === 'Enter') load(); }}
         />
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value as any)}
-          className="bg-gray-900 border border-gray-700 rounded px-3 py-2"
+          className="bg-gray-900 border border-gray-700 rounded px-3 py-2 min-w-[120px]"
         >
           <option value="">(all)</option>
           {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -531,7 +523,7 @@ export default function AdminTokensPage() {
           <select
             value={limit}
             onChange={(e) => setLimit(parseInt(e.target.value, 10))}
-            className="bg-gray-900 border border-gray-700 rounded px-3 py-2"
+            className="bg-gray-900 border border-gray-700 rounded px-3 py-2 min-w-[120px]"
             title="Rows per page"
           >
             {[10,20,50,100].map(n => <option key={n} value={n}>{n}/page</option>)}
@@ -539,13 +531,15 @@ export default function AdminTokensPage() {
           <button
             onClick={load}
             disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 rounded px-3 py-2 font-semibold disabled:opacity-60"
+            className={`${TB} ${loading ? 'opacity-70' : ''}`}
           >
             {loading ? 'Loading…' : 'Refresh'}
           </button>
 
           {/* Export CSV button (filters: q & status) */}
-          <ExportCsvButton q={q} status={status || ''} />
+          <div className="shrink-0">
+            <ExportCsvButton q={q} status={status || ''} />
+          </div>
         </div>
       </div>
 
