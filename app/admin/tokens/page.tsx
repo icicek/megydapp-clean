@@ -137,7 +137,6 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// ✅ Votes badge (YES/threshold)
 function VotesBadge({ yes, threshold }: { yes: number; threshold: number }) {
   const ratio = threshold > 0 ? yes / threshold : 0;
   const cls =
@@ -149,13 +148,13 @@ function VotesBadge({ yes, threshold }: { yes: number; threshold: number }) {
     <span
       className={[
         'inline-flex items-center justify-center rounded-full font-semibold',
-        // mobil küçük, yukarı doğru büyüsün
-        'h-5 min-w-[48px] px-2 text-[10px]',
-        'sm:h-6 sm:min-w-[56px] sm:px-2 sm:text-[11px]',
+        'h-5 min-w-[44px] px-2 text-[10px]',
+        'sm:h-6 sm:min-w-[54px] sm:px-2 sm:text-[11px]',
         cls,
       ].join(' ')}
+      title={`YES ${yes}/${threshold}`}
     >
-      {`YES ${yes}/${threshold}`}
+      {yes}/{threshold}
     </span>
   );
 }

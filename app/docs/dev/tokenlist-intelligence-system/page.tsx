@@ -1,96 +1,91 @@
-import React from "react";
+// app/docs/dev/tokenlist-intelligence-system/page.tsx
+'use client';
+import React from 'react';
+import Link from 'next/link';
 
-export default function TokenlistIntelligenceSystemPage() {
+function PageMeta({ title, desc }: { title: string; desc?: string }) {
   return (
-    <article className="prose prose-invert max-w-4xl mx-auto px-4 py-8">
-      <p className="text-sm text-yellow-400">
-        ⚠️ <strong>INTERNAL ONLY</strong> — Accessible only to authorized admin wallets via the Coincarnation Admin Panel.
-      </p>
+    <div className="mb-5">
+      <div className="text-xs text-white/60">Internal Docs</div>
+      <h1 className="text-2xl font-bold">{title}</h1>
+      {desc && <p className="text-white/70 mt-1">{desc}</p>}
+      <hr className="mt-3 border-white/10" />
+    </div>
+  );
+}
 
-      <h1>🧭 Tokenlist Intelligence System</h1>
-      <p className="italic text-gray-400 mb-4">
-        “From chaos to clarity — one mint at a time.”
-      </p>
+export default function TokenlistIntelligencePage() {
+  return (
+    <div className="min-h-screen bg-black text-white px-4 py-8">
+      <PageMeta
+        title="🧠 Tokenlist Intelligence System"
+        desc="Symbol / name / logo unification — UI stays correct even if providers fail."
+      />
 
-      <table className="text-sm border border-gray-800">
-        <tbody>
-          <tr><td className="font-semibold pr-4">Project</td><td>Coincarnation DApp</td></tr>
-          <tr><td className="font-semibold pr-4">Module</td><td>Tokenlist &amp; Metadata Resolver</td></tr>
-          <tr><td className="font-semibold pr-4">Last Updated</td><td>2025-10-24</td></tr>
-          <tr><td className="font-semibold pr-4">Maintainer</td><td>Levershare Dev Core</td></tr>
-        </tbody>
-      </table>
+      <article className="prose prose-invert max-w-4xl mx-auto">
+        <p className="text-sm text-yellow-400">
+          ⚠️ <strong>INTERNAL ONLY</strong> — Metadata resolution & UI consistency pipeline
+        </p>
 
-      <h2>🌐 Overview</h2>
-      <p>
-        The <strong>Tokenlist Intelligence System</strong> ensures every token shown inside Coincarnation
-        carries its correct <strong>symbol</strong>, <strong>name</strong>, and <strong>logo</strong>, even when standard APIs fail.
-        It blends curated tokenlists (Jupiter), on-chain metadata, and DEX intelligence (Dexscreener) to identify
-        living, walking-dead, and lost assets on Solana.
-      </p>
-
-      <h2>⚙️ System Map</h2>
-      <pre><code>{`app/api/tokenlist/route.ts        ← global list fetcher (Jupiter strict)
-app/api/symbol/route.ts           ← single-mint resolver
-app/api/solana/tokens/route.ts    ← server-side wallet token enumerator
-lib/solana/tokenMeta.ts           ← universal metadata resolver
-lib/utils.ts                      ← helpers
-lib/client/fetchTokenMetadataClient.ts ← Metaplex metadata client
-hooks/useWalletTokens.ts          ← wallet token enrichment hook
-components/HomePage.tsx           ← token dropdown (logos)
-components/CoincarneModal.tsx     ← token.symbol/logo during Coincarnation
-`}</code></pre>
-
-      <blockquote>
-        <p><strong>Priority rule:</strong></p>
+        <h2>🎯 Purpose</h2>
+        <p>
+          <strong>Tokenlist Intelligence System (TIS)</strong> guarantees correct{' '}
+          <code>symbol / name / logo</code> for every SPL token in the app. Priority:
+        </p>
         <ol>
-          <li>/api/tokenlist symbol/name/logo <strong>wins</strong>.</li>
-          <li>On-chain/meta <strong>fills missing fields</strong>.</li>
-          <li>As last resort → show <strong>mint prefix</strong> (UI fallback).</li>
+          <li><code>/api/tokenlist</code> (Jupiter strict) — authoritative</li>
+          <li>Fill missing fields via on-chain/Dex intelligence fallback</li>
+          <li>Last resort: short mint prefix for a safe UI placeholder</li>
         </ol>
-      </blockquote>
 
-      <h2>🔄 Data Flow</h2>
-      <pre><code>{`A[Wallet] → /api/solana/tokens → useWalletTokens Hook
-→ enrich → /api/tokenlist/
-→ has meta? → yes → UI uses symbol/logo
-→ no → getTokenMeta()/api/symbol fallback
-→ CoincarneModal + HomePage
-`}</code></pre>
+        <h2>🔄 Data Flow</h2>
+        <pre><code>{`Wallet → /api/solana/tokens → useWalletTokens (hook)
+           ↘ enrich with /api/tokenlist
+              ↘ resolve gaps via lib/solana/tokenMeta
+                 ↘ UI (HomePage dropdown, CoincarneModal, etc.)`}</code></pre>
 
-      <h3>Responsibilities</h3>
-      <ul>
-        <li><code>app/api/tokenlist/route.ts</code> — Fetches <em>https://tokens.jup.ag/strict</em> (primary source).</li>
-        <li><code>app/api/symbol/route.ts</code> — Isolated mint checks.</li>
-        <li><code>lib/solana/tokenMeta.ts</code> — Merges tokenlist + fallback providers.</li>
-        <li><code>hooks/useWalletTokens.ts</code> — Lists SPL tokens and enriches metadata.</li>
-        <li><code>components/HomePage.tsx</code> &amp; <code>CoincarneModal.tsx</code> — UI display layers.</li>
-      </ul>
+        <h2>🗂️ Key Files (file → role)</h2>
+        <ul>
+          <li><code>app/api/tokenlist/route.ts</code> — Jupiter strict fetch → map {`{mint → {symbol,name,logoURI}}`}</li>
+          <li><code>app/api/symbol/route.ts</code> — single-mint resolver (debug/monitoring)</li>
+          <li><code>app/api/solana/tokens/route.ts</code> — server-side wallet token enumerator</li>
+          <li><code>lib/solana/tokenMeta.ts</code> — merge/fallback + sanitation</li>
+          <li><code>lib/utils.ts</code> — helpers (<code>fetchSolanaTokenList()</code>)</li>
+          <li><code>hooks/useWalletTokens.ts</code> — list + enrich</li>
+          <li><code>components/HomePage.tsx</code> — dropdown with logo/symbol</li>
+          <li><code>components/CoincarneModal.tsx</code> — <code>displaySymbol</code> usage during confirmations</li>
+        </ul>
 
-      <h2>💥 Troubleshooting</h2>
-      <table className="text-sm border border-gray-800">
-        <thead>
-          <tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>All symbols random</td><td>/api/tokenlist failing</td><td>Check <code>route.ts</code></td></tr>
-          <tr><td>Only SOL visible</td><td>Token list empty</td><td>Inspect <code>/api/solana/tokens</code></td></tr>
-          <tr><td>Wrong symbol (POPCAT→ZN)</td><td>On-chain override</td><td>Fix precedence in <code>tokenMeta.ts</code></td></tr>
-          <tr><td>Logos missing</td><td>No <code>logoURI</code></td><td>Add fallback in <code>tokenMeta.ts</code></td></tr>
-        </tbody>
-      </table>
+        <h2>💥 Troubleshooting</h2>
+        <table>
+          <thead><tr><th>Symptom</th><th>Likely cause</th><th>Check first</th></tr></thead>
+          <tbody>
+            <tr><td>All non-SOL look random</td><td><code>/api/tokenlist</code> empty/failed</td><td><code>app/api/tokenlist/route.ts</code></td></tr>
+            <tr><td>Only SOL appears</td><td>Wallet listings empty</td><td><code>app/api/solana/tokens/route.ts</code></td></tr>
+            <tr><td>Single token wrong (e.g., POPCAT → ZN)</td><td>On-chain override won</td><td><code>lib/solana/tokenMeta.ts</code></td></tr>
+            <tr><td>Logos missing</td><td><code>logoURI</code> absent</td><td><code>tokenMeta.ts</code> fallback or source</td></tr>
+            <tr><td>“Loading symbols…” stuck</td><td>Enrich effect didn’t settle</td><td><code>useWalletTokens.ts</code></td></tr>
+          </tbody>
+        </table>
 
-      <h2>🧩 Operational Notes</h2>
-      <ul>
-        <li>Keep this doc internal (not served from <code>/public</code>).</li>
-        <li>Use server-side routes to bypass RPC rate limits.</li>
-        <li>Maintain fallback tokenlist for resiliency.</li>
-      </ul>
+        <h2>🧪 Quick Debug</h2>
+        <pre><code>{`// Count
+Object.keys((await (await fetch('/api/tokenlist',{cache:'no-store'})).json()).data).length
+// Single mint
+const m='7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr';
+(await (await fetch('/api/tokenlist',{cache:'no-store'})).json()).data[m]
+// Wallet view w/ enrichment
+const owner='<WALLET>';
+const toks=(await (await fetch(\`/api/solana/tokens?owner=\${owner}\`,{cache:'no-store'})).json()).tokens;
+const map=(await (await fetch('/api/tokenlist',{cache:'no-store'})).json()).data;
+console.table(toks.map(t=>({mint:t.mint, symbol:map[t.mint]?.symbol??null, name:map[t.mint]?.name??null})));`}</code></pre>
 
-      <h2>💫 Vision</h2>
-      <blockquote>
-        “A token without a name is just lost code. Coincarnation gives it back its identity.”
-      </blockquote>
-    </article>
+        <p className="mt-6">
+          <Link href="/docs/dev" className="text-sm underline underline-offset-4 opacity-80 hover:opacity-100">
+            ← Back to Dev Notes
+          </Link>
+        </p>
+      </article>
+    </div>
   );
 }

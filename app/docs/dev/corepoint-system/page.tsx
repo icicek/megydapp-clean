@@ -1,60 +1,74 @@
-import React from "react";
+// app/docs/dev/corepoint-system/page.tsx
+'use client';
+import React from 'react';
+import Link from 'next/link';
 
-export default function CorePointSystemPage() {
+function PageMeta({ title, desc }: { title: string; desc?: string }) {
   return (
-    <article className="prose prose-invert max-w-4xl mx-auto px-4 py-8">
-      <p className="text-sm text-yellow-400">
-        ⚠️ <strong>INTERNAL ONLY</strong> — CorePoint / PVC Scoring System Reference
-      </p>
+    <div className="mb-5">
+      <div className="text-xs text-white/60">Internal Docs</div>
+      <h1 className="text-2xl font-bold">{title}</h1>
+      {desc && <p className="text-white/70 mt-1">{desc}</p>}
+      <hr className="mt-3 border-white/10" />
+    </div>
+  );
+}
 
-      <h1>💠 CorePoint Scoring System</h1>
-      <p className="italic text-gray-400 mb-4">
-        “Measure value, not volume.”
-      </p>
+export default function CorepointSystemPage() {
+  return (
+    <div className="min-h-screen bg-black text-white px-4 py-8">
+      <PageMeta
+        title="🏆 CorePoint Scoring System"
+        desc="Personal Value Currency (PVC) points — contributions, referrals, shares, deadcoin bonuses."
+      />
 
-      <h2>🎯 Purpose</h2>
-      <p>
-        The <strong>CorePoint</strong> system (PVC — Personal Value Currency)
-        quantifies every participant’s contribution across Coincarnation,
-        referrals, and social actions.
-      </p>
+      <article className="prose prose-invert max-w-4xl mx-auto">
+        <p className="text-sm text-yellow-400">
+          ⚠️ <strong>INTERNAL ONLY</strong> — PVC/CorePoint design
+        </p>
 
-      <h2>⚙️ Components</h2>
-      <ul>
-        <li><strong>Coincarnation contribution:</strong> USD × 10 = CorePoints</li>
-        <li><strong>Referral:</strong> bonus per referred wallet</li>
-        <li><strong>Share on X:</strong> +30 CP (once per wallet)</li>
-        <li><strong>Deadcoin multiplier:</strong> USD=0 → ×1.2 bonus</li>
-      </ul>
+        <h2>🎯 Goal</h2>
+        <p>
+          Reward users for ecosystem-positive actions. CorePoint influences ranks, perks, and future PVC/NFT utilities.
+        </p>
 
-      <h2>📁 Files & Tables</h2>
-      <ul>
-        <li><code>components/ClaimPanel.js</code> — personal PVC display</li>
-        <li><code>components/Leaderboard.tsx</code> — CorePoint ranking</li>
-        <li><code>app/api/share/record/route.ts</code> — social share logging</li>
-        <li><code>lib/corepoint/calc.ts</code> — scoring formulas</li>
-        <li><code>lib/corepoint/utils.ts</code> — helpers</li>
-        <li><code>participants</code>, <code>contributions</code>, <code>shares</code>, <code>referrals</code> tables</li>
-      </ul>
+        <h2>📐 Scoring (initial)</h2>
+        <ul>
+          <li>Coincarnation contribution: proportional to USD value</li>
+          <li>Referrals: weighted by referees’ contributions</li>
+          <li>Shares (X/Twitter): one-time <strong>+30</strong> per wallet (first click only)</li>
+          <li>Deadcoin detection: bonus multiplier for verified zero-USD assets</li>
+        </ul>
 
-      <h2>🧮 Example Formula</h2>
-      <pre><code>{`corepoint = (usd_contributed * 10)
-           + (referrals * 50)
-           + (first_share ? 30 : 0)
-           + (deadcoin_bonus ? usd_contributed * 2 : 0)`}</code></pre>
+        <h2>🔄 Flow</h2>
+        <ol>
+          <li>Actions hit API (<code>/api/ogdata</code>, <code>/api/share/record</code>, etc.)</li>
+          <li>Server computes deltas → updates <code>participants</code>/<code>contributions</code>/<code>corepoints</code></li>
+          <li>Leaderboard reads aggregated view</li>
+          <li>UI caches w/ SWR; invalidates on action</li>
+        </ol>
 
-      <h2>🏆 Usage</h2>
-      <ul>
-        <li>Displayed on ClaimPanel as “Personal Value Currency”.</li>
-        <li>Used in Leaderboard sorting.</li>
-        <li>Will determine NFT rarity in future phases.</li>
-      </ul>
+        <h2>📦 Key Files</h2>
+        <ul>
+          <li><code>components/ClaimPanel.js</code> — CorePoint box</li>
+          <li><code>components/Leaderboard.tsx</code> — rank table + “Share your rank”</li>
+          <li><code>app/api/share/record/route.ts</code> — one-time share credit</li>
+          <li><code>db: corepoints</code> or materialized view for totals</li>
+        </ul>
 
-      <h2>💡 Notes</h2>
-      <ul>
-        <li>Each wallet has unique CorePoint record.</li>
-        <li>Scores update dynamically upon new Coincarnations, referrals, or shares.</li>
-      </ul>
-    </article>
+        <h2>🛡️ Guards</h2>
+        <ul>
+          <li>One-time share reward per wallet (idempotent key)</li>
+          <li>Referral self-credit prevention; wallet-scoped checks</li>
+          <li>Deadcoin verification via registry/rules to avoid gaming</li>
+        </ul>
+
+        <p className="mt-6">
+          <Link href="/docs/dev" className="text-sm underline underline-offset-4 opacity-80 hover:opacity-100">
+            ← Back to Dev Notes
+          </Link>
+        </p>
+      </article>
+    </div>
   );
 }
