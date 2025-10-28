@@ -8,31 +8,34 @@ const ADMIN_COOKIE = 'coincarnation_admin';
 const SECRET_RAW = process.env.ADMIN_JWT_SECRET || '';
 const SECRET = SECRET_RAW ? new TextEncoder().encode(SECRET_RAW) : null;
 
-// Sadece login sayfasını auth'suz bırak (redirect loop önler)
+// Public admin route (redirect loop önler)
 function isPublicAdminRoute(pathname: string): boolean {
   return pathname === '/admin/login';
 }
 
 // ENV root admin kontrolü (DB'ye bakmadan, sadece ENV)
+// Not: ADMIN_WALLETS (çoğul) kullan; geriye dönük ADMIN_WALLET desteği
 function isEnvAdmin(wallet: string): boolean {
-  const allowed = (process.env.ADMIN_WALLET || '')
+  const raw = (process.env.ADMIN_WALLETS || process.env.ADMIN_WALLET || '')
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
-  if (allowed.length === 0) return false; // fail-closed
-  return allowed.includes(wallet);
+  if (raw.length === 0) return false; // fail-closed
+  return raw.includes(wallet);
 }
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // /admin dışındaki rotalar → olduğu gibi geç
-  if (!pathname.startsWith('/admin')) return NextResponse.next();
+  // /admin ve /docs/dev altını koru; diğer rotalar → geç
+  const isAdminPath = pathname === '/admin' || pathname.startsWith('/admin/');
+  const isDevNotesPath = pathname === '/docs/dev' || pathname.startsWith('/docs/dev/');
+  if (!isAdminPath && !isDevNotesPath) return NextResponse.next();
 
-  // public admin route → geç
-  if (isPublicAdminRoute(pathname)) return NextResponse.next();
+  // /admin/login public
+  if (isAdminPath && isPublicAdminRoute(pathname)) return NextResponse.next();
 
-  // Server secret yoksa güvenlik için login'e gönder
+  // Server secret yoksa → login
   if (!SECRET) {
     const url = new URL('/admin/login', req.url);
     url.searchParams.set('e', 'server-config');
@@ -51,11 +54,10 @@ export async function middleware(req: NextRequest) {
     // JWT doğrula
     const { payload } = await jose.jwtVerify(tok, SECRET);
 
-    // JWT claim'lerinden yetki kontrolü
+    // JWT claim'leri
     const role = String(payload.role || '');
     const wallet = String(payload.sub || '');
 
-    // Login sırasında admin allowlist'inden geçmiş olmalı
     if (role !== 'admin' || !wallet) {
       const url = new URL('/admin/login', req.url);
       url.searchParams.set('e', 'not-allowed');
@@ -71,7 +73,7 @@ export async function middleware(req: NextRequest) {
       }
     }
 
-    // Diğer tüm /admin sayfaları → role: 'admin' yeterli (DB/ENV allowlist login'de geçti)
+    // Diğer tüm korunan sayfalar → role: 'admin' yeterli
     return NextResponse.next();
   } catch {
     const url = new URL('/admin/login', req.url);
@@ -80,7 +82,7 @@ export async function middleware(req: NextRequest) {
   }
 }
 
-// Kök /admin de korunsun diye matcher'a /admin ekliyoruz
+// Korumalı alanlar: /admin* ve /docs/dev*
 export const config = {
-  matcher: ['/admin', '/admin/:path*'],
+  matcher: ['/admin', '/admin/:path*', '/docs/dev', '/docs/dev/:path*'],
 };

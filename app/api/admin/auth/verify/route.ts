@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'invalid wallet' }, { status: 400 });
     }
 
-    // 1) Nonce'ı al
+    // 1) Nonce al
     const rows = (await sql`
       SELECT nonce, expires_at
       FROM admin_nonces
@@ -54,7 +54,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'invalid base58' }, { status: 400 });
     }
 
-    // 🔒 Boy kontrolleri: 64-byte imza, 32-byte public key
     if (sigBytes.length !== 64) {
       return NextResponse.json({ success: false, error: 'invalid signature size' }, { status: 400 });
     }
@@ -72,13 +71,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Not allowed' }, { status: 403 });
     }
 
-    // 4) JWT üret
-    const token = signAdmin(wallet, 60 * 60); // 1 saat
+    // 4) JWT üret (1 saat)
+    const token = signAdmin(wallet, 60 * 60);
 
-    // 5) Nonce'u tek-kullanımlık yap (sil)
+    // 5) Nonce'u tek-kullanımlık yap
     await sql`DELETE FROM admin_nonces WHERE wallet = ${wallet}`;
 
-    // 6) JSON + HttpOnly Cookie + cache kapalı
+    // 6) JSON + HttpOnly Cookie (köke yaz, Lax, no-store)
     const res = NextResponse.json(
       { success: true, token, wallet, expiresIn: 3600 },
       { headers: { 'Cache-Control': 'no-store' } }
@@ -86,9 +85,9 @@ export async function POST(req: Request) {
     res.cookies.set('coincarnation_admin', token, {
       httpOnly: true,
       secure: true,
-      sameSite: 'strict',
-      maxAge: 60 * 60,
-      path: '/',
+      sameSite: 'lax',  // mobil + deeplink senaryolarında daha sorunsuz
+      maxAge: 60 * 60,  // 1 saat
+      path: '/',        // tüm rotalarda geçerli (/admin, /docs/dev, ...)
     });
     return res;
   } catch (err: any) {
