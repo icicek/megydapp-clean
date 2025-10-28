@@ -85,10 +85,10 @@ export async function POST(req: Request) {
     res.cookies.set('coincarnation_admin', token, {
       httpOnly: true,
       secure: true,
-      sameSite: 'lax',  // mobil + deeplink senaryolarında daha sorunsuz
-      maxAge: 60 * 60,  // 1 saat
-      path: '/',        // tüm rotalarda geçerli (/admin, /docs/dev, ...)
-    });
+      sameSite: 'lax',      // <— strict → lax
+      maxAge: 60 * 60,
+      path: '/',            // tüm sitede geçerli
+    });    
     return res;
   } catch (err: any) {
     const { status, body } = httpErrorFrom(err, 500);

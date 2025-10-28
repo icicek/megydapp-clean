@@ -13,15 +13,18 @@ function isPublicAdminRoute(pathname: string): boolean {
   return pathname === '/admin/login';
 }
 
-// ENV root admin kontrolü (DB'ye bakmadan, sadece ENV)
-// Not: ADMIN_WALLETS (çoğul) kullan; geriye dönük ADMIN_WALLET desteği
+// ENV root admin kontrolü (ENV: ADMIN_WALLETS veya fallback ADMIN_WALLET)
 function isEnvAdmin(wallet: string): boolean {
-  const raw = (process.env.ADMIN_WALLETS || process.env.ADMIN_WALLET || '')
+  const listRaw =
+    process.env.ADMIN_WALLETS ||
+    process.env.ADMIN_WALLET || // backward-compat
+    '';
+  const allowed = listRaw
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
-  if (raw.length === 0) return false; // fail-closed
-  return raw.includes(wallet);
+  if (allowed.length === 0) return false; // fail-closed
+  return allowed.includes(wallet);
 }
 
 export async function middleware(req: NextRequest) {

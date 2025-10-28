@@ -164,7 +164,7 @@ function VotesBadge({ yes, threshold }: { yes: number; threshold: number }) {
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {
     cache: 'no-store',
-    credentials: 'same-origin',
+    credentials: 'include',   // <— same-origin → include
     ...init,
   });
   if (!res.ok) {
@@ -246,7 +246,10 @@ export default function AdminTokensPage() {
 
   const loadStats = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/registry/stats', { credentials: 'same-origin', cache: 'no-store' });
+      const res = await fetch('/api/admin/registry/stats', {
+        credentials: 'include',
+        cache: 'no-store'
+      });      
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const j = await res.json();
       if (j?.success) setStats(j);
