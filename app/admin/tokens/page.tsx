@@ -286,49 +286,6 @@ export default function AdminTokensPage() {
 
   useEffect(() => { setPage(0); }, [q, status, limit]);
 
-  // whoami + wallet sync  ✅ safer version
-  useEffect(() => {
-    // Cüzdan hazır değilse kontrol etme; ilk render’da logout loop’u engeller
-    if (!connected || !publicKey) return;
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/admin/whoami?strict=1', {
-          credentials: 'include',
-          cache: 'no-store',
-          headers: { 'x-admin-sync': '1' },
-        });
-
-        if (!res.ok) {
-          // Geçersiz/eksik session → login’e gönder
-          if (!cancelled) router.replace('/admin/login?e=session');
-          return;
-        }
-
-        const data = await res.json().catch(() => ({}));
-        const adminWallet: string | null = data?.wallet ?? null;
-
-        // Cüzdan hazır + adminWallet mevcutsa karşılaştır
-        const current = publicKey.toBase58();
-        if (adminWallet && adminWallet !== current) {
-          await fetch('/api/admin/auth/logout', {
-            method: 'POST',
-            credentials: 'include',
-          });
-          if (!cancelled) router.replace('/admin/login?e=wallet-changed');
-        }
-        // eşleşiyorsa hiçbir şey yapma → sayfa normal yüklenir
-      } catch {
-        // Ağ hatasında redirect etme; kullanıcıya şans ver
-        // push('whoami check failed', 'err');  // istersen küçük bir toast
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [connected, publicKey, router]);
-
-
   useEffect(() => {
     let stop = false;
     (async () => {
