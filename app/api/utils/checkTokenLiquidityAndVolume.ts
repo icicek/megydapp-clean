@@ -1,5 +1,5 @@
 // app/api/utils/checkTokenLiquidityAndVolume.ts
-import getVolumeAndLiquidity from './getVolumeAndLiquidity';
+import getVolumeAndLiquidity, { type VolumeLiquidity } from './getVolumeAndLiquidity';
 import type { TokenCategory } from './classifyToken';
 
 // ── ENV eşikleri (projeyle tutarlı isimler + eski adlara geri uyum) ─────────────
@@ -7,7 +7,7 @@ import type { TokenCategory } from './classifyToken';
 // Eski dosyadaki isimler: HEALTHY_MIN_USD, WALKING_DEAD_MIN_USD
 const HEALTHY_MIN_VOL = Number(
   process.env.HEALTHY_MIN_VOL_USD ??
-    process.env.HEALTHY_MIN_USD ??      // backward-compat
+    process.env.HEALTHY_MIN_USD ?? // backward-compat
     10_000
 );
 
@@ -34,6 +34,9 @@ export interface LiquidityResult {
 }
 
 export async function checkTokenLiquidityAndVolume(token: TokenInfo): Promise<LiquidityResult> {
+  // 🔧 Tipi açıkla: TS destructure sırasında alanları görsün
+  const vl = (await getVolumeAndLiquidity(token)) as VolumeLiquidity;
+
   const {
     dexVolumeUSD,
     cexVolumeUSD,
@@ -41,7 +44,7 @@ export async function checkTokenLiquidityAndVolume(token: TokenInfo): Promise<Li
     dexLiquidityUSD,
     dexSource,
     cexSource,
-  } = await getVolumeAndLiquidity(token);
+  } = vl;
 
   // Sınıflandırma kuralı:
   // - totalVolumeUSD >= HEALTHY_MIN_VOL → healthy
