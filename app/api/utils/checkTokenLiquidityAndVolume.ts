@@ -1,5 +1,5 @@
 // app/api/utils/checkTokenLiquidityAndVolume.ts
-import getVolumeAndLiquidity, { type VolumeLiquidity } from './getVolumeAndLiquidity';
+import getVolumeAndLiquidity from './getVolumeAndLiquidity';
 import type { TokenCategory } from './classifyToken';
 
 // ── ENV eşikleri (projeyle tutarlı isimler + eski adlara geri uyum) ─────────────
@@ -19,6 +19,16 @@ const WALKING_DEAD_MIN_VOL = Number(
 
 type TokenInfo = { mint: string; symbol?: string };
 
+// getVolumeAndLiquidity dönüşünü yerel tip ile karşılıyoruz
+type VL = {
+  dexVolumeUSD: number | null;
+  dexLiquidityUSD: number | null;
+  cexVolumeUSD: number | null;
+  totalVolumeUSD: number | null;
+  dexSource: 'dexscreener' | 'geckoterminal' | 'none';
+  cexSource: 'coingecko' | 'none';
+};
+
 export interface LiquidityResult {
   // toplulaştırılmış sinyaller
   volume: number | null;         // 24h toplam (DEX + opsiyonel CEX)
@@ -34,8 +44,8 @@ export interface LiquidityResult {
 }
 
 export async function checkTokenLiquidityAndVolume(token: TokenInfo): Promise<LiquidityResult> {
-  // 🔧 Tipi açıkla: TS destructure sırasında alanları görsün
-  const vl = (await getVolumeAndLiquidity(token)) as VolumeLiquidity;
+  // Tip sorunlarını engellemek için yerel tipe cast
+  const vl = (await getVolumeAndLiquidity(token)) as VL;
 
   const {
     dexVolumeUSD,
