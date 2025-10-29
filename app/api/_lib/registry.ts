@@ -3,12 +3,15 @@ import { sql } from '@/app/api/_lib/db';
 import type { TokenStatus } from '@/app/api/_lib/types';
 export type { TokenStatus } from '@/app/api/_lib/types';
 
-// Compat: Bazı yerlerde registry üzerinden set/get çağrısı bekleniyor olabilir.
+// Compat: Bazı yerlerde registry üzerinden set/get bekleniyor olabilir.
 import {
   getStatus as getRegistryStatus,
   setStatus as setRegistryStatus,
 } from '@/app/api/_lib/token-registry';
 export { getRegistryStatus, setRegistryStatus };
+
+// 🔗 Mint ile sınıflandırma yapabilmek için
+import classifyToken from '@/app/api/utils/classifyToken';
 
 // -------------------- ENV thresholds --------------------
 function intFromEnv(name: string, def: number): number {
@@ -21,6 +24,12 @@ export const ENV_THRESHOLDS = {
   WALKING_DEAD_MIN_USD: intFromEnv('WALKING_DEAD_MIN_USD', 100),
   WALKING_DEAD_MAX_USD: intFromEnv('WALKING_DEAD_MAX_USD', 1000),
   DEADCOIN_MAX_USD: intFromEnv('DEADCOIN_MAX_USD', 100),
+
+  // Hacim / likidite için ek (checkTokenLiquidityAndVolume ile uyum)
+  HEALTHY_MIN_VOL_USD: intFromEnv('HEALTHY_MIN_VOL_USD', 10_000),
+  HEALTHY_MIN_LIQ_USD: intFromEnv('HEALTHY_MIN_LIQ_USD', 10_000),
+  WALKING_DEAD_MIN_VOL_USD: intFromEnv('WALKING_DEAD_MIN_VOL_USD', 100),
+  WALKING_DEAD_MIN_LIQ_USD: intFromEnv('WALKING_DEAD_MIN_LIQ_USD', 100),
 };
 
 // -------------------- DB helpers --------------------
@@ -56,21 +65,12 @@ export async function getStatusRow(mint: string): Promise<StatusRow | null> {
 
 // -------------------- ensureFirstSeen (iki imza destekli) --------------------
 export type EnsureFirstSeenOptions = {
-  /** İlk açılış statüsü (varsayılan: 'healthy') */
   suggestedStatus?: TokenStatus;
-  /** Audit için updated_by alanı (varsayılan: 'system:first_seen') */
   actorWallet?: string | null;
-  /** Audit reason (varsayılan: 'first_seen') */
   reason?: string | null;
-  /** Ek meta (JSON) */
   meta?: any;
 };
 
-/**
- * Kayıt yoksa ilk satırı oluşturur (idempotent).
- * 2. parametre geriye dönük uyumlu: string (changedBy) ya da options objesi olabilir.
- * DÖNÜŞ: { created: boolean }
- */
 export function ensureFirstSeenRegistry(
   mint: string,
   changedBy?: string
@@ -84,14 +84,12 @@ export async function ensureFirstSeenRegistry(
   mint: string,
   opts?: string | EnsureFirstSeenOptions
 ): Promise<{ created: boolean }> {
-  // Varsayılanlar
   let status: TokenStatus = 'healthy';
   let updatedBy = 'system:first_seen';
   let reason: string | null = 'first_seen';
   let meta: any = { source: 'ensureFirstSeen' };
 
   if (typeof opts === 'string') {
-    // Eski kullanım (changedBy)
     updatedBy = opts || updatedBy;
   } else if (opts && typeof opts === 'object') {
     if (opts.suggestedStatus) status = opts.suggestedStatus;
@@ -117,19 +115,49 @@ export async function ensureFirstSeenRegistry(
   return { created: !!rows[0]?.inserted };
 }
 
-// -------------------- Karar fonksiyonu --------------------
+// -------------------- Karar fonksiyonu (iki kullanım) --------------------
 /**
- * Politika:
- * - usdValue === 0  → 'deadcoin' (MEGY yok, CorePoint var)
- * - < $100 vol & liq artık auto-deadcoin DEĞİL → 'walking_dead' + voteSuggested: true
- * - usd >= HEALTHY_MIN_USD → 'healthy'
- * - diğer durumlar → 'walking_dead' (çoğunlukla voteSuggested: true)
+ * Kullanım A (metrics):
+ *   computeStatusDecision({ usdValue, volumeUSD, liquidityUSD })
+ *
+ * Kullanım B (mint):
+ *   computeStatusDecision('<mint>')
+ *   → classifyToken çağırır, elde ettiği değerlere göre karar verir.
  */
 export function computeStatusDecision(metrics: {
   usdValue: number;
   volumeUSD?: number | null;
   liquidityUSD?: number | null;
-}): { status: TokenStatus; voteSuggested: boolean } {
+}): { status: TokenStatus; voteSuggested: boolean };
+export function computeStatusDecision(mint: string): Promise<{ status: TokenStatus; voteSuggested: boolean }>;
+
+export function computeStatusDecision(arg: any): any {
+  if (typeof arg === 'string') {
+    // Mint verildi → classifyToken ile ölç, sonra bu fonksiyonun metrics mantığına uygula
+    return (async () => {
+      const cls = await classifyToken({ mint: arg }, 1);
+      // classifyToken kategori → TokenStatus eşlemesi
+      const cat = cls.category;
+      if (cat === 'blacklist' || cat === 'redlist') {
+        return { status: cat, voteSuggested: false as const };
+      }
+      if (cat === 'healthy') {
+        return { status: 'healthy' as const, voteSuggested: false as const };
+      }
+      if (cat === 'walking_dead') {
+        // zayıf hacim/likidite varsa oylama öner
+        const suggest =
+          (cls.volume ?? 0) < ENV_THRESHOLDS.WALKING_DEAD_MIN_VOL_USD ||
+          (cls.liquidity ?? 0) < ENV_THRESHOLDS.WALKING_DEAD_MIN_LIQ_USD;
+        return { status: 'walking_dead' as const, voteSuggested: suggest };
+      }
+      // deadcoin/unknown → deadcoin
+      return { status: 'deadcoin' as const, voteSuggested: false as const };
+    })();
+  }
+
+  // Mevcut metrics temelli karar (senkron)
+  const metrics = arg as { usdValue: number; volumeUSD?: number | null; liquidityUSD?: number | null };
   const usd = Number(metrics.usdValue) || 0;
   const vol = Number(metrics.volumeUSD ?? 0);
   const liq = Number(metrics.liquidityUSD ?? 0);
@@ -137,25 +165,19 @@ export function computeStatusDecision(metrics: {
   if (usd === 0) {
     return { status: 'deadcoin', voteSuggested: false };
   }
+  if (usd >= ENV_THRESHOLDS.HEALTHY_MIN_USD) {
+    return { status: 'healthy', voteSuggested: false };
+  }
 
   const criticallyLow =
     vol < ENV_THRESHOLDS.WALKING_DEAD_MIN_USD &&
     liq < ENV_THRESHOLDS.WALKING_DEAD_MIN_USD;
-
-  if (usd >= ENV_THRESHOLDS.HEALTHY_MIN_USD) {
-    return { status: 'healthy', voteSuggested: false };
-  }
 
   const suggest = usd < ENV_THRESHOLDS.WALKING_DEAD_MIN_USD || criticallyLow;
   return { status: 'walking_dead', voteSuggested: suggest };
 }
 
 // -------------------- Etkili statü --------------------
-/**
- * getEffectiveStatus:
- * - redlist/blacklist override’larını korur
- * - (TODO: cross-chain alias yükseltmesi burada değerlendirilebilir)
- */
 export async function getEffectiveStatus(mint: string): Promise<TokenStatus> {
   const row = await getStatusRow(mint);
   if (!row) return 'healthy';

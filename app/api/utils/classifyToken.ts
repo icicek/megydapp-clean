@@ -1,6 +1,7 @@
-// classifyToken.ts
+// app/api/utils/classifyToken.ts
 import getUsdValue from './getUsdValue';
 import { checkTokenLiquidityAndVolume } from './checkTokenLiquidityAndVolume';
+import type { LiquidityResult } from './checkTokenLiquidityAndVolume';
 
 export type TokenCategory = 'healthy' | 'walking_dead' | 'deadcoin' | 'redlist' | 'blacklist' | 'unknown';
 
@@ -16,16 +17,23 @@ interface ClassificationResult {
   volume: number | null;
   liquidity: number | null;
   status: 'ok' | 'not_found' | 'loading' | 'error';
+
+  // 🔽 Yeni (opsiyonel, geriye dönük uyumlu):
+  volumeBreakdown?: {
+    dexVolumeUSD: number | null;
+    cexVolumeUSD: number | null;
+    totalVolumeUSD: number | null;
+  };
+  volumeSources?: LiquidityResult['sources']; // { dex, cex }
 }
 
-// 🔹 Burada listeler veri tabanından veya JSON'dan gelebilir.
-// Şimdilik basit dizi örnekleri ekliyorum:
+// 🔹 Bu listeler ileride DB/JSON’dan beslenecek (şimdilik placeholder)
 const DeadcoinList = new Set<string>([]);
 const Redlist = new Set<string>([]);
 const Blacklist = new Set<string>([]);
 
 export default async function classifyToken(token: TokenInfo, amount: number): Promise<ClassificationResult> {
-  // 1️⃣ Önce listelerden kontrol et
+  // 1) Öncelik: yönetimsel listeler
   if (Blacklist.has(token.mint)) {
     return {
       category: 'blacklist',
@@ -36,7 +44,6 @@ export default async function classifyToken(token: TokenInfo, amount: number): P
       status: 'ok',
     };
   }
-
   if (Redlist.has(token.mint)) {
     return {
       category: 'redlist',
@@ -47,7 +54,6 @@ export default async function classifyToken(token: TokenInfo, amount: number): P
       status: 'ok',
     };
   }
-
   if (DeadcoinList.has(token.mint)) {
     return {
       category: 'deadcoin',
@@ -59,10 +65,10 @@ export default async function classifyToken(token: TokenInfo, amount: number): P
     };
   }
 
-  // 2️⃣ Fiyat sorgusu
+  // 2) Fiyat sorgusu (kısa devre kuralları)
   const priceResult = await getUsdValue(token as any, amount);
 
-  // ❗Yeni mantık: getUsdValue artık 'loading' döndürmüyor
+  // getUsdValue artık 'loading' dönmüyor → error/not_found/ok
   if (priceResult.status === 'error') {
     return {
       category: 'unknown',
@@ -75,7 +81,7 @@ export default async function classifyToken(token: TokenInfo, amount: number): P
   }
 
   if (priceResult.status === 'not_found' || priceResult.usdValue <= 0) {
-    // Fiyat bulunamadı veya 0 → Deadcoin
+    // Fiyat yok veya 0 → Deadcoin
     return {
       category: 'deadcoin',
       usdValue: 0,
@@ -86,15 +92,23 @@ export default async function classifyToken(token: TokenInfo, amount: number): P
     };
   }
 
-  // 3️⃣ Hacim & likidite kontrolü
-  const { volume, liquidity, category } = await checkTokenLiquidityAndVolume(token);
+  // 3) Hacim & likidite kontrolü (kararı burada vereceğiz)
+  const liq: LiquidityResult = await checkTokenLiquidityAndVolume(token);
 
   return {
-    category,
+    category: liq.category,
     usdValue: priceResult.usdValue,
     priceSources: priceResult.sources,
-    volume,
-    liquidity,
+    volume: liq.volume,
+    liquidity: liq.liquidity,
     status: 'ok',
+
+    // ↴ yeni kırılımlar ve kaynak bilgisi (UI/analiz için faydalı)
+    volumeBreakdown: {
+      dexVolumeUSD: liq.dexVolume,
+      cexVolumeUSD: liq.cexVolume,
+      totalVolumeUSD: liq.volume,
+    },
+    volumeSources: liq.sources,
   };
 }

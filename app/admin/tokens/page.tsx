@@ -186,7 +186,7 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 /* ────────────────────────────────────────────────────────── */
 export default function AdminTokensPage() {
   const router = useRouter();
-  const { publicKey } = useWallet(); // yalnızca üstte gösterim için; auth’u middleware + AdminSessionSync yönetiyor
+  const { publicKey } = useWallet(); // sadece header gösterimi; auth başka yerde
   const { toasts, push } = useToasts();
 
   // list state
@@ -221,6 +221,47 @@ export default function AdminTokensPage() {
   const [voteThreshold, setVoteThreshold] = useState<number>(3);
   const [savingThreshold, setSavingThreshold] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
+
+  // INFO modal (yeni)
+  type VolumeResp = {
+    success: boolean;
+    mint: string;
+    dexVolumeUSD: number | null;
+    cexVolumeUSD: number | null;
+    totalVolumeUSD: number | null;
+    dexLiquidityUSD: number | null;
+    dexSource: 'dexscreener' | 'geckoterminal' | 'none';
+    cexSource: 'coingecko' | 'none';
+  };
+
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [infoMint, setInfoMint] = useState<string | null>(null);
+  const [infoLoading, setInfoLoading] = useState(false);
+  const [infoData, setInfoData] = useState<VolumeResp | null>(null);
+  const [infoErr, setInfoErr] = useState<string | null>(null);
+
+  async function openInfo(mintVal: string) {
+    try {
+      setInfoOpen(true);
+      setInfoMint(mintVal);
+      setInfoLoading(true);
+      setInfoErr(null);
+      const data = await api<VolumeResp>(`/api/admin/tokens/volume?mint=${encodeURIComponent(mintVal)}`);
+      setInfoData(data);
+    } catch (e: any) {
+      setInfoErr(e?.message || 'Load error');
+      setInfoData(null);
+      push('Info load error', 'err');
+    } finally {
+      setInfoLoading(false);
+    }
+  }
+  function closeInfo() {
+    setInfoOpen(false);
+    setInfoMint(null);
+    setInfoData(null);
+    setInfoErr(null);
+  }
 
   // query string
   const params = useMemo(() => {
@@ -602,14 +643,14 @@ export default function AdminTokensPage() {
               <th className="text-left p-2 w-[120px]">Votes</th>
               <th className="text-left p-2 w-[120px]">By</th>
               <th className="text-left p-2">Status At</th>
-              <th className="text-left p-2 w-[520px]">Actions</th>
+              <th className="text-left p-2 w-[580px]">Actions</th>
             </tr>
           </thead>
           <tbody>
             {items.length === 0 && (
               <tr>
                 <td className="p-3 text-gray-400" colSpan={6}>
-                No records
+                  No records
                 </td>
               </tr>
             )}
@@ -679,7 +720,7 @@ export default function AdminTokensPage() {
                   </td>
 
                   {/* Actions */}
-                  <td className="p-2 w-[520px]">
+                  <td className="p-2 w-[580px]">
                     <div className="flex gap-2 whitespace-nowrap overflow-x-auto">
                       {STATUSES.map((s) => (
                         <button
@@ -701,6 +742,15 @@ export default function AdminTokensPage() {
                         className="bg-indigo-700 hover:bg-indigo-600 rounded px-2 py-1"
                       >
                         history
+                      </button>
+
+                      {/* 🔵 NEW: Info (volume breakdown) */}
+                      <button
+                        onClick={() => openInfo(it.mint)}
+                        className="bg-sky-700 hover:bg-sky-600 rounded px-2 py-1"
+                        title="Volume & Liquidity"
+                      >
+                        info
                       </button>
                     </div>
                   </td>
@@ -768,6 +818,62 @@ export default function AdminTokensPage() {
                       </button>
                     </div>
                   )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔵 Info Modal (Volume & Liquidity) */}
+      {infoOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl w-[90vw] max-w-md overflow-hidden">
+            <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+              <div className="font-semibold">
+                Volume & Liquidity — <span className="font-mono">{infoMint}</span>
+              </div>
+              <button onClick={closeInfo} className="text-gray-300 hover:text-white" aria-label="Close">
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              {infoLoading && <div className="text-sm text-gray-400">Loading…</div>}
+              {infoErr && <div className="text-sm text-red-400">❌ {infoErr}</div>}
+
+              {!infoLoading && !infoErr && infoData && (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-gray-950 border border-gray-800 rounded p-3">
+                      <div className="text-[11px] text-gray-400">DEX Volume (24h)</div>
+                      <div className="text-base font-semibold">
+                        ${Number(infoData.dexVolumeUSD ?? 0).toLocaleString()}
+                      </div>
+                      <div className="text-[11px] text-gray-500 mt-1">src: {infoData.dexSource}</div>
+                    </div>
+                    <div className="bg-gray-950 border border-gray-800 rounded p-3">
+                      <div className="text-[11px] text-gray-400">CEX Volume (24h)</div>
+                      <div className="text-base font-semibold">
+                        ${Number(infoData.cexVolumeUSD ?? 0).toLocaleString()}
+                      </div>
+                      <div className="text-[11px] text-gray-500 mt-1">src: {infoData.cexSource}</div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-950 border border-gray-800 rounded p-3">
+                    <div className="text-[11px] text-gray-400">Total Volume (24h)</div>
+                    <div className="text-lg font-semibold">
+                      ${Number(infoData.totalVolumeUSD ?? 0).toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-950 border border-gray-800 rounded p-3">
+                    <div className="text-[11px] text-gray-400">Max Pool Liquidity</div>
+                    <div className="text-base font-semibold">
+                      ${Number(infoData.dexLiquidityUSD ?? 0).toLocaleString()}
+                    </div>
+                  </div>
                 </>
               )}
             </div>
