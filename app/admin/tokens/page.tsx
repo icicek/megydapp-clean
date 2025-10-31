@@ -14,14 +14,14 @@ import { fetchSolanaTokenList } from '@/lib/utils';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 
 /* ────────────────────────────────────────────────────────── */
-/* UI: Single toolbar button                                  */
+/* UI: Tek tip toolbar butonu                                 */
 /* ────────────────────────────────────────────────────────── */
 const TB =
   'inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 ' +
   'bg-white/5 hover:bg-white/10 transition-colors text-sm whitespace-nowrap';
 
 /* ────────────────────────────────────────────────────────── */
-/* Types                                                      */
+/* Tipler                                                     */
 /* ────────────────────────────────────────────────────────── */
 const STATUSES = ['healthy', 'walking_dead', 'deadcoin', 'redlist', 'blacklist'] as const;
 type TokenStatus = typeof STATUSES[number];
@@ -138,7 +138,7 @@ function pruneMap(map: Record<string, NameEntry>, max: number) {
 }
 
 /* ────────────────────────────────────────────────────────── */
-/* UI parts                                                   */
+/* UI parçaları                                               */
 /* ────────────────────────────────────────────────────────── */
 function StatusBadge({ status }: { status: string }) {
   const isKnown = (STATUSES as readonly string[]).includes(status as any);
@@ -182,13 +182,12 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 /* ────────────────────────────────────────────────────────── */
-/* Page                                                       */
+/* Sayfa                                                      */
 /* ────────────────────────────────────────────────────────── */
 export default function AdminTokensPage() {
   const router = useRouter();
-  const { publicKey } = useWallet(); // header only; auth elsewhere
+  const { publicKey } = useWallet(); // sadece header gösterimi; auth başka yerde
   const { toasts, push } = useToasts();
-  const [previewYes, setPreviewYes] = useState<number>(0);
 
   // list state
   const [items, setItems] = useState<any[]>([]);
@@ -223,7 +222,7 @@ export default function AdminTokensPage() {
   const [savingThreshold, setSavingThreshold] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
 
-  /* ── INFO modal (new) ───────────────────────────────────── */
+  // INFO modal (volume & liquidity)
   type VolumeResp = {
     success: boolean;
     mint: string;
@@ -240,6 +239,9 @@ export default function AdminTokensPage() {
   const [infoLoading, setInfoLoading] = useState(false);
   const [infoData, setInfoData] = useState<VolumeResp | null>(null);
   const [infoErr, setInfoErr] = useState<string | null>(null);
+
+  // live badge preview (settings right panel)
+  const [previewYes, setPreviewYes] = useState<number>(0);
 
   async function openInfo(mintVal: string) {
     try {
@@ -264,17 +266,16 @@ export default function AdminTokensPage() {
     setInfoErr(null);
   }
 
-  // ESC key to close Info
+  // ESC => modal kapat
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape' && infoOpen) closeInfo();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [infoOpen]);
 
-  /* ── query string ───────────────────────────────────────── */
+  // query string
   const params = useMemo(() => {
     const sp = new URLSearchParams();
     if (q) sp.set('q', q);
@@ -357,7 +358,7 @@ export default function AdminTokensPage() {
     };
   }, []);
 
-  // enrich visible rows with tokenlist names
+  // enrich names from tokenlist for visible rows
   useEffect(() => {
     if (!listReady || !tokenListIndex || items.length === 0) return;
     setNameMap((prev) => {
@@ -581,7 +582,7 @@ export default function AdminTokensPage() {
         </div>
       </div>
 
-      {/* Settings: vote threshold */}
+      {/* Settings: vote threshold (with right panel preview) */}
       <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-4">
         <h2 className="font-semibold mb-3">Admin Settings</h2>
 
@@ -613,7 +614,6 @@ export default function AdminTokensPage() {
               {savingThreshold ? 'Saving…' : 'Save'}
             </button>
 
-            {/* quick reset to a sane default (client-only) */}
             <button
               onClick={() => setVoteThreshold(3)}
               className="px-3 py-1 rounded bg-gray-800 border border-gray-700 hover:bg-gray-700"
@@ -629,7 +629,10 @@ export default function AdminTokensPage() {
           <div className="bg-gray-950/70 border border-gray-800 rounded-lg p-3">
             <div className="text-[11px] text-gray-400 mb-2">How it works</div>
             <ul className="text-xs text-gray-300 list-disc pl-4 space-y-1 mb-3">
-              <li>When <span className="font-mono">YES ≥ threshold</span>, token is eligible for auto-promotion to <span className="font-semibold">deadcoin</span>.</li>
+              <li>
+                When <span className="font-mono">YES ≥ threshold</span>, token is eligible for auto-promotion to{' '}
+                <span className="font-semibold">deadcoin</span>.
+              </li>
               <li>Change applies immediately after saving.</li>
             </ul>
 
@@ -706,7 +709,7 @@ export default function AdminTokensPage() {
               <th className="text-left p-2 w-[120px]">Votes</th>
               <th className="text-left p-2 w-[120px]">By</th>
               <th className="text-left p-2">Status At</th>
-              <th className="text-left p-2 w-[620px]">Actions</th>
+              <th className="text-left p-2 w-[580px]">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -783,7 +786,7 @@ export default function AdminTokensPage() {
                   </td>
 
                   {/* Actions */}
-                  <td className="p-2 w-[620px]">
+                  <td className="p-2 w-[580px]">
                     <div className="flex gap-2 whitespace-nowrap overflow-x-auto">
                       {STATUSES.map((s) => (
                         <button
@@ -890,23 +893,15 @@ export default function AdminTokensPage() {
 
       {/* 🔵 Info Modal (Volume & Liquidity) */}
       {infoOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop (click to close) */}
-          <button
-            className="absolute inset-0 bg-black/60"
-            onClick={closeInfo}
-            aria-label="Close Info"
-          />
-          {/* Card */}
-          <div className="relative bg-gradient-to-b from-gray-900 to-gray-950 border border-sky-800/40 shadow-2xl rounded-2xl w-[90vw] max-w-md overflow-hidden">
-            {/* Header */}
-            <div className="p-4 border-b border-sky-900/40 flex items-center justify-between">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl w-[92vw] max-w-md overflow-hidden shadow-2xl shadow-sky-900/30">
+            <div className="p-4 border-b border-gray-800 flex items-center justify-between">
               <div className="font-semibold">
                 Volume & Liquidity — <span className="font-mono">{infoMint}</span>
               </div>
               <button
                 onClick={closeInfo}
-                className="h-8 w-8 inline-flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 border border-white/10"
+                className="text-gray-300 hover:text-white rounded px-2 py-1 hover:bg-white/10"
                 aria-label="Close"
                 title="Close (Esc)"
               >
@@ -914,7 +909,6 @@ export default function AdminTokensPage() {
               </button>
             </div>
 
-            {/* Body */}
             <div className="p-4 space-y-3">
               {infoLoading && <div className="text-sm text-gray-400">Loading…</div>}
               {infoErr && <div className="text-sm text-red-400">❌ {infoErr}</div>}
@@ -922,14 +916,14 @@ export default function AdminTokensPage() {
               {!infoLoading && !infoErr && infoData && (
                 <>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-gray-950/70 border border-gray-800 rounded-xl p-3">
+                    <div className="bg-gray-950 border border-gray-800 rounded p-3">
                       <div className="text-[11px] text-gray-400">DEX Volume (24h)</div>
                       <div className="text-base font-semibold">
                         ${Number(infoData.dexVolumeUSD ?? 0).toLocaleString()}
                       </div>
                       <div className="text-[11px] text-gray-500 mt-1">src: {infoData.dexSource}</div>
                     </div>
-                    <div className="bg-gray-950/70 border border-gray-800 rounded-xl p-3">
+                    <div className="bg-gray-950 border border-gray-800 rounded p-3">
                       <div className="text-[11px] text-gray-400">CEX Volume (24h)</div>
                       <div className="text-base font-semibold">
                         ${Number(infoData.cexVolumeUSD ?? 0).toLocaleString()}
@@ -938,31 +932,23 @@ export default function AdminTokensPage() {
                     </div>
                   </div>
 
-                  <div className="bg-gray-950/70 border border-gray-800 rounded-xl p-3">
+                  <div className="bg-gray-950 border border-gray-800 rounded p-3">
                     <div className="text-[11px] text-gray-400">Total Volume (24h)</div>
                     <div className="text-lg font-semibold">
                       ${Number(infoData.totalVolumeUSD ?? 0).toLocaleString()}
                     </div>
                   </div>
 
-                  <div className="bg-gray-950/70 border border-gray-800 rounded-xl p-3">
+                  <div className="bg-gray-950 border border-gray-800 rounded p-3">
                     <div className="text-[11px] text-gray-400">Max Pool Liquidity</div>
                     <div className="text-base font-semibold">
                       ${Number(infoData.dexLiquidityUSD ?? 0).toLocaleString()}
                     </div>
-                    <div className="mt-2 text-[11px] text-gray-500">
-                      Note: DEX volume comes from a single prioritized source (no double counting).
-                    </div>
                   </div>
 
-                  {/* Close CTA */}
-                  <div className="pt-1">
-                    <button
-                      onClick={closeInfo}
-                      className="w-full rounded-xl bg-sky-700 hover:bg-sky-600 transition-colors py-2 font-semibold"
-                    >
-                      Close
-                    </button>
+                  <div className="text-[11px] text-gray-500">
+                    *DEX verisi tek bir kaynak önceliği ile toplanır (çift sayım yok). CEX toplamı CoinGecko allowlist’e göre
+                    hesaplanır. Değerler anlık sorgudan gelir ve önbellek kısa ömürlüdür.
                   </div>
                 </>
               )}
