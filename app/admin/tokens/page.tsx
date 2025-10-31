@@ -503,7 +503,7 @@ export default function AdminTokensPage() {
 
   /* ──────────────────────────────────────────────────────── */
   return (
-    <div className="min-h-screen bg-black text-white p-6">
+    <div className="min-h-screen bg-black text-white p-6 overflow-x-hidden">
       <ToastViewport toasts={toasts} />
 
       {/* TOP BAR */}
@@ -583,13 +583,14 @@ export default function AdminTokensPage() {
       </div>
 
       {/* Settings: vote threshold (with right panel preview) */}
-      <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-4">
+      <div className="bg-gray-900 border border-gray-700 rounded p-4 md:p-5 mb-4">
         <h2 className="font-semibold mb-3">Admin Settings</h2>
 
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid items-start gap-4 grid-cols-1 md:grid-cols-2">
           {/* Left: form */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <label className="text-sm text-gray-300 whitespace-nowrap">Community Vote Threshold</label>
+
             <input
               type="number"
               min={1}
@@ -598,14 +599,12 @@ export default function AdminTokensPage() {
               value={Number.isFinite(voteThreshold) ? voteThreshold : 1}
               onChange={(e) => {
                 const raw = Number(e.target.value);
-                if (!Number.isFinite(raw)) {
-                  setVoteThreshold(1);
-                  return;
-                }
+                if (!Number.isFinite(raw)) { setVoteThreshold(1); return; }
                 setVoteThreshold(clamp(Math.round(raw), 1, 50));
               }}
               className="w-24 px-2 py-1 rounded bg-gray-950 border border-gray-700"
             />
+
             <button
               onClick={saveThreshold}
               disabled={savingThreshold || !Number.isFinite(voteThreshold) || voteThreshold < 1 || voteThreshold > 50}
@@ -623,10 +622,15 @@ export default function AdminTokensPage() {
             </button>
 
             {settingsMsg && <div className="text-xs text-gray-300">{settingsMsg}</div>}
+
+            {/* açıklama: tek satır yerine formun altında */}
+            <div className="basis-full mt-2 text-[11px] text-neutral-500">
+              Affects auto-deadcoin promotion (YES ≥ threshold).
+            </div>
           </div>
 
           {/* Right: guidance + live badge preview */}
-          <div className="bg-gray-950/70 border border-gray-800 rounded-lg p-3">
+          <div className="w-full max-w-full bg-gray-950/70 border border-gray-800 rounded-xl p-3">
             <div className="text-[11px] text-gray-400 mb-2">How it works</div>
             <ul className="text-xs text-gray-300 list-disc pl-4 space-y-1 mb-3">
               <li>
@@ -660,12 +664,8 @@ export default function AdminTokensPage() {
               max={Math.max(10, voteThreshold || 3)}
               value={previewYes}
               onChange={(e) => setPreviewYes(parseInt(e.target.value, 10))}
-              className="w-full accent-sky-500"
+              className="w-full max-w-full accent-sky-500"
             />
-
-            <div className="mt-2 text-[11px] text-neutral-500">
-              Affects auto-deadcoin promotion (<span className="font-mono">YES ≥ threshold</span>).
-            </div>
           </div>
         </div>
       </div>
