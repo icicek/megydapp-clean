@@ -219,6 +219,7 @@ export default function AdminTokensPage() {
 
   // settings
   const [voteThreshold, setVoteThreshold] = useState<number>(3);
+  const [includeCEX, setIncludeCEX] = useState<boolean>(false);
   const [savingThreshold, setSavingThreshold] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
 
@@ -315,9 +316,39 @@ export default function AdminTokensPage() {
       const r = await fetch('/api/admin/settings', { credentials: 'include', cache: 'no-store' });
       if (!r.ok) return;
       const d = await r.json();
-      if (d?.success) setVoteThreshold(d.voteThreshold ?? 3);
+      if (d?.success) {
+        setVoteThreshold(d.voteThreshold ?? 3);
+        setIncludeCEX(!!d.includeCEX);
+      }
     } catch {}
   }, []);
+
+  async function saveSettings() {
+    try {
+      setSettingsMsg(null);
+      setSavingThreshold(true);
+      const r = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voteThreshold, includeCEX, changedBy: 'admin_ui' }),
+      });
+      const d = await r.json();
+      if (d?.success) {
+        setVoteThreshold(d.voteThreshold ?? voteThreshold);
+        setIncludeCEX(!!d.includeCEX);
+        setSettingsMsg('✅ Saved');
+        // Hızlı etki için: liste tekrar yüklensin
+        await load();
+      } else {
+        setSettingsMsg(`❌ ${d?.error || 'Save failed'}`);
+      }
+    } catch (e: any) {
+      setSettingsMsg(`❌ ${e?.message || 'Save failed'}`);
+    } finally {
+      setSavingThreshold(false);
+    }
+  }
 
   /* ── effects ───────────────────────────────────────────── */
   useEffect(() => {
@@ -504,36 +535,36 @@ export default function AdminTokensPage() {
   return (
     <div className="min-h-screen bg-black text-white p-6">
       <ToastViewport toasts={toasts} />
-
+  
       {/* TOP BAR */}
       <div className="mb-4">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-bold mr-auto">🛡️ Token Management</h1>
-
+  
           <Link href="/admin/audit" className={TB} title="View Admin Audit Log">
             <span>📜</span>
             <span>Audit Log</span>
           </Link>
-
+  
           <Link href="/admin/control" className={TB} title="Control">
             <span>🧩</span>
             <span>Control</span>
           </Link>
-
+  
           <DevNotesButton />
-
+  
           <button onClick={() => router.push('/')} className={TB} title="Back to site">
             <span>↩︎</span>
             <span>Back to site</span>
           </button>
-
+  
           <button onClick={logout} className={TB} title="Logout">
             <span>🚪</span>
             <span>Logout</span>
           </button>
         </div>
       </div>
-
+  
       {/* Filters */}
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
         <input
@@ -573,37 +604,52 @@ export default function AdminTokensPage() {
           <button onClick={load} disabled={loading} className={`${TB} ${loading ? 'opacity-70' : ''}`}>
             {loading ? 'Loading…' : 'Refresh'}
           </button>
-
+  
           {/* Export CSV */}
           <div className="shrink-0">
             <ExportCsvButton q={q} status={status || ''} />
           </div>
         </div>
       </div>
-
-      {/* Settings: vote threshold */}
+  
+      {/* Settings: vote threshold + includeCEX */}
       <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-4">
         <h2 className="font-semibold mb-2">Admin Settings</h2>
-        <div className="flex items-center gap-3">
-          <label className="text-sm text-gray-300">Community Vote Threshold</label>
-          <input
-            type="number"
-            min={1}
-            max={50}
-            step={1}
-            value={Number.isFinite(voteThreshold) ? voteThreshold : 1}
-            onChange={(e) => {
-              const raw = Number(e.target.value);
-              if (!Number.isFinite(raw)) {
-                setVoteThreshold(1);
-                return;
-              }
-              setVoteThreshold(clamp(Math.round(raw), 1, 50));
-            }}
-            className="w-24 px-2 py-1 rounded bg-gray-950 border border-gray-700"
-          />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-gray-300 min-w-[180px]">Community Vote Threshold</label>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              step={1}
+              value={Number.isFinite(voteThreshold) ? voteThreshold : 1}
+              onChange={(e) => {
+                const raw = Number(e.target.value);
+                if (!Number.isFinite(raw)) { setVoteThreshold(1); return; }
+                setVoteThreshold(Math.min(Math.max(Math.round(raw), 1), 50));
+              }}
+              className="w-24 px-2 py-1 rounded bg-gray-950 border border-gray-700"
+            />
+          </div>
+  
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-gray-300 min-w-[180px]">Include CEX in 24h Volume</label>
+            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={includeCEX}
+                onChange={(e) => setIncludeCEX(e.target.checked)}
+                className="h-4 w-4 accent-blue-600"
+              />
+              <span className="text-sm text-gray-300">{includeCEX ? 'Enabled' : 'Disabled'}</span>
+            </label>
+          </div>
+        </div>
+  
+        <div className="mt-4 flex items-center gap-3">
           <button
-            onClick={saveThreshold}
+            onClick={saveSettings}
             disabled={savingThreshold || !Number.isFinite(voteThreshold) || voteThreshold < 1 || voteThreshold > 50}
             className="px-3 py-1 rounded bg-blue-600 text-white disabled:opacity-50"
           >
@@ -611,9 +657,12 @@ export default function AdminTokensPage() {
           </button>
           {settingsMsg && <div className="text-xs text-gray-300">{settingsMsg}</div>}
         </div>
-        <div className="mt-1 text-[11px] text-neutral-500">Affects auto-deadcoin promotion (YES ≥ threshold).</div>
+  
+        <div className="mt-2 text-[11px] text-neutral-500">
+          Total Volume = DEX {includeCEX ? '+ CEX' : '(CEX excluded)'} — Info modal ve sınıflandırma akışına anında yansır.
+        </div>
       </div>
-
+  
       {/* Stats */}
       {stats && (
         <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-6">
@@ -640,9 +689,9 @@ export default function AdminTokensPage() {
           </div>
         </div>
       )}
-
+  
       {error && <div className="text-red-400 mb-4">❌ {error}</div>}
-
+  
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
@@ -706,29 +755,29 @@ export default function AdminTokensPage() {
                       </button>
                     </div>
                   </td>
-
+  
                   {/* Status */}
                   <td className="p-2">
                     <StatusBadge status={it.status} />
                   </td>
-
+  
                   {/* Votes */}
                   <td className="p-2 w-[120px]">
                     <VotesBadge yes={yesCount} threshold={voteThreshold || 3} />
                   </td>
-
+  
                   {/* Updated By */}
                   <td className="p-2 w-[120px]">
                     <span className="truncate block" title={it.updated_by ?? 'Admin'}>
                       {shortenWallet(it.updated_by)}
                     </span>
                   </td>
-
+  
                   {/* Status At */}
                   <td className="p-2 whitespace-nowrap">
                     {it.status_at ? new Date(it.status_at).toLocaleString() : '—'}
                   </td>
-
+  
                   {/* Actions */}
                   <td className="p-2 w-[580px]">
                     <div className="flex gap-2 whitespace-nowrap overflow-x-auto">
@@ -753,7 +802,7 @@ export default function AdminTokensPage() {
                       >
                         history
                       </button>
-
+  
                       {/* 🔵 NEW: Info (volume breakdown) */}
                       <button
                         onClick={() => openInfo(it.mint)}
@@ -770,19 +819,11 @@ export default function AdminTokensPage() {
           </tbody>
         </table>
       </div>
-
+  
       {/* History Modal */}
       {histOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
-          role="dialog"
-          aria-modal="true"
-          onClick={closeInfo /* overlay tıklanınca kapansın */}
-        >
-          <div
-            className="bg-gray-900 border border-gray-700 rounded-xl w-[90vw] max-w-2xl max-h-[80vh] overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl w-[90vw] max-w-2xl max-h-[80vh] overflow-hidden">
             <div className="p-4 border-b border-gray-800 flex items-center justify-between">
               <div className="font-semibold">
                 History — <span className="font-mono">{histMint}</span>
@@ -791,13 +832,13 @@ export default function AdminTokensPage() {
                 ✕
               </button>
             </div>
-
+  
             <div className="p-4 overflow-auto">
               {histLoading && <div className="text-sm text-gray-400">Loading…</div>}
               {!histLoading && (!histItems || histItems.length === 0) && (
                 <div className="text-sm text-gray-400">No history</div>
               )}
-
+  
               {!histLoading && histItems && histItems.length > 0 && (
                 <>
                   <table className="w-full text-sm">
@@ -824,7 +865,7 @@ export default function AdminTokensPage() {
                       ))}
                     </tbody>
                   </table>
-
+  
                   {histHasMore && (
                     <div className="flex justify-center mt-3">
                       <button
@@ -839,31 +880,14 @@ export default function AdminTokensPage() {
                 </>
               )}
             </div>
-
-            <div className="p-3 border-t border-gray-800 flex justify-end">
-              <button
-                onClick={() => setHistOpen(false)}
-                className="bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded px-3 py-1 text-sm"
-              >
-                Close
-              </button>
-            </div>
           </div>
         </div>
       )}
-
+  
       {/* 🔵 Info Modal (Volume & Liquidity) */}
       {infoOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
-          role="dialog"
-          aria-modal="true"
-          onClick={closeInfo /* overlay tıklanınca kapansın */}
-        >
-          <div
-            className="bg-gray-900 border border-gray-700 rounded-xl w-[90vw] max-w-md overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl w-[90vw] max-w-md overflow-hidden">
             <div className="p-4 border-b border-gray-800 flex items-center justify-between">
               <div className="font-semibold">
                 Volume & Liquidity — <span className="font-mono">{infoMint}</span>
@@ -872,11 +896,11 @@ export default function AdminTokensPage() {
                 ✕
               </button>
             </div>
-
+  
             <div className="p-4 space-y-3">
               {infoLoading && <div className="text-sm text-gray-400">Loading…</div>}
               {infoErr && <div className="text-sm text-red-400">❌ {infoErr}</div>}
-
+  
               {!infoLoading && !infoErr && infoData && (
                 <>
                   <div className="grid grid-cols-2 gap-2">
@@ -885,9 +909,7 @@ export default function AdminTokensPage() {
                       <div className="text-base font-semibold">
                         ${Number(infoData.dexVolumeUSD ?? 0).toLocaleString()}
                       </div>
-                      <div className="text-[11px] text-gray-500 mt-1">
-                        src: {infoData.dexSource} · single-DEX source (no double-count)
-                      </div>
+                      <div className="text-[11px] text-gray-500 mt-1">src: {infoData.dexSource}</div>
                     </div>
                     <div className="bg-gray-950 border border-gray-800 rounded p-3">
                       <div className="text-[11px] text-gray-400">CEX Volume (24h)</div>
@@ -897,17 +919,14 @@ export default function AdminTokensPage() {
                       <div className="text-[11px] text-gray-500 mt-1">src: {infoData.cexSource}</div>
                     </div>
                   </div>
-
+  
                   <div className="bg-gray-950 border border-gray-800 rounded p-3">
                     <div className="text-[11px] text-gray-400">Total Volume (24h)</div>
                     <div className="text-lg font-semibold">
                       ${Number(infoData.totalVolumeUSD ?? 0).toLocaleString()}
                     </div>
-                    <div className="text-[11px] text-gray-500 mt-1">
-                      Total = DEX + CEX (if available)
-                    </div>
                   </div>
-
+  
                   <div className="bg-gray-950 border border-gray-800 rounded p-3">
                     <div className="text-[11px] text-gray-400">Max Pool Liquidity</div>
                     <div className="text-base font-semibold">
@@ -917,18 +936,9 @@ export default function AdminTokensPage() {
                 </>
               )}
             </div>
-
-            <div className="p-3 border-t border-gray-800 flex justify-end">
-              <button
-                onClick={closeInfo}
-                className="bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded px-3 py-1 text-sm"
-              >
-                Close
-              </button>
-            </div>
           </div>
         </div>
       )}
     </div>
-  );
+  );  
 }
