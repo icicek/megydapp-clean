@@ -188,6 +188,7 @@ export default function AdminTokensPage() {
   const router = useRouter();
   const { publicKey } = useWallet(); // header only; auth elsewhere
   const { toasts, push } = useToasts();
+  const [previewYes, setPreviewYes] = useState<number>(0);
 
   // list state
   const [items, setItems] = useState<any[]>([]);
@@ -582,35 +583,88 @@ export default function AdminTokensPage() {
 
       {/* Settings: vote threshold */}
       <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-4">
-        <h2 className="font-semibold mb-2">Admin Settings</h2>
-        <div className="flex items-center gap-3">
-          <label className="text-sm text-gray-300">Community Vote Threshold</label>
-          <input
-            type="number"
-            min={1}
-            max={50}
-            step={1}
-            value={Number.isFinite(voteThreshold) ? voteThreshold : 1}
-            onChange={(e) => {
-              const raw = Number(e.target.value);
-              if (!Number.isFinite(raw)) {
-                setVoteThreshold(1);
-                return;
-              }
-              setVoteThreshold(clamp(Math.round(raw), 1, 50));
-            }}
-            className="w-24 px-2 py-1 rounded bg-gray-950 border border-gray-700"
-          />
-          <button
-            onClick={saveThreshold}
-            disabled={savingThreshold || !Number.isFinite(voteThreshold) || voteThreshold < 1 || voteThreshold > 50}
-            className="px-3 py-1 rounded bg-blue-600 text-white disabled:opacity-50"
-          >
-            {savingThreshold ? 'Saving…' : 'Save'}
-          </button>
-          {settingsMsg && <div className="text-xs text-gray-300">{settingsMsg}</div>}
+        <h2 className="font-semibold mb-3">Admin Settings</h2>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          {/* Left: form */}
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-gray-300 whitespace-nowrap">Community Vote Threshold</label>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              step={1}
+              value={Number.isFinite(voteThreshold) ? voteThreshold : 1}
+              onChange={(e) => {
+                const raw = Number(e.target.value);
+                if (!Number.isFinite(raw)) {
+                  setVoteThreshold(1);
+                  return;
+                }
+                setVoteThreshold(clamp(Math.round(raw), 1, 50));
+              }}
+              className="w-24 px-2 py-1 rounded bg-gray-950 border border-gray-700"
+            />
+            <button
+              onClick={saveThreshold}
+              disabled={savingThreshold || !Number.isFinite(voteThreshold) || voteThreshold < 1 || voteThreshold > 50}
+              className="px-3 py-1 rounded bg-blue-600 text-white disabled:opacity-50"
+            >
+              {savingThreshold ? 'Saving…' : 'Save'}
+            </button>
+
+            {/* quick reset to a sane default (client-only) */}
+            <button
+              onClick={() => setVoteThreshold(3)}
+              className="px-3 py-1 rounded bg-gray-800 border border-gray-700 hover:bg-gray-700"
+              title="Reset to 3"
+            >
+              Reset 3
+            </button>
+
+            {settingsMsg && <div className="text-xs text-gray-300">{settingsMsg}</div>}
+          </div>
+
+          {/* Right: guidance + live badge preview */}
+          <div className="bg-gray-950/70 border border-gray-800 rounded-lg p-3">
+            <div className="text-[11px] text-gray-400 mb-2">How it works</div>
+            <ul className="text-xs text-gray-300 list-disc pl-4 space-y-1 mb-3">
+              <li>When <span className="font-mono">YES ≥ threshold</span>, token is eligible for auto-promotion to <span className="font-semibold">deadcoin</span>.</li>
+              <li>Change applies immediately after saving.</li>
+            </ul>
+
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[11px] text-gray-400">Badge preview:</span>
+              <span
+                className={[
+                  'inline-flex items-center justify-center rounded-full font-semibold',
+                  'h-6 min-w-[64px] px-2 text-[11px]',
+                  previewYes >= (voteThreshold || 1)
+                    ? 'bg-red-600 text-white'
+                    : previewYes >= Math.ceil((voteThreshold || 1) * 0.66)
+                    ? 'bg-amber-500 text-black'
+                    : 'bg-neutral-200 text-black',
+                ].join(' ')}
+                title={`YES ${previewYes}/${voteThreshold || 1}`}
+              >
+                {`YES ${previewYes}/${voteThreshold || 1}`}
+              </span>
+            </div>
+
+            <input
+              type="range"
+              min={0}
+              max={Math.max(10, voteThreshold || 3)}
+              value={previewYes}
+              onChange={(e) => setPreviewYes(parseInt(e.target.value, 10))}
+              className="w-full accent-sky-500"
+            />
+
+            <div className="mt-2 text-[11px] text-neutral-500">
+              Affects auto-deadcoin promotion (<span className="font-mono">YES ≥ threshold</span>).
+            </div>
+          </div>
         </div>
-        <div className="mt-1 text-[11px] text-neutral-500">Affects auto-deadcoin promotion (YES ≥ threshold).</div>
       </div>
 
       {/* Stats */}
