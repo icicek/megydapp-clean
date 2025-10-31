@@ -29,7 +29,7 @@ type TokenStatus = typeof STATUSES[number];
 const STATUS_STYLES: Record<TokenStatus, string> = {
   healthy: 'bg-emerald-900/50 text-emerald-200 border border-emerald-700',
   walking_dead: 'bg-amber-900/50 text-amber-200 border border-amber-700',
-  deadcoin: 'bg-zinc-800 text-zinc-200 border border-zinc-700',
+  deadcoin: 'bg-zinc-800 text-zinc-200 border-zinc-700',
   redlist: 'bg-rose-900/50 text-rose-200 border border-rose-700',
   blacklist: 'bg-fuchsia-900/50 text-fuchsia-200 border border-fuchsia-700',
 };
@@ -222,7 +222,7 @@ export default function AdminTokensPage() {
   const [savingThreshold, setSavingThreshold] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
 
-  // INFO modal (yeni)
+  // INFO modal (volume & liquidity)
   type VolumeResp = {
     success: boolean;
     mint: string;
@@ -262,6 +262,16 @@ export default function AdminTokensPage() {
     setInfoData(null);
     setInfoErr(null);
   }
+
+  // Escape ile kapat
+  useEffect(() => {
+    if (!infoOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeInfo();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [infoOpen]);
 
   // query string
   const params = useMemo(() => {
@@ -763,8 +773,16 @@ export default function AdminTokensPage() {
 
       {/* History Modal */}
       {histOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
-          <div className="bg-gray-900 border border-gray-700 rounded-xl w-[90vw] max-w-2xl max-h-[80vh] overflow-hidden">
+        <div
+          className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          onClick={closeInfo /* overlay tıklanınca kapansın */}
+        >
+          <div
+            className="bg-gray-900 border border-gray-700 rounded-xl w-[90vw] max-w-2xl max-h-[80vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-4 border-b border-gray-800 flex items-center justify-between">
               <div className="font-semibold">
                 History — <span className="font-mono">{histMint}</span>
@@ -821,14 +839,31 @@ export default function AdminTokensPage() {
                 </>
               )}
             </div>
+
+            <div className="p-3 border-t border-gray-800 flex justify-end">
+              <button
+                onClick={() => setHistOpen(false)}
+                className="bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded px-3 py-1 text-sm"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* 🔵 Info Modal (Volume & Liquidity) */}
       {infoOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
-          <div className="bg-gray-900 border border-gray-700 rounded-xl w-[90vw] max-w-md overflow-hidden">
+        <div
+          className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          onClick={closeInfo /* overlay tıklanınca kapansın */}
+        >
+          <div
+            className="bg-gray-900 border border-gray-700 rounded-xl w-[90vw] max-w-md overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-4 border-b border-gray-800 flex items-center justify-between">
               <div className="font-semibold">
                 Volume & Liquidity — <span className="font-mono">{infoMint}</span>
@@ -850,7 +885,9 @@ export default function AdminTokensPage() {
                       <div className="text-base font-semibold">
                         ${Number(infoData.dexVolumeUSD ?? 0).toLocaleString()}
                       </div>
-                      <div className="text-[11px] text-gray-500 mt-1">src: {infoData.dexSource}</div>
+                      <div className="text-[11px] text-gray-500 mt-1">
+                        src: {infoData.dexSource} · single-DEX source (no double-count)
+                      </div>
                     </div>
                     <div className="bg-gray-950 border border-gray-800 rounded p-3">
                       <div className="text-[11px] text-gray-400">CEX Volume (24h)</div>
@@ -866,6 +903,9 @@ export default function AdminTokensPage() {
                     <div className="text-lg font-semibold">
                       ${Number(infoData.totalVolumeUSD ?? 0).toLocaleString()}
                     </div>
+                    <div className="text-[11px] text-gray-500 mt-1">
+                      Total = DEX + CEX (if available)
+                    </div>
                   </div>
 
                   <div className="bg-gray-950 border border-gray-800 rounded p-3">
@@ -876,6 +916,15 @@ export default function AdminTokensPage() {
                   </div>
                 </>
               )}
+            </div>
+
+            <div className="p-3 border-t border-gray-800 flex justify-end">
+              <button
+                onClick={closeInfo}
+                className="bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded px-3 py-1 text-sm"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
