@@ -45,7 +45,7 @@ export interface LiquidityResult {
 
 export async function checkTokenLiquidityAndVolume(token: TokenInfo): Promise<LiquidityResult> {
   // Tip sorunlarını engellemek için yerel tipe cast
-  const vl = (await getVolumeAndLiquidity(token)) as VL;
+  const vl = (await getVolumeAndLiquidity(token)) as unknown as VL;
 
   const {
     dexVolumeUSD,

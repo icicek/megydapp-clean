@@ -169,11 +169,15 @@ export function computeStatusDecision(arg: any): any {
     return { status: 'healthy', voteSuggested: false };
   }
 
+  // DOĞRU: Hacim ve likidite için ilgili *_VOL_* ve *_LIQ_* eşikleri kullanılmalı
   const criticallyLow =
-    vol < ENV_THRESHOLDS.WALKING_DEAD_MIN_USD &&
-    liq < ENV_THRESHOLDS.WALKING_DEAD_MIN_USD;
+    vol < ENV_THRESHOLDS.WALKING_DEAD_MIN_VOL_USD &&
+    liq < ENV_THRESHOLDS.WALKING_DEAD_MIN_LIQ_USD;
 
-  const suggest = usd < ENV_THRESHOLDS.WALKING_DEAD_MIN_USD || criticallyLow;
+  const suggest =
+    usd < ENV_THRESHOLDS.WALKING_DEAD_MIN_USD || // değer bazlı “zayıf” sinyali yine geçerli
+    criticallyLow;
+ 
   return { status: 'walking_dead', voteSuggested: suggest };
 }
 
