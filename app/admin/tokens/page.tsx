@@ -263,7 +263,14 @@ export default function AdminTokensPage() {
     setInfoData(null);
     setInfoErr(null);
   }
-
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape' && infoOpen) closeInfo();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [infoOpen]);
+  
   // Escape ile kapat
   useEffect(() => {
     if (!infoOpen) return;
@@ -886,51 +893,124 @@ export default function AdminTokensPage() {
   
       {/* 🔵 Info Modal (Volume & Liquidity) */}
       {infoOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
-          <div className="bg-gray-900 border border-gray-700 rounded-xl w-[90vw] max-w-md overflow-hidden">
-            <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-              <div className="font-semibold">
-                Volume & Liquidity — <span className="font-mono">{infoMint}</span>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          aria-modal="true"
+          role="dialog"
+        >
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-[2px] transition-opacity"
+            onClick={closeInfo}
+          />
+
+          {/* Panel */}
+          <div
+            className="relative w-[92vw] max-w-md overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-zinc-900 to-black shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-sky-600/20 text-sky-300">ℹ️</span>
+                <div className="font-semibold">
+                  Volume & Liquidity — <span className="font-mono text-sky-300">{infoMint}</span>
+                </div>
               </div>
-              <button onClick={closeInfo} className="text-gray-300 hover:text-white" aria-label="Close">
-                ✕
+
+              {/* Close button */}
+              <button
+                onClick={closeInfo}
+                className="group inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                aria-label="Close"
+                title="Close"
+              >
+                <span className="text-zinc-300 group-hover:text-white">✕</span>
               </button>
             </div>
-  
-            <div className="p-4 space-y-3">
-              {infoLoading && <div className="text-sm text-gray-400">Loading…</div>}
-              {infoErr && <div className="text-sm text-red-400">❌ {infoErr}</div>}
-  
+
+            {/* Body */}
+            <div className="space-y-3 px-4 py-4">
+              {/* Loading / Error */}
+              {infoLoading && (
+                <div className="text-sm text-gray-400">Loading…</div>
+              )}
+              {infoErr && (
+                <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                  ❌ {infoErr}
+                </div>
+              )}
+
+              {/* Content */}
               {!infoLoading && !infoErr && infoData && (
                 <>
+                  {/* Badgeler */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] text-sky-200">
+                      DEX: {infoData.dexSource}
+                    </span>
+                    <span className="rounded-full border border-fuchsia-500/30 bg-fuchsia-500/10 px-2 py-0.5 text-[11px] text-fuchsia-200">
+                      CEX: {infoData.cexSource}
+                    </span>
+                    <span className="ml-auto rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-gray-300">
+                      24h window
+                    </span>
+                  </div>
+
+                  {/* 2 kolon: DEX / CEX */}
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-gray-950 border border-gray-800 rounded p-3">
+                    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                       <div className="text-[11px] text-gray-400">DEX Volume (24h)</div>
-                      <div className="text-base font-semibold">
+                      <div className="mt-1 text-lg font-semibold">
                         ${Number(infoData.dexVolumeUSD ?? 0).toLocaleString()}
                       </div>
-                      <div className="text-[11px] text-gray-500 mt-1">src: {infoData.dexSource}</div>
+                      <div className="mt-1 text-[11px] text-gray-500">source: {infoData.dexSource}</div>
                     </div>
-                    <div className="bg-gray-950 border border-gray-800 rounded p-3">
+
+                    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                       <div className="text-[11px] text-gray-400">CEX Volume (24h)</div>
-                      <div className="text-base font-semibold">
+                      <div className="mt-1 text-lg font-semibold">
                         ${Number(infoData.cexVolumeUSD ?? 0).toLocaleString()}
                       </div>
-                      <div className="text-[11px] text-gray-500 mt-1">src: {infoData.cexSource}</div>
+                      <div className="mt-1 text-[11px] text-gray-500">source: {infoData.cexSource}</div>
                     </div>
                   </div>
-  
-                  <div className="bg-gray-950 border border-gray-800 rounded p-3">
+
+                  {/* Total */}
+                  <div className="rounded-lg border border-white/10 bg-gradient-to-r from-sky-950/40 to-fuchsia-950/40 p-3">
                     <div className="text-[11px] text-gray-400">Total Volume (24h)</div>
-                    <div className="text-lg font-semibold">
+                    <div className="mt-1 text-xl font-bold tracking-tight">
                       ${Number(infoData.totalVolumeUSD ?? 0).toLocaleString()}
                     </div>
+                    <div className="mt-1 text-[11px] text-gray-500">
+                      Toplam = DEX {includeCEX ? '+ CEX' : '(CEX hariç)'}
+                    </div>
                   </div>
-  
-                  <div className="bg-gray-950 border border-gray-800 rounded p-3">
+
+                  {/* Liquidity */}
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                     <div className="text-[11px] text-gray-400">Max Pool Liquidity</div>
-                    <div className="text-base font-semibold">
+                    <div className="mt-1 text-lg font-semibold">
                       ${Number(infoData.dexLiquidityUSD ?? 0).toLocaleString()}
+                    </div>
+                    <div className="mt-1 text-[11px] text-gray-500">
+                      Not: DEX tarafında “havuzlar arasında en yüksek likidite” sinyali kullanılır.
+                    </div>
+                  </div>
+
+                  {/* Alt satır: yeniden yükle + güven Notu */}
+                  <div className="mt-2 flex items-start justify-between gap-3">
+                    <button
+                      onClick={() => infoMint && openInfo(infoMint)}
+                      className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm hover:bg-white/10"
+                      title="Refresh"
+                    >
+                      <span>↻</span> Refresh
+                    </button>
+
+                    <div className="text-right text-[11px] leading-snug text-gray-400">
+                      Canlı üçüncü taraf API verileri (DexScreener / GeckoTerminal / CoinGecko).  
+                      Kısa süreli (≈60sn) cache uygulanır; sağlayıcıların gecikme/stale/anomaly filtreleri kullanılır.
                     </div>
                   </div>
                 </>
