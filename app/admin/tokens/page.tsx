@@ -14,14 +14,14 @@ import { fetchSolanaTokenList } from '@/lib/utils';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 
 /* ────────────────────────────────────────────────────────── */
-/* UI: Tek tip toolbar butonu                                 */
+/* UI: Single toolbar button                                  */
 /* ────────────────────────────────────────────────────────── */
 const TB =
   'inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 ' +
   'bg-white/5 hover:bg-white/10 transition-colors text-sm whitespace-nowrap';
 
 /* ────────────────────────────────────────────────────────── */
-/* Tipler                                                     */
+/* Types                                                      */
 /* ────────────────────────────────────────────────────────── */
 const STATUSES = ['healthy', 'walking_dead', 'deadcoin', 'redlist', 'blacklist'] as const;
 type TokenStatus = typeof STATUSES[number];
@@ -29,7 +29,7 @@ type TokenStatus = typeof STATUSES[number];
 const STATUS_STYLES: Record<TokenStatus, string> = {
   healthy: 'bg-emerald-900/50 text-emerald-200 border border-emerald-700',
   walking_dead: 'bg-amber-900/50 text-amber-200 border border-amber-700',
-  deadcoin: 'bg-zinc-800 text-zinc-200 border-zinc-700',
+  deadcoin: 'bg-zinc-800 text-zinc-200 border border-zinc-700',
   redlist: 'bg-rose-900/50 text-rose-200 border border-rose-700',
   blacklist: 'bg-fuchsia-900/50 text-fuchsia-200 border border-fuchsia-700',
 };
@@ -138,7 +138,7 @@ function pruneMap(map: Record<string, NameEntry>, max: number) {
 }
 
 /* ────────────────────────────────────────────────────────── */
-/* UI parçaları                                               */
+/* UI parts                                                   */
 /* ────────────────────────────────────────────────────────── */
 function StatusBadge({ status }: { status: string }) {
   const isKnown = (STATUSES as readonly string[]).includes(status as any);
@@ -182,11 +182,11 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 /* ────────────────────────────────────────────────────────── */
-/* Sayfa                                                      */
+/* Page                                                       */
 /* ────────────────────────────────────────────────────────── */
 export default function AdminTokensPage() {
   const router = useRouter();
-  const { publicKey } = useWallet(); // sadece header gösterimi; auth başka yerde
+  const { publicKey } = useWallet(); // header only; auth elsewhere
   const { toasts, push } = useToasts();
 
   // list state
@@ -219,11 +219,10 @@ export default function AdminTokensPage() {
 
   // settings
   const [voteThreshold, setVoteThreshold] = useState<number>(3);
-  const [includeCEX, setIncludeCEX] = useState<boolean>(false);
   const [savingThreshold, setSavingThreshold] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
 
-  // INFO modal (volume & liquidity)
+  /* ── INFO modal (new) ───────────────────────────────────── */
   type VolumeResp = {
     success: boolean;
     mint: string;
@@ -263,25 +262,18 @@ export default function AdminTokensPage() {
     setInfoData(null);
     setInfoErr(null);
   }
+
+  // ESC key to close Info
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape' && infoOpen) closeInfo();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [infoOpen]);
-  
-  // Escape ile kapat
-  useEffect(() => {
-    if (!infoOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeInfo();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [infoOpen]);
 
-  // query string
+  /* ── query string ───────────────────────────────────────── */
   const params = useMemo(() => {
     const sp = new URLSearchParams();
     if (q) sp.set('q', q);
@@ -323,39 +315,9 @@ export default function AdminTokensPage() {
       const r = await fetch('/api/admin/settings', { credentials: 'include', cache: 'no-store' });
       if (!r.ok) return;
       const d = await r.json();
-      if (d?.success) {
-        setVoteThreshold(d.voteThreshold ?? 3);
-        setIncludeCEX(!!d.includeCEX);
-      }
+      if (d?.success) setVoteThreshold(d.voteThreshold ?? 3);
     } catch {}
   }, []);
-
-  async function saveSettings() {
-    try {
-      setSettingsMsg(null);
-      setSavingThreshold(true);
-      const r = await fetch('/api/admin/settings', {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voteThreshold, includeCEX, changedBy: 'admin_ui' }),
-      });
-      const d = await r.json();
-      if (d?.success) {
-        setVoteThreshold(d.voteThreshold ?? voteThreshold);
-        setIncludeCEX(!!d.includeCEX);
-        setSettingsMsg('✅ Saved');
-        // Hızlı etki için: liste tekrar yüklensin
-        await load();
-      } else {
-        setSettingsMsg(`❌ ${d?.error || 'Save failed'}`);
-      }
-    } catch (e: any) {
-      setSettingsMsg(`❌ ${e?.message || 'Save failed'}`);
-    } finally {
-      setSavingThreshold(false);
-    }
-  }
 
   /* ── effects ───────────────────────────────────────────── */
   useEffect(() => {
@@ -394,7 +356,7 @@ export default function AdminTokensPage() {
     };
   }, []);
 
-  // enrich names from tokenlist for visible rows
+  // enrich visible rows with tokenlist names
   useEffect(() => {
     if (!listReady || !tokenListIndex || items.length === 0) return;
     setNameMap((prev) => {
@@ -538,40 +500,39 @@ export default function AdminTokensPage() {
   }
 
   /* ──────────────────────────────────────────────────────── */
-
   return (
     <div className="min-h-screen bg-black text-white p-6">
       <ToastViewport toasts={toasts} />
-  
+
       {/* TOP BAR */}
       <div className="mb-4">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-bold mr-auto">🛡️ Token Management</h1>
-  
+
           <Link href="/admin/audit" className={TB} title="View Admin Audit Log">
             <span>📜</span>
             <span>Audit Log</span>
           </Link>
-  
+
           <Link href="/admin/control" className={TB} title="Control">
             <span>🧩</span>
             <span>Control</span>
           </Link>
-  
+
           <DevNotesButton />
-  
+
           <button onClick={() => router.push('/')} className={TB} title="Back to site">
             <span>↩︎</span>
             <span>Back to site</span>
           </button>
-  
+
           <button onClick={logout} className={TB} title="Logout">
             <span>🚪</span>
             <span>Logout</span>
           </button>
         </div>
       </div>
-  
+
       {/* Filters */}
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
         <input
@@ -611,52 +572,37 @@ export default function AdminTokensPage() {
           <button onClick={load} disabled={loading} className={`${TB} ${loading ? 'opacity-70' : ''}`}>
             {loading ? 'Loading…' : 'Refresh'}
           </button>
-  
+
           {/* Export CSV */}
           <div className="shrink-0">
             <ExportCsvButton q={q} status={status || ''} />
           </div>
         </div>
       </div>
-  
-      {/* Settings: vote threshold + includeCEX */}
+
+      {/* Settings: vote threshold */}
       <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-4">
         <h2 className="font-semibold mb-2">Admin Settings</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex items-center gap-3">
-            <label className="text-sm text-gray-300 min-w-[180px]">Community Vote Threshold</label>
-            <input
-              type="number"
-              min={1}
-              max={50}
-              step={1}
-              value={Number.isFinite(voteThreshold) ? voteThreshold : 1}
-              onChange={(e) => {
-                const raw = Number(e.target.value);
-                if (!Number.isFinite(raw)) { setVoteThreshold(1); return; }
-                setVoteThreshold(Math.min(Math.max(Math.round(raw), 1), 50));
-              }}
-              className="w-24 px-2 py-1 rounded bg-gray-950 border border-gray-700"
-            />
-          </div>
-  
-          <div className="flex items-center gap-3">
-            <label className="text-sm text-gray-300 min-w-[180px]">Include CEX in 24h Volume</label>
-            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={includeCEX}
-                onChange={(e) => setIncludeCEX(e.target.checked)}
-                className="h-4 w-4 accent-blue-600"
-              />
-              <span className="text-sm text-gray-300">{includeCEX ? 'Enabled' : 'Disabled'}</span>
-            </label>
-          </div>
-        </div>
-  
-        <div className="mt-4 flex items-center gap-3">
+        <div className="flex items-center gap-3">
+          <label className="text-sm text-gray-300">Community Vote Threshold</label>
+          <input
+            type="number"
+            min={1}
+            max={50}
+            step={1}
+            value={Number.isFinite(voteThreshold) ? voteThreshold : 1}
+            onChange={(e) => {
+              const raw = Number(e.target.value);
+              if (!Number.isFinite(raw)) {
+                setVoteThreshold(1);
+                return;
+              }
+              setVoteThreshold(clamp(Math.round(raw), 1, 50));
+            }}
+            className="w-24 px-2 py-1 rounded bg-gray-950 border border-gray-700"
+          />
           <button
-            onClick={saveSettings}
+            onClick={saveThreshold}
             disabled={savingThreshold || !Number.isFinite(voteThreshold) || voteThreshold < 1 || voteThreshold > 50}
             className="px-3 py-1 rounded bg-blue-600 text-white disabled:opacity-50"
           >
@@ -664,12 +610,9 @@ export default function AdminTokensPage() {
           </button>
           {settingsMsg && <div className="text-xs text-gray-300">{settingsMsg}</div>}
         </div>
-  
-        <div className="mt-2 text-[11px] text-neutral-500">
-          Total Volume = DEX {includeCEX ? '+ CEX' : '(CEX excluded)'} — Info modal ve sınıflandırma akışına anında yansır.
-        </div>
+        <div className="mt-1 text-[11px] text-neutral-500">Affects auto-deadcoin promotion (YES ≥ threshold).</div>
       </div>
-  
+
       {/* Stats */}
       {stats && (
         <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-6">
@@ -696,9 +639,9 @@ export default function AdminTokensPage() {
           </div>
         </div>
       )}
-  
+
       {error && <div className="text-red-400 mb-4">❌ {error}</div>}
-  
+
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
@@ -709,7 +652,7 @@ export default function AdminTokensPage() {
               <th className="text-left p-2 w-[120px]">Votes</th>
               <th className="text-left p-2 w-[120px]">By</th>
               <th className="text-left p-2">Status At</th>
-              <th className="text-left p-2 w-[580px]">Actions</th>
+              <th className="text-left p-2 w-[620px]">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -762,31 +705,31 @@ export default function AdminTokensPage() {
                       </button>
                     </div>
                   </td>
-  
+
                   {/* Status */}
                   <td className="p-2">
                     <StatusBadge status={it.status} />
                   </td>
-  
+
                   {/* Votes */}
                   <td className="p-2 w-[120px]">
                     <VotesBadge yes={yesCount} threshold={voteThreshold || 3} />
                   </td>
-  
+
                   {/* Updated By */}
                   <td className="p-2 w-[120px]">
                     <span className="truncate block" title={it.updated_by ?? 'Admin'}>
                       {shortenWallet(it.updated_by)}
                     </span>
                   </td>
-  
+
                   {/* Status At */}
                   <td className="p-2 whitespace-nowrap">
                     {it.status_at ? new Date(it.status_at).toLocaleString() : '—'}
                   </td>
-  
+
                   {/* Actions */}
-                  <td className="p-2 w-[580px]">
+                  <td className="p-2 w-[620px]">
                     <div className="flex gap-2 whitespace-nowrap overflow-x-auto">
                       {STATUSES.map((s) => (
                         <button
@@ -809,7 +752,7 @@ export default function AdminTokensPage() {
                       >
                         history
                       </button>
-  
+
                       {/* 🔵 NEW: Info (volume breakdown) */}
                       <button
                         onClick={() => openInfo(it.mint)}
@@ -826,7 +769,7 @@ export default function AdminTokensPage() {
           </tbody>
         </table>
       </div>
-  
+
       {/* History Modal */}
       {histOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
@@ -839,13 +782,13 @@ export default function AdminTokensPage() {
                 ✕
               </button>
             </div>
-  
+
             <div className="p-4 overflow-auto">
               {histLoading && <div className="text-sm text-gray-400">Loading…</div>}
               {!histLoading && (!histItems || histItems.length === 0) && (
                 <div className="text-sm text-gray-400">No history</div>
               )}
-  
+
               {!histLoading && histItems && histItems.length > 0 && (
                 <>
                   <table className="w-full text-sm">
@@ -872,7 +815,7 @@ export default function AdminTokensPage() {
                       ))}
                     </tbody>
                   </table>
-  
+
                   {histHasMore && (
                     <div className="flex justify-center mt-3">
                       <button
@@ -890,128 +833,82 @@ export default function AdminTokensPage() {
           </div>
         </div>
       )}
-  
+
       {/* 🔵 Info Modal (Volume & Liquidity) */}
       {infoOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          aria-modal="true"
-          role="dialog"
-        >
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-[2px] transition-opacity"
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop (click to close) */}
+          <button
+            className="absolute inset-0 bg-black/60"
             onClick={closeInfo}
+            aria-label="Close Info"
           />
-
-          {/* Panel */}
-          <div
-            className="relative w-[92vw] max-w-md overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-zinc-900 to-black shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+          {/* Card */}
+          <div className="relative bg-gradient-to-b from-gray-900 to-gray-950 border border-sky-800/40 shadow-2xl rounded-2xl w-[90vw] max-w-md overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-sky-600/20 text-sky-300">ℹ️</span>
-                <div className="font-semibold">
-                  Volume & Liquidity — <span className="font-mono text-sky-300">{infoMint}</span>
-                </div>
+            <div className="p-4 border-b border-sky-900/40 flex items-center justify-between">
+              <div className="font-semibold">
+                Volume & Liquidity — <span className="font-mono">{infoMint}</span>
               </div>
-
-              {/* Close button */}
               <button
                 onClick={closeInfo}
-                className="group inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                className="h-8 w-8 inline-flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 border border-white/10"
                 aria-label="Close"
-                title="Close"
+                title="Close (Esc)"
               >
-                <span className="text-zinc-300 group-hover:text-white">✕</span>
+                ✕
               </button>
             </div>
 
             {/* Body */}
-            <div className="space-y-3 px-4 py-4">
-              {/* Loading / Error */}
-              {infoLoading && (
-                <div className="text-sm text-gray-400">Loading…</div>
-              )}
-              {infoErr && (
-                <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-                  ❌ {infoErr}
-                </div>
-              )}
+            <div className="p-4 space-y-3">
+              {infoLoading && <div className="text-sm text-gray-400">Loading…</div>}
+              {infoErr && <div className="text-sm text-red-400">❌ {infoErr}</div>}
 
-              {/* Content */}
               {!infoLoading && !infoErr && infoData && (
                 <>
-                  {/* Badgeler */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] text-sky-200">
-                      DEX: {infoData.dexSource}
-                    </span>
-                    <span className="rounded-full border border-fuchsia-500/30 bg-fuchsia-500/10 px-2 py-0.5 text-[11px] text-fuchsia-200">
-                      CEX: {infoData.cexSource}
-                    </span>
-                    <span className="ml-auto rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-gray-300">
-                      24h window
-                    </span>
-                  </div>
-
-                  {/* 2 kolon: DEX / CEX */}
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div className="bg-gray-950/70 border border-gray-800 rounded-xl p-3">
                       <div className="text-[11px] text-gray-400">DEX Volume (24h)</div>
-                      <div className="mt-1 text-lg font-semibold">
+                      <div className="text-base font-semibold">
                         ${Number(infoData.dexVolumeUSD ?? 0).toLocaleString()}
                       </div>
-                      <div className="mt-1 text-[11px] text-gray-500">source: {infoData.dexSource}</div>
+                      <div className="text-[11px] text-gray-500 mt-1">src: {infoData.dexSource}</div>
                     </div>
-
-                    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div className="bg-gray-950/70 border border-gray-800 rounded-xl p-3">
                       <div className="text-[11px] text-gray-400">CEX Volume (24h)</div>
-                      <div className="mt-1 text-lg font-semibold">
+                      <div className="text-base font-semibold">
                         ${Number(infoData.cexVolumeUSD ?? 0).toLocaleString()}
                       </div>
-                      <div className="mt-1 text-[11px] text-gray-500">source: {infoData.cexSource}</div>
+                      <div className="text-[11px] text-gray-500 mt-1">src: {infoData.cexSource}</div>
                     </div>
                   </div>
 
-                  {/* Total */}
-                  <div className="rounded-lg border border-white/10 bg-gradient-to-r from-sky-950/40 to-fuchsia-950/40 p-3">
+                  <div className="bg-gray-950/70 border border-gray-800 rounded-xl p-3">
                     <div className="text-[11px] text-gray-400">Total Volume (24h)</div>
-                    <div className="mt-1 text-xl font-bold tracking-tight">
+                    <div className="text-lg font-semibold">
                       ${Number(infoData.totalVolumeUSD ?? 0).toLocaleString()}
                     </div>
-                    <div className="mt-1 text-[11px] text-gray-500">
-                      Toplam = DEX {includeCEX ? '+ CEX' : '(CEX hariç)'}
-                    </div>
                   </div>
 
-                  {/* Liquidity */}
-                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="bg-gray-950/70 border border-gray-800 rounded-xl p-3">
                     <div className="text-[11px] text-gray-400">Max Pool Liquidity</div>
-                    <div className="mt-1 text-lg font-semibold">
+                    <div className="text-base font-semibold">
                       ${Number(infoData.dexLiquidityUSD ?? 0).toLocaleString()}
                     </div>
-                    <div className="mt-1 text-[11px] text-gray-500">
-                      Not: DEX tarafında “havuzlar arasında en yüksek likidite” sinyali kullanılır.
+                    <div className="mt-2 text-[11px] text-gray-500">
+                      Note: DEX volume comes from a single prioritized source (no double counting).
                     </div>
                   </div>
 
-                  {/* Alt satır: yeniden yükle + güven Notu */}
-                  <div className="mt-2 flex items-start justify-between gap-3">
+                  {/* Close CTA */}
+                  <div className="pt-1">
                     <button
-                      onClick={() => infoMint && openInfo(infoMint)}
-                      className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm hover:bg-white/10"
-                      title="Refresh"
+                      onClick={closeInfo}
+                      className="w-full rounded-xl bg-sky-700 hover:bg-sky-600 transition-colors py-2 font-semibold"
                     >
-                      <span>↻</span> Refresh
+                      Close
                     </button>
-
-                    <div className="text-right text-[11px] leading-snug text-gray-400">
-                      Canlı üçüncü taraf API verileri (DexScreener / GeckoTerminal / CoinGecko).  
-                      Kısa süreli (≈60sn) cache uygulanır; sağlayıcıların gecikme/stale/anomaly filtreleri kullanılır.
-                    </div>
                   </div>
                 </>
               )}
@@ -1020,5 +917,5 @@ export default function AdminTokensPage() {
         </div>
       )}
     </div>
-  );  
+  );
 }
