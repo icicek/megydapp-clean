@@ -9,9 +9,9 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import ExportCsvButton from '@/components/admin/ExportCsvButton';
 import BulkUpdateDialog from '../components/BulkUpdateDialog';
 import DevNotesButton from '@/components/admin/DevNotesButton';
-
 import { fetchSolanaTokenList } from '@/lib/utils';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
+import TokenInfoModal, { type VolumeResp } from '@/components/admin/TokenInfoModal';
 
 /* ────────────────────────────────────────────────────────── */
 /* UI: Tek tip toolbar butonu                                 */
@@ -222,26 +222,12 @@ export default function AdminTokensPage() {
   const [savingThreshold, setSavingThreshold] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
 
-  // INFO modal (volume & liquidity)
-  type VolumeResp = {
-    success: boolean;
-    mint: string;
-    dexVolumeUSD: number | null;
-    cexVolumeUSD: number | null;
-    totalVolumeUSD: number | null;
-    dexLiquidityUSD: number | null;
-    dexSource: 'dexscreener' | 'geckoterminal' | 'none';
-    cexSource: 'coingecko' | 'none';
-  };
-
+  // INFO modal state
   const [infoOpen, setInfoOpen] = useState(false);
   const [infoMint, setInfoMint] = useState<string | null>(null);
   const [infoLoading, setInfoLoading] = useState(false);
   const [infoData, setInfoData] = useState<VolumeResp | null>(null);
   const [infoErr, setInfoErr] = useState<string | null>(null);
-
-  // live badge preview (settings right panel)
-  const [previewYes, setPreviewYes] = useState<number>(0);
 
   async function openInfo(mintVal: string) {
     try {
@@ -265,15 +251,6 @@ export default function AdminTokensPage() {
     setInfoData(null);
     setInfoErr(null);
   }
-
-  // ESC => modal kapat
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && infoOpen) closeInfo();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [infoOpen]);
 
   // query string
   const params = useMemo(() => {
@@ -503,7 +480,7 @@ export default function AdminTokensPage() {
 
   /* ──────────────────────────────────────────────────────── */
   return (
-    <div className="min-h-screen bg-black text-white p-6 overflow-x-hidden">
+    <div className="min-h-screen bg-black text-white p-6">
       <ToastViewport toasts={toasts} />
 
       {/* TOP BAR */}
@@ -582,15 +559,14 @@ export default function AdminTokensPage() {
         </div>
       </div>
 
-      {/* Settings: vote threshold (with right panel preview) */}
-      <div className="bg-gray-900 border border-gray-700 rounded p-4 md:p-5 mb-4">
-        <h2 className="font-semibold mb-3">Admin Settings</h2>
+      {/* Settings + Stats (mobilde dikey, >=md yatay sütun) */}
+      <div className="grid gap-4 md:grid-cols-2 mb-6">
+        {/* Settings: vote threshold */}
+        <div className="bg-gray-900 border border-gray-700 rounded p-4">
+          <h2 className="font-semibold mb-3">Admin Settings</h2>
 
-        <div className="grid items-start gap-4 grid-cols-1 md:grid-cols-2">
-          {/* Left: form */}
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="text-sm text-gray-300 whitespace-nowrap">Community Vote Threshold</label>
-
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="text-sm text-gray-300">Community Vote Threshold</label>
             <input
               type="number"
               min={1}
@@ -599,103 +575,74 @@ export default function AdminTokensPage() {
               value={Number.isFinite(voteThreshold) ? voteThreshold : 1}
               onChange={(e) => {
                 const raw = Number(e.target.value);
-                if (!Number.isFinite(raw)) { setVoteThreshold(1); return; }
+                if (!Number.isFinite(raw)) {
+                  setVoteThreshold(1);
+                  return;
+                }
                 setVoteThreshold(clamp(Math.round(raw), 1, 50));
               }}
               className="w-24 px-2 py-1 rounded bg-gray-950 border border-gray-700"
             />
-
             <button
               onClick={saveThreshold}
               disabled={savingThreshold || !Number.isFinite(voteThreshold) || voteThreshold < 1 || voteThreshold > 50}
-              className="px-3 py-1 rounded bg-blue-600 text-white disabled:opacity-50"
+              className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50"
             >
               {savingThreshold ? 'Saving…' : 'Save'}
             </button>
-
-            <button
-              onClick={() => setVoteThreshold(3)}
-              className="px-3 py-1 rounded bg-gray-800 border border-gray-700 hover:bg-gray-700"
-              title="Reset to 3"
-            >
-              Reset 3
-            </button>
-
             {settingsMsg && <div className="text-xs text-gray-300">{settingsMsg}</div>}
-
-            {/* açıklama: tek satır yerine formun altında */}
-            <div className="basis-full mt-2 text-[11px] text-neutral-500">
-              Affects auto-deadcoin promotion (YES ≥ threshold).
-            </div>
           </div>
 
-          {/* Right: guidance + live badge preview */}
-          <div className="w-full max-w-full bg-gray-950/70 border border-gray-800 rounded-xl p-3">
-            <div className="text-[11px] text-gray-400 mb-2">How it works</div>
-            <ul className="text-xs text-gray-300 list-disc pl-4 space-y-1 mb-3">
+          {/* yan panel */}
+          <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.02] p-3 space-y-3">
+            <div className="text-sm font-medium text-gray-200">How it works</div>
+            <ul className="list-disc pl-5 text-sm text-gray-300 space-y-1">
               <li>
-                When <span className="font-mono">YES ≥ threshold</span>, token is eligible for auto-promotion to{' '}
-                <span className="font-semibold">deadcoin</span>.
+                When <b>YES ≥ threshold</b>, token is eligible for auto-promotion to <b>deadcoin</b>.
               </li>
               <li>Change applies immediately after saving.</li>
             </ul>
 
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[11px] text-gray-400">Badge preview:</span>
-              <span
-                className={[
-                  'inline-flex items-center justify-center rounded-full font-semibold',
-                  'h-6 min-w-[64px] px-2 text-[11px]',
-                  previewYes >= (voteThreshold || 1)
-                    ? 'bg-red-600 text-white'
-                    : previewYes >= Math.ceil((voteThreshold || 1) * 0.66)
-                    ? 'bg-amber-500 text-black'
-                    : 'bg-neutral-200 text-black',
-                ].join(' ')}
-                title={`YES ${previewYes}/${voteThreshold || 1}`}
-              >
-                {`YES ${previewYes}/${voteThreshold || 1}`}
+            <div className="text-sm text-gray-300">
+              Badge preview:{' '}
+              <span className="align-middle ml-2">
+                <VotesBadge yes={0} threshold={voteThreshold || 3} />
               </span>
             </div>
 
-            <input
-              type="range"
-              min={0}
-              max={Math.max(10, voteThreshold || 3)}
-              value={previewYes}
-              onChange={(e) => setPreviewYes(parseInt(e.target.value, 10))}
-              className="w-full max-w-full accent-sky-500"
-            />
+            <div className="pt-1 text-[11px] text-neutral-500">
+              Affects auto-deadcoin promotion (YES ≥ threshold).
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Stats */}
-      {stats && (
-        <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-6">
-          <h2 className="font-semibold mb-2">Registry Stats</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="bg-gray-950 border border-gray-800 rounded p-3">
-              <div className="text-xs text-gray-400">Total tokens</div>
-              <div className="text-xl font-semibold">{stats.total}</div>
-            </div>
-            <div className="bg-gray-950 border border-gray-800 rounded p-3">
-              <div className="text-xs text-gray-400">By status</div>
-              <div className="flex flex-wrap gap-2 mt-1 text-sm">
-                {STATUSES.map((s) => (
-                  <span key={s} className={['rounded px-2 py-0.5', STATUS_STYLES[s]].join(' ')}>
-                    {s}: {stats.byStatus?.[s] ?? 0}
-                  </span>
-                ))}
+        {/* Stats */}
+        {stats && (
+          <div className="bg-gray-900 border border-gray-700 rounded p-4">
+            <h2 className="font-semibold mb-3">Registry Stats</h2>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="bg-gray-950 border border-gray-800 rounded p-3">
+                <div className="text-xs text-gray-400">Total tokens</div>
+                <div className="text-xl font-semibold">{stats.total}</div>
+              </div>
+              <div className="bg-gray-950 border border-gray-800 rounded p-3">
+                <div className="text-xs text-gray-400">By status</div>
+                <div className="flex flex-wrap gap-2 mt-1 text-sm">
+                  {STATUSES.map((s) => (
+                    <span key={s} className={['rounded px-2 py-0.5', STATUS_STYLES[s]].join(' ')}>
+                      {s}: {stats.byStatus?.[s] ?? 0}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-gray-950 border border-gray-800 rounded p-3">
+                <div className="text-xs text-gray-400">Last updated</div>
+                <div className="text-sm">{stats.lastUpdatedAt ? new Date(stats.lastUpdatedAt).toLocaleString() : '—'}</div>
               </div>
             </div>
-            <div className="bg-gray-950 border border-gray-800 rounded p-3">
-              <div className="text-xs text-gray-400">Last updated</div>
-              <div className="text-sm">{stats.lastUpdatedAt ? new Date(stats.lastUpdatedAt).toLocaleString() : '—'}</div>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {error && <div className="text-red-400 mb-4">❌ {error}</div>}
 
@@ -709,7 +656,7 @@ export default function AdminTokensPage() {
               <th className="text-left p-2 w-[120px]">Votes</th>
               <th className="text-left p-2 w-[120px]">By</th>
               <th className="text-left p-2">Status At</th>
-              <th className="text-left p-2 w-[580px]">Actions</th>
+              <th className="text-left p-2 w-[620px]">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -786,7 +733,7 @@ export default function AdminTokensPage() {
                   </td>
 
                   {/* Actions */}
-                  <td className="p-2 w-[580px]">
+                  <td className="p-2 w-[620px]">
                     <div className="flex gap-2 whitespace-nowrap overflow-x-auto">
                       {STATUSES.map((s) => (
                         <button
@@ -830,7 +777,7 @@ export default function AdminTokensPage() {
       {/* History Modal */}
       {histOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
-          <div className="bg-gray-900 border border-gray-700 rounded-xl w-[90vw] max-w-2xl max-h-[80vh] overflow-hidden">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl w-[92vw] max-w-2xl max-h-[80vh] overflow-hidden">
             <div className="p-4 border-b border-gray-800 flex items-center justify-between">
               <div className="font-semibold">
                 History — <span className="font-mono">{histMint}</span>
@@ -891,71 +838,16 @@ export default function AdminTokensPage() {
         </div>
       )}
 
-      {/* 🔵 Info Modal (Volume & Liquidity) */}
-      {infoOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
-          <div className="bg-gray-900 border border-gray-700 rounded-xl w-[92vw] max-w-md overflow-hidden shadow-2xl shadow-sky-900/30">
-            <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-              <div className="font-semibold">
-                Volume & Liquidity — <span className="font-mono">{infoMint}</span>
-              </div>
-              <button
-                onClick={closeInfo}
-                className="text-gray-300 hover:text-white rounded px-2 py-1 hover:bg-white/10"
-                aria-label="Close"
-                title="Close (Esc)"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="p-4 space-y-3">
-              {infoLoading && <div className="text-sm text-gray-400">Loading…</div>}
-              {infoErr && <div className="text-sm text-red-400">❌ {infoErr}</div>}
-
-              {!infoLoading && !infoErr && infoData && (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-gray-950 border border-gray-800 rounded p-3">
-                      <div className="text-[11px] text-gray-400">DEX Volume (24h)</div>
-                      <div className="text-base font-semibold">
-                        ${Number(infoData.dexVolumeUSD ?? 0).toLocaleString()}
-                      </div>
-                      <div className="text-[11px] text-gray-500 mt-1">src: {infoData.dexSource}</div>
-                    </div>
-                    <div className="bg-gray-950 border border-gray-800 rounded p-3">
-                      <div className="text-[11px] text-gray-400">CEX Volume (24h)</div>
-                      <div className="text-base font-semibold">
-                        ${Number(infoData.cexVolumeUSD ?? 0).toLocaleString()}
-                      </div>
-                      <div className="text-[11px] text-gray-500 mt-1">src: {infoData.cexSource}</div>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-950 border border-gray-800 rounded p-3">
-                    <div className="text-[11px] text-gray-400">Total Volume (24h)</div>
-                    <div className="text-lg font-semibold">
-                      ${Number(infoData.totalVolumeUSD ?? 0).toLocaleString()}
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-950 border border-gray-800 rounded p-3">
-                    <div className="text-[11px] text-gray-400">Max Pool Liquidity</div>
-                    <div className="text-base font-semibold">
-                      ${Number(infoData.dexLiquidityUSD ?? 0).toLocaleString()}
-                    </div>
-                  </div>
-
-                  <div className="text-[11px] text-gray-500">
-                    *DEX verisi tek bir kaynak önceliği ile toplanır (çift sayım yok). CEX toplamı CoinGecko allowlist’e göre
-                    hesaplanır. Değerler anlık sorgudan gelir ve önbellek kısa ömürlüdür.
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 🔵 Info Modal (extracted component) */}
+      <TokenInfoModal
+        open={infoOpen}
+        mint={infoMint}
+        loading={infoLoading}
+        data={infoData}
+        error={infoErr}
+        onClose={closeInfo}
+        onRetry={() => infoMint && openInfo(infoMint)}
+      />
     </div>
   );
 }
