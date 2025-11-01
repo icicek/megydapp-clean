@@ -632,13 +632,13 @@ export default function AdminTokensPage() {
       </div>
 
       {/* Settings + Stats (mobilde dikey, >=md yatay sütun) */}
-      <div className="grid gap-4 md:grid-cols-2 mb-6">
-        {/* Settings: vote threshold */}
-        <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-4">
-          <h2 className="font-semibold mb-2">Admin Settings</h2>
+      <div className="grid gap-4 md:grid-cols-2 items-stretch mb-6">
+        {/* ── Admin Settings (stretch) ─────────────────────────── */}
+        <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-4 flex flex-col h-full">
+          <h2 className="font-semibold mb-3">Admin Settings</h2>
 
           {/* Satır 1: Vote threshold + Include CEX */}
-          <div className="flex flex-wrap items-center gap-3 mb-3">
+          <div className="flex flex-wrap items-center gap-3 mb-4">
             <label className="text-sm text-gray-300">Community Vote Threshold</label>
             <input
               type="number"
@@ -650,7 +650,7 @@ export default function AdminTokensPage() {
                 const raw = Number(e.target.value);
                 setVoteThreshold(Number.isFinite(raw) ? Math.min(Math.max(Math.round(raw), 1), 50) : 1);
               }}
-              className="w-24 px-2 py-1 rounded bg-gray-950 border border-gray-700"
+              className="w-24 h-10 px-2 rounded bg-gray-950 border border-gray-700"
             />
 
             <label className="text-sm text-gray-300 ml-4">Include CEX Volume</label>
@@ -663,82 +663,82 @@ export default function AdminTokensPage() {
             />
           </div>
 
-          {/* Satır 2: Classification thresholds */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="bg-gray-950 border border-gray-800 rounded p-3">
-              <div className="text-[11px] text-gray-400 mb-1">Healthy Min Volume (USD, 24h)</div>
-              <input
-                type="number"
-                min={0}
-                value={healthyMinVolUSD}
-                onChange={(e) => setHealthyMinVolUSD(Math.max(0, Number(e.target.value || 0)))}
-                className="w-full px-2 py-1 rounded bg-gray-900 border border-gray-700"
-              />
-            </div>
-
-            <div className="bg-gray-950 border border-gray-800 rounded p-3">
-              <div className="text-[11px] text-gray-400 mb-1">Healthy Min Liquidity (USD)</div>
-              <input
-                type="number"
-                min={0}
-                value={healthyMinLiqUSD}
-                onChange={(e) => setHealthyMinLiqUSD(Math.max(0, Number(e.target.value || 0)))}
-                className="w-full px-2 py-1 rounded bg-gray-900 border border-gray-700"
-              />
-            </div>
-
-            <div className="bg-gray-950 border border-gray-800 rounded p-3">
-              <div className="text-[11px] text-gray-400 mb-1">Walking Dead Min Volume (USD, 24h)</div>
-              <input
-                type="number"
-                min={0}
-                value={walkingDeadMinVolUSD}
-                onChange={(e) => setWalkingDeadMinVolUSD(Math.max(0, Number(e.target.value || 0)))}
-                className="w-full px-2 py-1 rounded bg-gray-900 border border-gray-700"
-              />
-            </div>
-
-            <div className="bg-gray-950 border border-gray-800 rounded p-3">
-              <div className="text-[11px] text-gray-400 mb-1">Walking Dead Min Liquidity (USD)</div>
-              <input
-                type="number"
-                min={0}
-                value={walkingDeadMinLiqUSD}
-                onChange={(e) => setWalkingDeadMinLiqUSD(Math.max(0, Number(e.target.value || 0)))}
-                className="w-full px-2 py-1 rounded bg-gray-900 border border-gray-700"
-              />
-            </div>
+          {/* Satır 2: Threshold kartları (eş yükseklik + hizalı input) */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-stretch">
+            {[
+              {
+                label: 'Healthy Min Volume (USD, 24h)',
+                val: healthyMinVolUSD,
+                set: setHealthyMinVolUSD,
+              },
+              {
+                label: 'Healthy Min Liquidity (USD)',
+                val: healthyMinLiqUSD,
+                set: setHealthyMinLiqUSD,
+              },
+              {
+                label: 'Walking Dead Min Volume (USD, 24h)',
+                val: walkingDeadMinVolUSD,
+                set: setWalkingDeadMinVolUSD,
+              },
+              {
+                label: 'Walking Dead Min Liquidity (USD)',
+                val: walkingDeadMinLiqUSD,
+                set: setWalkingDeadMinLiqUSD,
+              },
+            ].map((box, i) => (
+              <div
+                key={i}
+                className="bg-gray-950 border border-gray-800 rounded p-3 flex flex-col h-full"
+              >
+                <div className="text-[11px] text-gray-400 mb-2 min-h-[18px]">
+                  {box.label}
+                </div>
+                {/* spacer + hizalanmış input */}
+                <div className="mt-auto">
+                  <input
+                    type="number"
+                    min={0}
+                    value={box.val}
+                    onChange={(e) => box.set(Math.max(0, Number(e.target.value || 0)))}
+                    className="w-full h-10 px-2 rounded bg-gray-900 border border-gray-700"
+                  />
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Save */}
-          <div className="mt-3 flex items-center gap-3">
+          <div className="mt-4 flex items-center gap-3">
             <button
-              onClick={saveSettings} // eski adıyla kalacaksa: onClick={saveThreshold}
+              onClick={saveSettings}
               disabled={savingThreshold}
-              className="px-3 py-1 rounded bg-blue-600 text-white disabled:opacity-50"
+              className="px-3 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
             >
               {savingThreshold ? 'Saving…' : 'Save'}
             </button>
             {settingsMsg && <div className="text-xs text-gray-300">{settingsMsg}</div>}
           </div>
 
-          <div className="mt-1 text-[11px] text-neutral-500">
+          <div className="mt-2 text-[11px] text-neutral-500">
             These thresholds control automatic classification on 24h volume + DEX max liquidity.
           </div>
         </div>
 
-        {/* Stats */}
+        {/* ── Registry Stats (stretch) ─────────────────────────── */}
         {stats && (
-          <div className="bg-gray-900 border border-gray-700 rounded p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded p-4 flex flex-col h-full">
             <h2 className="font-semibold mb-3">Registry Stats</h2>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="bg-gray-950 border border-gray-800 rounded p-3">
+
+            <div className="grid gap-3 sm:grid-cols-3 items-stretch">
+              <div className="bg-gray-950 border border-gray-800 rounded p-3 flex flex-col h-full">
                 <div className="text-xs text-gray-400">Total tokens</div>
-                <div className="text-xl font-semibold">{stats.total}</div>
+                <div className="text-xl font-semibold mt-auto">{stats.total}</div>
               </div>
-              <div className="bg-gray-950 border border-gray-800 rounded p-3">
-                <div className="text-xs text-gray-400">By status</div>
-                <div className="flex flex-wrap gap-2 mt-1 text-sm">
+
+              <div className="bg-gray-950 border border-gray-800 rounded p-3 flex flex-col h-full">
+                <div className="text-xs text-gray-400 mb-1">By status</div>
+                <div className="flex flex-wrap gap-2 mt-auto text-sm">
                   {STATUSES.map((s) => (
                     <span key={s} className={['rounded px-2 py-0.5', STATUS_STYLES[s]].join(' ')}>
                       {s}: {stats.byStatus?.[s] ?? 0}
@@ -746,9 +746,12 @@ export default function AdminTokensPage() {
                   ))}
                 </div>
               </div>
-              <div className="bg-gray-950 border border-gray-800 rounded p-3">
+
+              <div className="bg-gray-950 border border-gray-800 rounded p-3 flex flex-col h-full">
                 <div className="text-xs text-gray-400">Last updated</div>
-                <div className="text-sm">{stats.lastUpdatedAt ? new Date(stats.lastUpdatedAt).toLocaleString() : '—'}</div>
+                <div className="text-sm mt-auto">
+                  {stats.lastUpdatedAt ? new Date(stats.lastUpdatedAt).toLocaleString() : '—'}
+                </div>
               </div>
             </div>
           </div>
