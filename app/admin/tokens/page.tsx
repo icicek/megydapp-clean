@@ -85,6 +85,47 @@ function shortenWallet(w?: string | null) {
 function clamp(n: number, min: number, max: number) {
   return Math.min(Math.max(n, min), max);
 }
+
+function MetricCard({
+  label,
+  value,
+  foot,
+}: {
+  label: string;
+  value: React.ReactNode;
+  foot?: React.ReactNode;
+}) {
+  return (
+    <div
+      className="
+        bg-gray-950 border border-gray-800 rounded-xl
+        p-3 sm:p-4
+        h-28 sm:h-32
+        overflow-hidden
+        flex flex-col justify-between
+        shadow-sm
+      "
+    >
+      <div className="text-[11px] sm:text-xs text-gray-400 truncate">{label}</div>
+      <div
+        className="
+          text-base sm:text-lg font-semibold
+          tabular-nums
+          leading-tight select-text
+          break-words
+        "
+      >
+        {value}
+      </div>
+      {foot ? (
+        <div className="text-[10px] sm:text-[11px] text-gray-500 mt-1 truncate">{foot}</div>
+      ) : (
+        <div className="h-[12px]" />
+      )}
+    </div>
+  );
+}
+
 async function copyToClipboard(text: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -848,7 +889,7 @@ export default function AdminTokensPage() {
       {histOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
           <div className="bg-gray-900 border border-gray-700 rounded-xl w-[92vw] max-w-2xl max-h-[80vh] overflow-hidden">
-            <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+            <div className="min-h-screen bg-black text-white p-6 tabular-nums">
               <div className="font-semibold">
                 History — <span className="font-mono">{histMint}</span>
               </div>

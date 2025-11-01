@@ -1,15 +1,14 @@
-// components/admin/TokenInfoModal.tsx
+// app/components/admin/TokenInfoModal.tsx
 'use client';
 
 import React, { useEffect } from 'react';
 
 export type VolumeResp = {
-  success: boolean;
-  mint: string;
+  mint?: string;
   dexVolumeUSD: number | null;
+  dexLiquidityUSD: number | null;
   cexVolumeUSD: number | null;
   totalVolumeUSD: number | null;
-  dexLiquidityUSD: number | null;
   dexSource: 'dexscreener' | 'geckoterminal' | 'none';
   cexSource: 'coingecko' | 'none';
 };
@@ -21,16 +20,52 @@ type Props = {
   data: VolumeResp | null;
   error: string | null;
   onClose: () => void;
-  onRetry?: () => void;
+  onRetry: () => void;
 };
 
-function fmtUSD(n: number | null | undefined) {
-  const v = Number.isFinite(Number(n)) ? Number(n) : 0;
-  try {
-    return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  } catch {
-    return String(v);
-  }
+function fmt(n: number | null | undefined) {
+  const x = typeof n === 'number' ? n : 0;
+  return '$' + x.toLocaleString();
+}
+
+function MetricCard({
+  label,
+  value,
+  foot,
+}: {
+  label: string;
+  value: React.ReactNode;
+  foot?: React.ReactNode;
+}) {
+  return (
+    <div
+      className="
+        bg-gray-950 border border-gray-800 rounded-xl
+        p-3 sm:p-4
+        h-28 sm:h-32
+        overflow-hidden
+        flex flex-col justify-between
+        shadow-sm
+      "
+    >
+      <div className="text-[11px] sm:text-xs text-gray-400 truncate">{label}</div>
+      <div
+        className="
+          text-base sm:text-lg font-semibold
+          tabular-nums
+          leading-tight select-text
+          break-words
+        "
+      >
+        {value}
+      </div>
+      {foot ? (
+        <div className="text-[10px] sm:text-[11px] text-gray-500 mt-1 truncate">{foot}</div>
+      ) : (
+        <div className="h-[12px]" />
+      )}
+    </div>
+  );
 }
 
 export default function TokenInfoModal({
@@ -42,7 +77,7 @@ export default function TokenInfoModal({
   onClose,
   onRetry,
 }: Props) {
-  // ESC ile kapat
+  // ESC → close
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -55,123 +90,112 @@ export default function TokenInfoModal({
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-3"
-      aria-modal="true"
-      role="dialog"
-    >
+    <div className="fixed inset-0 z-50">
       {/* overlay */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
+        aria-hidden
       />
-
-      {/* modal */}
-      <div
-        className="relative w-[92vw] max-w-2xl bg-[#0f172a] text-white border border-white/10 rounded-2xl shadow-2xl"
-        style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}
-      >
-        {/* header */}
-        <div className="px-5 py-4 border-b border-white/10 flex items-start gap-3">
-          <div className="text-lg font-semibold tracking-tight">
-            Volume &amp; Liquidity —{' '}
-            <span className="font-mono text-sm align-middle break-all">
-              {mint ?? '—'}
-            </span>
+      {/* dialog */}
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        <div
+          className="
+            w-[92vw] max-w-lg
+            bg-gray-900 border border-gray-700 rounded-2xl
+            overflow-hidden
+            text-white
+            tabular-nums
+            shadow-2xl
+          "
+          role="dialog"
+          aria-modal="true"
+        >
+          {/* Header */}
+          <div className="p-4 border-b border-gray-800 flex items-center justify-between min-h-[56px]">
+            <div className="font-semibold">
+              Volume & Liquidity
+              {mint ? (
+                <>
+                  {' — '}
+                  <span className="font-mono text-xs text-gray-300">{mint}</span>
+                </>
+              ) : null}
+            </div>
+            <button
+              onClick={onClose}
+              className="h-9 px-3 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700"
+              aria-label="Close"
+              title="Close"
+            >
+              ✕
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-            aria-label="Close"
-            title="Close"
-          >
-            ✕
-          </button>
-        </div>
 
-        {/* body */}
-        <div className="p-5 space-y-3">
-          {loading && (
-            <div className="text-sm text-gray-300">Loading…</div>
-          )}
-
-          {error && !loading && (
-            <div className="rounded-lg border border-rose-700/50 bg-rose-900/30 text-rose-100 p-3 text-sm">
-              ❌ {error}
-              {onRetry && (
+          {/* Body */}
+          <div className="p-4 sm:p-5 space-y-3">
+            {loading && <div className="text-sm text-gray-400">Loading…</div>}
+            {!loading && error && (
+              <div className="flex items-center justify-between gap-3 bg-rose-900/30 border border-rose-800 rounded-lg p-3 text-sm">
+                <span>❌ {error}</span>
                 <button
                   onClick={onRetry}
-                  className="ml-3 px-2 py-0.5 rounded bg-rose-700/70 hover:bg-rose-700 text-white text-xs"
+                  className="px-2 py-1 rounded bg-rose-700 hover:bg-rose-600 text-white text-xs"
                 >
                   Retry
                 </button>
-              )}
-            </div>
-          )}
-
-          {!loading && !error && data && (
-            <>
-              <div className="grid gap-3 md:grid-cols-2">
-                {/* DEX */}
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                  <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">
-                    DEX Volume (24h)
-                  </div>
-                  <div className="text-xl font-semibold leading-none">
-                    ${fmtUSD(data.dexVolumeUSD)}
-                  </div>
-                  <div className="text-[11px] text-gray-500 mt-1">
-                    src: {data.dexSource}
-                  </div>
-                </div>
-
-                {/* CEX */}
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                  <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">
-                    CEX Volume (24h)
-                  </div>
-                  <div className="text-xl font-semibold leading-none">
-                    ${fmtUSD(data.cexVolumeUSD)}
-                  </div>
-                  <div className="text-[11px] text-gray-500 mt-1">
-                    src: {data.cexSource}
-                  </div>
-                </div>
               </div>
+            )}
 
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">
-                  Total Volume (24h)
+            {!loading && !error && data && (
+              <>
+                {/* Top row: DEX & CEX */}
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  <MetricCard
+                    label="DEX Volume (24h)"
+                    value={fmt(data.dexVolumeUSD)}
+                    foot={<span>src: {data.dexSource}</span>}
+                  />
+                  <MetricCard
+                    label="CEX Volume (24h)"
+                    value={fmt(data.cexVolumeUSD)}
+                    foot={<span>src: {data.cexSource}</span>}
+                  />
                 </div>
-                <div className="text-2xl font-semibold leading-none">
-                  ${fmtUSD(data.totalVolumeUSD)}
-                </div>
-              </div>
 
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">
-                  Max Pool Liquidity
+                {/* Bottom row: Total & Max Liquidity */}
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  <MetricCard label="Total Volume (24h)" value={fmt(data.totalVolumeUSD)} />
+                  <MetricCard
+                    label="Max Pool Liquidity"
+                    value={fmt(data.dexLiquidityUSD)}
+                  />
                 </div>
-                <div className="text-xl font-semibold leading-none">
-                  ${fmtUSD(data.dexLiquidityUSD)}
+
+                {/* footnote */}
+                <div className="text-[11px] text-gray-500">
+                  Total = DEX + (CEX if enabled in settings). Sources are best-effort and cached briefly.
                 </div>
-              </div>
+              </>
+            )}
+          </div>
 
-              <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-[12px] text-gray-300">
-                * DEX verisi tek bir kaynak önceliği ile toplanır (çift sayım yok). CEX toplamı CoinGecko allowlist’e göre hesaplanır. Değerler anlık sorgudan gelir ve kısa süreli cache uygulanır.
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* footer */}
-        <div className="px-5 py-3 border-t border-white/10 flex items-center justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-          >
-            Close
-          </button>
+          {/* Footer */}
+          <div className="p-4 border-t border-gray-800">
+            <button
+              onClick={onClose}
+              className="
+                w-full h-10
+                rounded-xl
+                bg-gray-800 hover:bg-gray-700
+                border border-gray-700
+                text-sm font-medium
+                transition-colors
+              "
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>
