@@ -1,15 +1,34 @@
 // app/api/utils/getVolumeAndLiquidity.ts
-// ... (dosyanın üst açıklaması aynı kalsın)
+// Volume & Liquidity aggregator
+// - DEX: single source (priority: DexScreener → fallback GeckoTerminal). Sums 24h USD volume across pools,
+//        and uses the MAX pool liquidity as the liquidity signal.
+// - CEX: optional (admin toggle). Uses CoinGecko tickers with an allowlist of exchanges.
+//
+// ENV (optional):
+//   VL_SOURCE_ORDER=dexscreener,geckoterminal
+//   VL_TIMEOUT_MS=1800
+//   VL_CACHE_TTL_MS=60000
+//   CEX_EXCHANGES=binance,okx,kraken,coinbase-exchange,bybit,kucoin,bitget,mexc,gate
+//
+// Admin setting (DB-backed via /admin/settings):
+//   includeCEX (boolean) → read via getIncludeCex()
 
 import { getIncludeCex } from '@/app/api/_lib/settings';
 
 type TokenInfo = { mint: string; symbol?: string };
 
 export type VolumeLiquidity = {
-  dexVolumeUSD: number | null;
-  dexLiquidityUSD: number | null;
-  cexVolumeUSD: number | null;
+  // DEX side
+  dexVolumeUSD: number | null;     // 24h sum across pools (from a single chosen source)
+  dexLiquidityUSD: number | null;  // max pool liquidity (signal)
+
+  // CEX side (optional)
+  cexVolumeUSD: number | null;     // 24h sum across allowlisted CEX markets
+
+  // Total
   totalVolumeUSD: number | null;
+
+  // Sources
   dexSource: 'dexscreener' | 'geckoterminal' | 'none';
   cexSource: 'coingecko' | 'none';
 };
@@ -17,7 +36,7 @@ export type VolumeLiquidity = {
 const DEFAULT_DEX_ORDER = ['dexscreener', 'geckoterminal'] as const;
 type DexSourceName = (typeof DEFAULT_DEX_ORDER)[number];
 
-// --- ENV ayarları ---
+// --- ENV helpers ---
 function parseDexOrder(): DexSourceName[] {
   const raw = (process.env.VL_SOURCE_ORDER || '').trim();
   if (!raw) return [...DEFAULT_DEX_ORDER];
@@ -34,35 +53,48 @@ function parseDexOrder(): DexSourceName[] {
 const TIMEOUT_MS = Number(process.env.VL_TIMEOUT_MS ?? 1800);
 const CACHE_TTL_MS = Number(process.env.VL_CACHE_TTL_MS ?? 60_000);
 
-// Varsayılan CEX allowlist
+// Default CEX allowlist (CoinGecko market.identifier)
 const DEFAULT_CEX_LIST = [
-  'binance','okx','kraken','coinbase-exchange','bybit','kucoin','bitget','mexc','gate',
+  'binance',
+  'okx',
+  'kraken',
+  'coinbase-exchange',
+  'bybit',
+  'kucoin',
+  'bitget',
+  'mexc',
+  'gate',
 ] as const;
+
 function parseCexAllowlist(): string[] {
   const raw = (process.env.CEX_EXCHANGES || '').trim();
   if (!raw) return [...DEFAULT_CEX_LIST];
-  const arr = raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  const arr = raw.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
   const set = new Set<string>();
-  [...arr].forEach(x => { if (!set.has(x)) set.add(x); });
+  for (const x of arr) if (!set.has(x)) set.add(x);
   return Array.from(set);
 }
 
-// --- Tiny TTL cache ---
+// --- Tiny TTL cache (per mint + includeCEX) ---
 type CacheEntry = { val: VolumeLiquidity; exp: number };
 const cache = new Map<string, CacheEntry>();
-function cacheKey(mint: string) { return `vl2:${mint}`; }
-function getFromCache(mint: string): VolumeLiquidity | null {
-  const c = cache.get(cacheKey(mint));
+
+function cacheKey(mint: string, includeCex: boolean) {
+  return `vl2:${mint}:cex:${includeCex ? 1 : 0}`;
+}
+function getFromCache(mint: string, includeCex: boolean): VolumeLiquidity | null {
+  const key = cacheKey(mint, includeCex);
+  const c = cache.get(key);
   if (!c) return null;
   if (c.exp > Date.now()) return c.val;
-  cache.delete(cacheKey(mint));
+  cache.delete(key);
   return null;
 }
-function setCache(mint: string, val: VolumeLiquidity) {
-  cache.set(cacheKey(mint), { val, exp: Date.now() + CACHE_TTL_MS });
+function setCache(mint: string, includeCex: boolean, val: VolumeLiquidity) {
+  cache.set(cacheKey(mint, includeCex), { val, exp: Date.now() + CACHE_TTL_MS });
 }
 
-// --- Helpers ---
+// --- HTTP & number helpers ---
 async function fetchJSON<T>(url: string, timeoutMs = TIMEOUT_MS, headers: Record<string, string> = {}): Promise<T> {
   const res = await fetch(url, {
     headers: { accept: 'application/json', ...headers },
@@ -72,12 +104,14 @@ async function fetchJSON<T>(url: string, timeoutMs = TIMEOUT_MS, headers: Record
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
   return (await res.json()) as T;
 }
+
 function toNum(n: unknown): number | null {
   const x = typeof n === 'number' ? n : Number(n);
   return Number.isFinite(x) ? x : null;
 }
 
 /* -------------------- DEX: DexScreener -------------------- */
+// https://api.dexscreener.com/latest/dex/tokens/{address}
 async function dexFromDexScreener(mint: string): Promise<{ volume: number | null; maxLiq: number | null }> {
   type DS = {
     pairs?: Array<{
@@ -88,7 +122,7 @@ async function dexFromDexScreener(mint: string): Promise<{ volume: number | null
   const url = `https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(mint)}`;
   const data = await fetchJSON<DS>(url);
 
-  const pairs = Array.isArray(data?.pairs) ? data!.pairs! : [];
+  const pairs = Array.isArray(data?.pairs) ? data.pairs! : [];
   if (!pairs.length) throw new Error('dexscreener:no_pairs');
 
   let sumVol = 0;
@@ -109,12 +143,15 @@ async function dexFromDexScreener(mint: string): Promise<{ volume: number | null
 }
 
 /* -------------------- DEX: GeckoTerminal -------------------- */
+// https://api.geckoterminal.com/api/v2/networks/solana/tokens/{mint}?include=top_pools
 async function dexFromGeckoTerminal(mint: string): Promise<{ volume: number | null; maxLiq: number | null }> {
-  type GT = { included?: Array<{ attributes?: { reserve_in_usd?: number; volume_usd_24h?: number } }>; };
+  type GT = {
+    included?: Array<{ attributes?: { reserve_in_usd?: number; volume_usd_24h?: number } }>;
+  };
   const url = `https://api.geckoterminal.com/api/v2/networks/solana/tokens/${encodeURIComponent(mint)}?include=top_pools`;
   const data = await fetchJSON<GT>(url);
 
-  const pools = Array.isArray(data?.included) ? data!.included! : [];
+  const pools = Array.isArray(data?.included) ? data.included! : [];
   if (!pools.length) throw new Error('geckoterminal:no_pools');
 
   let sumVol = 0;
@@ -132,6 +169,8 @@ async function dexFromGeckoTerminal(mint: string): Promise<{ volume: number | nu
 }
 
 /* -------------------- CEX: CoinGecko tickers -------------------- */
+// 1) Contract → coin id: /api/v3/coins/solana/contract/{mint}
+// 2) Tickers: /api/v3/coins/{id}/tickers
 async function getCoingeckoIdForMint(mint: string): Promise<string | null> {
   const url = `https://api.coingecko.com/api/v3/coins/solana/contract/${encodeURIComponent(mint)}`;
   try {
@@ -142,6 +181,7 @@ async function getCoingeckoIdForMint(mint: string): Promise<string | null> {
     return null;
   }
 }
+
 async function cexFromCoingecko(coinId: string, allowlist: string[]): Promise<number | null> {
   const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(coinId)}/tickers?include_exchange_logo=false`;
   const data: any = await fetchJSON<any>(url, TIMEOUT_MS);
@@ -177,11 +217,14 @@ export default async function getVolumeAndLiquidity(token: TokenInfo): Promise<V
     };
   }
 
-  // Cache
-  const c = getFromCache(mint);
-  if (c) return c;
+  // Admin setting: includeCEX (affects cache key)
+  const includeCex = await getIncludeCex();
 
-  // DEX: tek kaynak seç (öncelik sırası)
+  // Cache lookup (key depends on includeCex)
+  const cached = getFromCache(mint, includeCex);
+  if (cached) return cached;
+
+  // DEX: choose a single source (no double counting)
   const order = parseDexOrder();
   let dexVolume: number | null = null;
   let dexLiq: number | null = null;
@@ -204,12 +247,11 @@ export default async function getVolumeAndLiquidity(token: TokenInfo): Promise<V
         break;
       }
     } catch {
-      // sonraki kaynağı dene
+      // try next source
     }
   }
 
-  // CEX (admin ayarına bağlı)
-  const includeCex = await getIncludeCex();
+  // CEX (optional via admin setting)
   let cexVolume: number | null = null;
   let cexSource: VolumeLiquidity['cexSource'] = 'none';
 
@@ -223,7 +265,7 @@ export default async function getVolumeAndLiquidity(token: TokenInfo): Promise<V
         cexSource = 'coingecko';
       }
     } catch {
-      // yut
+      // swallow CEX errors
     }
   }
 
@@ -236,6 +278,6 @@ export default async function getVolumeAndLiquidity(token: TokenInfo): Promise<V
     cexSource: includeCex ? cexSource : 'none',
   };
 
-  setCache(mint, out);
+  setCache(mint, includeCex, out);
   return out;
 }

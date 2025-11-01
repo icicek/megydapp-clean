@@ -221,6 +221,14 @@ export default function AdminTokensPage() {
   const [voteThreshold, setVoteThreshold] = useState<number>(3);
   const [savingThreshold, setSavingThreshold] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
+  // settings (genişletildi)
+  const [includeCEX, setIncludeCEX] = useState<boolean>(false);
+
+  const [healthyMinVolUSD, setHealthyMinVolUSD] = useState<number>(10000);
+  const [healthyMinLiqUSD, setHealthyMinLiqUSD] = useState<number>(10000);
+  const [walkingDeadMinVolUSD, setWalkingDeadMinVolUSD] = useState<number>(100);
+  const [walkingDeadMinLiqUSD, setWalkingDeadMinLiqUSD] = useState<number>(100);
+
 
   // INFO modal state
   const [infoOpen, setInfoOpen] = useState(false);
@@ -294,9 +302,18 @@ export default function AdminTokensPage() {
       const r = await fetch('/api/admin/settings', { credentials: 'include', cache: 'no-store' });
       if (!r.ok) return;
       const d = await r.json();
-      if (d?.success) setVoteThreshold(d.voteThreshold ?? 3);
-    } catch {}
-  }, []);
+      if (d?.success) {
+        setVoteThreshold(d.voteThreshold ?? 3);
+        setIncludeCEX(!!d.includeCEX);
+        if (typeof d.healthyMinVolUSD === 'number') setHealthyMinVolUSD(d.healthyMinVolUSD);
+        if (typeof d.healthyMinLiqUSD === 'number') setHealthyMinLiqUSD(d.healthyMinLiqUSD);
+        if (typeof d.walkingDeadMinVolUSD === 'number') setWalkingDeadMinVolUSD(d.walkingDeadMinVolUSD);
+        if (typeof d.walkingDeadMinLiqUSD === 'number') setWalkingDeadMinLiqUSD(d.walkingDeadMinLiqUSD);
+      }
+    } catch {
+      // sessiz geç
+    }
+  }, []);  
 
   /* ── effects ───────────────────────────────────────────── */
   useEffect(() => {
@@ -450,7 +467,7 @@ export default function AdminTokensPage() {
       router.replace('/admin/login');
     }
   }
-  async function saveThreshold() {
+  async function saveSettings() {
     try {
       setSettingsMsg(null);
       setSavingThreshold(true);
@@ -458,14 +475,28 @@ export default function AdminTokensPage() {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voteThreshold, changedBy: 'admin_ui' }),
+        body: JSON.stringify({
+          voteThreshold,
+          includeCEX,
+          healthyMinVolUSD,
+          healthyMinLiqUSD,
+          walkingDeadMinVolUSD,
+          walkingDeadMinLiqUSD,
+          changedBy: 'admin_ui',
+        }),
       });
       const d = await r.json();
       if (d?.success) {
         setVoteThreshold(d.voteThreshold ?? voteThreshold);
+        setIncludeCEX(!!d.includeCEX);
+        if (typeof d.healthyMinVolUSD === 'number') setHealthyMinVolUSD(d.healthyMinVolUSD);
+        if (typeof d.healthyMinLiqUSD === 'number') setHealthyMinLiqUSD(d.healthyMinLiqUSD);
+        if (typeof d.walkingDeadMinVolUSD === 'number') setWalkingDeadMinVolUSD(d.walkingDeadMinVolUSD);
+        if (typeof d.walkingDeadMinLiqUSD === 'number') setWalkingDeadMinLiqUSD(d.walkingDeadMinLiqUSD);
+  
         setSettingsMsg('✅ Saved');
-        push('Threshold saved', 'ok');
-        await load();
+        push('Settings saved', 'ok');
+        await load(); // tabloyu tazele (opsiyonel)
       } else {
         setSettingsMsg(`❌ ${d?.error || 'Save failed'}`);
         push('Save failed', 'err');
@@ -476,7 +507,7 @@ export default function AdminTokensPage() {
     } finally {
       setSavingThreshold(false);
     }
-  }
+  }  
 
   /* ──────────────────────────────────────────────────────── */
   return (
@@ -562,10 +593,11 @@ export default function AdminTokensPage() {
       {/* Settings + Stats (mobilde dikey, >=md yatay sütun) */}
       <div className="grid gap-4 md:grid-cols-2 mb-6">
         {/* Settings: vote threshold */}
-        <div className="bg-gray-900 border border-gray-700 rounded p-4">
-          <h2 className="font-semibold mb-3">Admin Settings</h2>
+        <div className="bg-gray-900 border border-gray-700 rounded p-4 mb-4">
+          <h2 className="font-semibold mb-2">Admin Settings</h2>
 
-          <div className="flex items-center gap-3 flex-wrap">
+          {/* Satır 1: Vote threshold + Include CEX */}
+          <div className="flex flex-wrap items-center gap-3 mb-3">
             <label className="text-sm text-gray-300">Community Vote Threshold</label>
             <input
               type="number"
@@ -575,44 +607,82 @@ export default function AdminTokensPage() {
               value={Number.isFinite(voteThreshold) ? voteThreshold : 1}
               onChange={(e) => {
                 const raw = Number(e.target.value);
-                if (!Number.isFinite(raw)) {
-                  setVoteThreshold(1);
-                  return;
-                }
-                setVoteThreshold(clamp(Math.round(raw), 1, 50));
+                setVoteThreshold(Number.isFinite(raw) ? Math.min(Math.max(Math.round(raw), 1), 50) : 1);
               }}
               className="w-24 px-2 py-1 rounded bg-gray-950 border border-gray-700"
             />
+
+            <label className="text-sm text-gray-300 ml-4">Include CEX Volume</label>
+            <input
+              type="checkbox"
+              checked={!!includeCEX}
+              onChange={(e) => setIncludeCEX(e.target.checked)}
+              className="h-4 w-4"
+              title="If enabled, total volume = DEX + CEX"
+            />
+          </div>
+
+          {/* Satır 2: Classification thresholds */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="bg-gray-950 border border-gray-800 rounded p-3">
+              <div className="text-[11px] text-gray-400 mb-1">Healthy Min Volume (USD, 24h)</div>
+              <input
+                type="number"
+                min={0}
+                value={healthyMinVolUSD}
+                onChange={(e) => setHealthyMinVolUSD(Math.max(0, Number(e.target.value || 0)))}
+                className="w-full px-2 py-1 rounded bg-gray-900 border border-gray-700"
+              />
+            </div>
+
+            <div className="bg-gray-950 border border-gray-800 rounded p-3">
+              <div className="text-[11px] text-gray-400 mb-1">Healthy Min Liquidity (USD)</div>
+              <input
+                type="number"
+                min={0}
+                value={healthyMinLiqUSD}
+                onChange={(e) => setHealthyMinLiqUSD(Math.max(0, Number(e.target.value || 0)))}
+                className="w-full px-2 py-1 rounded bg-gray-900 border border-gray-700"
+              />
+            </div>
+
+            <div className="bg-gray-950 border border-gray-800 rounded p-3">
+              <div className="text-[11px] text-gray-400 mb-1">Walking Dead Min Volume (USD, 24h)</div>
+              <input
+                type="number"
+                min={0}
+                value={walkingDeadMinVolUSD}
+                onChange={(e) => setWalkingDeadMinVolUSD(Math.max(0, Number(e.target.value || 0)))}
+                className="w-full px-2 py-1 rounded bg-gray-900 border border-gray-700"
+              />
+            </div>
+
+            <div className="bg-gray-950 border border-gray-800 rounded p-3">
+              <div className="text-[11px] text-gray-400 mb-1">Walking Dead Min Liquidity (USD)</div>
+              <input
+                type="number"
+                min={0}
+                value={walkingDeadMinLiqUSD}
+                onChange={(e) => setWalkingDeadMinLiqUSD(Math.max(0, Number(e.target.value || 0)))}
+                className="w-full px-2 py-1 rounded bg-gray-900 border border-gray-700"
+              />
+            </div>
+          </div>
+
+          {/* Save */}
+          <div className="mt-3 flex items-center gap-3">
             <button
-              onClick={saveThreshold}
-              disabled={savingThreshold || !Number.isFinite(voteThreshold) || voteThreshold < 1 || voteThreshold > 50}
-              className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50"
+              onClick={saveSettings} // eski adıyla kalacaksa: onClick={saveThreshold}
+              disabled={savingThreshold}
+              className="px-3 py-1 rounded bg-blue-600 text-white disabled:opacity-50"
             >
               {savingThreshold ? 'Saving…' : 'Save'}
             </button>
             {settingsMsg && <div className="text-xs text-gray-300">{settingsMsg}</div>}
           </div>
 
-          {/* yan panel */}
-          <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.02] p-3 space-y-3">
-            <div className="text-sm font-medium text-gray-200">How it works</div>
-            <ul className="list-disc pl-5 text-sm text-gray-300 space-y-1">
-              <li>
-                When <b>YES ≥ threshold</b>, token is eligible for auto-promotion to <b>deadcoin</b>.
-              </li>
-              <li>Change applies immediately after saving.</li>
-            </ul>
-
-            <div className="text-sm text-gray-300">
-              Badge preview:{' '}
-              <span className="align-middle ml-2">
-                <VotesBadge yes={0} threshold={voteThreshold || 3} />
-              </span>
-            </div>
-
-            <div className="pt-1 text-[11px] text-neutral-500">
-              Affects auto-deadcoin promotion (YES ≥ threshold).
-            </div>
+          <div className="mt-1 text-[11px] text-neutral-500">
+            These thresholds control automatic classification on 24h volume + DEX max liquidity.
           </div>
         </div>
 
