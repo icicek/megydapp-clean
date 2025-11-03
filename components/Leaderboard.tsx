@@ -1,49 +1,46 @@
+// components/Leaderboard.tsx
 'use client';
 
-import React, { useEffect, useMemo, useState, type JSX } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import ShareCenter from '@/components/share/ShareCenter';
-import { buildRankText } from '@/utils/shareX';
 import { APP_URL } from '@/app/lib/origin';
 
-interface LeaderboardEntry {
+type LeaderboardEntry = {
   wallet_address: string;
   core_point: number;
-}
+};
 
-export default function Leaderboard(): JSX.Element {
+export default function Leaderboard() {
   const { publicKey } = useWallet();
 
   const [data, setData] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRank, setUserRank] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
-  const [copied, setCopied] = useState(false);
 
-  // ShareCenter modal state
+  // Share modal state
   const [shareOpen, setShareOpen] = useState(false);
-  const [rankToShare, setRankToShare] = useState<number | null>(null);
-  const totalToShare = useMemo(() => (data?.length ?? 0) || undefined, [data]);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
         const res = await fetch('/api/leaderboard');
         const json = await res.json();
-        if (json.success) {
+        if (json?.success && Array.isArray(json.leaderboard)) {
           setData(json.leaderboard as LeaderboardEntry[]);
 
           if (publicKey) {
-            const base58 = publicKey.toBase58();
-            const indexInTop = (json.leaderboard as LeaderboardEntry[]).findIndex(
-              (entry) => entry.wallet_address === base58
+            const me = publicKey.toBase58();
+            const i = json.leaderboard.findIndex(
+              (e: LeaderboardEntry) => e.wallet_address === me
             );
-            if (indexInTop !== -1) {
-              setUserRank(indexInTop + 1);
+            if (i !== -1) {
+              setUserRank(i + 1);
             } else {
-              const rankRes = await fetch(`/api/leaderboard/rank?wallet=${base58}`);
+              const rankRes = await fetch(`/api/leaderboard/rank?wallet=${me}`);
               const rankJson = await rankRes.json();
-              if (rankJson.success) {
+              if (rankJson?.success && Number.isFinite(rankJson.rank)) {
                 setUserRank(rankJson.rank);
               }
             }
@@ -59,24 +56,29 @@ export default function Leaderboard(): JSX.Element {
     fetchLeaderboard();
   }, [publicKey]);
 
-  const shorten = (address: string) => `${address.slice(0, 4)}...${address.slice(-4)}`;
-  const visibleData = showAll ? data : data.slice(0, 10);
+  const shorten = (a: string) => `${a.slice(0, 4)}...${a.slice(-4)}`;
+  const visible = showAll ? data : data.slice(0, 10);
 
-  const tweetMessage = useMemo(() => {
-    if (!userRank) return 'Join the Coincarnation movement → https://coincarnation.com';
-    // Kopyalama butonu için alternatif metin
-    return `Everyone says “hodl.”\nI said “revive.”\nNow I’m #${userRank} on the #Coincarnation Leaderboard.\nWhat’s your excuse?\n→ https://coincarnation.com`;
-  }, [userRank]);
+  // ---- Share payload (rank metni dinamik) ----
+  const shareUrl = APP_URL;
+  const shareText = useMemo(() => {
+      const r = userRank;
+      const base = r
+        ? `Everyone says “hodl.” I said “revive.” Now I’m #${r} on the #Coincarnation Leaderboard.`
+        : `Everyone says “hodl.” I said “revive.” Join the #Coincarnation Leaderboard.`;
+      return `${base}\n${shareUrl}`;
+  }, [userRank, shareUrl]);
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(tweetMessage);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Copy failed:', err);
-    }
-  };
+  const sharePayload = useMemo(
+    () => ({
+      url: shareUrl,
+      text: shareText,
+      hashtags: ['MEGY', 'Coincarnation', 'FairFutureFund'],
+      via: 'Coincarnation',
+      utm: 'utm_source=share&utm_medium=leaderboard&utm_campaign=rank',
+    }),
+    [shareText, shareUrl]
+  );
 
   return (
     <div className="mt-10 border border-pink-500/20 rounded-2xl p-6 bg-gradient-to-br from-zinc-900/70 to-black/80 shadow-xl backdrop-blur-lg">
@@ -96,9 +98,9 @@ export default function Leaderboard(): JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {visibleData.map((entry, i) => {
-                  const isUser = publicKey?.toBase58() === entry.wallet_address;
+                {visible.map((entry, _i) => {
                   const realIndex = data.indexOf(entry);
+                  const isUser = publicKey?.toBase58() === entry.wallet_address;
                   return (
                     <tr
                       key={entry.wallet_address}
@@ -115,7 +117,13 @@ export default function Leaderboard(): JSX.Element {
                       }`}
                     >
                       <td className="py-2 px-2">
-                        {realIndex === 0 ? '🥇' : realIndex === 1 ? '🥈' : realIndex === 2 ? '🥉' : realIndex + 1}
+                        {realIndex === 0
+                          ? '🥇'
+                          : realIndex === 1
+                          ? '🥈'
+                          : realIndex === 2
+                          ? '🥉'
+                          : realIndex + 1}
                       </td>
                       <td className="py-2 px-4">
                         {shorten(entry.wallet_address)}
@@ -139,69 +147,41 @@ export default function Leaderboard(): JSX.Element {
               </div>
             )}
 
-            {/* User Rank & Share */}
+            {/* Share (ShareCenter modalını açar) */}
             {userRank && (
-              <>
-                <p className="text-center text-sm text-zinc-400 mt-6">
-                  You are currently ranked <span className="text-white font-bold">#{userRank}</span> in the ecosystem.
+              <div className="text-center mt-6 space-y-3">
+                <p className="text-sm text-zinc-400">
+                  You are currently ranked{' '}
+                  <span className="text-white font-bold">#{userRank}</span> in the ecosystem.
                 </p>
 
-                <div className="text-center mt-2 space-y-2">
-                  {/* 🔁 Çoklu platform paylaşım için ShareCenter modalını tetikleyen nötr buton */}
-                  <button
-                    onClick={() => {
-                      setRankToShare(userRank);
-                      setShareOpen(true);
-                    }}
-                    className="inline-block text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md transition"
-                  >
-                    Share…
-                  </button>
-
-                  <br />
-
-                  {/* 📝 İsteyenler için “metni kopyala” */}
-                  <button
-                    onClick={handleCopy}
-                    className="text-sm text-green-400 hover:text-green-300 underline transition"
-                  >
-                    {copied ? '✅ Copied! Now paste it into Twitter.' : 'Copy Tweet Text'}
-                  </button>
-                </div>
-              </>
+                <button
+                  onClick={() => setShareOpen(true)}
+                  className="inline-block text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md transition"
+                >
+                  Share…
+                </button>
+              </div>
             )}
           </div>
         </div>
       )}
 
-      {/* 📤 ShareCenter Modal */}
+      {/* Share modal */}
       <ShareCenter
         open={shareOpen}
         onOpenChange={setShareOpen}
-        // tek satır payload: rank metnini dinamik üret
-        payload={{
-          url: APP_URL,
-          text: buildRankText({ rank: rankToShare ?? 0, total: totalToShare }),
-          hashtags: ['MEGY', 'Coincarnation', 'Solana'],
-          via: 'Coincarnation',
-          utm: 'utm_source=share&utm_medium=leaderboard&utm_campaign=rank',
-        } as any}
+        payload={sharePayload}
         context="leaderboard"
-        onAfterShare={async ({ channel, context }) => {
+        onAfterShare={async ({ channel }) => {
           try {
             await fetch('/api/share/record', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                // publicKey yoksa sadece kanal/context kaydı tutmak da kabul
-                wallet_address: publicKey ? publicKey.toBase58() : undefined,
-                channel,
-                context,
-                txId: null,
-              }),
+              body: JSON.stringify({ channel, context: 'leaderboard' }),
             });
-          } catch (e) {
-            console.error('share record error', e);
+          } catch {
+            /* noop */
           }
         }}
       />
