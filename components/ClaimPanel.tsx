@@ -10,9 +10,9 @@ import { buildTxItemText } from "@/utils/shareX";
 import { APP_URL } from "@/app/lib/origin";
 import type { JSX } from 'react';
 
-// ShareCenter'ı client-only ve güvenli yükle (SSR yok, ilk paint'te çakılmaz)
+// ShareCenter'ı client-only ve güvenli yükle (SSR yok)
 const SafeShareCenter = dynamic(
-  () => import("@/components/share/ShareCenter").then((m) => m.default),
+  () => import('@/components/share/ShareCenter').then(m => m.default),
   { ssr: false, loading: () => null }
 );
 
@@ -707,22 +707,17 @@ export default function ClaimPanel(): JSX.Element {
       <SafeShareCenter
         open={shareOpen}
         onOpenChange={setShareOpen}
-        // Tip uyumsuzluklarını izole etmek için: sharePayload ve context'i narrow cast ediyoruz.
-        // Bu sayede ShareCenter iç tipi ne olursa olsun ClaimPanel derlenir ve çalışır.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         payload={sharePayload as any}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         context={shareContextAny}
         txId={shareTxId}
-        onAfterShare={async (
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          { channel, context, txId }: { channel: string; context: string; txId?: string }
-        ) => {
+        onAfterShare={async ({ channel, context, txId }: { channel: string; context: string; txId?: string }) => {
           if (!publicKey) return;
           try {
-            await fetch("/api/share/record", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
+            await fetch('/api/share/record', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 wallet_address: publicKey.toBase58(),
                 channel,
@@ -731,7 +726,7 @@ export default function ClaimPanel(): JSX.Element {
               }),
             });
           } catch (e) {
-            console.error("share record error", e);
+            console.error('share record error', e);
           }
         }}
       />
