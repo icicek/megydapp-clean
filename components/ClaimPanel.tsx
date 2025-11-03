@@ -76,6 +76,16 @@ const SafeLeaderboard = dynamic(
 /* --------------- Component --------------- */
 export default function ClaimPanel(): JSX.Element {
   const { publicKey } = useWallet();
+    // ---- SMOKE MODE: hızlı izolasyon, geri alınabilir ----
+  const __SMOKE__ = true; // test bittiğinde false yap veya satırı sil
+  if (__SMOKE__) {
+    return (
+      <div style={{ padding: 24, color: '#fff', background: '#0b0b0b', minHeight: '60vh' }}>
+        ✅ ClaimPanel SMOKE — wallet: {publicKey?.toBase58() ?? '-'}
+      </div>
+    );
+  }
+
 
   const [data, setData] = useState<ClaimData | null>(null);
   const [claimAmount, setClaimAmount] = useState<number>(0);
@@ -713,7 +723,6 @@ export default function ClaimPanel(): JSX.Element {
       </motion.div>
 
       {/* Share Center Modal (dynamic/ssr:false) */}
-      {/* Share Center Modal (yalnızca açıkken mount) */}
       {shareOpen && (
         <SafeShareCenter
           open={shareOpen}
