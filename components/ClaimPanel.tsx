@@ -252,7 +252,7 @@ export default function ClaimPanel(): JSX.Element {
         setClaimed(true);
         setMessage("✅ Claim successful!");
       } else {
-        setMessage(`❌ ${String(json.error || "Unknown error")}`);
+        setMessage(`❌ ${asText(json.error || "Unknown error")}`);
       }
     } catch (err) {
       console.error("Claim request failed:", err);
@@ -476,7 +476,8 @@ export default function ClaimPanel(): JSX.Element {
               </p>
             )}
 
-            {message && <p className="text-center mt-3 text-sm">{message}</p>}
+            {message && <p className="text-center mt-3 text-sm">{asText(message)}</p>}
+
           </div>
 
           <motion.div
@@ -746,6 +747,13 @@ function Info({ label, value }: { label: string; value: string }) {
       <p className="text-white font-medium text-sm break-words">{value}</p>
     </div>
   );
+}
+
+// components/ClaimPanel.tsx (en üstlere yakın, yardımcıların yanına)
+function asText(v: unknown): string {
+  if (typeof v === 'string') return v;
+  if (v == null) return '';
+  try { return JSON.stringify(v); } catch { return String(v); }
 }
 
 const colorMap = {
