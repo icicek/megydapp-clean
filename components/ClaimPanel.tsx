@@ -728,8 +728,8 @@ export default function ClaimPanel(): JSX.Element {
       )}
       </motion.div>
 
-      {/* Share Center Modal (dynamic/ssr:false) */}
-      {shareOpen && (
+      {/* Share Center Modal (flag + sadece açıkken mount) */}
+      {__SHOW_SHARECENTER__ && shareOpen && (
         <SafeShareCenter
           open={shareOpen}
           onOpenChange={setShareOpen}
@@ -738,7 +738,15 @@ export default function ClaimPanel(): JSX.Element {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           context={shareContextAny}
           txId={shareTxId}
-          onAfterShare={async ({ channel, context, txId }: { channel: string; context: string; txId?: string }) => {
+          onAfterShare={async ({
+            channel,
+            context,
+            txId,
+          }: {
+            channel: string;
+            context: string;
+            txId?: string;
+          }) => {
             if (!publicKey) return;
             try {
               await fetch('/api/share/record', {
