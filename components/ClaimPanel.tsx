@@ -708,7 +708,7 @@ export default function ClaimPanel(): JSX.Element {
               and influence in the Coincarnation ecosystem.
             </p>
           </div>
-          <SafeLeaderboard />
+          {/* <SafeLeaderboard /> */}
         </motion.section>
       </motion.div>
 
