@@ -52,10 +52,6 @@ export interface ClaimData {
 }
 
 type ShareContext = "profile" | "contribution" | "leaderboard" | "success";
-const SafeLeaderboard = dynamic(
-  () => import('@/components/Leaderboard').then(m => m.default),
-  { ssr: false, loading: () => null }
-);
 
 /** Web/paste-safe truthy parse */
 const asBool = (v: unknown): boolean => {
@@ -67,6 +63,11 @@ const asBool = (v: unknown): boolean => {
   }
   return false;
 };
+
+const SafeLeaderboard = dynamic(
+  () => import('@/components/Leaderboard').then(m => m.default ?? (m as any).Leaderboard),
+  { ssr: false, loading: () => null }
+);
 
 /* --------------- Component --------------- */
 export default function ClaimPanel(): JSX.Element {
@@ -702,7 +703,7 @@ export default function ClaimPanel(): JSX.Element {
               and influence in the Coincarnation ecosystem.
             </p>
           </div>
-          <Leaderboard />
+          <SafeLeaderboard />
         </motion.section>
       </motion.div>
 
