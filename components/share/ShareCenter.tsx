@@ -41,7 +41,7 @@ const isInAppWallet = () => {
 };
 
 type OpenTarget = '_self' | '_blank' | 'popup';
-function openURL(url: string, target: OpenTarget = '_self') {
+function openURL(url: string, target: OpenTarget = '_blank') {
   if (target === '_self') {
     window.location.href = url;
     return;
@@ -120,44 +120,38 @@ export default function ShareCenter(props: Props) {
   const shareSystem = useCallback(async () => {
     if (navigator.share && !isInAppWallet()) {
       try {
-        await navigator.share({
-          text: baseText,
-          url: composedUrl,
-        });
+        await navigator.share({ text: baseText, url: composedUrl });
         await handleAfter('system');
         return;
-      } catch {
-        // iptal/fallback
-      }
+      } catch { /* iptal */ }
     }
-    // fallback: X intent
     const href = xIntentUrl({ text: baseText, url: composedUrl, hashtags: payload.hashtags, via: payload.via });
-    openURL(href, '_self');
+    openURL(href, '_blank');            // ← eskiden '_self' idi
     await handleAfter('x');
   }, [baseText, composedUrl, payload.hashtags, payload.via, handleAfter]);
-
+  
   const shareX = useCallback(async () => {
     const href = xIntentUrl({ text: baseText, url: composedUrl, hashtags: payload.hashtags, via: payload.via });
-    openURL(href, '_self');
+    openURL(href, '_blank');            // ←
     await handleAfter('x');
   }, [baseText, composedUrl, payload.hashtags, payload.via, handleAfter]);
-
+  
   const shareTelegram = useCallback(async () => {
     const href = telegramShareUrl({ text: baseText, url: composedUrl });
-    openURL(href, '_self');
+    openURL(href, '_blank');            // ←
     await handleAfter('telegram');
   }, [baseText, composedUrl, handleAfter]);
-
+  
   const shareWhatsApp = useCallback(async () => {
     const href = whatsappShareUrl({ text: baseText, url: composedUrl });
-    openURL(href, '_self');
+    openURL(href, '_blank');            // ←
     await handleAfter('whatsapp');
   }, [baseText, composedUrl, handleAfter]);
-
+  
   const shareEmail = useCallback(async () => {
     const body = [baseText, composedUrl].filter(Boolean).join(' ');
     const href = mailtoUrl({ subject: 'Coincarnation', body });
-    openURL(href, '_self');
+    openURL(href, '_blank');            // ← (mailto: yeni “compose” pencere/taba gider)
     await handleAfter('email');
   }, [baseText, composedUrl, handleAfter]);
 
