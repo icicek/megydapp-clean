@@ -85,6 +85,9 @@ export default function ClaimPanel(): JSX.Element {
       </div>
     );
   }
+  const __SHOW_PVC__ = false;         // 💠 Personal Value Currency + Chart
+  const __SHOW_HISTORY__ = false;      // 📜 Contribution History (tablo)
+  const __SHOW_SHARECENTER__ = false;  // ShareCenter modal (zaten open iken mount ediyorduk)
 
   const [data, setData] = useState<ClaimData | null>(null);
   const [claimAmount, setClaimAmount] = useState<number>(0);
@@ -512,6 +515,7 @@ export default function ClaimPanel(): JSX.Element {
         </motion.section>
 
         {/* Contribution History */}
+      {__SHOW_HISTORY__ && (
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -572,8 +576,10 @@ export default function ClaimPanel(): JSX.Element {
             </p>
           )}
         </motion.section>
+      )}
 
         {/* Personal Value Currency */}
+      {__SHOW_PVC__ && (
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -719,6 +725,7 @@ export default function ClaimPanel(): JSX.Element {
           </div>
           <SafeLeaderboard />
         </motion.section>
+      )}
       </motion.div>
 
       {/* Share Center Modal (dynamic/ssr:false) */}
