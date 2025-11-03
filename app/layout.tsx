@@ -10,13 +10,8 @@ export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   title: 'Coincarnation — Unite Deadcoins. Fund the Future.',
   description: 'Unite deadcoins, rescue value, and join the Fair Future Fund. Coincarnate now.',
-  alternates: {
-    canonical: APP_URL,
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
+  alternates: { canonical: APP_URL },
+  robots: { index: true, follow: true },
   openGraph: {
     type: 'website',
     url: APP_URL,
@@ -39,17 +34,17 @@ export const metadata: Metadata = {
     description: 'Unite deadcoins, rescue value, and join the Fair Future Fund.',
     images: [absoluteUrl('/og-image.png')],
   },
-  // (opsiyonel) favicon vs.
-  icons: {
-    icon: '/favicon.ico',
-  },
+  icons: { icon: '/favicon.ico' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <Providers>{children}</Providers>
+        <noscript>
+          This app works best with JavaScript enabled.
+        </noscript>
       </body>
     </html>
   );
