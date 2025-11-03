@@ -3,11 +3,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { motion } from "framer-motion";
-import CorePointChart from "./CorePointChart";
-import dynamic from "next/dynamic";
 import { buildTxItemText } from "@/utils/shareX";
 import { APP_URL } from "@/app/lib/origin";
 import type { JSX } from 'react';
+import dynamic from "next/dynamic";
+
+const CorePointChart = dynamic(
+  () => import("./CorePointChart").then(m => m.default),
+  { ssr: false, loading: () => null }
+);
 
 // ShareCenter'ı client-only ve güvenli yükle (SSR yok)
 const SafeShareCenter = dynamic(
