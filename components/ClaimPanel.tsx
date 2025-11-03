@@ -4,11 +4,17 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { motion } from "framer-motion";
 import CorePointChart from "./CorePointChart";
-import Leaderboard from "./Leaderboard";
-import ShareCenter from "@/components/share/ShareCenter";
+import Leaderboard from "@/components/Leaderboard";
+import dynamic from "next/dynamic";
 import { buildTxItemText } from "@/utils/shareX";
 import { APP_URL } from "@/app/lib/origin";
 import type { JSX } from 'react';
+
+// ShareCenter'ı client-only ve güvenli yükle (SSR yok, ilk paint'te çakılmaz)
+const SafeShareCenter = dynamic(
+  () => import("@/components/share/ShareCenter").then((m) => m.default),
+  { ssr: false, loading: () => null }
+);
 
 /* ---------------- Types ---------------- */
 export interface Tx {
@@ -697,8 +703,8 @@ export default function ClaimPanel(): JSX.Element {
         </motion.section>
       </motion.div>
 
-      {/* Share Center Modal */}
-      <ShareCenter
+      {/* Share Center Modal (dynamic/ssr:false) */}
+      <SafeShareCenter
         open={shareOpen}
         onOpenChange={setShareOpen}
         // Tip uyumsuzluklarını izole etmek için: sharePayload ve context'i narrow cast ediyoruz.
