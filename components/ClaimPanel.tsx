@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { motion } from "framer-motion";
 import CorePointChart from "./CorePointChart";
-import Leaderboard from "@/components/Leaderboard";
 import dynamic from "next/dynamic";
 import { buildTxItemText } from "@/utils/shareX";
 import { APP_URL } from "@/app/lib/origin";
@@ -53,6 +52,10 @@ export interface ClaimData {
 }
 
 type ShareContext = "profile" | "contribution" | "leaderboard" | "success";
+const SafeLeaderboard = dynamic(
+  () => import('@/components/Leaderboard').then(m => m.default),
+  { ssr: false, loading: () => null }
+);
 
 /** Web/paste-safe truthy parse */
 const asBool = (v: unknown): boolean => {
