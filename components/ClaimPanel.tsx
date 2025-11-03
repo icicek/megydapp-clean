@@ -708,37 +708,40 @@ export default function ClaimPanel(): JSX.Element {
               and influence in the Coincarnation ecosystem.
             </p>
           </div>
-          {/* <SafeLeaderboard /> */}
+          <SafeLeaderboard />
         </motion.section>
       </motion.div>
 
       {/* Share Center Modal (dynamic/ssr:false) */}
-      <SafeShareCenter
-        open={shareOpen}
-        onOpenChange={setShareOpen}
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        payload={sharePayload as any}
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        context={shareContextAny}
-        txId={shareTxId}
-        onAfterShare={async ({ channel, context, txId }: { channel: string; context: string; txId?: string }) => {
-          if (!publicKey) return;
-          try {
-            await fetch('/api/share/record', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                wallet_address: publicKey.toBase58(),
-                channel,
-                context,
-                txId: txId || null,
-              }),
-            });
-          } catch (e) {
-            console.error('share record error', e);
-          }
-        }}
-      />
+      {/* Share Center Modal (yalnızca açıkken mount) */}
+      {shareOpen && (
+        <SafeShareCenter
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          payload={sharePayload as any}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          context={shareContextAny}
+          txId={shareTxId}
+          onAfterShare={async ({ channel, context, txId }: { channel: string; context: string; txId?: string }) => {
+            if (!publicKey) return;
+            try {
+              await fetch('/api/share/record', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  wallet_address: publicKey.toBase58(),
+                  channel,
+                  context,
+                  txId: txId || null,
+                }),
+              });
+            } catch (e) {
+              console.error('share record error', e);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
