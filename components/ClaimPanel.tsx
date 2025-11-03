@@ -2,11 +2,25 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { motion } from "framer-motion";
+// import { motion } from "framer-motion"; // temporary disabled
 import { buildTxItemText } from "@/utils/shareX";
 import { APP_URL } from "@/app/lib/origin";
 import type { JSX } from 'react';
 import dynamic from "next/dynamic";
+// ---- TEMP: disable framer-motion (prevents hook/hydration glitches) ----
+const Motion = {
+  // motion.div yerine
+  div: (props: any) => {
+    const { initial, animate, transition, ...rest } = props || {};
+    return <div {...rest} />;
+  },
+  // motion.section yerine
+  section: (props: any) => {
+    const { initial, animate, transition, ...rest } = props || {};
+    return <section {...rest} />;
+  },
+};
+// -----------------------------------------------------------------------
 
 const CorePointChart = dynamic(
   () => import("./CorePointChart").then(m => m.default),
@@ -325,7 +339,7 @@ export default function ClaimPanel(): JSX.Element {
 
   return (
     <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
-      <motion.div
+      <Motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
@@ -334,7 +348,7 @@ export default function ClaimPanel(): JSX.Element {
         <h2 className="text-3xl font-extrabold text-center tracking-tight mb-2">🎁 Claim Panel</h2>
 
         {/* Personal Info */}
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
@@ -374,10 +388,10 @@ export default function ClaimPanel(): JSX.Element {
             />
             <Info label="Deadcoins Revived" value={String(deadcoinsRevived)} />
           </div>
-        </motion.section>
+        </Motion.section>
 
         {/* Claim & Statistics */}
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
@@ -496,7 +510,7 @@ export default function ClaimPanel(): JSX.Element {
 
           </div>
 
-          <motion.div
+          <Motion.div
             className="mt-6 text-center"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -511,12 +525,12 @@ export default function ClaimPanel(): JSX.Element {
             <p className="text-xs text-gray-400 italic">
               Want to contribute more? Return to the homepage and coincarne again.
             </p>
-          </motion.div>
-        </motion.section>
+          </Motion.div>
+        </Motion.section>
 
         {/* Contribution History */}
       {__SHOW_HISTORY__ && (
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
@@ -575,12 +589,12 @@ export default function ClaimPanel(): JSX.Element {
               You haven’t Coincarnated anything yet.
             </p>
           )}
-        </motion.section>
+        </Motion.section>
       )}
 
         {/* Personal Value Currency */}
       {__SHOW_PVC__ && (
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
@@ -724,9 +738,9 @@ export default function ClaimPanel(): JSX.Element {
             </p>
           </div>
           <SafeLeaderboard />
-        </motion.section>
+        </Motion.section>
       )}
-      </motion.div>
+      </Motion.div>
 
       {/* Share Center Modal (flag + sadece açıkken mount) */}
       {__SHOW_SHARECENTER__ && shareOpen && (
