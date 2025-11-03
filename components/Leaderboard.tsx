@@ -3,13 +3,18 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import ShareCenter from '@/components/share/ShareCenter';
 import { APP_URL } from '@/app/lib/origin';
+import dynamic from 'next/dynamic';
 
 type LeaderboardEntry = {
   wallet_address: string;
   core_point: number;
 };
+
+const ShareCenter = dynamic(
+  () => import('@/components/share/ShareCenter').then(m => m.default),
+  { ssr: false, loading: () => null }
+);
 
 export default function Leaderboard() {
   const { publicKey } = useWallet();
