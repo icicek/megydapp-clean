@@ -1,128 +1,39 @@
-"use client";
+'use client';
 
-import React, { useEffect, useMemo, useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
-// import { motion } from "framer-motion"; // temporary disabled
-import { buildTxItemText } from "@/utils/shareX";
-import { APP_URL } from "@/app/lib/origin";
-import type { JSX } from 'react';
-import dynamic from "next/dynamic";
-// ---- TEMP: disable framer-motion (prevents hook/hydration glitches) ----
-const Motion = {
-  // motion.div yerine
-  div: (props: any) => {
-    const { initial, animate, transition, ...rest } = props || {};
-    return <div {...rest} />;
-  },
-  // motion.section yerine
-  section: (props: any) => {
-    const { initial, animate, transition, ...rest } = props || {};
-    return <section {...rest} />;
-  },
-};
-// -----------------------------------------------------------------------
+import { useWallet } from '@solana/wallet-adapter-react';
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import CorePointChart from './CorePointChart';
+import Leaderboard from './Leaderboard';
+import { ShareOnXFromTxItem } from '@/components/share/ShareOnX';
+import { APP_URL } from '@/app/lib/origin';
 
-const CorePointChart = dynamic(
-  () => import("./CorePointChart").then(m => m.default),
-  { ssr: false, loading: () => null }
-);
-
-// ShareCenter'ı client-only ve güvenli yükle (SSR yok)
-const SafeShareCenter = dynamic(
-  () => import('@/components/share/ShareCenter').then(m => m.default),
-  { ssr: false, loading: () => null }
-);
-
-/* ---------------- Types ---------------- */
-export interface Tx {
-  token_symbol: string;
-  token_amount: number | string;
-  usd_value: number | string;
-  token_contract?: string;
-  transaction_signature?: string;
-  tx_hash?: string;
-  timestamp?: string;
-}
-
-export interface CorePointBreakdown {
-  coincarnations: number;
-  referrals: number;
-  deadcoins: number;
-  shares: number;
-  by_channel?: Record<string, number>;
-}
-
-export interface ClaimData {
-  id: string | number;
-  wallet_address: string;
-  referral_code: string | null;
-  claimed: boolean;
-  referral_count: number;
-  referral_usd_contributions: number;
-  referral_deadcoin_count: number;
-  total_usd_contributed: number;
-  total_coins_contributed: number;
-  transactions: Tx[];
-  core_point: number;
-  total_core_point: number;
-  pvc_share: number;
-  core_point_breakdown: CorePointBreakdown;
-}
-
-type ShareContext = "profile" | "contribution" | "leaderboard" | "success";
-
-/** Web/paste-safe truthy parse */
 const asBool = (v: unknown): boolean => {
-  if (typeof v === "boolean") return v;
-  if (typeof v === "number") return v === 1;
-  if (typeof v === "string") {
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'number') return v === 1;
+  if (typeof v === 'string') {
     const s = v.trim().toLowerCase();
-    return s === "true" || s === "1";
+    return s === 'true' || s === '1';
   }
   return false;
 };
 
-const SafeLeaderboard = dynamic(
-  () => import('@/components/Leaderboard').then(m => m.default ?? (m as any).Leaderboard),
-  { ssr: false, loading: () => null }
-);
-
-/* --------------- Component --------------- */
-export default function ClaimPanel(): JSX.Element {
+export default function ClaimPanel() {
   const { publicKey } = useWallet();
-  
-  const __SMOKE__ = false; // test bittiğinde false yap veya satırı sil
-  if (__SMOKE__) {
-    return (
-      <div style={{ padding: 24, color: '#fff', background: '#0b0b0b', minHeight: '60vh' }}>
-        ✅ ClaimPanel SMOKE — wallet: {publicKey?.toBase58() ?? '-'}
-      </div>
-    );
-  }
-  const __SHOW_PVC__ = false;         // 💠 Personal Value Currency + Chart
-  const __SHOW_HISTORY__ = false;      // 📜 Contribution History (tablo)
-  const __SHOW_SHARECENTER__ = false;  // ShareCenter modal (zaten open iken mount ediyorduk)
 
-  const [data, setData] = useState<ClaimData | null>(null);
-  const [claimAmount, setClaimAmount] = useState<number>(0);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [isClaiming, setIsClaiming] = useState<boolean>(false);
-  const [claimed, setClaimed] = useState<boolean>(false);
+  const [data, setData] = useState<any>(null);
+  const [claimAmount, setClaimAmount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [claimed, setClaimed] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [claimOpen, setClaimOpen] = useState<boolean>(true);
-  const [useAltAddress, setUseAltAddress] = useState<boolean>(false);
-  const [altAddress, setAltAddress] = useState<string>("");
+  const [claimOpen, setClaimOpen] = useState(true);
+  const [useAltAddress, setUseAltAddress] = useState(false);
+  const [altAddress, setAltAddress] = useState('');
 
-  const [globalStats, setGlobalStats] = useState<{ totalUsd: number; totalParticipants: number }>({
-    totalUsd: 0,
-    totalParticipants: 0,
-  });
-  const [distributionPool, setDistributionPool] = useState<number>(0);
-  const [copied, setCopied] = useState<boolean>(false);
-
-  // Share modal state
-  const [shareOpen, setShareOpen] = useState<boolean>(false);
-  const [shareTx, setShareTx] = useState<Tx | null>(null);
+  const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
+  const [distributionPool, setDistributionPool] = useState(0);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -130,51 +41,28 @@ export default function ClaimPanel(): JSX.Element {
       setLoading(true);
       try {
         const [claimStatusRes, userRes, globalRes, poolRes] = await Promise.all([
-          fetch("/api/admin/config/claim_open"),
+          fetch('/api/admin/config/claim_open'),
           fetch(`/api/claim/${publicKey.toBase58()}`),
-          fetch("/api/coincarnation/stats"),
-          fetch("/api/admin/config/distribution_pool"),
+          fetch('/api/coincarnation/stats'),
+          fetch('/api/admin/config/distribution_pool'),
         ]);
 
         const [claimStatus, userData, globalData, poolData] = await Promise.all([
-          claimStatusRes.json().catch(() => ({} as any)),
-          userRes.json().catch(() => ({} as any)),
-          globalRes.json().catch(() => ({} as any)),
-          poolRes.json().catch(() => ({} as any)),
+          claimStatusRes.json().catch(() => ({})),
+          userRes.json().catch(() => ({})),
+          globalRes.json().catch(() => ({})),
+          poolRes.json().catch(() => ({})),
         ]);
 
-        setClaimOpen(asBool((claimStatus as any)?.value));
+        setClaimOpen(asBool(claimStatus?.value));
 
-        // Build safe ClaimData
-        if ((userData as any)?.success && (userData as any).data) {
-          const d = (userData as any).data;
-          const safe: ClaimData = {
-            id: d.id ?? "-",
-            wallet_address: d.wallet_address ?? publicKey.toBase58(),
-            referral_code: d.referral_code ?? null,
-            claimed: Boolean(d.claimed),
-            referral_count: Number(d.referral_count ?? 0),
-            referral_usd_contributions: Number(d.referral_usd_contributions ?? 0),
-            referral_deadcoin_count: Number(d.referral_deadcoin_count ?? 0),
-            total_usd_contributed: Number(d.total_usd_contributed ?? 0),
-            total_coins_contributed: Number(d.total_coins_contributed ?? 0),
-            transactions: Array.isArray(d.transactions) ? (d.transactions as Tx[]) : [],
-            core_point: Number(d.core_point ?? 0),
-            total_core_point: Number(d.total_core_point ?? 0),
-            pvc_share: Number(d.pvc_share ?? 0),
-            core_point_breakdown: {
-              coincarnations: Number(d.core_point_breakdown?.coincarnations ?? 0),
-              referrals: Number(d.core_point_breakdown?.referrals ?? 0),
-              deadcoins: Number(d.core_point_breakdown?.deadcoins ?? 0),
-              shares: Number(d.core_point_breakdown?.shares ?? 0),
-              by_channel: (d.core_point_breakdown?.by_channel ?? {}) as Record<string, number>,
-            },
-          };
-          setData(safe);
-          setClaimed(Boolean(safe.claimed));
+        // ✅ Boş profil desteği: success değilse de UI açık kalsın
+        if (userData?.success) {
+          setData(userData.data);
+          setClaimed(Boolean(userData.data?.claimed));
         } else {
-          const empty: ClaimData = {
-            id: "-",
+          setData({
+            id: '-',
             wallet_address: publicKey.toBase58(),
             referral_code: null,
             claimed: false,
@@ -187,24 +75,28 @@ export default function ClaimPanel(): JSX.Element {
             core_point: 0,
             total_core_point: 0,
             pvc_share: 0,
-            core_point_breakdown: { coincarnations: 0, referrals: 0, deadcoins: 0, shares: 0 },
-          };
-          setData(empty);
+            core_point_breakdown: {
+              coincarnations: 0,
+              referrals: 0,
+              deadcoins: 0,
+              shares: 0,
+            },
+          });
           setClaimed(false);
         }
 
-        if ((globalData as any)?.success) {
+        if (globalData?.success) {
           setGlobalStats({
-            totalUsd: Number((globalData as any).totalUsd ?? 0),
-            totalParticipants: Number((globalData as any).totalParticipants ?? 0),
+            totalUsd: Number(globalData.totalUsd ?? 0),
+            totalParticipants: Number(globalData.totalParticipants ?? 0),
           });
         }
 
-        if ((poolData as any)?.success) {
-          setDistributionPool(Number((poolData as any).value ?? 0));
+        if (poolData?.success) {
+          setDistributionPool(Number(poolData.value ?? 0));
         }
       } catch (err) {
-        console.error("Claim fetch error:", err);
+        console.error('Claim fetch error:', err);
       } finally {
         setLoading(false);
       }
@@ -213,6 +105,7 @@ export default function ClaimPanel(): JSX.Element {
     fetchData();
   }, [publicKey]);
 
+  // ⛑️ İlk kare guard’ları
   if (!publicKey) {
     return (
       <p className="text-center text-yellow-400">
@@ -224,31 +117,23 @@ export default function ClaimPanel(): JSX.Element {
     return <p className="text-center text-blue-400">⏳ Loading your claim data...</p>;
   }
 
-  const txs: Tx[] = useMemo(
-    () => (Array.isArray(data.transactions) ? data.transactions : []),
-    [data.transactions]
-  );
-  const deadcoinContracts = useMemo(
-    () =>
-      new Set(
-        txs
-          .filter((tx) => Number(tx.usd_value) === 0)
-          .map((tx) => tx.token_contract)
-          .filter((v): v is string => Boolean(v))
-      ),
-    [txs]
+  // ✅ Crash fix: tx listesi yoksa dizi kullan
+  const txs: any[] = Array.isArray(data.transactions) ? data.transactions : [];
+  const deadcoinContracts = new Set(
+    txs
+      .filter((tx) => Number(tx.usd_value) === 0)
+      .map((tx) => tx.token_contract)
+      .filter(Boolean)
   );
   const deadcoinsRevived = deadcoinContracts.size;
 
   const shareRatio =
-    globalStats.totalUsd > 0
-      ? Number(data.total_usd_contributed || 0) / globalStats.totalUsd
-      : 0;
+    globalStats.totalUsd > 0 ? Number(data.total_usd_contributed || 0) / globalStats.totalUsd : 0;
   const claimableMegy = Math.floor(shareRatio * distributionPool);
 
   const handleClaim = async () => {
     if (!publicKey || claimAmount <= 0) {
-      setMessage("❌ Please enter a valid claim amount.");
+      setMessage('❌ Please enter a valid claim amount.');
       return;
     }
     setIsClaiming(true);
@@ -256,20 +141,20 @@ export default function ClaimPanel(): JSX.Element {
 
     try {
       const destination = useAltAddress ? altAddress.trim() : publicKey.toBase58();
-      const res = await fetch("/api/claim", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet: destination, amount: claimAmount }),
       });
       const json = await res.json();
 
       if (json.success) {
-        const tx_signature = json.tx_signature || "mock-tx-signature";
+        const tx_signature = json.tx_signature || 'mock-tx-signature';
         const sol_fee_paid = true;
 
-        await fetch("/api/claim/record", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        await fetch('/api/claim/record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             wallet_address: destination,
             claim_amount: claimAmount,
@@ -280,75 +165,30 @@ export default function ClaimPanel(): JSX.Element {
         });
 
         setClaimed(true);
-        setMessage("✅ Claim successful!");
+        setMessage('✅ Claim successful!');
       } else {
-        setMessage(`❌ ${asText(json.error || "Unknown error")}`);
+        setMessage(`❌ ${json.error}`);
       }
     } catch (err) {
-      console.error("Claim request failed:", err);
-      setMessage("❌ Internal error");
+      console.error('Claim request failed:', err);
+      setMessage('❌ Internal error');
     } finally {
       setIsClaiming(false);
     }
   };
 
-  /* -------- Share payloads (tip güvenli / dış tiplerden bağımsız) -------- */
-  const shareUrl = data?.referral_code ? `${APP_URL}?r=${data.referral_code}` : APP_URL;
-
-  // Baz metin
-  const basePayload = {
-    url: shareUrl,
-    text: "I'm reviving the Fair Future Fund with #MEGY via Coincarnation ⚡",
-    hashtags: ["MEGY", "Coincarnation", "Solana"],
-    via: "Coincarnation",
-    utm: "utm_source=share&utm_medium=claimpanel&utm_campaign=profile",
-  } as const;
-
-  // İşlem satırına özel metin
-  const sigShort =
-    (shareTx?.transaction_signature ?? shareTx?.tx_hash ?? "")
-      ? String(shareTx?.transaction_signature ?? shareTx?.tx_hash)
-          .slice(0, 4)
-          .concat("…", String(shareTx?.transaction_signature ?? shareTx?.tx_hash).slice(-4))
-      : undefined;
-
-  const txText = shareTx
-    ? buildTxItemText({
-        symbol: String(shareTx.token_symbol),
-        amount: shareTx.token_amount,
-        sigShort,
-      })
-    : basePayload.text;
-
-  // ShareCenter tiplerinden bağımsız güvenli geçiş (gerekirse any)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sharePayload: any = {
-    ...basePayload,
-    text: txText,
-    utm: shareTx
-      ? "utm_source=share&utm_medium=claimpanel&utm_campaign=tx"
-      : basePayload.utm,
-  };
-
-  const shareContext: ShareContext = shareTx ? "contribution" : "profile";
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const shareContextAny: any = shareContext;
-  const shareTxId = shareTx
-    ? String(shareTx.transaction_signature ?? shareTx.tx_hash ?? "")
-    : undefined;
-
   return (
     <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
-      <Motion.div
+      <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
+        transition={{ duration: 0.6, ease: 'easeOut' }}
         className="bg-zinc-900 text-white p-6 rounded-2xl max-w-6xl w-full mx-auto border border-zinc-700 shadow-lg space-y-10"
       >
         <h2 className="text-3xl font-extrabold text-center tracking-tight mb-2">🎁 Claim Panel</h2>
 
-        {/* Personal Info */}
-        <Motion.section
+        {/* 👤 Personal Info */}
+        <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
@@ -359,20 +199,20 @@ export default function ClaimPanel(): JSX.Element {
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full">
             <Info label="Wallet Address" value={shorten(data.wallet_address)} />
-            <Info label="Coincarnator No" value={`#${String(data.id)}`} />
+            <Info label="Coincarnator No" value={`#${data.id}`} />
 
             <div
               className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 min-h-[100px] flex flex-col justify-between relative cursor-pointer hover:bg-zinc-700 transition"
               onClick={() => {
                 if (!data.referral_code) return;
-                navigator.clipboard.writeText(String(data.referral_code));
+                navigator.clipboard.writeText(data.referral_code);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
               }}
             >
               <p className="text-gray-400 text-sm mb-1">Referral Code</p>
               <p className="text-white font-medium text-sm break-words">
-                {data.referral_code || "-"}
+                {data.referral_code || '-'}
               </p>
               {copied && (
                 <p className="absolute top-20 right-3 text-green-400 text-xs font-semibold">
@@ -388,10 +228,10 @@ export default function ClaimPanel(): JSX.Element {
             />
             <Info label="Deadcoins Revived" value={String(deadcoinsRevived)} />
           </div>
-        </Motion.section>
+        </motion.section>
 
-        {/* Claim & Statistics */}
-        <Motion.section
+        {/* 📊 Claim & Statistics */}
+        <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
@@ -412,11 +252,7 @@ export default function ClaimPanel(): JSX.Element {
               value={`${globalStats.totalParticipants}`}
               color="blue"
             />
-            <StatBox
-              label="Your Share"
-              value={`${(shareRatio * 100).toFixed(2)}%`}
-              color="yellow"
-            />
+            <StatBox label="Your Share" value={`${(shareRatio * 100).toFixed(2)}%`} color="yellow" />
           </div>
 
           <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 mb-4 text-center">
@@ -482,7 +318,7 @@ export default function ClaimPanel(): JSX.Element {
 
                 <input
                   type="number"
-                  value={Number.isFinite(claimAmount) ? claimAmount : 0}
+                  value={claimAmount}
                   onChange={(e) => setClaimAmount(Number(e.target.value))}
                   placeholder="Enter amount to claim"
                   className="w-full bg-zinc-900 border border-zinc-600 p-2 rounded-md text-sm text-white"
@@ -498,7 +334,7 @@ export default function ClaimPanel(): JSX.Element {
                 disabled={isClaiming || claimAmount <= 0 || claimAmount > claimableMegy}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:scale-105 transition-all text-white font-bold py-3 rounded-xl disabled:opacity-50"
               >
-                {isClaiming ? "🚀 Claiming..." : "🎉 Claim Now"}
+                {isClaiming ? '🚀 Claiming...' : '🎉 Claim Now'}
               </button>
             ) : (
               <p className="text-yellow-400 text-center font-medium mt-4">
@@ -506,18 +342,17 @@ export default function ClaimPanel(): JSX.Element {
               </p>
             )}
 
-            {message && <p className="text-center mt-3 text-sm">{asText(message)}</p>}
-
+            {message && <p className="text-center mt-3 text-sm">{message}</p>}
           </div>
 
-          <Motion.div
+          <motion.div
             className="mt-6 text-center"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.7 }}
           >
             <button
-              onClick={() => (window.location.href = "/")}
+              onClick={() => (window.location.href = '/')}
               className="bg-gradient-to-r from-pink-500 to-yellow-500 hover:scale-105 transition-all text-white font-bold py-3 px-6 rounded-xl text-sm shadow-lg mb-3"
             >
               🔁 Recoincarnate
@@ -525,12 +360,11 @@ export default function ClaimPanel(): JSX.Element {
             <p className="text-xs text-gray-400 italic">
               Want to contribute more? Return to the homepage and coincarne again.
             </p>
-          </Motion.div>
-        </Motion.section>
+          </motion.div>
+        </motion.section>
 
-        {/* Contribution History */}
-      {__SHOW_HISTORY__ && (
-        <Motion.section
+        {/* 📜 Contribution History */}
+        <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
@@ -553,31 +387,35 @@ export default function ClaimPanel(): JSX.Element {
                   </tr>
                 </thead>
                 <tbody>
-                  {[...txs].reverse().map((tx, index) => (
-                    <tr
-                      key={`${tx.transaction_signature ?? tx.tx_hash ?? index}`}
-                      className="border-t border-zinc-700 hover:bg-zinc-800"
-                    >
+                  {[...txs].reverse().map((tx: any, index: number) => (
+                    <tr key={index} className="border-t border-zinc-700 hover:bg-zinc-800">
                       <td className="px-4 py-2 font-medium">{tx.token_symbol}</td>
                       <td className="px-4 py-2">{tx.token_amount}</td>
                       <td className="px-4 py-2">
-                        {typeof tx.usd_value === "number"
+                        {typeof tx.usd_value === 'number'
                           ? `$${tx.usd_value.toFixed(2)}`
                           : `$${Number(tx.usd_value || 0).toFixed(2)}`}
                       </td>
                       <td className="px-4 py-2">
-                        {tx.timestamp ? formatDate(tx.timestamp) : "N/A"}
+                        {tx.timestamp ? formatDate(tx.timestamp) : 'N/A'}
                       </td>
                       <td className="px-4 py-2 text-center">
-                        <button
+                        <ShareOnXFromTxItem
+                          symbol={tx.token_symbol}
+                          amount={tx.token_amount}
+                          txSignature={tx.transaction_signature ?? tx.tx_hash ?? undefined}
+                          url={data.referral_code ? `${APP_URL}?r=${data.referral_code}` : APP_URL}
                           className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
-                          onClick={() => {
-                            setShareTx(tx);
-                            setShareOpen(true);
+                          onShared={async () => {
+                            try {
+                              await fetch('/api/share/record', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ wallet_address: publicKey?.toBase58() }),
+                              });
+                            } catch { /* noop */ }
                           }}
-                        >
-                          Share
-                        </button>
+                        />
                       </td>
                     </tr>
                   ))}
@@ -589,12 +427,10 @@ export default function ClaimPanel(): JSX.Element {
               You haven’t Coincarnated anything yet.
             </p>
           )}
-        </Motion.section>
-      )}
+        </motion.section>
 
-        {/* Personal Value Currency */}
-      {__SHOW_PVC__ && (
-        <Motion.section
+        {/* 💠 Personal Value Currency */}
+        <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
@@ -611,17 +447,15 @@ export default function ClaimPanel(): JSX.Element {
             </p>
           </div>
 
-          {typeof data.pvc_share === "number" && (
+          {typeof data.pvc_share === 'number' && (
             <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-lg text-center mb-6">
-              <p className="text-gray-400 text-sm mb-1">
-                🌐 Your Share in the PVC Ecosystem
-              </p>
+              <p className="text-gray-400 text-sm mb-1">🌐 Your Share in the PVC Ecosystem</p>
               <p className="text-xl font-bold text-green-300">
                 {(Number(data.pvc_share) * 100).toFixed(2)}%
               </p>
               <p className="text-xs text-gray-400 mt-1 italic">
-                This is your relative CorePoint share across the ecosystem. It defines your
-                influence and reward eligibility.
+                This is your relative CorePoint share across the ecosystem. It defines your influence
+                and reward eligibility.
               </p>
             </div>
           )}
@@ -714,7 +548,7 @@ export default function ClaimPanel(): JSX.Element {
                     icon="🐦"
                     title="Shares"
                     points={data.core_point_breakdown.shares}
-                    description="Each unique share gives +30 CorePoints (only once per channel/context)"
+                    description="Each unique share gives +30 CorePoints (only once)"
                   />
                   <ContributionCard
                     icon="💀"
@@ -737,53 +571,13 @@ export default function ClaimPanel(): JSX.Element {
               and influence in the Coincarnation ecosystem.
             </p>
           </div>
-          <SafeLeaderboard />
-        </Motion.section>
-      )}
-      </Motion.div>
-
-      {/* Share Center Modal (flag + sadece açıkken mount) */}
-      {__SHOW_SHARECENTER__ && shareOpen && (
-        <SafeShareCenter
-          open={shareOpen}
-          onOpenChange={setShareOpen}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          payload={sharePayload as any}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          context={shareContextAny}
-          txId={shareTxId}
-          onAfterShare={async ({
-            channel,
-            context,
-            txId,
-          }: {
-            channel: string;
-            context: string;
-            txId?: string;
-          }) => {
-            if (!publicKey) return;
-            try {
-              await fetch('/api/share/record', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  wallet_address: publicKey.toBase58(),
-                  channel,
-                  context,
-                  txId: txId || null,
-                }),
-              });
-            } catch (e) {
-              console.error('share record error', e);
-            }
-          }}
-        />
-      )}
+          <Leaderboard />
+        </motion.section>
+      </motion.div>
     </div>
   );
 }
 
-/* ---------------- Small UI helpers ---------------- */
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 min-h-[100px] flex flex-col justify-between">
@@ -793,18 +587,11 @@ function Info({ label, value }: { label: string; value: string }) {
   );
 }
 
-// components/ClaimPanel.tsx (en üstlere yakın, yardımcıların yanına)
-function asText(v: unknown): string {
-  if (typeof v === 'string') return v;
-  if (v == null) return '';
-  try { return JSON.stringify(v); } catch { return String(v); }
-}
-
 const colorMap = {
-  green: "text-green-300 border-green-500",
-  blue: "text-blue-300 border-blue-500",
-  yellow: "text-yellow-300 border-yellow-500",
-} as const;
+  green: 'text-green-300 border-green-500',
+  blue: 'text-blue-300 border-blue-500',
+  yellow: 'text-yellow-300 border-yellow-500',
+};
 
 function StatBox({
   label,
@@ -813,9 +600,9 @@ function StatBox({
 }: {
   label: string;
   value: string;
-  color: keyof typeof colorMap;
+  color: 'green' | 'blue' | 'yellow';
 }) {
-  const classNames = colorMap[color] || "text-white border-white";
+  const classNames = colorMap[color] || 'text-white border-white';
   return (
     <div className={`bg-zinc-800 border-l-4 ${classNames} p-4 rounded-lg`}>
       <p className="text-xs text-zinc-400">{label}</p>
@@ -825,13 +612,12 @@ function StatBox({
 }
 
 function shorten(addr: string) {
-  const s = String(addr || "");
-  return s ? s.slice(0, 6) + "..." + s.slice(-4) : "-";
+  return addr.slice(0, 6) + '...' + addr.slice(-4);
 }
 
 function formatDate(dateStr: string) {
   const date = new Date(dateStr);
-  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function ContributionCard({
@@ -851,9 +637,7 @@ function ContributionCard({
         <span className="text-2xl">{icon}</span>
         <h4 className="text-sm font-semibold text-white">{title}</h4>
       </div>
-      <p className="text-white text-lg font-bold mb-1">
-        {Number(points || 0).toFixed(1)} pts
-      </p>
+      <p className="text-white text-lg font-bold mb-1">{Number(points || 0).toFixed(1)} pts</p>
       <p className="text-xs text-gray-400">{description}</p>
     </div>
   );
