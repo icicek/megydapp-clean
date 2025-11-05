@@ -5,8 +5,9 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import CorePointChart from './CorePointChart';
 import Leaderboard from './Leaderboard';
-import { ShareOnXFromTxItem } from '@/components/share/ShareOnX';
 import { APP_URL } from '@/app/lib/origin';
+import type { SharePayload } from '@/components/share/intent';
+import ShareCenter from '@/components/share/ShareCenter';
 
 const asBool = (v: unknown): boolean => {
   if (typeof v === 'boolean') return v;
@@ -34,6 +35,10 @@ export default function ClaimPanel() {
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
   const [distributionPool, setDistributionPool] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
+  const [shareContext, setShareContext] = useState<'profile'|'contribution'|'leaderboard'|'success'>('profile');
+  const [shareTxId, setShareTxId] = useState<string|undefined>(undefined);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -400,22 +405,24 @@ export default function ClaimPanel() {
                         {tx.timestamp ? formatDate(tx.timestamp) : 'N/A'}
                       </td>
                       <td className="px-4 py-2 text-center">
-                        <ShareOnXFromTxItem
-                          symbol={tx.token_symbol}
-                          amount={tx.token_amount}
-                          txSignature={tx.transaction_signature ?? tx.tx_hash ?? undefined}
-                          url={data.referral_code ? `${APP_URL}?r=${data.referral_code}` : APP_URL}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
-                          onShared={async () => {
-                            try {
-                              await fetch('/api/share/record', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ wallet_address: publicKey?.toBase58() }),
-                              });
-                            } catch { /* noop */ }
+                        <button
+                          onClick={() => {
+                            const url = data.referral_code ? `${APP_URL}?r=${data.referral_code}` : APP_URL;
+                            setSharePayload({
+                              url,
+                              text: `📈 Coincarnation: ${String(tx.token_amount)} ${String(tx.token_symbol)}\n⚡ I’m reviving the Fair Future Fund.`,
+                              hashtags: ['MEGY','Coincarnation','Solana'],
+                              via: 'Coincarnation',
+                              utm: 'utm_source=share&utm_medium=claimpanel&utm_campaign=tx',
+                            });
+                            setShareContext('contribution');
+                            setShareTxId(String(tx.transaction_signature ?? tx.tx_hash ?? '') || undefined);
+                            setShareOpen(true);
                           }}
-                        />
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
+                        >
+                          Share
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -488,14 +495,25 @@ export default function ClaimPanel() {
                     >
                       Copy link
                     </button>
-                    <a
-                      href={`https://twitter.com/intent/tweet?text=Join%20the%20Coincarnation%20rebirth%20with%20my%20referral%20code!%20🔥%0Ahttps://coincarnation.com?r=${data.referral_code}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => {
+                        if (!data?.referral_code) return;
+                        const url = `${APP_URL}?r=${data.referral_code}`;
+                        setSharePayload({
+                          url,
+                          text: `Join the Coincarnation rebirth with my referral code! 🔥\n${url}`,
+                          hashtags: ['MEGY','Coincarnation','Solana'],
+                          via: 'Coincarnation',
+                          utm: 'utm_source=share&utm_medium=claimpanel&utm_campaign=referral',
+                        });
+                        setShareContext('profile'); // profil veya referral paylaşımı
+                        setShareTxId(undefined);
+                        setShareOpen(true);
+                      }}
                       className="bg-blue-600 hover:bg-blue-700 text-xs text-white px-2 py-1 rounded"
                     >
                       Share
-                    </a>
+                    </button>
                   </div>
                 )}
 
@@ -574,6 +592,16 @@ export default function ClaimPanel() {
           <Leaderboard />
         </motion.section>
       </motion.div>
+      {shareOpen && sharePayload && (
+        <ShareCenter
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          payload={sharePayload}
+          context={shareContext}
+          txId={shareTxId}
+          walletBase58={publicKey?.toBase58() ?? null}
+        />
+      )}
     </div>
   );
 }
