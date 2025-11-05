@@ -4,6 +4,7 @@ import React, { useState, type JSX } from 'react';
 import ShareCenter from '@/components/share/ShareCenter';
 import { buildCoincarneText } from '@/utils/shareX';
 import { APP_URL } from '@/app/lib/origin';
+import { useWallet } from '@solana/wallet-adapter-react';
 
 interface Props {
   tokenFrom: string;
@@ -19,6 +20,7 @@ export default function CoincarnationResult({
   onGoToProfile
 }: Props): JSX.Element {
 
+  const { publicKey } = useWallet();
   const [shareOpen, setShareOpen] = useState(false);
 
   return (
@@ -67,15 +69,18 @@ export default function CoincarnationResult({
           utm: 'utm_source=share&utm_medium=success&utm_campaign=coin'
         } as any}
         context="success"
+        txId={undefined}
+        walletBase58={publicKey?.toBase58() ?? null}
         onAfterShare={async ({ channel, context }) => {
           try {
             await fetch('/api/share/record', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
+                wallet_address: publicKey?.toBase58() ?? undefined,
                 channel,
                 context,
-                txId: null
+                txId: null,
               }),
             });
           } catch (e) {

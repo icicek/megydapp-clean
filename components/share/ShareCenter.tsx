@@ -10,11 +10,10 @@ type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   payload: SharePayload;          // { url, text, hashtags?, via?, utm? }
-  context: 'profile' | 'contribution' | 'leaderboard' | 'success';
+  context: string;                // "profile" | "contribution" | ...
   txId?: string;
-  walletBase58: string | null;    // 🔑 puan kaydı için kimlik
-  // İstersen kalabilir ama kullanmayacağız:
   onAfterShare?: (args: { channel: string; context: string; txId?: string }) => void | Promise<void>;
+  walletBase58?: string | null;   // <<< ZORUNLU değildi, opsiyonel yaptık
 };
 
 export default function ShareCenter({
