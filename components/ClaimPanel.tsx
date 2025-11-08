@@ -209,7 +209,7 @@ export default function ClaimPanel() {
             <div
               className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 min-h-[100px] flex flex-col justify-between relative cursor-pointer hover:bg-zinc-700 transition"
               onClick={() => {
-                if (!data.referral_code) return;
+                if (!data?.referral_code) return;
                 navigator.clipboard.writeText(data.referral_code);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
@@ -497,7 +497,7 @@ export default function ClaimPanel() {
                     </button>
                     <button
                       onClick={() => {
-                        if (!data?.referral_code) return;
+                        if (!data.referral_code) return;
                         const url = `${APP_URL}?r=${data.referral_code}`;
                         setSharePayload({
                           url,
@@ -589,7 +589,7 @@ export default function ClaimPanel() {
               and influence in the Coincarnation ecosystem.
             </p>
           </div>
-          <Leaderboard />
+          <Leaderboard referralCode={data.referral_code ?? undefined} />
         </motion.section>
       </motion.div>
       {shareOpen && sharePayload && (
@@ -600,6 +600,22 @@ export default function ClaimPanel() {
           context={shareContext}
           txId={shareTxId}
           walletBase58={publicKey?.toBase58() ?? null}
+          onAfterShare={async ({ channel, context, txId }) => {
+            try {
+              await fetch('/api/share/record', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  wallet_address: publicKey?.toBase58() ?? undefined,
+                  channel,       // 'twitter' | 'telegram' | 'whatsapp' (ShareCenter’dan gelir)
+                  context,       // 'profile' | 'contribution' | 'leaderboard' | 'success'
+                  txId: txId ?? null,
+                }),
+              });
+            } catch (e) {
+              console.error('share record error', e);
+            }
+          }}
         />
       )}
     </div>
