@@ -71,22 +71,6 @@ export default function CoincarnationResult({
         context="success"
         txId={undefined}
         walletBase58={publicKey?.toBase58() ?? null}
-        onAfterShare={async ({ channel, context }) => {
-          try {
-            await fetch('/api/share/record', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                wallet_address: publicKey?.toBase58() ?? undefined,
-                channel,
-                context,
-                txId: null,
-              }),
-            });
-          } catch (e) {
-            console.error('share record error', e);
-          }
-        }}
       />
     </div>
   );

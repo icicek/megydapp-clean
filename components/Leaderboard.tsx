@@ -6,6 +6,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { APP_URL } from '@/app/lib/origin';
 import dynamic from 'next/dynamic';
 
+type Props = { referralCode?: string };
 type LeaderboardEntry = {
   wallet_address: string;
   core_point: number;
@@ -16,7 +17,7 @@ const ShareCenter = dynamic(
   { ssr: false, loading: () => null }
 );
 
-export default function Leaderboard() {
+export default function Leaderboard({ referralCode }: Props) {
   const { publicKey } = useWallet();
 
   const [data, setData] = useState<LeaderboardEntry[]>([]);
@@ -65,7 +66,10 @@ export default function Leaderboard() {
   const visible = showAll ? data : data.slice(0, 10);
 
   // ---- Share payload (rank metni dinamik) ----
-  const shareUrl = APP_URL;
+  const shareUrl = useMemo(
+    () => (referralCode ? `${APP_URL}?r=${referralCode}` : APP_URL),
+    [referralCode]
+  );  
   const shareText = useMemo(() => {
       const r = userRank;
       const base = r
@@ -178,6 +182,7 @@ export default function Leaderboard() {
         onOpenChange={setShareOpen}
         payload={sharePayload}
         context="leaderboard"
+        walletBase58={publicKey?.toBase58() ?? null}
         onAfterShare={async ({ channel }) => {
           try {
             await fetch('/api/share/record', {
