@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import type { SharePayload, Channel } from './intent';
+import type { SharePayload, Channel } from '@/components/share/intent';
 import {
   buildTwitterIntent,
   buildTelegramWeb,
@@ -10,7 +10,7 @@ import {
   buildEmailIntent,
   APP_LINKS,
   buildCopyText,
-} from './intent';
+} from '@/components/share/intent';
 import { openInNewTab, navigateSameTab } from './open';
 
 type Props = {
