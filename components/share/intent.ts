@@ -1,13 +1,13 @@
 // components/share/intent.ts
-// Only builds share URLs or returns helpers; no window DOM calls here.
+// Only builds share URLs or returns helpers; no window/DOM calls here.
 
 export type SharePayload = {
   url: string;
-  text: string;
-  hashtags?: string[];   // e.g., ["MEGY","Coincarnation"]
-  via?: string;          // e.g., "Coincarnation"
-  utm?: string;          // e.g., "utm_source=share&utm_medium=claimpanel"
-  subject?: string;      // email subject (optional)
+  text: string;         // keep URL OUT of text; intent builders add it.
+  hashtags?: string[];  // e.g., ["Levershare","MEGY"]
+  via?: string;         // "levershare"
+  utm?: string;         // e.g., "utm_source=share&utm_medium=app&utm_campaign=referral"
+  subject?: string;     // for email
 };
 
 export type Channel =
@@ -19,7 +19,7 @@ export type Channel =
   | 'instagram'
   | 'tiktok';
 
-// ---- small util ----
+/* -------------------- small util -------------------- */
 function addUtm(u: string, utm?: string): string {
   if (!utm) return u;
   try {
@@ -34,34 +34,29 @@ function addUtm(u: string, utm?: string): string {
   }
 }
 
-// ---- URL builders (no side effects) ----
-
+/* -------------------- URL builders -------------------- */
 export function buildTwitterIntent(p: SharePayload): string {
   const params = new URLSearchParams();
-  if (p.text) params.set('text', p.text);
-  if (p.url) params.set('url', addUtm(p.url, p.utm));
+  if (p.text) params.set('text', p.text);              // sentence only
+  if (p.url) params.set('url', addUtm(p.url, p.utm));  // link separately
   if (p.hashtags?.length) params.set('hashtags', p.hashtags.join(','));
-  if (p.via) params.set('via', p.via);
-  // x.com/intent/post da çalışır; twitter.com/intent/tweet daha yaygın
+  if (p.via) params.set('via', p.via);                 // -> @levershare
   return `https://twitter.com/intent/tweet?${params.toString()}`;
 }
 
-// Telegram: web intent
 export function buildTelegramWeb(p: SharePayload): string {
   const params = new URLSearchParams();
-  if (p.url) params.set('url', addUtm(p.url, p.utm));
+  if (p.url)  params.set('url', addUtm(p.url, p.utm));
   if (p.text) params.set('text', p.text);
   return `https://t.me/share/url?${params.toString()}`;
 }
 
-// WhatsApp: web intent
 export function buildWhatsAppWeb(p: SharePayload): string {
   const combined = `${p.text ? p.text + ' ' : ''}${addUtm(p.url, p.utm)}`.trim();
   const params = new URLSearchParams({ text: combined });
   return `https://wa.me/?${params.toString()}`;
 }
 
-// Email: mailto
 export function buildEmailIntent(p: SharePayload): string {
   const subject = p.subject || 'Check this out';
   const body = `${p.text}\n\n${addUtm(p.url, p.utm)}`;
@@ -69,51 +64,33 @@ export function buildEmailIntent(p: SharePayload): string {
   return `mailto:?${params.toString()}`;
 }
 
-// Kopyalama: modal içinde panoya basılacak metni üretir
 export function buildCopyText(p: SharePayload): string {
   const tags = p.hashtags?.length ? ` #${p.hashtags.join(' #')}` : '';
   const link = addUtm(p.url, p.utm);
   return `${p.text}\n${link}${tags ? `\n${tags}` : ''}`;
 }
 
-/**
- * Uygulama deeplink adayları (mobilde uygulamayı açmayı dener, başarılı olmazsa web fallback kullanılmalı).
- * Instagram ve TikTok caption’ı önceden doldurtmuyor; sadece uygulamayı açarız.
- */
+/* -------------------- App links (deeplink candidates) -------------------- */
 export const APP_LINKS = {
-  telegram: (p: SharePayload) => [
-    'tg://msg',
-    'tg://',
-    buildTelegramWeb(p)
-  ],
+  telegram: (p: SharePayload) => ['tg://msg', 'tg://', buildTelegramWeb(p)],
   whatsapp: (p: SharePayload) => [
     `whatsapp://send?text=${encodeURIComponent(`${p.text} ${addUtm(p.url, p.utm)}`.trim())}`,
     buildWhatsAppWeb(p),
   ],
-  instagram: (_p: SharePayload) => [
-    'instagram://app',
-    'https://www.instagram.com/',
-  ],
-  tiktok: (_p: SharePayload) => [
-    'tiktok://',
-    'snssdk1128://',
-    'https://www.tiktok.com/explore',
-  ],
+  instagram: (_p: SharePayload) => ['instagram://app', 'https://www.instagram.com/'],
+  tiktok:    (_p: SharePayload) => ['tiktok://', 'snssdk1128://', 'https://www.tiktok.com/explore'],
 };
 
-
-// ------------------------------------------------------------
-// NEW: buildPayload helper — context-based default message builder
-// ------------------------------------------------------------
-export type ShareContext =
-  | 'success'
-  | 'leaderboard'
-  | 'profile'
-  | 'contribution';
+/* -------------------- Context-based payload builder -------------------- */
+export type ShareContext = 'success' | 'leaderboard' | 'profile' | 'contribution';
+export type ShareTone    = 'playful' | 'cinematic' | 'professional';
 
 /**
  * Merkezi payload üreticisi.
- * Her bağlam için metin + UTM + hashtag + via bilgilerini otomatik sağlar.
+ * - Metinler kısa ve vurucu.
+ * - URL metne eklenmez; intent builder ayrı ekler.
+ * - 2 hashtag + via @levershare.
+ * - Varsayılan ton: 'playful'
  */
 export function buildPayload(
   ctx: ShareContext,
@@ -122,45 +99,49 @@ export function buildPayload(
     token?: string;
     amount?: number | string;
     rank?: number;
-    referralCode?: string;
-  }
+  },
+  tone: ShareTone = 'playful'
 ): SharePayload {
-  const base = {
-    hashtags: ['MEGY', 'Coincarnation', 'FairFutureFund'],
-    via: 'Coincarnation',
-    utm: `utm_source=share&utm_medium=${ctx}`,
+  const utm = `utm_source=share&utm_medium=app&utm_campaign=${ctx}`;
+  const via = 'levershare';
+  const tagsBase = ['Levershare', 'MEGY'] as const;
+
+  // ---- tone maps (sentence only; no link) ----
+  const lines = {
+    playful: {
+      profile:      `Jump in with my invite—let’s revive value together!`,
+      leaderboard:  `Climbing the board one share at a time. Catch me if you can!`,
+      contribution: `Reviving $${data.token || 'TOKEN'}—future says thanks. 🚀`,
+      success:      `Just Coincarne’d $${data.token || 'TOKEN'} for $MEGY—let’s make history!`,
+    },
+    cinematic: {
+      profile:      `Answer the call—your revival starts here.`,
+      leaderboard:  `Another step upward. The board keeps watching.`,
+      contribution: `Value reborn: $${data.token || 'TOKEN'} fuels tomorrow.`,
+      success:      `A spark in the dark—$${data.token || 'TOKEN'} reborn into $MEGY.`,
+    },
+    professional: {
+      profile:      `Join via my referral—build real network value.`,
+      leaderboard:  `Advancing on the leaderboard—your turn to move up.`,
+      contribution: `Contributed $${data.token || 'TOKEN'} toward $MEGY. Solid step.`,
+      success:      `Converted $${data.token || 'TOKEN'} to $MEGY successfully.`,
+    },
+  } as const;
+
+  const text = lines[tone][ctx];
+
+  // bağlama göre 2 hashtag seçimi (çok değişmesin, odak: Levershare + etkinlik)
+  const hashtags =
+    ctx === 'leaderboard' ? ['Levershare', 'Coincarnation'] :
+    ctx === 'contribution' ? ['Levershare', 'Coincarnation'] :
+    ctx === 'success' ? ['Levershare', 'FairFutureFund'] :
+    [...tagsBase];
+
+  return {
+    url: data.url,
+    text,
+    hashtags,
+    via,
+    utm,
   };
-
-  switch (ctx) {
-    case 'success':
-      return {
-        ...base,
-        url: data.url,
-        text: `🚀 I just Coincarne'd my $${data.token || 'TOKEN'} for $MEGY. ⚡ Coincarnator${
-          data.rank ? ` #${data.rank}` : ''
-        } — reviving the Fair Future Fund!`,
-      };
-
-    case 'leaderboard':
-      return {
-        ...base,
-        url: data.url,
-        text: `🏁 I'm ranked #${data.rank ?? '?'} among top Coincarnators! 🌍 Join the $MEGY revival and earn your CorePoints.`,
-      };
-
-    case 'profile':
-      return {
-        ...base,
-        url: data.url,
-        text: `💎 My Coincarnation profile is growing — each revival strengthens the Fair Future Fund. Check yours!`,
-      };
-
-    case 'contribution':
-    default:
-      return {
-        ...base,
-        url: data.url,
-        text: `🔥 Just revived $${data.token || 'TOKEN'} for $MEGY — every Coincarnation fuels the Fair Future Fund.`,
-      };
-  }
 }
