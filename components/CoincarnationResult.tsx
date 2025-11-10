@@ -5,13 +5,14 @@ import React, { useState, type JSX } from 'react';
 import ShareCenter from '@/components/share/ShareCenter';
 import { APP_URL } from '@/app/lib/origin';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { buildPayload } from '@/components/share/intent'; // 👈 yeni helper
+import { buildPayload } from '@/components/share/intent';
 
 interface Props {
-  tokenFrom: string;
+  tokenFrom: string;              // e.g., "POPCAT"
   number: number;                 // Coincarnator #
   onRecoincarnate: () => void;
   onGoToProfile: () => void;
+  referral?: string;              // optional: add ?r= code to URL
 }
 
 export default function CoincarnationResult({
@@ -19,13 +20,17 @@ export default function CoincarnationResult({
   number,
   onRecoincarnate,
   onGoToProfile,
+  referral,
 }: Props): JSX.Element {
   const { publicKey } = useWallet();
   const [shareOpen, setShareOpen] = useState(false);
 
-  // (İstersen URL'ye referral/utm ekleyebilirsin — buildPayload zaten utm ekliyor)
+  // Paylaşım URL'i (referral varsa ekle)
+  const shareUrl = referral ? `${APP_URL}?r=${encodeURIComponent(referral)}` : APP_URL;
+
+  // Metin/hashtag/via/UTM tek merkezden gelir (playful varsayılan)
   const payload = buildPayload('success', {
-    url: APP_URL,          // örn: `${APP_URL}?r=${referral}`
+    url: shareUrl,
     token: tokenFrom,
     rank: number,
   });
@@ -71,7 +76,7 @@ export default function CoincarnationResult({
       <ShareCenter
         open={shareOpen}
         onOpenChange={setShareOpen}
-        payload={payload}                 // 👈 artık helper'dan geliyor
+        payload={payload}
         context="success"
         txId={undefined}
         walletBase58={publicKey?.toBase58() ?? null}

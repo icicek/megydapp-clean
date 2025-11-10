@@ -8,6 +8,7 @@ import Leaderboard from './Leaderboard';
 import { APP_URL } from '@/app/lib/origin';
 import type { SharePayload } from '@/components/share/intent';
 import ShareCenter from '@/components/share/ShareCenter';
+import { buildPayload } from '@/components/share/intent';
 
 const asBool = (v: unknown): boolean => {
   if (typeof v === 'boolean') return v;
@@ -408,13 +409,12 @@ export default function ClaimPanel() {
                         <button
                           onClick={() => {
                             const url = data.referral_code ? `${APP_URL}?r=${data.referral_code}` : APP_URL;
-                            setSharePayload({
+                            const payload = buildPayload('contribution', {
                               url,
-                              text: `📈 Coincarnation: ${String(tx.token_amount)} ${String(tx.token_symbol)}\n⚡ I’m reviving the Fair Future Fund.`,
-                              hashtags: ['MEGY','Coincarnation','Solana'],
-                              via: 'Coincarnation',
-                              utm: 'utm_source=share&utm_medium=claimpanel&utm_campaign=tx',
+                              token: tx.token_symbol,
+                              amount: tx.token_amount,
                             });
+                            setSharePayload(payload);                            
                             setShareContext('contribution');
                             setShareTxId(String(tx.transaction_signature ?? tx.tx_hash ?? '') || undefined);
                             setShareOpen(true);
@@ -499,13 +499,8 @@ export default function ClaimPanel() {
                       onClick={() => {
                         if (!data.referral_code) return;
                         const url = `${APP_URL}?r=${data.referral_code}`;
-                        setSharePayload({
-                          url,
-                          text: `Join the Coincarnation rebirth with my referral code! 🔥\n${url}`,
-                          hashtags: ['MEGY','Coincarnation','Solana'],
-                          via: 'Coincarnation',
-                          utm: 'utm_source=share&utm_medium=claimpanel&utm_campaign=referral',
-                        });
+                        const payload = buildPayload('profile', { url });
+                        setSharePayload(payload);
                         setShareContext('profile'); // profil veya referral paylaşımı
                         setShareTxId(undefined);
                         setShareOpen(true);
