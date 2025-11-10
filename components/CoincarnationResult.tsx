@@ -1,14 +1,15 @@
+// components/CoincarnationResult.tsx
 'use client';
 
 import React, { useState, type JSX } from 'react';
 import ShareCenter from '@/components/share/ShareCenter';
-import { buildCoincarneText } from '@/utils/shareX';
 import { APP_URL } from '@/app/lib/origin';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { buildPayload } from '@/components/share/intent'; // 👈 yeni helper
 
 interface Props {
   tokenFrom: string;
-  number: number;
+  number: number;                 // Coincarnator #
   onRecoincarnate: () => void;
   onGoToProfile: () => void;
 }
@@ -17,57 +18,60 @@ export default function CoincarnationResult({
   tokenFrom,
   number,
   onRecoincarnate,
-  onGoToProfile
+  onGoToProfile,
 }: Props): JSX.Element {
-
   const { publicKey } = useWallet();
   const [shareOpen, setShareOpen] = useState(false);
 
+  // (İstersen URL'ye referral/utm ekleyebilirsin — buildPayload zaten utm ekliyor)
+  const payload = buildPayload('success', {
+    url: APP_URL,          // örn: `${APP_URL}?r=${referral}`
+    token: tokenFrom,
+    rank: number,
+  });
+
   return (
-    <div className="text-center p-6">
-      <h2 className="text-2xl font-bold mb-4 text-white">
+    <div className="p-6 text-center">
+      <h2 className="mb-4 text-2xl font-bold text-white">
         🎉 Success! Welcome, Coincarnator #{number}!
       </h2>
 
-      {/* ✅ ShareCenter modalını açan yeni buton */}
+      {/* ShareCenter modalını açan buton */}
       <button
+        type="button"
         onClick={() => setShareOpen(true)}
-        className="block max-w-sm mx-auto bg-gradient-to-r from-blue-600 to-blue-700 hover:scale-105 transition text-white font-semibold py-3 px-6 rounded-xl shadow-lg mb-6"
+        className="mb-6 block max-w-sm rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 font-semibold text-white shadow-lg transition hover:scale-105"
       >
         🚀 Share Your Revival!
       </button>
 
-      <p className="text-lg mt-2 mb-4 text-gray-300">
+      <p className="mt-2 mb-4 text-lg text-gray-300">
         You successfully coincarnated <span className="font-bold text-purple-300">${tokenFrom}</span> for $MEGY.
       </p>
 
-      <div className="flex justify-center gap-4 mt-6">
+      <div className="mt-6 flex justify-center gap-4">
         <button
+          type="button"
           onClick={onRecoincarnate}
-          className="min-w-[140px] bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition font-semibold"
+          className="min-w-[140px] rounded bg-purple-600 px-4 py-2 font-semibold text-white transition hover:bg-purple-700"
         >
           ♻️ Recoincarnate
         </button>
 
         <button
+          type="button"
           onClick={onGoToProfile}
-          className="min-w-[140px] bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800 transition font-semibold"
+          className="min-w-[140px] rounded bg-gray-700 px-4 py-2 font-semibold text-white transition hover:bg-gray-800"
         >
           👤 Go to Profile
         </button>
       </div>
 
-      {/* ✅ ShareCenter Modal */}
+      {/* ShareCenter Modal */}
       <ShareCenter
         open={shareOpen}
         onOpenChange={setShareOpen}
-        payload={{
-          url: APP_URL,
-          text: buildCoincarneText({ symbol: tokenFrom, participantNumber: number }),
-          hashtags: ['MEGY', 'Coincarnation', 'FairFutureFund'],
-          via: 'Coincarnation',
-          utm: 'utm_source=share&utm_medium=success&utm_campaign=coin'
-        } as any}
+        payload={payload}                 // 👈 artık helper'dan geliyor
         context="success"
         txId={undefined}
         walletBase58={publicKey?.toBase58() ?? null}
