@@ -8,11 +8,10 @@ import {
   buildTelegramWeb,
   buildWhatsAppWeb,
   buildEmailIntent,
-  APP_LINKS,
   buildCopyText,
 } from '@/components/share/intent';
 
-import { detectInAppBrowser, openWithAnchor, openWithFallback, isAndroid, isIOS } from '@/components/share/browser';
+import { detectInAppBrowser, openWithAnchor } from '@/components/share/browser';
 
 type Props = {
   open: boolean;
@@ -31,7 +30,7 @@ export default function ShareCenter({
   txId,
   walletBase58,
 }: Props) {
-  // ESC kapatma
+  // ESC ile kapatma
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onOpenChange(false);
@@ -60,15 +59,15 @@ export default function ShareCenter({
   }
 
   /**
-   * Tek giriş noktası – platforma göre:
-   * - Android: intent:// + 800ms sonra web fallback
-   * - iOS: scheme:// + 800ms sonra web fallback
-   * - Desktop: direkt web (yeni sekme)
-   * Tetikleme: görünmez <a>.click()  (gesture-safe)
+   * Tek giriş noktası:
+   * - WA/TG: her zaman web intent (wa.me / t.me) ⇒ yeni sekme
+   * - X: Twitter intent ⇒ yeni sekme
+   * - Email: mailto ⇒ aynı sekme
+   * - IG/TikTok: varsa Web Share API; yoksa platform sayfasını yeni sekmede aç
    */
   const openChannel = useCallback(
     async (channel: Channel) => {
-      // X: her yerde web intent, yeni sekme
+      // X
       if (channel === 'twitter') {
         openWithAnchor(buildTwitterIntent(payload), '_blank');
         await recordShare('twitter');
@@ -76,7 +75,7 @@ export default function ShareCenter({
         return;
       }
 
-      // E-posta: mailto
+      // Email
       if (channel === 'email') {
         openWithAnchor(buildEmailIntent(payload), '_self');
         await recordShare('email');
@@ -84,7 +83,7 @@ export default function ShareCenter({
         return;
       }
 
-      // Metni kopyala
+      // Copy
       if (channel === 'copy') {
         try { await navigator.clipboard.writeText(buildCopyText(payload)); } catch {}
         await recordShare('copy');
@@ -92,60 +91,40 @@ export default function ShareCenter({
         return;
       }
 
-      // WhatsApp
+      // ✅ WhatsApp — web intent (ERR_UNKNOWN_URL_SCHEME riskini sıfırlar)
       if (channel === 'whatsapp') {
         const web = buildWhatsAppWeb(payload); // https://wa.me/?text=...
-        const text = encodeURIComponent(buildCopyText(payload));
-
-        if (!isMobile) {
-          openWithAnchor(web, '_blank');
-        } else if (isAndroid) {
-          const intent = `intent://send?text=${text}#Intent;scheme=whatsapp;package=com.whatsapp;end`;
-          openWithFallback(intent, web, { delayMs: 800, sameTab: true });
-        } else if (isIOS) {
-          const scheme = `whatsapp://send?text=${text}`;
-          openWithFallback(scheme, web, { delayMs: 800, sameTab: true });
-        }
+        openWithAnchor(web, '_blank');
         await recordShare('whatsapp');
         onOpenChange(false);
         return;
       }
 
-      // Telegram
+      // ✅ Telegram — web intent
       if (channel === 'telegram') {
         const web = buildTelegramWeb(payload); // https://t.me/share/url?url=...&text=...
-        const url = encodeURIComponent(payload.url);
-        const text = encodeURIComponent(payload.text);
-
-        if (!isMobile) {
-          openWithAnchor(web, '_blank');
-        } else if (isAndroid) {
-          const intent = `intent://share/url?url=${url}&text=${text}#Intent;scheme=https;package=org.telegram.messenger;end`;
-          openWithFallback(intent, web, { delayMs: 800, sameTab: true });
-        } else if (isIOS) {
-          const scheme = `tg://msg_url?url=${url}&text=${text}`;
-          openWithFallback(scheme, web, { delayMs: 800, sameTab: true });
-        }
+        openWithAnchor(web, '_blank');
         await recordShare('telegram');
         onOpenChange(false);
         return;
       }
 
-      // Instagram & TikTok – metni kopyala + uygulamayı aç + web fallback
+      // ⚠️ Instagram & TikTok — web’den composer’a metin doldurma yok
       if (channel === 'instagram' || channel === 'tiktok') {
-        try { await navigator.clipboard.writeText(buildCopyText(payload)); } catch {}
-        const fb = channel === 'instagram' ? 'https://www.instagram.com/' : 'https://www.tiktok.com/explore';
-
-        if (!isMobile) {
-          openWithAnchor(fb, '_blank');
-        } else if (isAndroid) {
-          const pkg = channel === 'instagram' ? 'com.instagram.android' : 'com.zhiliaoapp.musically';
-          const intent = `intent://#Intent;scheme=${channel};package=${pkg};end`;
-          openWithFallback(intent, fb, { delayMs: 800, sameTab: true });
-        } else if (isIOS) {
-          const scheme = channel === 'instagram' ? 'instagram://app' : 'tiktok://';
-          openWithFallback(scheme, fb, { delayMs: 800, sameTab: true });
+        if (navigator.share) {
+          try {
+            await navigator.share({ title: 'Coincarnation', text: payload.text, url: payload.url });
+            await recordShare(channel);
+          } catch { /* kullanıcı iptal edebilir */ }
+          onOpenChange(false);
+          return;
         }
+
+        const url = channel === 'instagram'
+          ? 'https://www.instagram.com/'
+          : 'https://www.tiktok.com/explore';
+
+        openWithAnchor(url, '_blank');
         await recordShare(channel);
         onOpenChange(false);
         return;
@@ -156,7 +135,7 @@ export default function ShareCenter({
         try {
           await navigator.share({ title: 'Coincarnation', text: payload.text, url: payload.url });
           await recordShare(channel);
-        } catch { /* kullanıcı iptal edebilir */ }
+        } catch {}
         onOpenChange(false);
       }
     },
@@ -180,7 +159,7 @@ export default function ShareCenter({
       <div className="mt-2">
         <button
           onClick={() => {
-            // kullanıcıyı tarayıcıya taşı – en sağlam yöntem: kendi URL’ini yeni sekmede aç
+            // Kullanıcıyı sistem tarayıcısına taşı
             openWithAnchor(window.location.href, '_blank');
           }}
           className="rounded-md bg-yellow-600/80 px-2 py-1 text-[11px] font-semibold hover:bg-yellow-600"
