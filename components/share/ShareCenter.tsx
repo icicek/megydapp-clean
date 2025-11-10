@@ -6,10 +6,36 @@ import type { SharePayload, Channel } from '@/components/share/intent';
 import { detectInAppBrowser } from '@/components/share/browser';
 import { openShareChannel } from '@/components/share/openShare';
 
-// Minimal toast
-function Toast({ message }: { message: string }) {
+// —— Toast (pozisyon + genişlik kontrolü) ——
+function Toast({
+  message,
+  position = 'bottom',
+  wide = true,
+}: {
+  message: string;
+  position?: 'top' | 'bottom';
+  wide?: boolean;
+}) {
+  const posClass =
+    position === 'top'
+      ? 'top-6 md:top-10'
+      : // mobilde biraz yukarı, desktop’ta daha da yukarıda
+        'bottom-16 md:bottom-24';
+
+  const widthClass = wide
+    ? 'w-[min(720px,calc(100vw-2rem))]'
+    : 'w-auto max-w-[90vw]';
+
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[20000] rounded-lg border border-white/10 bg-zinc-900/90 px-4 py-2 text-sm text-white shadow-lg backdrop-blur-md animate-fadeInOut">
+    <div
+      className={`fixed left-1/2 -translate-x-1/2 z-[20000] ${posClass} ${widthClass}
+                  rounded-xl border border-white/12 bg-zinc-900/85 px-4 py-3
+                  text-sm text-white shadow-[0_0_24px_rgba(168,85,247,0.25)]
+                  backdrop-blur-md animate-fadeInOut
+                  [box-shadow:inset_0_0_0_1px_rgba(255,255,255,0.05)]`}
+      role="status"
+      aria-live="polite"
+    >
       {message}
     </div>
   );
@@ -32,7 +58,9 @@ export default function ShareCenter({
   txId,
   walletBase58,
 }: Props) {
-  const [toast, setToast] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [toastPos, setToastPos] = useState<'top' | 'bottom'>('bottom');
+  const [toastWide, setToastWide] = useState<boolean>(true);
 
   // ESC ile kapatma
   useEffect(() => {
@@ -69,7 +97,7 @@ export default function ShareCenter({
     document.head.appendChild(style);
   }, []);
 
-  useMemo(() => detectInAppBrowser(), []); // gerekirse ileride kullanırız
+  useMemo(() => detectInAppBrowser(), []);
 
   async function recordShare(channel: Channel) {
     if (!walletBase58) return;
@@ -89,12 +117,15 @@ export default function ShareCenter({
     }
   }
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3200);
+  const showToast = (msg: string, pos: 'top' | 'bottom' = 'bottom', wide = true) => {
+    setToastMsg(msg);
+    setToastPos(pos);
+    setToastWide(wide);
+    window.clearTimeout((showToast as any)._t);
+    (showToast as any)._t = window.setTimeout(() => setToastMsg(null), 3200);
   };
 
-  // X aktif, diğerleri şimdilik toast
+  // X aktif, diğerleri toast
   const openChannel = useCallback(
     async (channel: Channel) => {
       if (channel === 'twitter') {
@@ -103,22 +134,24 @@ export default function ShareCenter({
         onOpenChange(false);
         return;
       }
-      // Geçici bilgilendirme
+      // Geçici bilgilendirme (yatay geniş, altta)
       showToast(
-        "Sharing for this app isn’t live yet — but you’ll still earn CorePoints when you copy and share manually!"
+        "Sharing for this app isn’t live yet — but you’ll still earn CorePoints when you copy and share manually!",
+        'bottom',
+        true
       );
     },
     [payload, walletBase58, context, txId, onOpenChange]
   );
 
-  // Copy text
+  // Copy text — OS’in kendi “copied” balonuyla çakışmaması için ÜSTTE ve dar
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(payload.text);
       await recordShare('copy');
-      showToast('Post text copied — share manually to earn CorePoints!');
+      showToast('Post text copied — share manually to earn CorePoints!', 'top', false);
     } catch {
-      showToast('Could not copy text.');
+      showToast('Could not copy text.', 'top', false);
     }
   };
 
@@ -246,7 +279,7 @@ export default function ShareCenter({
         </div>
       </div>
 
-      {toast && <Toast message={toast} />}
+      {toastMsg && <Toast message={toastMsg} position={toastPos} wide={toastWide} />}
     </div>
   );
 
