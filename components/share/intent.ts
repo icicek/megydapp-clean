@@ -1,13 +1,16 @@
 // components/share/intent.ts
-// Tek sorumluluk: paylaşım metinlerini ve URL'lerini üretmek (DOM yok)
+// Centralized share payload builder + channel intent URL helpers
+// No DOM/window usage here – safe for SSR.
 
-// ---- Types ----
+export type Tone = 'playful' | 'short' | 'serious';
+
 export type SharePayload = {
-  url: string;
-  text: string;
-  hashtags?: string[];
-  via?: string;          // e.g. "Levershare"
-  subject?: string;      // email subject (opsiyonel)
+  url: string;          // final URL (with ref/src/ctx merged)
+  text: string;         // post text (includes $MEGY / $<TOKEN> if applicable)
+  hashtags?: string[];  // e.g., ["Coincarnation"]
+  via?: string;         // e.g., "levershare" (no @)
+  utm?: string;         // optional extra UTM pairs (k=v&k2=v2)
+  subject?: string;     // email subject (optional)
 };
 
 export type Channel =
@@ -19,144 +22,196 @@ export type Channel =
   | 'instagram'
   | 'tiktok';
 
-export type ShareContext = 'success' | 'contribution' | 'leaderboard' | 'profile';
-export type ShareTone = 'playful' | 'minimal' | 'bold';
+// ----------------- small utils -----------------
 
-type BuildPayloadData = {
-  url: string;          // base URL (genelde APP_URL — ama temiz linki biz üreteceğiz)
-  token?: string;       // success / contribution için
-  amount?: number | string;
-  rank?: number;
-  tone?: ShareTone;     // vermezsen 'playful'
-  hashtags?: string[];  // vermezsen ['MEGY','Coincarnation']
-  via?: string;         // vermezsen 'Levershare'
+const DEFAULT_VIA = 'levershare';
+const DEFAULT_HASHTAGS: string[] = ['Coincarnation']; // keep minimal; cashtags go in text
+
+const toTicker = (s?: string) =>
+  (s ?? '').replace(/\$/g, '').trim().toUpperCase();
+
+const toCashtag = (s?: string) => {
+  const t = toTicker(s);
+  if (!t || t.length > 12 || /[^A-Z0-9._-]/.test(t)) return '';
+  return `$${t}`;
 };
 
-type BuildPayloadOpts = {
-  ref?: string;         // referral code
-  src?: string;         // kaynak etiketi (kayıt tutmak istersen; OG için kullanmıyoruz)
-  // ctx otomatik geliyor (fonksiyon parametresi)
-};
-
-// ---- Sabitler ----
-const BASE = 'https://coincarnation.com';
-
-// OG/görsel uyumu için kısa link: /share/:ctx/:ref
-function cleanShareLink(ctx: ShareContext, ref?: string) {
-  const r = ref && ref.trim() ? ref.trim() : '-';
-  return `${BASE}/share/${encodeURIComponent(ctx)}/${encodeURIComponent(r)}`;
+function safeUrl(u?: string): URL | null {
+  try {
+    if (!u) return null;
+    return new URL(u);
+  } catch {
+    return null;
+  }
 }
 
-// ---- Metin şablonları ----
-function line(ctx: ShareContext, tone: ShareTone, d: BuildPayloadData): string {
-  const token = d.token ? String(d.token).toUpperCase() : undefined;
-  const amt = typeof d.amount === 'number' ? d.amount : d.amount ? Number(d.amount) : undefined;
-  const rank = typeof d.rank === 'number' ? d.rank : undefined;
-
-  // kısa, vurucu metinler
-  const map: Record<ShareContext, Record<ShareTone, (p?: any) => string>> = {
-    success: {
-      playful: () =>
-        `Revived ${token ? `$${token}` : 'a deadcoin'} → $MEGY. Fair Future Fund’a bir kıvılcım daha!`,
-      minimal: () =>
-        `Revived ${token ? `$${token}` : 'deadcoin'} → $MEGY.`,
-      bold: () =>
-        `I just Coincarnated ${token ? `$${token}` : 'a deadcoin'} into $MEGY.`
-    },
-    contribution: {
-      playful: () =>
-        `Dropped ${amt ? amt : 'some'} ${token ?? 'tokens'} to revive the Fair Future Fund. Join me!`,
-      minimal: () =>
-        `Contributed ${amt ?? ''} ${token ?? ''} → $MEGY.`,
-      bold: () =>
-        `Reviving the fund with ${amt ?? ''} ${token ?? ''}. #MEGY`
-    },
-    leaderboard: {
-      playful: () =>
-        rank ? `Climbing! I’m #${rank} on the Coincarnation Leaderboard.` : `Climbing the Coincarnation Leaderboard!`,
-      minimal: () =>
-        rank ? `Leaderboard: #${rank}.` : `Leaderboard.`,
-      bold: () =>
-        rank ? `I’m #${rank}. Catch me if you can.` : `Chasing the top.`
-    },
-    profile: {
-      playful: () =>
-        `My Coincarnation profile is live. Let’s revive the future together!`,
-      minimal: () =>
-        `My Coincarnation profile.`,
-      bold: () =>
-        `Profile live. Building value with Coincarnation.`
+// merge tracking params into URL (ref, src, ctx) + optional extra utm pairs
+function enrichUrl(baseUrl: string, opts?: { ref?: string; src?: string; ctx?: string; utm?: string }): string {
+  const u = safeUrl(baseUrl);
+  if (!u) return baseUrl;
+  if (opts?.ref) u.searchParams.set('ref', opts.ref);
+  if (opts?.src) u.searchParams.set('src', opts.src);
+  if (opts?.ctx) u.searchParams.set('ctx', opts.ctx);
+  if (opts?.utm) {
+    for (const part of opts.utm.split('&')) {
+      const [k, v] = part.split('=');
+      if (k) u.searchParams.set(k, v ?? '');
     }
-  };
-
-  return map[ctx][tone]();
+  }
+  return u.toString();
 }
 
-// ---- Public API ----
+// if an extra UTM string is supplied, add it as query pairs
+function addUtm(u: string, utm?: string): string {
+  if (!utm) return u;
+  const url = safeUrl(u);
+  if (!url) return u;
+  for (const part of utm.split('&')) {
+    const [k, v] = part.split('=');
+    if (k) url.searchParams.set(k, v ?? '');
+  }
+  return url.toString();
+}
+
+// builds a single plain text for copy modal
+export function buildCopyText(p: SharePayload): string {
+  const link = addUtm(p.url, p.utm);
+  const via = p.via ? `\nvia @${p.via.replace(/^@/, '')}` : '';
+  const tags = p.hashtags?.length ? `\n#${p.hashtags.join(' #')}` : '';
+  return `${p.text}\n${link}${via}${tags}`;
+}
+
+// ----------------- context text templates -----------------
+
+function textForSuccess(p: { token?: string; tone?: Tone }): string {
+  const megy = '$MEGY';
+  const coin = toCashtag(p.token);
+  // concise & playful by default
+  return `Revived ${coin} into ${megy}. Join the rebirth.`;
+}
+
+function textForContribution(p: { token?: string; amount?: number; tone?: Tone }): string {
+  const megy = '$MEGY';
+  const coin = toCashtag(p.token);
+  const amt =
+    typeof p.amount === 'number' && isFinite(p.amount) && p.amount > 0
+      ? ` ${Number(p.amount).toString()}`
+      : '';
+  return `I just Coincarnated${amt} ${coin} → ${megy}. Be part of it.`;
+}
+
+function textForLeaderboard(p: { rank?: number; tone?: Tone }): string {
+  const megy = '$MEGY';
+  if (typeof p.rank === 'number' && p.rank > 0) {
+    return `Climbing the Coincarnation Leaderboard with ${megy}. I’m #${p.rank}.`;
+  }
+  return `Join the Coincarnation Leaderboard with ${megy}.`;
+}
+
+function textForProfile(_p: { tone?: Tone }): string {
+  const megy = '$MEGY';
+  return `I’m reviving the Fair Future Fund with ${megy}. Use my link & jump in.`;
+}
+
+// ----------------- Public builder -----------------
 
 /**
- * buildPayload
- * - ctx bağlamına göre kısa, OG-dostu URL üretir (/share/:ctx/:ref)
- * - metni kısa ve etkili üretir (playful/minimal/bold)
- * - UTM/karmaşayı bilerek eklemiyoruz (OG kartları için temiz URL şart)
+ * Central entry: returns a SharePayload with:
+ * - text: context-aware (success/contribution/leaderboard/profile), cashtag ready
+ * - url: base url + (ref, src, ctx) merged
+ * - via: "levershare" (default)
+ * - hashtags: ["Coincarnation"] (default)
  */
 export function buildPayload(
-  ctx: ShareContext,
-  data: BuildPayloadData,
-  opts?: BuildPayloadOpts
+  ctx: 'success' | 'contribution' | 'leaderboard' | 'profile',
+  data: {
+    url: string;
+    token?: string;
+    amount?: number;
+    rank?: number;
+    tone?: Tone;
+    hashtags?: string[];
+    via?: string;
+    utm?: string;      // optional additional utm pairs
+    subject?: string;  // for email
+  },
+  opts?: {
+    ref?: string;      // referral code (added as ?ref=)
+    src?: string;      // source tag, e.g. "app" (added as ?src=)
+    ctx?: string;      // overrides query ctx (defaults to ctx arg)
+  }
 ): SharePayload {
-  const tone: ShareTone = data.tone ?? 'playful';
-  const text = line(ctx, tone, data);
-  const url = cleanShareLink(ctx, opts?.ref);
-  const hashtags = data.hashtags ?? ['MEGY', 'Coincarnation'];
-  const via = data.via ?? 'Levershare';
+  const finalUrl = enrichUrl(
+    data.url,
+    {
+      ref: opts?.ref,
+      src: opts?.src ?? 'app',
+      ctx: opts?.ctx ?? ctx,
+      utm: data.utm,
+    }
+  );
+
+  // choose template
+  let text = '';
+  if (ctx === 'success') {
+    text = textForSuccess({ token: data.token, tone: data.tone });
+  } else if (ctx === 'contribution') {
+    text = textForContribution({ token: data.token, amount: data.amount, tone: data.tone });
+  } else if (ctx === 'leaderboard') {
+    text = textForLeaderboard({ rank: data.rank, tone: data.tone });
+  } else {
+    text = textForProfile({ tone: data.tone });
+  }
 
   return {
-    url,
+    url: finalUrl,
     text,
-    hashtags,
-    via
+    hashtags: data.hashtags ?? DEFAULT_HASHTAGS,
+    via: (data.via ?? DEFAULT_VIA).replace(/^@/, ''),
+    utm: data.utm,
+    subject: data.subject,
   };
 }
 
-// ---- Intent URL builders (gerekirse dışarıda kullanılır) ----
+// ----------------- Channel intent builders -----------------
 
 export function buildTwitterIntent(p: SharePayload): string {
   const params = new URLSearchParams();
-  if (p.text) params.set('text', p.text);
-  if (p.url)  params.set('url', p.url);
+  if (p.text) params.set('text', p.text);                  // contains $MEGY / $TOKEN
+  if (p.url) params.set('url', addUtm(p.url, p.utm));
   if (p.hashtags?.length) params.set('hashtags', p.hashtags.join(','));
-  if (p.via) params.set('via', p.via);
+  if (p.via) params.set('via', p.via.replace(/^@/, ''));   // "levershare"
   return `https://twitter.com/intent/tweet?${params.toString()}`;
 }
 
+// Telegram (web)
 export function buildTelegramWeb(p: SharePayload): string {
   const params = new URLSearchParams();
-  if (p.url)  params.set('url', p.url);
+  if (p.url) params.set('url', addUtm(p.url, p.utm));
   if (p.text) params.set('text', p.text);
   return `https://t.me/share/url?${params.toString()}`;
 }
 
+// WhatsApp (web)
 export function buildWhatsAppWeb(p: SharePayload): string {
-  const combined = `${p.text ? p.text + ' ' : ''}${p.url}`.trim();
+  const combined = `${p.text ? p.text + ' ' : ''}${addUtm(p.url, p.utm)}`.trim();
   const params = new URLSearchParams({ text: combined });
   return `https://wa.me/?${params.toString()}`;
 }
 
+// Email
 export function buildEmailIntent(p: SharePayload): string {
-  const subject = p.subject || 'Levershare — Coincarnation';
-  const body = `${p.text}\n\n${p.url}`;
+  const subject = p.subject || 'Check this out';
+  const body = `${p.text}\n\n${addUtm(p.url, p.utm)}\nvia @${(p.via ?? DEFAULT_VIA).replace(/^@/, '')}`;
   const params = new URLSearchParams({ subject, body });
   return `mailto:?${params.toString()}`;
 }
 
-export function buildCopyText(p: SharePayload): string {
-  const tags = p.hashtags?.length ? ` #${p.hashtags.join(' #')}` : '';
-  return `${p.text}\n${p.url}${tags ? `\n${tags}` : ''}`;
-}
+// ----------------- App deep links (mobile) -----------------
 
 /**
- * Uygulama deeplink/fallback adayları (gerekirse)
+ * App deeplink candidates. First entries attempt app open; last entries are safe web fallbacks.
+ * Instagram/TikTok don’t accept prefilled captions; we only open the app or web.
  */
 export const APP_LINKS = {
   telegram: (p: SharePayload) => [
@@ -165,7 +220,7 @@ export const APP_LINKS = {
     buildTelegramWeb(p),
   ],
   whatsapp: (p: SharePayload) => [
-    `whatsapp://send?text=${encodeURIComponent(`${p.text} ${p.url}`.trim())}`,
+    `whatsapp://send?text=${encodeURIComponent(`${p.text} ${addUtm(p.url, p.utm)}`.trim())}`,
     buildWhatsAppWeb(p),
   ],
   instagram: (_p: SharePayload) => [
