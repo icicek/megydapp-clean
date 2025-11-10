@@ -3,15 +3,8 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import type { SharePayload, Channel } from '@/components/share/intent';
-import {
-  buildTwitterIntent,
-  buildTelegramWeb,
-  buildWhatsAppWeb,
-  buildEmailIntent,
-  buildCopyText,
-} from '@/components/share/intent';
-
 import { detectInAppBrowser, openWithAnchor } from '@/components/share/browser';
+import { openShareChannel } from '@/components/share/openShare';
 
 type Props = {
   open: boolean;
@@ -30,7 +23,7 @@ export default function ShareCenter({
   txId,
   walletBase58,
 }: Props) {
-  // ESC ile kapatma
+  // Close on ESC
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onOpenChange(false);
@@ -39,6 +32,8 @@ export default function ShareCenter({
   }, [open, onOpenChange]);
 
   const { inApp } = useMemo(() => detectInAppBrowser(), []);
+
+  // (Kept for future conditions or analytics granularity)
   const isMobile = useMemo(() => {
     if (typeof navigator === 'undefined') return false;
     const u = navigator.userAgent.toLowerCase();
@@ -58,88 +53,14 @@ export default function ShareCenter({
     }
   }
 
-  /**
-   * Tek giriş noktası:
-   * - WA/TG: her zaman web intent (wa.me / t.me) ⇒ yeni sekme
-   * - X: Twitter intent ⇒ yeni sekme
-   * - Email: mailto ⇒ aynı sekme
-   * - IG/TikTok: varsa Web Share API; yoksa platform sayfasını yeni sekmede aç
-   */
+  // Single entry for all channels → centralized in openShareChannel
   const openChannel = useCallback(
     async (channel: Channel) => {
-      // X
-      if (channel === 'twitter') {
-        openWithAnchor(buildTwitterIntent(payload), '_blank');
-        await recordShare('twitter');
-        onOpenChange(false);
-        return;
-      }
-
-      // Email
-      if (channel === 'email') {
-        openWithAnchor(buildEmailIntent(payload), '_self');
-        await recordShare('email');
-        onOpenChange(false);
-        return;
-      }
-
-      // Copy
-      if (channel === 'copy') {
-        try { await navigator.clipboard.writeText(buildCopyText(payload)); } catch {}
-        await recordShare('copy');
-        onOpenChange(false);
-        return;
-      }
-
-      // ✅ WhatsApp — web intent (ERR_UNKNOWN_URL_SCHEME riskini sıfırlar)
-      if (channel === 'whatsapp') {
-        const web = buildWhatsAppWeb(payload); // https://wa.me/?text=...
-        openWithAnchor(web, '_blank');
-        await recordShare('whatsapp');
-        onOpenChange(false);
-        return;
-      }
-
-      // ✅ Telegram — web intent
-      if (channel === 'telegram') {
-        const web = buildTelegramWeb(payload); // https://t.me/share/url?url=...&text=...
-        openWithAnchor(web, '_blank');
-        await recordShare('telegram');
-        onOpenChange(false);
-        return;
-      }
-
-      // ⚠️ Instagram & TikTok — web’den composer’a metin doldurma yok
-      if (channel === 'instagram' || channel === 'tiktok') {
-        if (navigator.share) {
-          try {
-            await navigator.share({ title: 'Coincarnation', text: payload.text, url: payload.url });
-            await recordShare(channel);
-          } catch { /* kullanıcı iptal edebilir */ }
-          onOpenChange(false);
-          return;
-        }
-
-        const url = channel === 'instagram'
-          ? 'https://www.instagram.com/'
-          : 'https://www.tiktok.com/explore';
-
-        openWithAnchor(url, '_blank');
-        await recordShare(channel);
-        onOpenChange(false);
-        return;
-      }
-
-      // Son çare: Web Share API (destek varsa)
-      if (navigator.share) {
-        try {
-          await navigator.share({ title: 'Coincarnation', text: payload.text, url: payload.url });
-          await recordShare(channel);
-        } catch {}
-        onOpenChange(false);
-      }
+      await openShareChannel(channel, payload);
+      await recordShare(channel);
+      onOpenChange(false);
     },
-    [payload, onOpenChange, walletBase58, context, txId]
+    [payload, walletBase58, context, txId, onOpenChange]
   );
 
   if (!open) return null;
@@ -152,16 +73,13 @@ export default function ShareCenter({
     success: 'Blast your revival—let the world see your $MEGY journey!',
   }[context];
 
-  // In-app browser uyarı çubuğu
+  // In-app browser notice
   const InAppBar = inApp ? (
     <div className="mb-3 rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-2 text-xs text-yellow-200">
-      This share may not work inside in-app browsers. Tap <b>Open in Browser</b> below, then try again.
+      Some in-app browsers block app sharing. Tap <b>Open in Browser</b> below, then try again.
       <div className="mt-2">
         <button
-          onClick={() => {
-            // Kullanıcıyı sistem tarayıcısına taşı
-            openWithAnchor(window.location.href, '_blank');
-          }}
+          onClick={() => openWithAnchor(window.location.href, '_blank')}
           className="rounded-md bg-yellow-600/80 px-2 py-1 text-[11px] font-semibold hover:bg-yellow-600"
         >
           Open in Browser
@@ -174,6 +92,7 @@ export default function ShareCenter({
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-[1000]">
       <div className="absolute inset-0 bg-black/60" onClick={() => onOpenChange(false)} />
       <div className="absolute inset-0 flex items-center justify-center p-4">
+        {/* Fixed, predictable width */}
         <div className="w-[92%] max-w-[420px] rounded-2xl border border-zinc-700 bg-zinc-900 p-5 text-white shadow-xl">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-lg font-semibold">{heading}</h3>
@@ -189,10 +108,12 @@ export default function ShareCenter({
 
           {InAppBar}
 
+          {/* Preview text block */}
           <div className="mb-4 rounded-xl bg-zinc-800 p-3 text-xs text-zinc-200 break-words">
             {payload.text}
           </div>
 
+          {/* Buttons (single-line labels) */}
           <div className="grid grid-cols-3 gap-3">
             <button onClick={() => openChannel('twitter')}
               className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold hover:bg-blue-700 whitespace-nowrap">
@@ -234,6 +155,7 @@ export default function ShareCenter({
     </div>
   );
 
+  // Always portal to <body> so layout trees don't matter
   if (typeof document !== 'undefined') {
     return createPortal(body, document.body);
   }
