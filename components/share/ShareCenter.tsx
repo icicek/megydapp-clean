@@ -42,6 +42,26 @@ export default function ShareCenter({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onOpenChange]);
 
+  // 🔧 Sadece client tarafında CSS animasyonunu ekle
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (document.getElementById('toast-style')) return; // çift ekleme engeli
+    const style = document.createElement('style');
+    style.id = 'toast-style';
+    style.innerHTML = `
+      @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateY(10px); }
+        10% { opacity: 1; transform: translateY(0); }
+        90% { opacity: 1; }
+        100% { opacity: 0; transform: translateY(10px); }
+      }
+      .animate-fadeInOut {
+        animation: fadeInOut 3.5s ease-in-out forwards;
+      }
+    `;
+    document.head.appendChild(style);
+  }, []);
+
   const { inApp } = useMemo(() => detectInAppBrowser(), []);
 
   async function recordShare(channel: Channel) {
@@ -175,18 +195,3 @@ export default function ShareCenter({
   }
   return body;
 }
-
-/* ---- Basit fade animasyonu ---- */
-const style = document.createElement('style');
-style.innerHTML = `
-@keyframes fadeInOut {
-  0% { opacity: 0; transform: translateY(10px); }
-  10% { opacity: 1; transform: translateY(0); }
-  90% { opacity: 1; }
-  100% { opacity: 0; transform: translateY(10px); }
-}
-.animate-fadeInOut {
-  animation: fadeInOut 3.5s ease-in-out forwards;
-}
-`;
-if (typeof document !== 'undefined') document.head.appendChild(style);
