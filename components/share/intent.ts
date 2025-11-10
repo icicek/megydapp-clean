@@ -1,16 +1,15 @@
 // components/share/intent.ts
-// Clean, guaranteed-export version for ShareCenter integration
+// Only builds share URLs or returns helpers; no window DOM calls here.
 
 export type SharePayload = {
   url: string;
   text: string;
-  hashtags?: string[];
-  via?: string;
-  utm?: string;
-  subject?: string;
+  hashtags?: string[];   // e.g., ["MEGY","Coincarnation"]
+  via?: string;          // e.g., "Coincarnation"
+  utm?: string;          // e.g., "utm_source=share&utm_medium=claimpanel"
+  subject?: string;      // email subject (optional)
 };
 
-// 👇 Explicit export to satisfy TS resolver
 export type Channel =
   | 'twitter'
   | 'telegram'
@@ -20,65 +19,7 @@ export type Channel =
   | 'instagram'
   | 'tiktok';
 
-// ---- Builders ----
-
-export function buildTwitterIntent(p: SharePayload): string {
-  const params = new URLSearchParams();
-  if (p.text) params.set('text', p.text);
-  if (p.url) params.set('url', addUtm(p.url, p.utm));
-  if (p.hashtags?.length) params.set('hashtags', p.hashtags.join(','));
-  if (p.via) params.set('via', p.via);
-  return `https://twitter.com/intent/tweet?${params.toString()}`;
-}
-
-export function buildTelegramWeb(p: SharePayload): string {
-  const params = new URLSearchParams();
-  if (p.url) params.set('url', addUtm(p.url, p.utm));
-  if (p.text) params.set('text', p.text);
-  return `https://t.me/share/url?${params.toString()}`;
-}
-
-export function buildWhatsAppWeb(p: SharePayload): string {
-  const combined = `${p.text ? p.text + ' ' : ''}${addUtm(p.url, p.utm)}`.trim();
-  return `https://wa.me/?text=${encodeURIComponent(combined)}`;
-}
-
-export function buildEmailIntent(p: SharePayload): string {
-  const subject = p.subject || 'Check this out';
-  const body = `${p.text}\n\n${addUtm(p.url, p.utm)}`;
-  return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-}
-
-// ---- App Links ----
-export const APP_LINKS: Record<string, (p: SharePayload) => string[]> = {
-  telegram: (p) => [
-    `tg://msg`,
-    `tg://`,
-    buildTelegramWeb(p),
-  ],
-  whatsapp: (p) => [
-    `whatsapp://send?text=${encodeURIComponent(`${p.text} ${addUtm(p.url, p.utm)}`.trim())}`,
-    buildWhatsAppWeb(p),
-  ],
-  instagram: () => [
-    'instagram://app',
-    'https://www.instagram.com/',
-  ],
-  tiktok: () => [
-    'tiktok://',
-    'snssdk1128://',
-    'https://www.tiktok.com/explore',
-  ],
-};
-
-// ---- Copy text ----
-export function buildCopyText(p: SharePayload): string {
-  const tags = p.hashtags?.length ? ` #${p.hashtags.join(' #')}` : '';
-  const link = addUtm(p.url, p.utm);
-  return `${p.text}\n${link}${tags ? `\n${tags}` : ''}`;
-}
-
-// ---- Helper ----
+// ---- small util ----
 function addUtm(u: string, utm?: string): string {
   if (!utm) return u;
   try {
@@ -92,3 +33,70 @@ function addUtm(u: string, utm?: string): string {
     return u;
   }
 }
+
+// ---- URL builders (no side effects) ----
+
+export function buildTwitterIntent(p: SharePayload): string {
+  const params = new URLSearchParams();
+  if (p.text) params.set('text', p.text);
+  if (p.url)  params.set('url', addUtm(p.url, p.utm));
+  if (p.hashtags?.length) params.set('hashtags', p.hashtags.join(','));
+  if (p.via) params.set('via', p.via);
+  // x.com/intent/post da çalışır; twitter.com/intent/tweet daha yaygın
+  return `https://twitter.com/intent/tweet?${params.toString()}`;
+}
+
+// Telegram: web intent
+export function buildTelegramWeb(p: SharePayload): string {
+  const params = new URLSearchParams();
+  if (p.url)  params.set('url', addUtm(p.url, p.utm));
+  if (p.text) params.set('text', p.text);
+  return `https://t.me/share/url?${params.toString()}`;
+}
+
+// WhatsApp: web intent
+export function buildWhatsAppWeb(p: SharePayload): string {
+  const combined = `${p.text ? p.text + ' ' : ''}${addUtm(p.url, p.utm)}`.trim();
+  const params = new URLSearchParams({ text: combined });
+  return `https://wa.me/?${params.toString()}`;
+}
+
+// Email: mailto
+export function buildEmailIntent(p: SharePayload): string {
+  const subject = p.subject || 'Check this out';
+  const body = `${p.text}\n\n${addUtm(p.url, p.utm)}`;
+  const params = new URLSearchParams({ subject, body });
+  return `mailto:?${params.toString()}`;
+}
+
+// Kopyalama: modal içinde panoya basılacak metni üretir
+export function buildCopyText(p: SharePayload): string {
+  const tags = p.hashtags?.length ? ` #${p.hashtags.join(' #')}` : '';
+  const link = addUtm(p.url, p.utm);
+  return `${p.text}\n${link}${tags ? `\n${tags}` : ''}`;
+}
+
+/**
+ * Uygulama deeplink adayları (mobilde uygulamayı açmayı dener, başarılı olmazsa web fallback kullanılmalı).
+ * Instagram ve TikTok caption’ı önceden doldurtmuyor; sadece uygulamayı açarız.
+ */
+export const APP_LINKS = {
+  telegram: (p: SharePayload) => [
+    'tg://msg',        // dene
+    'tg://',           // dene
+    buildTelegramWeb(p)
+  ],
+  whatsapp: (p: SharePayload) => [
+    `whatsapp://send?text=${encodeURIComponent(`${p.text} ${addUtm(p.url, p.utm)}`.trim())}`,
+    buildWhatsAppWeb(p),
+  ],
+  instagram: (_p: SharePayload) => [
+    'instagram://app',
+    'https://www.instagram.com/',
+  ],
+  tiktok: (_p: SharePayload) => [
+    'tiktok://',
+    'snssdk1128://',
+    'https://www.tiktok.com/explore',
+  ],
+};
