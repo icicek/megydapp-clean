@@ -5,17 +5,13 @@ import { useEffect, useState, useMemo } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { APP_URL } from '@/app/lib/origin';
 import dynamic from 'next/dynamic';
+import ShareCenter from '@/components/share/ShareCenter';
 
 type Props = { referralCode?: string };
 type LeaderboardEntry = {
   wallet_address: string;
   core_point: number;
 };
-
-const ShareCenter = dynamic(
-  () => import('@/components/share/ShareCenter').then(m => m.default),
-  { ssr: false, loading: () => null }
-);
 
 export default function Leaderboard({ referralCode }: Props) {
   const { publicKey } = useWallet();
