@@ -64,9 +64,10 @@ export default function Leaderboard({ referralCode }: Props) {
 
   // ---- Share payload (rank metni dinamik) ----
   const shareUrl = useMemo(
-    () => (referralCode ? `${APP_URL}?r=${referralCode}` : APP_URL),
+    () => (referralCode ? `${APP_URL}?r=${encodeURIComponent(referralCode)}` : APP_URL),
     [referralCode]
-  );  
+  );
+  
   const sharePayload = useMemo(() => {
     return buildPayload('leaderboard', {
       url: shareUrl,

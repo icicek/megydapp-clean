@@ -30,14 +30,12 @@ export default function CoincarnationResult({
 
   // components/CoincarnationResult.tsx (yalnızca payload kısmı)
   const payload = buildPayload('success', {
-    url: APP_URL,
+    url: shareUrl,        // referral varsa ?r= ile gelir
     token: tokenFrom,
-    rank: number,
-    // tone, hashtags, via isteğe bağlı
+    // rank: number  // success bağlamında kullanılmıyor; istersen bırakma
   }, {
-    ref: undefined,      // elinde referral varsa buraya ver (ör: referralCode)
-    src: 'app',          // varsayılan zaten 'app'
-    // ctx otomatik 'success' gelir
+    ref: referral ?? undefined,
+    src: 'app',
   });
 
   return (

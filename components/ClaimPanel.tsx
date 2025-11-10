@@ -211,10 +211,11 @@ export default function ClaimPanel() {
               className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 min-h-[100px] flex flex-col justify-between relative cursor-pointer hover:bg-zinc-700 transition"
               onClick={() => {
                 if (!data?.referral_code) return;
-                navigator.clipboard.writeText(data.referral_code);
+                const url = `${APP_URL}?r=${encodeURIComponent(data.referral_code)}`;
+                navigator.clipboard.writeText(url);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
-              }}
+              }}              
             >
               <p className="text-gray-400 text-sm mb-1">Referral Code</p>
               <p className="text-white font-medium text-sm break-words">
