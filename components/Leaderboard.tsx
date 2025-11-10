@@ -183,17 +183,6 @@ export default function Leaderboard({ referralCode }: Props) {
         payload={sharePayload}
         context="leaderboard"
         walletBase58={publicKey?.toBase58() ?? null}
-        onAfterShare={async ({ channel }) => {
-          try {
-            await fetch('/api/share/record', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ channel, context: 'leaderboard' }),
-            });
-          } catch {
-            /* noop */
-          }
-        }}
       />
     </div>
   );
