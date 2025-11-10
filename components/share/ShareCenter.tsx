@@ -42,7 +42,7 @@ export default function ShareCenter({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onOpenChange]);
 
-  // client-only keyframes for toast
+  // client-only keyframes for toast (SSR-safe)
   useEffect(() => {
     if (typeof document === 'undefined') return;
     if (document.getElementById('sharecenter-toast-style')) return;
@@ -60,7 +60,7 @@ export default function ShareCenter({
     document.head.appendChild(style);
   }, []);
 
-  useMemo(() => detectInAppBrowser(), []);
+  useMemo(() => detectInAppBrowser(), []); // ileride kullanabiliriz
 
   async function recordShare(channel: Channel) {
     if (!walletBase58) return;
@@ -117,9 +117,9 @@ export default function ShareCenter({
     success: 'Blast your revival—let the world see your $MEGY journey!',
   }[context];
 
-  // helper: “soft brand on black” base
+  // helper: “soft brand on black” base (rounded-xl eklendi)
   const softBase =
-    'relative rounded-lg px-3 py-2 text-sm font-semibold text-white whitespace-nowrap ring-1 ring-white/10 bg-zinc-950';
+    'relative rounded-xl px-3 py-2 text-sm font-semibold text-white whitespace-nowrap ring-1 ring-white/10 bg-zinc-950';
 
   const body = (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-[1000]">
@@ -147,50 +147,53 @@ export default function ShareCenter({
 
           {/* Buttons */}
           <div className="grid grid-cols-3 gap-3">
-            {/* X — dark→light blue gradient */}
+            {/* X — dark→light blue gradient + glass + soft glow (rounded-xl) */}
             <button
               onClick={() => openChannel('twitter')}
-              className="rounded-lg px-3 py-2 text-sm font-semibold text-white whitespace-nowrap ring-1 ring-blue-300/30 bg-gradient-to-r from-[#0A4BCB] to-[#58B0FF] hover:brightness-110 transition"
+              className="rounded-xl px-3 py-2 text-sm font-semibold text-white whitespace-nowrap
+                         ring-1 ring-blue-300/30 bg-gradient-to-r from-[#0A4BCB] to-[#58B0FF]
+                         backdrop-blur-sm shadow-[0_0_10px_rgba(0,150,255,0.4)]
+                         hover:brightness-110 transition"
             >
               X
             </button>
 
-            {/* Telegram — black base + soft brand wash */}
+            {/* Telegram — soft wash 0.22 */}
             <button
               onClick={() => openChannel('telegram')}
-              className={`${softBase} bg-[linear-gradient(180deg,rgba(38,165,228,0.18)_0%,rgba(0,0,0,0.8)_40%)] hover:brightness-110`}
+              className={`${softBase} bg-[linear-gradient(180deg,rgba(38,165,228,0.22)_0%,rgba(0,0,0,0.82)_45%)] hover:brightness-110`}
             >
               Telegram
             </button>
 
-            {/* WhatsApp — black base + soft brand wash */}
+            {/* WhatsApp — soft wash 0.22 */}
             <button
               onClick={() => openChannel('whatsapp')}
-              className={`${softBase} bg-[linear-gradient(180deg,rgba(37,211,102,0.18)_0%,rgba(0,0,0,0.8)_40%)] hover:brightness-110`}
+              className={`${softBase} bg-[linear-gradient(180deg,rgba(37,211,102,0.22)_0%,rgba(0,0,0,0.82)_45%)] hover:brightness-110`}
             >
               Whatsapp
             </button>
 
-            {/* Email — black base + soft neutral wash */}
+            {/* Email — soft neutral wash 0.22 */}
             <button
               onClick={() => openChannel('email')}
-              className={`${softBase} bg-[linear-gradient(180deg,rgba(156,163,175,0.18)_0%,rgba(0,0,0,0.8)_40%)] hover:brightness-110`}
+              className={`${softBase} bg-[linear-gradient(180deg,rgba(156,163,175,0.22)_0%,rgba(0,0,0,0.82)_45%)] hover:brightness-110`}
             >
               Email
             </button>
 
-            {/* Instagram — black base + soft multi wash */}
+            {/* Instagram — multi wash 0.22 */}
             <button
               onClick={() => openChannel('instagram')}
-              className={`${softBase} bg-[linear-gradient(180deg,rgba(245,133,41,0.16)_0%,rgba(214,41,118,0.16)_35%,rgba(79,91,213,0.16)_70%,rgba(0,0,0,0.82)_100%)] hover:brightness-110`}
+              className={`${softBase} bg-[linear-gradient(180deg,rgba(245,133,41,0.22)_0%,rgba(214,41,118,0.22)_35%,rgba(79,91,213,0.22)_70%,rgba(0,0,0,0.84)_100%)] hover:brightness-110`}
             >
               Instagram
             </button>
 
-            {/* TikTok — black base + soft dual wash */}
+            {/* TikTok — dual wash 0.22 */}
             <button
               onClick={() => openChannel('tiktok')}
-              className={`${softBase} bg-[linear-gradient(180deg,rgba(254,44,85,0.18)_0%,rgba(0,242,234,0.16)_35%,rgba(0,0,0,0.82)_100%)] hover:brightness-110`}
+              className={`${softBase} bg-[linear-gradient(180deg,rgba(254,44,85,0.22)_0%,rgba(0,242,234,0.22)_35%,rgba(0,0,0,0.84)_100%)] hover:brightness-110`}
             >
               Tiktok
             </button>
@@ -199,7 +202,9 @@ export default function ShareCenter({
           <div className="mt-5">
             <button
               onClick={handleCopy}
-              className="w-full rounded-lg px-3 py-3 text-sm font-semibold text-zinc-900 bg-gradient-to-r from-orange-400 via-amber-300 to-yellow-300 ring-1 ring-white/10 hover:brightness-105 transition"
+              className="w-full rounded-xl px-3 py-3 text-sm font-semibold text-zinc-900
+                         bg-gradient-to-r from-orange-400 via-amber-300 to-yellow-300
+                         ring-1 ring-white/10 hover:brightness-105 transition"
             >
               Copy text
             </button>
