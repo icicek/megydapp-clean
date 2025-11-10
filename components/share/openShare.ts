@@ -8,6 +8,7 @@ import {
   buildCopyText,
 } from '@/components/share/intent';
 import { openWithAnchor } from '@/components/share/browser';
+import { detectInAppBrowser } from '@/components/share/browser';
 
 function isMobileUA() {
   if (typeof navigator === 'undefined') return false;
@@ -15,37 +16,46 @@ function isMobileUA() {
 }
 
 /**
- * Unified share opener:
- * 1) Try OS Share Sheet (navigator.share) when it makes sense
- * 2) Fallback to safe web intents (wa.me / t.me / twitter intent)
- * 3) Email via mailto, IG/TikTok via platform homepage (no composer from web)
- * Always opens in a way that avoids ERR_UNKNOWN_URL_SCHEME.
+ * Throws 'IN_APP_BLOCKED' for channels that are known to be blocked in in-app browsers.
+ * ShareCenter will catch this and show a guided "Open in Browser" step.
  */
 export async function openShareChannel(channel: Channel, payload: SharePayload) {
+  const { inApp } = detectInAppBrowser();
   const canWebShare =
     typeof navigator !== 'undefined' &&
     typeof (navigator as any).share === 'function' &&
     isMobileUA();
 
-  // Channels that benefit most from OS share first
-  const prefersOSShare = channel === 'instagram' || channel === 'tiktok' || channel === 'whatsapp' || channel === 'telegram';
+  // If we are inside an in-app browser, block problematic channels up-front
+  if (inApp && (channel === 'whatsapp' || channel === 'telegram' || channel === 'instagram' || channel === 'tiktok')) {
+    const err: any = new Error('Blocked by in-app browser');
+    err.code = 'IN_APP_BLOCKED';
+    err.channel = channel;
+    throw err;
+  }
 
-  // 0) Twitter (always web intent, works everywhere)
+  // Twitter (always works)
   if (channel === 'twitter') {
     openWithAnchor(buildTwitterIntent(payload), '_blank');
     return;
   }
 
-  // 1) Email (mailto in same tab so mail app can intercept)
+  // Email
   if (channel === 'email') {
     openWithAnchor(buildEmailIntent(payload), '_self');
     return;
   }
 
-  // 2) Try OS Share Sheet (mobile capable) for specific channels
+  // Copy
+  if (channel === 'copy') {
+    try { await navigator.clipboard.writeText(buildCopyText(payload)); } catch {}
+    return;
+  }
+
+  // Prefer OS Share when available for mobile
+  const prefersOSShare = channel === 'whatsapp' || channel === 'telegram' || channel === 'instagram' || channel === 'tiktok';
   if (prefersOSShare && canWebShare) {
     try {
-      // NOTE: We cannot force a specific app via Web Share API.
       await (navigator as any).share({
         title: 'Coincarnation',
         text: payload.text,
@@ -53,22 +63,21 @@ export async function openShareChannel(channel: Channel, payload: SharePayload) 
       });
       return;
     } catch {
-      // user canceled or not supported -> fall through to web intents
+      // user canceled or unsupported, fall through
     }
   }
 
-  // 3) Web intents (safe, no custom schemes)
+  // Safe web intents
   if (channel === 'whatsapp') {
     openWithAnchor(buildWhatsAppWeb(payload), '_blank'); // https://wa.me/?text=...
     return;
   }
-
   if (channel === 'telegram') {
-    openWithAnchor(buildTelegramWeb(payload), '_blank'); // https://t.me/share/url?url=...&text=...
+    openWithAnchor(buildTelegramWeb(payload), '_blank'); // https://t.me/share/url?...
     return;
   }
 
-  // 4) IG/TikTok: from web there is no official composer deep link.
+  // From web there is no official composer for IG/TikTok
   if (channel === 'instagram') {
     openWithAnchor('https://www.instagram.com/', '_blank');
     return;
@@ -78,14 +87,6 @@ export async function openShareChannel(channel: Channel, payload: SharePayload) 
     return;
   }
 
-  // 5) Copy (utility)
-  if (channel === 'copy') {
-    try {
-      await navigator.clipboard.writeText(buildCopyText(payload));
-    } catch {}
-    return;
-  }
-
-  // 6) Last resort: just open our URL
+  // Last resort
   openWithAnchor(payload.url, '_blank');
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { SharePayload, Channel } from '@/components/share/intent';
 import { detectInAppBrowser, openWithAnchor } from '@/components/share/browser';
@@ -32,13 +32,7 @@ export default function ShareCenter({
   }, [open, onOpenChange]);
 
   const { inApp } = useMemo(() => detectInAppBrowser(), []);
-
-  // (Kept for future conditions or analytics granularity)
-  const isMobile = useMemo(() => {
-    if (typeof navigator === 'undefined') return false;
-    const u = navigator.userAgent.toLowerCase();
-    return /iphone|ipad|ipod|android|mobile/.test(u);
-  }, []);
+  const [blocked, setBlocked] = useState<null | { channel: Channel }>(null);
 
   async function recordShare(channel: Channel) {
     if (!walletBase58) return;
@@ -53,12 +47,20 @@ export default function ShareCenter({
     }
   }
 
-  // Single entry for all channels → centralized in openShareChannel
   const openChannel = useCallback(
     async (channel: Channel) => {
-      await openShareChannel(channel, payload);
-      await recordShare(channel);
-      onOpenChange(false);
+      try {
+        await openShareChannel(channel, payload);
+        await recordShare(channel);
+        onOpenChange(false);
+      } catch (e: any) {
+        if (e?.code === 'IN_APP_BLOCKED') {
+          // Show forced browser panel
+          setBlocked({ channel });
+          return;
+        }
+        console.warn('[ShareCenter] openShare error', e);
+      }
     },
     [payload, walletBase58, context, txId, onOpenChange]
   );
@@ -73,7 +75,7 @@ export default function ShareCenter({
     success: 'Blast your revival—let the world see your $MEGY journey!',
   }[context];
 
-  // In-app browser notice
+  // In-app browser notice (informational)
   const InAppBar = inApp ? (
     <div className="mb-3 rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-2 text-xs text-yellow-200">
       Some in-app browsers block app sharing. Tap <b>Open in Browser</b> below, then try again.
@@ -87,6 +89,30 @@ export default function ShareCenter({
       </div>
     </div>
   ) : null;
+
+  // Forced step when user taps WA/TG/IG/TikTok inside in-app browser
+  const BlockedStep = blocked && (
+    <div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
+      <div className="font-semibold mb-1">This share can’t be completed inside this in-app browser.</div>
+      <div className="text-xs opacity-90">
+        Please open this page in your system browser first. Then try sharing again.
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <button
+          onClick={() => openWithAnchor(window.location.href, '_blank')}
+          className="rounded-md bg-red-600/90 px-3 py-2 text-xs font-semibold hover:bg-red-600"
+        >
+          Open in Browser
+        </button>
+        <button
+          onClick={() => setBlocked(null)}
+          className="rounded-md border border-red-500/40 px-3 py-2 text-xs hover:bg-red-500/10"
+        >
+          Back
+        </button>
+      </div>
+    </div>
+  );
 
   const body = (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-[1000]">
@@ -107,6 +133,7 @@ export default function ShareCenter({
           {sub && <p className="mb-4 text-sm text-zinc-300">{sub}</p>}
 
           {InAppBar}
+          {BlockedStep}
 
           {/* Preview text block */}
           <div className="mb-4 rounded-xl bg-zinc-800 p-3 text-xs text-zinc-200 break-words">
