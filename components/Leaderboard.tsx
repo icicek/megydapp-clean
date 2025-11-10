@@ -6,6 +6,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { APP_URL } from '@/app/lib/origin';
 import dynamic from 'next/dynamic';
 import ShareCenter from '@/components/share/ShareCenter';
+import { buildPayload } from '@/components/share/intent';
 
 type Props = { referralCode?: string };
 type LeaderboardEntry = {
@@ -66,24 +67,13 @@ export default function Leaderboard({ referralCode }: Props) {
     () => (referralCode ? `${APP_URL}?r=${referralCode}` : APP_URL),
     [referralCode]
   );  
-  const shareText = useMemo(() => {
-      const r = userRank;
-      const base = r
-        ? `Everyone says “hodl.” I said “revive.” Now I’m #${r} on the #Coincarnation Leaderboard.`
-        : `Everyone says “hodl.” I said “revive.” Join the #Coincarnation Leaderboard.`;
-      return `${base}\n${shareUrl}`;
-  }, [userRank, shareUrl]);
-
-  const sharePayload = useMemo(
-    () => ({
+  const sharePayload = useMemo(() => {
+    return buildPayload('leaderboard', {
       url: shareUrl,
-      text: shareText,
-      hashtags: ['MEGY', 'Coincarnation', 'FairFutureFund'],
-      via: 'Coincarnation',
-      utm: 'utm_source=share&utm_medium=leaderboard&utm_campaign=rank',
-    }),
-    [shareText, shareUrl]
-  );
+      rank: userRank ?? undefined,
+    });
+  }, [shareUrl, userRank]);
+
 
   return (
     <div className="mt-10 border border-pink-500/20 rounded-2xl p-6 bg-gradient-to-br from-zinc-900/70 to-black/80 shadow-xl backdrop-blur-lg">
