@@ -39,7 +39,7 @@ function addUtm(u: string, utm?: string): string {
 export function buildTwitterIntent(p: SharePayload): string {
   const params = new URLSearchParams();
   if (p.text) params.set('text', p.text);
-  if (p.url)  params.set('url', addUtm(p.url, p.utm));
+  if (p.url) params.set('url', addUtm(p.url, p.utm));
   if (p.hashtags?.length) params.set('hashtags', p.hashtags.join(','));
   if (p.via) params.set('via', p.via);
   // x.com/intent/post da çalışır; twitter.com/intent/tweet daha yaygın
@@ -49,7 +49,7 @@ export function buildTwitterIntent(p: SharePayload): string {
 // Telegram: web intent
 export function buildTelegramWeb(p: SharePayload): string {
   const params = new URLSearchParams();
-  if (p.url)  params.set('url', addUtm(p.url, p.utm));
+  if (p.url) params.set('url', addUtm(p.url, p.utm));
   if (p.text) params.set('text', p.text);
   return `https://t.me/share/url?${params.toString()}`;
 }
@@ -82,8 +82,8 @@ export function buildCopyText(p: SharePayload): string {
  */
 export const APP_LINKS = {
   telegram: (p: SharePayload) => [
-    'tg://msg',        // dene
-    'tg://',           // dene
+    'tg://msg',
+    'tg://',
     buildTelegramWeb(p)
   ],
   whatsapp: (p: SharePayload) => [
@@ -100,3 +100,67 @@ export const APP_LINKS = {
     'https://www.tiktok.com/explore',
   ],
 };
+
+
+// ------------------------------------------------------------
+// NEW: buildPayload helper — context-based default message builder
+// ------------------------------------------------------------
+export type ShareContext =
+  | 'success'
+  | 'leaderboard'
+  | 'profile'
+  | 'contribution';
+
+/**
+ * Merkezi payload üreticisi.
+ * Her bağlam için metin + UTM + hashtag + via bilgilerini otomatik sağlar.
+ */
+export function buildPayload(
+  ctx: ShareContext,
+  data: {
+    url: string;
+    token?: string;
+    amount?: number | string;
+    rank?: number;
+    referralCode?: string;
+  }
+): SharePayload {
+  const base = {
+    hashtags: ['MEGY', 'Coincarnation', 'FairFutureFund'],
+    via: 'Coincarnation',
+    utm: `utm_source=share&utm_medium=${ctx}`,
+  };
+
+  switch (ctx) {
+    case 'success':
+      return {
+        ...base,
+        url: data.url,
+        text: `🚀 I just Coincarne'd my $${data.token || 'TOKEN'} for $MEGY. ⚡ Coincarnator${
+          data.rank ? ` #${data.rank}` : ''
+        } — reviving the Fair Future Fund!`,
+      };
+
+    case 'leaderboard':
+      return {
+        ...base,
+        url: data.url,
+        text: `🏁 I'm ranked #${data.rank ?? '?'} among top Coincarnators! 🌍 Join the $MEGY revival and earn your CorePoints.`,
+      };
+
+    case 'profile':
+      return {
+        ...base,
+        url: data.url,
+        text: `💎 My Coincarnation profile is growing — each revival strengthens the Fair Future Fund. Check yours!`,
+      };
+
+    case 'contribution':
+    default:
+      return {
+        ...base,
+        url: data.url,
+        text: `🔥 Just revived $${data.token || 'TOKEN'} for $MEGY — every Coincarnation fuels the Fair Future Fund.`,
+      };
+  }
+}
