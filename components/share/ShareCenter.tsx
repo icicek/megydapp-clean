@@ -12,24 +12,7 @@ import {
   buildCopyText,
 } from '@/components/share/intent';
 
-// ---- platform helpers
-const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-const isAndroid = /Android/i.test(ua);
-const isIOS = /iPhone|iPad|iPod/i.test(ua);
-
-// Android Chrome için intent:// formatı (çok daha stabil)
-function openAndroidIntent(intentUrl: string, webFallback?: string) {
-  try {
-    // kullanıcı jestiyle çağrıldığı için izin veriliyor
-    window.location.href = intentUrl;
-    // 700-900ms içinde dönmezse web’e düş
-    setTimeout(() => {
-      if (webFallback) window.location.href = webFallback;
-    }, 900);
-  } catch {
-    if (webFallback) window.location.href = webFallback;
-  }
-}
+import { detectInAppBrowser, openWithAnchor, openWithFallback, isAndroid, isIOS } from '@/components/share/browser';
 
 type Props = {
   open: boolean;
@@ -56,11 +39,11 @@ export default function ShareCenter({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onOpenChange]);
 
-  // ——— Helpers
+  const { inApp } = useMemo(() => detectInAppBrowser(), []);
   const isMobile = useMemo(() => {
     if (typeof navigator === 'undefined') return false;
-    const ua = navigator.userAgent.toLowerCase();
-    return /iphone|ipad|ipod|android|mobile/.test(ua);
+    const u = navigator.userAgent.toLowerCase();
+    return /iphone|ipad|ipod|android|mobile/.test(u);
   }, []);
 
   async function recordShare(channel: Channel) {
@@ -76,112 +59,112 @@ export default function ShareCenter({
     }
   }
 
-  // Uygulama > Web fallback akışı (aynı sekme tercih)
-  const openPreferApp = useCallback(
+  /**
+   * Tek giriş noktası – platforma göre:
+   * - Android: intent:// + 800ms sonra web fallback
+   * - iOS: scheme:// + 800ms sonra web fallback
+   * - Desktop: direkt web (yeni sekme)
+   * Tetikleme: görünmez <a>.click()  (gesture-safe)
+   */
+  const openChannel = useCallback(
     async (channel: Channel) => {
-      // 1) X ve Email: mevcut davranış (stabil)
+      // X: her yerde web intent, yeni sekme
       if (channel === 'twitter') {
-        window.open(buildTwitterIntent(payload), '_blank', 'noopener,noreferrer');
+        openWithAnchor(buildTwitterIntent(payload), '_blank');
         await recordShare('twitter');
         onOpenChange(false);
         return;
       }
+
+      // E-posta: mailto
       if (channel === 'email') {
-        window.location.href = buildEmailIntent(payload);
+        openWithAnchor(buildEmailIntent(payload), '_self');
         await recordShare('email');
         onOpenChange(false);
         return;
       }
+
+      // Metni kopyala
       if (channel === 'copy') {
         try { await navigator.clipboard.writeText(buildCopyText(payload)); } catch {}
         await recordShare('copy');
         onOpenChange(false);
         return;
       }
-  
-      // 2) WhatsApp
+
+      // WhatsApp
       if (channel === 'whatsapp') {
+        const web = buildWhatsAppWeb(payload); // https://wa.me/?text=...
         const text = encodeURIComponent(buildCopyText(payload));
-        if (isAndroid) {
-          // Uygulamayı doğrudan açar; yoksa Play Store → web
-          openAndroidIntent(
-            `intent://send?text=${text}#Intent;scheme=whatsapp;package=com.whatsapp;end`,
-            buildWhatsAppWeb(payload)
-          );
+
+        if (!isMobile) {
+          openWithAnchor(web, '_blank');
+        } else if (isAndroid) {
+          const intent = `intent://send?text=${text}#Intent;scheme=whatsapp;package=com.whatsapp;end`;
+          openWithFallback(intent, web, { delayMs: 800, sameTab: true });
         } else if (isIOS) {
-          // iOS Safari: custom scheme
-          window.location.href = `whatsapp://send?text=${text}`;
-          // kısa bekleme → olmazsa web
-          setTimeout(() => window.open(buildWhatsAppWeb(payload), '_blank'), 900);
-        } else {
-          // Desktop: web
-          window.open(buildWhatsAppWeb(payload), '_blank', 'noopener,noreferrer');
+          const scheme = `whatsapp://send?text=${text}`;
+          openWithFallback(scheme, web, { delayMs: 800, sameTab: true });
         }
         await recordShare('whatsapp');
         onOpenChange(false);
         return;
       }
-  
-      // 3) Telegram
+
+      // Telegram
       if (channel === 'telegram') {
-        const web = buildTelegramWeb(payload);
+        const web = buildTelegramWeb(payload); // https://t.me/share/url?url=...&text=...
         const url = encodeURIComponent(payload.url);
         const text = encodeURIComponent(payload.text);
-  
-        if (isAndroid) {
-          openAndroidIntent(
-            // Telegram’ın paylaşım intent’i
-            `intent://share/url?url=${url}&text=${text}#Intent;scheme=https;package=org.telegram.messenger;end`,
-            web
-          );
+
+        if (!isMobile) {
+          openWithAnchor(web, '_blank');
+        } else if (isAndroid) {
+          const intent = `intent://share/url?url=${url}&text=${text}#Intent;scheme=https;package=org.telegram.messenger;end`;
+          openWithFallback(intent, web, { delayMs: 800, sameTab: true });
         } else if (isIOS) {
-          // App deeplink → açılmazsa web
-          window.location.href = `tg://msg_url?url=${url}&text=${text}`;
-          setTimeout(() => window.open(web, '_blank'), 900);
-        } else {
-          window.open(web, '_blank', 'noopener,noreferrer');
+          const scheme = `tg://msg_url?url=${url}&text=${text}`;
+          openWithFallback(scheme, web, { delayMs: 800, sameTab: true });
         }
         await recordShare('telegram');
         onOpenChange(false);
         return;
       }
-  
-      // En iyi deneyim: metni panoya kopyala + uygulamayı aç + olmazsa web
+
+      // Instagram & TikTok – metni kopyala + uygulamayı aç + web fallback
       if (channel === 'instagram' || channel === 'tiktok') {
         try { await navigator.clipboard.writeText(buildCopyText(payload)); } catch {}
-        if (isAndroid) {
+        const fb = channel === 'instagram' ? 'https://www.instagram.com/' : 'https://www.tiktok.com/explore';
+
+        if (!isMobile) {
+          openWithAnchor(fb, '_blank');
+        } else if (isAndroid) {
           const pkg = channel === 'instagram' ? 'com.instagram.android' : 'com.zhiliaoapp.musically';
-          const fb  = channel === 'instagram' ? 'https://www.instagram.com/' : 'https://www.tiktok.com/explore';
-          openAndroidIntent(`intent://#Intent;scheme=${channel};package=${pkg};end`, fb);
+          const intent = `intent://#Intent;scheme=${channel};package=${pkg};end`;
+          openWithFallback(intent, fb, { delayMs: 800, sameTab: true });
         } else if (isIOS) {
           const scheme = channel === 'instagram' ? 'instagram://app' : 'tiktok://';
-          const fb     = channel === 'instagram' ? 'https://www.instagram.com/' : 'https://www.tiktok.com/explore';
-          window.location.href = scheme;
-          setTimeout(() => window.open(fb, '_blank'), 900);
-        } else {
-          const fb = channel === 'instagram' ? 'https://www.instagram.com/' : 'https://www.tiktok.com/explore';
-          window.open(fb, '_blank', 'noopener,noreferrer');
+          openWithFallback(scheme, fb, { delayMs: 800, sameTab: true });
         }
         await recordShare(channel);
         onOpenChange(false);
         return;
       }
-  
-      // 5) Son çare: Web Share API (kullanıcı cihazı seçer)
+
+      // Son çare: Web Share API (destek varsa)
       if (navigator.share) {
         try {
           await navigator.share({ title: 'Coincarnation', text: payload.text, url: payload.url });
           await recordShare(channel);
-        } catch { /* kullanıcı iptal etti */ }
+        } catch { /* kullanıcı iptal edebilir */ }
         onOpenChange(false);
       }
     },
-    [payload, onOpenChange]
-  );  
+    [payload, onOpenChange, walletBase58, context, txId]
+  );
 
   if (!open) return null;
 
-  // Başlık/alt metin – bağlama göre küçük motivasyon cümleleri
   const heading = 'Share';
   const sub = {
     profile: 'Invite your circle—your CorePoint grows with every ripple.',
@@ -190,11 +173,28 @@ export default function ShareCenter({
     success: 'Blast your revival—let the world see your $MEGY journey!',
   }[context];
 
+  // In-app browser uyarı çubuğu
+  const InAppBar = inApp ? (
+    <div className="mb-3 rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-2 text-xs text-yellow-200">
+      This share may not work inside in-app browsers. Tap <b>Open in Browser</b> below, then try again.
+      <div className="mt-2">
+        <button
+          onClick={() => {
+            // kullanıcıyı tarayıcıya taşı – en sağlam yöntem: kendi URL’ini yeni sekmede aç
+            openWithAnchor(window.location.href, '_blank');
+          }}
+          className="rounded-md bg-yellow-600/80 px-2 py-1 text-[11px] font-semibold hover:bg-yellow-600"
+        >
+          Open in Browser
+        </button>
+      </div>
+    </div>
+  ) : null;
+
   const body = (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-[1000]">
       <div className="absolute inset-0 bg-black/60" onClick={() => onOpenChange(false)} />
       <div className="absolute inset-0 flex items-center justify-center p-4">
-        {/* Standart ve bağımsız genişlik */}
         <div className="w-[92%] max-w-[420px] rounded-2xl border border-zinc-700 bg-zinc-900 p-5 text-white shadow-xl">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-lg font-semibold">{heading}</h3>
@@ -208,42 +208,43 @@ export default function ShareCenter({
 
           {sub && <p className="mb-4 text-sm text-zinc-300">{sub}</p>}
 
+          {InAppBar}
+
           <div className="mb-4 rounded-xl bg-zinc-800 p-3 text-xs text-zinc-200 break-words">
             {payload.text}
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            <button onClick={() => openPreferApp('twitter')}
+            <button onClick={() => openChannel('twitter')}
               className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold hover:bg-blue-700 whitespace-nowrap">
               X
             </button>
-            <button onClick={() => openPreferApp('telegram')}
+            <button onClick={() => openChannel('telegram')}
               className="rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold hover:bg-sky-700 whitespace-nowrap">
               Telegram
             </button>
-            <button onClick={() => openPreferApp('whatsapp')}
+            <button onClick={() => openChannel('whatsapp')}
               className="rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold hover:bg-green-700 whitespace-nowrap">
               WhatsApp
             </button>
 
-            <button onClick={() => openPreferApp('email')}
+            <button onClick={() => openChannel('email')}
               className="rounded-lg bg-zinc-600 px-3 py-2 text-sm font-semibold hover:bg-zinc-500 whitespace-nowrap">
               Email
             </button>
-            <button onClick={() => openPreferApp('instagram')}
+            <button onClick={() => openChannel('instagram')}
               className="rounded-lg bg-pink-600 px-3 py-2 text-sm font-semibold hover:bg-pink-700 whitespace-nowrap">
               Instagram
             </button>
-            <button onClick={() => openPreferApp('tiktok')}
+            <button onClick={() => openChannel('tiktok')}
               className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold hover:bg-red-700 whitespace-nowrap">
               TikTok
             </button>
           </div>
 
-
           <div className="mt-4">
             <button
-              onClick={() => openPreferApp('copy')}
+              onClick={() => openChannel('copy')}
               className="w-full rounded-lg bg-orange-600 px-3 py-3 text-sm font-semibold hover:bg-orange-700"
             >
               Copy text
@@ -254,7 +255,6 @@ export default function ShareCenter({
     </div>
   );
 
-  // 🔒 Portal: her zaman <body>’ye renderla (layout’tan bağımsız)
   if (typeof document !== 'undefined') {
     return createPortal(body, document.body);
   }
