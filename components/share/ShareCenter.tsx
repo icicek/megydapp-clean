@@ -49,14 +49,28 @@ export default function ShareCenter({
     const style = document.createElement('style');
     style.id = 'sharecenter-toast-style';
     style.innerHTML = `
-      @keyframes fadeInOut {
-        0% { opacity: 0; transform: translateY(8px); }
-        12% { opacity: 1; transform: translateY(0); }
-        88% { opacity: 1; }
-        100% { opacity: 0; transform: translateY(8px); }
-      }
-      .animate-fadeInOut { animation: fadeInOut 3.2s ease-in-out forwards; }
-    `;
+    /* Toast fade */
+    @keyframes fadeInOut {
+      0%   { opacity: 0; transform: translateY(8px); }
+      12%  { opacity: 1; transform: translateY(0); }
+      88%  { opacity: 1; }
+      100% { opacity: 0; transform: translateY(8px); }
+    }
+    .animate-fadeInOut {
+      animation: fadeInOut 3.2s ease-in-out forwards;
+    }
+  
+    /* X button sheen sweep */
+    @keyframes x-sweep {
+      0%   { transform: translateX(-140%); }
+      60%  { transform: translateX(160%); }
+      100% { transform: translateX(160%); }
+    }
+    .animate-x-sweep {
+      animation: x-sweep 1.2s ease-out 1;
+    }
+  `;
+  
     document.head.appendChild(style);
   }, []);
 
@@ -147,15 +161,27 @@ export default function ShareCenter({
 
           {/* Buttons */}
           <div className="grid grid-cols-3 gap-3">
-            {/* X — dark→light blue gradient + glass + soft glow (rounded-xl) */}
+
+            {/* X — vivid gradient + glow + sheen */}
             <button
               onClick={() => openChannel('twitter')}
-              className="rounded-xl px-3 py-2 text-sm font-semibold text-white whitespace-nowrap
-                         ring-1 ring-blue-300/30 bg-gradient-to-r from-[#0A4BCB] to-[#58B0FF]
-                         backdrop-blur-sm shadow-[0_0_10px_rgba(0,150,255,0.4)]
-                         hover:brightness-110 transition"
+              className="group relative overflow-hidden rounded-xl px-3 py-2 text-sm font-semibold text-white whitespace-nowrap
+                        ring-2 ring-blue-300/40 bg-gradient-to-r from-[#072E86] via-[#1E74FF] to-[#8FDBFF]
+                        shadow-[0_0_14px_rgba(56,189,248,0.45)]
+                        hover:brightness-110 hover:shadow-[0_0_20px_rgba(56,189,248,0.65)]
+                        active:translate-y-[1px] transition"
             >
-              X
+              <span className="relative z-[1]">X</span>
+
+              {/* soft inner glow */}
+              <span className="pointer-events-none absolute inset-0 rounded-xl opacity-30
+                              bg-[radial-gradient(120%_100%_at_50%_-10%,rgba(255,255,255,0.35),rgba(255,255,255,0)_60%)]" />
+
+              {/* sheen sweep on hover */}
+              <span className="pointer-events-none absolute top-0 -left-1/3 h-full w-1/3
+                              translate-x-[-140%] bg-gradient-to-r from-white/30 via-white/60 to-white/10
+                              blur-[6px] rounded-xl opacity-0
+                              group-hover:opacity-100 group-hover:animate-x-sweep" />
             </button>
 
             {/* Telegram — soft wash 0.22 */}
