@@ -3,13 +3,22 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { SharePayload, Channel } from '@/components/share/intent';
-import { detectInAppBrowser, openWithAnchor } from '@/components/share/browser';
+import { detectInAppBrowser } from '@/components/share/browser';
 import { openShareChannel } from '@/components/share/openShare';
+
+// 🟢 Basit toast bildirimi bileşeni
+function Toast({ message }: { message: string }) {
+  return (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[2000] bg-zinc-800 text-white text-sm px-4 py-2 rounded-lg border border-zinc-600 shadow-lg animate-fadeInOut">
+      {message}
+    </div>
+  );
+}
 
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  payload: SharePayload;    // { url, text, hashtags?, via?, utm?, subject? }
+  payload: SharePayload; // { url, text, hashtags?, via?, utm?, subject? }
   context: 'profile' | 'contribution' | 'leaderboard' | 'success';
   txId?: string;
   walletBase58?: string | null;
@@ -23,7 +32,9 @@ export default function ShareCenter({
   txId,
   walletBase58,
 }: Props) {
-  // Close on ESC
+  const [toast, setToast] = useState<string | null>(null);
+
+  // ESC ile kapatma
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onOpenChange(false);
@@ -32,7 +43,6 @@ export default function ShareCenter({
   }, [open, onOpenChange]);
 
   const { inApp } = useMemo(() => detectInAppBrowser(), []);
-  const [blocked, setBlocked] = useState<null | { channel: Channel }>(null);
 
   async function recordShare(channel: Channel) {
     if (!walletBase58) return;
@@ -40,30 +50,52 @@ export default function ShareCenter({
       await fetch('/api/share/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet_address: walletBase58, channel, context, txId: txId ?? null }),
+        body: JSON.stringify({
+          wallet_address: walletBase58,
+          channel,
+          context,
+          txId: txId ?? null,
+        }),
       });
     } catch (e) {
       console.warn('[ShareCenter] record error', e);
     }
   }
 
+  // 🔹 Geçici toast mesajı göster
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  // 🔹 X (Twitter) aktif
   const openChannel = useCallback(
     async (channel: Channel) => {
-      try {
-        await openShareChannel(channel, payload);
-        await recordShare(channel);
+      if (channel === 'twitter') {
+        await openShareChannel('twitter', payload);
+        await recordShare('twitter');
         onOpenChange(false);
-      } catch (e: any) {
-        if (e?.code === 'IN_APP_BLOCKED') {
-          // Show forced browser panel
-          setBlocked({ channel });
-          return;
-        }
-        console.warn('[ShareCenter] openShare error', e);
+        return;
       }
+
+      // 🟠 Diğer platformlar için geçici bilgilendirme
+      showToast(
+        "Sharing for this app isn’t live yet — but you’ll still earn CorePoints when you copy and share manually!"
+      );
     },
     [payload, walletBase58, context, txId, onOpenChange]
   );
+
+  // 🔹 Copy text aktif
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(payload.text);
+      await recordShare('copy');
+      showToast('Post text copied — share manually to earn CorePoints!');
+    } catch {
+      showToast('Could not copy text.');
+    }
+  };
 
   if (!open) return null;
 
@@ -75,50 +107,11 @@ export default function ShareCenter({
     success: 'Blast your revival—let the world see your $MEGY journey!',
   }[context];
 
-  // In-app browser notice (informational)
-  const InAppBar = inApp ? (
-    <div className="mb-3 rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-2 text-xs text-yellow-200">
-      Some in-app browsers block app sharing. Tap <b>Open in Browser</b> below, then try again.
-      <div className="mt-2">
-        <button
-          onClick={() => openWithAnchor(window.location.href, '_blank')}
-          className="rounded-md bg-yellow-600/80 px-2 py-1 text-[11px] font-semibold hover:bg-yellow-600"
-        >
-          Open in Browser
-        </button>
-      </div>
-    </div>
-  ) : null;
-
-  // Forced step when user taps WA/TG/IG/TikTok inside in-app browser
-  const BlockedStep = blocked && (
-    <div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
-      <div className="font-semibold mb-1">This share can’t be completed inside this in-app browser.</div>
-      <div className="text-xs opacity-90">
-        Please open this page in your system browser first. Then try sharing again.
-      </div>
-      <div className="mt-3 flex items-center gap-2">
-        <button
-          onClick={() => openWithAnchor(window.location.href, '_blank')}
-          className="rounded-md bg-red-600/90 px-3 py-2 text-xs font-semibold hover:bg-red-600"
-        >
-          Open in Browser
-        </button>
-        <button
-          onClick={() => setBlocked(null)}
-          className="rounded-md border border-red-500/40 px-3 py-2 text-xs hover:bg-red-500/10"
-        >
-          Back
-        </button>
-      </div>
-    </div>
-  );
-
   const body = (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-[1000]">
       <div className="absolute inset-0 bg-black/60" onClick={() => onOpenChange(false)} />
       <div className="absolute inset-0 flex items-center justify-center p-4">
-        {/* Fixed, predictable width */}
+        {/* Kart alanı */}
         <div className="w-[92%] max-w-[420px] rounded-2xl border border-zinc-700 bg-zinc-900 p-5 text-white shadow-xl">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-lg font-semibold">{heading}</h3>
@@ -132,46 +125,37 @@ export default function ShareCenter({
 
           {sub && <p className="mb-4 text-sm text-zinc-300">{sub}</p>}
 
-          {InAppBar}
-          {BlockedStep}
-
-          {/* Preview text block */}
           <div className="mb-4 rounded-xl bg-zinc-800 p-3 text-xs text-zinc-200 break-words">
             {payload.text}
           </div>
 
-          {/* Buttons (single-line labels) */}
+          {/* Butonlar */}
           <div className="grid grid-cols-3 gap-3">
-            <button onClick={() => openChannel('twitter')}
-              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold hover:bg-blue-700 whitespace-nowrap">
+            {/* 🟢 X aktif */}
+            <button
+              onClick={() => openChannel('twitter')}
+              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold hover:bg-blue-700 whitespace-nowrap"
+            >
               X
             </button>
-            <button onClick={() => openChannel('telegram')}
-              className="rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold hover:bg-sky-700 whitespace-nowrap">
-              Telegram
-            </button>
-            <button onClick={() => openChannel('whatsapp')}
-              className="rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold hover:bg-green-700 whitespace-nowrap">
-              WhatsApp
-            </button>
 
-            <button onClick={() => openChannel('email')}
-              className="rounded-lg bg-zinc-600 px-3 py-2 text-sm font-semibold hover:bg-zinc-500 whitespace-nowrap">
-              Email
-            </button>
-            <button onClick={() => openChannel('instagram')}
-              className="rounded-lg bg-pink-600 px-3 py-2 text-sm font-semibold hover:bg-pink-700 whitespace-nowrap">
-              Instagram
-            </button>
-            <button onClick={() => openChannel('tiktok')}
-              className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold hover:bg-red-700 whitespace-nowrap">
-              TikTok
-            </button>
+            {/* 🔴 Diğerleri kapalı */}
+            {['telegram', 'whatsapp', 'email', 'instagram', 'tiktok'].map((ch) => (
+              <button
+                key={ch}
+                onClick={() => openChannel(ch as Channel)}
+                disabled
+                className="rounded-lg bg-zinc-700/70 px-3 py-2 text-sm font-semibold text-zinc-400 cursor-not-allowed whitespace-nowrap"
+              >
+                {ch.charAt(0).toUpperCase() + ch.slice(1)}
+              </button>
+            ))}
           </div>
 
+          {/* Copy butonu */}
           <div className="mt-4">
             <button
-              onClick={() => openChannel('copy')}
+              onClick={handleCopy}
               className="w-full rounded-lg bg-orange-600 px-3 py-3 text-sm font-semibold hover:bg-orange-700"
             >
               Copy text
@@ -179,12 +163,30 @@ export default function ShareCenter({
           </div>
         </div>
       </div>
+
+      {/* Toast alanı */}
+      {toast && <Toast message={toast} />}
     </div>
   );
 
-  // Always portal to <body> so layout trees don't matter
+  // Portal
   if (typeof document !== 'undefined') {
     return createPortal(body, document.body);
   }
   return body;
 }
+
+/* ---- Basit fade animasyonu ---- */
+const style = document.createElement('style');
+style.innerHTML = `
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateY(10px); }
+  10% { opacity: 1; transform: translateY(0); }
+  90% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(10px); }
+}
+.animate-fadeInOut {
+  animation: fadeInOut 3.5s ease-in-out forwards;
+}
+`;
+if (typeof document !== 'undefined') document.head.appendChild(style);
