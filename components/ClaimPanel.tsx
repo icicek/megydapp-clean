@@ -600,22 +600,6 @@ export default function ClaimPanel() {
           context={shareContext}
           txId={shareTxId}
           walletBase58={publicKey?.toBase58() ?? null}
-          onAfterShare={async ({ channel, context, txId }) => {
-            try {
-              await fetch('/api/share/record', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  wallet_address: publicKey?.toBase58() ?? undefined,
-                  channel,       // 'twitter' | 'telegram' | 'whatsapp' (ShareCenter’dan gelir)
-                  context,       // 'profile' | 'contribution' | 'leaderboard' | 'success'
-                  txId: txId ?? null,
-                }),
-              });
-            } catch (e) {
-              console.error('share record error', e);
-            }
-          }}
         />
       )}
     </div>
