@@ -39,6 +39,13 @@ export default function ShareCenter({
   walletBase58,
   theme = 'default',
 }: Props) {
+  // 🚧 Hard guard: props eksikse hiç render etme
+  if (!open) return null;
+  if (!payload || typeof payload.url !== 'string' || typeof payload.text !== 'string') {
+    // Beklenmedik durumda sessizce kapat
+    try { onOpenChange(false); } catch {}
+    return null;
+  }
   // ESC kapatma
   useEffect(() => {
     if (!open) return;

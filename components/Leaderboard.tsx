@@ -161,7 +161,8 @@ export default function Leaderboard({ referralCode }: Props) {
                 </p>
 
                 <button
-                  onClick={() => setShareOpen(true)}
+                  onClick={() => sharePayload && setShareOpen(true)}
+                  disabled={!sharePayload}
                   className="inline-block text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md transition"
                 >
                   Share…
@@ -172,14 +173,16 @@ export default function Leaderboard({ referralCode }: Props) {
         </div>
       )}
 
-      {/* Share modal */}
-      <ShareCenter
-        open={shareOpen}
-        onOpenChange={setShareOpen}
-        payload={sharePayload}
-        context="leaderboard"
-        walletBase58={publicKey?.toBase58() ?? null}
-      />
+      {/* Share modal (koşullu) */}
+      {shareOpen && sharePayload && (
+        <ShareCenter
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          payload={sharePayload}
+          context="leaderboard"
+          walletBase58={publicKey?.toBase58() ?? null}
+        />
+      )}
     </div>
   );
 }
