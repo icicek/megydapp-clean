@@ -28,11 +28,16 @@ export default function CoincarnationResult({
   // Paylaşım URL'i (referral varsa ekle)
   const shareUrl = referral ? `${APP_URL}?r=${encodeURIComponent(referral)}` : APP_URL;
 
-  // Metin/hashtag/via/UTM tek merkezden gelir (playful varsayılan)
+  // components/CoincarnationResult.tsx (yalnızca payload kısmı)
   const payload = buildPayload('success', {
-    url: shareUrl,
+    url: APP_URL,
     token: tokenFrom,
     rank: number,
+    // tone, hashtags, via isteğe bağlı
+  }, {
+    ref: undefined,      // elinde referral varsa buraya ver (ör: referralCode)
+    src: 'app',          // varsayılan zaten 'app'
+    // ctx otomatik 'success' gelir
   });
 
   return (

@@ -413,6 +413,10 @@ export default function ClaimPanel() {
                               url,
                               token: tx.token_symbol,
                               amount: tx.token_amount,
+                            }, {
+                              ref: data.referral_code ?? undefined,
+                              src: 'app',
+                              // ctx otomatik 'contribution'
                             });
                             setSharePayload(payload);                            
                             setShareContext('contribution');
@@ -499,7 +503,11 @@ export default function ClaimPanel() {
                       onClick={() => {
                         if (!data.referral_code) return;
                         const url = `${APP_URL}?r=${data.referral_code}`;
-                        const payload = buildPayload('profile', { url });
+                        const payload = buildPayload('profile', { url }, {
+                          ref: data.referral_code ?? undefined,
+                          src: 'app',
+                          // ctx otomatik 'profile'
+                        });
                         setSharePayload(payload);
                         setShareContext('profile'); // profil veya referral paylaşımı
                         setShareTxId(undefined);

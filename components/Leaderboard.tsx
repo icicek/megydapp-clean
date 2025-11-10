@@ -71,9 +71,12 @@ export default function Leaderboard({ referralCode }: Props) {
     return buildPayload('leaderboard', {
       url: shareUrl,
       rank: userRank ?? undefined,
+    }, {
+      ref: referralCode ?? undefined,
+      src: 'app', // veya 'xshare' dersen X butonundan tetiklenen özel kaynak gibi kullanabilirsin
+      // ctx otomatik 'leaderboard'
     });
-  }, [shareUrl, userRank]);
-
+  }, [shareUrl, userRank, referralCode]);  
 
   return (
     <div className="mt-10 border border-pink-500/20 rounded-2xl p-6 bg-gradient-to-br from-zinc-900/70 to-black/80 shadow-xl backdrop-blur-lg">
