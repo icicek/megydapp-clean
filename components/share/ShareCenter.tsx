@@ -53,7 +53,7 @@ function Toast({
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  payload: SharePayload; // dışarıda context'e göre üretilir
+  payload: SharePayload;
   context: 'profile' | 'contribution' | 'leaderboard' | 'success';
   txId?: string;
   walletBase58?: string | null;
@@ -71,6 +71,7 @@ export default function ShareCenter({
   const [toastPos, setToastPos] = useState<'top' | 'bottom'>('bottom');
   const [toastWide, setToastWide] = useState<boolean>(true);
   const [toastVariant, setToastVariant] = useState<ToastVariant>('info');
+  const [shortUrl, setShortUrl] = useState<string | undefined>(payload.shortUrl);
 
   // ESC ile kapatma
   useEffect(() => {
@@ -87,7 +88,6 @@ export default function ShareCenter({
     const style = document.createElement('style');
     style.id = 'sharecenter-toast-style';
     style.innerHTML = `
-      /* Toast fade */
       @keyframes fadeInOut {
         0%   { opacity: 0; transform: translateY(8px); }
         12%  { opacity: 1; transform: translateY(0); }
@@ -96,7 +96,6 @@ export default function ShareCenter({
       }
       .animate-fadeInOut { animation: fadeInOut 3.2s ease-in-out forwards; }
 
-      /* X button sheen sweep */
       @keyframes x-sweep {
         0%   { transform: translateX(-140%); }
         60%  { transform: translateX(160%); }
@@ -107,7 +106,28 @@ export default function ShareCenter({
     document.head.appendChild(style);
   }, []);
 
+  // In-app browser detect
   useMemo(() => detectInAppBrowser(), []);
+
+  // —— Optional shortener (client): /api/shorten?u=<url> => { shortUrl }
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        if (payload.shortUrl) return; // already provided
+        const res = await fetch(`/api/shorten?u=${encodeURIComponent(payload.url)}`);
+        if (!res.ok) return;
+        const j = await res.json().catch(() => null);
+        if (!mounted) return;
+        if (j?.shortUrl && typeof j.shortUrl === 'string' && j.shortUrl.length > 0) {
+          setShortUrl(j.shortUrl);
+        }
+      } catch {
+        /* ignore — fallback to long url */
+      }
+    })();
+    return () => { mounted = false; };
+  }, [payload.url, payload.shortUrl]);
 
   async function recordShare(channel: Channel) {
     if (!walletBase58) return;
@@ -141,16 +161,17 @@ export default function ShareCenter({
     (showToast as any)._t = window.setTimeout(() => setToastMsg(null), 3200);
   };
 
+  const payloadWithShort: SharePayload = shortUrl ? { ...payload, shortUrl } : payload;
+
   // X aktif, diğerleri toast
   const openChannel = useCallback(
     async (channel: Channel) => {
       if (channel === 'twitter') {
-        await openShareChannel('twitter', payload); // anchor.click ile açar
+        await openShareChannel('twitter', payloadWithShort);
         await recordShare('twitter');
         onOpenChange(false);
         return;
       }
-      // Geçici bilgilendirme — mavi kutu
       showToast(
         "Sharing for this app isn’t live yet — but you’ll still earn CorePoints when you copy and share manually!",
         'bottom',
@@ -158,13 +179,13 @@ export default function ShareCenter({
         'info'
       );
     },
-    [payload, walletBase58, context, txId, onOpenChange]
+    [payloadWithShort, walletBase58, context, txId, onOpenChange]
   );
 
   // Copy text — X ile aynı birleşik format
   const handleCopy = async () => {
     try {
-      const composed = buildCopyText(payload);
+      const composed = buildCopyText(payloadWithShort);
       await navigator.clipboard.writeText(composed);
       await recordShare('copy');
       showToast('Post text copied — share manually to earn CorePoints!', 'top', false, 'success');
@@ -183,18 +204,12 @@ export default function ShareCenter({
     success: 'Blast your revival—let the world see your $MEGY journey!',
   }[context];
 
-  // “soft brand on black” buton baz sınıfı
   const softBase =
     'relative rounded-xl px-3 py-2 text-sm font-semibold text-white whitespace-nowrap ring-1 ring-white/10 bg-zinc-950';
 
-  // X logosu — sade, tek satır
+  // X logo (küçük ve zarif)
   const XLogo = () => (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-5 w-5"
-      focusable="false"
-    >
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 md:h-4 md:w-4" focusable="false">
       <path
         fill="currentColor"
         d="M18.9 2H21l-7.5 8.6L22 22h-6.8l-5.3-6.4L3.8 22H2l8-9.2L2 2h6.8l5 6 5.1-6z"
@@ -203,7 +218,6 @@ export default function ShareCenter({
   );
 
   const body = (
-    // pointer-events düzeltmesi: dış kabuk none, overlay ve kart auto
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-[9999] pointer-events-none">
       <div
         className="absolute inset-0 bg-black/60 pointer-events-auto"
@@ -239,7 +253,7 @@ export default function ShareCenter({
 
           {/* Buttons */}
           <div className="grid grid-cols-3 gap-3">
-            {/* X — sadece logo */}
+            {/* X — sadece logo, küçük */}
             <button
               type="button"
               onClick={() => openChannel('twitter')}
@@ -262,7 +276,6 @@ export default function ShareCenter({
                                group-hover:opacity-100 group-hover:animate-x-sweep" />
             </button>
 
-            {/* Telegram — black base + soft brand wash */}
             <button
               type="button"
               onClick={() => openChannel('telegram')}
@@ -271,7 +284,6 @@ export default function ShareCenter({
               Telegram
             </button>
 
-            {/* WhatsApp — black base + soft brand wash */}
             <button
               type="button"
               onClick={() => openChannel('whatsapp')}
@@ -280,7 +292,6 @@ export default function ShareCenter({
               WhatsApp
             </button>
 
-            {/* Email — black base + soft neutral wash */}
             <button
               type="button"
               onClick={() => openChannel('email')}
@@ -289,7 +300,6 @@ export default function ShareCenter({
               Email
             </button>
 
-            {/* Instagram — multi wash */}
             <button
               type="button"
               onClick={() => openChannel('instagram')}
@@ -298,7 +308,6 @@ export default function ShareCenter({
               Instagram
             </button>
 
-            {/* TikTok — dual wash */}
             <button
               type="button"
               onClick={() => openChannel('tiktok')}

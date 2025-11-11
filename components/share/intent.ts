@@ -4,7 +4,8 @@
 export type Tone = 'playful' | 'short' | 'serious';
 
 export type SharePayload = {
-  url: string;          // final URL (with ref/src/ctx merged)
+  url: string;          // final canonical URL (with ref/src/ctx merged)
+  shortUrl?: string;    // optional already-shortened URL (preferred when present)
   text: string;         // post text (includes $MEGY / $<TOKEN> if applicable)
   hashtags?: string[];  // e.g., ["Coincarnation"]
   via?: string;         // e.g., "levershare" (no @)
@@ -72,12 +73,25 @@ function addUtm(u: string, utm?: string): string {
   return url.toString();
 }
 
-// 4) Kopyalama: boş satırla daha okunaklı
+// helper: inline tail => " #tag1 #tag2 via @xxx" (tags first, then via)
+function inlineTail(p: SharePayload): string {
+  const tags = p.hashtags?.length ? ` #${p.hashtags.join(' #')}` : '';
+  const via = p.via ? ` via @${p.via.replace(/^@/, '')}` : '';
+  return `${tags}${via}`;
+}
+
+// prefer shortUrl if provided
+function finalShareLink(p: SharePayload): string {
+  const base = p.shortUrl && p.shortUrl.trim().length > 0 ? p.shortUrl : p.url;
+  return addUtm(base, p.utm);
+}
+
+// ---- COPY TEXT: X ile aynı sıra/biçim ----
+// metin ⏎⏎ link #tags via @via
 export function buildCopyText(p: SharePayload): string {
-  const link = addUtm(p.url, p.utm);
-  const via = p.via ? `\nvia @${p.via.replace(/^@/, '')}` : '';
-  const tags = p.hashtags?.length ? `\n#${p.hashtags.join(' #')}` : '';
-  return `${p.text}\n\n${link}${via}${tags}`; // metin ⏎⏎ link
+  const link = finalShareLink(p);
+  const tail = inlineTail(p);
+  return `${p.text}\n\n${link}${tail}`;
 }
 
 // ----------------- context text templates -----------------
@@ -125,6 +139,7 @@ export function buildPayload(
     via?: string;
     utm?: string;
     subject?: string;
+    shortUrl?: string; // optional shortened url injected by caller
   },
   opts?: {
     ref?: string;
@@ -155,6 +170,7 @@ export function buildPayload(
 
   return {
     url: finalUrl,
+    shortUrl: data.shortUrl,
     text,
     hashtags: data.hashtags ?? DEFAULT_HASHTAGS,
     via: (data.via ?? DEFAULT_VIA).replace(/^@/, ''),
@@ -165,33 +181,38 @@ export function buildPayload(
 
 // ----------------- Channel intent builders -----------------
 
+// Twitter: yalnızca text paramı; link + #tags + via, text içinde
 export function buildTwitterIntent(p: SharePayload): string {
   const params = new URLSearchParams();
-  const link = addUtm(p.url, p.utm);
-  const textWithGap = p.text ? `${p.text}\n\n${link}` : link;
-  if (textWithGap) params.set('text', textWithGap);
-  if (p.hashtags?.length) params.set('hashtags', p.hashtags.join(','));
-  if (p.via) params.set('via', p.via.replace(/^@/, ''));
+  const link = finalShareLink(p);
+  const tail = inlineTail(p);
+  const textWithGap = p.text ? `${p.text}\n\n${link}${tail}` : `${link}${tail}`;
+
+  params.set('text', textWithGap);
+  // NOT setting 'hashtags' or 'via' separately — we compose inline for consistent look
   return `https://twitter.com/intent/tweet?${params.toString()}`;
 }
 
+// Telegram (web)
 export function buildTelegramWeb(p: SharePayload): string {
   const params = new URLSearchParams();
-  const link = addUtm(p.url, p.utm);
-  const textWithGap = p.text ? `${p.text}\n\n${link}` : link;
+  const link = finalShareLink(p);
+  const textWithGap = p.text ? `${p.text}\n\n${link}${inlineTail(p)}` : `${link}${inlineTail(p)}`;
   params.set('text', textWithGap);
   return `https://t.me/share/url?${params.toString()}`;
 }
 
+// WhatsApp (web)
 export function buildWhatsAppWeb(p: SharePayload): string {
-  const combined = `${p.text ? p.text + '\n\n' : ''}${addUtm(p.url, p.utm)}`.trim();
+  const combined = `${p.text ? p.text + '\n\n' : ''}${finalShareLink(p)}${inlineTail(p)}`.trim();
   const params = new URLSearchParams({ text: combined });
   return `https://wa.me/?${params.toString()}`;
 }
 
+// Email
 export function buildEmailIntent(p: SharePayload): string {
   const subject = p.subject || 'Check this out';
-  const body = `${p.text}\n\n${addUtm(p.url, p.utm)}\nvia @${(p.via ?? 'levershare').replace(/^@/, '')}`;
+  const body = `${p.text}\n\n${finalShareLink(p)}${inlineTail(p)}`;
   const params = new URLSearchParams({ subject, body });
   return `mailto:?${params.toString()}`;
 }
@@ -201,7 +222,7 @@ export function buildEmailIntent(p: SharePayload): string {
 export const APP_LINKS = {
   telegram: (p: SharePayload) => ['tg://msg', 'tg://', buildTelegramWeb(p)],
   whatsapp: (p: SharePayload) => [
-    `whatsapp://send?text=${encodeURIComponent(`${p.text} ${addUtm(p.url, p.utm)}`.trim())}`,
+    `whatsapp://send?text=${encodeURIComponent(`${p.text} ${finalShareLink(p)}${inlineTail(p)}`.trim())}`,
     buildWhatsAppWeb(p),
   ],
   instagram: (_p: SharePayload) => ['instagram://app', 'https://www.instagram.com/'],
