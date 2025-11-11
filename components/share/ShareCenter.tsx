@@ -22,13 +22,9 @@ function Toast({
   variant?: ToastVariant;
 }) {
   const posClass =
-    position === 'top'
-      ? 'top-6 md:top-10'
-      : 'bottom-16 md:bottom-24';
+    position === 'top' ? 'top-6 md:top-10' : 'bottom-16 md:bottom-24';
 
-  const widthClass = wide
-    ? 'w-[min(720px,calc(100vw-2rem))]'
-    : 'w-auto max-w-[90vw]';
+  const widthClass = wide ? 'w-[min(720px,calc(100vw-2rem))]' : 'w-auto max-w-[90vw]';
 
   const color =
     variant === 'success'
@@ -36,11 +32,6 @@ function Toast({
       : variant === 'error'
       ? 'bg-rose-600/90 ring-rose-300/60 shadow-[0_0_24px_rgba(244,63,94,0.35)]'
       : 'bg-sky-600/90 ring-sky-300/60 shadow-[0_0_24px_rgba(56,189,248,0.35)]';
-
-      const softBase =
-      'relative h-10 md:h-9 rounded-xl px-3 text-sm font-semibold text-white ' +
-      'whitespace-nowrap ring-1 ring-white/10 bg-zinc-950 ' +
-      'flex items-center justify-center';
 
   return (
     <div
@@ -77,6 +68,15 @@ export default function ShareCenter({
   const [toastWide, setToastWide] = useState<boolean>(true);
   const [toastVariant, setToastVariant] = useState<ToastVariant>('info');
   const [shortUrl, setShortUrl] = useState<string | undefined>(payload.shortUrl);
+
+  // —— Tek noktadan buton yüksekliği
+  const BTN_H = 'h-9 md:h-8';
+
+  // “soft brand on black” — tüm platform butonları için ortak sınıf (yükseklik eşit)
+  const softBase =
+    `relative ${BTN_H} rounded-xl px-3 text-sm font-semibold text-white ` +
+    `whitespace-nowrap ring-1 ring-white/10 bg-zinc-950 ` +
+    `flex items-center justify-center`;
 
   // ESC ile kapatma
   useEffect(() => {
@@ -131,7 +131,9 @@ export default function ShareCenter({
         /* ignore — fallback to long url */
       }
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [payload.url, payload.shortUrl]);
 
   async function recordShare(channel: Channel) {
@@ -209,15 +211,15 @@ export default function ShareCenter({
     success: 'Blast your revival—let the world see your $MEGY journey!',
   }[context];
 
-  const softBase =
-    'relative rounded-xl px-3 py-2 text-sm font-semibold text-white whitespace-nowrap ring-1 ring-white/10 bg-zinc-950';
-
   // X logo (küçük ve zarif)
   const XLogo = () => (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5" focusable="false">
-      <path fill="currentColor" d="M18.9 2H21l-7.5 8.6L22 22h-6.8l-5.3-6.4L3.8 22H2l8-9.2L2 2h6.8l5 6 5.1-6z"/>
+      <path
+        fill="currentColor"
+        d="M18.9 2H21l-7.5 8.6L22 22h-6.8l-5.3-6.4L3.8 22H2l8-9.2L2 2h6.8l5 6 5.1-6z"
+      />
     </svg>
-  );  
+  );
 
   const body = (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-[9999] pointer-events-none">
@@ -226,7 +228,7 @@ export default function ShareCenter({
         onClick={() => onOpenChange(false)}
       />
       <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-      <div
+        <div
           className="pointer-events-auto w-[92%] max-w-[460px] rounded-2xl
                      border border-white/20 ring-1 ring-white/10
                      bg-black p-5 text-white
@@ -255,19 +257,21 @@ export default function ShareCenter({
 
           {/* Buttons */}
           <div className="grid grid-cols-3 gap-3">
-            {/* X — sadece logo, küçük */}
+            {/* X — sadece logo, küçük; yükseklik BTN_H ile */}
             <button
               type="button"
               onClick={() => openChannel('twitter')}
-              className="group relative h-9 md:h-8 overflow-hidden rounded-xl px-3 text-sm font-semibold text-white
+              className={`group relative ${BTN_H} overflow-hidden rounded-xl px-3 text-sm font-semibold text-white
                          ring-2 ring-blue-300/40 bg-gradient-to-r from-[#072E86] via-[#1E74FF] to-[#8FDBFF]
                          shadow-[0_0_14px_rgba(56,189,248,0.45)]
                          backdrop-blur-sm hover:brightness-110 hover:shadow-[0_0_20px_rgba(56,189,248,0.65)]
-                         active:translate-y-[1px] transition flex items-center justify-center"
+                         active:translate-y-[1px] transition flex items-center justify-center`}
               aria-label="Share on X"
               title="Share on X"
             >
-              <span className="relative z-[1] inline-flex items-center"><XLogo /></span>
+              <span className="relative z-[1] inline-flex items-center">
+                <XLogo />
+              </span>
               <span className="pointer-events-none absolute inset-0 rounded-xl opacity-30
                                bg-[radial-gradient(120%_100%_at_50%_-10%,rgba(255,255,255,0.35),rgba(255,255,255,0)_60%)]" />
               <span className="pointer-events-none absolute top-0 -left-1/3 h-full w-1/3
