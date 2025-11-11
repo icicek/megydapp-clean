@@ -20,8 +20,7 @@ export type Channel =
   | 'email'
   | 'copy'
   | 'instagram'
-  | 'tiktok'
-  | 'reddit';
+  | 'tiktok';
 
 // ----------------- small utils -----------------
 
@@ -242,8 +241,5 @@ export const APP_LINKS = {
     'tiktok://',
     'snssdk1128://',
     'https://www.tiktok.com/explore',
-  ],
-  reddit: (p: SharePayload) => [
-    buildRedditIntent(p), // app destekli değilse web submit sayfası
   ],
 };

@@ -250,15 +250,6 @@ export default function ShareCenter({
               Email
             </button>
 
-            {/* Reddit — soft brand wash */}
-            <button
-              type="button"
-              onClick={() => openChannel('reddit')}
-              className={`${softBase} bg-[linear-gradient(180deg,rgba(255,69,0,0.22)_0%,rgba(0,0,0,0.84)_60%)] hover:brightness-110`}
-            >
-              Reddit
-            </button>
-
             {/* Instagram */}
             <button
               type="button"
