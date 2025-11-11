@@ -3,19 +3,23 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { SharePayload, Channel } from '@/components/share/intent';
-import { buildCopyText } from '@/components/share/intent'; // 👈 NEW
+import { buildCopyText } from '@/components/share/intent';
 import { detectInAppBrowser } from '@/components/share/browser';
 import { openShareChannel } from '@/components/share/openShare';
 
-// —— Toast (pozisyon + genişlik kontrolü) ——
+// —— Toast (renkli kutu + pozisyon + genişlik) ——
+type ToastVariant = 'info' | 'success' | 'error';
+
 function Toast({
   message,
   position = 'bottom',
   wide = true,
+  variant = 'info',
 }: {
   message: string;
   position?: 'top' | 'bottom';
   wide?: boolean;
+  variant?: ToastVariant;
 }) {
   const posClass =
     position === 'top'
@@ -26,13 +30,18 @@ function Toast({
     ? 'w-[min(720px,calc(100vw-2rem))]'
     : 'w-auto max-w-[90vw]';
 
+  const color =
+    variant === 'success'
+      ? 'bg-emerald-600/90 ring-emerald-300/60 shadow-[0_0_24px_rgba(16,185,129,0.35)]'
+      : variant === 'error'
+      ? 'bg-rose-600/90 ring-rose-300/60 shadow-[0_0_24px_rgba(244,63,94,0.35)]'
+      : 'bg-sky-600/90 ring-sky-300/60 shadow-[0_0_24px_rgba(56,189,248,0.35)]';
+
   return (
     <div
       className={`fixed left-1/2 -translate-x-1/2 z-[20000] ${posClass} ${widthClass}
-                  rounded-xl border border-white/12 bg-zinc-900/85 px-4 py-3
-                  text-sm text-white shadow-[0_0_24px_rgba(168,85,247,0.25)]
-                  backdrop-blur-md animate-fadeInOut
-                  [box-shadow:inset_0_0_0_1px_rgba(255,255,255,0.05)]`}
+                  rounded-xl border border-white/10 px-4 py-3 text-sm text-white
+                  backdrop-blur-md animate-fadeInOut ring-1 ${color}`}
       role="status"
       aria-live="polite"
     >
@@ -44,7 +53,7 @@ function Toast({
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  payload: SharePayload;
+  payload: SharePayload; // dışarıda context'e göre üretilir
   context: 'profile' | 'contribution' | 'leaderboard' | 'success';
   txId?: string;
   walletBase58?: string | null;
@@ -61,6 +70,7 @@ export default function ShareCenter({
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [toastPos, setToastPos] = useState<'top' | 'bottom'>('bottom');
   const [toastWide, setToastWide] = useState<boolean>(true);
+  const [toastVariant, setToastVariant] = useState<ToastVariant>('info');
 
   // ESC ile kapatma
   useEffect(() => {
@@ -77,6 +87,7 @@ export default function ShareCenter({
     const style = document.createElement('style');
     style.id = 'sharecenter-toast-style';
     style.innerHTML = `
+      /* Toast fade */
       @keyframes fadeInOut {
         0%   { opacity: 0; transform: translateY(8px); }
         12%  { opacity: 1; transform: translateY(0); }
@@ -85,6 +96,7 @@ export default function ShareCenter({
       }
       .animate-fadeInOut { animation: fadeInOut 3.2s ease-in-out forwards; }
 
+      /* X button sheen sweep */
       @keyframes x-sweep {
         0%   { transform: translateX(-140%); }
         60%  { transform: translateX(160%); }
@@ -115,28 +127,35 @@ export default function ShareCenter({
     }
   }
 
-  const showToast = (msg: string, pos: 'top' | 'bottom' = 'bottom', wide = true) => {
+  const showToast = (
+    msg: string,
+    pos: 'top' | 'bottom' = 'bottom',
+    wide = true,
+    variant: ToastVariant = 'info'
+  ) => {
     setToastMsg(msg);
     setToastPos(pos);
     setToastWide(wide);
+    setToastVariant(variant);
     window.clearTimeout((showToast as any)._t);
     (showToast as any)._t = window.setTimeout(() => setToastMsg(null), 3200);
   };
 
-  // X aktif, diğerleri toast (şimdilik)
+  // X aktif, diğerleri toast
   const openChannel = useCallback(
     async (channel: Channel) => {
       if (channel === 'twitter') {
-        await openShareChannel('twitter', payload);
-        await recordShare('twitter'); // 30 CP backend
+        await openShareChannel('twitter', payload); // anchor.click ile açar
+        await recordShare('twitter');
         onOpenChange(false);
         return;
       }
-      // Diğerleri şimdilik kapalı
+      // Geçici bilgilendirme — mavi kutu
       showToast(
         "Sharing for this app isn’t live yet — but you’ll still earn CorePoints when you copy and share manually!",
         'bottom',
-        true
+        true,
+        'info'
       );
     },
     [payload, walletBase58, context, txId, onOpenChange]
@@ -145,12 +164,12 @@ export default function ShareCenter({
   // Copy text — X ile aynı birleşik format
   const handleCopy = async () => {
     try {
-      const composed = buildCopyText(payload); // 👈 metin ⏎⏎ link + via + #tags
+      const composed = buildCopyText(payload);
       await navigator.clipboard.writeText(composed);
-      await recordShare('copy'); // 10 CP backend
-      showToast('Post text copied — share manually to earn CorePoints!', 'top', false);
+      await recordShare('copy');
+      showToast('Post text copied — share manually to earn CorePoints!', 'top', false, 'success');
     } catch {
-      showToast('Could not copy text.', 'top', false);
+      showToast('Could not copy text.', 'top', false, 'error');
     }
   };
 
@@ -164,10 +183,27 @@ export default function ShareCenter({
     success: 'Blast your revival—let the world see your $MEGY journey!',
   }[context];
 
+  // “soft brand on black” buton baz sınıfı
   const softBase =
     'relative rounded-xl px-3 py-2 text-sm font-semibold text-white whitespace-nowrap ring-1 ring-white/10 bg-zinc-950';
 
+  // X logosu — sade, tek satır
+  const XLogo = () => (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-5 w-5"
+      focusable="false"
+    >
+      <path
+        fill="currentColor"
+        d="M18.9 2H21l-7.5 8.6L22 22h-6.8l-5.3-6.4L3.8 22H2l8-9.2L2 2h6.8l5 6 5.1-6z"
+      />
+    </svg>
+  );
+
   const body = (
+    // pointer-events düzeltmesi: dış kabuk none, overlay ve kart auto
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-[9999] pointer-events-none">
       <div
         className="absolute inset-0 bg-black/60 pointer-events-auto"
@@ -197,24 +233,27 @@ export default function ShareCenter({
 
           {sub && <p className="mb-4 text-sm text-zinc-300">{sub}</p>}
 
-          {/* Preview — sadece metin kısmını gösteriyoruz */}
           <div className="mb-4 break-words rounded-xl border border-white/10 bg-zinc-800/70 p-3 text-xs text-zinc-200">
             {payload.text}
           </div>
 
           {/* Buttons */}
           <div className="grid grid-cols-3 gap-3">
-            {/* X */}
+            {/* X — sadece logo */}
             <button
               type="button"
               onClick={() => openChannel('twitter')}
-              className="group relative overflow-hidden rounded-xl px-3 py-2 text-sm font-semibold text-white whitespace-nowrap
+              className="group relative overflow-hidden rounded-xl px-3 py-2 text-sm font-semibold text-white
                          ring-2 ring-blue-300/40 bg-gradient-to-r from-[#072E86] via-[#1E74FF] to-[#8FDBFF]
                          shadow-[0_0_14px_rgba(56,189,248,0.45)]
                          backdrop-blur-sm hover:brightness-110 hover:shadow-[0_0_20px_rgba(56,189,248,0.65)]
-                         active:translate-y-[1px] transition"
+                         active:translate-y-[1px] transition flex items-center justify-center"
+              aria-label="Share on X"
+              title="Share on X"
             >
-              <span className="relative z-[1]">X Share on X</span>
+              <span className="relative z-[1] inline-flex items-center">
+                <XLogo />
+              </span>
               <span className="pointer-events-none absolute inset-0 rounded-xl opacity-30
                                bg-[radial-gradient(120%_100%_at_50%_-10%,rgba(255,255,255,0.35),rgba(255,255,255,0)_60%)]" />
               <span className="pointer-events-none absolute top-0 -left-1/3 h-full w-1/3
@@ -223,7 +262,7 @@ export default function ShareCenter({
                                group-hover:opacity-100 group-hover:animate-x-sweep" />
             </button>
 
-            {/* Telegram */}
+            {/* Telegram — black base + soft brand wash */}
             <button
               type="button"
               onClick={() => openChannel('telegram')}
@@ -232,7 +271,7 @@ export default function ShareCenter({
               Telegram
             </button>
 
-            {/* WhatsApp */}
+            {/* WhatsApp — black base + soft brand wash */}
             <button
               type="button"
               onClick={() => openChannel('whatsapp')}
@@ -241,7 +280,7 @@ export default function ShareCenter({
               WhatsApp
             </button>
 
-            {/* Email */}
+            {/* Email — black base + soft neutral wash */}
             <button
               type="button"
               onClick={() => openChannel('email')}
@@ -250,7 +289,7 @@ export default function ShareCenter({
               Email
             </button>
 
-            {/* Instagram */}
+            {/* Instagram — multi wash */}
             <button
               type="button"
               onClick={() => openChannel('instagram')}
@@ -259,7 +298,7 @@ export default function ShareCenter({
               Instagram
             </button>
 
-            {/* TikTok */}
+            {/* TikTok — dual wash */}
             <button
               type="button"
               onClick={() => openChannel('tiktok')}
@@ -286,7 +325,9 @@ export default function ShareCenter({
         </div>
       </div>
 
-      {toastMsg && <Toast message={toastMsg} position={toastPos} wide={toastWide} />}
+      {toastMsg && (
+        <Toast message={toastMsg} position={toastPos} wide={toastWide} variant={toastVariant} />
+      )}
     </div>
   );
 

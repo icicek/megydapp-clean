@@ -1,4 +1,3 @@
-// components/share/intent.ts
 // Centralized share payload builder + channel intent URL helpers
 // No DOM/window usage here – safe for SSR.
 
@@ -78,7 +77,7 @@ export function buildCopyText(p: SharePayload): string {
   const link = addUtm(p.url, p.utm);
   const via = p.via ? `\nvia @${p.via.replace(/^@/, '')}` : '';
   const tags = p.hashtags?.length ? `\n#${p.hashtags.join(' #')}` : '';
-  return `${p.text}\n\n${link}${via}${tags}`;
+  return `${p.text}\n\n${link}${via}${tags}`; // metin ⏎⏎ link
 }
 
 // ----------------- context text templates -----------------
@@ -86,7 +85,6 @@ export function buildCopyText(p: SharePayload): string {
 function textForSuccess(p: { token?: string; tone?: Tone }): string {
   const megy = '$MEGY';
   const coin = toCashtag(p.token);
-  // concise & playful by default
   return `Revived ${coin} into ${megy}. Join the rebirth.`;
 }
 
@@ -115,13 +113,6 @@ function textForProfile(_p: { tone?: Tone }): string {
 
 // ----------------- Public builder -----------------
 
-/**
- * Central entry: returns a SharePayload with:
- * - text: context-aware (success/contribution/leaderboard/profile), cashtag ready
- * - url: base url + (ref, src, ctx) merged
- * - via: "levershare" (default)
- * - hashtags: ["Coincarnation"] (default)
- */
 export function buildPayload(
   ctx: 'success' | 'contribution' | 'leaderboard' | 'profile',
   data: {
@@ -132,13 +123,13 @@ export function buildPayload(
     tone?: Tone;
     hashtags?: string[];
     via?: string;
-    utm?: string;      // optional additional utm pairs
-    subject?: string;  // for email
+    utm?: string;
+    subject?: string;
   },
   opts?: {
-    ref?: string;      // referral code (added as ?ref=)
-    src?: string;      // source tag, e.g. "app" (added as ?src=)
-    ctx?: string;      // overrides query ctx (defaults to ctx arg)
+    ref?: string;
+    src?: string;
+    ctx?: string;
   }
 ): SharePayload {
   const finalUrl = enrichUrl(
@@ -151,7 +142,6 @@ export function buildPayload(
     }
   );
 
-  // choose template
   let text = '';
   if (ctx === 'success') {
     text = textForSuccess({ token: data.token, tone: data.tone });
@@ -175,7 +165,6 @@ export function buildPayload(
 
 // ----------------- Channel intent builders -----------------
 
-// 1) Twitter: linki 'url' paramıyla değil, metnin içine boş satırla koyuyoruz
 export function buildTwitterIntent(p: SharePayload): string {
   const params = new URLSearchParams();
   const link = addUtm(p.url, p.utm);
@@ -186,7 +175,6 @@ export function buildTwitterIntent(p: SharePayload): string {
   return `https://twitter.com/intent/tweet?${params.toString()}`;
 }
 
-// 2) Telegram (web): linki text'in içinde boş satırla veriyoruz; url paramını kullanmıyoruz
 export function buildTelegramWeb(p: SharePayload): string {
   const params = new URLSearchParams();
   const link = addUtm(p.url, p.utm);
@@ -195,51 +183,27 @@ export function buildTelegramWeb(p: SharePayload): string {
   return `https://t.me/share/url?${params.toString()}`;
 }
 
-// 3) WhatsApp (web): birleşik metni boş satırla hazırlıyoruz
 export function buildWhatsAppWeb(p: SharePayload): string {
   const combined = `${p.text ? p.text + '\n\n' : ''}${addUtm(p.url, p.utm)}`.trim();
   const params = new URLSearchParams({ text: combined });
   return `https://wa.me/?${params.toString()}`;
 }
 
-// Email
 export function buildEmailIntent(p: SharePayload): string {
   const subject = p.subject || 'Check this out';
-  const body = `${p.text}\n\n${addUtm(p.url, p.utm)}\nvia @${(p.via ?? DEFAULT_VIA).replace(/^@/, '')}`;
+  const body = `${p.text}\n\n${addUtm(p.url, p.utm)}\nvia @${(p.via ?? 'levershare').replace(/^@/, '')}`;
   const params = new URLSearchParams({ subject, body });
   return `mailto:?${params.toString()}`;
 }
 
-export function buildRedditIntent(p: SharePayload): string {
-  const title = p.text || 'Check this out';
-  const url = addUtm(p.url, p.utm);
-  const params = new URLSearchParams({ url, title });
-  return `https://www.reddit.com/submit?${params.toString()}`;
-}
-
 // ----------------- App deep links (mobile) -----------------
 
-/**
- * App deeplink candidates. First entries attempt app open; last entries are safe web fallbacks.
- * Instagram/TikTok don’t accept prefilled captions; we only open the app or web.
- */
 export const APP_LINKS = {
-  telegram: (p: SharePayload) => [
-    'tg://msg',
-    'tg://',
-    buildTelegramWeb(p),
-  ],
+  telegram: (p: SharePayload) => ['tg://msg', 'tg://', buildTelegramWeb(p)],
   whatsapp: (p: SharePayload) => [
     `whatsapp://send?text=${encodeURIComponent(`${p.text} ${addUtm(p.url, p.utm)}`.trim())}`,
     buildWhatsAppWeb(p),
   ],
-  instagram: (_p: SharePayload) => [
-    'instagram://app',
-    'https://www.instagram.com/',
-  ],
-  tiktok: (_p: SharePayload) => [
-    'tiktok://',
-    'snssdk1128://',
-    'https://www.tiktok.com/explore',
-  ],
+  instagram: (_p: SharePayload) => ['instagram://app', 'https://www.instagram.com/'],
+  tiktok: (_p: SharePayload) => ['tiktok://', 'snssdk1128://', 'https://www.tiktok.com/explore'],
 };
