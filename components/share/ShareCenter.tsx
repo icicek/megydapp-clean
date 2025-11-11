@@ -37,6 +37,11 @@ function Toast({
       ? 'bg-rose-600/90 ring-rose-300/60 shadow-[0_0_24px_rgba(244,63,94,0.35)]'
       : 'bg-sky-600/90 ring-sky-300/60 shadow-[0_0_24px_rgba(56,189,248,0.35)]';
 
+      const softBase =
+      'relative h-10 md:h-9 rounded-xl px-3 text-sm font-semibold text-white ' +
+      'whitespace-nowrap ring-1 ring-white/10 bg-zinc-950 ' +
+      'flex items-center justify-center';
+
   return (
     <div
       className={`fixed left-1/2 -translate-x-1/2 z-[20000] ${posClass} ${widthClass}
@@ -209,11 +214,8 @@ export default function ShareCenter({
 
   // X logo (küçük ve zarif)
   const XLogo = () => (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 md:h-4 md:w-4" focusable="false">
-      <path
-        fill="currentColor"
-        d="M18.9 2H21l-7.5 8.6L22 22h-6.8l-5.3-6.4L3.8 22H2l8-9.2L2 2h6.8l5 6 5.1-6z"
-      />
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4" focusable="false">
+      <path fill="currentColor" d="M18.9 2H21l-7.5 8.6L22 22h-6.8l-5.3-6.4L3.8 22H2l8-9.2L2 2h6.8l5 6 5.1-6z" />
     </svg>
   );
 
@@ -224,10 +226,10 @@ export default function ShareCenter({
         onClick={() => onOpenChange(false)}
       />
       <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-        <div
+      <div
           className="pointer-events-auto w-[92%] max-w-[460px] rounded-2xl
                      border border-white/20 ring-1 ring-white/10
-                     bg-zinc-900 p-5 text-white
+                     bg-black p-5 text-white
                      shadow-[0_0_32px_rgba(255,255,255,0.06)]"
         >
           <div className="mb-3 flex items-center justify-between">
@@ -257,7 +259,7 @@ export default function ShareCenter({
             <button
               type="button"
               onClick={() => openChannel('twitter')}
-              className="group relative overflow-hidden rounded-xl px-3 py-2 text-sm font-semibold text-white
+              className="group relative h-10 md:h-9 overflow-hidden rounded-xl px-3 text-sm font-semibold text-white
                          ring-2 ring-blue-300/40 bg-gradient-to-r from-[#072E86] via-[#1E74FF] to-[#8FDBFF]
                          shadow-[0_0_14px_rgba(56,189,248,0.45)]
                          backdrop-blur-sm hover:brightness-110 hover:shadow-[0_0_20px_rgba(56,189,248,0.65)]
@@ -265,15 +267,12 @@ export default function ShareCenter({
               aria-label="Share on X"
               title="Share on X"
             >
-              <span className="relative z-[1] inline-flex items-center">
-                <XLogo />
-              </span>
+              <span className="relative z-[1] inline-flex items-center"><XLogo /></span>
               <span className="pointer-events-none absolute inset-0 rounded-xl opacity-30
                                bg-[radial-gradient(120%_100%_at_50%_-10%,rgba(255,255,255,0.35),rgba(255,255,255,0)_60%)]" />
               <span className="pointer-events-none absolute top-0 -left-1/3 h-full w-1/3
                                translate-x-[-140%] bg-gradient-to-r from-white/30 via-white/60 to-white/10
-                               blur-[6px] rounded-xl opacity-0
-                               group-hover:opacity-100 group-hover:animate-x-sweep" />
+                               blur-[6px] rounded-xl opacity-0 group-hover:opacity-100 group-hover:animate-x-sweep" />
             </button>
 
             <button
@@ -303,7 +302,7 @@ export default function ShareCenter({
             <button
               type="button"
               onClick={() => openChannel('instagram')}
-              className={`${softBase} bg-[linear-gradient(180deg,rgba(245,133,41,0.22)_0%,rgba(214,41,118,0.22)_35%,rgba(79,91,213,0.22)_70%,rgba(0,0,0,0.84)_100%)] hover:brightness-110`}
+              className={`${softBase} bg-[linear-gradient(180deg,rgba(225,48,108,0.28)_0%,rgba(0,0,0,0.86)_70%)] hover:brightness-110`}
             >
               Instagram
             </button>
@@ -311,7 +310,7 @@ export default function ShareCenter({
             <button
               type="button"
               onClick={() => openChannel('tiktok')}
-              className={`${softBase} bg-[linear-gradient(180deg,rgba(254,44,85,0.22)_0%,rgba(0,242,234,0.22)_35%,rgba(0,0,0,0.84)_100%)] hover:brightness-110`}
+              className={`${softBase} bg-[linear-gradient(180deg,rgba(0,242,234,0.28)_0%,rgba(0,0,0,0.86)_70%)] hover:brightness-110`}
             >
               TikTok
             </button>
