@@ -1,53 +1,63 @@
+// components/share/ShareCenter.tsx
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
-import type { SharePayload, Channel } from '@/components/share/intent';
-import { detectInAppBrowser } from '@/components/share/browser';
-import { openShareChannel } from '@/components/share/openShare';
+import * as React from 'react';
+import type { SharePayload, ShareMeta } from '@/components/share/intent';
+import {
+  buildTwitterIntent,
+  buildTelegramWeb,
+  buildWhatsAppWeb,
+  buildEmailIntent,
+  buildCopyText,
+} from '@/components/share/intent';
 
-// —— Toast (pozisyon + genişlik kontrolü) ——
-function Toast({
-  message,
-  position = 'bottom',
-  wide = true,
-}: {
-  message: string;
-  position?: 'top' | 'bottom';
-  wide?: boolean;
-}) {
-  const posClass =
-    position === 'top'
-      ? 'top-6 md:top-10'
-      : // mobilde biraz yukarı, desktop’ta daha da yukarıda
-        'bottom-16 md:bottom-24';
+// Basit toast (MEGY neon uyumlu)
+function showToast(msg: string) {
+  const id = 'share-toast';
+  const old = document.getElementById(id);
+  if (old) old.remove();
 
-  const widthClass = wide
-    ? 'w-[min(720px,calc(100vw-2rem))]'
-    : 'w-auto max-w-[90vw]';
+  const el = document.createElement('div');
+  el.id = id;
+  el.className =
+    'fixed left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl text-white text-sm ' +
+    'bg-gradient-to-r from-pink-600 to-fuchsia-500 shadow-2xl ' +
+    'backdrop-blur supports-[backdrop-filter]:bg-white/10 border border-white/10 ' +
+    'animate-fadeInOut';
+  el.style.top = '18px';
+  el.textContent = msg;
+  document.body.appendChild(el);
 
-  return (
-    <div
-      className={`fixed left-1/2 -translate-x-1/2 z-[20000] ${posClass} ${widthClass}
-                  rounded-xl border border-white/12 bg-zinc-900/85 px-4 py-3
-                  text-sm text-white shadow-[0_0_24px_rgba(168,85,247,0.25)]
-                  backdrop-blur-md animate-fadeInOut
-                  [box-shadow:inset_0_0_0_1px_rgba(255,255,255,0.05)]`}
-      role="status"
-      aria-live="polite"
-    >
-      {message}
-    </div>
-  );
+  // animasyon CSS'i enjekte
+  const styleId = 'share-toast-style';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.innerHTML = `
+      @keyframes fadeInOut {
+        0% { opacity: 0; transform: translate(-50%, 8px); }
+        12% { opacity: 1; transform: translate(-50%, 0); }
+        88% { opacity: 1; }
+        100% { opacity: 0; transform: translate(-50%, 8px); }
+      }
+      .animate-fadeInOut { animation: fadeInOut 3.2s ease-in-out forwards; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  window.setTimeout(() => {
+    el.remove();
+  }, 3200);
 }
 
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  payload: SharePayload; // dışarıda context'e göre üretilir
-  context: 'profile' | 'contribution' | 'leaderboard' | 'success';
+  payload: SharePayload; // buildPayload ile gelen
+  context: 'success' | 'profile' | 'leaderboard' | 'contribution';
   txId?: string;
   walletBase58?: string | null;
+  referralCode?: string; // varsa buradan gelir
 };
 
 export default function ShareCenter({
@@ -57,234 +67,152 @@ export default function ShareCenter({
   context,
   txId,
   walletBase58,
+  referralCode,
 }: Props) {
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const [toastPos, setToastPos] = useState<'top' | 'bottom'>('bottom');
-  const [toastWide, setToastWide] = useState<boolean>(true);
-
-  // ESC ile kapatma
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onOpenChange(false);
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onOpenChange]);
-
-  // Client-only animasyon stilleri (SSR-safe)
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    if (document.getElementById('sharecenter-toast-style')) return;
-    const style = document.createElement('style');
-    style.id = 'sharecenter-toast-style';
-    style.innerHTML = `
-      /* Toast fade */
-      @keyframes fadeInOut {
-        0%   { opacity: 0; transform: translateY(8px); }
-        12%  { opacity: 1; transform: translateY(0); }
-        88%  { opacity: 1; }
-        100% { opacity: 0; transform: translateY(8px); }
-      }
-      .animate-fadeInOut { animation: fadeInOut 3.2s ease-in-out forwards; }
-
-      /* X button sheen sweep */
-      @keyframes x-sweep {
-        0%   { transform: translateX(-140%); }
-        60%  { transform: translateX(160%); }
-        100% { transform: translateX(160%); }
-      }
-      .animate-x-sweep { animation: x-sweep 1.2s ease-out 1; }
-    `;
-    document.head.appendChild(style);
-  }, []);
-
-  useMemo(() => detectInAppBrowser(), []);
-
-  async function recordShare(channel: Channel) {
-    if (!walletBase58) return;
-    try {
-      await fetch('/api/share/record', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          wallet_address: walletBase58,
-          channel,
-          context,
-          txId: txId ?? null,
-        }),
-      });
-    } catch (e) {
-      console.warn('[ShareCenter] record error', e);
-    }
-  }
-
-  const showToast = (msg: string, pos: 'top' | 'bottom' = 'bottom', wide = true) => {
-    setToastMsg(msg);
-    setToastPos(pos);
-    setToastWide(wide);
-    window.clearTimeout((showToast as any)._t);
-    (showToast as any)._t = window.setTimeout(() => setToastMsg(null), 3200);
-  };
-
-  // X aktif, diğerleri toast
-  const openChannel = useCallback(
-    async (channel: Channel) => {
-      if (channel === 'twitter') {
-        await openShareChannel('twitter', payload); // anchor.click ile açar
-        await recordShare('twitter');
-        onOpenChange(false);
-        return;
-      }
-      // Geçici bilgilendirme (yatay geniş, altta)
-      showToast(
-        "Sharing for this app isn’t live yet — but you’ll still earn CorePoints when you copy and share manually!",
-        'bottom',
-        true
-      );
-    },
-    [payload, walletBase58, context, txId, onOpenChange]
-  );
-
-  // Copy text — OS’in kendi “copied” balonuyla çakışmaması için ÜSTTE ve dar
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(payload.text);
-      await recordShare('copy');
-      showToast('Post text copied — share manually to earn CorePoints!', 'top', false);
-    } catch {
-      showToast('Could not copy text.', 'top', false);
-    }
+  // meta: link üretiminde ref/src/ctx paramlarını tek yerden gönderelim
+  const meta: ShareMeta = {
+    ref: referralCode,
+    src: 'app',
+    ctx: context,
   };
 
   if (!open) return null;
 
-  const heading = 'Share';
-  const sub = {
-    profile: 'Invite your circle—your CorePoint grows with every ripple.',
-    contribution: 'Your revival matters. Share it and inspire the next Coincarnator!',
-    leaderboard: 'Flex your rank—one share could push you up the board.',
-    success: 'Blast your revival—let the world see your $MEGY journey!',
-  }[context];
+  const close = () => onOpenChange(false);
 
-  // “soft brand on black” buton baz sınıfı
-  const softBase =
-    'relative rounded-xl px-3 py-2 text-sm font-semibold text-white whitespace-nowrap ring-1 ring-white/10 bg-zinc-950';
+  // X: aktif
+  const onShareTwitter = () => {
+    const url = buildTwitterIntent(payload, meta);
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
 
-  const body = (
-    // pointer-events düzeltmesi: dış kabuk none, overlay ve kart auto
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-[9999] pointer-events-none">
+  // Diğerleri: toast + yönlendirme yok (şimdilik kapalı)
+  const onShareDisabled = (platform: string) => {
+    showToast(
+      `“${platform}” share is coming soon. Use “Copy text” and share manually for +30 CorePoint.`
+    );
+  };
+
+  // Kopyalama: metin + boş satır + TAM link + (tags/via)
+  const onCopy = async () => {
+    const text = buildCopyText(payload, meta);
+    await navigator.clipboard.writeText(text);
+    showToast('Copied! Paste it into your app. (+30 CorePoint)');
+  };
+
+  // Basit overlay/modal
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center">
+      {/* backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 pointer-events-auto"
-        onClick={() => onOpenChange(false)}
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={close}
+        aria-hidden
       />
-      <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-        <div className="pointer-events-auto w-[92%] max-w-[420px] rounded-2xl border border-white/10 bg-zinc-900 p-5 text-white shadow-[0_0_24px_rgba(255,0,255,0.12)]">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-transparent bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 bg-clip-text">
-              {heading}
-            </h3>
-            <button
-              type="button"
-              className="rounded-md px-2 py-1 text-sm hover:bg-white/5"
-              onClick={() => onOpenChange(false)}
-              aria-label="Close"
-            >
-              ✕
-            </button>
-          </div>
+      {/* card */}
+      <div className="relative z-10 w-[92%] max-w-md rounded-2xl border border-white/10 bg-zinc-950/90 p-5 shadow-2xl">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-white">Share</h3>
+          <button
+            onClick={close}
+            className="rounded-lg bg-white/5 px-2 py-1 text-xs text-white hover:bg-white/10"
+          >
+            Close
+          </button>
+        </div>
 
-          {sub && <p className="mb-4 text-sm text-zinc-300">{sub}</p>}
+        {/* Buton grid */}
+        <div className="grid grid-cols-3 gap-3">
+          {/* X — canlı gradient */}
+          <button
+            onClick={onShareTwitter}
+            className="col-span-3 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold text-white shadow-lg transition
+                       bg-gradient-to-r from-[#0F172A] to-[#60A5FA]
+                       hover:brightness-110 hover:scale-[1.01]"
+          >
+            <span className="text-lg">𝕏</span>
+            <span>Share on X</span>
+          </button>
 
-          <div className="mb-4 break-words rounded-xl border border-white/10 bg-zinc-800/70 p-3 text-xs text-zinc-200">
-            {payload.text}
-          </div>
+          {/* Telegram (karartılmış, ama yazı net) */}
+          <button
+            onClick={() => onShareDisabled('Telegram')}
+            className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 font-medium text-white/90
+                       bg-black/70 border border-white/10
+                       [--glow:#229ED9] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]
+                       bg-[linear-gradient(0deg,transparent,transparent),radial-gradient(120%_120%_at_50%_120%,color-mix(in_oklab,var(--glow),transparent_82%),transparent_60%)]
+                       hover:brightness-105"
+            title="Coming soon"
+          >
+            Telegram
+          </button>
 
-          {/* Buttons */}
-          <div className="grid grid-cols-3 gap-3">
-            {/* X — vivid dark→light blue + glass + glow + sheen */}
-            <button
-              type="button"
-              onClick={() => openChannel('twitter')}
-              className="group relative overflow-hidden rounded-xl px-3 py-2 text-sm font-semibold text-white whitespace-nowrap
-                         ring-2 ring-blue-300/40 bg-gradient-to-r from-[#072E86] via-[#1E74FF] to-[#8FDBFF]
-                         shadow-[0_0_14px_rgba(56,189,248,0.45)]
-                         backdrop-blur-sm hover:brightness-110 hover:shadow-[0_0_20px_rgba(56,189,248,0.65)]
-                         active:translate-y-[1px] transition"
-            >
-              <span className="relative z-[1]">X</span>
-              <span className="pointer-events-none absolute inset-0 rounded-xl opacity-30
-                               bg-[radial-gradient(120%_100%_at_50%_-10%,rgba(255,255,255,0.35),rgba(255,255,255,0)_60%)]" />
-              <span className="pointer-events-none absolute top-0 -left-1/3 h-full w-1/3
-                               translate-x-[-140%] bg-gradient-to-r from-white/30 via-white/60 to-white/10
-                               blur-[6px] rounded-xl opacity-0
-                               group-hover:opacity-100 group-hover:animate-x-sweep" />
-            </button>
+          {/* WhatsApp */}
+          <button
+            onClick={() => onShareDisabled('WhatsApp')}
+            className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 font-medium text-white/90
+                       bg-black/70 border border-white/10
+                       [--glow:#25D366] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]
+                       bg-[linear-gradient(0deg,transparent,transparent),radial-gradient(120%_120%_at_50%_120%,color-mix(in_oklab,var(--glow),transparent_82%),transparent_60%)]
+                       hover:brightness-105"
+            title="Coming soon"
+          >
+            WhatsApp
+          </button>
 
-            {/* Telegram — black base + soft brand wash */}
-            <button
-              type="button"
-              onClick={() => openChannel('telegram')}
-              className={`${softBase} bg-[linear-gradient(180deg,rgba(38,165,228,0.22)_0%,rgba(0,0,0,0.82)_45%)] hover:brightness-110`}
-            >
-              Telegram
-            </button>
+          {/* Instagram */}
+          <button
+            onClick={() => onShareDisabled('Instagram')}
+            className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 font-medium text-white/90
+                       bg-black/70 border border-white/10
+                       [--glow:#E1306C] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]
+                       bg-[linear-gradient(0deg,transparent,transparent),radial-gradient(120%_120%_at_50%_120%,color-mix(in_oklab,var(--glow),transparent_82%),transparent_60%)]
+                       hover:brightness-105"
+            title="Coming soon"
+          >
+            Instagram
+          </button>
 
-            {/* WhatsApp — black base + soft brand wash */}
-            <button
-              type="button"
-              onClick={() => openChannel('whatsapp')}
-              className={`${softBase} bg-[linear-gradient(180deg,rgba(37,211,102,0.22)_0%,rgba(0,0,0,0.82)_45%)] hover:brightness-110`}
-            >
-              Whatsapp
-            </button>
+          {/* TikTok */}
+          <button
+            onClick={() => onShareDisabled('TikTok')}
+            className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 font-medium text-white/90
+                       bg-black/70 border border-white/10
+                       [--glow:#000000] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]
+                       bg-[linear-gradient(0deg,transparent,transparent),radial-gradient(120%_120%_at_50%_120%,color-mix(in_oklab,var(--glow),transparent_82%),transparent_60%)]
+                       hover:brightness-105"
+            title="Coming soon"
+          >
+            TikTok
+          </button>
 
-            {/* Email — black base + soft neutral wash */}
-            <button
-              type="button"
-              onClick={() => openChannel('email')}
-              className={`${softBase} bg-[linear-gradient(180deg,rgba(156,163,175,0.22)_0%,rgba(0,0,0,0.82)_45%)] hover:brightness-110`}
-            >
-              Email
-            </button>
+          {/* Email (kilitli) */}
+          <button
+            onClick={() => onShareDisabled('Email')}
+            className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 font-medium text-white/90
+                       bg-black/70 border border-white/10
+                       [--glow:#A78BFA] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]
+                       bg-[linear-gradient(0deg,transparent,transparent),radial-gradient(120%_120%_at_50%_120%,color-mix(in_oklab,var(--glow),transparent_82%),transparent_60%)]
+                       hover:brightness-105"
+            title="Coming soon"
+          >
+            Email
+          </button>
+        </div>
 
-            {/* Instagram — multi wash */}
-            <button
-              type="button"
-              onClick={() => openChannel('instagram')}
-              className={`${softBase} bg-[linear-gradient(180deg,rgba(245,133,41,0.22)_0%,rgba(214,41,118,0.22)_35%,rgba(79,91,213,0.22)_70%,rgba(0,0,0,0.84)_100%)] hover:brightness-110`}
-            >
-              Instagram
-            </button>
-
-            {/* TikTok — dual wash */}
-            <button
-              type="button"
-              onClick={() => openChannel('tiktok')}
-              className={`${softBase} bg-[linear-gradient(180deg,rgba(254,44,85,0.22)_0%,rgba(0,242,234,0.22)_35%,rgba(0,0,0,0.84)_100%)] hover:brightness-110`}
-            >
-              Tiktok
-            </button>
-          </div>
-
-          <div className="mt-5">
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="w-full rounded-xl px-3 py-3 text-sm font-semibold text-zinc-900
-                         bg-gradient-to-r from-orange-400 via-amber-300 to-yellow-300
-                         ring-1 ring-white/10 hover:brightness-105 transition"
-            >
-              Copy text
-            </button>
-          </div>
+        {/* Copy alanı */}
+        <div className="mt-5 rounded-xl border border-white/10 bg-black/40 p-3">
+          <button
+            onClick={onCopy}
+            className="w-full rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15"
+          >
+            Copy text
+          </button>
+          <p className="mt-2 text-center text-xs text-white/60">
+            Paste into any app to share. (+30 CorePoint)
+          </p>
         </div>
       </div>
-
-      {toastMsg && <Toast message={toastMsg} position={toastPos} wide={toastWide} />}
     </div>
   );
-
-  if (typeof document !== 'undefined') {
-    return createPortal(body, document.body);
-  }
-  return body;
 }
