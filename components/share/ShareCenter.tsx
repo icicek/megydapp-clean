@@ -214,10 +214,10 @@ export default function ShareCenter({
 
   // X logo (küçük ve zarif)
   const XLogo = () => (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4" focusable="false">
-      <path fill="currentColor" d="M18.9 2H21l-7.5 8.6L22 22h-6.8l-5.3-6.4L3.8 22H2l8-9.2L2 2h6.8l5 6 5.1-6z" />
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5" focusable="false">
+      <path fill="currentColor" d="M18.9 2H21l-7.5 8.6L22 22h-6.8l-5.3-6.4L3.8 22H2l8-9.2L2 2h6.8l5 6 5.1-6z"/>
     </svg>
-  );
+  );  
 
   const body = (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-[9999] pointer-events-none">
@@ -259,7 +259,7 @@ export default function ShareCenter({
             <button
               type="button"
               onClick={() => openChannel('twitter')}
-              className="group relative h-10 md:h-9 overflow-hidden rounded-xl px-3 text-sm font-semibold text-white
+              className="group relative h-9 md:h-8 overflow-hidden rounded-xl px-3 text-sm font-semibold text-white
                          ring-2 ring-blue-300/40 bg-gradient-to-r from-[#072E86] via-[#1E74FF] to-[#8FDBFF]
                          shadow-[0_0_14px_rgba(56,189,248,0.45)]
                          backdrop-blur-sm hover:brightness-110 hover:shadow-[0_0_20px_rgba(56,189,248,0.65)]
