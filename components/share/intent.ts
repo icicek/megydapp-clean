@@ -1,16 +1,16 @@
-// Centralized share payload builder + channel intent URL helpers
-// No DOM/window usage here – safe for SSR.
+// components/share/intent.ts
+// Centralized share payload builder + channel intent URL helpers (SSR-safe)
 
 export type Tone = 'playful' | 'short' | 'serious';
 
 export type SharePayload = {
-  url: string;          // final canonical URL (with ref/src/ctx merged)
-  shortUrl?: string;    // optional already-shortened URL (preferred when present)
-  text: string;         // post text (includes $MEGY / $<TOKEN> if applicable)
-  hashtags?: string[];  // e.g., ["Coincarnation"]
-  via?: string;         // e.g., "levershare" (no @)
-  utm?: string;         // optional extra UTM pairs (k=v&k2=v2)
-  subject?: string;     // email subject (optional)
+  url: string;          // canonical URL (ref/src/ctx ve opsiyonel UTM eklenmiş)
+  shortUrl?: string;    // /share/[ctx]/[ref]?src=... şeklinde markalı kısa link (varsa tercih edilir)
+  text: string;         // context'e göre oluşturulan post metni (cashtag'ler burada)
+  hashtags?: string[];  // ör: ["Coincarnation"]
+  via?: string;         // ör: "levershare" (başında @ olmasın)
+  utm?: string;         // ekstra UTM çiftleri (k=v&k2=v2)
+  subject?: string;     // email için
 };
 
 export type Channel =
@@ -22,13 +22,13 @@ export type Channel =
   | 'instagram'
   | 'tiktok';
 
-// ----------------- small utils -----------------
+// ----------------- constants & tiny helpers -----------------
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://coincarnation.com';
 const DEFAULT_VIA = 'levershare';
-const DEFAULT_HASHTAGS: string[] = ['Coincarnation']; // keep minimal; cashtags go in text
+const DEFAULT_HASHTAGS: string[] = ['Coincarnation']; // minimal; cashtag'ler text'te
 
-const toTicker = (s?: string) =>
-  (s ?? '').replace(/\$/g, '').trim().toUpperCase();
+const toTicker = (s?: string) => (s ?? '').replace(/\$/g, '').trim().toUpperCase();
 
 const toCashtag = (s?: string) => {
   const t = toTicker(s);
@@ -37,16 +37,14 @@ const toCashtag = (s?: string) => {
 };
 
 function safeUrl(u?: string): URL | null {
-  try {
-    if (!u) return null;
-    return new URL(u);
-  } catch {
-    return null;
-  }
+  try { return u ? new URL(u) : null; } catch { return null; }
 }
 
-// merge tracking params into URL (ref, src, ctx) + optional extra utm pairs
-function enrichUrl(baseUrl: string, opts?: { ref?: string; src?: string; ctx?: string; utm?: string }): string {
+// base URL'e ref/src/ctx ve opsiyonel UTM ekle
+function enrichUrl(
+  baseUrl: string,
+  opts?: { ref?: string; src?: string; ctx?: string; utm?: string }
+): string {
   const u = safeUrl(baseUrl);
   if (!u) return baseUrl;
   if (opts?.ref) u.searchParams.set('ref', opts.ref);
@@ -61,7 +59,7 @@ function enrichUrl(baseUrl: string, opts?: { ref?: string; src?: string; ctx?: s
   return u.toString();
 }
 
-// if an extra UTM string is supplied, add it as query pairs
+// mevcut URL'e yalnızca UTM ekle
 function addUtm(u: string, utm?: string): string {
   if (!utm) return u;
   const url = safeUrl(u);
@@ -73,25 +71,24 @@ function addUtm(u: string, utm?: string): string {
   return url.toString();
 }
 
-// helper: inline tail => " #tag1 #tag2 via @xxx" (tags first, then via)
+// " #tag1 #tag2 via @xxx" (önce hashtag, sonra via) — tek satır kuyruğu
 function inlineTail(p: SharePayload): string {
   const tags = p.hashtags?.length ? ` #${p.hashtags.join(' #')}` : '';
   const via = p.via ? ` via @${p.via.replace(/^@/, '')}` : '';
   return `${tags}${via}`;
 }
 
-// prefer shortUrl if provided
+// shortUrl varsa onu, yoksa canonical url'i (utm ekleyerek) kullan
 function finalShareLink(p: SharePayload): string {
-  const base = p.shortUrl && p.shortUrl.trim().length > 0 ? p.shortUrl : p.url;
+  const base = p.shortUrl && p.shortUrl.trim() ? p.shortUrl : p.url;
   return addUtm(base, p.utm);
 }
 
-// ---- COPY TEXT: X ile aynı sıra/biçim ----
-// metin ⏎⏎ link #tags via @via
+// ---- COPY TEXT: X ile birebir aynı biçim ----
+// metin ⏎⏎ link  #tags via @via
 export function buildCopyText(p: SharePayload): string {
   const link = finalShareLink(p);
-  const tail = inlineTail(p);
-  return `${p.text}\n\n${link}${tail}`;
+  return `${p.text}\n\n${link}${inlineTail(p)}`;
 }
 
 // ----------------- context text templates -----------------
@@ -127,6 +124,14 @@ function textForProfile(_p: { tone?: Tone }): string {
 
 // ----------------- Public builder -----------------
 
+/**
+ * Central entry:
+ * - text: context-aware
+ * - url: canonical (ref/src/ctx merge + utm)
+ * - shortUrl: /share/[ctx]/[ref]?src=... (ref varsa otomatik)
+ * - via: "levershare" (default)
+ * - hashtags: ["Coincarnation"] (default)
+ */
 export function buildPayload(
   ctx: 'success' | 'contribution' | 'leaderboard' | 'profile',
   data: {
@@ -139,24 +144,32 @@ export function buildPayload(
     via?: string;
     utm?: string;
     subject?: string;
-    shortUrl?: string; // optional shortened url injected by caller
+    shortUrl?: string; // dışarıdan kısa link verilirse override eder
   },
   opts?: {
-    ref?: string;
-    src?: string;
-    ctx?: string;
+    ref?: string; // referral code
+    src?: string; // "app" gibi
+    ctx?: string; // query'deki ctx override
   }
 ): SharePayload {
-  const finalUrl = enrichUrl(
-    data.url,
-    {
-      ref: opts?.ref,
-      src: opts?.src ?? 'app',
-      ctx: opts?.ctx ?? ctx,
-      utm: data.utm,
-    }
-  );
+  const finalUrl = enrichUrl(data.url, {
+    ref: opts?.ref,
+    src: opts?.src ?? 'app',
+    ctx: opts?.ctx ?? ctx,
+    utm: data.utm,
+  });
 
+  // ref + ctx varsa markalı kısa linki otomatik hazırla
+  const ctxForShort = opts?.ctx ?? ctx;
+  const srcTag = opts?.src ?? 'app';
+  const autoShort =
+    opts?.ref && ctxForShort
+      ? `${APP_URL}/share/${encodeURIComponent(ctxForShort)}/${encodeURIComponent(
+          opts.ref
+        )}?src=${encodeURIComponent(srcTag)}`
+      : undefined;
+
+  // text seçimi
   let text = '';
   if (ctx === 'success') {
     text = textForSuccess({ token: data.token, tone: data.tone });
@@ -170,7 +183,7 @@ export function buildPayload(
 
   return {
     url: finalUrl,
-    shortUrl: data.shortUrl,
+    shortUrl: data.shortUrl ?? autoShort, // dışarıdan gelmişse öncelik ver
     text,
     hashtags: data.hashtags ?? DEFAULT_HASHTAGS,
     via: (data.via ?? DEFAULT_VIA).replace(/^@/, ''),
@@ -181,24 +194,20 @@ export function buildPayload(
 
 // ----------------- Channel intent builders -----------------
 
-// Twitter: yalnızca text paramı; link + #tags + via, text içinde
+// Twitter: hepsini text içinde veriyoruz (link + #tags + via aynı sırada)
 export function buildTwitterIntent(p: SharePayload): string {
   const params = new URLSearchParams();
   const link = finalShareLink(p);
-  const tail = inlineTail(p);
-  const textWithGap = p.text ? `${p.text}\n\n${link}${tail}` : `${link}${tail}`;
-
-  params.set('text', textWithGap);
-  // NOT setting 'hashtags' or 'via' separately — we compose inline for consistent look
+  const txt = p.text ? `${p.text}\n\n${link}${inlineTail(p)}` : `${link}${inlineTail(p)}`;
+  params.set('text', txt);
   return `https://twitter.com/intent/tweet?${params.toString()}`;
 }
 
 // Telegram (web)
 export function buildTelegramWeb(p: SharePayload): string {
   const params = new URLSearchParams();
-  const link = finalShareLink(p);
-  const textWithGap = p.text ? `${p.text}\n\n${link}${inlineTail(p)}` : `${link}${inlineTail(p)}`;
-  params.set('text', textWithGap);
+  const txt = p.text ? `${p.text}\n\n${finalShareLink(p)}${inlineTail(p)}` : `${finalShareLink(p)}${inlineTail(p)}`;
+  params.set('text', txt);
   return `https://t.me/share/url?${params.toString()}`;
 }
 
@@ -219,10 +228,16 @@ export function buildEmailIntent(p: SharePayload): string {
 
 // ----------------- App deep links (mobile) -----------------
 
+/**
+ * App deeplink adayları. İlk girişler app'i denemeye çalışır; son girişler web fallback'tir.
+ * Instagram/TikTok metin preload desteklemez — yalnızca uygulama ya da web açılır.
+ */
 export const APP_LINKS = {
   telegram: (p: SharePayload) => ['tg://msg', 'tg://', buildTelegramWeb(p)],
   whatsapp: (p: SharePayload) => [
-    `whatsapp://send?text=${encodeURIComponent(`${p.text} ${finalShareLink(p)}${inlineTail(p)}`.trim())}`,
+    `whatsapp://send?text=${encodeURIComponent(
+      `${p.text} ${finalShareLink(p)}${inlineTail(p)}`.trim()
+    )}`,
     buildWhatsAppWeb(p),
   ],
   instagram: (_p: SharePayload) => ['instagram://app', 'https://www.instagram.com/'],
