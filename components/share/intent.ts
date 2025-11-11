@@ -20,7 +20,8 @@ export type Channel =
   | 'email'
   | 'copy'
   | 'instagram'
-  | 'tiktok';
+  | 'tiktok'
+  | 'reddit';
 
 // ----------------- small utils -----------------
 
@@ -78,7 +79,7 @@ export function buildCopyText(p: SharePayload): string {
   const link = addUtm(p.url, p.utm);
   const via = p.via ? `\nvia @${p.via.replace(/^@/, '')}` : '';
   const tags = p.hashtags?.length ? `\n#${p.hashtags.join(' #')}` : '';
-  return `${p.text}\n\n${link}${via}${tags}`;              // 👈 metin ⏎⏎ link
+  return `${p.text}\n\n${link}${via}${tags}`;
 }
 
 // ----------------- context text templates -----------------
@@ -180,11 +181,9 @@ export function buildTwitterIntent(p: SharePayload): string {
   const params = new URLSearchParams();
   const link = addUtm(p.url, p.utm);
   const textWithGap = p.text ? `${p.text}\n\n${link}` : link;
-
-  if (textWithGap) params.set('text', textWithGap);       // 👈 link metnin içinde, boş satırla
+  if (textWithGap) params.set('text', textWithGap);
   if (p.hashtags?.length) params.set('hashtags', p.hashtags.join(','));
   if (p.via) params.set('via', p.via.replace(/^@/, ''));
-
   return `https://twitter.com/intent/tweet?${params.toString()}`;
 }
 
@@ -193,15 +192,14 @@ export function buildTelegramWeb(p: SharePayload): string {
   const params = new URLSearchParams();
   const link = addUtm(p.url, p.utm);
   const textWithGap = p.text ? `${p.text}\n\n${link}` : link;
-
-  params.set('text', textWithGap);                         // 👈 tek alan: text
+  params.set('text', textWithGap);
   return `https://t.me/share/url?${params.toString()}`;
 }
 
 // 3) WhatsApp (web): birleşik metni boş satırla hazırlıyoruz
 export function buildWhatsAppWeb(p: SharePayload): string {
   const combined = `${p.text ? p.text + '\n\n' : ''}${addUtm(p.url, p.utm)}`.trim();
-  const params = new URLSearchParams({ text: combined });  // 👈 boş satır var
+  const params = new URLSearchParams({ text: combined });
   return `https://wa.me/?${params.toString()}`;
 }
 
@@ -211,6 +209,13 @@ export function buildEmailIntent(p: SharePayload): string {
   const body = `${p.text}\n\n${addUtm(p.url, p.utm)}\nvia @${(p.via ?? DEFAULT_VIA).replace(/^@/, '')}`;
   const params = new URLSearchParams({ subject, body });
   return `mailto:?${params.toString()}`;
+}
+
+export function buildRedditIntent(p: SharePayload): string {
+  const title = p.text || 'Check this out';
+  const url = addUtm(p.url, p.utm);
+  const params = new URLSearchParams({ url, title });
+  return `https://www.reddit.com/submit?${params.toString()}`;
 }
 
 // ----------------- App deep links (mobile) -----------------
@@ -237,5 +242,8 @@ export const APP_LINKS = {
     'tiktok://',
     'snssdk1128://',
     'https://www.tiktok.com/explore',
+  ],
+  reddit: (p: SharePayload) => [
+    buildRedditIntent(p), // app destekli değilse web submit sayfası
   ],
 };

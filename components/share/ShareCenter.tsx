@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { SharePayload, Channel } from '@/components/share/intent';
+import { buildCopyText } from '@/components/share/intent'; // 👈 NEW
 import { detectInAppBrowser } from '@/components/share/browser';
 import { openShareChannel } from '@/components/share/openShare';
 
@@ -19,8 +20,7 @@ function Toast({
   const posClass =
     position === 'top'
       ? 'top-6 md:top-10'
-      : // mobilde biraz yukarı, desktop’ta daha da yukarıda
-        'bottom-16 md:bottom-24';
+      : 'bottom-16 md:bottom-24';
 
   const widthClass = wide
     ? 'w-[min(720px,calc(100vw-2rem))]'
@@ -44,7 +44,7 @@ function Toast({
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  payload: SharePayload; // dışarıda context'e göre üretilir
+  payload: SharePayload;
   context: 'profile' | 'contribution' | 'leaderboard' | 'success';
   txId?: string;
   walletBase58?: string | null;
@@ -77,7 +77,6 @@ export default function ShareCenter({
     const style = document.createElement('style');
     style.id = 'sharecenter-toast-style';
     style.innerHTML = `
-      /* Toast fade */
       @keyframes fadeInOut {
         0%   { opacity: 0; transform: translateY(8px); }
         12%  { opacity: 1; transform: translateY(0); }
@@ -86,7 +85,6 @@ export default function ShareCenter({
       }
       .animate-fadeInOut { animation: fadeInOut 3.2s ease-in-out forwards; }
 
-      /* X button sheen sweep */
       @keyframes x-sweep {
         0%   { transform: translateX(-140%); }
         60%  { transform: translateX(160%); }
@@ -125,16 +123,16 @@ export default function ShareCenter({
     (showToast as any)._t = window.setTimeout(() => setToastMsg(null), 3200);
   };
 
-  // X aktif, diğerleri toast
+  // X aktif, diğerleri toast (şimdilik)
   const openChannel = useCallback(
     async (channel: Channel) => {
       if (channel === 'twitter') {
-        await openShareChannel('twitter', payload); // anchor.click ile açar
-        await recordShare('twitter');
+        await openShareChannel('twitter', payload);
+        await recordShare('twitter'); // 30 CP backend
         onOpenChange(false);
         return;
       }
-      // Geçici bilgilendirme (yatay geniş, altta)
+      // Diğerleri şimdilik kapalı
       showToast(
         "Sharing for this app isn’t live yet — but you’ll still earn CorePoints when you copy and share manually!",
         'bottom',
@@ -144,11 +142,12 @@ export default function ShareCenter({
     [payload, walletBase58, context, txId, onOpenChange]
   );
 
-  // Copy text — OS’in kendi “copied” balonuyla çakışmaması için ÜSTTE ve dar
+  // Copy text — X ile aynı birleşik format
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(payload.text);
-      await recordShare('copy');
+      const composed = buildCopyText(payload); // 👈 metin ⏎⏎ link + via + #tags
+      await navigator.clipboard.writeText(composed);
+      await recordShare('copy'); // 10 CP backend
       showToast('Post text copied — share manually to earn CorePoints!', 'top', false);
     } catch {
       showToast('Could not copy text.', 'top', false);
@@ -165,19 +164,22 @@ export default function ShareCenter({
     success: 'Blast your revival—let the world see your $MEGY journey!',
   }[context];
 
-  // “soft brand on black” buton baz sınıfı
   const softBase =
     'relative rounded-xl px-3 py-2 text-sm font-semibold text-white whitespace-nowrap ring-1 ring-white/10 bg-zinc-950';
 
   const body = (
-    // pointer-events düzeltmesi: dış kabuk none, overlay ve kart auto
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-[9999] pointer-events-none">
       <div
         className="absolute inset-0 bg-black/60 pointer-events-auto"
         onClick={() => onOpenChange(false)}
       />
       <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-        <div className="pointer-events-auto w-[92%] max-w-[420px] rounded-2xl border border-white/10 bg-zinc-900 p-5 text-white shadow-[0_0_24px_rgba(255,0,255,0.12)]">
+        <div
+          className="pointer-events-auto w-[92%] max-w-[460px] rounded-2xl
+                     border border-white/20 ring-1 ring-white/10
+                     bg-zinc-900 p-5 text-white
+                     shadow-[0_0_32px_rgba(255,255,255,0.06)]"
+        >
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-transparent bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 bg-clip-text">
               {heading}
@@ -187,6 +189,7 @@ export default function ShareCenter({
               className="rounded-md px-2 py-1 text-sm hover:bg-white/5"
               onClick={() => onOpenChange(false)}
               aria-label="Close"
+              title="Close"
             >
               ✕
             </button>
@@ -194,13 +197,14 @@ export default function ShareCenter({
 
           {sub && <p className="mb-4 text-sm text-zinc-300">{sub}</p>}
 
+          {/* Preview — sadece metin kısmını gösteriyoruz */}
           <div className="mb-4 break-words rounded-xl border border-white/10 bg-zinc-800/70 p-3 text-xs text-zinc-200">
             {payload.text}
           </div>
 
           {/* Buttons */}
           <div className="grid grid-cols-3 gap-3">
-            {/* X — vivid dark→light blue + glass + glow + sheen */}
+            {/* X */}
             <button
               type="button"
               onClick={() => openChannel('twitter')}
@@ -210,7 +214,7 @@ export default function ShareCenter({
                          backdrop-blur-sm hover:brightness-110 hover:shadow-[0_0_20px_rgba(56,189,248,0.65)]
                          active:translate-y-[1px] transition"
             >
-              <span className="relative z-[1]">X</span>
+              <span className="relative z-[1]">X Share on X</span>
               <span className="pointer-events-none absolute inset-0 rounded-xl opacity-30
                                bg-[radial-gradient(120%_100%_at_50%_-10%,rgba(255,255,255,0.35),rgba(255,255,255,0)_60%)]" />
               <span className="pointer-events-none absolute top-0 -left-1/3 h-full w-1/3
@@ -219,7 +223,7 @@ export default function ShareCenter({
                                group-hover:opacity-100 group-hover:animate-x-sweep" />
             </button>
 
-            {/* Telegram — black base + soft brand wash */}
+            {/* Telegram */}
             <button
               type="button"
               onClick={() => openChannel('telegram')}
@@ -228,16 +232,16 @@ export default function ShareCenter({
               Telegram
             </button>
 
-            {/* WhatsApp — black base + soft brand wash */}
+            {/* WhatsApp */}
             <button
               type="button"
               onClick={() => openChannel('whatsapp')}
               className={`${softBase} bg-[linear-gradient(180deg,rgba(37,211,102,0.22)_0%,rgba(0,0,0,0.82)_45%)] hover:brightness-110`}
             >
-              Whatsapp
+              WhatsApp
             </button>
 
-            {/* Email — black base + soft neutral wash */}
+            {/* Email */}
             <button
               type="button"
               onClick={() => openChannel('email')}
@@ -246,7 +250,16 @@ export default function ShareCenter({
               Email
             </button>
 
-            {/* Instagram — multi wash */}
+            {/* Reddit — soft brand wash */}
+            <button
+              type="button"
+              onClick={() => openChannel('reddit')}
+              className={`${softBase} bg-[linear-gradient(180deg,rgba(255,69,0,0.22)_0%,rgba(0,0,0,0.84)_60%)] hover:brightness-110`}
+            >
+              Reddit
+            </button>
+
+            {/* Instagram */}
             <button
               type="button"
               onClick={() => openChannel('instagram')}
@@ -255,13 +268,13 @@ export default function ShareCenter({
               Instagram
             </button>
 
-            {/* TikTok — dual wash */}
+            {/* TikTok */}
             <button
               type="button"
               onClick={() => openChannel('tiktok')}
               className={`${softBase} bg-[linear-gradient(180deg,rgba(254,44,85,0.22)_0%,rgba(0,242,234,0.22)_35%,rgba(0,0,0,0.84)_100%)] hover:brightness-110`}
             >
-              Tiktok
+              TikTok
             </button>
           </div>
 
@@ -275,6 +288,9 @@ export default function ShareCenter({
             >
               Copy text
             </button>
+            <p className="mt-2 text-center text-[11px] text-zinc-400">
+              Paste into any app to <span className="font-semibold text-zinc-200">earn</span>. (+10 CorePoint)
+            </p>
           </div>
         </div>
       </div>
