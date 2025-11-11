@@ -209,7 +209,7 @@ export default function ShareCenter({
 
   // X logo (küçük ve zarif)
   const XLogo = () => (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 md:h-4 md:w-4" focusable="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 md:h-4 md:w-4" focusable="false">
       <path
         fill="currentColor"
         d="M18.9 2H21l-7.5 8.6L22 22h-6.8l-5.3-6.4L3.8 22H2l8-9.2L2 2h6.8l5 6 5.1-6z"
