@@ -73,12 +73,12 @@ function addUtm(u: string, utm?: string): string {
   return url.toString();
 }
 
-// builds a single plain text for copy modal
+// 4) Kopyalama: boş satırla daha okunaklı
 export function buildCopyText(p: SharePayload): string {
   const link = addUtm(p.url, p.utm);
   const via = p.via ? `\nvia @${p.via.replace(/^@/, '')}` : '';
   const tags = p.hashtags?.length ? `\n#${p.hashtags.join(' #')}` : '';
-  return `${p.text}\n${link}${via}${tags}`;
+  return `${p.text}\n\n${link}${via}${tags}`;              // 👈 metin ⏎⏎ link
 }
 
 // ----------------- context text templates -----------------
@@ -175,27 +175,33 @@ export function buildPayload(
 
 // ----------------- Channel intent builders -----------------
 
+// 1) Twitter: linki 'url' paramıyla değil, metnin içine boş satırla koyuyoruz
 export function buildTwitterIntent(p: SharePayload): string {
   const params = new URLSearchParams();
-  if (p.text) params.set('text', p.text);                  // contains $MEGY / $TOKEN
-  if (p.url) params.set('url', addUtm(p.url, p.utm));
+  const link = addUtm(p.url, p.utm);
+  const textWithGap = p.text ? `${p.text}\n\n${link}` : link;
+
+  if (textWithGap) params.set('text', textWithGap);       // 👈 link metnin içinde, boş satırla
   if (p.hashtags?.length) params.set('hashtags', p.hashtags.join(','));
-  if (p.via) params.set('via', p.via.replace(/^@/, ''));   // "levershare"
+  if (p.via) params.set('via', p.via.replace(/^@/, ''));
+
   return `https://twitter.com/intent/tweet?${params.toString()}`;
 }
 
-// Telegram (web)
+// 2) Telegram (web): linki text'in içinde boş satırla veriyoruz; url paramını kullanmıyoruz
 export function buildTelegramWeb(p: SharePayload): string {
   const params = new URLSearchParams();
-  if (p.url) params.set('url', addUtm(p.url, p.utm));
-  if (p.text) params.set('text', p.text);
+  const link = addUtm(p.url, p.utm);
+  const textWithGap = p.text ? `${p.text}\n\n${link}` : link;
+
+  params.set('text', textWithGap);                         // 👈 tek alan: text
   return `https://t.me/share/url?${params.toString()}`;
 }
 
-// WhatsApp (web)
+// 3) WhatsApp (web): birleşik metni boş satırla hazırlıyoruz
 export function buildWhatsAppWeb(p: SharePayload): string {
-  const combined = `${p.text ? p.text + ' ' : ''}${addUtm(p.url, p.utm)}`.trim();
-  const params = new URLSearchParams({ text: combined });
+  const combined = `${p.text ? p.text + '\n\n' : ''}${addUtm(p.url, p.utm)}`.trim();
+  const params = new URLSearchParams({ text: combined });  // 👈 boş satır var
   return `https://wa.me/?${params.toString()}`;
 }
 
