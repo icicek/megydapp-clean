@@ -8,18 +8,21 @@ import { getCfgNumber } from '@/app/api/_lib/corepoints';                // ← 
 
 const sql = neon(process.env.DATABASE_URL!);
 
-// LEGACY fallback (admin_config yoksa bu değerler kullanılır)
-const LEGACY_POINTS = {
+const LEGACY_POINTS: Record<string, number> = {
   twitter: 30,
   telegram: 15,
   whatsapp: 12,
   discord: 12,
   email: 10,
   'copy-link': 5,
-  copy: 5,            // yeni kanal adın varsa eşitle
+  copy: 5,
   'download-image': 0,
   system: 0,
 };
+
+type LegacyChannel = keyof typeof LEGACY_POINTS;
+const legacyPoints = (ch: string) =>
+  LEGACY_POINTS[(ch as LegacyChannel)] ?? 10; // default 10
 
 type Body = {
   wallet_address: string;
@@ -73,7 +76,8 @@ export async function POST(req: NextRequest) {
     const base =
       channel === 'twitter'
         ? await getCfgNumber('cp_share_twitter', LEGACY_POINTS.twitter)
-        : await getCfgNumber('cp_share_other',   LEGACY_POINTS[channel] ?? 10);
+        : await getCfgNumber('cp_share_other',   (LEGACY_POINTS as Record<string, number>)[channel] ?? 10);
+
     const mult = await getCfgNumber('cp_mult_share', 1.0);
 
     const points = Math.max(0, Math.floor(base * mult));
