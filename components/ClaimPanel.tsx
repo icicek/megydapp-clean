@@ -10,6 +10,20 @@ import type { SharePayload } from '@/components/share/intent';
 import ShareCenter from '@/components/share/ShareCenter';
 import { buildPayload } from '@/components/share/intent';
 
+// 🔽 CorePoint geçmişini çeken küçük helper
+async function fetchCorepointHistory(wallet: string | null): Promise<any[]> {
+  if (!wallet) return [];
+  try {
+    const r = await fetch(`/api/corepoints/history?wallet=${wallet}`, { cache: 'no-store' });
+    const j = await r.json().catch(() => ({}));
+    if (!j?.success) return [];
+    return Array.isArray(j.events) ? j.events : [];
+  } catch (e) {
+    console.warn('⚠️ corepoint history fetch failed:', e);
+    return [];
+  }
+}
+
 const asBool = (v: unknown): boolean => {
   if (typeof v === 'boolean') return v;
   if (typeof v === 'number') return v === 1;
@@ -40,6 +54,9 @@ export default function ClaimPanel() {
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
   const [shareContext, setShareContext] = useState<'profile'|'contribution'|'leaderboard'|'success'>('profile');
   const [shareTxId, setShareTxId] = useState<string|undefined>(undefined);
+  const [cpHistory, setCpHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -110,6 +127,21 @@ export default function ClaimPanel() {
 
     fetchData();
   }, [publicKey]);
+
+  useEffect(() => {
+    const w = publicKey?.toBase58() ?? null;
+    if (!w) {
+      setCpHistory([]);
+      setLoadingHistory(false);
+      return;
+    }
+    (async () => {
+      setLoadingHistory(true);
+      const events = await fetchCorepointHistory(w);
+      setCpHistory(events);
+      setLoadingHistory(false);
+    })();
+  }, [publicKey]);  
 
   // ⛑️ İlk kare guard’ları
   if (!publicKey) {

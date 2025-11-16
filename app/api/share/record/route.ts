@@ -1,86 +1,118 @@
 // app/api/share/record/route.ts
+export const dynamic = 'force-dynamic';
+
 import { neon } from '@neondatabase/serverless';
 import { NextRequest, NextResponse } from 'next/server';
+import { awardShare, totalCorePoints } from '@/app/api/_lib/corepoints'; // ← yeni helper (ledger)
+import { getCfgNumber } from '@/app/api/_lib/corepoints';                // ← admin_config'ten sayı okur
 
 const sql = neon(process.env.DATABASE_URL!);
 
-// Channel → CorePoint map (server-source-of-truth)
-const CHANNEL_POINTS: Record<string, number> = {
-  'x': 30,
-  'telegram': 15,
-  'whatsapp': 12,
-  'discord': 12,
-  'email': 10,
+// LEGACY fallback (admin_config yoksa bu değerler kullanılır)
+const LEGACY_POINTS = {
+  twitter: 30,
+  telegram: 15,
+  whatsapp: 12,
+  discord: 12,
+  email: 10,
   'copy-link': 5,
+  copy: 5,            // yeni kanal adın varsa eşitle
   'download-image': 0,
-  'system': 0,
+  system: 0,
 };
 
 type Body = {
   wallet_address: string;
-  channel?: string;         // 'x' | 'telegram' | ...
-  context?: string;         // 'profile' | 'contribution' | 'leaderboard' | 'success'
+  channel?: string;         // 'twitter' | 'telegram' | 'whatsapp' | 'email' | 'copy' | 'instagram' | 'tiktok' | ...
+  context?: 'profile' | 'contribution' | 'leaderboard' | 'success' | string;
   txId?: string | null;
   imageId?: string | null;
 };
 
-// Helper to coerce undefined/null → ''
 const nz = (v?: string | null) => (v ?? '');
+
+function normChannel(raw: string): string {
+  const c = (raw || '').trim().toLowerCase();
+  if (c === 'x') return 'twitter';          // senkronizasyon
+  if (c === 'copy-text' || c === 'copy_link') return 'copy';
+  return c;
+}
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
 
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as Body;
     const wallet = (body.wallet_address || '').trim();
-
     if (!wallet) {
       return NextResponse.json({ success: false, error: 'Missing wallet address' }, { status: 400 });
     }
 
-    const channel = (body.channel || '').trim().toLowerCase();
+    const channel = normChannel(body.channel || '');
     const context = (body.context || '').trim().toLowerCase();
     const txId = body.txId ? String(body.txId) : '';
     const imageId = body.imageId ? String(body.imageId) : '';
 
-    const points = CHANNEL_POINTS[channel] ?? 0;
-
-    // 1) Idempotency check via unique key (wallet, channel, context, txId)
-    //    If unique index exists this INSERT ... ON CONFLICT DO NOTHING pattern is ideal.
+    // 1) Idempotent share kaydı (mevcut davranış)
     const inserted = await sql/* sql */`
       INSERT INTO shares (wallet_address, channel, context, tx_id, image_id)
       VALUES (${wallet}, ${nz(channel)}, ${nz(context)}, ${nz(txId)}, ${nz(imageId)})
       ON CONFLICT ON CONSTRAINT uq_shares_identity DO NOTHING
       RETURNING wallet_address;
     `;
-
     const firstTime = inserted.length > 0;
-
-    // 2) If not first time, do not award points again
     if (!firstTime) {
+      // zaten vardı → puan tekrar verilmez
       return NextResponse.json({ success: true, message: 'Already recorded', awarded: 0 });
     }
 
-    // 3) If points > 0, update participant’s CorePoint and breakdown
+    // 2) Puan değeri (config → fallback legacy)
+    //    twitter: cp_share_twitter, others: cp_share_other ve multiplier cp_mult_share
+    const base =
+      channel === 'twitter'
+        ? await getCfgNumber('cp_share_twitter', LEGACY_POINTS.twitter)
+        : await getCfgNumber('cp_share_other',   LEGACY_POINTS[channel] ?? 10);
+    const mult = await getCfgNumber('cp_mult_share', 1.0);
+
+    const points = Math.max(0, Math.floor(base * mult));
+
+    // 3) Ledger’a da yaz (raporlama için) — günlük idempotency:
+    //    NOT: awardShare() conflict durumunda 0 puan dönebilir (aynı gün aynı context/kanal tekrar)
+    let ledgerAwarded = 0;
+    try {
+      const res = await awardShare({
+        wallet,
+        channel: (channel as any) || 'copy',
+        context: context || 'unknown',
+        day: todayISO(),
+      });
+      ledgerAwarded = res.awarded || 0;
+    } catch (e) {
+      // ledger opsiyonel — sessiz geç
+      console.warn('[share/record] ledger award skipped:', (e as any)?.message || e);
+    }
+
+    // 4) participants toplamını ve breakdown’ı da güncelle (mevcut davranış)
     if (points > 0) {
-      // fetch current
       const rows = await sql/* sql */`
         SELECT core_point, core_point_breakdown
         FROM participants
         WHERE wallet_address = ${wallet};
       `;
-
       if (rows.length > 0) {
         const currentPoint = Number(rows[0].core_point || 0);
         const breakdown = (rows[0].core_point_breakdown as any) || {};
 
         const newBreakdown = {
           ...breakdown,
-          shares: (breakdown.shares || 0) + points, // legacy 'shares' toplamı (genel)
+          shares: (breakdown.shares || 0) + points,
           by_channel: {
             ...(breakdown.by_channel || {}),
             [channel || 'unknown']: ((breakdown.by_channel?.[channel] || 0) + points),
           },
         };
-
         const newCorePoint = currentPoint + points;
 
         await sql/* sql */`
@@ -92,7 +124,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, awarded: points, firstTime });
+    // 5) opsiyonel: toplam puanı ledger’dan oku (varsa)
+    let totalFromLedger: number | null = null;
+    try {
+      totalFromLedger = await totalCorePoints(wallet);
+    } catch {}
+
+    return NextResponse.json({
+      success: true,
+      awarded: points,
+      firstTime,
+      ledgerAwarded,
+      total_ledger: totalFromLedger,
+    });
   } catch (error) {
     console.error('❌ Share record error:', error);
     return NextResponse.json({ success: false, error: 'Internal error' }, { status: 500 });

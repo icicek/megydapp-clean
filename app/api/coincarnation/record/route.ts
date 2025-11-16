@@ -11,6 +11,11 @@ import {
   type TokenStatus
 } from '@/app/api/_lib/registry';
 import { requireAppEnabled } from '@/app/api/_lib/feature-flags';
+import {
+  awardUsdPoints,
+  awardDeadcoinFirst,
+  awardReferralSignup,
+} from '@/app/api/_lib/corepoints';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
@@ -220,6 +225,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'participants upsert failed' }, { status: 500 });
     }
 
+    if (referrerWallet) {
+      try {
+        await awardReferralSignup({ referrer: referrerWallet, referee: wallet_address });
+      } catch (e) {
+        console.warn('⚠️ referral_signup award failed:', (e as any)?.message || e);
+      }
+    }    
+
     // ——— CONTRIBUTIONS: ŞEMA TOLERANSLI INSERT ———
     // asset_kind kolonu DB’de var mı kontrolü
     let hasAssetKind = false;
@@ -325,6 +338,17 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    try {
+      if (usdValueNum > 0 && txHashOrSig) {
+        await awardUsdPoints({ wallet: wallet_address, usdValue: usdValueNum, txId: txHashOrSig });
+      }
+      if (usdValueNum === 0 && token_contract) {
+        await awardDeadcoinFirst({ wallet: wallet_address, tokenContract: token_contract });
+      }
+    } catch (e) {
+      console.warn('⚠️ corepoint award failed:', (e as any)?.message || e);
+    }    
 
     // ——— Registry (best effort) ———
     if (hasMint) {
