@@ -7,14 +7,10 @@ import { requireAdmin } from '@/app/api/_lib/jwt';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
-type RouteParams = {
-  params: { key: string };
-};
-
 // GET /api/admin/config/[key]
 export async function GET(
   req: NextRequest,
-  { params }: RouteParams
+  { params }: { params: { key: string } }
 ) {
   // 🔐 only admins
   await requireAdmin(req);
@@ -41,7 +37,7 @@ export async function GET(
 // PUT /api/admin/config/[key]
 export async function PUT(
   req: NextRequest,
-  { params }: RouteParams
+  { params }: { params: { key: string } }
 ) {
   // 🔐 only admins
   await requireAdmin(req);
