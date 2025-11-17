@@ -473,6 +473,53 @@ export default function AdminControlPage() {
             </div>
           </section>
 
+          {/* CorePoint Weights */}
+          <section className={`${CARD} md:col-span-2`}>
+            <div className="font-semibold mb-2">CorePoint Weights</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* USD per $1 */}
+              <NumberConfig
+                label="USD → points (per $1)"
+                keyName="cp_usd_per_1"
+                help="Example: 100 → 1 USD = 100 pts"
+                presets={[50, 100, 150, 200]}
+              />
+              {/* Deadcoin first */}
+              <NumberConfig
+                label="Deadcoin (first per contract)"
+                keyName="cp_deadcoin_first"
+                help="Awarded once per wallet+contract"
+                presets={[50, 100, 150, 200]}
+              />
+              {/* Share twitter / other */}
+              <NumberConfig
+                label="Share: X (Twitter)"
+                keyName="cp_share_twitter"
+                presets={[10, 20, 30, 50]}
+              />
+              <NumberConfig
+                label="Share: Others (Telegram/WA/IG/TikTok/Email/Copy)"
+                keyName="cp_share_other"
+                presets={[5, 10, 15, 20]}
+              />
+              {/* Referral */}
+              <NumberConfig
+                label="Referral (signup)"
+                keyName="cp_referral_signup"
+                help="Award referrer when a referee joins for the first time"
+                presets={[50, 100, 150]}
+              />
+            </div>
+
+            <div className="font-semibold mt-6 mb-2">Multipliers</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <NumberConfig label="Share multiplier"   keyName="cp_mult_share"   presets={[1.0, 0.8, 0.6, 0.5]} step={0.1} />
+              <NumberConfig label="USD multiplier"     keyName="cp_mult_usd"     presets={[1.0, 0.9, 0.75, 0.5]} step={0.1} />
+              <NumberConfig label="Deadcoin multiplier"keyName="cp_mult_deadcoin"presets={[1.0, 0.8, 0.6, 0.5]} step={0.1} />
+              <NumberConfig label="Referral multiplier"keyName="cp_mult_referral"presets={[1.0, 0.9, 0.75, 0.5]} step={0.1} />
+            </div>
+          </section>
+
           {/* Coincarnation Rate (USD per 1 MEGY) */}
           <section className={CARD}>
             <div className="font-semibold">Coincarnation Rate</div>
@@ -579,5 +626,85 @@ export default function AdminControlPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+function NumberConfig({
+  label,
+  keyName,
+  help,
+  presets = [],
+  step = 1,
+}: {
+  label: string;
+  keyName: string;
+  help?: string;
+  presets?: (number | string)[];
+  step?: number;
+}) {
+  const [val, setVal] = useState<string>('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(`/api/admin/config/${keyName}`, { credentials: 'include', cache: 'no-store' });
+        if (!r.ok) return;
+        const j = await r.json().catch(() => null);
+        const v = j?.value ?? '';
+        setVal(String(v));
+      } catch {}
+    })();
+  }, [keyName]);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const num = Number(val);
+      await fetch(`/api/admin/config/${keyName}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: num }),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-white/10 p-4 bg-white/5">
+      <div className="text-sm font-medium">{label}</div>
+      {help && <div className="text-[11px] text-white/60 mt-0.5">{help}</div>}
+      <div className="mt-2 flex items-center gap-2">
+        <input
+          inputMode="decimal"
+          step={step}
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          className="w-36 rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
+        />
+        <button
+          onClick={save}
+          disabled={saving || val.trim() === ''}
+          className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-sm"
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+      {presets.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {presets.map((p) => (
+            <button
+              key={String(p)}
+              onClick={() => setVal(String(p))}
+              className="px-2.5 py-1.5 rounded-md bg-white/10 hover:bg-white/15 text-xs"
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
