@@ -1,62 +1,122 @@
 // app/api/admin/config/[key]/route.ts
-export const dynamic = 'force-dynamic';
-
-import { NextRequest, NextResponse } from 'next/server';
-import { neon } from '@neondatabase/serverless';
+import { NextRequest } from 'next/server';
+import { sql } from '@/app/api/_lib/db';
 import { requireAdmin } from '@/app/api/_lib/jwt';
 
-const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
+// Hangi keylerin UI üzerinden yönetilebileceğini beyaz liste ile sınırlıyoruz
+const ALLOWED_KEYS = new Set<string>([
+  // mevcut config anahtarları
+  'claim_open',
+  'app_enabled',
+  'cron_enabled',
+  'distribution_pool',
+  'coincarnation_rate',
+  'admins',
 
-// URL'den [key] segmentini alan küçük helper
-function getKeyFromRequest(req: NextRequest): string {
-  // /api/admin/config/[key] -> son segment [key]
-  const path = req.nextUrl?.pathname ?? new URL(req.url).pathname;
-  const parts = path.split('/').filter(Boolean);
-  return decodeURIComponent(parts[parts.length - 1] || '');
+  // 🔽 CorePoint ağırlıkları
+  'cp_usd_per_1',
+  'cp_deadcoin_first',
+  'cp_share_twitter',
+  'cp_share_other',
+  'cp_referral_signup',
+
+  // 🔽 CorePoint çarpanları
+  'cp_mult_share',
+  'cp_mult_usd',
+  'cp_mult_deadcoin',
+  'cp_mult_referral',
+]);
+
+// Basit JSON error helper
+function jsonError(message: string, status: number): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
-// GET /api/admin/config/[key]
-export async function GET(req: NextRequest) {
-  // 🔐 sadece admin
-  await requireAdmin(req);
-
-  const key = getKeyFromRequest(req);
-
-  const rows = await sql`
-    SELECT value
+async function getConfigRow(key: string) {
+  const rows = await sql/* sql */`
+    SELECT key, value
     FROM admin_config
     WHERE key = ${key}
     LIMIT 1
   `;
-
-  if (!rows[0]) {
-    return NextResponse.json({ success: true, value: null });
-  }
-
-  return NextResponse.json({
-    success: true,
-    value: rows[0].value,
-  });
+  return (rows as any[])[0] ?? null;
 }
 
-// PUT /api/admin/config/[key]
-export async function PUT(req: NextRequest) {
-  // 🔐 sadece admin
-  await requireAdmin(req);
+/* ---------- GET /api/admin/config/[key] ---------- */
+export async function GET(_req: NextRequest, context: any) {
+  const key = context?.params?.key as string;
 
-  const key = getKeyFromRequest(req);
-  const body = await req.json().catch(() => null);
-  const val = body?.value ?? null;
+  if (!key || !ALLOWED_KEYS.has(key)) {
+    return jsonError('Config key not found', 404);
+  }
 
-  await sql`
-    INSERT INTO admin_config (key, value)
-    VALUES (${key}, ${val})
+  const row = await getConfigRow(key);
+  if (!row) {
+    // Key hiç yoksa “success: true, value: null” dönelim
+    return Response.json({ success: true, value: null });
+  }
+
+  const raw = row.value ?? {};
+  const value =
+    typeof raw === 'object' && raw !== null && 'value' in raw
+      ? (raw as any).value
+      : raw;
+
+  return Response.json({ success: true, value });
+}
+
+/* ---------- PUT / POST /api/admin/config/[key] ---------- */
+export async function PUT(req: NextRequest, context: any) {
+  return saveConfig(req, context);
+}
+
+export async function POST(req: NextRequest, context: any) {
+  return saveConfig(req, context);
+}
+
+async function saveConfig(req: NextRequest, context: any) {
+  const key = context?.params?.key as string;
+
+  if (!key || !ALLOWED_KEYS.has(key)) {
+    return jsonError('Config key not allowed', 404);
+  }
+
+  // admin doğrulaması
+  const adminWallet = await requireAdmin(req as any).catch(() => null);
+  if (!adminWallet) {
+    return jsonError('Admin auth required', 401);
+  }
+
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    body = {};
+  }
+
+  // bazı key’ler special format kullanıyor (admins: { wallets: [...] })
+  let valueWrapper: any;
+
+  if (key === 'admins') {
+    const wallets = Array.isArray(body.wallets) ? body.wallets : [];
+    valueWrapper = { wallets };
+  } else {
+    const val = body.value;
+    valueWrapper = { value: val };
+  }
+
+  await sql/* sql */`
+    INSERT INTO admin_config (key, value, updated_by)
+    VALUES (${key}, ${valueWrapper}::jsonb, ${adminWallet})
     ON CONFLICT (key)
-    DO UPDATE SET value = ${val}
+    DO UPDATE SET
+      value      = EXCLUDED.value,
+      updated_by = EXCLUDED.updated_by,
+      updated_at = NOW()
   `;
 
-  return NextResponse.json({
-    success: true,
-    value: val,
-  });
+  return Response.json({ success: true, key, value: valueWrapper });
 }
