@@ -54,10 +54,16 @@ export async function GET(req: NextRequest) {
       created_at: string;
     }[];
 
+    // ClaimPanel şu anda ev.date kullanıyor; uyumluluk için burada date alanını da ekliyoruz
+    const events = rows.map((ev) => ({
+      ...ev,
+      date: ev.created_at ?? ev.day ?? null,
+    }));
+
     return NextResponse.json({
       success: true,
       wallet,
-      events: rows,
+      events,
     });
   } catch (e: any) {
     console.error('❌ /api/corepoints/history failed:', e?.message || e);
