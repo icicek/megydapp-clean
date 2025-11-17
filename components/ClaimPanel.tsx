@@ -1,3 +1,5 @@
+// components/ClaimPanel.tsx
+
 'use client';
 
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -546,10 +548,6 @@ export default function ClaimPanel() {
                 </thead>
                 <tbody>
                   {cpHistory.map((ev, i) => {
-                    // ev.type: 'usd' | 'deadcoin_first' | 'share' | 'referral_signup' ...
-                    // ev.points: number
-                    // ev.date: ISO string
-                    // ev.value, ev.channel, ev.token_contract, ev.ref_wallet, ev.tx_id ... (opsiyonel)
                     const typeLabel =
                       ev.type === 'usd' ? 'Contribution'
                       : ev.type === 'deadcoin_first' ? 'Deadcoin (first)'
@@ -558,17 +556,28 @@ export default function ClaimPanel() {
                       : ev.type || 'Other';
 
                     let detail = '';
-                    if (ev.type === 'usd') detail = `$${Number(ev.value || 0).toFixed(2)} Coincarnation`;
-                    else if (ev.type === 'share') detail = (ev.channel ? String(ev.channel).toUpperCase() : 'Share');
-                    else if (ev.type === 'deadcoin_first') detail = ev.token_contract ? `Contract: ${ev.token_contract}` : '';
-                    else if (ev.type === 'referral_signup') detail = ev.ref_wallet ? `Referee: ${ev.ref_wallet}` : '';
+                    if (ev.type === 'usd') {
+                      detail = `$${Number(ev.value || 0).toFixed(2)} Coincarnation`;
+                    } else if (ev.type === 'share') {
+                      detail = ev.channel ? String(ev.channel).toUpperCase() : 'Share';
+                    } else if (ev.type === 'deadcoin_first') {
+                      detail = ev.token_contract ? `Contract: ${ev.token_contract}` : '';
+                    } else if (ev.type === 'referral_signup') {
+                      detail = ev.ref_wallet ? `Referee: ${ev.ref_wallet}` : '';
+                    }
+
+                    const dateStr = ev.created_at || ev.day || null;
 
                     return (
                       <tr key={i} className="border-t border-zinc-700 hover:bg-zinc-800">
-                        <td className="px-4 py-2 font-semibold text-emerald-400">+{ev.points} CP</td>
+                        <td className="px-4 py-2 font-semibold text-emerald-400">
+                          +{Number(ev.points || 0).toFixed(1)} CP
+                        </td>
                         <td className="px-4 py-2">{typeLabel}</td>
                         <td className="px-4 py-2">{detail || '-'}</td>
-                        <td className="px-4 py-2">{ev.date ? formatDate(ev.date) : '-'}</td>
+                        <td className="px-4 py-2">
+                          {dateStr ? formatDate(dateStr) : '-'}
+                        </td>
                       </tr>
                     );
                   })}
