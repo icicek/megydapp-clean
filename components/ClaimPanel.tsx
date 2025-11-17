@@ -473,6 +473,70 @@ export default function ClaimPanel() {
           )}
         </motion.section>
 
+        {/* 📜 CorePoint History */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.35 }}
+          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-4 sm:px-6 sm:py-5 mb-5 shadow-md"
+        >
+          <h3 className="text-emerald-400 text-sm font-semibold uppercase mb-4 tracking-wide">
+            📜 CorePoint History
+          </h3>
+
+          {loadingHistory && (
+            <p className="text-gray-400 text-sm">Loading…</p>
+          )}
+
+          {!loadingHistory && cpHistory.length === 0 && (
+            <p className="text-gray-400 text-sm">No CorePoint activity yet.</p>
+          )}
+
+          {!loadingHistory && cpHistory.length > 0 && (
+            <div className="w-full overflow-x-auto rounded-xl border border-zinc-700">
+              <table className="min-w-[640px] w-full text-sm text-left bg-zinc-900">
+                <thead className="bg-zinc-800 text-gray-300">
+                  <tr>
+                    <th className="px-4 py-2">Points</th>
+                    <th className="px-4 py-2">Type</th>
+                    <th className="px-4 py-2">Detail</th>
+                    <th className="px-4 py-2">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cpHistory.map((ev, i) => {
+                    // ev.type: 'usd' | 'deadcoin_first' | 'share' | 'referral_signup' ...
+                    // ev.points: number
+                    // ev.date: ISO string
+                    // ev.value, ev.channel, ev.token_contract, ev.ref_wallet, ev.tx_id ... (opsiyonel)
+                    const typeLabel =
+                      ev.type === 'usd' ? 'Contribution'
+                      : ev.type === 'deadcoin_first' ? 'Deadcoin (first)'
+                      : ev.type === 'share' ? 'Share'
+                      : ev.type === 'referral_signup' ? 'Referral (signup)'
+                      : ev.type || 'Other';
+
+                    let detail = '';
+                    if (ev.type === 'usd') detail = `$${Number(ev.value || 0).toFixed(2)} Coincarnation`;
+                    else if (ev.type === 'share') detail = (ev.channel ? String(ev.channel).toUpperCase() : 'Share');
+                    else if (ev.type === 'deadcoin_first') detail = ev.token_contract ? `Contract: ${ev.token_contract}` : '';
+                    else if (ev.type === 'referral_signup') detail = ev.ref_wallet ? `Referee: ${ev.ref_wallet}` : '';
+
+                    return (
+                      <tr key={i} className="border-t border-zinc-700 hover:bg-zinc-800">
+                        <td className="px-4 py-2 font-semibold text-emerald-400">+{ev.points} CP</td>
+                        <td className="px-4 py-2">{typeLabel}</td>
+                        <td className="px-4 py-2">{detail || '-'}</td>
+                        <td className="px-4 py-2">{ev.date ? formatDate(ev.date) : '-'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </motion.section>
+
         {/* 💠 Personal Value Currency */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
