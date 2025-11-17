@@ -136,19 +136,30 @@ export default function ShareCenter({
     };
   }, [payload.url, payload.shortUrl]);
 
+  // 🔴 ÖNEMLİ: CorePoint share kaydı
   async function recordShare(channel: Channel) {
     if (!walletBase58) return;
+
+    // Gün bazlı tekilleştirme için client tarafında da day gönderiyoruz (YYYY-MM-DD)
+    const day = new Date().toISOString().slice(0, 10);
+
     try {
-      await fetch('/api/share/record', {
+      const res = await fetch('/api/share/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          wallet_address: walletBase58,
-          channel,
-          context,
+          wallet: walletBase58,      // ✅ ESKİ: wallet_address  ❌
+          channel,                   // 'twitter' | 'copy' | 'telegram' ...
+          context,                   // 'profile' | 'contribution' | 'leaderboard' | 'success'
+          day,                       // YYYY-MM-DD, server istersen override edebiliyor
           txId: txId ?? null,
         }),
       });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.warn('[ShareCenter] recordShare failed', res.status, text);
+      }
     } catch (e) {
       console.warn('[ShareCenter] record error', e);
     }
@@ -175,7 +186,7 @@ export default function ShareCenter({
     async (channel: Channel) => {
       if (channel === 'twitter') {
         await openShareChannel('twitter', payloadWithShort);
-        await recordShare('twitter');
+        await recordShare('twitter'); // ✅ X paylaşımlarını CorePoint'e yaz
         onOpenChange(false);
         return;
       }
@@ -194,7 +205,7 @@ export default function ShareCenter({
     try {
       const composed = buildCopyText(payloadWithShort);
       await navigator.clipboard.writeText(composed);
-      await recordShare('copy');
+      await recordShare('copy'); // ✅ Copy de share event olarak işleniyor
       showToast('Post text copied — share manually to earn CorePoints!', 'top', false, 'success');
     } catch {
       showToast('Could not copy text.', 'top', false, 'error');
