@@ -7,15 +7,20 @@ import { requireAdmin } from '@/app/api/_lib/jwt';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
+// URL'den [key] segmentini alan küçük helper
+function getKeyFromRequest(req: NextRequest): string {
+  // /api/admin/config/[key] -> son segment [key]
+  const path = req.nextUrl?.pathname ?? new URL(req.url).pathname;
+  const parts = path.split('/').filter(Boolean);
+  return decodeURIComponent(parts[parts.length - 1] || '');
+}
+
 // GET /api/admin/config/[key]
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { key: string } }
-) {
-  // 🔐 only admins
+export async function GET(req: NextRequest) {
+  // 🔐 sadece admin
   await requireAdmin(req);
 
-  const key = params.key;
+  const key = getKeyFromRequest(req);
 
   const rows = await sql`
     SELECT value
@@ -35,14 +40,11 @@ export async function GET(
 }
 
 // PUT /api/admin/config/[key]
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: { key: string } }
-) {
-  // 🔐 only admins
+export async function PUT(req: NextRequest) {
+  // 🔐 sadece admin
   await requireAdmin(req);
 
-  const key = params.key;
+  const key = getKeyFromRequest(req);
   const body = await req.json().catch(() => null);
   const val = body?.value ?? null;
 
