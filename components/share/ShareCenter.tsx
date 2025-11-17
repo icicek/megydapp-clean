@@ -136,32 +136,46 @@ export default function ShareCenter({
     };
   }, [payload.url, payload.shortUrl]);
 
-  // 🔴 ÖNEMLİ: CorePoint share kaydı
-  async function recordShare(channel: Channel) {
+  // 🔴 Ortak helper: share eventini gönder
+  async function sendShareEvent(channel: Channel) {
     if (!walletBase58) return;
 
-    // Gün bazlı tekilleştirme için client tarafında da day gönderiyoruz (YYYY-MM-DD)
     const day = new Date().toISOString().slice(0, 10);
 
-    try {
-      const res = await fetch('/api/share/record', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          wallet: walletBase58,      // ✅ ESKİ: wallet_address  ❌
-          channel,                   // 'twitter' | 'copy' | 'telegram' ...
-          context,                   // 'profile' | 'contribution' | 'leaderboard' | 'success'
-          day,                       // YYYY-MM-DD, server istersen override edebiliyor
-          txId: txId ?? null,
-        }),
-      });
+    const body = {
+      wallet: walletBase58,  // ✅ server tarafı wallet & wallet_address ikisini de destekliyor
+      channel,
+      context,
+      day,
+      txId: txId ?? null,
+    };
 
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        console.warn('[ShareCenter] recordShare failed', res.status, text);
+    try {
+      // 1) Tercihen sendBeacon (navigasyon sırasında bile çalışır)
+      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+        const blob = new Blob([JSON.stringify(body)], { type: 'application/json' });
+        const ok = navigator.sendBeacon('/api/share/record', blob);
+        if (!ok) {
+          console.warn('[ShareCenter] sendBeacon failed, falling back to fetch');
+          // 2) Fallback: keepalive fetch
+          await fetch('/api/share/record', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+            keepalive: true,
+          });
+        }
+      } else {
+        // Eski tarayıcı: tek başına keepalive fetch
+        await fetch('/api/share/record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          keepalive: true,
+        });
       }
     } catch (e) {
-      console.warn('[ShareCenter] record error', e);
+      console.warn('[ShareCenter] sendShareEvent error', e);
     }
   }
 
@@ -185,8 +199,9 @@ export default function ShareCenter({
   const openChannel = useCallback(
     async (channel: Channel) => {
       if (channel === 'twitter') {
+        // ✅ Önce event'i gönder, sonra X'i aç
+        await sendShareEvent('twitter');
         await openShareChannel('twitter', payloadWithShort);
-        await recordShare('twitter'); // ✅ X paylaşımlarını CorePoint'e yaz
         onOpenChange(false);
         return;
       }
@@ -197,7 +212,7 @@ export default function ShareCenter({
         'info'
       );
     },
-    [payloadWithShort, walletBase58, context, txId, onOpenChange]
+    [payloadWithShort, onOpenChange] // sendShareEvent closure'dan geliyor
   );
 
   // Copy text — X ile aynı birleşik format
@@ -205,7 +220,7 @@ export default function ShareCenter({
     try {
       const composed = buildCopyText(payloadWithShort);
       await navigator.clipboard.writeText(composed);
-      await recordShare('copy'); // ✅ Copy de share event olarak işleniyor
+      await sendShareEvent('copy');
       showToast('Post text copied — share manually to earn CorePoints!', 'top', false, 'success');
     } catch {
       showToast('Could not copy text.', 'top', false, 'error');
