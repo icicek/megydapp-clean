@@ -163,15 +163,23 @@ export default function ClaimPanel() {
               cache: 'no-store',
             });
             if (!r.ok) return [key, null] as const;
+
             const j = await r.json().catch(() => null);
-            const v = Number(j?.value ?? 0);
-            return [key, Number.isFinite(v) ? v : 0] as const;
+            let raw: any = j?.value ?? null;
+
+            // admin_config.value jsonb: { "value": XXX } şeklindeyse onu da yakala
+            if (raw && typeof raw === 'object' && 'value' in raw) {
+              raw = (raw as any).value;
+            }
+
+            const num = Number(raw);
+            return [key, Number.isFinite(num) ? num : null] as const;
           })
         );
 
-        const map: Record<string, number> = {};
+        const map: Record<string, number | null> = {};
         for (const [k, v] of entries) {
-          map[k] = v ?? 0;
+          map[k] = v;
         }
 
         setCpConfig({
@@ -190,6 +198,7 @@ export default function ClaimPanel() {
       }
     })();
   }, []);
+
 
   useEffect(() => {
     const w = publicKey?.toBase58() ?? null;
