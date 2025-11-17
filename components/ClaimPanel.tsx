@@ -141,64 +141,33 @@ export default function ClaimPanel() {
     fetchData();
   }, [publicKey]);
 
-  // CorePoint config'lerini admin/config'ten çek
+  // CorePoint config (server-side weights → UI descriptions)
   useEffect(() => {
     (async () => {
       try {
-        const keys = [
-          'cp_usd_per_1',
-          'cp_deadcoin_first',
-          'cp_share_twitter',
-          'cp_share_other',
-          'cp_referral_signup',
-          'cp_mult_share',
-          'cp_mult_usd',
-          'cp_mult_deadcoin',
-          'cp_mult_referral',
-        ] as const;
+        const r = await fetch('/api/corepoints/config', { cache: 'no-store' });
+        if (!r.ok) return;
 
-        const entries = await Promise.all(
-          keys.map(async (key) => {
-            const r = await fetch(`/api/admin/config/${key}`, {
-              cache: 'no-store',
-            });
-            if (!r.ok) return [key, null] as const;
-
-            const j = await r.json().catch(() => null);
-            let raw: any = j?.value ?? null;
-
-            // admin_config.value jsonb: { "value": XXX } şeklindeyse onu da yakala
-            if (raw && typeof raw === 'object' && 'value' in raw) {
-              raw = (raw as any).value;
-            }
-
-            const num = Number(raw);
-            return [key, Number.isFinite(num) ? num : null] as const;
-          })
-        );
-
-        const map: Record<string, number | null> = {};
-        for (const [k, v] of entries) {
-          map[k] = v;
-        }
+        const j = await r.json().catch(() => null);
+        const cfg = j?.config;
+        if (!cfg) return;
 
         setCpConfig({
-          usdPer1:       map['cp_usd_per_1']       ?? 100,
-          deadcoinFirst: map['cp_deadcoin_first']  ?? 100,
-          shareTwitter:  map['cp_share_twitter']   ?? 30,
-          shareOther:    map['cp_share_other']     ?? 10,
-          refSignup:     map['cp_referral_signup'] ?? 100,
-          multShare:     map['cp_mult_share']      ?? 1,
-          multUsd:       map['cp_mult_usd']        ?? 1,
-          multDeadcoin:  map['cp_mult_deadcoin']   ?? 1,
-          multReferral:  map['cp_mult_referral']   ?? 1,
+          usdPer1:       Number(cfg.usdPer1       ?? cfg.usd_per_1       ?? 100),
+          deadcoinFirst: Number(cfg.deadFirst    ?? cfg.deadcoinFirst   ?? 100),
+          shareTwitter:  Number(cfg.shareTw      ?? cfg.shareTwitter    ?? 30),
+          shareOther:    Number(cfg.shareOther   ?? 10),
+          refSignup:     Number(cfg.refSign      ?? cfg.refSignup       ?? 100),
+          multShare:     Number(cfg.mShare       ?? cfg.multShare       ?? 1),
+          multUsd:       Number(cfg.mUsd         ?? cfg.multUsd         ?? 1),
+          multDeadcoin:  Number(cfg.mDead        ?? cfg.multDeadcoin    ?? 1),
+          multReferral:  Number(cfg.mRef         ?? cfg.multReferral    ?? 1),
         });
       } catch (e) {
         console.warn('⚠️ cpConfig fetch failed:', e);
       }
     })();
   }, []);
-
 
   useEffect(() => {
     const w = publicKey?.toBase58() ?? null;
