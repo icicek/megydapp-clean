@@ -34,9 +34,22 @@ const asBool = (v: unknown): boolean => {
   return false;
 };
 
+type CpConfig = {
+  usdPer1: number;
+  deadcoinFirst: number;
+  shareTwitter: number;
+  shareOther: number;
+  refSignup: number;
+  multShare: number;
+  multUsd: number;
+  multDeadcoin: number;
+  multReferral: number;
+};
+
 export default function ClaimPanel() {
   const { publicKey } = useWallet();
 
+  const [cpConfig, setCpConfig] = useState<CpConfig | null>(null);
   const [data, setData] = useState<any>(null);
   const [claimAmount, setClaimAmount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -127,6 +140,56 @@ export default function ClaimPanel() {
 
     fetchData();
   }, [publicKey]);
+
+  // CorePoint config'lerini admin/config'ten çek
+  useEffect(() => {
+    (async () => {
+      try {
+        const keys = [
+          'cp_usd_per_1',
+          'cp_deadcoin_first',
+          'cp_share_twitter',
+          'cp_share_other',
+          'cp_referral_signup',
+          'cp_mult_share',
+          'cp_mult_usd',
+          'cp_mult_deadcoin',
+          'cp_mult_referral',
+        ] as const;
+
+        const entries = await Promise.all(
+          keys.map(async (key) => {
+            const r = await fetch(`/api/admin/config/${key}`, {
+              cache: 'no-store',
+            });
+            if (!r.ok) return [key, null] as const;
+            const j = await r.json().catch(() => null);
+            const v = Number(j?.value ?? 0);
+            return [key, Number.isFinite(v) ? v : 0] as const;
+          })
+        );
+
+        const map: Record<string, number> = {};
+        for (const [k, v] of entries) {
+          map[k] = v ?? 0;
+        }
+
+        setCpConfig({
+          usdPer1:       map['cp_usd_per_1']       ?? 100,
+          deadcoinFirst: map['cp_deadcoin_first']  ?? 100,
+          shareTwitter:  map['cp_share_twitter']   ?? 30,
+          shareOther:    map['cp_share_other']     ?? 10,
+          refSignup:     map['cp_referral_signup'] ?? 100,
+          multShare:     map['cp_mult_share']      ?? 1,
+          multUsd:       map['cp_mult_usd']        ?? 1,
+          multDeadcoin:  map['cp_mult_deadcoin']   ?? 1,
+          multReferral:  map['cp_mult_referral']   ?? 1,
+        });
+      } catch (e) {
+        console.warn('⚠️ cpConfig fetch failed:', e);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     const w = publicKey?.toBase58() ?? null;
@@ -648,31 +711,56 @@ export default function ClaimPanel() {
                   🔍 Contribution Breakdown
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                  <ContributionCard
+                <ContributionCard
                     icon="🪙"
                     title="Coincarnations"
                     points={data.core_point_breakdown.coincarnations}
-                    description="100 pts per $1 value contributed via deadcoins"
+                    description={
+                      cpConfig
+                        ? `Currently ~${Math.round(cpConfig.usdPer1 * cpConfig.multUsd)} CP per $1 revived.`
+                        : 'CorePoints from your Coincarnation contributions.'
+                    }
                   />
+
                   <ContributionCard
                     icon="📣"
                     title="Referrals"
                     points={data.core_point_breakdown.referrals}
-                    description={`${data.referral_count} person x 100 + $${Number(
-                      data.referral_usd_contributions || 0
-                    ).toFixed(2)} x 50 + ${data.referral_deadcoin_count} deadcoins x 100`}
+                    description={
+                      cpConfig
+                        ? `Each new wallet you bring starts at ~${Math.round(
+                            cpConfig.refSignup * cpConfig.multReferral
+                          )} CP, plus extra from their contributions & deadcoins.`
+                        : `${data.referral_count} person joined with your link; their activity boosts your CorePoint.`
+                    }
                   />
+
                   <ContributionCard
                     icon="🐦"
                     title="Shares"
                     points={data.core_point_breakdown.shares}
-                    description="Each unique share gives +30 CorePoints (only once)"
+                    description={
+                      cpConfig
+                        ? `First share on X: ~${Math.round(
+                            cpConfig.shareTwitter * cpConfig.multShare
+                          )} CP; other channels: ~${Math.round(
+                            cpConfig.shareOther * cpConfig.multShare
+                          )} CP (once per wallet).`
+                        : 'CorePoints for sharing Coincarnation on X and other channels.'
+                    }
                   />
+
                   <ContributionCard
                     icon="💀"
                     title="Deadcoins Bonus"
                     points={data.core_point_breakdown.deadcoins}
-                    description="Extra 100 pts for each deadcoin revived (USD = 0)"
+                    description={
+                      cpConfig
+                        ? `Each deadcoin contract you revive: ~${Math.round(
+                            cpConfig.deadcoinFirst * cpConfig.multDeadcoin
+                          )} bonus CP (once per contract).`
+                        : 'Extra CorePoints for reviving true deadcoins (USD = 0).'
+                    }
                   />
                 </div>
               </div>

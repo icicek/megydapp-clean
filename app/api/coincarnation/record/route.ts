@@ -1,3 +1,5 @@
+// app/api/coincarnation/record/route.ts
+
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
@@ -12,8 +14,7 @@ import {
 } from '@/app/api/_lib/registry';
 import { requireAppEnabled } from '@/app/api/_lib/feature-flags';
 import {
-  awardUsdPoints,
-  awardDeadcoinFirst,
+  awardUsdCorepoints,
   awardReferralSignup,
 } from '@/app/api/_lib/corepoints';
 
@@ -339,16 +340,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    try {
-      if (usdValueNum > 0 && txHashOrSig) {
-        await awardUsdPoints({ wallet: wallet_address, usdValue: usdValueNum, txId: txHashOrSig });
-      }
-      if (usdValueNum === 0 && token_contract) {
-        await awardDeadcoinFirst({ wallet: wallet_address, tokenContract: token_contract });
-      }
-    } catch (e) {
-      console.warn('⚠️ corepoint award failed:', (e as any)?.message || e);
-    }    
+        // ——— CorePoint: USD + Deadcoin (admin_config tabanlı) ———
+        try {
+          await awardUsdCorepoints({
+            wallet: wallet_address,
+            usdValue: usdValueNum,
+            isDeadcoin: usdValueNum === 0,
+            tokenContract: token_contract ?? null,
+            txId: txHashOrSig,
+          });
+        } catch (e) {
+          console.warn('⚠️ CorePoint award failed:', (e as any)?.message || e);
+        }    
 
     // ——— Registry (best effort) ———
     if (hasMint) {

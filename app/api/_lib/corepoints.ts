@@ -1,7 +1,5 @@
 // app/api/_lib/corepoints.ts
-import { neon } from '@neondatabase/serverless';
-
-const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
+import { sql } from '@/app/api/_lib/db';
 
 type Num = number | string | null | undefined;
 
@@ -146,3 +144,86 @@ export async function totalCorePoints(wallet: string): Promise<number> {
   `;
   return Number(rows?.[0]?.t ?? 0);
 }
+// ---------------------------------------------------------------------------
+// CorePoint config + USD / Deadcoin event writer (admin_config tabanlı)
+// ---------------------------------------------------------------------------
+
+async function getCpNumber(key: string, fallback: number): Promise<number> {
+    try {
+      const rows = (await sql`
+        SELECT value FROM admin_config WHERE key = ${key}
+      `) as unknown as { value: any }[];
+  
+      const raw = rows[0]?.value;
+  
+      const v =
+        raw && typeof raw === 'object' && raw !== null && 'value' in (raw as any)
+          ? Number((raw as any).value)
+          : Number(raw);
+  
+      return Number.isFinite(v) ? v : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+  
+  export async function awardUsdCorepoints(opts: {
+    wallet: string;
+    usdValue: number;
+    isDeadcoin: boolean;
+    tokenContract?: string | null;
+    txId?: string | null;
+  }) {
+    const wallet = opts.wallet;
+    const usdValue = Number(opts.usdValue) || 0;
+    const tokenContract = opts.tokenContract ?? null;
+    const txId = opts.txId ?? null;
+  
+    // 1) USD katkısı
+    if (usdValue > 0) {
+      const per1 = await getCpNumber('cp_usd_per_1', 100);
+      const mult = await getCpNumber('cp_mult_usd', 1);
+  
+      const base = usdValue * per1;
+      const points = Math.max(0, Math.floor(base * mult));
+  
+      if (points > 0) {
+        await sql`
+          INSERT INTO corepoint_events
+            (wallet_address, type, points, value, token_contract, tx_id)
+          VALUES
+            (${wallet}, 'usd', ${points}, ${usdValue}, ${tokenContract}, ${txId})
+        `;
+      }
+    }
+  
+    // 2) Deadcoin bonusu (ilk kez ise)
+    if (opts.isDeadcoin && tokenContract) {
+      const seen = (await sql`
+        SELECT 1
+        FROM corepoint_events
+        WHERE wallet_address = ${wallet}
+          AND type = 'deadcoin_first'
+          AND token_contract = ${tokenContract}
+        LIMIT 1
+      `) as unknown as any[];
+  
+      const already = seen.length > 0;
+      if (!already) {
+        const base = await getCpNumber('cp_deadcoin_first', 100);
+        const mult = await getCpNumber('cp_mult_deadcoin', 1);
+  
+        const points = Math.max(0, Math.floor(base * mult));
+  
+        if (points > 0) {
+          await sql`
+            INSERT INTO corepoint_events
+              (wallet_address, type, points, value, token_contract, tx_id)
+            VALUES
+              (${wallet}, 'deadcoin_first', ${points}, ${usdValue}, ${tokenContract}, ${txId})
+          `;
+        }
+      }
+    }
+  }
+  
