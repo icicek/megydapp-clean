@@ -56,10 +56,17 @@ export async function awardUsdPoints({
   const pts = Math.max(0, Math.floor(usd * usdPer1 * mUsd));
   if (pts <= 0) return { awarded: 0 };
 
+  // ❗ Constraint'e bağlı kalmadan idempotent insert
   await sql/* sql */`
     INSERT INTO corepoint_events (wallet_address, type, points, value, tx_id)
-    VALUES (${wallet}, 'usd', ${pts}, ${usd}, ${txId})
-    ON CONFLICT ON CONSTRAINT ux_cp_usd_tx DO NOTHING
+    SELECT ${wallet}, 'usd', ${pts}, ${usd}, ${txId}
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM corepoint_events
+      WHERE wallet_address = ${wallet}
+        AND type = 'usd'
+        AND tx_id = ${txId}
+    )
   `;
   return { awarded: pts };
 }
@@ -75,10 +82,10 @@ export async function awardDeadcoinFirst({
   const pts = Math.floor(deadFirst * mDead);
   if (pts <= 0) return { awarded: 0 };
 
+  // Zaten önce "seen" kontrolü yapıyoruz; ON CONFLICT gerek yok
   await sql/* sql */`
     INSERT INTO corepoint_events (wallet_address, type, points, token_contract)
     VALUES (${wallet}, 'deadcoin_first', ${pts}, ${tokenContract})
-    ON CONFLICT ON CONSTRAINT ux_cp_deadcoin_first_unique DO NOTHING
   `;
   return { awarded: pts };
 }
@@ -96,8 +103,14 @@ export async function awardReferralSignup({
 
   await sql/* sql */`
     INSERT INTO corepoint_events (wallet_address, type, points, ref_wallet)
-    VALUES (${referrer}, 'referral_signup', ${pts}, ${referee})
-    ON CONFLICT ON CONSTRAINT ux_cp_ref_signup DO NOTHING
+    SELECT ${referrer}, 'referral_signup', ${pts}, ${referee}
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM corepoint_events
+      WHERE wallet_address = ${referrer}
+        AND type = 'referral_signup'
+        AND ref_wallet = ${referee}
+    )
   `;
   return { awarded: pts };
 }
@@ -127,13 +140,22 @@ export async function awardShare({
   const pts = Math.floor(base * mShare);
   if (pts <= 0) return { awarded: 0 };
 
+  // Gün + kanal + context başına 1 kere
   await sql/* sql */`
-    INSERT INTO corepoint_events (wallet_address, type, points, context, day)
-    VALUES (${wallet}, 'share', ${pts}, ${context}, ${day})
+    INSERT INTO corepoint_events (wallet_address, type, points, context, day, channel)
+    SELECT ${wallet}, 'share', ${pts}, ${context}, ${day}, ${channel}
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM corepoint_events
+      WHERE wallet_address = ${wallet}
+        AND type = 'share'
+        AND day = ${day}
+        AND channel = ${channel}
+        AND context = ${context}
+    )
   `;
   return { awarded: pts };
 }
-
 
 /* ---------------- Aggregation ---------------- */
 export async function totalCorePoints(wallet: string): Promise<number> {
