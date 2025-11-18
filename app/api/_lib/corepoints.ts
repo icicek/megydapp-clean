@@ -127,13 +127,15 @@ export async function awardShare({
   const pts = Math.floor(base * mShare);
   if (pts <= 0) return { awarded: 0 };
 
+  // 🔹 Şemada var olan kolonlarla insert
   await sql/* sql */`
-    INSERT INTO corepoint_events (wallet_address, type, points, context, day, channel)
-    VALUES (${wallet}, 'share', ${pts}, ${context}, ${day}, ${channel})
+    INSERT INTO corepoint_events (wallet_address, type, points, context, day)
+    VALUES (${wallet}, 'share', ${pts}, ${context}, ${day})
     ON CONFLICT ON CONSTRAINT ux_cp_share_daily DO NOTHING
   `;
   return { awarded: pts };
 }
+
 
 /* ---------------- Aggregation ---------------- */
 export async function totalCorePoints(wallet: string): Promise<number> {
