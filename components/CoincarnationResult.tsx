@@ -1,7 +1,7 @@
 // components/CoincarnationResult.tsx
 'use client';
 
-import React, { useState, type JSX } from 'react';
+import React, { useState, useEffect, type JSX } from 'react';
 import ShareCenter from '@/components/share/ShareCenter';
 import { APP_URL } from '@/app/lib/origin';
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -12,7 +12,7 @@ interface Props {
   number: number;                 // Coincarnator #
   onRecoincarnate: () => void;
   onGoToProfile: () => void;
-  referral?: string;              // optional: add ?r= code to URL
+  referral?: string;              // optional: ?r=
 }
 
 export default function CoincarnationResult({
@@ -23,20 +23,31 @@ export default function CoincarnationResult({
   referral,
 }: Props): JSX.Element {
   const { publicKey } = useWallet();
-  const [shareOpen, setShareOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(true); // ✅ Success sonrası direkt aç
 
   // Paylaşım URL'i (referral varsa ekle)
-  const shareUrl = referral ? `${APP_URL}?r=${encodeURIComponent(referral)}` : APP_URL;
+  const shareUrl = referral
+    ? `${APP_URL}?r=${encodeURIComponent(referral)}`
+    : APP_URL;
 
-  // components/CoincarnationResult.tsx (yalnızca payload kısmı)
-  const payload = buildPayload('success', {
-    url: shareUrl,        // referral varsa ?r= ile gelir
-    token: tokenFrom,
-    // rank: number  // success bağlamında kullanılmıyor; istersen bırakma
-  }, {
-    ref: referral ?? undefined,
-    src: 'app',
-  });
+  const payload = buildPayload(
+    'success',
+    {
+      url: shareUrl,
+      token: tokenFrom,
+    },
+    {
+      ref: referral ?? undefined,
+      src: 'app',
+    },
+  );
+
+  // Modal kapandığında bile success kutusu kalsın
+  useEffect(() => {
+    if (!shareOpen) {
+      // burada ekstra bir şey yapmaya gerek yok; sadece state kontrolü
+    }
+  }, [shareOpen]);
 
   return (
     <div className="p-6 text-center">
@@ -44,18 +55,21 @@ export default function CoincarnationResult({
         🎉 Success! Welcome, Coincarnator #{number}!
       </h2>
 
-      {/* ShareCenter modalını açan buton */}
-      <button
-        type="button"
-        onClick={() => setShareOpen(true)}
-        className="mb-6 block max-w-sm rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 font-semibold text-white shadow-lg transition hover:scale-105"
-      >
-        🚀 Share Your Revival!
-      </button>
-
-      <p className="mt-2 mb-4 text-lg text-gray-300">
-        You successfully coincarnated <span className="font-bold text-purple-300">${tokenFrom}</span> for $MEGY.
+      <p className="mt-2 mb-5 text-lg text-gray-300">
+        You successfully coincarnated{' '}
+        <span className="font-bold text-purple-300">${tokenFrom}</span> for
+        {' '}$MEGY.
       </p>
+
+      {/* ShareCenter Modal */}
+      <ShareCenter
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        payload={payload}
+        context="success"
+        txId={undefined}
+        walletBase58={publicKey?.toBase58() ?? null}
+      />
 
       <div className="mt-6 flex justify-center gap-4">
         <button
@@ -74,16 +88,6 @@ export default function CoincarnationResult({
           👤 Go to Profile
         </button>
       </div>
-
-      {/* ShareCenter Modal */}
-      <ShareCenter
-        open={shareOpen}
-        onOpenChange={setShareOpen}
-        payload={payload}
-        context="success"
-        txId={undefined}
-        walletBase58={publicKey?.toBase58() ?? null}
-      />
     </div>
   );
 }

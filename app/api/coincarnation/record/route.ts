@@ -6,15 +6,19 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import { generateReferralCode } from '@/app/api/utils/generateReferralCode';
+
 import {
   ensureFirstSeenRegistry,
   computeStatusDecision,
   getStatusRow,
-  type TokenStatus
+  type TokenStatus,
 } from '@/app/api/_lib/registry';
+
 import { requireAppEnabled } from '@/app/api/_lib/feature-flags';
+
 import {
-  awardUsdCorepoints,
+  awardUsdPoints,
+  awardDeadcoinFirst,
   awardReferralSignup,
 } from '@/app/api/_lib/corepoints';
 
@@ -36,7 +40,8 @@ const DEST_SOLANA =
   '';
 
 // Confirm kontrolünü devre dışı bırakmak istersen: DISABLE_CONFIRM=true
-const DISABLE_CONFIRM = String(process.env.DISABLE_CONFIRM || '').toLowerCase() === 'true';
+const DISABLE_CONFIRM =
+  String(process.env.DISABLE_CONFIRM || '').toLowerCase() === 'true';
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
@@ -45,6 +50,7 @@ function toNum(v: any, d = 0): number {
   return Number.isFinite(n) ? n : d;
 }
 
+/* ---------- Basit JSON-RPC helper ---------- */
 async function rpc(method: string, params: any[]) {
   const r = await fetch(SOLANA_RPC_URL, {
     method: 'POST',
@@ -55,17 +61,25 @@ async function rpc(method: string, params: any[]) {
   return r.json();
 }
 
-async function isSolanaTxConfirmed(signature: string) {
+/* ---------- Tx confirmed mi kontrolü ---------- */
+async function isSolanaTxConfirmed(signature: string): Promise<boolean> {
   try {
-    const j = await rpc('getSignatureStatuses', [[signature], { searchTransactionHistory: true }]);
+    const j = await rpc('getSignatureStatuses', [
+      [signature],
+      { searchTransactionHistory: true },
+    ]);
     const status = j?.result?.value?.[0] || null;
     if (!status) return false;
     if (status.err !== null) return false;
     const cs = status.confirmationStatus as string | undefined;
     return cs === 'confirmed' || cs === 'finalized';
   } catch (e) {
-    console.warn('⚠️ getSignatureStatuses failed:', (e as any)?.message || e);
-    return true; // ağ hatası → engelleme
+    console.warn(
+      '⚠️ getSignatureStatuses failed:',
+      (e as any)?.message || e,
+    );
+    // Ağ hatası durumunda **false** dönüyoruz → DB’ye yazmayacağız
+    return false;
   }
 }
 
@@ -100,8 +114,11 @@ export async function POST(req: NextRequest) {
     // ——— Temel alanlar ———
     if (!wallet_address || !token_symbol) {
       return NextResponse.json(
-        { success: false, error: 'wallet_address and token_symbol are required' },
-        { status: 400 }
+        {
+          success: false,
+          error: 'wallet_address and token_symbol are required',
+        },
+        { status: 400 },
       );
     }
 
@@ -109,10 +126,15 @@ export async function POST(req: NextRequest) {
       (tx_hash && String(tx_hash).trim()) ||
       (transaction_signature && String(transaction_signature).trim()) ||
       null;
+
     if (!txHashOrSig) {
       return NextResponse.json(
-        { success: false, error: 'transaction_signature (Solana) or tx_hash (EVM) is required' },
-        { status: 400 }
+        {
+          success: false,
+          error:
+            'transaction_signature (Solana) or tx_hash (EVM) is required',
+        },
+        { status: 400 },
       );
     }
 
@@ -125,17 +147,40 @@ export async function POST(req: NextRequest) {
     // ——— Varlık türünü türet ———
     const isSolSymbol = String(token_symbol).toUpperCase() === 'SOL';
     const derivedKind: 'sol' | 'spl' =
-      isSolSymbol && (!token_contract || token_contract === WSOL_MINT) ? 'sol' : 'spl';
+      isSolSymbol && (!token_contract || token_contract === WSOL_MINT)
+        ? 'sol'
+        : 'spl';
     const assetKindFinal: 'sol' | 'spl' =
-      asset_kind === 'sol' || asset_kind === 'spl' ? asset_kind : derivedKind;
+      asset_kind === 'sol' || asset_kind === 'spl'
+        ? asset_kind
+        : derivedKind;
 
-    // ——— On-chain confirm (gevşek) ———
-    if (!DISABLE_CONFIRM && networkNorm === 'solana' && transaction_signature) {
+    // ——— On-chain confirm (ZORUNLU) ———
+    if (
+      !DISABLE_CONFIRM &&
+      networkNorm === 'solana' &&
+      transaction_signature
+    ) {
       const ok = await isSolanaTxConfirmed(transaction_signature);
       if (!ok) {
-        console.warn('⚠️ tx not confirmed yet, proceeding anyway:', transaction_signature);
+        console.warn(
+          '❌ Tx NOT confirmed on-chain, aborting record:',
+          transaction_signature,
+        );
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'Transaction is not confirmed on Solana yet. Record aborted.',
+          },
+          { status: 409 },
+        );
       }
     }
+
+    // (Burada treasury hesabına gittiğini **biz** oluşturduğumuz tx ile
+    //  garanti ediyoruz. İleride istersen getTransaction ile destination
+    //  hesabı ayrıca kontrol edebiliriz.)
 
     // ——— Redlist/Blacklist (best effort) ———
     const hasMint = Boolean(token_contract && token_contract !== 'SOL');
@@ -143,13 +188,22 @@ export async function POST(req: NextRequest) {
       try {
         const reg = await getStatusRow(token_contract!);
         if (reg?.status === 'blacklist') {
-          return NextResponse.json({ success: false, error: 'This token is blacklisted.' }, { status: 403 });
+          return NextResponse.json(
+            { success: false, error: 'This token is blacklisted.' },
+            { status: 403 },
+          );
         }
         if (reg?.status === 'redlist') {
-          return NextResponse.json({ success: false, error: 'This token is redlisted.' }, { status: 403 });
+          return NextResponse.json(
+            { success: false, error: 'This token is redlisted.' },
+            { status: 403 },
+          );
         }
       } catch (e) {
-        console.warn('⚠️ registry check failed, continuing:', (e as any)?.message || e);
+        console.warn(
+          '⚠️ registry check failed, continuing:',
+          (e as any)?.message || e,
+        );
       }
     }
 
@@ -167,75 +221,105 @@ export async function POST(req: NextRequest) {
             success: true,
             duplicate: true,
             id: dup[0].id,
-            via: 'tx_hash/transaction_signature'
+            via: 'tx_hash/transaction_signature',
           });
         }
       }
+
       if (idemKey) {
         const dup2 = await sql`
-          SELECT id FROM contributions WHERE idempotency_key = ${idemKey} LIMIT 1
+          SELECT id FROM contributions
+          WHERE idempotency_key = ${idemKey}
+          LIMIT 1
         `;
         if (dup2.length > 0) {
           return NextResponse.json({
             success: true,
             duplicate: true,
             id: dup2[0].id,
-            via: 'idempotency_key'
+            via: 'idempotency_key',
           });
         }
       }
     } catch (e) {
-      console.warn('⚠️ idempotency check failed, continuing:', (e as any)?.message || e);
+      console.warn(
+        '⚠️ idempotency check failed, continuing:',
+        (e as any)?.message || e,
+      );
     }
 
     // ——— Participants ———
     let userReferralCode = '';
     let referrerWallet: string | null = null;
+
     try {
       const existing = await sql`
         SELECT * FROM participants
-        WHERE wallet_address = ${wallet_address} AND network = ${networkNorm}
+        WHERE wallet_address = ${wallet_address}
+          AND network = ${networkNorm}
       `;
+
       if (existing.length === 0) {
         userReferralCode = generateReferralCode();
+
         if (referral_code) {
           const ref = await sql`
-            SELECT wallet_address FROM participants WHERE referral_code = ${referral_code}
+            SELECT wallet_address
+            FROM participants
+            WHERE referral_code = ${referral_code}
           `;
-          if (ref.length > 0 && ref[0].wallet_address !== wallet_address) {
+          if (
+            ref.length > 0 &&
+            ref[0].wallet_address !== wallet_address
+          ) {
             referrerWallet = ref[0].wallet_address;
           }
         }
+
         await sql`
           INSERT INTO participants (wallet_address, network, referral_code, referrer_wallet)
           VALUES (${wallet_address}, ${networkNorm}, ${userReferralCode}, ${referrerWallet})
           ON CONFLICT (wallet_address, network) DO NOTHING
         `;
       } else {
-        userReferralCode = existing[0].referral_code || generateReferralCode();
+        userReferralCode =
+          existing[0].referral_code || generateReferralCode();
+
         if (!existing[0].referral_code) {
           await sql`
             UPDATE participants
                SET referral_code = ${userReferralCode}
-             WHERE wallet_address = ${wallet_address} AND network = ${networkNorm}
+             WHERE wallet_address = ${wallet_address}
+               AND network = ${networkNorm}
           `;
         }
       }
     } catch (e) {
-      console.error('❌ participants upsert failed:', (e as any)?.message || e);
-      return NextResponse.json({ success: false, error: 'participants upsert failed' }, { status: 500 });
+      console.error(
+        '❌ participants upsert failed:',
+        (e as any)?.message || e,
+      );
+      return NextResponse.json(
+        { success: false, error: 'participants upsert failed' },
+        { status: 500 },
+      );
     }
 
     if (referrerWallet) {
       try {
-        await awardReferralSignup({ referrer: referrerWallet, referee: wallet_address });
+        await awardReferralSignup({
+          referrer: referrerWallet,
+          referee: wallet_address,
+        });
       } catch (e) {
-        console.warn('⚠️ referral_signup award failed:', (e as any)?.message || e);
+        console.warn(
+          '⚠️ referral_signup award failed:',
+          (e as any)?.message || e,
+        );
       }
-    }    
+    }
 
     // ——— CONTRIBUTIONS: ŞEMA TOLERANSLI INSERT ———
-    // asset_kind kolonu DB’de var mı kontrolü
     let hasAssetKind = false;
     try {
       const cols = await sql`
@@ -243,16 +327,21 @@ export async function POST(req: NextRequest) {
           FROM information_schema.columns
          WHERE table_name = 'contributions'
       `;
-      hasAssetKind = cols.some((r: any) => r.column_name === 'asset_kind');
+      hasAssetKind = cols.some(
+        (r: any) => r.column_name === 'asset_kind',
+      );
     } catch (e) {
-      console.warn('⚠️ failed to inspect schema, assuming no asset_kind:', (e as any)?.message || e);
+      console.warn(
+        '⚠️ failed to inspect schema, assuming no asset_kind:',
+        (e as any)?.message || e,
+      );
       hasAssetKind = false;
     }
 
     let insertedId: number | null = null;
+
     try {
       if (hasAssetKind) {
-        // Yeni şema (asset_kind var)
         const insertResult = await sql`
           INSERT INTO contributions (
             wallet_address,
@@ -292,7 +381,6 @@ export async function POST(req: NextRequest) {
         `;
         insertedId = insertResult?.[0]?.id ?? null;
       } else {
-        // Eski şema (asset_kind yok)
         const insertResult = await sql`
           INSERT INTO contributions (
             wallet_address,
@@ -332,42 +420,73 @@ export async function POST(req: NextRequest) {
       }
       console.log('📝 contribution inserted id:', insertedId);
     } catch (e) {
-      console.error('❌ contribution insert failed:', (e as any)?.message || e);
-      // Hatanın gövdesini açıkça döndürelim ki Network tab’ında net görünsün
+      console.error(
+        '❌ contribution insert failed:',
+        (e as any)?.message || e,
+      );
       return NextResponse.json(
-        { success: false, error: 'contribution insert failed', detail: String((e as any)?.message || e) },
-        { status: 500 }
+        {
+          success: false,
+          error: 'contribution insert failed',
+          detail: String((e as any)?.message || e),
+        },
+        { status: 500 },
       );
     }
 
-        // ——— CorePoint: USD + Deadcoin (admin_config tabanlı) ———
-        try {
-          await awardUsdCorepoints({
-            wallet: wallet_address,
-            usdValue: usdValueNum,
-            isDeadcoin: usdValueNum === 0,
-            tokenContract: token_contract ?? null,
-            txId: txHashOrSig,
-          });
-        } catch (e) {
-          console.warn('⚠️ CorePoint award failed:', (e as any)?.message || e);
-        }    
+    // ——— CorePoint: USD + Deadcoin (corepoint_events tablosu) ———
+    try {
+      // USD katkı puanı (admin_config ağırlıklarıyla)
+      if (usdValueNum > 0) {
+        await awardUsdPoints({
+          wallet: wallet_address,
+          usdValue: usdValueNum,
+          txId: txHashOrSig ?? String(insertedId ?? ''),
+        });
+      }
+
+      // Deadcoin bonusu (ilk kez ise)
+      if (usdValueNum === 0 && token_contract) {
+        await awardDeadcoinFirst({
+          wallet: wallet_address,
+          tokenContract: token_contract,
+        });
+      }
+    } catch (e) {
+      console.warn(
+        '⚠️ CorePoint award (usd/deadcoin) failed:',
+        (e as any)?.message || e,
+      );
+    }
 
     // ——— Registry (best effort) ———
     if (hasMint) {
       try {
         const initialDecision =
           usdValueNum === 0
-            ? { status: 'deadcoin' as TokenStatus, voteSuggested: false, reason: 'tx_usd_zero' }
+            ? ({
+                status: 'deadcoin',
+                voteSuggested: false,
+                reason: 'tx_usd_zero',
+              } as { status: TokenStatus; voteSuggested: boolean })
             : await computeStatusDecision(token_contract!);
+
         await ensureFirstSeenRegistry(token_contract!, {
-          suggestedStatus: (initialDecision?.status ?? 'healthy') as TokenStatus,
+          suggestedStatus:
+            (initialDecision?.status ?? 'healthy') as TokenStatus,
           actorWallet: wallet_address,
           reason: 'first_coincarnation',
-          meta: { from: 'record_api', network: networkNorm, tx: txHashOrSig },
+          meta: {
+            from: 'record_api',
+            network: networkNorm,
+            tx: txHashOrSig,
+          },
         });
       } catch (e) {
-        console.warn('⚠️ registry ensure failed:', (e as any)?.message || e);
+        console.warn(
+          '⚠️ registry ensure failed:',
+          (e as any)?.message || e,
+        );
       }
     }
 
@@ -375,8 +494,10 @@ export async function POST(req: NextRequest) {
     let number = 0;
     try {
       const result = await sql`
-        SELECT id FROM participants
-        WHERE wallet_address = ${wallet_address} AND network = ${networkNorm}
+        SELECT id
+        FROM participants
+        WHERE wallet_address = ${wallet_address}
+          AND network = ${networkNorm}
       `;
       number = result[0]?.id ?? 0;
     } catch {}
@@ -385,14 +506,18 @@ export async function POST(req: NextRequest) {
       success: true,
       id: insertedId,
       number,
+      referral_code: userReferralCode,
       message: '✅ Coincarnation recorded',
     });
   } catch (error: any) {
     console.error('❌ Record API Error:', error?.message || error);
     const status = Number(error?.status) || 500;
     return NextResponse.json(
-      { success: false, error: error?.message || 'Unknown server error' },
-      { status }
+      {
+        success: false,
+        error: error?.message || 'Unknown server error',
+      },
+      { status },
     );
   }
 }
