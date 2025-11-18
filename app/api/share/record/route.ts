@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => null) as any;
 
-    // ✅ Hem wallet hem wallet_address’i destekle
+    // 🔹 Hem wallet hem wallet_address destekleniyor
     const rawWallet = body?.wallet ?? body?.wallet_address ?? '';
     const wallet = rawWallet ? String(rawWallet) : '';
 
@@ -46,13 +46,13 @@ export async function POST(req: NextRequest) {
       channel = 'system';
     }
 
-    // 🔢 Gün bazlı eşsizleştirme: YYYY-MM-DD
-    // İstersen client'tan gelen day'i kullan, değilse server now
-    const rawDay = typeof body?.day === 'string' ? body.day : '';
-    const today = new Date().toISOString().slice(0, 10);
-    const day = /^\d{4}-\d{2}-\d{2}$/.test(rawDay) ? rawDay : today;
+    // Gün bilgisi: body.day varsa onu kullan, yoksa bugün
+    const day: string =
+      typeof body?.day === 'string' && body.day.length >= 10
+        ? body.day.slice(0, 10)
+        : new Date().toISOString().slice(0, 10);
 
-    // 1) Share event'i yaz
+    // 1) Share event'i corepoint_events tablosuna yaz
     const { awarded } = await awardShare({
       wallet,
       channel: channel as any,
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       day,
     });
 
-    // 2) Güncel toplam CorePoint'i döndür
+    // 2) İstersen UI için güncel toplam CP
     const total = await totalCorePoints(wallet);
 
     return NextResponse.json({
