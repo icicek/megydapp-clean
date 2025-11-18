@@ -1,53 +1,57 @@
 // components/CoincarnationResult.tsx
 'use client';
 
-import React, { useState, useEffect, type JSX } from 'react';
-import ShareCenter from '@/components/share/ShareCenter';
-import { APP_URL } from '@/app/lib/origin';
+import React, { type JSX } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { buildPayload } from '@/components/share/intent';
+import { APP_URL } from '@/app/lib/origin';
 
 interface Props {
-  tokenFrom: string;              // e.g., "POPCAT"
+  tokenFrom: string;              // e.g. "POPCAT"
   number: number;                 // Coincarnator #
+  imageUrl: string;               // Şimdilik sadece prop olarak duruyor, istersen ileride görsel gösteririz
   onRecoincarnate: () => void;
   onGoToProfile: () => void;
-  referral?: string;              // optional: ?r=
 }
 
 export default function CoincarnationResult({
   tokenFrom,
   number,
+  imageUrl,
   onRecoincarnate,
   onGoToProfile,
-  referral,
 }: Props): JSX.Element {
   const { publicKey } = useWallet();
-  const [shareOpen, setShareOpen] = useState(true); // ✅ Success sonrası direkt aç
 
-  // Paylaşım URL'i (referral varsa ekle)
-  const shareUrl = referral
-    ? `${APP_URL}?r=${encodeURIComponent(referral)}`
-    : APP_URL;
+  const handleShareOnX = async () => {
+    const wallet = publicKey?.toBase58() ?? null;
 
-  const payload = buildPayload(
-    'success',
-    {
-      url: shareUrl,
-      token: tokenFrom,
-    },
-    {
-      ref: referral ?? undefined,
-      src: 'app',
-    },
-  );
+    // Paylaşım linki (şimdilik referral'sız, direkt site)
+    const url = APP_URL;
+    const text = `I just coincarnated $${tokenFrom} into $MEGY on Coincarnation. Join the revival: ${url}`;
 
-  // Modal kapandığında bile success kutusu kalsın
-  useEffect(() => {
-    if (!shareOpen) {
-      // burada ekstra bir şey yapmaya gerek yok; sadece state kontrolü
+    // 1) CorePoint kaydı (fire-and-forget)
+    if (wallet) {
+      try {
+        await fetch('/api/share/record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            wallet,
+            channel: 'twitter',
+            context: 'success',   // success ekranındaki paylaşım
+          }),
+        });
+      } catch (e) {
+        console.warn('⚠️ share/record failed:', e);
+      }
     }
-  }, [shareOpen]);
+
+    // 2) X paylaşım penceresini aç
+    const xUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    if (typeof window !== 'undefined') {
+      window.open(xUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   return (
     <div className="p-6 text-center">
@@ -55,23 +59,21 @@ export default function CoincarnationResult({
         🎉 Success! Welcome, Coincarnator #{number}!
       </h2>
 
-      <p className="mt-2 mb-5 text-lg text-gray-300">
+      <p className="mt-2 mb-6 text-lg text-gray-300">
         You successfully coincarnated{' '}
-        <span className="font-bold text-purple-300">${tokenFrom}</span> for
-        {' '}$MEGY.
+        <span className="font-bold text-purple-300">${tokenFrom}</span> for $MEGY.
       </p>
 
-      {/* ShareCenter Modal */}
-      <ShareCenter
-        open={shareOpen}
-        onOpenChange={setShareOpen}
-        payload={payload}
-        context="success"
-        txId={undefined}
-        walletBase58={publicKey?.toBase58() ?? null}
-      />
+      {/* Sadece X’te paylaşım butonu */}
+      <button
+        type="button"
+        onClick={handleShareOnX}
+        className="mb-6 block w-full max-w-xs mx-auto rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-6 py-3 font-semibold text-white shadow-lg transition hover:scale-105"
+      >
+        🐦 Share on X
+      </button>
 
-      <div className="mt-6 flex justify-center gap-4">
+      <div className="mt-4 flex justify-center gap-4">
         <button
           type="button"
           onClick={onRecoincarnate}
