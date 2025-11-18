@@ -140,20 +140,40 @@ export async function awardShare({
   const pts = Math.floor(base * mShare);
   if (pts <= 0) return { awarded: 0 };
 
-  // Gün + kanal + context başına 1 kere
-  await sql/* sql */`
-    INSERT INTO corepoint_events (wallet_address, type, points, context, day, channel)
-    SELECT ${wallet}, 'share', ${pts}, ${context}, ${day}, ${channel}
-    WHERE NOT EXISTS (
-      SELECT 1
-      FROM corepoint_events
-      WHERE wallet_address = ${wallet}
-        AND type = 'share'
-        AND day = ${day}
-        AND channel = ${channel}
-        AND context = ${context}
-    )
-  `;
+  // 🔹 KURAL:
+  //  - X/Twitter butonları: her "context" için 1 kez CP (profile, contribution, leaderboard, success ...)
+  //  - copy text: cüzdan başına hayat boyu 1 kez CP
+  if (channel === 'copy') {
+    // Sadece bir kez: wallet + type=share + channel=copy
+    await sql/* sql */`
+      INSERT INTO corepoint_events (wallet_address, type, points, context, day, channel)
+      SELECT ${wallet}, 'share', ${pts}, ${context}, ${day}, ${channel}
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM corepoint_events
+        WHERE wallet_address = ${wallet}
+          AND type = 'share'
+          AND channel = 'copy'
+      )
+    `;
+  } else {
+    // Her context + kanal kombinasyonu için bir kez:
+    //  örn: (wallet, 'share', 'twitter', 'profile')
+    //       (wallet, 'share', 'twitter', 'contribution') ... ayrı ayrı CP
+    await sql/* sql */`
+      INSERT INTO corepoint_events (wallet_address, type, points, context, day, channel)
+      SELECT ${wallet}, 'share', ${pts}, ${context}, ${day}, ${channel}
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM corepoint_events
+        WHERE wallet_address = ${wallet}
+          AND type = 'share'
+          AND context = ${context}
+          AND channel = ${channel}
+      )
+    `;
+  }
+
   return { awarded: pts };
 }
 
