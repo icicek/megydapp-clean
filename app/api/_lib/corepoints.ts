@@ -141,35 +141,41 @@ export async function awardShare({
   if (pts <= 0) return { awarded: 0 };
 
   // 🔹 KURAL:
-  //  - X/Twitter butonları: her "context" için 1 kez CP (profile, contribution, leaderboard, success ...)
-  //  - copy text: cüzdan başına hayat boyu 1 kez CP
+  //  - X/Twitter (channel = 'twitter'):
+  //      Her context için (profile / contribution / leaderboard / success) 1 kere CP
+  //  - copy (channel = 'copy'):
+  //      Cüzdan başına sistem genelinde sadece 1 kere CP
+  //
+  //  Not: Tablo şemasında channel kolonu yok; bu yüzden:
+  //    - context alanını normal kullanıyoruz
+  //    - value alanını sadece "copy" için sentinel (1) olarak kullanıyoruz
+
   if (channel === 'copy') {
-    // Sadece bir kez: wallet + type=share + channel=copy
+    // copy → sadece 1 kere: wallet + type='share' + value=1 varsa bir daha yazma
     await sql/* sql */`
-      INSERT INTO corepoint_events (wallet_address, type, points, context, day, channel)
-      SELECT ${wallet}, 'share', ${pts}, ${context}, ${day}, ${channel}
+      INSERT INTO corepoint_events (wallet_address, type, points, context, day, value)
+      SELECT ${wallet}, 'share', ${pts}, ${context}, ${day}, 1
       WHERE NOT EXISTS (
         SELECT 1
         FROM corepoint_events
         WHERE wallet_address = ${wallet}
           AND type = 'share'
-          AND channel = 'copy'
+          AND value = 1
       )
     `;
   } else {
-    // Her context + kanal kombinasyonu için bir kez:
-    //  örn: (wallet, 'share', 'twitter', 'profile')
-    //       (wallet, 'share', 'twitter', 'contribution') ... ayrı ayrı CP
+    // Diğer tüm kanallar (özellikle 'twitter'):
+    //  Her context için bir kere:
+    //    (wallet, 'share', context) kombinasyonu eşsiz olsun
     await sql/* sql */`
-      INSERT INTO corepoint_events (wallet_address, type, points, context, day, channel)
-      SELECT ${wallet}, 'share', ${pts}, ${context}, ${day}, ${channel}
+      INSERT INTO corepoint_events (wallet_address, type, points, context, day, value)
+      SELECT ${wallet}, 'share', ${pts}, ${context}, ${day}, 0
       WHERE NOT EXISTS (
         SELECT 1
         FROM corepoint_events
         WHERE wallet_address = ${wallet}
           AND type = 'share'
           AND context = ${context}
-          AND channel = ${channel}
       )
     `;
   }
