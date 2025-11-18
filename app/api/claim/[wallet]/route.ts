@@ -1,15 +1,9 @@
+// app/api/claim/[wallet]/route.ts
+
 import { neon } from '@neondatabase/serverless';
 import { NextRequest, NextResponse } from 'next/server';
 
 const sql = neon(process.env.DATABASE_URL!);
-
-// Ağırlık katsayıları
-const USD_CONTRIBUTION_WEIGHT = 100;
-const REFERRAL_PERSON_WEIGHT = 100;
-const REFERRAL_USD_WEIGHT = 50;
-const DEADCOIN_WEIGHT = 100;
-const REFERRAL_DEADCOIN_WEIGHT = 100;
-const SHARE_ON_X_WEIGHT = 30;
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,7 +16,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Katılımcı bilgisi
+    // 1) Katılımcı bilgisi
     const participantResult = await sql`
       SELECT * FROM participants WHERE wallet_address = ${wallet} LIMIT 1;
     `;
@@ -34,6 +28,7 @@ export async function GET(req: NextRequest) {
     }
     const participant = participantResult[0];
 
+    // 2) Contributions tablosundan istatistikler (CP değil, sadece display)
     // Referans sayısı
     const referralResult = await sql`
       SELECT COUNT(*) FROM contributions WHERE referrer_wallet = ${wallet};
@@ -46,17 +41,22 @@ export async function GET(req: NextRequest) {
       FROM contributions
       WHERE referrer_wallet = ${wallet};
     `;
-    const referral_usd_contributions = parseFloat(referralUsdResult[0].referral_usd_contributions || 0);
+    const referral_usd_contributions = parseFloat(
+      (referralUsdResult[0] as any).referral_usd_contributions || 0
+    );
 
-    // Referans deadcoin sayısı
+    // Referans deadcoin sayısı (display için)
     const referralDeadcoinResult = await sql`
       SELECT COUNT(DISTINCT token_contract) AS referral_deadcoins
       FROM contributions
       WHERE referrer_wallet = ${wallet} AND usd_value = 0;
     `;
-    const referral_deadcoin_count = parseInt(referralDeadcoinResult[0].referral_deadcoins || '0', 10);
+    const referral_deadcoin_count = parseInt(
+      (referralDeadcoinResult[0] as any).referral_deadcoins || '0',
+      10
+    );
 
-    // USD katkı ve toplam token sayısı
+    // Kendi USD katkısı ve toplam token sayısı
     const totalStatsResult = await sql`
       SELECT 
         COALESCE(SUM(usd_value), 0) AS total_usd_contributed,
@@ -64,9 +64,12 @@ export async function GET(req: NextRequest) {
       FROM contributions
       WHERE wallet_address = ${wallet};
     `;
-    const { total_usd_contributed, total_coins_contributed } = totalStatsResult[0] as any;
+    const {
+      total_usd_contributed,
+      total_coins_contributed,
+    } = totalStatsResult[0] as any;
 
-    // Eşsiz deadcoin kontrat adresleri (kişinin kendi yaptığı)
+    // Eşsiz deadcoin kontrat adresleri (display için)
     const deadcoinResult = await sql`
       SELECT DISTINCT token_contract
       FROM contributions
@@ -82,45 +85,34 @@ export async function GET(req: NextRequest) {
       ORDER BY timestamp DESC;
     `;
 
-    // Share on X: kullanıcı daha önce paylaşmış mı?
-    const shareOnceResult = await sql`
-      SELECT COUNT(*) FROM shares WHERE wallet_address = ${wallet};
+    // 3) CorePoint: TAMAMEN corepoint_events tablosundan
+    const cpRows = await sql/* sql */`
+      SELECT
+        COALESCE(SUM(points) FILTER (WHERE type = 'usd'), 0)::float    AS cp_usd,
+        COALESCE(SUM(points) FILTER (WHERE type = 'referral_signup'), 0)::float AS cp_ref,
+        COALESCE(SUM(points) FILTER (WHERE type = 'deadcoin_first'), 0)::float  AS cp_dead,
+        COALESCE(SUM(points) FILTER (WHERE type = 'share'), 0)::float  AS cp_share
+      FROM corepoint_events
+      WHERE wallet_address = ${wallet};
     `;
-    const has_shared = parseInt(shareOnceResult[0].count || '0', 10) > 0;
-    const share_points = has_shared ? SHARE_ON_X_WEIGHT : 0;
+    const cpRow = cpRows[0] || {};
+    const cpCoincarnations = Number(cpRow.cp_usd || 0);
+    const cpReferrals = Number(cpRow.cp_ref || 0);
+    const cpDeadcoins = Number(cpRow.cp_dead || 0);
+    const cpShares = Number(cpRow.cp_share || 0);
 
-    // Share kaydı var mı?
-    const shareCheck = await sql`
-      SELECT COUNT(*) FROM shares WHERE wallet_address = ${wallet};
+    const core_point = cpCoincarnations + cpReferrals + cpDeadcoins + cpShares;
+
+    // 4) Tüm sistemdeki toplam CorePoint (corepoint_events üzerinden)
+    const totalCorePointResult = await sql/* sql */`
+      SELECT COALESCE(SUM(points), 0)::float AS total_core_point
+      FROM corepoint_events;
     `;
-    const hasShared = parseInt((shareCheck[0] as any).count || '0', 10) > 0;
-    const sharePoint = hasShared ? 30 : 0;
-
-    // Kendi CorePoint puanı
-    const core_point =
-      parseFloat(total_usd_contributed) * USD_CONTRIBUTION_WEIGHT +
-      referral_count * REFERRAL_PERSON_WEIGHT +
-      referral_usd_contributions * REFERRAL_USD_WEIGHT +
-      uniqueDeadcoinCount * DEADCOIN_WEIGHT +
-      referral_deadcoin_count * REFERRAL_DEADCOIN_WEIGHT +
-      sharePoint;
-
-    // Tüm sistemdeki toplam CorePoint
-    const totalCorePointResult = await sql`
-      SELECT SUM(
-        COALESCE(
-          (SELECT SUM(usd_value) FROM contributions WHERE wallet_address = p.wallet_address) * ${USD_CONTRIBUTION_WEIGHT}
-          + (SELECT COUNT(*) FROM contributions WHERE referrer_wallet = p.wallet_address) * ${REFERRAL_PERSON_WEIGHT}
-          + (SELECT SUM(usd_value) FROM contributions WHERE referrer_wallet = p.wallet_address) * ${REFERRAL_USD_WEIGHT}
-          + (SELECT COUNT(DISTINCT token_contract) FROM contributions WHERE wallet_address = p.wallet_address AND usd_value = 0) * ${DEADCOIN_WEIGHT}
-          + (SELECT COUNT(DISTINCT token_contract) FROM contributions WHERE referrer_wallet = p.wallet_address AND usd_value = 0) * ${REFERRAL_DEADCOIN_WEIGHT}
-          + (SELECT CASE WHEN EXISTS (SELECT 1 FROM shares WHERE wallet_address = p.wallet_address) THEN ${SHARE_ON_X_WEIGHT} ELSE 0 END)
-        , 0)
-      ) AS total_core_point
-      FROM participants p;
-    `;
-    const total_core_point = parseFloat(totalCorePointResult[0].total_core_point || 0);
-    const pvc_share = total_core_point > 0 ? core_point / total_core_point : 0;
+    const total_core_point = Number(
+      (totalCorePointResult[0] as any).total_core_point || 0
+    );
+    const pvc_share =
+      total_core_point > 0 ? core_point / total_core_point : 0;
 
     return NextResponse.json({
       success: true,
@@ -129,24 +121,25 @@ export async function GET(req: NextRequest) {
         wallet_address: participant.wallet_address,
         referral_code: participant.referral_code || null,
         claimed: participant.claimed || false,
+
+        // Display istatistikleri (contributions’tan)
         referral_count,
         referral_usd_contributions,
         referral_deadcoin_count,
         total_usd_contributed: parseFloat(total_usd_contributed),
         total_coins_contributed: parseInt(total_coins_contributed, 10),
         transactions: transactionsResult,
+
+        // CorePoint (artık tamamen corepoint_events tabanlı)
         core_point,
         total_core_point,
         pvc_share,
         core_point_breakdown: {
-          coincarnations: parseFloat(total_usd_contributed) * USD_CONTRIBUTION_WEIGHT,
-          referrals:
-            referral_count * REFERRAL_PERSON_WEIGHT +
-            referral_usd_contributions * REFERRAL_USD_WEIGHT +
-            referral_deadcoin_count * REFERRAL_DEADCOIN_WEIGHT,
-          deadcoins: uniqueDeadcoinCount * DEADCOIN_WEIGHT,
-          shares: sharePoint,
-        },        
+          coincarnations: cpCoincarnations,
+          referrals: cpReferrals,
+          deadcoins: cpDeadcoins,
+          shares: cpShares,
+        },
       },
     });
   } catch (err) {
