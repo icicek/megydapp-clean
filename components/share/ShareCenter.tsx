@@ -25,6 +25,8 @@ function Toast({
     position === 'top' ? 'top-6 md:top-10' : 'bottom-16 md:bottom-24';
 
   const widthClass = wide ? 'w-[min(720px,calc(100vw-2rem))]' : 'w-auto max-w-[90vw]';
+  
+  const [copyReward, setCopyReward] = useState<number | null>(null);
 
   const color =
     variant === 'success'
@@ -68,6 +70,7 @@ export default function ShareCenter({
   const [toastWide, setToastWide] = useState<boolean>(true);
   const [toastVariant, setToastVariant] = useState<ToastVariant>('info');
   const [shortUrl, setShortUrl] = useState<string | undefined>(payload.shortUrl);
+  const [copyReward, setCopyReward] = useState<number | null>(null);
 
   // —— Tek noktadan buton yüksekliği
   const BTN_H = 'h-9 md:h-8';
@@ -109,6 +112,46 @@ export default function ShareCenter({
       .animate-x-sweep { animation: x-sweep 1.2s ease-out 1; }
     `;
     document.head.appendChild(style);
+  }, []);
+  
+  // —— CorePoint copy reward (cp_share_other * cp_mult_share)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const r = await fetch('/api/corepoints/config', { cache: 'no-store' });
+        if (!r.ok) return;
+        const j = await r.json().catch(() => null);
+        const cfg = j?.config;
+        if (!cfg || !mounted) return;
+
+        // API tarafındaki key isimlerine uyumlu esnek okuma
+        const shareOther =
+          Number(
+            cfg.shareOther ??
+            cfg.share_other ??
+            cfg.cp_share_other ??
+            10
+          );
+
+        const mShare =
+          Number(
+            cfg.mShare ??
+            cfg.multShare ??
+            cfg.cp_mult_share ??
+            1
+          );
+
+        const pts = Math.max(0, Math.floor(shareOther * mShare));
+        setCopyReward(pts);
+      } catch {
+        // sessiz fail → yazı sadece sabit metin olarak kalır
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // In-app browser detect
@@ -357,8 +400,13 @@ export default function ShareCenter({
               Copy text
             </button>
             <p className="mt-2 text-center text-[11px] text-zinc-400">
-              Paste into any app to <span className="font-semibold text-zinc-200">earn</span>. (+10 CorePoint)
-            </p>
+  Paste into any app to <span className="font-semibold text-zinc-200">earn</span>
+  {typeof copyReward === 'number' && copyReward > 0 && (
+    <> (+{copyReward} CorePoint)</>
+  )}
+  .
+</p>
+
           </div>
         </div>
       </div>

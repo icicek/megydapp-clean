@@ -28,10 +28,11 @@ import { getTokenMeta } from '@/lib/solana/tokenMeta';
 type CoincarnationResultProps = {
   tokenFrom: string;
   number: number;
-  imageUrl: string;
   onRecoincarnate: () => void;
   onGoToProfile: () => void;
+  referral?: string;
 };
+
 const CoincarnationResult = dynamic(
   () => import('@/components/CoincarnationResult'),
   { ssr: false }
@@ -55,6 +56,7 @@ type ConfirmModalProps = {
   confirmBusy?: boolean;
   confirmLabel?: string;
 };
+
 const ConfirmModal = dynamic(
   () => import('@/components/ConfirmModal'),
   { ssr: false }
@@ -128,10 +130,11 @@ export default function CoincarneModal({
   /* ------------------ LOCAL UI STATE ------------------ */
   const [loading, setLoading] = useState(false);
   const [amountInput, setAmountInput] = useState('');
+
   const [resultData, setResultData] = useState<{
     tokenFrom: string;
     number: number;
-    imageUrl: string;
+    referral?: string | null;
   } | null>(null);
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
@@ -324,11 +327,18 @@ export default function CoincarneModal({
       });
 
       const json = await res.json();
-      const userNumber = json?.number ?? 0;
-      const tokenSymbolForImage = displaySymbol;
-      const imageUrl = `/generated/coincarnator-${userNumber}-${tokenSymbolForImage}.png`;
 
-      setResultData({ tokenFrom: tokenSymbolForImage, number: userNumber, imageUrl });
+      const userNumber = json?.number ?? 0;
+      const tokenSymbolForResult = displaySymbol;
+      // İstersen json'dan referral_code döndürüp buraya da ekleyebiliriz
+      const referralCode: string | null = json?.referral_code ?? null;
+
+      setResultData({
+        tokenFrom: tokenSymbolForResult,
+        number: userNumber,
+        referral: referralCode,
+      });
+
       setConfirmModalOpen(false);
       refetchTokens?.();
 
@@ -399,7 +409,7 @@ export default function CoincarneModal({
             <CoincarnationResult
               tokenFrom={resultData.tokenFrom}
               number={resultData.number}
-              imageUrl={resultData.imageUrl}
+              referral={resultData.referral ?? undefined}
               onRecoincarnate={() => setResultData(null)}
               onGoToProfile={() => {
                 onClose();
