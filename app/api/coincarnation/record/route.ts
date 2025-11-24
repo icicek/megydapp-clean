@@ -33,17 +33,18 @@ const SOLANA_RPC_URL =
   'https://api.mainnet-beta.solana.com';
 
 // Hazine adresi (server > public fallbacks)
+// (Şu an tx'i zaten biz hazırladığımız için ekstra kontrol etmiyoruz.)
 const DEST_SOLANA =
   process.env.DEST_SOLANA ||
   process.env.NEXT_PUBLIC_DEST_SOLANA ||
   process.env.NEXT_PUBLIC_DEST_SOL ||
   '';
 
+const WSOL_MINT = 'So11111111111111111111111111111111111111112';
+
 // Confirm kontrolünü devre dışı bırakmak istersen: DISABLE_CONFIRM=true
 const DISABLE_CONFIRM =
   String(process.env.DISABLE_CONFIRM || '').toLowerCase() === 'true';
-
-const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
 function toNum(v: any, d = 0): number {
   const n = Number(v);
@@ -61,26 +62,45 @@ async function rpc(method: string, params: any[]) {
   return r.json();
 }
 
-/* ---------- Tx confirmed mi kontrolü ---------- */
-async function isSolanaTxConfirmed(signature: string): Promise<boolean> {
-  try {
-    const j = await rpc('getSignatureStatuses', [
-      [signature],
-      { searchTransactionHistory: true },
-    ]);
-    const status = j?.result?.value?.[0] || null;
-    if (!status) return false;
-    if (status.err !== null) return false;
-    const cs = status.confirmationStatus as string | undefined;
-    return cs === 'confirmed' || cs === 'finalized';
-  } catch (e) {
-    console.warn(
-      '⚠️ getSignatureStatuses failed:',
-      (e as any)?.message || e,
-    );
-    // Ağ hatası durumunda **false** dönüyoruz → DB’ye yazmayacağız
-    return false;
+/* ---------- Tek seferlik status okuma ---------- */
+async function isSolanaTxConfirmedOnce(signature: string): Promise<boolean> {
+  const j = await rpc('getSignatureStatuses', [
+    [signature],
+    { searchTransactionHistory: true },
+  ]);
+  const status = j?.result?.value?.[0] || null;
+  if (!status) return false;
+  if (status.err !== null) return false;
+  const cs = status.confirmationStatus as string | undefined;
+  // processed -> henüz tam garanti değil, confirmed/finalized istiyoruz
+  return cs === 'confirmed' || cs === 'finalized';
+}
+
+/* ----------  Polling ile confirmation bekleme  ---------- */
+/** 
+ * Solana tx'inin confirmed/finalized olmasını max ~15 sn bekler.
+ * confirmed olursa true, yoksa false döner.
+ */
+async function waitForSolanaConfirm(
+  signature: string,
+  maxMs = 15000,
+  intervalMs = 1200,
+): Promise<boolean> {
+  const started = Date.now();
+  while (Date.now() - started < maxMs) {
+    try {
+      const ok = await isSolanaTxConfirmedOnce(signature);
+      if (ok) return true;
+    } catch (e) {
+      console.warn(
+        '⚠️ getSignatureStatuses polling failed:',
+        (e as any)?.message || e,
+      );
+      // küçük bir bekleme sonrası tekrar dene
+    }
+    await new Promise((res) => setTimeout(res, intervalMs));
   }
+  return false;
 }
 
 export async function POST(req: NextRequest) {
@@ -155,16 +175,20 @@ export async function POST(req: NextRequest) {
         ? asset_kind
         : derivedKind;
 
-    // ——— On-chain confirm (ZORUNLU) ———
+    // ——— On-chain confirm (polling ile ZORUNLU) ———
     if (
       !DISABLE_CONFIRM &&
       networkNorm === 'solana' &&
       transaction_signature
     ) {
-      const ok = await isSolanaTxConfirmed(transaction_signature);
+      console.log(
+        '⏳ waiting for on-chain confirmation of',
+        transaction_signature,
+      );
+      const ok = await waitForSolanaConfirm(transaction_signature);
       if (!ok) {
         console.warn(
-          '❌ Tx NOT confirmed on-chain, aborting record:',
+          '❌ Tx NOT confirmed on-chain within timeout, aborting record:',
           transaction_signature,
         );
         return NextResponse.json(
@@ -176,11 +200,8 @@ export async function POST(req: NextRequest) {
           { status: 409 },
         );
       }
+      console.log('✅ Tx confirmed on-chain:', transaction_signature);
     }
-
-    // (Burada treasury hesabına gittiğini **biz** oluşturduğumuz tx ile
-    //  garanti ediyoruz. İleride istersen getTransaction ile destination
-    //  hesabı ayrıca kontrol edebiliriz.)
 
     // ——— Redlist/Blacklist (best effort) ———
     const hasMint = Boolean(token_contract && token_contract !== 'SOL');
@@ -436,7 +457,6 @@ export async function POST(req: NextRequest) {
 
     // ——— CorePoint: USD + Deadcoin (corepoint_events tablosu) ———
     try {
-      // USD katkı puanı (admin_config ağırlıklarıyla)
       if (usdValueNum > 0) {
         await awardUsdPoints({
           wallet: wallet_address,
@@ -445,7 +465,6 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Deadcoin bonusu (ilk kez ise)
       if (usdValueNum === 0 && token_contract) {
         await awardDeadcoinFirst({
           wallet: wallet_address,
