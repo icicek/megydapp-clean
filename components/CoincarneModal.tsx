@@ -26,8 +26,8 @@ import { getDestAddress, __dest_debug__ } from '@/lib/chain/env';
 import { getTokenMeta } from '@/lib/solana/tokenMeta';
 
 type CoincarnationResultProps = {
-  tokenFrom: string;
-  number: number;
+  tokenFrom: string;              // e.g., "POPCAT"
+  number: number;                 // Coincarnator #
   onRecoincarnate: () => void;
   onGoToProfile: () => void;
   referral?: string;
@@ -134,8 +134,8 @@ export default function CoincarneModal({
   const [resultData, setResultData] = useState<{
     tokenFrom: string;
     number: number;
-    referral?: string | null;
-  } | null>(null);
+    referralCode?: string | null;
+  } | null>(null);  
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [priceView, setPriceView] = useState<PriceView>({
@@ -326,18 +326,43 @@ export default function CoincarneModal({
         }),
       });
 
-      const json = await res.json();
+      // ❗ HTTP seviyesinde hata ise başarı ekranı açma
+      if (!res.ok) {
+        const txt = await res.text();
+        console.error('❌ record API HTTP error:', txt);
+        alert('❌ Coincarnation record failed. Please try again.');
+        return;
+      }
 
-      const userNumber = json?.number ?? 0;
-      const tokenSymbolForResult = displaySymbol;
-      // İstersen json'dan referral_code döndürüp buraya da ekleyebiliriz
-      const referralCode: string | null = json?.referral_code ?? null;
+      const json = await res.json().catch(() => null);
+
+      // ❗ API success:false ise yine başarı ekranı açma
+      if (!json || !json.success) {
+        console.error('❌ record API logical error:', json);
+        alert('❌ Coincarnation record failed. Please try again.');
+        return;
+      }
+
+      // Buraya geldiysek: DB kaydı GARANTİ
+      const userNumber: number = json.number ?? 0;
+      const referralCode: string | null = json.referral_code ?? null;
 
       setResultData({
-        tokenFrom: tokenSymbolForResult,
+        tokenFrom: displaySymbol,
         number: userNumber,
-        referral: referralCode,
+        referralCode,
       });
+
+      setConfirmModalOpen(false);
+      refetchTokens?.();
+
+      try {
+        await fetch('/api/lv/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mint: token.mint, category: tokenCategory }),
+        }).catch((err) => console.warn('⚠️ lv/apply error:', err));
+      } catch {}
 
       setConfirmModalOpen(false);
       refetchTokens?.();
@@ -409,7 +434,7 @@ export default function CoincarneModal({
             <CoincarnationResult
               tokenFrom={resultData.tokenFrom}
               number={resultData.number}
-              referral={resultData.referral ?? undefined}
+              referral={resultData.referralCode ?? undefined}
               onRecoincarnate={() => setResultData(null)}
               onGoToProfile={() => {
                 onClose();
