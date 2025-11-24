@@ -363,17 +363,6 @@ export default function CoincarneModal({
           body: JSON.stringify({ mint: token.mint, category: tokenCategory }),
         }).catch((err) => console.warn('⚠️ lv/apply error:', err));
       } catch {}
-
-      setConfirmModalOpen(false);
-      refetchTokens?.();
-
-      try {
-        await fetch('/api/lv/apply', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mint: token.mint, category: tokenCategory }),
-        }).catch((err) => console.warn('⚠️ lv/apply error:', err));
-      } catch {}
     } catch (err) {
       console.error('❌ Transaction error:', err);
       alert('❌ Transaction failed.');
