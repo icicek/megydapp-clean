@@ -1,6 +1,6 @@
 // components/CoincarneModal.tsx
 'use client';
-
+import ShareCenter from '@/components/share/ShareCenter';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
@@ -26,11 +26,13 @@ import { getDestAddress, __dest_debug__ } from '@/lib/chain/env';
 import { getTokenMeta } from '@/lib/solana/tokenMeta';
 
 type CoincarnationResultProps = {
-  tokenFrom: string;              // e.g., "POPCAT"
-  number: number;                 // Coincarnator #
+  tokenFrom: string;
+  number: number;
+  txId: string;
+  referral?: string;
   onRecoincarnate: () => void;
   onGoToProfile: () => void;
-  referral?: string;
+  onShare: (payload: any, txId?: string) => void; // ➜ YENİ
 };
 
 const CoincarnationResult = dynamic(
@@ -103,6 +105,17 @@ export default function CoincarneModal({
   onGoToProfileRequest,
 }: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharePayload, setSharePayload] = useState<any>(null);
+  const [shareContext, setShareContext] = useState<'success' | 'contribution' | 'profile' | 'leaderboard'>('success');
+  const [shareTxId, setShareTxId] = useState<string | null>(null);
+  const handleShare = (payload: any, txId?: string) => {
+    setSharePayload(payload);
+    setShareContext('success');
+    setShareTxId(txId ?? null);
+    setShareOpen(true);
+  };
+  
 
   /* ------------------ DEST DEBUG + DEST ADDRESS ------------------ */
   const [destSol, setDestSol] = useState<PublicKey | null>(null);
@@ -134,6 +147,7 @@ export default function CoincarneModal({
   const [resultData, setResultData] = useState<{
     tokenFrom: string;
     number: number;
+    txId: string;
     referralCode?: string | null;
   } | null>(null);  
 
@@ -346,11 +360,13 @@ export default function CoincarneModal({
       // Buraya geldiysek: DB kaydı GARANTİ
       const userNumber: number = json.number ?? 0;
       const referralCode: string | null = json.referral_code ?? null;
+      const txId: string = json.txId ?? json.transaction_signature ?? signature;
 
       setResultData({
         tokenFrom: displaySymbol,
         number: userNumber,
         referralCode,
+        txId,
       });
 
       setConfirmModalOpen(false);
@@ -423,12 +439,14 @@ export default function CoincarneModal({
             <CoincarnationResult
               tokenFrom={resultData.tokenFrom}
               number={resultData.number}
+              txId={resultData.txId}      // ➜ YENİ
               referral={resultData.referralCode ?? undefined}
               onRecoincarnate={() => setResultData(null)}
               onGoToProfile={() => {
                 onClose();
                 onGoToProfileRequest?.();
               }}
+              onShare={handleShare}
             />
           ) : (
             <>
@@ -493,6 +511,14 @@ export default function CoincarneModal({
             </>
           )}
         </DialogContent>
+        <ShareCenter
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          payload={sharePayload}
+          context={shareContext}
+          txId={shareTxId ?? undefined}
+          walletBase58={publicKey?.toBase58() ?? null}
+        />
       </Dialog>
     </>
   );

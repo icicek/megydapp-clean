@@ -2,35 +2,59 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { sql } from '@/app/api/_lib/db';
 import {
   awardShare,
   totalCorePoints,
 } from '@/app/api/_lib/corepoints';
-import { sql } from '@/app/api/_lib/db';
 
-// UI tarafında kullanacağımız kanal isimleri
-const ALLOWED_CHANNELS = new Set([
-  'twitter',
-  'telegram',
-  'whatsapp',
-  'email',
-  'copy',
-  'instagram',
-  'tiktok',
-  'discord',
-  'system',
-]);
+/* --------------------------------------------------
+   Allowed Channels + Normalizer
+-------------------------------------------------- */
+function normalizeChannel(raw: any):
+  | 'twitter'
+  | 'telegram'
+  | 'whatsapp'
+  | 'email'
+  | 'copy'
+  | 'instagram'
+  | 'tiktok'
+  | 'discord'
+  | 'system'
+{
+  const c = typeof raw === 'string' ? raw.toLowerCase() : '';
+
+  if (c === 'x') return 'twitter';
+
+  switch (c) {
+    case 'twitter':
+    case 'telegram':
+    case 'whatsapp':
+    case 'email':
+    case 'copy':
+    case 'instagram':
+    case 'tiktok':
+    case 'discord':
+      return c;
+    default:
+      return 'system';
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json().catch(() => null)) as any;
 
-    // 🔹 Hem wallet hem wallet_address destekleniyor
-    const rawWallet = body?.wallet ?? body?.wallet_address ?? '';
-    const wallet = rawWallet ? String(rawWallet) : '';
+    if (!body) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid JSON' },
+        { status: 400 },
+      );
+    }
 
-    let channel = body?.channel ? String(body.channel).toLowerCase() : 'twitter';
-    const rawContext = body?.context ? String(body.context) : 'profile';
+    /* ---------------- Wallet ---------------- */
+    const rawWallet = body.wallet ?? body.wallet_address ?? '';
+    const wallet = rawWallet ? String(rawWallet) : '';
 
     if (!wallet) {
       return NextResponse.json(
@@ -39,33 +63,42 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // X / Twitter alias düzeltmesi
-    if (channel === 'x') channel = 'twitter';
+    /* ---------------- Channel (normalized) ---------------- */
+    const channel = normalizeChannel(body.channel);
 
-    // Beklenmeyen değer gelirse system olarak işaretle
-    if (!ALLOWED_CHANNELS.has(channel)) {
-      channel = 'system';
-    }
+    /* ---------------- Context ---------------- */
+    const context =
+      body.context && typeof body.context === 'string'
+        ? body.context
+        : 'profile';
 
-    // Gün bilgisi: body.day varsa onu kullan, yoksa bugün
-    const day: string =
-      typeof body?.day === 'string' && body.day.length >= 10
+    /* ---------------- Day ---------------- */
+    const day =
+      typeof body.day === 'string' && body.day.length >= 10
         ? body.day.slice(0, 10)
         : new Date().toISOString().slice(0, 10);
 
+    /* ---------------- TX ID (opsiyonel) ---------------- */
+    const txId =
+      body.txId ??
+      body.tx_id ??
+      body.tx_id_str ??
+      null;
+
     let awarded = 0;
 
-    // ------------- KURAL 1: X (Twitter) -------------
-    if (channel === 'twitter') {
-      const context = rawContext; // profile | contribution | leaderboard | success
+    /* ======================================================
+       1) TX-ID VARSA → Coincarnation işlemine özel share CP
+       ====================================================== */
+    if (txId) {
+      const txStr = String(txId);
 
-      // Her context için 1 kere CP
+      // Aynı işlem için ikinci kez CP verme
       const already = await sql/* sql */`
-        SELECT 1
-        FROM corepoint_events
+        SELECT 1 FROM corepoint_events
         WHERE wallet_address = ${wallet}
           AND type = 'share'
-          AND context = ${context}
+          AND tx_id = ${txStr}
         LIMIT 1
       `;
 
@@ -75,27 +108,43 @@ export async function POST(req: NextRequest) {
           success: true,
           awarded: 0,
           total,
-          day,
-          reason: 'already_shared_this_context',
+          reason: 'tx_already_shared',
+          txId: txStr,
         });
       }
 
+      // awardShare artık txId destekli
       const res = await awardShare({
         wallet,
-        channel: 'twitter',
+        channel,
         context,
         day,
+        txId: txStr,
       });
+
       awarded = res.awarded ?? 0;
+
+      const total = await totalCorePoints(wallet);
+      return NextResponse.json({
+        success: true,
+        awarded,
+        total,
+        day,
+        txId: txStr,
+        mode: 'tx_based',
+      });
     }
 
-    // ------------- KURAL 2: Copy Text (tüm sistemde 1 kez) -------------
-    else if (channel === 'copy') {
+    /* ======================================================
+       2) TX-ID YOKSA → GLOBAL PAYLAŞIM KURALLARI
+       ====================================================== */
+
+    /* ----------- A) COPY → cüzdan başına 1 kez CP ----------- */
+    if (channel === 'copy') {
       const copyContext = 'copy_global';
 
       const alreadyCopy = await sql/* sql */`
-        SELECT 1
-        FROM corepoint_events
+        SELECT 1 FROM corepoint_events
         WHERE wallet_address = ${wallet}
           AND type = 'share'
           AND context = ${copyContext}
@@ -108,8 +157,8 @@ export async function POST(req: NextRequest) {
           success: true,
           awarded: 0,
           total,
+          reason: 'copy_already_used',
           day,
-          reason: 'copy_already_counted',
         });
       }
 
@@ -118,28 +167,71 @@ export async function POST(req: NextRequest) {
         channel: 'copy',
         context: copyContext,
         day,
+        txId: null,
       });
-      awarded = res.awarded ?? 0;
-    }
 
-    // ------------- KURAL 3: Diğer kanallar (şimdilik CP yok) -------------
-    else {
+      awarded = res.awarded ?? 0;
+
       const total = await totalCorePoints(wallet);
       return NextResponse.json({
         success: true,
-        awarded: 0,
+        awarded,
         total,
         day,
-        reason: 'channel_no_corepoint',
+        mode: 'copy_once_global',
       });
     }
 
-    const total = await totalCorePoints(wallet);
+    /* ----------- B) TWITTER → context başına 1 kez CP ----------- */
+    if (channel === 'twitter') {
+      const already = await sql/* sql */`
+        SELECT 1 FROM corepoint_events
+        WHERE wallet_address = ${wallet}
+          AND type = 'share'
+          AND context = ${context}
+        LIMIT 1
+      `;
 
+      if (already.length > 0) {
+        const total = await totalCorePoints(wallet);
+        return NextResponse.json({
+          success: true,
+          awarded: 0,
+          total,
+          reason: 'context_shared_once',
+          context,
+          day,
+        });
+      }
+
+      const res = await awardShare({
+        wallet,
+        channel: 'twitter',
+        context,
+        day,
+        txId: null,
+      });
+
+      awarded = res.awarded ?? 0;
+
+      const total = await totalCorePoints(wallet);
+      return NextResponse.json({
+        success: true,
+        awarded,
+        total,
+        day,
+        mode: 'context_once',
+      });
+    }
+
+    /* ----------- C) Diğer kanallar → şimdilik CP yok ----------- */
+    const total = await totalCorePoints(wallet);
     return NextResponse.json({
       success: true,
-      awarded,
+      awarded: 0,
       total,
+      reason: 'channel_no_cp',
+      channel,
       day,
     });
   } catch (e: any) {

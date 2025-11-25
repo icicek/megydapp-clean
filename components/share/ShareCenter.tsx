@@ -261,7 +261,7 @@ export default function ShareCenter({
   // Copy text — X ile aynı birleşik format
   const handleCopy = async () => {
     try {
-      const composed = buildCopyText(payloadWithShort);
+      const composed = `${payload.text}\n\n${payloadWithShort.shortUrl ?? payloadWithShort.url}`;
       await navigator.clipboard.writeText(composed);
       await sendShareEvent('copy');
       showToast('Post text copied — share manually to earn CorePoints!', 'top', false, 'success');
@@ -400,12 +400,12 @@ export default function ShareCenter({
               Copy text
             </button>
             <p className="mt-2 text-center text-[11px] text-zinc-400">
-  Paste into any app to <span className="font-semibold text-zinc-200">earn</span>
-  {typeof copyReward === 'number' && copyReward > 0 && (
-    <> (+{copyReward} CorePoint)</>
-  )}
-  .
-</p>
+              Paste into any app to <span className="font-semibold text-zinc-200">earn</span>
+              {typeof copyReward === 'number' && copyReward > 0 && (
+                <> (+{copyReward} CorePoint)</>
+              )}
+              .
+            </p>
 
           </div>
         </div>

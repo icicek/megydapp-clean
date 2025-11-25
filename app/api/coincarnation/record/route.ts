@@ -526,8 +526,10 @@ export async function POST(req: NextRequest) {
       id: insertedId,
       number,
       referral_code: userReferralCode,
+      transaction_signature: txHashOrSig,   // ✔️ eklendi
+      txId: txHashOrSig,                     // ✔️ eklendi
       message: '✅ Coincarnation recorded',
-    });
+    });    
   } catch (error: any) {
     console.error('❌ Record API Error:', error?.message || error);
     const status = Number(error?.status) || 500;
