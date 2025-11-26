@@ -33,7 +33,6 @@ type CoincarnationResultProps = {
   referral?: string;
   onRecoincarnate: () => void;
   onGoToProfile: () => void;
-  onShare: (payload: SharePayload, txId?: string) => void;
 };
 
 const CoincarnationResult = dynamic(
@@ -455,7 +454,6 @@ export default function CoincarneModal({
                 onClose();
                 onGoToProfileRequest?.();
               }}
-              onShare={handleShare}
             />
           ) : (
             <>

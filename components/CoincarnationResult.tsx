@@ -2,16 +2,16 @@
 'use client';
 
 import React from 'react';
-import { buildPayload, type SharePayload } from '@/components/share/intent';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { APP_URL } from '@/app/lib/origin';
 
 type Props = {
-  tokenFrom: string;              // e.g. "POPCAT"
-  number: number;                 // Coincarnator #
-  txId: string;                   // backend'den dönen txId
+  tokenFrom: string;
+  number: number;
+  txId: string;
   referral?: string;
   onRecoincarnate: () => void;
   onGoToProfile: () => void;
-  onShare: (payload: SharePayload, txId?: string) => void;
 };
 
 export default function CoincarnationResult({
@@ -21,28 +21,48 @@ export default function CoincarnationResult({
   referral,
   onRecoincarnate,
   onGoToProfile,
-  onShare,
 }: Props) {
-  const baseUrl =
-    typeof window !== 'undefined'
-      ? window.location.origin
-      : 'https://coincarnation.com';
+  const { publicKey } = useWallet();
 
-  const url = referral ? `${baseUrl}?r=${referral}` : baseUrl;
+  const handleShareOnX = async () => {
+    const wallet = publicKey?.toBase58() ?? null;
 
-  // ✅ success context için: sadece intent.ts'in bildiği alanlar
-  const sharePayload: SharePayload = buildPayload(
-    'success',
-    {
-      url,
-      token: tokenFrom,
-      // txId BURADA DEĞİL; ikinci argüman olarak onShare'e gidiyor
-    },
-    {
-      ref: referral ?? undefined,
-      src: 'app',
-    },
-  );
+    const text = `I coincarnated $${tokenFrom} into $MEGY.
+
+A new financial ecosystem is forming — and I’m already part of it.
+
+Join the global revival:
+${APP_URL}
+
+#Coincarnation $MEGY`;
+
+    // 🔹 CorePoint event – txId ile, her işlem için 1 kez
+    try {
+      const body: any = {
+        channel: 'twitter',
+        context: 'success',
+        txId,
+      };
+      if (wallet) {
+        body.wallet = wallet;
+      }
+
+      await fetch('/api/share/record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        keepalive: true,
+      });
+    } catch (e) {
+      console.warn('⚠️ share/record failed on success screen:', e);
+    }
+
+    // 🔹 X paylaşım penceresini aç
+    const xUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    if (typeof window !== 'undefined') {
+      window.open(xUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   return (
     <div className="p-6 text-center">
@@ -62,10 +82,10 @@ export default function CoincarnationResult({
         </p>
       )}
 
-      {/* ShareCenter üzerinden X paylaşımı + CorePoint */}
+      {/* 🔹 Success için direkt X paylaşımı (CP + tweet) */}
       <button
         type="button"
-        onClick={() => onShare(sharePayload, txId)}
+        onClick={handleShareOnX}
         className="mb-6 block w-full max-w-xs mx-auto rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-6 py-3 font-semibold text-white shadow-lg transition hover:scale-105"
       >
         🐦 Share on X
