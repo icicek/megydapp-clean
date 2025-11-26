@@ -3,7 +3,8 @@
 import { neon } from '@neondatabase/serverless';
 import { NextRequest, NextResponse } from 'next/server';
 
-const sql = neon(process.env.DATABASE_URL!);
+// Hem NEON_DATABASE_URL hem DATABASE_URL için toleranslı olalım
+const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
 export async function GET(req: NextRequest) {
   try {
@@ -75,12 +76,12 @@ export async function GET(req: NextRequest) {
       FROM contributions
       WHERE wallet_address = ${wallet} AND usd_value = 0;
     `;
-    const uniqueDeadcoinCount = deadcoinResult.length;
+    const uniqueDeadcoinCount = deadcoinResult.length; // Şimdilik sadece bilgi, UI'da istersen kullanırız
 
     // 🔹 İşlem geçmişi (DETAYLI) — id + signature + hash + contract
     const transactionsRaw = await sql`
       SELECT
-        id,                       -- 🔸 primary key (tx_id için kullanacağız)
+        id,                       -- primary key
         token_symbol,
         token_amount,
         usd_value,
@@ -93,28 +94,35 @@ export async function GET(req: NextRequest) {
       ORDER BY timestamp DESC;
     `;
 
-    // Frontend’e giden shape’i netleştiriyoruz
-    const transactions = transactionsRaw.map((row: any) => ({
-      token_symbol: row.token_symbol,
-      token_amount: row.token_amount,
-      usd_value: row.usd_value,
-      timestamp: row.timestamp,
+    // Frontend’e giden shape
+    const transactions = (transactionsRaw as any[]).map((row) => {
+      // 🔸 Stabil tx_id: ÖNCE blockchain hash, sonra id fallback
+      const stableTxId =
+        (row.transaction_signature && String(row.transaction_signature)) ||
+        (row.tx_hash && String(row.tx_hash)) ||
+        (row.id != null ? String(row.id) : null);
 
-      token_contract: row.token_contract,
-      transaction_signature: row.transaction_signature,
-      tx_hash: row.tx_hash,
+      return {
+        token_symbol: row.token_symbol,
+        token_amount: row.token_amount,
+        usd_value: row.usd_value,
+        timestamp: row.timestamp,
 
-      // 🔸 ClaimPanel & ShareCenter için stabil tx_id
-      tx_id: row.tx_id ?? row.id ?? null,
-    }));
+        token_contract: row.token_contract,
+        transaction_signature: row.transaction_signature,
+        tx_hash: row.tx_hash,
+
+        tx_id: stableTxId,
+      };
+    });
 
     // 3) CorePoint: TAMAMEN corepoint_events tablosundan
     const cpRows = await sql/* sql */`
       SELECT
-        COALESCE(SUM(points) FILTER (WHERE type = 'usd'), 0)::float            AS cp_usd,
+        COALESCE(SUM(points) FILTER (WHERE type = 'usd'), 0)::float             AS cp_usd,
         COALESCE(SUM(points) FILTER (WHERE type = 'referral_signup'), 0)::float AS cp_ref,
         COALESCE(SUM(points) FILTER (WHERE type = 'deadcoin_first'), 0)::float  AS cp_dead,
-        COALESCE(SUM(points) FILTER (WHERE type = 'share'), 0)::float          AS cp_share
+        COALESCE(SUM(points) FILTER (WHERE type = 'share'), 0)::float           AS cp_share
       FROM corepoint_events
       WHERE wallet_address = ${wallet};
     `;
@@ -152,7 +160,7 @@ export async function GET(req: NextRequest) {
         total_usd_contributed: parseFloat(total_usd_contributed),
         total_coins_contributed: parseInt(total_coins_contributed, 10),
 
-        // 🔹 Artık map’lenmiş transactions
+        // 🔹 Map’lenmiş transactions (tx_id artık gerçek hash’e yakın)
         transactions,
 
         // CorePoint (artık tamamen corepoint_events tabanlı)

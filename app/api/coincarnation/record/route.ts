@@ -466,13 +466,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ——— CorePoint: USD + Deadcoin (corepoint_events tablosu) ———
+        // ——— CorePoint: USD + Deadcoin (corepoint_events tablosu) ———
+    // Burada txId olarak HER ZAMAN gerçek blockchain tx hash'ini kullanıyoruz.
+    // (Solana için: transaction_signature; ileride EVM için tx_hash)
+    const stableTxId = txHashOrSig ? String(txHashOrSig) : null;
+
     try {
       if (usdValueNum > 0) {
         await awardUsdPoints({
           wallet: wallet_address,
           usdValue: usdValueNum,
-          txId: txHashOrSig ?? String(insertedId ?? ''),
+          txId: stableTxId!,
         });
       }
 
@@ -489,37 +493,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ——— Registry (best effort) ———
-    if (hasMint) {
-      try {
-        const initialDecision =
-          usdValueNum === 0
-            ? ({
-                status: 'deadcoin',
-                voteSuggested: false,
-                reason: 'tx_usd_zero',
-              } as { status: TokenStatus; voteSuggested: boolean })
-            : await computeStatusDecision(token_contract!);
-
-        await ensureFirstSeenRegistry(token_contract!, {
-          suggestedStatus:
-            (initialDecision?.status ?? 'healthy') as TokenStatus,
-          actorWallet: wallet_address,
-          reason: 'first_coincarnation',
-          meta: {
-            from: 'record_api',
-            network: networkNorm,
-            tx: txHashOrSig,
-          },
-        });
-      } catch (e) {
-        console.warn(
-          '⚠️ registry ensure failed:',
-          (e as any)?.message || e,
-        );
-      }
-    }
-
     // ——— Kullanıcı numarası ———
     let number = 0;
     try {
@@ -532,23 +505,22 @@ export async function POST(req: NextRequest) {
       number = result[0]?.id ?? 0;
     } catch {}
 
-    const stableTxId =
-    insertedId != null
-      ? String(insertedId)          // 🔹 öncelik: contributions.id
-      : txHashOrSig
-      ? String(txHashOrSig)         // eski kayıtlar için fallback
-      : null;
-
     return NextResponse.json({
-    success: true,
-    id: insertedId,
-    number,
-    referral_code: userReferralCode,
-    transaction_signature: txHashOrSig,
-    tx_id: stableTxId,   // istersen ek key
-    txId: stableTxId,    // frontende giden ana alan
-    message: '✅ Coincarnation recorded',
+      success: true,
+      id: insertedId,
+      number,
+      referral_code: userReferralCode,
+
+      // Gerçek blockchain tx hash'i
+      transaction_signature: txHashOrSig,
+
+      // Frontend + corepoint_events için TEK KAYNAK alan
+      tx_id: stableTxId,
+      txId: stableTxId,
+
+      message: '✅ Coincarnation recorded',
     });
+
   } catch (error: any) {
     console.error('❌ Record API Error:', error?.message || error);
     const status = Number(error?.status) || 500;

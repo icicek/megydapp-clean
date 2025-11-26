@@ -368,19 +368,21 @@ export default function CoincarneModal({
       const userNumber: number = json.number ?? 0;
       const referralCode: string | null = json.referral_code ?? null;
 
-      // 🔹 Tek bir “stable” txId üret: öncelik contributions.id
-      const stableTxId: string =
+      // 🔹 Tek bir “stable” txId üret: ÖNCELİK gerçek blockchain tx hash
+      const stableTxId: string = String(
+        json.transaction_signature ??
+        json.tx_hash ??
         json.txId ??
         json.tx_id ??
-        (json.id != null ? String(json.id) : undefined) ??
-        json.transaction_signature ??
-        signature;
+        json.id ??
+        signature
+      );
 
       setResultData({
         tokenFrom: displaySymbol,
         number: userNumber,
         referralCode,
-        txId: stableTxId,   // ⬅️ Artık her zaman "262" gibi contributions.id
+        txId: stableTxId,   // ⬅️ Artık her zaman blockchain tx hash (veya en kötü fallback)
       });
 
       setConfirmModalOpen(false);
