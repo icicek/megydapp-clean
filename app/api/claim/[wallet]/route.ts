@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     if (!wallet) {
       return NextResponse.json(
         { success: false, error: 'Invalid wallet path' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     if (participantResult.length === 0) {
       return NextResponse.json(
         { success: false, error: 'No participant data found' },
-        { status: 404 }
+        { status: 404 },
       );
     }
     const participant = participantResult[0];
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
       WHERE referrer_wallet = ${wallet};
     `;
     const referral_usd_contributions = parseFloat(
-      (referralUsdResult[0] as any).referral_usd_contributions || 0
+      (referralUsdResult[0] as any).referral_usd_contributions || 0,
     );
 
     // Referans deadcoin sayısı (display için)
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     `;
     const referral_deadcoin_count = parseInt(
       (referralDeadcoinResult[0] as any).referral_deadcoins || '0',
-      10
+      10,
     );
 
     // Kendi USD katkısı ve toplam token sayısı
@@ -77,21 +77,44 @@ export async function GET(req: NextRequest) {
     `;
     const uniqueDeadcoinCount = deadcoinResult.length;
 
-    // İşlem geçmişi
-    const transactionsResult = await sql`
-      SELECT token_symbol, token_amount, usd_value, timestamp
+    // 🔹 İşlem geçmişi (DETAYLI) — id + signature + hash + contract
+    const transactionsRaw = await sql`
+      SELECT
+        id,                       -- 🔸 primary key (tx_id için kullanacağız)
+        token_symbol,
+        token_amount,
+        usd_value,
+        timestamp,
+        transaction_signature,
+        tx_hash,
+        token_contract
       FROM contributions
       WHERE wallet_address = ${wallet}
       ORDER BY timestamp DESC;
     `;
 
+    // Frontend’e giden shape’i netleştiriyoruz
+    const transactions = transactionsRaw.map((row: any) => ({
+      token_symbol: row.token_symbol,
+      token_amount: row.token_amount,
+      usd_value: row.usd_value,
+      timestamp: row.timestamp,
+
+      token_contract: row.token_contract,
+      transaction_signature: row.transaction_signature,
+      tx_hash: row.tx_hash,
+
+      // 🔸 ClaimPanel & ShareCenter için stabil tx_id
+      tx_id: row.tx_id ?? row.id ?? null,
+    }));
+
     // 3) CorePoint: TAMAMEN corepoint_events tablosundan
     const cpRows = await sql/* sql */`
       SELECT
-        COALESCE(SUM(points) FILTER (WHERE type = 'usd'), 0)::float    AS cp_usd,
+        COALESCE(SUM(points) FILTER (WHERE type = 'usd'), 0)::float            AS cp_usd,
         COALESCE(SUM(points) FILTER (WHERE type = 'referral_signup'), 0)::float AS cp_ref,
         COALESCE(SUM(points) FILTER (WHERE type = 'deadcoin_first'), 0)::float  AS cp_dead,
-        COALESCE(SUM(points) FILTER (WHERE type = 'share'), 0)::float  AS cp_share
+        COALESCE(SUM(points) FILTER (WHERE type = 'share'), 0)::float          AS cp_share
       FROM corepoint_events
       WHERE wallet_address = ${wallet};
     `;
@@ -109,7 +132,7 @@ export async function GET(req: NextRequest) {
       FROM corepoint_events;
     `;
     const total_core_point = Number(
-      (totalCorePointResult[0] as any).total_core_point || 0
+      (totalCorePointResult[0] as any).total_core_point || 0,
     );
     const pvc_share =
       total_core_point > 0 ? core_point / total_core_point : 0;
@@ -128,7 +151,9 @@ export async function GET(req: NextRequest) {
         referral_deadcoin_count,
         total_usd_contributed: parseFloat(total_usd_contributed),
         total_coins_contributed: parseInt(total_coins_contributed, 10),
-        transactions: transactionsResult,
+
+        // 🔹 Artık map’lenmiş transactions
+        transactions,
 
         // CorePoint (artık tamamen corepoint_events tabanlı)
         core_point,
@@ -146,7 +171,7 @@ export async function GET(req: NextRequest) {
     console.error('Error fetching claim data:', err);
     return NextResponse.json(
       { success: false, error: 'Internal error' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
