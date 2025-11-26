@@ -433,6 +433,7 @@ export default function CoincarneModal({
         />
       )}
 
+      {/* 🔹 Ana Coincarne dialog */}
       <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
         <DialogOverlay />
         <DialogContent className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center">
@@ -447,7 +448,7 @@ export default function CoincarneModal({
             <CoincarnationResult
               tokenFrom={resultData.tokenFrom}
               number={resultData.number}
-              txId={resultData.txId}      // ➜ YENİ
+              txId={resultData.txId}
               referral={resultData.referralCode ?? undefined}
               onRecoincarnate={() => setResultData(null)}
               onGoToProfile={() => {
@@ -519,17 +520,19 @@ export default function CoincarneModal({
             </>
           )}
         </DialogContent>
-        {sharePayload && (
-          <ShareCenter
-            open={shareOpen && !!sharePayload}
-            onOpenChange={setShareOpen}
-            payload={sharePayload}
-            context={shareContext}
-            txId={shareTxId ?? undefined}
-            walletBase58={publicKey?.toBase58() ?? null}
-          />
-        )}
       </Dialog>
+
+      {/* 🔹 ShareCenter'ı Dialog'un DIŞINA aldık */}
+      {sharePayload && (
+        <ShareCenter
+          open={shareOpen && !!sharePayload}
+          onOpenChange={setShareOpen}
+          payload={sharePayload}
+          context={shareContext}
+          txId={shareTxId ?? undefined}
+          walletBase58={publicKey?.toBase58() ?? null}
+        />
+      )}
     </>
   );
 }
