@@ -241,28 +241,34 @@ export default function ShareCenter({
 
   // X aktif, diğerleri toast
   const openChannel = useCallback(
-    async (channel: Channel) => {
+    (channel: Channel) => {
       if (channel === 'twitter') {
-        console.log(
-          '[ShareCenter] twitter clicked',
-          { context, txId, walletBase58 },
-        );
+        console.log('[ShareCenter] twitter clicked', {
+          context,
+          txId,
+          walletBase58,
+        });
+  
+        // 🔹 CP event: fire-and-forget (await YOK!)
         try {
-          await sendShareEvent('twitter');
+          void sendShareEvent('twitter');
         } catch (e) {
           console.error('[ShareCenter] sendShareEvent(twitter) threw', e);
         }
-
+  
+        // 🔹 X penceresini HEMEN aç (await YOK!)
         try {
-          await openShareChannel('twitter', payloadWithShort);
+          void openShareChannel('twitter', payloadWithShort);
         } catch (e) {
           console.error('[ShareCenter] openShareChannel(twitter) error', e);
         }
-
+  
+        // 🔹 En son modalı kapat
         onOpenChange(false);
         return;
       }
-
+  
+      // Diğer kanallar: sadece bilgilendirici toast
       showToast(
         "Sharing for this app isn’t live yet — but you’ll still earn CorePoints when you copy and share manually!",
         'bottom',
@@ -271,7 +277,7 @@ export default function ShareCenter({
       );
     },
     [payloadWithShort, onOpenChange, context, txId, walletBase58],
-  );
+  );  
 
   // Copy text — X ile aynı birleşik format
   const handleCopy = async () => {
