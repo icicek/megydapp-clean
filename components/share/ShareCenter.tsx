@@ -1,3 +1,4 @@
+// components/share/ShareCenter.tsx
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -25,7 +26,7 @@ function Toast({
     position === 'top' ? 'top-6 md:top-10' : 'bottom-16 md:bottom-24';
 
   const widthClass = wide ? 'w-[min(720px,calc(100vw-2rem))]' : 'w-auto max-w-[90vw]';
-  
+
   const [copyReward, setCopyReward] = useState<number | null>(null);
 
   const color =
@@ -51,7 +52,7 @@ function Toast({
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  payload: SharePayload;
+  payload: SharePayload; // 🔹 Tekrar non-null
   context: 'profile' | 'contribution' | 'leaderboard' | 'success';
   txId?: string;
   walletBase58?: string | null;
@@ -75,7 +76,7 @@ export default function ShareCenter({
   // —— Tek noktadan buton yüksekliği
   const BTN_H = 'h-9 md:h-8';
 
-  // “soft brand on black” — tüm platform butonları için ortak sınıf (yükseklik eşit)
+  // “soft brand on black”
   const softBase =
     `relative ${BTN_H} rounded-xl px-3 text-sm font-semibold text-white ` +
     `whitespace-nowrap ring-1 ring-white/10 bg-zinc-950 ` +
@@ -89,7 +90,7 @@ export default function ShareCenter({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onOpenChange]);
 
-  // Client-only animasyon stilleri (SSR-safe)
+  // Animasyon stilleri
   useEffect(() => {
     if (typeof document === 'undefined') return;
     if (document.getElementById('sharecenter-toast-style')) return;
@@ -113,8 +114,8 @@ export default function ShareCenter({
     `;
     document.head.appendChild(style);
   }, []);
-  
-  // —— CorePoint copy reward (cp_share_other * cp_mult_share)
+
+  // —— CorePoint copy reward
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -125,27 +126,24 @@ export default function ShareCenter({
         const cfg = j?.config;
         if (!cfg || !mounted) return;
 
-        // API tarafındaki key isimlerine uyumlu esnek okuma
-        const shareOther =
-          Number(
-            cfg.shareOther ??
+        const shareOther = Number(
+          cfg.shareOther ??
             cfg.share_other ??
             cfg.cp_share_other ??
-            10
-          );
+            10,
+        );
 
-        const mShare =
-          Number(
-            cfg.mShare ??
+        const mShare = Number(
+          cfg.mShare ??
             cfg.multShare ??
             cfg.cp_mult_share ??
-            1
-          );
+            1,
+        );
 
         const pts = Math.max(0, Math.floor(shareOther * mShare));
         setCopyReward(pts);
       } catch {
-        // sessiz fail → yazı sadece sabit metin olarak kalır
+        // sessiz fail
       }
     })();
 
@@ -154,10 +152,10 @@ export default function ShareCenter({
     };
   }, []);
 
-  // In-app browser detect
+  // In-app browser detect (şimdilik sadece side effect)
   useMemo(() => detectInAppBrowser(), []);
 
-  // —— Optional shortener (client): /api/shorten?u=<url> => { shortUrl }
+  // —— Optional shortener (client)
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -171,7 +169,7 @@ export default function ShareCenter({
           setShortUrl(j.shortUrl);
         }
       } catch {
-        /* ignore — fallback to long url */
+        /* ignore */
       }
     })();
     return () => {
@@ -179,28 +177,34 @@ export default function ShareCenter({
     };
   }, [payload.url, payload.shortUrl]);
 
+  const payloadWithShort: SharePayload =
+    shortUrl ? { ...payload, shortUrl } : payload;
+
   // 🔴 Ortak helper: share eventini gönder
   async function sendShareEvent(channel: Channel) {
-    if (!walletBase58) return;
-
     const day = new Date().toISOString().slice(0, 10);
 
-    const body = {
-      wallet: walletBase58,  // ✅ server tarafı wallet & wallet_address ikisini de destekliyor
+    const body: any = {
       channel,
       context,
       day,
-      txId: txId ?? null,
     };
 
+    if (walletBase58) {
+      body.wallet = walletBase58;
+    }
+    if (txId && channel === 'twitter') {
+      body.txId = txId;
+    }
+
     try {
-      // 1) Tercihen sendBeacon (navigasyon sırasında bile çalışır)
+      console.log('[ShareCenter] POST /api/share/record', body);
+
       if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
         const blob = new Blob([JSON.stringify(body)], { type: 'application/json' });
         const ok = navigator.sendBeacon('/api/share/record', blob);
         if (!ok) {
           console.warn('[ShareCenter] sendBeacon failed, falling back to fetch');
-          // 2) Fallback: keepalive fetch
           await fetch('/api/share/record', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -209,7 +213,6 @@ export default function ShareCenter({
           });
         }
       } else {
-        // Eski tarayıcı: tek başına keepalive fetch
         await fetch('/api/share/record', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -226,7 +229,7 @@ export default function ShareCenter({
     msg: string,
     pos: 'top' | 'bottom' = 'bottom',
     wide = true,
-    variant: ToastVariant = 'info'
+    variant: ToastVariant = 'info',
   ) => {
     setToastMsg(msg);
     setToastPos(pos);
@@ -236,36 +239,51 @@ export default function ShareCenter({
     (showToast as any)._t = window.setTimeout(() => setToastMsg(null), 3200);
   };
 
-  const payloadWithShort: SharePayload = shortUrl ? { ...payload, shortUrl } : payload;
-
   // X aktif, diğerleri toast
   const openChannel = useCallback(
     async (channel: Channel) => {
       if (channel === 'twitter') {
-        // ✅ Önce event'i gönder, sonra X'i aç
-        await sendShareEvent('twitter');
-        await openShareChannel('twitter', payloadWithShort);
+        console.log(
+          '[ShareCenter] twitter clicked',
+          { context, txId, walletBase58 },
+        );
+        try {
+          await sendShareEvent('twitter');
+        } catch (e) {
+          console.error('[ShareCenter] sendShareEvent(twitter) threw', e);
+        }
+
+        try {
+          await openShareChannel('twitter', payloadWithShort);
+        } catch (e) {
+          console.error('[ShareCenter] openShareChannel(twitter) error', e);
+        }
+
         onOpenChange(false);
         return;
       }
+
       showToast(
         "Sharing for this app isn’t live yet — but you’ll still earn CorePoints when you copy and share manually!",
         'bottom',
         true,
-        'info'
+        'info',
       );
     },
-    [payloadWithShort, onOpenChange] // sendShareEvent closure'dan geliyor
+    [payloadWithShort, onOpenChange, context, txId, walletBase58],
   );
 
   // Copy text — X ile aynı birleşik format
   const handleCopy = async () => {
     try {
-      const composed = `${payload.text}\n\n${payloadWithShort.shortUrl ?? payloadWithShort.url}`;
+      const composed = `${payloadWithShort.text}\n\n${
+        payloadWithShort.shortUrl ?? payloadWithShort.url
+      }`;
       await navigator.clipboard.writeText(composed);
       await sendShareEvent('copy');
       showToast('Post text copied — share manually to earn CorePoints!', 'top', false, 'success');
-    } catch {
+    } catch (e) {
+      console.error('[ShareCenter] copy failed', e);
       showToast('Could not copy text.', 'top', false, 'error');
     }
   };
@@ -280,7 +298,6 @@ export default function ShareCenter({
     success: 'Blast your revival—let the world see your $MEGY journey!',
   }[context];
 
-  // X logo (küçük ve zarif)
   const XLogo = () => (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5" focusable="false">
       <path
@@ -324,9 +341,7 @@ export default function ShareCenter({
             {payload.text}
           </div>
 
-          {/* Buttons */}
           <div className="grid grid-cols-3 gap-3">
-            {/* X — sadece logo, küçük; yükseklik BTN_H ile */}
             <button
               type="button"
               onClick={() => openChannel('twitter')}
@@ -406,7 +421,6 @@ export default function ShareCenter({
               )}
               .
             </p>
-
           </div>
         </div>
       </div>
