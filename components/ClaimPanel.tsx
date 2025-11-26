@@ -482,27 +482,46 @@ export default function ClaimPanel() {
                         {tx.timestamp ? formatDate(tx.timestamp) : 'N/A'}
                       </td>
                       <td className="px-4 py-2 text-center">
-                        <button
-                          onClick={() => {
-                            const url = data.referral_code ? `${APP_URL}?r=${data.referral_code}` : APP_URL;
-                            const payload = buildPayload('contribution', {
+                      <button
+                        onClick={() => {
+                          const url = data.referral_code
+                            ? `${APP_URL}?r=${data.referral_code}`
+                            : APP_URL;
+
+                          const payload = buildPayload(
+                            'contribution',
+                            {
                               url,
                               token: tx.token_symbol,
                               amount: tx.token_amount,
-                            }, {
+                            },
+                            {
                               ref: data.referral_code ?? undefined,
-                              src: 'app',
-                              // ctx otomatik 'contribution'
-                            });
-                            setSharePayload(payload);                            
-                            setShareContext('contribution');
-                            setShareTxId(String(tx.transaction_signature ?? tx.tx_hash ?? '') || undefined);
-                            setShareOpen(true);
-                          }}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
-                        >
-                          Share
-                        </button>
+                              src: 'app', // ctx otomatik 'contribution'
+                            },
+                          );
+
+                          setSharePayload(payload);
+                          setShareContext('contribution');
+
+                          // 🔹 txId'yi MÜMKÜN OLAN TÜM ALANLARDAN türet:
+                          const txId =
+                            (tx.tx_id && String(tx.tx_id)) ||                 // API'den böyle geliyor olabilir
+                            (tx.txId && String(tx.txId)) ||                   // camelCase ihtimali
+                            (tx.transaction_signature && String(tx.transaction_signature)) ||
+                            (tx.tx_signature && String(tx.tx_signature)) ||   // bazen böyle isimlendirilir
+                            (tx.tx_hash && String(tx.tx_hash)) ||
+                            undefined;
+
+                          console.log('[ClaimPanel] open share from history', { txId, tx });
+
+                          setShareTxId(txId);
+                          setShareOpen(true);
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
+                      >
+                        Share
+                      </button>
                       </td>
                     </tr>
                   ))}
