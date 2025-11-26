@@ -247,28 +247,37 @@ export default function ShareCenter({
           context,
           txId,
           walletBase58,
+          payload: payloadWithShort,
         });
   
-        // 🔹 CP event: fire-and-forget (await YOK!)
+        // 🔹 1) X intent URL'ini kendimiz kuruyoruz
+        const text = payloadWithShort.text ?? '';
+        const link = payloadWithShort.shortUrl || payloadWithShort.url || '';
+        let intentUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
+  
+        if (link) {
+          // İki satır arası boşluk
+          intentUrl += `%0A%0A${encodeURIComponent(link)}`;
+        }
+  
+        // 🔹 2) Önce pencereyi AÇ (senkron, await YOK → popup blocker friendly)
+        if (typeof window !== 'undefined') {
+          window.open(intentUrl, '_blank', 'noopener,noreferrer');
+        }
+  
+        // 🔹 3) CP event'i arkadan fire-and-forget
         try {
           void sendShareEvent('twitter');
         } catch (e) {
           console.error('[ShareCenter] sendShareEvent(twitter) threw', e);
         }
   
-        // 🔹 X penceresini HEMEN aç (await YOK!)
-        try {
-          void openShareChannel('twitter', payloadWithShort);
-        } catch (e) {
-          console.error('[ShareCenter] openShareChannel(twitter) error', e);
-        }
-  
-        // 🔹 En son modalı kapat
+        // 🔹 4) En son modalı kapat
         onOpenChange(false);
         return;
       }
   
-      // Diğer kanallar: sadece bilgilendirici toast
+      // Diğer kanallar: şimdilik sadece toast
       showToast(
         "Sharing for this app isn’t live yet — but you’ll still earn CorePoints when you copy and share manually!",
         'bottom',
