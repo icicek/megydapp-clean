@@ -1,7 +1,7 @@
 // components/share/ShareCenter.tsx
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { SharePayload, Channel } from '@/components/share/intent';
 import { buildCopyText } from '@/components/share/intent';
@@ -25,9 +25,9 @@ function Toast({
   const posClass =
     position === 'top' ? 'top-6 md:top-10' : 'bottom-16 md:bottom-24';
 
-  const widthClass = wide ? 'w-[min(720px,calc(100vw-2rem))]' : 'w-auto max-w-[90vw]';
-
-  const [copyReward, setCopyReward] = useState<number | null>(null);
+  const widthClass = wide
+    ? 'w-[min(720px,calc(100vw-2rem))]'
+    : 'w-auto max-w-[90vw]';
 
   const color =
     variant === 'success'
@@ -52,7 +52,7 @@ function Toast({
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  payload: SharePayload; // 🔹 Tekrar non-null
+  payload: SharePayload | null;
   context: 'profile' | 'contribution' | 'leaderboard' | 'success';
   txId?: string;
   walletBase58?: string | null;
@@ -66,11 +66,12 @@ export default function ShareCenter({
   txId,
   walletBase58,
 }: Props) {
+  if (!open || !payload) return null;
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [toastPos, setToastPos] = useState<'top' | 'bottom'>('bottom');
   const [toastWide, setToastWide] = useState<boolean>(true);
   const [toastVariant, setToastVariant] = useState<ToastVariant>('info');
-  const [shortUrl, setShortUrl] = useState<string | undefined>(payload.shortUrl);
+  const [shortUrl, setShortUrl] = useState<string | undefined>(payload?.shortUrl);
   const [copyReward, setCopyReward] = useState<number | null>(null);
 
   // —— Tek noktadan buton yüksekliği
@@ -118,39 +119,51 @@ export default function ShareCenter({
   // —— CorePoint copy reward
   useEffect(() => {
     let mounted = true;
+  
     (async () => {
       try {
         const r = await fetch('/api/corepoints/config', { cache: 'no-store' });
         if (!r.ok) return;
+  
         const j = await r.json().catch(() => null);
         const cfg = j?.config;
         if (!cfg || !mounted) return;
-
-        const shareOther = Number(
+  
+        // Esnek key isimleri (admin_config tarafında küçük isim farklarını tolere ediyoruz)
+        const rawShareOther =
           cfg.shareOther ??
-            cfg.share_other ??
-            cfg.cp_share_other ??
-            10,
-        );
-
-        const mShare = Number(
+          cfg.share_other ??
+          cfg.cp_share_other ??
+          10;
+  
+        const rawMultShare =
           cfg.mShare ??
-            cfg.multShare ??
-            cfg.cp_mult_share ??
-            1,
+          cfg.multShare ??
+          cfg.cp_mult_share ??
+          1;
+  
+        const shareOther = Number(rawShareOther);
+        const mShare = Number(rawMultShare);
+  
+        const pts = Math.max(
+          0,
+          Math.floor(
+            (Number.isFinite(shareOther) ? shareOther : 10) *
+            (Number.isFinite(mShare) ? mShare : 1),
+          ),
         );
-
-        const pts = Math.max(0, Math.floor(shareOther * mShare));
+  
         setCopyReward(pts);
-      } catch {
-        // sessiz fail
+      } catch (e) {
+        // Sessiz fail → sadece log, UI bozulmasın
+        console.warn('[ShareCenter] corepoints config fetch failed', e);
       }
     })();
-
+  
     return () => {
       mounted = false;
     };
-  }, []);
+  }, []);  
 
   // In-app browser detect (şimdilik sadece side effect)
   useMemo(() => detectInAppBrowser(), []);
@@ -239,54 +252,53 @@ export default function ShareCenter({
     (showToast as any)._t = window.setTimeout(() => setToastMsg(null), 3200);
   };
 
-  // X aktif, diğerleri toast
-  const openChannel = useCallback(
-    (channel: Channel) => {
-      if (channel === 'twitter') {
-        console.log('[ShareCenter] twitter clicked', {
-          context,
-          txId,
-          walletBase58,
-          payload: payloadWithShort,
-        });
-  
-        // 🔹 1) X intent URL'ini kendimiz kuruyoruz
-        const text = payloadWithShort.text ?? '';
-        const link = payloadWithShort.shortUrl || payloadWithShort.url || '';
-        let intentUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
-  
-        if (link) {
-          // İki satır arası boşluk
-          intentUrl += `%0A%0A${encodeURIComponent(link)}`;
-        }
-  
-        // 🔹 2) Önce pencereyi AÇ (senkron, await YOK → popup blocker friendly)
-        if (typeof window !== 'undefined') {
-          window.open(intentUrl, '_blank', 'noopener,noreferrer');
-        }
-  
-        // 🔹 3) CP event'i arkadan fire-and-forget
-        try {
-          void sendShareEvent('twitter');
-        } catch (e) {
-          console.error('[ShareCenter] sendShareEvent(twitter) threw', e);
-        }
-  
-        // 🔹 4) En son modalı kapat
-        onOpenChange(false);
-        return;
+  // import satırında useCallback'i kaldır:
+  // import React, { useEffect, useMemo, useState } from 'react';
+
+  const openChannel = (channel: Channel) => {
+    if (channel === 'twitter') {
+      console.log('[ShareCenter] twitter clicked', {
+        context,
+        txId,
+        walletBase58,
+        payload: payloadWithShort,
+      });
+
+      // 🔹 1) X intent URL'ini kendimiz kuruyoruz
+      const text = payloadWithShort.text ?? '';
+      const link = payloadWithShort.shortUrl || payloadWithShort.url || '';
+      let intentUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
+
+      if (link) {
+        // İki satır arası boşluk
+        intentUrl += `%0A%0A${encodeURIComponent(link)}`;
       }
-  
-      // Diğer kanallar: şimdilik sadece toast
-      showToast(
-        "Sharing for this app isn’t live yet — but you’ll still earn CorePoints when you copy and share manually!",
-        'bottom',
-        true,
-        'info',
-      );
-    },
-    [payloadWithShort, onOpenChange, context, txId, walletBase58],
-  );  
+
+      // 🔹 2) Önce pencereyi AÇ (senkron, await YOK → popup blocker friendly)
+      if (typeof window !== 'undefined') {
+        window.open(intentUrl, '_blank', 'noopener,noreferrer');
+      }
+
+      // 🔹 3) CP event'i arkadan fire-and-forget
+      try {
+        void sendShareEvent('twitter');
+      } catch (e) {
+        console.error('[ShareCenter] sendShareEvent(twitter) threw', e);
+      }
+
+      // 🔹 4) En son modalı kapat
+      onOpenChange(false);
+      return;
+    }
+
+    // Diğer kanallar: şimdilik sadece toast
+    showToast(
+      "Sharing for this app isn’t live yet — but you’ll still earn CorePoints when you copy and share manually!",
+      'bottom',
+      true,
+      'info',
+    );
+  };
 
   // Copy text — X ile aynı birleşik format
   const handleCopy = async () => {
@@ -302,8 +314,6 @@ export default function ShareCenter({
       showToast('Could not copy text.', 'top', false, 'error');
     }
   };
-
-  if (!open) return null;
 
   const heading = 'Share';
   const sub = {
