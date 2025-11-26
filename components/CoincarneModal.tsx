@@ -367,13 +367,20 @@ export default function CoincarneModal({
       // Buraya geldiysek: DB kaydı GARANTİ
       const userNumber: number = json.number ?? 0;
       const referralCode: string | null = json.referral_code ?? null;
-      const txId: string = json.txId ?? json.transaction_signature ?? signature;
+
+      // 🔹 Tek bir “stable” txId üret: öncelik contributions.id
+      const stableTxId: string =
+        json.txId ??
+        json.tx_id ??
+        (json.id != null ? String(json.id) : undefined) ??
+        json.transaction_signature ??
+        signature;
 
       setResultData({
         tokenFrom: displaySymbol,
         number: userNumber,
         referralCode,
-        txId,
+        txId: stableTxId,   // ⬅️ Artık her zaman "262" gibi contributions.id
       });
 
       setConfirmModalOpen(false);

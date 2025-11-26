@@ -237,12 +237,18 @@ export async function POST(req: NextRequest) {
             AND (tx_hash = ${txHashOrSig} OR transaction_signature = ${txHashOrSig})
           LIMIT 1
         `;
+        // txHashOrSig ile duplicate yakalanırsa:
         if (dup.length > 0) {
+          const existingId = dup[0].id as number;
+          const stableTxId = String(existingId);
+
           return NextResponse.json({
             success: true,
             duplicate: true,
-            id: dup[0].id,
+            id: existingId,
             via: 'tx_hash/transaction_signature',
+            tx_id: stableTxId,
+            txId: stableTxId,
           });
         }
       }
@@ -254,13 +260,18 @@ export async function POST(req: NextRequest) {
           LIMIT 1
         `;
         if (dup2.length > 0) {
+          const existingId = dup2[0].id as number;
+          const stableTxId = String(existingId);
+        
           return NextResponse.json({
             success: true,
             duplicate: true,
-            id: dup2[0].id,
+            id: existingId,
             via: 'idempotency_key',
+            tx_id: stableTxId,
+            txId: stableTxId,
           });
-        }
+        }        
       }
     } catch (e) {
       console.warn(
@@ -521,15 +532,23 @@ export async function POST(req: NextRequest) {
       number = result[0]?.id ?? 0;
     } catch {}
 
+    const stableTxId =
+    insertedId != null
+      ? String(insertedId)          // 🔹 öncelik: contributions.id
+      : txHashOrSig
+      ? String(txHashOrSig)         // eski kayıtlar için fallback
+      : null;
+
     return NextResponse.json({
-      success: true,
-      id: insertedId,
-      number,
-      referral_code: userReferralCode,
-      transaction_signature: txHashOrSig,   // ✔️ eklendi
-      txId: txHashOrSig,                     // ✔️ eklendi
-      message: '✅ Coincarnation recorded',
-    });    
+    success: true,
+    id: insertedId,
+    number,
+    referral_code: userReferralCode,
+    transaction_signature: txHashOrSig,
+    tx_id: stableTxId,   // istersen ek key
+    txId: stableTxId,    // frontende giden ana alan
+    message: '✅ Coincarnation recorded',
+    });
   } catch (error: any) {
     console.error('❌ Record API Error:', error?.message || error);
     const status = Number(error?.status) || 500;
