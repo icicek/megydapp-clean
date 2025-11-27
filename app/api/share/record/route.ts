@@ -85,6 +85,12 @@ export async function POST(req: NextRequest) {
       body.tx_id_str ??
       null;
 
+    /* ---------------- Anchor (opsiyonel) ---------------- */
+    // Özellikle COPY + txsiz share'ler için buton bazlı unique anahtar
+    // Örn: "profile:<wallet>", "leaderboard:<wallet>"
+    const rawAnchor = typeof body.anchor === 'string' ? body.anchor.trim() : '';
+    const anchor = rawAnchor || null;
+
     let awarded = 0;
 
     /* ======================================================
@@ -116,7 +122,7 @@ export async function POST(req: NextRequest) {
       const res = await awardShare({
         wallet,
         channel,
-        context,
+        context, // context serbest, UI için
         day,
         txId: txStr,
       });
@@ -136,24 +142,19 @@ export async function POST(req: NextRequest) {
 
     /* ======================================================
        2) TX-ID YOKSA → GLOBAL PAYLAŞIM KURALLARI
-       (copy için buton/context bazlı tek seferlik ödüller)
        ====================================================== */
 
-    /* ----------- A) COPY → cüzdan + context başına 1 kez CP ----------- */
+    /* ----------- A) COPY → cüzdan + anchor (varsa) + yoksa context başına 1 kez ----------- */
     if (channel === 'copy') {
-      // ÖNEMLİ DEĞİŞİKLİK:
-      // Artık "copy_global" yerine context bazlı anahtar kullanıyoruz
-      // Örn:
-      //  - profile kartı:     context = "profile"     → key = "copy:profile"
-      //  - leaderboard:       context = "leaderboard" → key = "copy:leaderboard"
-      //  - başka bir sayfa:   context = "success"     → key = "copy:success"
-      const copyContext = `copy:${context || 'global'}`;
+      // Eğer anchor verilmişse onu kullan (buton bazlı kilit),
+      // verilmemişse copy:context fallback'i ile eskisi gibi davran.
+      const key = anchor || `copy:${context || 'global'}`;
 
       const alreadyCopy = await sql/* sql */`
         SELECT 1 FROM corepoint_events
         WHERE wallet_address = ${wallet}
           AND type = 'share'
-          AND context = ${copyContext}
+          AND context = ${key}
         LIMIT 1
       `;
 
@@ -163,8 +164,8 @@ export async function POST(req: NextRequest) {
           success: true,
           awarded: 0,
           total,
-          reason: 'copy_context_already_used',
-          context: copyContext,
+          reason: 'copy_anchor_or_context_already_used',
+          context: key,
           day,
         });
       }
@@ -172,7 +173,7 @@ export async function POST(req: NextRequest) {
       const res = await awardShare({
         wallet,
         channel: 'copy',
-        context: copyContext,
+        context: key,
         day,
         txId: null,
       });
@@ -185,8 +186,8 @@ export async function POST(req: NextRequest) {
         awarded,
         total,
         day,
-        mode: 'copy_once_per_context',
-        context: copyContext,
+        mode: 'copy_once_per_anchor_or_context',
+        context: key,
       });
     }
 

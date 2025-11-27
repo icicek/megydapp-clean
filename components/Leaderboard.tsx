@@ -8,6 +8,7 @@ import ShareCenter from '@/components/share/ShareCenter';
 import { buildPayload } from '@/components/share/intent';
 
 type Props = { referralCode?: string };
+
 type LeaderboardEntry = {
   wallet_address: string;
   core_point: number;
@@ -23,7 +24,7 @@ export default function Leaderboard({ referralCode }: Props) {
 
   // Share modal state
   const [shareOpen, setShareOpen] = useState(false);
-  const [shareTxId, setShareTxId] = useState<string | undefined>(undefined);
+  const [shareAnchor, setShareAnchor] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
@@ -86,16 +87,12 @@ export default function Leaderboard({ referralCode }: Props) {
   }, [shareUrl, userRank, referralCode]);
 
   const handleShareClick = () => {
-    if (!publicKey) return;
     if (!sharePayload) return;
 
-    const wallet = publicKey.toBase58();
+    // Bu buton için: sadece 1 kez CP → cüzdan bazlı anchor
+    const wallet = publicKey?.toBase58() ?? 'anon';
+    setShareAnchor(`leaderboard:${wallet}`);
 
-    // 🔥 Bu buton için sadece 1 kez CP verilecek:
-    // leaderboard:<wallet>
-    setShareTxId(`leaderboard:${wallet}`);
-
-    // Modal aç
     setShareOpen(true);
   };
 
@@ -189,15 +186,15 @@ export default function Leaderboard({ referralCode }: Props) {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Share modal */}
       {shareOpen && sharePayload && (
         <ShareCenter
           open={shareOpen}
           onOpenChange={setShareOpen}
           payload={sharePayload}
           context="leaderboard"
-          txId={shareTxId}
           walletBase58={publicKey?.toBase58() ?? null}
+          anchor={shareAnchor}      // 🔥 Buradan backend'e anchor gidiyor
         />
       )}
     </div>

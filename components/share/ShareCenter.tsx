@@ -56,6 +56,7 @@ type Props = {
   context: 'profile' | 'contribution' | 'leaderboard' | 'success';
   txId?: string;
   walletBase58?: string | null;
+  anchor?: string;
 };
 
 export default function ShareCenter({
@@ -65,6 +66,7 @@ export default function ShareCenter({
   context,
   txId,
   walletBase58,
+  anchor,
 }: Props) {
   if (!open || !payload) return null;
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -201,14 +203,15 @@ export default function ShareCenter({
       channel,
       context,
       day,
+      anchor,
     };
 
     if (walletBase58) {
       body.wallet = walletBase58;
     }
-    if (txId && channel === 'twitter') {
+    if (txId) {
       body.txId = txId;
-    }
+    }    
 
     try {
       console.log('[ShareCenter] POST /api/share/record', body);

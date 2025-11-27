@@ -71,7 +71,7 @@ export default function ClaimPanel() {
   const [shareTxId, setShareTxId] = useState<string|undefined>(undefined);
   const [cpHistory, setCpHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
-
+  const [shareAnchor, setShareAnchor] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -516,6 +516,7 @@ export default function ClaimPanel() {
                           console.log('[ClaimPanel] open share from history', { txId, tx });
 
                           setShareTxId(txId);
+                          setShareAnchor(undefined);
                           setShareOpen(true);
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
@@ -669,14 +670,23 @@ export default function ClaimPanel() {
                       onClick={() => {
                         if (!data.referral_code) return;
                         const url = `${APP_URL}?r=${data.referral_code}`;
-                        const payload = buildPayload('profile', { url }, {
-                          ref: data.referral_code ?? undefined,
-                          src: 'app',
-                          // ctx otomatik 'profile'
-                        });
+                        const payload = buildPayload(
+                          'profile',
+                          { url },
+                          {
+                            ref: data.referral_code ?? undefined,
+                            src: 'app',
+                            // ctx otomatik 'profile'
+                          },
+                        );
+
                         setSharePayload(payload);
-                        setShareContext('profile'); // profil veya referral paylaşımı
-                        setShareTxId(undefined);
+                        setShareContext('profile'); // profil / referral paylaşımı
+
+                        // 🔹 Her wallet için 1 kez CP: profile:<wallet>
+                        setShareTxId(`profile:${data.wallet_address}`);
+                        setShareAnchor(`profile:${data.wallet_address}`);
+
                         setShareOpen(true);
                       }}
                       className="bg-blue-600 hover:bg-blue-700 text-xs text-white px-2 py-1 rounded"
