@@ -4,7 +4,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { APP_URL } from '@/app/lib/origin';
-import dynamic from 'next/dynamic';
 import ShareCenter from '@/components/share/ShareCenter';
 import { buildPayload } from '@/components/share/intent';
 
@@ -24,12 +23,14 @@ export default function Leaderboard({ referralCode }: Props) {
 
   // Share modal state
   const [shareOpen, setShareOpen] = useState(false);
+  const [shareTxId, setShareTxId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
         const res = await fetch('/api/leaderboard');
         const json = await res.json();
+
         if (json?.success && Array.isArray(json.leaderboard)) {
           setData(json.leaderboard as LeaderboardEntry[]);
 
@@ -41,6 +42,7 @@ export default function Leaderboard({ referralCode }: Props) {
             if (i !== -1) {
               setUserRank(i + 1);
             } else {
+              // Eğer top 10'da değilse sunucudan rank çek
               const rankRes = await fetch(`/api/leaderboard/rank?wallet=${me}`);
               const rankJson = await rankRes.json();
               if (rankJson?.success && Number.isFinite(rankJson.rank)) {
@@ -62,22 +64,40 @@ export default function Leaderboard({ referralCode }: Props) {
   const shorten = (a: string) => `${a.slice(0, 4)}...${a.slice(-4)}`;
   const visible = showAll ? data : data.slice(0, 10);
 
-  // ---- Share payload (rank metni dinamik) ----
+  // ---- Share payload (dynamic rank message) ----
   const shareUrl = useMemo(
     () => (referralCode ? `${APP_URL}?r=${encodeURIComponent(referralCode)}` : APP_URL),
     [referralCode]
   );
-  
+
   const sharePayload = useMemo(() => {
-    return buildPayload('leaderboard', {
-      url: shareUrl,
-      rank: userRank ?? undefined,
-    }, {
-      ref: referralCode ?? undefined,
-      src: 'app', // veya 'xshare' dersen X butonundan tetiklenen özel kaynak gibi kullanabilirsin
-      // ctx otomatik 'leaderboard'
-    });
-  }, [shareUrl, userRank, referralCode]);  
+    return buildPayload(
+      'leaderboard',
+      {
+        url: shareUrl,
+        rank: userRank ?? undefined,
+      },
+      {
+        ref: referralCode ?? undefined,
+        src: 'app',
+        // ctx otomatik 'leaderboard'
+      }
+    );
+  }, [shareUrl, userRank, referralCode]);
+
+  const handleShareClick = () => {
+    if (!publicKey) return;
+    if (!sharePayload) return;
+
+    const wallet = publicKey.toBase58();
+
+    // 🔥 Bu buton için sadece 1 kez CP verilecek:
+    // leaderboard:<wallet>
+    setShareTxId(`leaderboard:${wallet}`);
+
+    // Modal aç
+    setShareOpen(true);
+  };
 
   return (
     <div className="mt-10 border border-pink-500/20 rounded-2xl p-6 bg-gradient-to-br from-zinc-900/70 to-black/80 shadow-xl backdrop-blur-lg">
@@ -97,9 +117,10 @@ export default function Leaderboard({ referralCode }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {visible.map((entry, _i) => {
+                {visible.map((entry) => {
                   const realIndex = data.indexOf(entry);
                   const isUser = publicKey?.toBase58() === entry.wallet_address;
+
                   return (
                     <tr
                       key={entry.wallet_address}
@@ -124,10 +145,12 @@ export default function Leaderboard({ referralCode }: Props) {
                           ? '🥉'
                           : realIndex + 1}
                       </td>
+
                       <td className="py-2 px-4">
                         {shorten(entry.wallet_address)}
                         {isUser && <span className="ml-2 text-yellow-400">← You</span>}
                       </td>
+
                       <td className="py-2 px-4">{Number(entry.core_point).toFixed(3)}</td>
                     </tr>
                   );
@@ -146,7 +169,6 @@ export default function Leaderboard({ referralCode }: Props) {
               </div>
             )}
 
-            {/* Share (ShareCenter modalını açar) */}
             {userRank && (
               <div className="text-center mt-6 space-y-3">
                 <p className="text-sm text-zinc-400">
@@ -155,7 +177,7 @@ export default function Leaderboard({ referralCode }: Props) {
                 </p>
 
                 <button
-                  onClick={() => sharePayload && setShareOpen(true)}
+                  onClick={handleShareClick}
                   disabled={!sharePayload}
                   className="inline-block text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md transition"
                 >
@@ -167,13 +189,14 @@ export default function Leaderboard({ referralCode }: Props) {
         </div>
       )}
 
-      {/* Share modal (koşullu) */}
+      {/* Modal */}
       {shareOpen && sharePayload && (
         <ShareCenter
           open={shareOpen}
           onOpenChange={setShareOpen}
           payload={sharePayload}
           context="leaderboard"
+          txId={shareTxId}
           walletBase58={publicKey?.toBase58() ?? null}
         />
       )}

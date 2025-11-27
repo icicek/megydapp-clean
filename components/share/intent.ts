@@ -37,7 +37,11 @@ const toCashtag = (s?: string) => {
 };
 
 function safeUrl(u?: string): URL | null {
-  try { return u ? new URL(u) : null; } catch { return null; }
+  try {
+    return u ? new URL(u) : null;
+  } catch {
+    return null;
+  }
 }
 
 // base URL'e ref/src/ctx ve opsiyonel UTM ekle
@@ -93,40 +97,101 @@ export function buildCopyText(p: SharePayload): string {
 
 // ----------------- context text templates -----------------
 
+// Ortak küçük helper: satırlar arasında birer boş satır
+function multiLine(lines: string[]): string {
+  return lines.join('\n\n');
+}
+
+/**
+ * SUCCESS:
+ * I turned $TOKEN into real impact.
+ *
+ * Fairer future grows. Inequality shrinks.
+ *
+ * $MEGY
+ */
 function textForSuccess(p: { token?: string; tone?: Tone }): string {
   const megy = '$MEGY';
-  const coin = toCashtag(p.token);
-  return `Revived ${coin} into ${megy}. Join the rebirth.`;
+  const coin = toCashtag(p.token) || megy;
+
+  return multiLine([
+    `I turned ${coin} into real impact.`,
+    `Fairer future grows. Inequality shrinks.`,
+    `${megy}`,
+  ]);
 }
 
+/**
+ * CONTRIBUTION (ClaimPanel / history share için):
+ * Earlier I turned $TOKEN into real impact.
+ *
+ * Fairer future grows. Inequality shrinks.
+ *
+ * $MEGY
+ */
 function textForContribution(p: { token?: string; amount?: number; tone?: Tone }): string {
   const megy = '$MEGY';
-  const coin = toCashtag(p.token);
-  const amt =
-    typeof p.amount === 'number' && isFinite(p.amount) && p.amount > 0
-      ? ` ${Number(p.amount).toString()}`
-      : '';
-  return `I just Coincarnated${amt} ${coin} → ${megy}. Be part of it.`;
+  const coin = toCashtag(p.token) || megy;
+
+  return multiLine([
+    `Earlier I turned ${coin} into real impact.`,
+    `Fairer future grows. Inequality shrinks.`,
+    `${megy}`,
+  ]);
 }
 
+/**
+ * LEADERBOARD:
+ * (rank varsa)
+ * I’m #7 in the Fair Future Fund rankings.
+ *
+ * A fairer world is built by us.
+ *
+ * $MEGY ⚡️
+ *
+ * (rank yoksa)
+ * I’m rising in the Fair Future Fund rankings.
+ * ...
+ */
 function textForLeaderboard(p: { rank?: number; tone?: Tone }): string {
-  const megy = '$MEGY';
-  if (typeof p.rank === 'number' && p.rank > 0) {
-    return `Climbing the Coincarnation Leaderboard with ${megy}. I’m #${p.rank}.`;
-  }
-  return `Join the Coincarnation Leaderboard with ${megy}.`;
+  const megy = '$MEGY ⚡️';
+
+  const firstLine =
+    typeof p.rank === 'number' && p.rank > 0
+      ? `I’m #${p.rank} in the Fair Future Fund rankings.`
+      : `I’m rising in the Fair Future Fund rankings.`;
+
+  return multiLine([
+    firstLine,
+    `A fairer world is built by us.`,
+    megy,
+  ]);
 }
 
+/**
+ * PROFILE / REFERRAL:
+ *
+ * A fairer future won’t build itself.
+ *
+ * Join me in the Coincarnation movement.
+ *
+ * $MEGY
+ */
 function textForProfile(_p: { tone?: Tone }): string {
   const megy = '$MEGY';
-  return `I’m reviving the Fair Future Fund with ${megy}. Use my link & jump in.`;
+
+  return multiLine([
+    `A fairer future won’t build itself.`,
+    `Join me in the Coincarnation movement.`,
+    megy,
+  ]);
 }
 
 // ----------------- Public builder -----------------
 
 /**
  * Central entry:
- * - text: context-aware
+ * - text: context-aware (çok satırlı, aralarda boş satır)
  * - url: canonical (ref/src/ctx merge + utm)
  * - shortUrl: /share/[ctx]/[ref]?src=... (ref varsa otomatik)
  * - via: "levershare" (default)
@@ -169,12 +234,16 @@ export function buildPayload(
         )}?src=${encodeURIComponent(srcTag)}`
       : undefined;
 
-  // text seçimi
+  // text seçimi (context'e göre)
   let text = '';
   if (ctx === 'success') {
     text = textForSuccess({ token: data.token, tone: data.tone });
   } else if (ctx === 'contribution') {
-    text = textForContribution({ token: data.token, amount: data.amount, tone: data.tone });
+    text = textForContribution({
+      token: data.token,
+      amount: data.amount,
+      tone: data.tone,
+    });
   } else if (ctx === 'leaderboard') {
     text = textForLeaderboard({ rank: data.rank, tone: data.tone });
   } else {
@@ -194,7 +263,7 @@ export function buildPayload(
 
 // ----------------- Channel intent builders -----------------
 
-// Twitter: hepsini text içinde veriyoruz (link + #tags + via aynı sırada)
+// Twitter: hepsini text içinde veriyoruz (metin ⏎⏎ link + #tags + via)
 export function buildTwitterIntent(p: SharePayload): string {
   const params = new URLSearchParams();
   const link = finalShareLink(p);
@@ -206,7 +275,9 @@ export function buildTwitterIntent(p: SharePayload): string {
 // Telegram (web)
 export function buildTelegramWeb(p: SharePayload): string {
   const params = new URLSearchParams();
-  const txt = p.text ? `${p.text}\n\n${finalShareLink(p)}${inlineTail(p)}` : `${finalShareLink(p)}${inlineTail(p)}`;
+  const txt = p.text
+    ? `${p.text}\n\n${finalShareLink(p)}${inlineTail(p)}`
+    : `${finalShareLink(p)}${inlineTail(p)}`;
   params.set('text', txt);
   return `https://t.me/share/url?${params.toString()}`;
 }
