@@ -505,18 +505,27 @@ export default function ClaimPanel() {
                           setShareContext('contribution');
 
                           // 🔹 txId'yi MÜMKÜN OLAN TÜM ALANLARDAN türet:
-                          const txId =
-                            (tx.tx_id && String(tx.tx_id)) ||                 // API'den böyle geliyor olabilir
-                            (tx.txId && String(tx.txId)) ||                   // camelCase ihtimali
+                          const rawTxId =
+                            (tx.tx_id && String(tx.tx_id)) ||
+                            (tx.txId && String(tx.txId)) ||
                             (tx.transaction_signature && String(tx.transaction_signature)) ||
-                            (tx.tx_signature && String(tx.tx_signature)) ||   // bazen böyle isimlendirilir
+                            (tx.tx_signature && String(tx.tx_signature)) ||
                             (tx.tx_hash && String(tx.tx_hash)) ||
                             undefined;
 
-                          console.log('[ClaimPanel] open share from history', { txId, tx });
+                          // 🔹 Anchor: her işlem için tekil bir anahtar
+                          const wallet = data.wallet_address || publicKey?.toBase58() || 'unknown';
+                          const anchor =
+                            rawTxId
+                              ? `contribution:${wallet}:${rawTxId}`
+                              : `contribution:${wallet}:idx-${index}`;
 
-                          setShareTxId(txId);
-                          setShareAnchor(undefined);
+                          console.log('[ClaimPanel] open share from history', { rawTxId, anchor, tx });
+
+                          // ❗ CP hesaplamasını anchor üzerinden yapmak için txId'yi boş bırakıyoruz
+                          setShareTxId(undefined);
+                          setShareAnchor(anchor);
+
                           setShareOpen(true);
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
@@ -684,7 +693,7 @@ export default function ClaimPanel() {
                         setShareContext('profile'); // profil / referral paylaşımı
 
                         // 🔹 Her wallet için 1 kez CP: profile:<wallet>
-                        setShareTxId(`profile:${data.wallet_address}`);
+                        setShareTxId(undefined);
                         setShareAnchor(`profile:${data.wallet_address}`);
 
                         setShareOpen(true);
@@ -804,6 +813,7 @@ export default function ClaimPanel() {
           context={shareContext}
           txId={shareTxId}
           walletBase58={publicKey?.toBase58() ?? null}
+          anchor={shareAnchor}
         />
       )}
     </div>
