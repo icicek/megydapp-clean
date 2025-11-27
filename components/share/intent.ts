@@ -145,7 +145,7 @@ function textForContribution(p: { token?: string; amount?: number; tone?: Tone }
  * (rank varsa)
  * I’m #7 in the Fair Future Fund rankings.
  *
- * A fairer world is built by us.
+ * We build a fairer world.
  *
  * $MEGY ⚡️
  *
@@ -163,7 +163,7 @@ function textForLeaderboard(p: { rank?: number; tone?: Tone }): string {
 
   return multiLine([
     firstLine,
-    `A fairer world is built by us.`,
+    `We build a fairer world.`,
     megy,
   ]);
 }

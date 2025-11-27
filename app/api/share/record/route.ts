@@ -89,11 +89,11 @@ export async function POST(req: NextRequest) {
 
     /* ======================================================
        1) TX-ID VARSA → Coincarnation işlemine özel share CP
+          (Her tx_id için sadece 1 kere)
        ====================================================== */
     if (txId) {
       const txStr = String(txId);
 
-      // Aynı işlem için ikinci kez CP verme
       const already = await sql/* sql */`
         SELECT 1 FROM corepoint_events
         WHERE wallet_address = ${wallet}
@@ -113,7 +113,6 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // awardShare artık txId destekli
       const res = await awardShare({
         wallet,
         channel,
@@ -137,11 +136,18 @@ export async function POST(req: NextRequest) {
 
     /* ======================================================
        2) TX-ID YOKSA → GLOBAL PAYLAŞIM KURALLARI
+       (copy için buton/context bazlı tek seferlik ödüller)
        ====================================================== */
 
-    /* ----------- A) COPY → cüzdan başına 1 kez CP ----------- */
+    /* ----------- A) COPY → cüzdan + context başına 1 kez CP ----------- */
     if (channel === 'copy') {
-      const copyContext = 'copy_global';
+      // ÖNEMLİ DEĞİŞİKLİK:
+      // Artık "copy_global" yerine context bazlı anahtar kullanıyoruz
+      // Örn:
+      //  - profile kartı:     context = "profile"     → key = "copy:profile"
+      //  - leaderboard:       context = "leaderboard" → key = "copy:leaderboard"
+      //  - başka bir sayfa:   context = "success"     → key = "copy:success"
+      const copyContext = `copy:${context || 'global'}`;
 
       const alreadyCopy = await sql/* sql */`
         SELECT 1 FROM corepoint_events
@@ -157,7 +163,8 @@ export async function POST(req: NextRequest) {
           success: true,
           awarded: 0,
           total,
-          reason: 'copy_already_used',
+          reason: 'copy_context_already_used',
+          context: copyContext,
           day,
         });
       }
@@ -178,7 +185,8 @@ export async function POST(req: NextRequest) {
         awarded,
         total,
         day,
-        mode: 'copy_once_global',
+        mode: 'copy_once_per_context',
+        context: copyContext,
       });
     }
 
