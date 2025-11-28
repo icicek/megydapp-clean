@@ -197,93 +197,77 @@ export async function POST(req: NextRequest) {
           (PVC, Leaderboard, Referral v.b.)
        ====================================================== */
 
-    /* ----------- A) COPY → her anchor/context için 1 kez ----------- */
+    /* ----------- A) COPY → cüzdan + anchor (varsa) + yoksa context başına 1 kez ----------- */
     if (channel === 'copy') {
-      // Her buton için anchor zaten benzersiz:
-      //  - "profile:<wallet>"
-      //  - "leaderboard:<wallet>"
-      // Anchor yoksa rawContext kullan (örneğin legacy yerler).
-      const baseKey = anchor || rawContext;
-      const ctx = globalContext('copy', baseKey); // örn: "copy:profile:D7iqk..."
+      const baseCtx =
+        typeof rawContext === 'string' && rawContext.trim()
+          ? rawContext.trim()
+          : 'global';
 
-      stage = 'copy_select_existing';
-      const existing = await sql/* sql */`
-        SELECT 1
-        FROM corepoint_events
+      let key: string;
+
+      if (anchor) {
+        // 🔑 Tüm copy event'leri "copy:" prefix'i ile başlasın ki
+        // X ile aynı anchor'ı kullansak bile çakışmasın.
+        key =
+          anchor.startsWith('copy:') || anchor.startsWith('tx:')
+            ? anchor
+            : `copy:${anchor}`;
+      } else {
+        // Anchor yoksa fallback: copy:context
+        key = `copy:${baseCtx}`;
+      }
+
+      // ❗ Sadece channel='copy' olan kayıtları say
+      const alreadyCopy = await sql/* sql */`
+        SELECT 1 FROM corepoint_events
         WHERE wallet_address = ${wallet}
           AND type = 'share'
-          AND context = ${ctx}
+          AND channel = 'copy'
+          AND context = ${key}
         LIMIT 1
       `;
 
-      if (existing.length > 0) {
-        stage = 'copy_already';
-        let total = 0;
-        try {
-          total = await totalCorePoints(wallet);
-        } catch (e: any) {
-          console.error('❌ totalCorePoints error at copy_already:', e?.message || e);
-        }
+      if (alreadyCopy.length > 0) {
+        const total = await totalCorePoints(wallet);
         return NextResponse.json({
           success: true,
           awarded: 0,
           total,
-          reason: 'copy_context_once',
-          context: ctx,
+          reason: 'copy_anchor_or_context_already_used',
+          context: key,
           day,
-          stage,
         });
       }
 
-      stage = 'copy_award';
-      try {
-        const res = await awardShare({
-          wallet,
-          channel: 'copy',
-          context: ctx,
-          day,
-          txId: null,
-        });
-        awarded = res.awarded ?? 0;
-      } catch (e: any) {
-        console.error('❌ awardShare error at copy_award:', e?.message || e);
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'award_share_failed_copy',
-            stage,
-            detail: String(e?.message || e),
-          },
-          { status: 500 },
-        );
-      }
+      const res = await awardShare({
+        wallet,
+        channel: 'copy',
+        context: key,
+        day,
+        txId: null,
+      });
 
-      stage = 'copy_total';
-      let total = 0;
-      try {
-        total = await totalCorePoints(wallet);
-      } catch (e: any) {
-        console.error('❌ totalCorePoints error at copy_total:', e?.message || e);
-      }
+      awarded = res.awarded ?? 0;
 
+      const total = await totalCorePoints(wallet);
       return NextResponse.json({
         success: true,
         awarded,
         total,
         day,
-        mode: 'copy_once_per_context',
-        context: ctx,
-        stage,
+        mode: 'copy_once_per_anchor_or_context',
+        context: key,
       });
     }
 
     /* ----------- B) TWITTER → her anchor/context için 1 kez ----------- */
     if (channel === 'twitter') {
       // PVC: anchor = "profile:<wallet>"
-      // Leaderboard: anchor = "leaderboard:<wallet>"
+      // Leaderboard: anchor = "lb:<wallet>" (Leaderboard.tsx'te böyle)
       // Anchor yoksa rawContext kullan.
       const baseKey = anchor || rawContext;
-      const ctx = globalContext('twitter', baseKey); // örn: "twitter:profile:<wallet>"
+      const ctx = globalContext('twitter', baseKey); // örn: "twitter:lb:<wallet>"
 
       stage = 'tw_select_existing';
       const existing = await sql/* sql */`
