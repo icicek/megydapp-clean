@@ -214,11 +214,11 @@ export async function POST(req: NextRequest) {
             ? anchor
             : `copy:${anchor}`;
       } else {
-        // Anchor yoksa fallback: copy:context
+        // Anchor yoksa fallback: copy:<context>
         key = `copy:${baseCtx}`;
       }
 
-      // ❗ Sadece channel='copy' olan kayıtları say
+      // ❗ Sadece channel='copy' kayıtlarına bak
       const alreadyCopy = await sql/* sql */`
         SELECT 1 FROM corepoint_events
         WHERE wallet_address = ${wallet}
@@ -264,7 +264,7 @@ export async function POST(req: NextRequest) {
     /* ----------- B) TWITTER → her anchor/context için 1 kez ----------- */
     if (channel === 'twitter') {
       // PVC: anchor = "profile:<wallet>"
-      // Leaderboard: anchor = "lb:<wallet>" (Leaderboard.tsx'te böyle)
+      // Leaderboard: anchor = "lb:<wallet>"
       // Anchor yoksa rawContext kullan.
       const baseKey = anchor || rawContext;
       const ctx = globalContext('twitter', baseKey); // örn: "twitter:lb:<wallet>"
