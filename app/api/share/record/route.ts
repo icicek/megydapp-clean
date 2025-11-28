@@ -3,15 +3,9 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/app/api/_lib/db';
-import {
-  awardShare,
-  totalCorePoints,
-} from '@/app/api/_lib/corepoints';
+import { awardShare, totalCorePoints } from '@/app/api/_lib/corepoints';
 
-/* --------------------------------------------------
-   Allowed Channels + Normalizer
--------------------------------------------------- */
-function normalizeChannel(raw: any):
+type Channel =
   | 'twitter'
   | 'telegram'
   | 'whatsapp'
@@ -20,8 +14,12 @@ function normalizeChannel(raw: any):
   | 'instagram'
   | 'tiktok'
   | 'discord'
-  | 'system'
-{
+  | 'system';
+
+/* --------------------------------------------------
+   Channel normalizer
+-------------------------------------------------- */
+function normalizeChannel(raw: any): Channel {
   const c = typeof raw === 'string' ? raw.toLowerCase() : '';
 
   if (c === 'x') return 'twitter';
@@ -39,6 +37,16 @@ function normalizeChannel(raw: any):
     default:
       return 'system';
   }
+}
+
+// tx tabanlı context (her kanal için ayrı)
+function txContext(channel: Channel, txId: string): string {
+  return `tx:${channel}:${txId}`;
+}
+
+// global paylaşım context’i (PVC, leaderboard vs)
+function globalContext(prefix: string, key: string): string {
+  return `${prefix}:${key}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -67,15 +75,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    /* ---------------- Channel (normalized) ---------------- */
+    /* ---------------- Channel ---------------- */
     stage = 'channel';
     const channel = normalizeChannel(body.channel);
 
-    /* ---------------- Context ---------------- */
+    /* ---------------- Context (ham) ---------------- */
     stage = 'context';
-    let context: string =
-      body.context && typeof body.context === 'string'
-        ? body.context
+    const rawContext =
+      typeof body.context === 'string' && body.context.trim().length > 0
+        ? body.context.trim()
         : 'profile';
 
     /* ---------------- Day ---------------- */
@@ -103,36 +111,24 @@ export async function POST(req: NextRequest) {
 
     /* ======================================================
        1) TX-ID VARSA → Coincarnation işlemine özel share CP
-          Her (wallet, tx_id, channel) kombinasyonu için
-          SADECE 1 kez CP verilir.
+          Her (wallet + txId + channel) için SADECE 1 kez.
+          Bunu context üzerinden encode ediyoruz:
+            "tx:twitter:<txId>", "tx:copy:<txId>" vb.
        ====================================================== */
     if (txId) {
+      const ctx = txContext(channel, txId);
+
       stage = 'tx_select_existing';
+      const existing = await sql/* sql */`
+        SELECT 1
+        FROM corepoint_events
+        WHERE wallet_address = ${wallet}
+          AND type = 'share'
+          AND context = ${ctx}
+        LIMIT 1
+      `;
 
-      let already;
-      try {
-        already = await sql/* sql */`
-          SELECT 1 FROM corepoint_events
-          WHERE wallet_address = ${wallet}
-            AND type = 'share'
-            AND tx_id = ${txId}
-            AND channel = ${channel}
-          LIMIT 1
-        `;
-      } catch (e: any) {
-        console.error('❌ SQL error at tx_select_existing:', e?.message || e);
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'sql_error_tx_select_existing',
-            stage,
-            detail: String(e?.message || e),
-          },
-          { status: 500 },
-        );
-      }
-
-      if (already.length > 0) {
+      if (existing.length > 0) {
         stage = 'tx_already';
         let total = 0;
         try {
@@ -145,6 +141,7 @@ export async function POST(req: NextRequest) {
           awarded: 0,
           total,
           reason: 'tx_already_shared_for_channel',
+          context: ctx,
           txId,
           channel,
           stage,
@@ -156,11 +153,10 @@ export async function POST(req: NextRequest) {
         const res = await awardShare({
           wallet,
           channel,
-          context,
+          context: ctx,
           day,
           txId,
         });
-
         awarded = res.awarded ?? 0;
       } catch (e: any) {
         console.error('❌ awardShare error at tx_award:', e?.message || e);
@@ -188,7 +184,9 @@ export async function POST(req: NextRequest) {
         awarded,
         total,
         day,
+        context: ctx,
         txId,
+        channel,
         mode: 'tx_based_per_channel',
         stage,
       });
@@ -196,90 +194,63 @@ export async function POST(req: NextRequest) {
 
     /* ======================================================
        2) TX-ID YOKSA → GLOBAL PAYLAŞIM KURALLARI
-          (PVC, Leaderboard, Profil vb.)
+          (PVC, Leaderboard, Referral v.b.)
        ====================================================== */
-        /* ----------- A) COPY → cüzdan + anchor (varsa) + yoksa context başına 1 kez ----------- */
+
+    /* ----------- A) COPY → her anchor/context için 1 kez ----------- */
     if (channel === 'copy') {
-      const baseCtx = typeof context === 'string' && context.trim()
-        ? context.trim()
-        : 'global';
+      // Her buton için anchor zaten benzersiz:
+      //  - "profile:<wallet>"
+      //  - "leaderboard:<wallet>"
+      // Anchor yoksa rawContext kullan (örneğin legacy yerler).
+      const baseKey = anchor || rawContext;
+      const ctx = globalContext('copy', baseKey); // örn: "copy:profile:D7iqk..."
 
-      let key: string;
-
-      if (anchor) {
-        // 🔑 Tüm copy event'leri "copy:" prefix'i ile başlasın ki
-        // X ile aynı anchor'ı kullansak bile çakışmasın.
-        key =
-          anchor.startsWith('copy:') || anchor.startsWith('tx:')
-            ? anchor
-            : `copy:${anchor}`;
-      } else {
-        // Anchor yoksa eski fallback: copy:context
-        key = `copy:${baseCtx}`;
-      }
-
-      const alreadyCopy = await sql/* sql */`
-        SELECT 1 FROM corepoint_events
+      stage = 'copy_select_existing';
+      const existing = await sql/* sql */`
+        SELECT 1
+        FROM corepoint_events
         WHERE wallet_address = ${wallet}
           AND type = 'share'
-          AND context = ${key}
+          AND context = ${ctx}
         LIMIT 1
       `;
 
-      if (alreadyCopy.length > 0) {
-        const total = await totalCorePoints(wallet);
+      if (existing.length > 0) {
+        stage = 'copy_already';
+        let total = 0;
+        try {
+          total = await totalCorePoints(wallet);
+        } catch (e: any) {
+          console.error('❌ totalCorePoints error at copy_already:', e?.message || e);
+        }
         return NextResponse.json({
           success: true,
           awarded: 0,
           total,
-          reason: 'copy_anchor_or_context_already_used',
-          context: key,
+          reason: 'copy_context_once',
+          context: ctx,
           day,
+          stage,
         });
       }
 
-      const res = await awardShare({
-        wallet,
-        channel: 'copy',
-        context: key,
-        day,
-        txId: null,
-      });
-
-      awarded = res.awarded ?? 0;
-
-      const total = await totalCorePoints(wallet);
-      return NextResponse.json({
-        success: true,
-        awarded,
-        total,
-        day,
-        mode: 'copy_once_per_anchor_or_context',
-        context: key,
-      });
-    }
-
-    /* ----------- B) TWITTER → anchor veya context başına 1 kez CP ----------- */
-    if (channel === 'twitter') {
-      stage = 'tw_select_existing';
-      const key = anchor || context || 'global';
-
-      let alreadyTw;
+      stage = 'copy_award';
       try {
-        alreadyTw = await sql/* sql */`
-          SELECT 1 FROM corepoint_events
-          WHERE wallet_address = ${wallet}
-            AND type = 'share'
-            AND context = ${key}
-            AND channel = 'twitter'
-          LIMIT 1
-        `;
+        const res = await awardShare({
+          wallet,
+          channel: 'copy',
+          context: ctx,
+          day,
+          txId: null,
+        });
+        awarded = res.awarded ?? 0;
       } catch (e: any) {
-        console.error('❌ SQL error at tw_select_existing:', e?.message || e);
+        console.error('❌ awardShare error at copy_award:', e?.message || e);
         return NextResponse.json(
           {
             success: false,
-            error: 'sql_error_tw_select_existing',
+            error: 'award_share_failed_copy',
             stage,
             detail: String(e?.message || e),
           },
@@ -287,7 +258,44 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      if (alreadyTw.length > 0) {
+      stage = 'copy_total';
+      let total = 0;
+      try {
+        total = await totalCorePoints(wallet);
+      } catch (e: any) {
+        console.error('❌ totalCorePoints error at copy_total:', e?.message || e);
+      }
+
+      return NextResponse.json({
+        success: true,
+        awarded,
+        total,
+        day,
+        mode: 'copy_once_per_context',
+        context: ctx,
+        stage,
+      });
+    }
+
+    /* ----------- B) TWITTER → her anchor/context için 1 kez ----------- */
+    if (channel === 'twitter') {
+      // PVC: anchor = "profile:<wallet>"
+      // Leaderboard: anchor = "leaderboard:<wallet>"
+      // Anchor yoksa rawContext kullan.
+      const baseKey = anchor || rawContext;
+      const ctx = globalContext('twitter', baseKey); // örn: "twitter:profile:<wallet>"
+
+      stage = 'tw_select_existing';
+      const existing = await sql/* sql */`
+        SELECT 1
+        FROM corepoint_events
+        WHERE wallet_address = ${wallet}
+          AND type = 'share'
+          AND context = ${ctx}
+        LIMIT 1
+      `;
+
+      if (existing.length > 0) {
         stage = 'tw_already';
         let total = 0;
         try {
@@ -299,8 +307,8 @@ export async function POST(req: NextRequest) {
           success: true,
           awarded: 0,
           total,
-          reason: 'twitter_anchor_or_context_shared_once',
-          context: key,
+          reason: 'twitter_context_once',
+          context: ctx,
           day,
           stage,
         });
@@ -311,7 +319,7 @@ export async function POST(req: NextRequest) {
         const res = await awardShare({
           wallet,
           channel: 'twitter',
-          context: key,
+          context: ctx,
           day,
           txId: null,
         });
@@ -342,8 +350,8 @@ export async function POST(req: NextRequest) {
         awarded,
         total,
         day,
-        mode: 'twitter_once_per_anchor_or_context',
-        context: key,
+        mode: 'twitter_once_per_context',
+        context: ctx,
         stage,
       });
     }
