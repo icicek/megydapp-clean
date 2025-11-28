@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     const channel = normalizeChannel(body.channel);
 
     /* ---------------- Context ---------------- */
-    const context =
+    let context: string =
       body.context && typeof body.context === 'string'
         ? body.context
         : 'profile';
@@ -79,15 +79,14 @@ export async function POST(req: NextRequest) {
         : new Date().toISOString().slice(0, 10);
 
     /* ---------------- TX ID (opsiyonel) ---------------- */
-    const txId =
+    const txIdRaw =
       body.txId ??
       body.tx_id ??
       body.tx_id_str ??
       null;
+    const txId = txIdRaw ? String(txIdRaw) : null;
 
     /* ---------------- Anchor (opsiyonel) ---------------- */
-    // Özellikle COPY + txsiz share'ler için buton bazlı unique anahtar
-    // Örn: "profile:<wallet>", "leaderboard:<wallet>"
     const rawAnchor = typeof body.anchor === 'string' ? body.anchor.trim() : '';
     const anchor = rawAnchor || null;
 
@@ -95,16 +94,15 @@ export async function POST(req: NextRequest) {
 
     /* ======================================================
        1) TX-ID VARSA → Coincarnation işlemine özel share CP
-          (Her tx_id için sadece 1 kere)
+          Her (wallet, tx_id, channel) kombinasyonu için
+          SADECE 1 kez CP verilir.
        ====================================================== */
     if (txId) {
-      const txStr = String(txId);
-
       const already = await sql/* sql */`
         SELECT 1 FROM corepoint_events
         WHERE wallet_address = ${wallet}
           AND type = 'share'
-          AND tx_id = ${txStr}
+          AND tx_id = ${txId}
           AND channel = ${channel}
         LIMIT 1
       `;
@@ -115,17 +113,18 @@ export async function POST(req: NextRequest) {
           success: true,
           awarded: 0,
           total,
-          reason: 'tx_already_shared',
-          txId: txStr,
+          reason: 'tx_already_shared_for_channel',
+          txId,
+          channel,
         });
       }
 
       const res = await awardShare({
         wallet,
         channel,
-        context, // context serbest, UI için
+        context, // success / contribution vs.
         day,
-        txId: txStr,
+        txId,
       });
 
       awarded = res.awarded ?? 0;
@@ -136,19 +135,19 @@ export async function POST(req: NextRequest) {
         awarded,
         total,
         day,
-        txId: txStr,
-        mode: 'tx_based',
+        txId,
+        mode: 'tx_based_per_channel',
       });
     }
 
     /* ======================================================
        2) TX-ID YOKSA → GLOBAL PAYLAŞIM KURALLARI
+          (PVC, Leaderboard, Profil vb.)
        ====================================================== */
 
-    /* ----------- A) COPY → cüzdan + anchor (varsa) + yoksa context başına 1 kez ----------- */
+    /* ----------- A) COPY → cüzdan + anchor (varsa) + channel='copy' ----------- */
     if (channel === 'copy') {
-      // Eğer anchor verilmişse onu kullan (buton bazlı kilit),
-      // verilmemişse copy:context fallback'i ile eskisi gibi davran.
+      // Anchor verilmişse onu, yoksa context tabanlı bir key kullan
       const key = anchor || `copy:${context || 'global'}`;
 
       const alreadyCopy = await sql/* sql */`
@@ -166,7 +165,7 @@ export async function POST(req: NextRequest) {
           success: true,
           awarded: 0,
           total,
-          reason: 'copy_anchor_or_context_already_used',
+          reason: 'copy_anchor_or_context_already_used_for_copy',
           context: key,
           day,
         });
@@ -193,25 +192,28 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    /* ----------- B) TWITTER → context başına 1 kez CP ----------- */
+    /* ----------- B) TWITTER → anchor veya context başına 1 kez CP ----------- */
     if (channel === 'twitter') {
-      const already = await sql/* sql */`
+      // PVC / Leaderboard gibi durumlarda anchor varsa onu kullan
+      const key = anchor || context || 'global';
+
+      const alreadyTw = await sql/* sql */`
         SELECT 1 FROM corepoint_events
         WHERE wallet_address = ${wallet}
           AND type = 'share'
-          AND context = ${context}
+          AND context = ${key}
           AND channel = 'twitter'
         LIMIT 1
       `;
 
-      if (already.length > 0) {
+      if (alreadyTw.length > 0) {
         const total = await totalCorePoints(wallet);
         return NextResponse.json({
           success: true,
           awarded: 0,
           total,
-          reason: 'context_shared_once',
-          context,
+          reason: 'twitter_anchor_or_context_shared_once',
+          context: key,
           day,
         });
       }
@@ -219,7 +221,7 @@ export async function POST(req: NextRequest) {
       const res = await awardShare({
         wallet,
         channel: 'twitter',
-        context,
+        context: key,
         day,
         txId: null,
       });
@@ -232,7 +234,8 @@ export async function POST(req: NextRequest) {
         awarded,
         total,
         day,
-        mode: 'context_once',
+        mode: 'twitter_once_per_anchor_or_context',
+        context: key,
       });
     }
 

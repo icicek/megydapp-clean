@@ -513,7 +513,7 @@ export default function ClaimPanel() {
                             (tx.tx_hash && String(tx.tx_hash)) ||
                             undefined;
 
-                          // 🔹 Anchor: her işlem için tekil bir anahtar (şimdilik sadece log / fallback için)
+                          // 🔹 Anchor: her işlem + cüzdan için tekil bir anahtar
                           const wallet = data.wallet_address || publicKey?.toBase58() || 'unknown';
                           const anchor =
                             rawTxId
@@ -522,8 +522,10 @@ export default function ClaimPanel() {
 
                           console.log('[ClaimPanel] open share from history', { rawTxId, anchor, tx });
 
-                          // ✅ Artık share CP'si tx bazlı işlesin:
-                          //    - Aynı tx için 1 kez X, 1 kez Copy
+                          // ✅ CP kuralı:
+                          //    - Aynı tx için X (twitter) ve Copy (copy) ayrı ayrı 1 kez CP alabilir.
+                          //    - İlk paylaşım CoincarnationResult ekranından yapılmış olsa bile,
+                          //      Contribution History'den Copy share için hala 1 kez CP hakkı vardır.
                           setShareTxId(rawTxId);
                           setShareAnchor(anchor);
 
