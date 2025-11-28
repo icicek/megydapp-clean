@@ -197,28 +197,23 @@ export async function POST(req: NextRequest) {
           (PVC, Leaderboard, Referral v.b.)
        ====================================================== */
 
-    /* ----------- A) COPY → cüzdan + anchor (varsa) + yoksa context başına 1 kez ----------- */
+    /* ----------- A) COPY → her context (PVC, leaderboard, vs.) + anchor kombinasyonu için 1 kez ----------- */
     if (channel === 'copy') {
-      const baseCtx =
+      // base: 'profile', 'leaderboard', 'referral' vb.
+      const base =
         typeof rawContext === 'string' && rawContext.trim()
           ? rawContext.trim()
           : 'global';
 
-      let key: string;
+      // PVC & Leaderboard çakışmasın diye:
+      // anchor varsa -> "<base>:<anchor>"
+      // yoksa       -> "<base>"
+      const scopeInput = anchor
+        ? `${base}:${anchor}`          // örn: "profile:profile:<wallet>" veya "leaderboard:lb:<wallet>"
+        : base;                        // örn: "profile" veya "leaderboard"
 
-      if (anchor) {
-        // 🔑 Tüm copy event'leri "copy:" prefix'i ile başlasın ki
-        // X ile aynı anchor'ı kullansak bile çakışmasın.
-        key =
-          anchor.startsWith('copy:') || anchor.startsWith('tx:')
-            ? anchor
-            : `copy:${anchor}`;
-      } else {
-        // Anchor yoksa fallback: copy:<context>
-        key = `copy:${baseCtx}`;
-      }
+      const key = `copy:${scopeInput}`; // final context → "copy:profile:profile:<wallet>" vs "copy:leaderboard:lb:<wallet>"
 
-      // ❗ Sadece channel='copy' kayıtlarına bak
       const alreadyCopy = await sql/* sql */`
         SELECT 1 FROM corepoint_events
         WHERE wallet_address = ${wallet}
