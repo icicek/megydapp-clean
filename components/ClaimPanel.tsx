@@ -513,7 +513,7 @@ export default function ClaimPanel() {
                             (tx.tx_hash && String(tx.tx_hash)) ||
                             undefined;
 
-                          // 🔹 Anchor: her işlem için tekil bir anahtar
+                          // 🔹 Anchor: her işlem için tekil bir anahtar (şimdilik sadece log / fallback için)
                           const wallet = data.wallet_address || publicKey?.toBase58() || 'unknown';
                           const anchor =
                             rawTxId
@@ -522,8 +522,9 @@ export default function ClaimPanel() {
 
                           console.log('[ClaimPanel] open share from history', { rawTxId, anchor, tx });
 
-                          // ❗ CP hesaplamasını anchor üzerinden yapmak için txId'yi boş bırakıyoruz
-                          setShareTxId(undefined);
+                          // ✅ Artık share CP'si tx bazlı işlesin:
+                          //    - Aynı tx için 1 kez X, 1 kez Copy
+                          setShareTxId(rawTxId);
                           setShareAnchor(anchor);
 
                           setShareOpen(true);

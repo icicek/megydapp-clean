@@ -105,6 +105,7 @@ export async function POST(req: NextRequest) {
         WHERE wallet_address = ${wallet}
           AND type = 'share'
           AND tx_id = ${txStr}
+          AND channel = ${channel}
         LIMIT 1
       `;
 
@@ -155,6 +156,7 @@ export async function POST(req: NextRequest) {
         WHERE wallet_address = ${wallet}
           AND type = 'share'
           AND context = ${key}
+          AND channel = 'copy'
         LIMIT 1
       `;
 
@@ -198,6 +200,7 @@ export async function POST(req: NextRequest) {
         WHERE wallet_address = ${wallet}
           AND type = 'share'
           AND context = ${context}
+          AND channel = 'twitter'
         LIMIT 1
       `;
 
