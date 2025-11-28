@@ -198,24 +198,37 @@ export async function POST(req: NextRequest) {
        ====================================================== */
 
     /* ----------- A) COPY → her context (PVC, leaderboard, vs.) + anchor kombinasyonu için 1 kez ----------- */
+        /* ----------- A) COPY → 
+         - contribution: her tx için 1 kez
+         - profile: cüzdan başına 1 kez
+         - leaderboard: cüzdan başına 1 kez
+       -------------------------------------------------- */
     if (channel === 'copy') {
-      // base: 'profile', 'leaderboard', 'referral' vb.
+      // rawContext: 'profile' | 'leaderboard' | 'contribution' | ...
       const base =
-        typeof rawContext === 'string' && rawContext.trim()
+        typeof rawContext === 'string' && rawContext.trim().length > 0
           ? rawContext.trim()
           : 'global';
 
-      // PVC & Leaderboard çakışmasın diye:
-      // anchor varsa -> "<base>:<anchor>"
-      // yoksa       -> "<base>"
-      const scopeInput = anchor
-        ? `${base}:${anchor}`          // örn: "profile:profile:<wallet>" veya "leaderboard:lb:<wallet>"
-        : base;                        // örn: "profile" veya "leaderboard"
+      let key: string;
 
-      const key = `copy:${scopeInput}`; // final context → "copy:profile:profile:<wallet>" vs "copy:leaderboard:lb:<wallet>"
+      if (base === 'contribution' && anchor) {
+        // Contribution History:
+        // ClaimPanel'den gelen anchor: "contribution:<wallet>:<tx…>"
+        // Burada 1 tx = 1 copy CP istiyoruz → anchor'ı kullan.
+        key = anchor.startsWith('copy:') ? anchor : `copy:${anchor}`;
+      } else {
+        // PVC & Leaderboard (& diğer global contextler):
+        // Anchor’ı hiç umursama, sadece context'e göre 1 kere.
+        // profile → "copy:profile"
+        // leaderboard → "copy:leaderboard"
+        key = `copy:${base}`;
+      }
 
-      const alreadyCopy = await sql/* sql */`
-        SELECT 1 FROM corepoint_events
+      // Sadece channel='copy' kayıtlarına bak
+      const existing = await sql/* sql */`
+        SELECT 1
+        FROM corepoint_events
         WHERE wallet_address = ${wallet}
           AND type = 'share'
           AND channel = 'copy'
@@ -223,7 +236,7 @@ export async function POST(req: NextRequest) {
         LIMIT 1
       `;
 
-      if (alreadyCopy.length > 0) {
+      if (existing.length > 0) {
         const total = await totalCorePoints(wallet);
         return NextResponse.json({
           success: true,
@@ -243,9 +256,9 @@ export async function POST(req: NextRequest) {
         txId: null,
       });
 
-      awarded = res.awarded ?? 0;
-
+      const awarded = res.awarded ?? 0;
       const total = await totalCorePoints(wallet);
+
       return NextResponse.json({
         success: true,
         awarded,
