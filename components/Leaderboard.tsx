@@ -88,13 +88,13 @@ export default function Leaderboard({ referralCode }: Props) {
 
   const handleShareClick = () => {
     if (!sharePayload) return;
-
-    // Bu buton için: sadece 1 kez CP → cüzdan bazlı anchor
+  
+    // 🔁 Yeni, çakışmayan anchor prefix’i
     const wallet = publicKey?.toBase58() ?? 'anon';
-    setShareAnchor(`leaderboard:${wallet}`);
-
+    setShareAnchor(`lb:${wallet}`);   // ⬅️ ESKİ "leaderboard:" yerine
+  
     setShareOpen(true);
-  };
+  };  
 
   return (
     <div className="mt-10 border border-pink-500/20 rounded-2xl p-6 bg-gradient-to-br from-zinc-900/70 to-black/80 shadow-xl backdrop-blur-lg">
