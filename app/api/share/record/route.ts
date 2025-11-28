@@ -42,43 +42,51 @@ function normalizeChannel(raw: any):
 }
 
 export async function POST(req: NextRequest) {
+  let stage = 'start';
+
   try {
+    stage = 'parse_body';
     const body = (await req.json().catch(() => null)) as any;
 
     if (!body) {
       return NextResponse.json(
-        { success: false, error: 'Invalid JSON' },
+        { success: false, error: 'Invalid JSON', stage },
         { status: 400 },
       );
     }
 
     /* ---------------- Wallet ---------------- */
+    stage = 'wallet';
     const rawWallet = body.wallet ?? body.wallet_address ?? '';
     const wallet = rawWallet ? String(rawWallet) : '';
 
     if (!wallet) {
       return NextResponse.json(
-        { success: false, error: 'wallet is required' },
+        { success: false, error: 'wallet is required', stage },
         { status: 400 },
       );
     }
 
     /* ---------------- Channel (normalized) ---------------- */
+    stage = 'channel';
     const channel = normalizeChannel(body.channel);
 
     /* ---------------- Context ---------------- */
+    stage = 'context';
     let context: string =
       body.context && typeof body.context === 'string'
         ? body.context
         : 'profile';
 
     /* ---------------- Day ---------------- */
+    stage = 'day';
     const day =
       typeof body.day === 'string' && body.day.length >= 10
         ? body.day.slice(0, 10)
         : new Date().toISOString().slice(0, 10);
 
     /* ---------------- TX ID (opsiyonel) ---------------- */
+    stage = 'txId';
     const txIdRaw =
       body.txId ??
       body.tx_id ??
@@ -87,6 +95,7 @@ export async function POST(req: NextRequest) {
     const txId = txIdRaw ? String(txIdRaw) : null;
 
     /* ---------------- Anchor (opsiyonel) ---------------- */
+    stage = 'anchor';
     const rawAnchor = typeof body.anchor === 'string' ? body.anchor.trim() : '';
     const anchor = rawAnchor || null;
 
@@ -98,17 +107,39 @@ export async function POST(req: NextRequest) {
           SADECE 1 kez CP verilir.
        ====================================================== */
     if (txId) {
-      const already = await sql/* sql */`
-        SELECT 1 FROM corepoint_events
-        WHERE wallet_address = ${wallet}
-          AND type = 'share'
-          AND tx_id = ${txId}
-          AND channel = ${channel}
-        LIMIT 1
-      `;
+      stage = 'tx_select_existing';
+
+      let already;
+      try {
+        already = await sql/* sql */`
+          SELECT 1 FROM corepoint_events
+          WHERE wallet_address = ${wallet}
+            AND type = 'share'
+            AND tx_id = ${txId}
+            AND channel = ${channel}
+          LIMIT 1
+        `;
+      } catch (e: any) {
+        console.error('❌ SQL error at tx_select_existing:', e?.message || e);
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'sql_error_tx_select_existing',
+            stage,
+            detail: String(e?.message || e),
+          },
+          { status: 500 },
+        );
+      }
 
       if (already.length > 0) {
-        const total = await totalCorePoints(wallet);
+        stage = 'tx_already';
+        let total = 0;
+        try {
+          total = await totalCorePoints(wallet);
+        } catch (e: any) {
+          console.error('❌ totalCorePoints error at tx_already:', e?.message || e);
+        }
         return NextResponse.json({
           success: true,
           awarded: 0,
@@ -116,20 +147,42 @@ export async function POST(req: NextRequest) {
           reason: 'tx_already_shared_for_channel',
           txId,
           channel,
+          stage,
         });
       }
 
-      const res = await awardShare({
-        wallet,
-        channel,
-        context, // success / contribution vs.
-        day,
-        txId,
-      });
+      stage = 'tx_award';
+      try {
+        const res = await awardShare({
+          wallet,
+          channel,
+          context,
+          day,
+          txId,
+        });
 
-      awarded = res.awarded ?? 0;
+        awarded = res.awarded ?? 0;
+      } catch (e: any) {
+        console.error('❌ awardShare error at tx_award:', e?.message || e);
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'award_share_failed_tx',
+            stage,
+            detail: String(e?.message || e),
+          },
+          { status: 500 },
+        );
+      }
 
-      const total = await totalCorePoints(wallet);
+      stage = 'tx_total';
+      let total = 0;
+      try {
+        total = await totalCorePoints(wallet);
+      } catch (e: any) {
+        console.error('❌ totalCorePoints error at tx_total:', e?.message || e);
+      }
+
       return NextResponse.json({
         success: true,
         awarded,
@@ -137,6 +190,7 @@ export async function POST(req: NextRequest) {
         day,
         txId,
         mode: 'tx_based_per_channel',
+        stage,
       });
     }
 
@@ -147,20 +201,40 @@ export async function POST(req: NextRequest) {
 
     /* ----------- A) COPY → cüzdan + anchor (varsa) + channel='copy' ----------- */
     if (channel === 'copy') {
-      // Anchor verilmişse onu, yoksa context tabanlı bir key kullan
+      stage = 'copy_select_existing';
       const key = anchor || `copy:${context || 'global'}`;
 
-      const alreadyCopy = await sql/* sql */`
-        SELECT 1 FROM corepoint_events
-        WHERE wallet_address = ${wallet}
-          AND type = 'share'
-          AND context = ${key}
-          AND channel = 'copy'
-        LIMIT 1
-      `;
+      let alreadyCopy;
+      try {
+        alreadyCopy = await sql/* sql */`
+          SELECT 1 FROM corepoint_events
+          WHERE wallet_address = ${wallet}
+            AND type = 'share'
+            AND context = ${key}
+            AND channel = 'copy'
+          LIMIT 1
+        `;
+      } catch (e: any) {
+        console.error('❌ SQL error at copy_select_existing:', e?.message || e);
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'sql_error_copy_select_existing',
+            stage,
+            detail: String(e?.message || e),
+          },
+          { status: 500 },
+        );
+      }
 
       if (alreadyCopy.length > 0) {
-        const total = await totalCorePoints(wallet);
+        stage = 'copy_already';
+        let total = 0;
+        try {
+          total = await totalCorePoints(wallet);
+        } catch (e: any) {
+          console.error('❌ totalCorePoints error at copy_already:', e?.message || e);
+        }
         return NextResponse.json({
           success: true,
           awarded: 0,
@@ -168,20 +242,41 @@ export async function POST(req: NextRequest) {
           reason: 'copy_anchor_or_context_already_used_for_copy',
           context: key,
           day,
+          stage,
         });
       }
 
-      const res = await awardShare({
-        wallet,
-        channel: 'copy',
-        context: key,
-        day,
-        txId: null,
-      });
+      stage = 'copy_award';
+      try {
+        const res = await awardShare({
+          wallet,
+          channel: 'copy',
+          context: key,
+          day,
+          txId: null,
+        });
+        awarded = res.awarded ?? 0;
+      } catch (e: any) {
+        console.error('❌ awardShare error at copy_award:', e?.message || e);
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'award_share_failed_copy',
+            stage,
+            detail: String(e?.message || e),
+          },
+          { status: 500 },
+        );
+      }
 
-      awarded = res.awarded ?? 0;
+      stage = 'copy_total';
+      let total = 0;
+      try {
+        total = await totalCorePoints(wallet);
+      } catch (e: any) {
+        console.error('❌ totalCorePoints error at copy_total:', e?.message || e);
+      }
 
-      const total = await totalCorePoints(wallet);
       return NextResponse.json({
         success: true,
         awarded,
@@ -189,25 +284,46 @@ export async function POST(req: NextRequest) {
         day,
         mode: 'copy_once_per_anchor_or_context',
         context: key,
+        stage,
       });
     }
 
     /* ----------- B) TWITTER → anchor veya context başına 1 kez CP ----------- */
     if (channel === 'twitter') {
-      // PVC / Leaderboard gibi durumlarda anchor varsa onu kullan
+      stage = 'tw_select_existing';
       const key = anchor || context || 'global';
 
-      const alreadyTw = await sql/* sql */`
-        SELECT 1 FROM corepoint_events
-        WHERE wallet_address = ${wallet}
-          AND type = 'share'
-          AND context = ${key}
-          AND channel = 'twitter'
-        LIMIT 1
-      `;
+      let alreadyTw;
+      try {
+        alreadyTw = await sql/* sql */`
+          SELECT 1 FROM corepoint_events
+          WHERE wallet_address = ${wallet}
+            AND type = 'share'
+            AND context = ${key}
+            AND channel = 'twitter'
+          LIMIT 1
+        `;
+      } catch (e: any) {
+        console.error('❌ SQL error at tw_select_existing:', e?.message || e);
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'sql_error_tw_select_existing',
+            stage,
+            detail: String(e?.message || e),
+          },
+          { status: 500 },
+        );
+      }
 
       if (alreadyTw.length > 0) {
-        const total = await totalCorePoints(wallet);
+        stage = 'tw_already';
+        let total = 0;
+        try {
+          total = await totalCorePoints(wallet);
+        } catch (e: any) {
+          console.error('❌ totalCorePoints error at tw_already:', e?.message || e);
+        }
         return NextResponse.json({
           success: true,
           awarded: 0,
@@ -215,20 +331,41 @@ export async function POST(req: NextRequest) {
           reason: 'twitter_anchor_or_context_shared_once',
           context: key,
           day,
+          stage,
         });
       }
 
-      const res = await awardShare({
-        wallet,
-        channel: 'twitter',
-        context: key,
-        day,
-        txId: null,
-      });
+      stage = 'tw_award';
+      try {
+        const res = await awardShare({
+          wallet,
+          channel: 'twitter',
+          context: key,
+          day,
+          txId: null,
+        });
+        awarded = res.awarded ?? 0;
+      } catch (e: any) {
+        console.error('❌ awardShare error at tw_award:', e?.message || e);
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'award_share_failed_tw',
+            stage,
+            detail: String(e?.message || e),
+          },
+          { status: 500 },
+        );
+      }
 
-      awarded = res.awarded ?? 0;
+      stage = 'tw_total';
+      let total = 0;
+      try {
+        total = await totalCorePoints(wallet);
+      } catch (e: any) {
+        console.error('❌ totalCorePoints error at tw_total:', e?.message || e);
+      }
 
-      const total = await totalCorePoints(wallet);
       return NextResponse.json({
         success: true,
         awarded,
@@ -236,11 +373,19 @@ export async function POST(req: NextRequest) {
         day,
         mode: 'twitter_once_per_anchor_or_context',
         context: key,
+        stage,
       });
     }
 
     /* ----------- C) Diğer kanallar → şimdilik CP yok ----------- */
-    const total = await totalCorePoints(wallet);
+    stage = 'other_channels';
+    let total = 0;
+    try {
+      total = await totalCorePoints(wallet);
+    } catch (e: any) {
+      console.error('❌ totalCorePoints error at other_channels:', e?.message || e);
+    }
+
     return NextResponse.json({
       success: true,
       awarded: 0,
@@ -248,11 +393,17 @@ export async function POST(req: NextRequest) {
       reason: 'channel_no_cp',
       channel,
       day,
+      stage,
     });
   } catch (e: any) {
-    console.error('❌ /api/share/record failed:', e?.message || e);
+    console.error('❌ /api/share/record failed (outer):', e?.message || e, 'at stage', stage);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      {
+        success: false,
+        error: 'Internal server error',
+        stage,
+        detail: String(e?.message || e),
+      },
       { status: 500 },
     );
   }
