@@ -8,10 +8,11 @@ export const revalidate = 0;
 export const dynamic = 'force-dynamic';
 
 // Multi-provider sıra (ilk başarılı olan kullanılır)
+// 👉 Alchemy'yi öne aldım, Helius ikinci, diğerleri fallback
 const RPC_CANDIDATES = [
-  process.env.SOLANA_RPC,                 // Helius (önerilen)
   process.env.ALCHEMY_SOLANA_RPC,         // Alchemy
-  process.env.QUICKNODE_SOLANA_RPC,       // QuickNode
+  process.env.SOLANA_RPC,                 // Helius (limit dolu olabilir)
+  process.env.QUICKNODE_SOLANA_RPC,       // QuickNode (şimdilik boş kalabilir)
   process.env.NEXT_PUBLIC_SOLANA_RPC,     // public fallback
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL, // public fallback
 ].filter(Boolean) as string[];
@@ -21,8 +22,9 @@ function fallbackRpc(cluster: 'mainnet-beta' | 'devnet') {
   return clusterApiUrl(cluster);
 }
 
-// 30 sn in-memory cache (aynı instance içinde)
-const CACHE_TTL_MS = 30_000;
+// 🔁 5 dakika in-memory cache (aynı lambda instance içinde)
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 dak
+
 type CacheEntry = { at: number; body: any; rpcUsed?: string };
 const cache = new Map<string, CacheEntry>();
 
@@ -40,7 +42,8 @@ function isRateLimitedOrForbidden(err: unknown) {
     s.includes('-32005') || // Too many requests
     s.includes('-32052') || // Forbidden / key not allowed
     s.toLowerCase().includes('forbidden') ||
-    s.toLowerCase().includes('rate')
+    s.toLowerCase().includes('rate limit') ||
+    s.toLowerCase().includes('access forbidden')
   );
 }
 
@@ -109,7 +112,9 @@ async function fetchOnce(conn: Connection, owner: PublicKey) {
       if (!prev) merged.set(WSOL_MINT, { raw, decimals: 9 });
       else merged.set(WSOL_MINT, { raw: prev.raw + raw, decimals: prev.decimals });
     }
-  } catch {/* SOL okunamadıysa geç */}
+  } catch {
+    // SOL okunamadıysa geç
+  }
 
   // 5) response
   const tokens = Array.from(merged.entries())
@@ -127,16 +132,33 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const owner = url.searchParams.get('owner');
-    const cluster = (url.searchParams.get('cluster') as 'mainnet-beta' | 'devnet') || 'mainnet-beta';
+    const cluster =
+      (url.searchParams.get('cluster') as 'mainnet-beta' | 'devnet') || 'mainnet-beta';
+    const force = url.searchParams.get('force') === '1'; // 👉 cache bypass
+
     if (!owner) {
-      return NextResponse.json({ success: false, error: 'Missing owner' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Missing owner' },
+        { status: 400 },
+      );
+    }
+
+    let ownerPk: PublicKey;
+    try {
+      ownerPk = new PublicKey(owner);
+    } catch (e) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid owner (non-base58)' },
+        { status: 400 },
+      );
     }
 
     // In-memory cache (owner+cluster)
-    const cacheKey = `${cluster}:${owner}`;
+    const cacheKey = `${cluster}:${ownerPk.toBase58()}`;
     const now = Date.now();
     const hot = cache.get(cacheKey);
-    if (hot && now - hot.at < CACHE_TTL_MS) {
+
+    if (!force && hot && now - hot.at < CACHE_TTL_MS) {
       const res = NextResponse.json(hot.body);
       res.headers.set('x-cache', 'HIT');
       if (hot.rpcUsed) res.headers.set('x-rpc-used', hot.rpcUsed);
@@ -153,11 +175,11 @@ export async function GET(req: Request) {
     for (const ep of endpoints) {
       try {
         const conn = new Connection(ep, 'confirmed');
-        const tokens = await fetchOnce(conn, new PublicKey(owner));
+        const tokens = await fetchOnce(conn, ownerPk);
 
         const body = { success: true, tokens, wsolMint: WSOL_MINT };
         const res = NextResponse.json(body);
-        res.headers.set('x-cache', 'MISS');
+        res.headers.set('x-cache', force ? 'BYPASS' : 'MISS');
         res.headers.set('x-rpc-used', ep);
         res.headers.set('Cache-Control', CDN_CACHE_HEADER);
 
@@ -173,10 +195,18 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json(
-      { success: false, error: 'All RPCs failed', detail: String(lastErr ?? ''), lastRpc },
-      { status: 502 }
+      {
+        success: false,
+        error: 'All RPCs failed',
+        detail: String(lastErr ?? ''),
+        lastRpc,
+      },
+      { status: 502 },
     );
   } catch (e: any) {
-    return NextResponse.json({ success: false, error: e?.message || 'Server error' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: e?.message || 'Server error' },
+      { status: 500 },
+    );
   }
 }
