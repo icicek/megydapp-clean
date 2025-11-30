@@ -26,11 +26,10 @@ const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
 // RPC URL (öncelik)
 const SOLANA_RPC_URL =
-  process.env.SOLANA_RPC ||
-  process.env.ALCHEMY_SOLANA_RPC ||
-  process.env.SOLANA_RPC_URL ||
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-  'https://api.mainnet-beta.solana.com';
+  process.env.ALCHEMY_SOLANA_RPC ||        // 🔹 1. tercih: Alchemy
+  process.env.SOLANA_RPC_URL ||            // opsiyonel genel endpoint
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||// public fallback
+  'https://api.mainnet-beta.solana.com';   // en son Solana default
 
 // Hazine adresi (server > public fallbacks)
 // (Şu an tx'i zaten biz hazırladığımız için ekstra kontrol etmiyoruz.)
