@@ -25,6 +25,7 @@ export default function Leaderboard({ referralCode }: Props) {
   // Share modal state
   const [shareOpen, setShareOpen] = useState(false);
   const [shareAnchor, setShareAnchor] = useState<string | undefined>(undefined);
+  const [shareTxId, setShareTxId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
@@ -87,14 +88,21 @@ export default function Leaderboard({ referralCode }: Props) {
   }, [shareUrl, userRank, referralCode]);
 
   const handleShareClick = () => {
-    if (!sharePayload) return;
-  
-    // 🔁 Yeni, çakışmayan anchor prefix’i
-    const wallet = publicKey?.toBase58() ?? 'anon';
-    setShareAnchor(`lb:${wallet}`);   // ⬅️ ESKİ "leaderboard:" yerine
-  
+    if (!sharePayload || !publicKey) return;
+
+    const wallet = publicKey.toBase58();
+    const lbKey = `lb:${wallet}`;
+
+    // anchor: eskisi gibi (sadece log / izleme için)
+    setShareAnchor(lbKey);
+
+    // 🔑 asıl kritik kısım: leaderboard share'i için pseudo-txId
+    // Böylece backend'de TX branch'ine düşecek:
+    //   ctx = "tx:copy:lb:<wallet>"
+    setShareTxId(lbKey);
+
     setShareOpen(true);
-  };  
+  };
 
   return (
     <div className="mt-10 border border-pink-500/20 rounded-2xl p-6 bg-gradient-to-br from-zinc-900/70 to-black/80 shadow-xl backdrop-blur-lg">
@@ -194,7 +202,8 @@ export default function Leaderboard({ referralCode }: Props) {
           payload={sharePayload}
           context="leaderboard"
           walletBase58={publicKey?.toBase58() ?? null}
-          anchor={shareAnchor}      // 🔥 Buradan backend'e anchor gidiyor
+          anchor={shareAnchor}
+          txId={shareTxId}   // 🔥 BURASI ÖNEMLİ: TX BRANCH
         />
       )}
     </div>
