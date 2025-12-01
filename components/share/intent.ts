@@ -136,9 +136,9 @@ function textForContribution(p: { token?: string; amount?: number; tone?: Tone }
   const coin = toCashtag(p.token) || '$MEGY';
 
   return multiLine([
-    `Crypto projects rise with hype — and disappear when reality hits. But this cycle finally has an escape hatch: Coincarnation.`,
+    `Crypto projects rise with hype — and disappear when reality hits.`,
+    `But this cycle finally has an escape hatch: Coincarnation.`,
     `I already coincarnated my ${coin} for $MEGY. Come in before the crowd realizes where safety actually is.`,
-    `` // boş satır (multiLine bunu koruyacak)
   ]);
 }
 
