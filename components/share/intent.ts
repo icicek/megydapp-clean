@@ -7,7 +7,7 @@ export type SharePayload = {
   url: string;          // canonical URL (ref/src/ctx ve opsiyonel UTM eklenmiş)
   shortUrl?: string;    // /share/[ctx]/[ref]?src=... şeklinde markalı kısa link (varsa tercih edilir)
   text: string;         // context'e göre oluşturulan post metni (cashtag'ler burada)
-  hashtags?: string[];  // ör: ["Coincarnation"]
+  hashtags?: string[];  // ör: ["Coincarnation", "Web3"]
   via?: string;         // ör: "levershare" (başında @ olmasın)
   utm?: string;         // ekstra UTM çiftleri (k=v&k2=v2)
   subject?: string;     // email için
@@ -26,7 +26,7 @@ export type Channel =
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://coincarnation.com';
 const DEFAULT_VIA = 'levershare';
-const DEFAULT_HASHTAGS: string[] = ['Coincarnation']; // minimal; cashtag'ler text'te
+const DEFAULT_HASHTAGS: string[] = ['Coincarnation', 'Web3']; // minimal; cashtag'ler text'te
 
 const toTicker = (s?: string) => (s ?? '').replace(/\$/g, '').trim().toUpperCase();
 
@@ -103,87 +103,92 @@ function multiLine(lines: string[]): string {
 }
 
 /**
- * SUCCESS:
- * I turned $TOKEN into real impact.
+ * SUCCESS (CoincarnationResult → ilk “Share on X”):
  *
- * Fairer future grows. Inequality shrinks.
+ * I coincarnated $TOKEN for $MEGY.
  *
- * $MEGY
+ * A new financial ecosystem is forming — built on unity, not exploitation.
+ *
+ * Be part of something bigger.
  */
 function textForSuccess(p: { token?: string; tone?: Tone }): string {
   const megy = '$MEGY';
   const coin = toCashtag(p.token) || megy;
 
   return multiLine([
-    `I turned ${coin} into real impact.`,
-    `Fairer future grows. Inequality shrinks.`,
-    `${megy}`,
+    `I coincarnated ${coin} for ${megy}.`,
+    `A new financial ecosystem is forming — built on unity, not exploitation.`,
+    `Be part of something bigger.`,
   ]);
 }
 
 /**
  * CONTRIBUTION (ClaimPanel / history share için):
- * Earlier I turned $TOKEN into real impact.
  *
- * Fairer future grows. Inequality shrinks.
+ * Crypto projects rise with hype — and disappear when reality hits.
  *
- * $MEGY
+ * But this cycle finally has an escape hatch: Coincarnation.
+ *
+ * I already coincarnated my $TOKEN into $MEGY.
+ *
+ * Come in before the crowd realizes where safety actually is.
  */
 function textForContribution(p: { token?: string; amount?: number; tone?: Tone }): string {
   const megy = '$MEGY';
   const coin = toCashtag(p.token) || megy;
 
   return multiLine([
-    `Earlier I turned ${coin} into real impact.`,
-    `Fairer future grows. Inequality shrinks.`,
-    `${megy}`,
+    `Crypto projects rise with hype — and disappear when reality hits.`,
+    `But this cycle finally has an escape hatch: Coincarnation.`,
+    `I already coincarnated my ${coin} into ${megy}.`,
+    `Come in before the crowd realizes where safety actually is.`,
   ]);
 }
 
 /**
  * LEADERBOARD:
+ *
  * (rank varsa)
- * I’m #7 in the Fair Future Fund rankings.
- *
- * We build a fairer world.
- *
- * $MEGY ⚡️
+ * I’m #7 in the Fair Future Fund rankings — catch me if you can.
  *
  * (rank yoksa)
- * I’m rising in the Fair Future Fund rankings.
- * ...
+ * I’m rising in the Fair Future Fund rankings — catch me if you can.
+ *
+ * The global revival is already in motion.
+ *
+ * $MEGY ⚡️
  */
 function textForLeaderboard(p: { rank?: number; tone?: Tone }): string {
   const megy = '$MEGY ⚡️';
 
   const firstLine =
     typeof p.rank === 'number' && p.rank > 0
-      ? `I’m #${p.rank} in the Fair Future Fund rankings.`
-      : `I’m rising in the Fair Future Fund rankings.`;
+      ? `I’m #${p.rank} in the Fair Future Fund rankings — catch me if you can.`
+      : `I’m rising in the Fair Future Fund rankings — catch me if you can.`;
 
   return multiLine([
     firstLine,
-    `We build a fairer world.`,
+    `The global revival is already in motion.`,
     megy,
   ]);
 }
 
 /**
- * PROFILE / REFERRAL:
+ * PROFILE / REFERRAL (PVC / personal value currency alanı):
  *
- * A fairer future won’t build itself.
+ * Something powerful is forming — a global synergy built by all of us.
  *
- * Join me in the Coincarnation movement.
+ * I’m already part of it — with $MEGY at the core.
  *
- * $MEGY
+ * Join in before momentum takes over.
  */
 function textForProfile(_p: { tone?: Tone }): string {
   const megy = '$MEGY';
 
   return multiLine([
-    `A fairer future won’t build itself.`,
-    `Join me in the Coincarnation movement.`,
-    megy,
+    `Something powerful is forming — a global synergy built by all of us.`,
+    `I’m already part of it — with ${megy} at the core.`,
+    `Join in before momentum takes over.`,
   ]);
 }
 
@@ -195,7 +200,7 @@ function textForProfile(_p: { tone?: Tone }): string {
  * - url: canonical (ref/src/ctx merge + utm)
  * - shortUrl: /share/[ctx]/[ref]?src=... (ref varsa otomatik)
  * - via: "levershare" (default)
- * - hashtags: ["Coincarnation"] (default)
+ * - hashtags: ["Coincarnation", "Web3"] (default)
  */
 export function buildPayload(
   ctx: 'success' | 'contribution' | 'leaderboard' | 'profile',
