@@ -156,13 +156,13 @@ function textForContribution(p: { token?: string; amount?: number; tone?: Tone }
  * $MEGY
  */
 function textForLeaderboard(p: { rank?: number; tone?: Tone }): string {
-  const firstLine =
+  const rankLine =
     typeof p.rank === 'number' && p.rank > 0
       ? `I’m #${p.rank} in the Fair Future Fund rankings — catch me if you can.`
       : `I’m climbing the Fair Future Fund rankings — catch me if you can.`;
 
   return multiLine([
-    firstLine,
+    rankLine,
     `The global revival is already in motion.`,
     `$MEGY`,
   ]);
