@@ -132,6 +132,7 @@ function textForSuccess(p: { token?: string; tone?: Tone }): string {
  * I already coincarnated my $TOKEN for $MEGY.
  * Come in before the crowd realizes where safety actually is.
  */
+
 function textForContribution(p: { token?: string; amount?: number; tone?: Tone }): string {
   const coin = toCashtag(p.token) || '$MEGY';
 
