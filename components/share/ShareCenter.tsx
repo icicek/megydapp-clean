@@ -10,6 +10,7 @@ import {
   buildTelegramWeb,
   buildWhatsAppWeb,
   buildEmailIntent,
+  getShareSlogan,
 } from '@/components/share/intent';
 import { detectInAppBrowser } from '@/components/share/browser';
 
@@ -347,12 +348,7 @@ export default function ShareCenter({
   };
 
   const heading = 'Share';
-  const sub = {
-    profile: 'Invite your circle—your CorePoint grows with every ripple.',
-    contribution: 'Your revival matters. Share it and inspire the next Coincarnator!',
-    leaderboard: 'Flex your rank—one share could push you up the board.',
-    success: 'Blast your revival—let the world see your $MEGY journey!',
-  }[context];
+  const sub = getShareSlogan(context); // 🔹 intent.ts’teki helper
 
   const XLogo = () => (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5" focusable="false">
@@ -391,11 +387,11 @@ export default function ShareCenter({
             </button>
           </div>
 
-          {sub && <p className="mb-4 text-sm text-zinc-300">{sub}</p>}
-
-          <div className="mb-4 break-words rounded-xl border border-white/10 bg-zinc-800/70 p-3 text-xs text-zinc-200">
-            {payload.text}
-          </div>
+          {sub && (
+            <p className="mb-4 text-sm text-zinc-300">
+              {sub}
+            </p>
+          )}
 
           <div className="grid grid-cols-3 gap-3">
             <button
