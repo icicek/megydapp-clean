@@ -388,9 +388,19 @@ export default function ShareCenter({
           </div>
 
           {sub && (
-            <p className="mb-4 text-sm text-zinc-300">
+            <p className="mb-3 text-sm text-zinc-300">
               {sub}
             </p>
+          )}
+
+          {payload.text && (
+            <div
+              className="mb-4 break-words whitespace-pre-wrap rounded-xl
+                         border border-white/10 bg-zinc-800/70 p-3
+                         text-xs text-zinc-200"
+            >
+              {payload.text}
+            </div>
           )}
 
           <div className="grid grid-cols-3 gap-3">
