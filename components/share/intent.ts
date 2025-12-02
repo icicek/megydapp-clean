@@ -275,6 +275,22 @@ export function buildPayload(
   };
 }
 
+// ----------------- Dynamic short slogan for ShareCenter modal -----------------
+
+export function getShareSlogan(ctx: 'success' | 'contribution' | 'leaderboard' | 'profile'): string {
+  switch (ctx) {
+    case 'success':
+      return `Turn your revival into impact — one share inspires thousands.`;
+    case 'contribution':
+      return `Your revival story deserves an audience — share it.`;
+    case 'leaderboard':
+      return `One share could push you up the board — don’t let others pass you.`;
+    case 'profile':
+    default:
+      return `Your Personal Value Currency grows faster when you share your mission.`;
+  }
+}
+
 // ----------------- Channel intent builders -----------------
 
 export function buildTwitterIntent(p: SharePayload): string {
