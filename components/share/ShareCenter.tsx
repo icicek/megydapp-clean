@@ -4,9 +4,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { SharePayload, Channel } from '@/components/share/intent';
-import { buildCopyText } from '@/components/share/intent';
+import {
+  buildCopyText,
+  buildTwitterIntent,
+  buildTelegramWeb,
+  buildWhatsAppWeb,
+  buildEmailIntent,
+} from '@/components/share/intent';
 import { detectInAppBrowser } from '@/components/share/browser';
-import { openShareChannel } from '@/components/share/openShare';
 
 // —— Toast (renkli kutu + pozisyon + genişlik) ——
 type ToastVariant = 'info' | 'success' | 'error';
@@ -259,59 +264,82 @@ export default function ShareCenter({
   // import React, { useEffect, useMemo, useState } from 'react';
 
   const openChannel = (channel: Channel) => {
-    if (channel === 'twitter') {
-      console.log('[ShareCenter] twitter clicked', {
-        context,
-        txId,
-        walletBase58,
-        payload: payloadWithShort,
-      });
-
-      // 🔹 1) X intent URL'ini kendimiz kuruyoruz
-      const text = payloadWithShort.text ?? '';
-      const link = payloadWithShort.shortUrl || payloadWithShort.url || '';
-      let intentUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
-
-      if (link) {
-        // İki satır arası boşluk
-        intentUrl += `%0A%0A${encodeURIComponent(link)}`;
-      }
-
-      // 🔹 2) Önce pencereyi AÇ (senkron, await YOK → popup blocker friendly)
-      if (typeof window !== 'undefined') {
-        window.open(intentUrl, '_blank', 'noopener,noreferrer');
-      }
-
-      // 🔹 3) CP event'i arkadan fire-and-forget
-      try {
+    const p = payloadWithShort;
+  
+    try {
+      if (channel === 'twitter') {
+        console.log('[ShareCenter] twitter clicked', {
+          context,
+          txId,
+          walletBase58,
+          payload: p,
+        });
+  
+        const intentUrl = buildTwitterIntent(p);
+  
+        if (typeof window !== 'undefined') {
+          window.open(intentUrl, '_blank', 'noopener,noreferrer');
+        }
+  
+        // CorePoint eventi
         void sendShareEvent('twitter');
-      } catch (e) {
-        console.error('[ShareCenter] sendShareEvent(twitter) threw', e);
+        onOpenChange(false);
+        return;
       }
-
-      // 🔹 4) En son modalı kapat
-      onOpenChange(false);
-      return;
+  
+      if (channel === 'telegram') {
+        const intentUrl = buildTelegramWeb(p);
+        if (typeof window !== 'undefined') {
+          window.open(intentUrl, '_blank', 'noopener,noreferrer');
+        }
+        // şimdilik sadece aç, CP yazmıyoruz
+        return;
+      }
+  
+      if (channel === 'whatsapp') {
+        const intentUrl = buildWhatsAppWeb(p);
+        if (typeof window !== 'undefined') {
+          window.open(intentUrl, '_blank', 'noopener,noreferrer');
+        }
+        return;
+      }
+  
+      if (channel === 'email') {
+        const intentUrl = buildEmailIntent(p);
+        if (typeof window !== 'undefined') {
+          window.location.href = intentUrl;
+        }
+        return;
+      }
+  
+      // Instagram / TikTok: henüz tam entegre değil → sadece bilgilendirici toast
+      if (channel === 'instagram' || channel === 'tiktok') {
+        showToast(
+          "Direct sharing for this channel isn't live yet — paste your copied text instead.",
+          'bottom',
+          true,
+          'info',
+        );
+        return;
+      }
+    } catch (e) {
+      console.error('[ShareCenter] openChannel error', e);
+      showToast('Could not open share channel.', 'top', false, 'error');
     }
+  };  
 
-    // Diğer kanallar: şimdilik sadece toast
-    showToast(
-      "Sharing for this app isn’t live yet — but you’ll still earn CorePoints when you copy and share manually!",
-      'bottom',
-      true,
-      'info',
-    );
-  };
-
-  // Copy text — X ile aynı birleşik format
+  // Copy text — X ile aynı birleşik format (intent.ts → buildCopyText)
   const handleCopy = async () => {
     try {
-      const composed = `${payloadWithShort.text}\n\n${
-        payloadWithShort.shortUrl ?? payloadWithShort.url
-      }`;
+      const composed = buildCopyText(payloadWithShort);
       await navigator.clipboard.writeText(composed);
       await sendShareEvent('copy');
-      showToast('Post text copied — share manually to earn CorePoints!', 'top', false, 'success');
+      showToast(
+        'Post text copied — share manually to earn CorePoints!',
+        'top',
+        false,
+        'success',
+      );
     } catch (e) {
       console.error('[ShareCenter] copy failed', e);
       showToast('Could not copy text.', 'top', false, 'error');
