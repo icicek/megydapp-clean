@@ -29,6 +29,16 @@ const DEFAULT_VIA = 'levershare';
 // 👉 Artık tüm gönderilerde #Coincarnation ve #Web3 kuyruğa ekleniyor
 const DEFAULT_HASHTAGS: string[] = ['Coincarnation', 'Web3']; // cashtag'ler text'te
 
+// ✅ NEW: normalize helper — hashtags & via her zaman dolu olsun
+function withDefaults(p: SharePayload): SharePayload {
+  return {
+    ...p,
+    hashtags:
+      p.hashtags && p.hashtags.length > 0 ? p.hashtags : DEFAULT_HASHTAGS,
+    via: (p.via ?? DEFAULT_VIA).replace(/^@/, ''),
+  };
+}
+
 const toTicker = (s?: string) => (s ?? '').replace(/\$/g, '').trim().toUpperCase();
 
 const toCashtag = (s?: string) => {
@@ -92,8 +102,9 @@ function finalShareLink(p: SharePayload): string {
 // ---- COPY TEXT: X ile birebir aynı biçim ----
 // metin ⏎⏎ link  #tags via @via
 export function buildCopyText(p: SharePayload): string {
-  const link = finalShareLink(p);
-  return `${p.text}\n\n${link}${inlineTail(p)}`;
+  const norm = withDefaults(p);
+  const link = finalShareLink(norm);
+  return `${norm.text}\n\n${link}${inlineTail(norm)}`;
 }
 
 // ----------------- context text templates -----------------
@@ -264,39 +275,44 @@ export function buildPayload(
 
 // ----------------- Channel intent builders -----------------
 
-// Twitter: hepsini text içinde veriyoruz (metin ⏎⏎ link + #tags + via)
 export function buildTwitterIntent(p: SharePayload): string {
+  const norm = withDefaults(p);
   const params = new URLSearchParams();
-  const link = finalShareLink(p);
-  const txt = p.text ? `${p.text}\n\n${link}${inlineTail(p)}` : `${link}${inlineTail(p)}`;
+  const link = finalShareLink(norm);
+  const txt = norm.text
+    ? `${norm.text}\n\n${link}${inlineTail(norm)}`
+    : `${link}${inlineTail(norm)}`;
   params.set('text', txt);
   return `https://twitter.com/intent/tweet?${params.toString()}`;
 }
 
-// Telegram (web)
 export function buildTelegramWeb(p: SharePayload): string {
+  const norm = withDefaults(p);
   const params = new URLSearchParams();
-  const txt = p.text
-    ? `${p.text}\n\n${finalShareLink(p)}${inlineTail(p)}`
-    : `${finalShareLink(p)}${inlineTail(p)}`;
+  const txt = norm.text
+    ? `${norm.text}\n\n${finalShareLink(norm)}${inlineTail(norm)}`
+    : `${finalShareLink(norm)}${inlineTail(norm)}`;
   params.set('text', txt);
   return `https://t.me/share/url?${params.toString()}`;
 }
 
-// WhatsApp (web)
 export function buildWhatsAppWeb(p: SharePayload): string {
-  const combined = `${p.text ? p.text + '\n\n' : ''}${finalShareLink(p)}${inlineTail(p)}`.trim();
+  const norm = withDefaults(p);
+  const combined = `${norm.text ? norm.text + '\n\n' : ''}${finalShareLink(
+    norm
+  )}${inlineTail(norm)}`.trim();
   const params = new URLSearchParams({ text: combined });
   return `https://wa.me/?${params.toString()}`;
 }
 
-// Email
 export function buildEmailIntent(p: SharePayload): string {
-  const subject = p.subject || 'Check this out';
-  const body = `${p.text}\n\n${finalShareLink(p)}${inlineTail(p)}`;
+  const norm = withDefaults(p);
+  const subject = norm.subject || 'Check this out';
+  const body = `${norm.text}\n\n${finalShareLink(norm)}${inlineTail(norm)}`;
   const params = new URLSearchParams({ subject, body });
   return `mailto:?${params.toString()}`;
 }
+
 
 // ----------------- App deep links (mobile) -----------------
 
@@ -306,12 +322,17 @@ export function buildEmailIntent(p: SharePayload): string {
  */
 export const APP_LINKS = {
   telegram: (p: SharePayload) => ['tg://msg', 'tg://', buildTelegramWeb(p)],
-  whatsapp: (p: SharePayload) => [
-    `whatsapp://send?text=${encodeURIComponent(
-      `${p.text} ${finalShareLink(p)}${inlineTail(p)}`.trim()
-    )}`,
-    buildWhatsAppWeb(p),
-  ],
+
+  whatsapp: (p: SharePayload) => {
+    const norm = withDefaults(p);
+    return [
+      `whatsapp://send?text=${encodeURIComponent(
+        `${norm.text ? norm.text + '\n\n' : ''}${finalShareLink(norm)}${inlineTail(norm)}`.trim()
+      )}`,
+      buildWhatsAppWeb(norm),
+    ];
+  },
+
   instagram: (_p: SharePayload) => ['instagram://app', 'https://www.instagram.com/'],
   tiktok: (_p: SharePayload) => ['tiktok://', 'snssdk1128://', 'https://www.tiktok.com/explore'],
 };
