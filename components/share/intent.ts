@@ -193,9 +193,9 @@ function textForLeaderboard(p: { rank?: number; tone?: Tone }): string {
  */
 function textForProfile(_p: { tone?: Tone }): string {
   return multiLine([
-    `Income inequality won’t disappear —\nnot until everyone has the power to create their own currency.`,
+    `Income inequality won’t disappear —\nuntil everyone can create their own currency.`,
     
-    `Using past crypto losses as fuel for your own Personal Value Currency just makes sense.`,
+    `Turning past crypto losses into your own Personal Value Currency just makes sense.`,
     
     `There is zero reason not to join 👇`,
   ]);
