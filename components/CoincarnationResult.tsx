@@ -4,6 +4,7 @@
 import React from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { APP_URL } from '@/app/lib/origin';
+import { buildPayload, buildTwitterIntent } from '@/components/share/intent';
 
 type Props = {
   tokenFrom: string;
@@ -27,16 +28,21 @@ export default function CoincarnationResult({
   const handleShareOnX = async () => {
     const wallet = publicKey?.toBase58() ?? null;
 
-    const text = `I coincarnated $${tokenFrom} into $MEGY.
+    // 1) Merkezi share payload (intent.ts)
+    const payload = buildPayload(
+      'success',
+      {
+        url: APP_URL,        // canonical base
+        token: tokenFrom,    // örn. "QUANT"
+      },
+      {
+        ref: referral || undefined, // referral varsa shortUrl: /share/success/[ref]?src=app
+        src: 'app',
+        // ctx: 'success' // gerek yok, default ctx zaten 'success'
+      }
+    );
 
-A new financial ecosystem is forming — and I’m already part of it.
-
-Join the global revival:
-${APP_URL}
-
-#Coincarnation $MEGY`;
-
-    // 🔹 CorePoint event – txId ile, her işlem için 1 kez
+    // 2) CorePoint / share event (eskisi gibi)
     try {
       const body: any = {
         channel: 'twitter',
@@ -45,6 +51,9 @@ ${APP_URL}
       };
       if (wallet) {
         body.wallet = wallet;
+      }
+      if (referral) {
+        body.anchor = referral;
       }
 
       await fetch('/api/share/record', {
@@ -57,8 +66,9 @@ ${APP_URL}
       console.warn('⚠️ share/record failed on success screen:', e);
     }
 
-    // 🔹 X paylaşım penceresini aç
-    const xUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    // 3) X intent URL (metin + link + #Coincarnation #Web3 via @levershare)
+    const xUrl = buildTwitterIntent(payload);
+
     if (typeof window !== 'undefined') {
       window.open(xUrl, '_blank', 'noopener,noreferrer');
     }
@@ -82,7 +92,7 @@ ${APP_URL}
         </p>
       )}
 
-      {/* 🔹 Success için direkt X paylaşımı (CP + tweet) */}
+      {/* 🔹 Success için merkezi share sistemi (intent.ts + buildTwitterIntent) */}
       <button
         type="button"
         onClick={handleShareOnX}
