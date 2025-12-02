@@ -193,9 +193,11 @@ function textForLeaderboard(p: { rank?: number; tone?: Tone }): string {
  */
 function textForProfile(_p: { tone?: Tone }): string {
   return multiLine([
-    `Something powerful is forming — a global synergy built by all of us.`,
-    `I’m already part of it — with $MEGY at the core.`,
-    `Join in before momentum takes over.`,
+    `Income inequality won’t disappear —\nnot until everyone has the power to create their own currency.`,
+    
+    `And using past crypto losses as fuel to build your own Personal Value Currency — what could make more sense?`,
+    
+    `There is zero reason not to join 👇`,
   ]);
 }
 
