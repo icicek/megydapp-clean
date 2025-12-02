@@ -128,7 +128,7 @@ function textForSuccess(p: { token?: string; tone?: Tone }): string {
 
   return multiLine([
     `I just coincarnated ${coin} for $MEGY.`,
-    `The crypto market is overflowing with millions of assets that will never meet their promise. Coincarnation is the one movement turning this chaos into a fair and unified system.`,
+    `The crypto market is flooded with assets that will never deliver — Coincarnation is the only movement turning that chaos into power.`,
     `What do you have that belongs here? 👇`,
   ]);
 }
