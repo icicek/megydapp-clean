@@ -127,9 +127,9 @@ function textForSuccess(p: { token?: string; tone?: Tone }): string {
   const coin = toCashtag(p.token) || '$MEGY';
 
   return multiLine([
-    `I coincarnated ${coin} for $MEGY.`,
-    `A new financial ecosystem is forming — built on unity, not exploitation.`,
-    `Be part of something bigger 👇`,
+    `I just coincarnated ${coin} for $MEGY.`,
+    `The crypto market is overflowing with millions of assets that will never meet their promise. Coincarnation is the one movement turning this chaos into a fair and unified system.`,
+    `What do you have that belongs here? 👇`,
   ]);
 }
 
@@ -172,7 +172,7 @@ function textForContribution(p: { token?: string; amount?: number; tone?: Tone }
 function textForLeaderboard(p: { rank?: number; tone?: Tone }): string {
   const rankLine =
     typeof p.rank === 'number' && p.rank > 0
-      ? `I’m #${p.rank} in the Fair Future Fund rankings — catch me if you can.`
+      ? `I’m #${p.rank} in the Fair Future Fund rankings — catch me if you can. 🏁`
       : `I’m in a top spot on the Fair Future Fund rankings — catch me if you can.`;
 
   return multiLine([
