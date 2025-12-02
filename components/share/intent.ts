@@ -173,12 +173,12 @@ function textForLeaderboard(p: { rank?: number; tone?: Tone }): string {
   const rankLine =
     typeof p.rank === 'number' && p.rank > 0
       ? `I’m #${p.rank} in the Fair Future Fund rankings — catch me if you can.`
-      : `I’m climbing the Fair Future Fund rankings — catch me if you can.`;
+      : `I’m in a top spot on the Fair Future Fund rankings — catch me if you can.`;
 
   return multiLine([
     rankLine,
-    `The global revival is already in motion.`,
-    `$MEGY`,
+    `Here, everyone gets the same chance to unlock their real potential for the world.`,
+    `Your turn 👇`,
   ]);
 }
 
