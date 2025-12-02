@@ -348,7 +348,13 @@ export default function ShareCenter({
   };
 
   const heading = 'Share';
-  const sub = getShareSlogan(context); // 🔹 intent.ts’teki helper
+
+  // Üstte, Share başlığının hemen altında görünen sabit satır
+  const staticSub =
+    'Share your Coincarnation story — one post can change someone’s path.';
+
+  // Gri kutunun içindeki context’e göre değişen kısa metin
+  const previewText = getShareSlogan(context);
 
   const XLogo = () => (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5" focusable="false">
@@ -387,19 +393,17 @@ export default function ShareCenter({
             </button>
           </div>
 
-          {sub && (
-            <p className="mb-3 text-sm text-zinc-300">
-              {sub}
-            </p>
-          )}
+          <p className="mb-4 text-sm text-zinc-300">
+            {staticSub}
+          </p>
 
-          {payload.text && (
+          {previewText && (
             <div
               className="mb-4 break-words whitespace-pre-wrap rounded-xl
-                         border border-white/10 bg-zinc-800/70 p-3
-                         text-xs text-zinc-200"
+                        border border-white/10 bg-zinc-800/70 p-3
+                        text-xs text-zinc-200"
             >
-              {payload.text}
+              {previewText}
             </div>
           )}
 
