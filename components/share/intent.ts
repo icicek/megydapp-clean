@@ -137,9 +137,11 @@ function textForContribution(p: { token?: string; amount?: number; tone?: Tone }
   const coin = toCashtag(p.token) || '$MEGY';
 
   return multiLine([
-    `Crypto projects rise with hype — and disappear when reality hits.`,
-    `But this cycle finally has an escape hatch: Coincarnation.`,
+    // 1. satır
+    `Crypto projects rise with hype — and disappear when reality hits. But this cycle finally has an escape hatch: #Coincarnation.`,
+    // 2. satır
     `I already coincarnated my ${coin} for $MEGY. Come in before the crowd realizes where safety actually is.`,
+    // 3. satırı boş bırakmıyoruz, link zaten buildCopyText / channel intent tarafında eklenecek
   ]);
 }
 
