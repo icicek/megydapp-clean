@@ -751,18 +751,18 @@ export default function ClaimPanel() {
                     }
                   />
 
-                  <ContributionCard
-                    icon="📣"
-                    title="Referrals"
-                    points={data.core_point_breakdown.referrals}
-                    description={
-                      cpConfig
-                        ? `Each new wallet you bring starts at ~${Math.round(
-                            cpConfig.refSignup * cpConfig.multReferral
-                          )} CP, plus extra from their contributions & deadcoins.`
-                        : `${data.referral_count} person joined with your link; their activity boosts your CorePoint.`
-                    }
-                  />
+                <ContributionCard
+                  icon="📣"
+                  title="Referrals"
+                  points={data.core_point_breakdown.referrals}
+                  description={
+                    cpConfig
+                      ? `Each new wallet you bring currently grants ~${Math.round(
+                          cpConfig.refSignup * cpConfig.multReferral
+                        )} signup CorePoints.`
+                      : `${data.referral_count} wallet joined with your link; each signup adds fixed CorePoints.`
+                  }
+                />
 
                   <ContributionCard
                     icon="🐦"

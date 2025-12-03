@@ -149,7 +149,7 @@ function textForContribution(p: { token?: string; amount?: number; tone?: Tone }
 
   return multiLine([
     // 1. satır (emoji dahil)
-    `Crypto projects rise with hype — and disappear when reality hits.\nBut this cycle finally has an escape hatch: Coincarnation ⚡`,
+    `Crypto projects rise with hype — and disappear when reality hits. But this cycle finally has an escape hatch: Coincarnation ⚡`,
     
     // 2. satır (emoji dahil)
     `I already coincarnated my ${coin} for $MEGY — get in before the crowd wakes up 👀`,

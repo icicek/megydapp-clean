@@ -111,6 +111,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     console.log('📥 incoming body:', JSON.stringify(body));
 
+    // body'den gelen ham referral
     const {
       wallet_address,
       token_symbol,
@@ -125,10 +126,39 @@ export async function POST(req: NextRequest) {
       idempotency_key,
       network,
       user_agent,
-      referral_code,
+      referral_code: referralFromBody,
 
       asset_kind, // opsiyonel: 'sol' | 'spl'
     } = body ?? {};
+
+    // 🔹 Referral kodunu daha akıllı topla:
+    // 1) body.referral_code
+    // 2) body.ref
+    // 3) Referer header içindeki ?r=
+    let inboundReferral: string | null =
+      typeof referralFromBody === 'string' && referralFromBody.trim()
+        ? referralFromBody.trim()
+        : null;
+
+    if (!inboundReferral && typeof (body as any)?.ref === 'string') {
+      const r2 = (body as any).ref.trim();
+      if (r2) inboundReferral = r2;
+    }
+
+    if (!inboundReferral) {
+      const refererHeader = req.headers.get('referer');
+      if (refererHeader) {
+        try {
+          const u = new URL(refererHeader);
+          const rParam = u.searchParams.get('r');
+          if (rParam && rParam.trim()) {
+            inboundReferral = rParam.trim();
+          }
+        } catch {
+          // URL parse edemezsek sessizce geç
+        }
+      }
+    }
 
     // ——— Temel alanlar ———
     if (!wallet_address || !token_symbol) {
@@ -290,14 +320,29 @@ export async function POST(req: NextRequest) {
           AND network = ${networkNorm}
       `;
 
+          // ——— Participants ———
+    let userReferralCode = '';
+    let referrerWallet: string | null = null;
+
+    try {
+      const existing = await sql`
+        SELECT *
+        FROM participants
+        WHERE wallet_address = ${wallet_address}
+          AND network = ${networkNorm}
+      `;
+
       if (existing.length === 0) {
+        // 🔹 Yeni gelen wallet: ona kendi referral kodunu ver
         userReferralCode = generateReferralCode();
 
-        if (referral_code) {
+        // 🔹 Sadece ilk girişte "inboundReferral" üzerinden referrer ara
+        if (inboundReferral) {
           const ref = await sql`
             SELECT wallet_address
             FROM participants
-            WHERE referral_code = ${referral_code}
+            WHERE referral_code = ${inboundReferral}
+            LIMIT 1
           `;
           if (
             ref.length > 0 &&
@@ -308,11 +353,23 @@ export async function POST(req: NextRequest) {
         }
 
         await sql`
-          INSERT INTO participants (wallet_address, network, referral_code, referrer_wallet)
-          VALUES (${wallet_address}, ${networkNorm}, ${userReferralCode}, ${referrerWallet})
+          INSERT INTO participants (
+            wallet_address,
+            network,
+            referral_code,
+            referrer_wallet
+          )
+          VALUES (
+            ${wallet_address},
+            ${networkNorm},
+            ${userReferralCode},
+            ${referrerWallet}
+          )
           ON CONFLICT (wallet_address, network) DO NOTHING
         `;
       } else {
+        // 🔹 Zaten bilinen wallet: referral bağlantısını DEĞİŞTİRME,
+        // sadece kendi referral_code'u yoksa üret.
         userReferralCode =
           existing[0].referral_code || generateReferralCode();
 
@@ -325,6 +382,17 @@ export async function POST(req: NextRequest) {
           `;
         }
       }
+    } catch (e) {
+      console.error(
+        '❌ participants upsert failed:',
+        (e as any)?.message || e,
+      );
+      return NextResponse.json(
+        { success: false, error: 'participants upsert failed' },
+        { status: 500 },
+      );
+    }
+
     } catch (e) {
       console.error(
         '❌ participants upsert failed:',
