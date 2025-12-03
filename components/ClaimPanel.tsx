@@ -666,9 +666,9 @@ export default function ClaimPanel() {
                   <div className="absolute top-3 right-3 flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0">
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(
-                          `https://coincarnation.com?r=${data.referral_code}`
-                        );
+                        if (!data.referral_code) return;
+                        const url = buildReferralUrl(data.referral_code);
+                        navigator.clipboard.writeText(url);
                         setCopied(true);
                         setTimeout(() => setCopied(false), 2000);
                       }}
@@ -679,21 +679,24 @@ export default function ClaimPanel() {
                     <button
                       onClick={() => {
                         if (!data.referral_code) return;
-                        const url = `${APP_URL}?r=${data.referral_code}`;
+
+                        const url = buildReferralUrl(data.referral_code);
+
                         const payload = buildPayload(
                           'profile',
                           { url },
                           {
-                            ref: data.referral_code ?? undefined,
-                            src: 'app',
+                            ref: data.referral_code ?? undefined, // share/record için anchor bilgisi
+                            src: 'app',                           // kanal: app
                             // ctx otomatik 'profile'
                           },
                         );
 
                         setSharePayload(payload);
-                        setShareContext('profile'); // profil / referral paylaşımı
+                        setShareContext('profile');
 
-                        // 🔹 Her wallet için 1 kez CP: profile:<wallet>
+                        // 🔹 Referral share CP kuralı:
+                        //    - Her wallet için 1 kez: profile:<wallet>
                         setShareTxId(undefined);
                         setShareAnchor(`profile:${data.wallet_address}`);
 
@@ -852,6 +855,14 @@ function StatBox({
       <p className="font-semibold text-sm mt-1">{value}</p>
     </div>
   );
+}
+
+function buildReferralUrl(referralCode: string | null | undefined): string {
+  const base = APP_URL || 'https://coincarnation.com';
+  if (!referralCode) return base;
+  const u = new URL(base);
+  u.searchParams.set('r', referralCode);
+  return u.toString();
 }
 
 function shorten(addr: string) {
