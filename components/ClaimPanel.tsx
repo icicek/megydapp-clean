@@ -474,9 +474,7 @@ export default function ClaimPanel() {
                       <td className="px-4 py-2 font-medium">{tx.token_symbol}</td>
                       <td className="px-4 py-2">{tx.token_amount}</td>
                       <td className="px-4 py-2">
-                        {typeof tx.usd_value === 'number'
-                          ? `$${tx.usd_value.toFixed(2)}`
-                          : `$${Number(tx.usd_value || 0).toFixed(2)}`}
+                        {formatUsdValue(tx.usd_value)}
                       </td>
                       <td className="px-4 py-2">
                         {tx.timestamp ? formatDate(tx.timestamp) : 'N/A'}
@@ -863,6 +861,24 @@ function shorten(addr: string) {
 function formatDate(dateStr: string) {
   const date = new Date(dateStr);
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function formatUsdValue(raw: any): string {
+  const n = typeof raw === 'number' ? raw : Number(raw ?? 0);
+  if (!Number.isFinite(n)) return '$0.00';
+
+  const abs = Math.abs(n);
+
+  // Çok küçük ama sıfır olmayan değerler için daha detaylı gösterim
+  if (abs > 0 && abs < 0.01) {
+    // 6 hane, sondaki gereksiz sıfırları temizle
+    const precise = abs.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+    const sign = n < 0 ? '-' : '';
+    return `${sign}$${precise}`;
+  }
+
+  // Normal durum: 2 ondalık
+  return `$${n.toFixed(2)}`;
 }
 
 function ContributionCard({

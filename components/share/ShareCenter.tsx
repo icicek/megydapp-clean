@@ -262,12 +262,11 @@ export default function ShareCenter({
   };
 
   // import satırında useCallback'i kaldır:
-  // import React, { useEffect, useMemo, useState } from 'react';
-
   const openChannel = (channel: Channel) => {
     const p = payloadWithShort;
-  
+
     try {
+      // 🔹 Sadece X gerçek paylaşım açıyor
       if (channel === 'twitter') {
         console.log('[ShareCenter] twitter clicked', {
           context,
@@ -275,59 +274,32 @@ export default function ShareCenter({
           walletBase58,
           payload: p,
         });
-  
+
         const intentUrl = buildTwitterIntent(p);
-  
+
         if (typeof window !== 'undefined') {
           window.open(intentUrl, '_blank', 'noopener,noreferrer');
         }
-  
-        // CorePoint eventi
+
+        // CorePoint eventi (X)
         void sendShareEvent('twitter');
         onOpenChange(false);
         return;
       }
-  
-      if (channel === 'telegram') {
-        const intentUrl = buildTelegramWeb(p);
-        if (typeof window !== 'undefined') {
-          window.open(intentUrl, '_blank', 'noopener,noreferrer');
-        }
-        // şimdilik sadece aç, CP yazmıyoruz
-        return;
-      }
-  
-      if (channel === 'whatsapp') {
-        const intentUrl = buildWhatsAppWeb(p);
-        if (typeof window !== 'undefined') {
-          window.open(intentUrl, '_blank', 'noopener,noreferrer');
-        }
-        return;
-      }
-  
-      if (channel === 'email') {
-        const intentUrl = buildEmailIntent(p);
-        if (typeof window !== 'undefined') {
-          window.location.href = intentUrl;
-        }
-        return;
-      }
-  
-      // Instagram / TikTok: henüz tam entegre değil → sadece bilgilendirici toast
-      if (channel === 'instagram' || channel === 'tiktok') {
-        showToast(
-          "Direct sharing for this channel isn't live yet — paste your copied text instead.",
-          'bottom',
-          true,
-          'info',
-        );
-        return;
-      }
+
+      // 🔹 Diğer tüm kanallar (telegram, whatsapp, email, instagram, tiktok)
+      showToast(
+        "Direct sharing for this channel isn't live yet — use Copy text to share and earn CorePoints.",
+        'bottom',
+        true,
+        'info',
+      );
+      return;
     } catch (e) {
       console.error('[ShareCenter] openChannel error', e);
       showToast('Could not open share channel.', 'top', false, 'error');
     }
-  };  
+  };
 
   // Copy text — X ile aynı birleşik format (intent.ts → buildCopyText)
   const handleCopy = async () => {
