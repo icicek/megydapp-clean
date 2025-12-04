@@ -393,6 +393,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 👇 Emniyet sibobu:
+    // Her ihtimale karşı referral_code'un boş kalmamasını sağla.
+    if (!userReferralCode) {
+      userReferralCode = generateReferralCode();
+
+      // participants tablosunu da senkron tut
+      try {
+        await sql`
+          UPDATE participants
+             SET referral_code = ${userReferralCode}
+           WHERE wallet_address = ${wallet_address}
+             AND network = ${networkNorm}
+        `;
+      } catch (e) {
+        console.warn(
+          '⚠️ fallback referral_code update failed:',
+          (e as any)?.message || e,
+        );
+      }
+    }
+
     } catch (e) {
       console.error(
         '❌ participants upsert failed:',

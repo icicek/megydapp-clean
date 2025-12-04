@@ -59,6 +59,17 @@ type ConfirmModalProps = {
   confirmLabel?: string;
 };
 
+function getReferralFromUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const url = new URL(window.location.href);
+    const r = url.searchParams.get('r');
+    return r && r.trim() ? r.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 const ConfirmModal = dynamic(
   () => import('@/components/ConfirmModal'),
   { ssr: false }
@@ -331,6 +342,9 @@ export default function CoincarneModal({
       }
 
       // Backend kayıt
+            // URL'den gelen referral kodu (varsa)
+      const referralFromUrl = getReferralFromUrl();
+
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -344,6 +358,10 @@ export default function CoincarneModal({
           transaction_signature: signature,
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
           token_category: tokenCategory ?? 'unknown',
+
+          // 🔹 YENİ: referral bilgisi
+          referral_code: referralFromUrl,
+          ref: referralFromUrl, // backend ekstra bakıyorsa diye
         }),
       });
 
