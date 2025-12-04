@@ -475,8 +475,8 @@ export async function POST(req: NextRequest) {
     try {
       const cols = await sql`
         SELECT column_name
-          FROM information_schema.columns
-         WHERE table_name = 'contributions'
+        FROM information_schema.columns
+        WHERE table_name = 'contributions'
       `;
       hasAssetKind = cols.some(
         (r: any) => r.column_name === 'asset_kind',
@@ -523,8 +523,8 @@ export async function POST(req: NextRequest) {
             ${idemKey},
             ${user_agent || ''},
             ${timestamp},
-            ${userReferralCode},
-            ${referrerWallet},
+            ${userReferralCode || null},
+            ${referrerWallet || null},
             ${assetKindFinal}
           )
           ON CONFLICT (network, tx_hash) DO NOTHING
@@ -561,14 +561,15 @@ export async function POST(req: NextRequest) {
             ${idemKey},
             ${user_agent || ''},
             ${timestamp},
-            ${userReferralCode},
-            ${referrerWallet}
+            ${userReferralCode || null},
+            ${referrerWallet || null}
           )
           ON CONFLICT (network, tx_hash) DO NOTHING
           RETURNING id;
         `;
         insertedId = insertResult?.[0]?.id ?? null;
       }
+
       console.log('📝 contribution inserted id:', insertedId);
     } catch (e) {
       console.error(
@@ -585,7 +586,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-        // ——— CorePoint: USD + Deadcoin (corepoint_events tablosu) ———
+    // ——— CorePoint: USD + Deadcoin (corepoint_events tablosu) ———
     // Burada txId olarak HER ZAMAN gerçek blockchain tx hash'ini kullanıyoruz.
     // (Solana için: transaction_signature; ileride EVM için tx_hash)
     const stableTxId = txHashOrSig ? String(txHashOrSig) : null;
