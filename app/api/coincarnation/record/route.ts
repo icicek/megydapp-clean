@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     console.log('📥 incoming body:', JSON.stringify(body));
 
-    // body'den gelen ham referral
+    // body'den gelen ham referral dahil tüm alanlar
     const {
       wallet_address,
       token_symbol,
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       idempotency_key,
       network,
       user_agent,
-      referral_code: referralFromBody,
+      referral_code: referralFromBody, // 🔹 alias
 
       asset_kind, // opsiyonel: 'sol' | 'spl'
     } = body ?? {};
@@ -326,7 +326,6 @@ export async function POST(req: NextRequest) {
     let isNewParticipant = false;
 
     try {
-      // 1) O cüzdan + network için zaten kayıt var mı?
       const existing = await sql`
         SELECT referral_code, referrer_wallet
         FROM participants
@@ -337,15 +336,11 @@ export async function POST(req: NextRequest) {
       if (existing.length === 0) {
         isNewParticipant = true;
 
-        // URL / body'den gelen referral kodu:
-        const incomingRefCode: string | null =
-          (body?.referral_code || body?.ref || '').trim() || null;
-
-        if (incomingRefCode) {
+        if (inboundReferral) {
           const ref = await sql`
             SELECT wallet_address
             FROM participants
-            WHERE referral_code = ${incomingRefCode}
+            WHERE referral_code = ${inboundReferral}
             LIMIT 1
           `;
           if (
@@ -356,7 +351,6 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Yeni kullanıcının kendi referral kodu
         userReferralCode = generateReferralCode();
 
         await sql`
@@ -375,12 +369,10 @@ export async function POST(req: NextRequest) {
           ON CONFLICT (wallet_address, network) DO NOTHING
         `;
       } else {
-        // Mevcut kullanıcı
         userReferralCode =
           existing[0].referral_code || generateReferralCode();
         referrerWallet = existing[0].referrer_wallet;
 
-        // Eski kayıtta referral_code yoksa doldur
         if (!existing[0].referral_code) {
           await sql`
             UPDATE participants
@@ -399,6 +391,21 @@ export async function POST(req: NextRequest) {
         { success: false, error: 'participants upsert failed' },
         { status: 500 },
       );
+    }
+
+    // 🔥 Referral CP: sadece YENİ gelen cüzdan için, ve referrer varsa
+    if (isNewParticipant && referrerWallet) {
+      try {
+        await awardReferralSignup({
+          referrer: referrerWallet,
+          referee: wallet_address,
+        });
+      } catch (e) {
+        console.warn(
+          '⚠️ referral_signup award failed:',
+          (e as any)?.message || e,
+        );
+      }
     }
 
     // 🔥 Referral CP: sadece YENİ gelen cüzdan için, ve referrer varsa
