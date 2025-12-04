@@ -320,28 +320,32 @@ export async function POST(req: NextRequest) {
           AND network = ${networkNorm}
       `;
 
-          // ——— Participants ———
+    // ——— Participants ———
     let userReferralCode = '';
     let referrerWallet: string | null = null;
+    let isNewParticipant = false;
 
     try {
+      // 1) O cüzdan + network için zaten kayıt var mı?
       const existing = await sql`
-        SELECT *
+        SELECT referral_code, referrer_wallet
         FROM participants
         WHERE wallet_address = ${wallet_address}
-          AND network = ${networkNorm}
+          AND network        = ${networkNorm}
       `;
 
       if (existing.length === 0) {
-        // 🔹 Yeni gelen wallet: ona kendi referral kodunu ver
-        userReferralCode = generateReferralCode();
+        isNewParticipant = true;
 
-        // 🔹 Sadece ilk girişte "inboundReferral" üzerinden referrer ara
-        if (inboundReferral) {
+        // URL / body'den gelen referral kodu:
+        const incomingRefCode: string | null =
+          (body?.referral_code || body?.ref || '').trim() || null;
+
+        if (incomingRefCode) {
           const ref = await sql`
             SELECT wallet_address
             FROM participants
-            WHERE referral_code = ${inboundReferral}
+            WHERE referral_code = ${incomingRefCode}
             LIMIT 1
           `;
           if (
@@ -351,6 +355,9 @@ export async function POST(req: NextRequest) {
             referrerWallet = ref[0].wallet_address;
           }
         }
+
+        // Yeni kullanıcının kendi referral kodu
+        userReferralCode = generateReferralCode();
 
         await sql`
           INSERT INTO participants (
@@ -368,17 +375,18 @@ export async function POST(req: NextRequest) {
           ON CONFLICT (wallet_address, network) DO NOTHING
         `;
       } else {
-        // 🔹 Zaten bilinen wallet: referral bağlantısını DEĞİŞTİRME,
-        // sadece kendi referral_code'u yoksa üret.
+        // Mevcut kullanıcı
         userReferralCode =
           existing[0].referral_code || generateReferralCode();
+        referrerWallet = existing[0].referrer_wallet;
 
+        // Eski kayıtta referral_code yoksa doldur
         if (!existing[0].referral_code) {
           await sql`
             UPDATE participants
                SET referral_code = ${userReferralCode}
              WHERE wallet_address = ${wallet_address}
-               AND network = ${networkNorm}
+               AND network        = ${networkNorm}
           `;
         }
       }
@@ -392,6 +400,22 @@ export async function POST(req: NextRequest) {
         { status: 500 },
       );
     }
+
+    // 🔥 Referral CP: sadece YENİ gelen cüzdan için, ve referrer varsa
+    if (isNewParticipant && referrerWallet) {
+      try {
+        await awardReferralSignup({
+          referrer: referrerWallet,
+          referee: wallet_address,
+        });
+      } catch (e) {
+        console.warn(
+          '⚠️ referral_signup award failed:',
+          (e as any)?.message || e,
+        );
+      }
+    }
+
 
     // 👇 Emniyet sibobu:
     // Her ihtimale karşı referral_code'un boş kalmamasını sağla.
