@@ -31,14 +31,6 @@ const SOLANA_RPC_URL =
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||// public fallback
   'https://api.mainnet-beta.solana.com';   // en son Solana default
 
-// Hazine adresi (server > public fallbacks)
-// (Şu an tx'i zaten biz hazırladığımız için ekstra kontrol etmiyoruz.)
-const DEST_SOLANA =
-  process.env.DEST_SOLANA ||
-  process.env.NEXT_PUBLIC_DEST_SOLANA ||
-  process.env.NEXT_PUBLIC_DEST_SOL ||
-  '';
-
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
 // Confirm kontrolünü devre dışı bırakmak istersen: DISABLE_CONFIRM=true
@@ -71,15 +63,10 @@ async function isSolanaTxConfirmedOnce(signature: string): Promise<boolean> {
   if (!status) return false;
   if (status.err !== null) return false;
   const cs = status.confirmationStatus as string | undefined;
-  // processed -> henüz tam garanti değil, confirmed/finalized istiyoruz
   return cs === 'confirmed' || cs === 'finalized';
 }
 
 /* ----------  Polling ile confirmation bekleme  ---------- */
-/** 
- * Solana tx'inin confirmed/finalized olmasını max ~15 sn bekler.
- * confirmed olursa true, yoksa false döner.
- */
 async function waitForSolanaConfirm(
   signature: string,
   maxMs = 15000,
@@ -95,7 +82,6 @@ async function waitForSolanaConfirm(
         '⚠️ getSignatureStatuses polling failed:',
         (e as any)?.message || e,
       );
-      // küçük bir bekleme sonrası tekrar dene
     }
     await new Promise((res) => setTimeout(res, intervalMs));
   }
@@ -111,7 +97,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     console.log('📥 incoming body:', JSON.stringify(body));
 
-    // body'den gelen ham referral dahil tüm alanlar
+    // body'den gelen ham alanlar
     const {
       wallet_address,
       token_symbol,
@@ -126,7 +112,7 @@ export async function POST(req: NextRequest) {
       idempotency_key,
       network,
       user_agent,
-      referral_code: referralFromBody, // 🔹 alias
+      referral_code: referralFromBody, // alias
 
       asset_kind, // opsiyonel: 'sol' | 'spl'
     } = body ?? {};
@@ -155,7 +141,7 @@ export async function POST(req: NextRequest) {
             inboundReferral = rParam.trim();
           }
         } catch {
-          // URL parse edemezsek sessizce geç
+          // parse edemezsek sessiz geç
         }
       }
     }
@@ -266,7 +252,6 @@ export async function POST(req: NextRequest) {
             AND (tx_hash = ${txHashOrSig} OR transaction_signature = ${txHashOrSig})
           LIMIT 1
         `;
-        // txHashOrSig ile duplicate yakalanırsa:
         if (dup.length > 0) {
           const existingId = dup[0].id as number;
           const stableTxId = String(existingId);
@@ -291,7 +276,7 @@ export async function POST(req: NextRequest) {
         if (dup2.length > 0) {
           const existingId = dup2[0].id as number;
           const stableTxId = String(existingId);
-        
+
           return NextResponse.json({
             success: true,
             duplicate: true,
@@ -300,7 +285,7 @@ export async function POST(req: NextRequest) {
             tx_id: stableTxId,
             txId: stableTxId,
           });
-        }        
+        }
       }
     } catch (e) {
       console.warn(
@@ -308,17 +293,6 @@ export async function POST(req: NextRequest) {
         (e as any)?.message || e,
       );
     }
-
-    // ——— Participants ———
-    let userReferralCode = '';
-    let referrerWallet: string | null = null;
-
-    try {
-      const existing = await sql`
-        SELECT * FROM participants
-        WHERE wallet_address = ${wallet_address}
-          AND network = ${networkNorm}
-      `;
 
     // ——— Participants ———
     let userReferralCode = '';
@@ -331,11 +305,13 @@ export async function POST(req: NextRequest) {
         FROM participants
         WHERE wallet_address = ${wallet_address}
           AND network        = ${networkNorm}
+        LIMIT 1
       `;
 
       if (existing.length === 0) {
         isNewParticipant = true;
 
+        // inboundReferral varsa referrer wallet'ı bul
         if (inboundReferral) {
           const ref = await sql`
             SELECT wallet_address
@@ -351,6 +327,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        // Yeni kullanıcının kendi referral kodu
         userReferralCode = generateReferralCode();
 
         await sql`
@@ -373,6 +350,7 @@ export async function POST(req: NextRequest) {
           existing[0].referral_code || generateReferralCode();
         referrerWallet = existing[0].referrer_wallet;
 
+        // Eski kayıtta referral_code yoksa doldur
         if (!existing[0].referral_code) {
           await sql`
             UPDATE participants
@@ -382,69 +360,17 @@ export async function POST(req: NextRequest) {
           `;
         }
       }
-    } catch (e) {
-      console.error(
-        '❌ participants upsert failed:',
-        (e as any)?.message || e,
-      );
-      return NextResponse.json(
-        { success: false, error: 'participants upsert failed' },
-        { status: 500 },
-      );
-    }
 
-    // 🔥 Referral CP: sadece YENİ gelen cüzdan için, ve referrer varsa
-    if (isNewParticipant && referrerWallet) {
-      try {
-        await awardReferralSignup({
-          referrer: referrerWallet,
-          referee: wallet_address,
-        });
-      } catch (e) {
-        console.warn(
-          '⚠️ referral_signup award failed:',
-          (e as any)?.message || e,
-        );
-      }
-    }
-
-    // 🔥 Referral CP: sadece YENİ gelen cüzdan için, ve referrer varsa
-    if (isNewParticipant && referrerWallet) {
-      try {
-        await awardReferralSignup({
-          referrer: referrerWallet,
-          referee: wallet_address,
-        });
-      } catch (e) {
-        console.warn(
-          '⚠️ referral_signup award failed:',
-          (e as any)?.message || e,
-        );
-      }
-    }
-
-
-    // 👇 Emniyet sibobu:
-    // Her ihtimale karşı referral_code'un boş kalmamasını sağla.
-    if (!userReferralCode) {
-      userReferralCode = generateReferralCode();
-
-      // participants tablosunu da senkron tut
-      try {
+      // Emniyet: her durumda boş kalmasın
+      if (!userReferralCode) {
+        userReferralCode = generateReferralCode();
         await sql`
           UPDATE participants
              SET referral_code = ${userReferralCode}
            WHERE wallet_address = ${wallet_address}
-             AND network = ${networkNorm}
+             AND network        = ${networkNorm}
         `;
-      } catch (e) {
-        console.warn(
-          '⚠️ fallback referral_code update failed:',
-          (e as any)?.message || e,
-        );
       }
-    }
-
     } catch (e) {
       console.error(
         '❌ participants upsert failed:',
@@ -456,7 +382,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (referrerWallet) {
+    // 🔥 Referral CP: sadece YENİ gelen cüzdan için, ve referrer varsa
+    if (isNewParticipant && referrerWallet) {
       try {
         await awardReferralSignup({
           referrer: referrerWallet,
@@ -469,6 +396,12 @@ export async function POST(req: NextRequest) {
         );
       }
     }
+
+    // ——— Contributions için referral metadata ———
+    const contribReferralCode: string | null =
+      userReferralCode || null;
+    const contribReferrerWallet: string | null =
+      referrerWallet;
 
     // ——— CONTRIBUTIONS: ŞEMA TOLERANSLI INSERT ———
     let hasAssetKind = false;
@@ -523,8 +456,8 @@ export async function POST(req: NextRequest) {
             ${idemKey},
             ${user_agent || ''},
             ${timestamp},
-            ${userReferralCode || null},
-            ${referrerWallet || null},
+            ${contribReferralCode},
+            ${contribReferrerWallet},
             ${assetKindFinal}
           )
           ON CONFLICT (network, tx_hash) DO NOTHING
@@ -561,8 +494,8 @@ export async function POST(req: NextRequest) {
             ${idemKey},
             ${user_agent || ''},
             ${timestamp},
-            ${userReferralCode || null},
-            ${referrerWallet || null}
+            ${contribReferralCode},
+            ${contribReferrerWallet}
           )
           ON CONFLICT (network, tx_hash) DO NOTHING
           RETURNING id;
@@ -587,8 +520,6 @@ export async function POST(req: NextRequest) {
     }
 
     // ——— CorePoint: USD + Deadcoin (corepoint_events tablosu) ———
-    // Burada txId olarak HER ZAMAN gerçek blockchain tx hash'ini kullanıyoruz.
-    // (Solana için: transaction_signature; ileride EVM için tx_hash)
     const stableTxId = txHashOrSig ? String(txHashOrSig) : null;
 
     try {
@@ -631,16 +562,12 @@ export async function POST(req: NextRequest) {
       number,
       referral_code: userReferralCode,
 
-      // Gerçek blockchain tx hash'i
       transaction_signature: txHashOrSig,
-
-      // Frontend + corepoint_events için TEK KAYNAK alan
       tx_id: stableTxId,
       txId: stableTxId,
 
       message: '✅ Coincarnation recorded',
     });
-
   } catch (error: any) {
     console.error('❌ Record API Error:', error?.message || error);
     const status = Number(error?.status) || 500;
