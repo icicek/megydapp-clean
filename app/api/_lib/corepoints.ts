@@ -96,19 +96,48 @@ export async function awardUsdPoints({
 export async function awardDeadcoinFirst({
   wallet,
   tokenContract,
+  txId,
 }: {
   wallet: string;
   tokenContract: string;
+  txId?: string | null;
 }) {
   const { deadFirst, mDead } = await getCorepointWeights();
   const pts = Math.floor(deadFirst * mDead);
-  if (pts <= 0) return { awarded: 0 };
+  if (pts <= 0) {
+    return { awarded: 0 };
+  }
 
-  // Zaten önce "seen" kontrolü yapıyoruz; ON CONFLICT gerek yok
+  // 1) İdempotent kontrol:
+  //    Aynı (wallet, type='deadcoin_first', token_contract) zaten varsa
+  //    tekrar puan VERME.
+  const seen = (await sql/* sql */ `
+    SELECT 1
+    FROM corepoint_events
+    WHERE wallet_address = ${wallet}
+      AND type           = 'deadcoin_first'
+      AND token_contract = ${tokenContract}
+    LIMIT 1
+  `) as unknown as any[];
+
+  if (seen.length > 0) {
+    // Daha önce bu cüzdan + bu deadcoin kontratı için bonus verilmiş
+    return { awarded: 0 };
+  }
+
+  // 2) corepoint_events'e kayıt aç
   await sql/* sql */ `
-    INSERT INTO corepoint_events (wallet_address, type, points, token_contract)
-    VALUES (${wallet}, 'deadcoin_first', ${pts}, ${tokenContract})
+    INSERT INTO corepoint_events (wallet_address, type, points, token_contract, tx_id)
+    VALUES (${wallet}, 'deadcoin_first', ${pts}, ${tokenContract}, ${txId ?? null})
   `;
+
+  // 3) participants.core_point kolonunu da güncelle
+  await sql/* sql */ `
+    UPDATE participants
+       SET core_point = COALESCE(core_point, 0) + ${pts}
+     WHERE wallet_address = ${wallet}
+  `;
+
   return { awarded: pts };
 }
 

@@ -523,18 +523,21 @@ export async function POST(req: NextRequest) {
     const stableTxId = txHashOrSig ? String(txHashOrSig) : null;
 
     try {
-      if (usdValueNum > 0) {
+      // 🔹 Pozitif USD katkısı → usd CorePoint
+      if (usdValueNum > 0 && stableTxId) {
         await awardUsdPoints({
           wallet: wallet_address,
           usdValue: usdValueNum,
-          txId: stableTxId!,
+          txId: stableTxId,
         });
       }
 
+      // 🔹 Deadcoin bonusu → sadece usd_value === 0 ve token_contract varsa
       if (usdValueNum === 0 && token_contract) {
         await awardDeadcoinFirst({
           wallet: wallet_address,
           tokenContract: token_contract,
+          txId: stableTxId, // varsa txId ile ilişkilendir
         });
       }
     } catch (e) {
