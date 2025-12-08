@@ -109,6 +109,7 @@ export default function ClaimPanel() {
             referral_deadcoin_count: 0,
             total_usd_contributed: 0,
             total_coins_contributed: 0,
+            deadcoins_revived: 0,
             transactions: [],
             core_point: 0,
             total_core_point: 0,
@@ -200,13 +201,9 @@ export default function ClaimPanel() {
 
   // ✅ Crash fix: tx listesi yoksa dizi kullan
   const txs: any[] = Array.isArray(data.transactions) ? data.transactions : [];
-  const deadcoinContracts = new Set(
-    txs
-      .filter((tx) => Number(tx.usd_value) === 0)
-      .map((tx) => tx.token_contract)
-      .filter(Boolean)
-  );
-  const deadcoinsRevived = deadcoinContracts.size;
+
+  // 🔹 Deadcoins Revived sayısını artık backend'den alıyoruz
+  const deadcoinsRevived = Number(data.deadcoins_revived ?? 0);
 
   const shareRatio =
     globalStats.totalUsd > 0 ? Number(data.total_usd_contributed || 0) / globalStats.totalUsd : 0;

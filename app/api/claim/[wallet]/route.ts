@@ -142,6 +142,7 @@ export async function GET(req: NextRequest) {
       WHERE wallet_address = ${wallet}
         AND token_contract IS NOT NULL;
     ` as any[];
+
     const deadcoinSet = new Set<string>();
     for (const row of deadcoinRows) {
       const usd = Number(row.usd_value ?? 0);
@@ -151,7 +152,9 @@ export async function GET(req: NextRequest) {
       const isDead = await isDeadcoinForMegy(mint, usd, statusCacheSelf);
       if (isDead) deadcoinSet.add(mint);
     }
-    const uniqueDeadcoinCount = deadcoinSet.size; // şimdilik sadece bilgi
+
+    // 🔹 Bu cüzdanın kaç FARKLI deadcoin’i Coincarnate ettiği
+    const deadcoins_revived = deadcoinSet.size;
 
     // 🔹 İşlem geçmişi (DETAYLI) — id + signature + hash + contract
     const transactionsRaw = await sql`
@@ -234,6 +237,7 @@ export async function GET(req: NextRequest) {
         referral_deadcoin_count,
         total_usd_contributed,
         total_coins_contributed,
+        deadcoins_revived,
 
         // 🔹 Map’lenmiş transactions (tx_id artık gerçek hash’e yakın)
         transactions,
