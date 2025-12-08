@@ -24,9 +24,7 @@ const DeadcoinVoteButton = dynamic(
   { ssr: false }
 ) as React.ComponentType<DeadcoinVoteButtonProps>;
 
-// ❌ server-only import'u kaldırdık:
-// import { TokenCategory } from '@/app/api/utils/classifyToken';
-// ✅ aynı ismi koruyan client-safe local type:
+// ✅ client-safe local type:
 type TokenCategory = 'healthy' | 'deadcoin' | 'unknown';
 
 interface ConfirmModalProps {
@@ -137,9 +135,10 @@ export default function ConfirmModal({
   // ✅ Rules: Black/Red list hard block; Deadcoin allowed
   const isHardBlocked = listStatus === 'blacklist' || listStatus === 'redlist';
   const isDeadcoin =
-    listStatus === 'deadcoin' ||
-    fetchStatus === 'not_found' ||
-    (fetchStatus === 'found' && derivedUsd === 0);
+  listStatus === 'deadcoin' ||
+  (fetchStatus !== 'loading' &&
+    fetchStatus !== 'error' &&
+    derivedUsd === 0);
 
   // UI helpers
   const short = (s?: string | null) =>
@@ -206,13 +205,19 @@ export default function ConfirmModal({
 
   const effectiveConfirmLabel =
     confirmLabel ??
-    (busy ? 'Processing…' : `Confirm Coincarnation${amount ? ` (${amount} ${tokenSymbol})` : ''}`);
+    (busy
+      ? 'Processing…'
+      : isDeadcoin
+      ? 'Confirm Deadcoin Coincarnation'
+      : `Confirm Coincarnation${amount ? ` (${amount} ${tokenSymbol})` : ''}`);
+
+  const titleText = isDeadcoin ? 'Confirm Deadcoin Coincarnation' : 'Confirm Coincarnation';
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onCancel(); }}>
       <DialogOverlay />
       <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-50 shadow-lg">
-        <DialogTitle className="text-white">Confirm Coincarnation</DialogTitle>
+        <DialogTitle className="text-white">{titleText}</DialogTitle>
         <DialogDescription className="sr-only">
           Review value, status and confirm to proceed with coincarnation.
         </DialogDescription>
@@ -237,9 +242,18 @@ export default function ConfirmModal({
         )}
 
         <div className="mt-3 text-sm text-white space-y-1">
-          <p>You are about to coincarnate <strong>{tokenSymbol}</strong> ({amount} units).</p>
+          <p>
+            You are about to coincarnate <strong>{tokenSymbol}</strong> ({amount} units).
+          </p>
+          {isDeadcoin && (
+            <p className="text-xs text-amber-200 mt-1">
+              This asset is treated as a <strong>Deadcoin</strong> in Coincarnation.
+              You will earn <strong>CorePoints</strong>, but{' '}
+              <strong>no $MEGY will be distributed</strong> for this swap.
+            </p>
+          )}
           {(networkLabel || tokenContract || tokenMint) && (
-            <div className="text-xs text-gray-300 space-y-0.5">
+            <div className="text-xs text-gray-300 space-y-0.5 mt-1">
               {networkLabel && <div>Network: <b>{networkLabel}</b></div>}
               {tokenContract && <div>Contract: <b title={tokenContract}>{short(tokenContract)}</b></div>}
               {tokenMint && <div>Mint: <b title={tokenMint}>{short(tokenMint)}</b></div>}
@@ -256,31 +270,40 @@ export default function ConfirmModal({
             </div>
           )}
 
-          {(isDeadcoin && (fetchStatus === 'found' || fetchStatus === 'not_found')) && (
-            <div className="bg-yellow-700 text-white p-3 rounded">
-              ☠️ <strong>This token is treated as a Deadcoin.</strong><br />
-              CorePoint is granted; MEGY is not distributed.
-            </div>
-          )}
+          {isDeadcoin &&
+            fetchStatus !== 'loading' &&
+            fetchStatus !== 'error' && (
+              <div className="bg-yellow-700 text-white p-3 rounded">
+                ☠️ <strong>This token is treated as a Deadcoin.</strong><br />
+                CorePoint is granted; MEGY is not distributed,
+                even if some historical price exists.
+              </div>
+            )}
 
-          {fetchStatus === 'found' && !isHardBlocked && derivedUsd > 0 && (
+          {/* ✅ YEŞİL DEĞER KARTI: SADECE healthy & non-deadcoin için */}
+          {fetchStatus === 'found' && !isHardBlocked && !isDeadcoin && derivedUsd > 0 && (
             <div className="bg-green-700 text-white p-3 rounded font-medium">
               ✅ Estimated value: <strong>${derivedUsd.toString()}</strong>
             </div>
           )}
 
-          {(fetchStatus === 'found' || fetchStatus === 'not_found') && Array.isArray(priceSources) && priceSources.length > 0 && (
-            <div>
-              <p className="font-medium">Price Sources:</p>
-              <ul className="list-disc list-inside">
-                {priceSources.map((src, i) => (
-                  <li key={i}>
-                    {src.source}: ${src.price.toString()}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {/* ✅ Fiyat kaynakları: deadcoin ise göstermiyoruz, kafa karışmasın */}
+          {!isDeadcoin &&
+            fetchStatus !== 'loading' &&
+            fetchStatus !== 'error' &&
+            Array.isArray(priceSources) &&
+            priceSources.length > 0 && (
+              <div>
+                <p className="font-medium">Price Sources:</p>
+                <ul className="list-disc list-inside">
+                  {priceSources.map((src, i) => (
+                    <li key={i}>
+                      {src.source}: ${src.price.toString()}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
           {listStatus === 'walking_dead' && tokenMint && fetchStatus === 'found' && derivedUsd > 0 && (
             <div className="mt-2">
