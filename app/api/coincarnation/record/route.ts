@@ -218,22 +218,32 @@ export async function POST(req: NextRequest) {
       console.log('✅ Tx confirmed on-chain:', transaction_signature);
     }
 
-    // ——— Redlist/Blacklist (best effort) ———
+    // ——— Redlist/Blacklist + statü okuma ———
     const hasMint = Boolean(token_contract && token_contract !== 'SOL');
+    let tokenStatus: TokenStatus | null = null;
+    let isDeadcoinByStatus = false;
+
     if (hasMint) {
       try {
         const reg = await getStatusRow(token_contract!);
-        if (reg?.status === 'blacklist') {
+        tokenStatus = (reg?.status ?? null) as TokenStatus | null;
+
+        if (tokenStatus === 'blacklist') {
           return NextResponse.json(
             { success: false, error: 'This token is blacklisted.' },
             { status: 403 },
           );
         }
-        if (reg?.status === 'redlist') {
+        if (tokenStatus === 'redlist') {
           return NextResponse.json(
             { success: false, error: 'This token is redlisted.' },
             { status: 403 },
           );
+        }
+
+        // 🟤 vote / admin kararıyla deadcoin olmuş token
+        if (tokenStatus === 'deadcoin') {
+          isDeadcoinByStatus = true;
         }
       } catch (e) {
         console.warn(
@@ -522,8 +532,14 @@ export async function POST(req: NextRequest) {
     // ——— CorePoint: USD + Deadcoin (corepoint_events tablosu) ———
     const stableTxId = txHashOrSig ? String(txHashOrSig) : null;
 
+    // 🔍 Deadcoin tespiti:
+    //  - fiyat tabanlı: usd_value === 0 && mint varsa
+    //  - statü tabanlı: token_registry.status === 'deadcoin'
+    const isDeadcoinByPrice = usdValueNum === 0 && !!token_contract;
+    const isDeadcoin = isDeadcoinByPrice || isDeadcoinByStatus;
+
     try {
-      // 🔹 Pozitif USD katkısı → usd CorePoint
+      // 💵 USD katkısı → her durumda CP (deadcoin bile olsa katkı sayıyoruz)
       if (usdValueNum > 0 && stableTxId) {
         await awardUsdPoints({
           wallet: wallet_address,
@@ -532,12 +548,14 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // 🔹 Deadcoin bonusu → sadece usd_value === 0 ve token_contract varsa
-      if (usdValueNum === 0 && token_contract) {
+      // 💀 Deadcoin bonusu:
+      //  - fiyat 0 olanlar
+      //  - VEYA admin/vote ile deadcoin statüsüne çekilmiş olanlar
+      if (isDeadcoin && token_contract) {
         await awardDeadcoinFirst({
           wallet: wallet_address,
           tokenContract: token_contract,
-          txId: stableTxId, // varsa txId ile ilişkilendir
+          txId: stableTxId,
         });
       }
     } catch (e) {
