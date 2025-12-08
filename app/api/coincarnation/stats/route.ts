@@ -1,3 +1,5 @@
+// app/api/coincarnation/stats/route.ts
+
 import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 
@@ -6,22 +8,50 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
+    // Katılımcı sayısı: tüm katkı yapan cüzdanlar (deadcoin dahil)
     const participantResult = await sql`
       SELECT COUNT(DISTINCT wallet_address) AS count FROM contributions;
     `;
+
+    // Toplam USD: DEADCOIN statüsündeki tokenler burada 0 sayılır
     const usdResult = await sql`
-      SELECT COALESCE(SUM(usd_value), 0) AS sum FROM contributions;
+      SELECT COALESCE(SUM(
+        CASE
+          WHEN r.status = 'deadcoin' THEN 0
+          ELSE c.usd_value
+        END
+      ), 0) AS sum
+      FROM contributions c
+      LEFT JOIN token_registry r
+        ON c.token_contract = r.mint;
     `;
+
+    // Deadcoin sayısı: fiyat 0 veya statü deadcoin
     const uniqueDeadcoinsResult = await sql`
-      SELECT COUNT(DISTINCT token_contract) AS unique_count
-      FROM contributions
-      WHERE usd_value = 0;
+      SELECT COUNT(DISTINCT c.token_contract) AS unique_count
+      FROM contributions c
+      LEFT JOIN token_registry r
+        ON c.token_contract = r.mint
+      WHERE
+        c.token_contract IS NOT NULL
+        AND (
+          c.usd_value = 0
+          OR r.status = 'deadcoin'
+        );
     `;
+
     const mostPopularDeadcoinResult = await sql`
-      SELECT token_symbol, COUNT(*) AS count
-      FROM contributions
-      WHERE usd_value = 0 AND token_symbol IS NOT NULL
-      GROUP BY token_symbol
+      SELECT c.token_symbol, COUNT(*) AS count
+      FROM contributions c
+      LEFT JOIN token_registry r
+        ON c.token_contract = r.mint
+      WHERE
+        c.token_symbol IS NOT NULL
+        AND (
+          c.usd_value = 0
+          OR r.status = 'deadcoin'
+        )
+      GROUP BY c.token_symbol
       ORDER BY count DESC
       LIMIT 1;
     `;

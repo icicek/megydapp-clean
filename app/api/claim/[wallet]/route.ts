@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
     const participant = participantResult[0];
 
     // 2) Contributions tablosundan istatistikler (CP değil, sadece display)
+
     // Referans sayısı
     const referralResult = await sql`
       SELECT COUNT(*) FROM contributions WHERE referrer_wallet = ${wallet};
@@ -37,20 +38,37 @@ export async function GET(req: NextRequest) {
     const referral_count = parseInt((referralResult[0] as any).count || '0', 10);
 
     // Referans katkı USD toplamı
+    //  - DEADCOIN statüsündeki tokenler burada 0 sayılır (MEGY dağıtımı yok)
     const referralUsdResult = await sql`
-      SELECT COALESCE(SUM(usd_value), 0) AS referral_usd_contributions
-      FROM contributions
-      WHERE referrer_wallet = ${wallet};
+      SELECT COALESCE(SUM(
+        CASE
+          WHEN r.status = 'deadcoin' THEN 0
+          ELSE c.usd_value
+        END
+      ), 0) AS referral_usd_contributions
+      FROM contributions c
+      LEFT JOIN token_registry r
+        ON c.token_contract = r.mint
+      WHERE c.referrer_wallet = ${wallet};
     `;
     const referral_usd_contributions = parseFloat(
       (referralUsdResult[0] as any).referral_usd_contributions || 0,
     );
 
     // Referans deadcoin sayısı (display için)
+    //  - fiyat 0 OLANLAR veya statüsü deadcoin olanlar
     const referralDeadcoinResult = await sql`
-      SELECT COUNT(DISTINCT token_contract) AS referral_deadcoins
-      FROM contributions
-      WHERE referrer_wallet = ${wallet} AND usd_value = 0;
+      SELECT COUNT(DISTINCT c.token_contract) AS referral_deadcoins
+      FROM contributions c
+      LEFT JOIN token_registry r
+        ON c.token_contract = r.mint
+      WHERE
+        c.referrer_wallet = ${wallet}
+        AND c.token_contract IS NOT NULL
+        AND (
+          c.usd_value = 0
+          OR r.status = 'deadcoin'
+        );
     `;
     const referral_deadcoin_count = parseInt(
       (referralDeadcoinResult[0] as any).referral_deadcoins || '0',
@@ -58,12 +76,20 @@ export async function GET(req: NextRequest) {
     );
 
     // Kendi USD katkısı ve toplam token sayısı
+    //  - DEADCOIN statüsündeki tokenler MEGY için 0 sayılır
     const totalStatsResult = await sql`
       SELECT 
-        COALESCE(SUM(usd_value), 0) AS total_usd_contributed,
+        COALESCE(SUM(
+          CASE
+            WHEN r.status = 'deadcoin' THEN 0
+            ELSE c.usd_value
+          END
+        ), 0) AS total_usd_contributed,
         COUNT(*) AS total_coins_contributed
-      FROM contributions
-      WHERE wallet_address = ${wallet};
+      FROM contributions c
+      LEFT JOIN token_registry r
+        ON c.token_contract = r.mint
+      WHERE c.wallet_address = ${wallet};
     `;
     const {
       total_usd_contributed,
@@ -72,11 +98,19 @@ export async function GET(req: NextRequest) {
 
     // Eşsiz deadcoin kontrat adresleri (display için)
     const deadcoinResult = await sql`
-      SELECT DISTINCT token_contract
-      FROM contributions
-      WHERE wallet_address = ${wallet} AND usd_value = 0;
+      SELECT DISTINCT c.token_contract
+      FROM contributions c
+      LEFT JOIN token_registry r
+        ON c.token_contract = r.mint
+      WHERE
+        c.wallet_address = ${wallet}
+        AND c.token_contract IS NOT NULL
+        AND (
+          c.usd_value = 0
+          OR r.status = 'deadcoin'
+        );
     `;
-    const uniqueDeadcoinCount = deadcoinResult.length; // Şimdilik sadece bilgi, UI'da istersen kullanırız
+    const uniqueDeadcoinCount = deadcoinResult.length;
 
     // 🔹 İşlem geçmişi (DETAYLI) — id + signature + hash + contract
     const transactionsRaw = await sql`
@@ -153,7 +187,7 @@ export async function GET(req: NextRequest) {
         referral_code: participant.referral_code || null,
         claimed: participant.claimed || false,
 
-        // Display istatistikleri (contributions’tan)
+        // Display istatistikleri (MEGY-eligible katkılara göre)
         referral_count,
         referral_usd_contributions,
         referral_deadcoin_count,
