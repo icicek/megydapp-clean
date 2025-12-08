@@ -1,3 +1,5 @@
+// components/CoincarneForm.tsx
+
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -220,6 +222,8 @@ export default function CoincarneForm() {
         return;
       }
 
+      const isDeadcoinForMegy = listStatus === 'deadcoin';
+
       // 2) USD (opsiyonel)
       let usdTotal = 0;
       try {
@@ -258,12 +262,13 @@ export default function CoincarneForm() {
         token_symbol: selectedToken.symbol,
         token_contract: selectedToken.symbol === 'SOL' ? null : selectedToken.address,
         token_amount: amt,
-        usd_value: usdTotal || 0,
+        usd_value: isDeadcoinForMegy ? 0 : (usdTotal || 0),  // 🔴 ESKİ: usdTotal || 0
         network: 'solana',
         transaction_signature: signature,
         idempotency_key: idem,
         user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
         asset_kind: assetKind,
+        token_category: isDeadcoinForMegy ? 'deadcoin' : 'healthy',
       };
 
       const rec = await recordContribution(payload);

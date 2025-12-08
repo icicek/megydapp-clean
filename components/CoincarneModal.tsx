@@ -100,6 +100,14 @@ type PriceView = {
   priceSources: { price: number; source: string }[];
 };
 
+type ListStatus =
+  | 'healthy'
+  | 'walking_dead'
+  | 'deadcoin'
+  | 'redlist'
+  | 'blacklist'
+  | null;
+
 // uiAmount → u64 string (decimals’e göre)
 function toU64(ui: string | number, d: number): string {
   const s = String(ui ?? '0').replace(/[^0-9.]/g, '');
@@ -117,6 +125,7 @@ export default function CoincarneModal({
 }: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
 
+  // 🔹 Share state
   const [shareOpen, setShareOpen] = useState(false);
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
   const [shareContext, setShareContext] = useState<
@@ -153,7 +162,9 @@ export default function CoincarneModal({
       setDestErr(null);
     } catch (e: any) {
       setDestSol(null);
-      setDestErr('Destination address is not configured. Please set NEXT_PUBLIC_DEST_SOL.');
+      setDestErr(
+        'Destination address is not configured. Please set NEXT_PUBLIC_DEST_SOL.',
+      );
       console.warn('NEXT_PUBLIC_DEST_SOL error:', e?.message || e);
     }
   }, []);
@@ -167,7 +178,7 @@ export default function CoincarneModal({
     number: number;
     txId: string;
     referralCode?: string | null;
-  } | null>(null);  
+  } | null>(null);
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [priceView, setPriceView] = useState<PriceView>({
@@ -175,12 +186,18 @@ export default function CoincarneModal({
     usdValue: 0,
     priceSources: [],
   });
-  const [tokenCategory, setTokenCategory] = useState<TokenCategory>('unknown');
-  const [priceStatus, setPriceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [tokenCategory, setTokenCategory] =
+    useState<TokenCategory>('unknown');
+  const [priceStatus, setPriceStatus] =
+    useState<'loading' | 'ready' | 'error'>('loading');
+
+  // 🔹 Token status (admin panelden)
+  const [statusRow, setStatusRow] = useState<ListStatus>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
 
   /* ------------------ SYMBOL RESOLUTION ------------------ */
   const [displaySymbol, setDisplaySymbol] = useState<string>(
-    (token.symbol || token.mint.slice(0, 4)).toLocaleUpperCase('en-US')
+    (token.symbol || token.mint.slice(0, 4)).toLocaleUpperCase('en-US'),
   );
 
   // Nihai çözüm: önce /api/symbol (Jupiter→DexScreener→On-chain), yoksa tokenMeta
@@ -188,7 +205,10 @@ export default function CoincarneModal({
     let off = false;
     (async () => {
       try {
-        const r = await fetch(`/api/symbol?mint=${encodeURIComponent(token.mint)}`, { cache: 'no-store' });
+        const r = await fetch(
+          `/api/symbol?mint=${encodeURIComponent(token.mint)}`,
+          { cache: 'no-store' },
+        );
         if (r.ok) {
           const j = await r.json();
           const sym = (j?.symbol || '').toString().trim();
@@ -204,13 +224,15 @@ export default function CoincarneModal({
         if (!off && meta?.symbol) setDisplaySymbol(meta.symbol);
       } catch {}
     })();
-    return () => { off = true; };
+    return () => {
+      off = true;
+    };
   }, [token.mint, token.symbol]);
 
   /* ------------------ SOL CHECK & BALANCE ------------------ */
   const isSOLToken = useMemo(
     () => token.mint === 'SOL' || displaySymbol.toUpperCase() === 'SOL',
-    [token.mint, displaySymbol]
+    [token.mint, displaySymbol],
   );
 
   const {
@@ -219,6 +241,53 @@ export default function CoincarneModal({
     error: balError,
     isSOL: isSolFromHook,
   } = useInternalBalance(token.mint, { isSOL: isSOLToken });
+
+  /* ------------------ TOKEN STATUS FETCH ------------------ */
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setStatusLoading(true);
+        const mint = isSOLToken ? WSOL_MINT : token.mint;
+        const res = await fetch(
+          `/api/status?mint=${encodeURIComponent(mint)}`,
+          { cache: 'no-store' },
+        );
+        if (!res.ok) {
+          if (!cancelled) setStatusRow(null);
+          return;
+        }
+        const j = await res.json().catch(() => null);
+        const s = (j?.status as ListStatus) ?? null;
+        if (!cancelled) setStatusRow(s);
+      } catch (e) {
+        console.warn('[CoincarneModal] status fetch failed:', e);
+        if (!cancelled) setStatusRow(null);
+      } finally {
+        if (!cancelled) setStatusLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token.mint, isSOLToken]);
+
+  /* ------------------ DEADCOIN DERIVED FLAG ------------------ */
+  const isDeadcoinForMegy = useMemo(
+    () =>
+      statusRow === 'deadcoin' ||
+      tokenCategory === 'deadcoin' ||
+      priceView.fetchStatus === 'not_found' ||
+      priceView.usdValue === 0,
+    [statusRow, tokenCategory, priceView.fetchStatus, priceView.usdValue],
+  );
+
+  const usdForMegy = isDeadcoinForMegy ? 0 : priceView.usdValue;
+  const effectiveCategory: TokenCategory = isDeadcoinForMegy
+    ? 'deadcoin'
+    : tokenCategory ?? 'unknown';
 
   /* ------------------ CONFIRM PREPARE (PRICING) ------------------ */
   const handlePrepareConfirm = async () => {
@@ -233,7 +302,10 @@ export default function CoincarneModal({
 
       const mint = isSOLToken ? WSOL_MINT : token.mint;
       const qs = new URLSearchParams({ mint, amount: String(amountToSend) });
-      const res = await fetch(`/api/proxy/price?${qs.toString()}`, { cache: 'no-store' });
+      const res = await fetch(
+        `/api/proxy/price?${qs.toString()}`,
+        { cache: 'no-store' },
+      );
       const json = await res.json();
 
       const ok = !!json?.ok || !!json?.success;
@@ -299,7 +371,7 @@ export default function CoincarneModal({
             fromPubkey: publicKey,
             toPubkey: destSol,
             lamports: Math.floor(amountToSend * 1e9),
-          })
+          }),
         );
         signature = await sendTransaction(tx, connection);
       } else {
@@ -316,8 +388,18 @@ export default function CoincarneModal({
         const decimals = mintInfo.decimals ?? 0;
 
         // 3) ATA’lar (programa göre!)
-        const fromATA = getAssociatedTokenAddressSync(mint, publicKey, false, program);
-        const toATA   = getAssociatedTokenAddressSync(mint, destSol,   false, program);
+        const fromATA = getAssociatedTokenAddressSync(
+          mint,
+          publicKey,
+          false,
+          program,
+        );
+        const toATA = getAssociatedTokenAddressSync(
+          mint,
+          destSol,
+          false,
+          program,
+        );
 
         // 4) İxs
         const ixs: any[] = [];
@@ -325,16 +407,27 @@ export default function CoincarneModal({
         if (!toAtaInfo) {
           ixs.push(
             createAssociatedTokenAccountIdempotentInstruction(
-              publicKey, toATA, destSol, mint, program
-            )
+              publicKey,
+              toATA,
+              destSol,
+              mint,
+              program,
+            ),
           );
         }
 
         const raw = Number(toU64(amountToSend, decimals));
         ixs.push(
           createTransferCheckedInstruction(
-            fromATA, mint, toATA, publicKey, raw, decimals, [], program
-          )
+            fromATA,
+            mint,
+            toATA,
+            publicKey,
+            raw,
+            decimals,
+            [],
+            program,
+          ),
         );
 
         const tx = new Transaction().add(...ixs);
@@ -342,7 +435,6 @@ export default function CoincarneModal({
       }
 
       // Backend kayıt
-            // URL'den gelen referral kodu (varsa)
       const referralFromUrl = getReferralFromUrl();
 
       const res = await fetch('/api/coincarnation/record', {
@@ -354,18 +446,17 @@ export default function CoincarneModal({
           token_contract: token.mint,
           network: 'solana',
           token_amount: amountToSend,
-          usd_value: priceView.usdValue,
+          usd_value: usdForMegy, // ✅ Deadcoin ise 0
           transaction_signature: signature,
-          user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
-          token_category: tokenCategory ?? 'unknown',
+          user_agent:
+            typeof navigator !== 'undefined' ? navigator.userAgent : '',
+          token_category: effectiveCategory, // ✅ Deadcoin etiketi
 
-          // 🔹 YENİ: referral bilgisi
           referral_code: referralFromUrl,
-          ref: referralFromUrl, // backend ekstra bakıyorsa diye
+          ref: referralFromUrl,
         }),
       });
 
-      // ❗ HTTP seviyesinde hata ise başarı ekranı açma
       if (!res.ok) {
         const txt = await res.text();
         console.error('❌ record API HTTP error:', txt);
@@ -375,7 +466,6 @@ export default function CoincarneModal({
 
       const json = await res.json().catch(() => null);
 
-      // ❗ API success:false ise yine başarı ekranı açma
       if (!json || !json.success) {
         console.error('❌ record API logical error:', json);
         alert('❌ Coincarnation record failed. Please try again.');
@@ -386,21 +476,20 @@ export default function CoincarneModal({
       const userNumber: number = json.number ?? 0;
       const referralCode: string | null = json.referral_code ?? null;
 
-      // 🔹 Tek bir “stable” txId üret: ÖNCELİK gerçek blockchain tx hash
       const stableTxId: string = String(
         json.transaction_signature ??
-        json.tx_hash ??
-        json.txId ??
-        json.tx_id ??
-        json.id ??
-        signature
+          json.tx_hash ??
+          json.txId ??
+          json.tx_id ??
+          json.id ??
+          signature,
       );
 
       setResultData({
         tokenFrom: displaySymbol,
         number: userNumber,
         referralCode,
-        txId: stableTxId,   // ⬅️ Artık her zaman blockchain tx hash (veya en kötü fallback)
+        txId: stableTxId,
       });
 
       setConfirmModalOpen(false);
@@ -410,7 +499,10 @@ export default function CoincarneModal({
         await fetch('/api/lv/apply', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mint: token.mint, category: tokenCategory }),
+          body: JSON.stringify({
+            mint: token.mint,
+            category: effectiveCategory,
+          }),
         }).catch((err) => console.warn('⚠️ lv/apply error:', err));
       } catch {}
     } catch (err) {
@@ -450,7 +542,7 @@ export default function CoincarneModal({
           usdValue={priceView.usdValue}
           tokenSymbol={displaySymbol}
           amount={parseFloat(amountInput)}
-          tokenCategory={tokenCategory ?? 'unknown'}
+          tokenCategory={effectiveCategory}
           priceSources={priceView.priceSources}
           fetchStatus={priceView.fetchStatus}
           tokenMint={isSOLToken ? WSOL_MINT : token.mint}
@@ -460,7 +552,12 @@ export default function CoincarneModal({
       )}
 
       {/* 🔹 Ana Coincarne dialog */}
-      <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog
+        open
+        onOpenChange={(open) => {
+          if (!open) onClose();
+        }}
+      >
         <DialogOverlay />
         <DialogContent className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center">
           <DialogTitle className="sr-only">
@@ -494,8 +591,12 @@ export default function CoincarneModal({
                   : balError
                   ? `Balance error: ${balError}`
                   : internalBalance
-                  ? `Balance: ${internalBalance.amount.toFixed(4)} ${displaySymbol}`
-                  : `Balance: ${token.amount.toFixed(4)} ${displaySymbol}`}
+                  ? `Balance: ${internalBalance.amount.toFixed(
+                      4,
+                    )} ${displaySymbol}`
+                  : `Balance: ${token.amount.toFixed(
+                      4,
+                    )} ${displaySymbol}`}
               </p>
 
               {destErr && (
@@ -532,7 +633,9 @@ export default function CoincarneModal({
                 disabled={loading || !amountInput || !!destErr}
                 className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 text-black font-extrabold py-3 rounded-xl"
               >
-                {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate ${displaySymbol} Now`}
+                {loading
+                  ? '🔥 Coincarnating...'
+                  : `🚀 Coincarnate ${displaySymbol} Now`}
               </button>
 
               <button
