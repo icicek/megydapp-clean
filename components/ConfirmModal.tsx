@@ -172,7 +172,9 @@ export default function ConfirmModal({
         <div className={`bg-yellow-700 ${base}`}>
           ☠️ This token is classified as a <strong>Deadcoin</strong>.
           {statusAt ? <> Since {new Date(statusAt).toLocaleString()}.</> : null}
-          <div className="text-xs opacity-90">CorePoint is granted; MEGY is not distributed.</div>
+          <div className="text-xs opacity-90">
+            Marked by the Coincarnation registry (admin / community decision).
+          </div>
         </div>
       );
     }
@@ -264,30 +266,37 @@ export default function ConfirmModal({
         <div className="space-y-3 text-sm text-white mt-4">
           {renderListBanner()}
 
+          {/* 🔄 Fiyat yükleniyor */}
           {fetchStatus === 'loading' && (
             <div className="bg-blue-700 text-white p-3 rounded font-medium">
               🔄 Fetching price data... Please wait.
             </div>
           )}
 
+          {/* ☠️ SADECE registry deadcoin DEĞİLSE ve sistem deadcoin diyorsa göster */}
           {isDeadcoin &&
+            listStatus !== 'deadcoin' &&
             fetchStatus !== 'loading' &&
             fetchStatus !== 'error' && (
               <div className="bg-yellow-700 text-white p-3 rounded">
-                ☠️ <strong>This token is treated as a Deadcoin.</strong><br />
+                ☠️ <strong>This token is treated as a Deadcoin.</strong>
+                <br />
                 CorePoint is granted; MEGY is not distributed,
                 even if some historical price exists.
               </div>
             )}
 
-          {/* ✅ YEŞİL DEĞER KARTI: SADECE healthy & non-deadcoin için */}
-          {fetchStatus === 'found' && !isHardBlocked && !isDeadcoin && derivedUsd > 0 && (
-            <div className="bg-green-700 text-white p-3 rounded font-medium">
-              ✅ Estimated value: <strong>${derivedUsd.toString()}</strong>
-            </div>
-          )}
+          {/* ✅ SADECE healthy tokenlerde değer göster */}
+          {fetchStatus === 'found' &&
+            !isHardBlocked &&
+            !isDeadcoin &&
+            derivedUsd > 0 && (
+              <div className="bg-green-700 text-white p-3 rounded font-medium">
+                ✅ Estimated value: <strong>${derivedUsd.toString()}</strong>
+              </div>
+            )}
 
-          {/* ✅ Fiyat kaynakları: deadcoin ise göstermiyoruz, kafa karışmasın */}
+          {/* ✅ Fiyat kaynakları SADECE healthy ise göster */}
           {!isDeadcoin &&
             fetchStatus !== 'loading' &&
             fetchStatus !== 'error' &&
@@ -305,32 +314,35 @@ export default function ConfirmModal({
               </div>
             )}
 
-          {listStatus === 'walking_dead' && tokenMint && fetchStatus === 'found' && derivedUsd > 0 && (
-            <div className="mt-2">
-              <p className="text-xs text-orange-200 mb-2">
-                Community can vote this token as Deadcoin if liquidity/volume stays critically low.
-                <br />
-                <strong>3 YES</strong> votes will mark it as Deadcoin.
-              </p>
-              <DeadcoinVoteButton
-                mint={tokenMint}
-                onVoted={(res) => {
-                  onDeadcoinVote('yes');
-                  if (res?.applied) setListStatus('deadcoin');
-                  setVoteMessage(
-                    res?.applied
-                      ? '✅ Threshold reached – marked as Deadcoin.'
-                      : `👍 Vote recorded (${res?.votesYes ?? 1}/${res?.threshold ?? 3})`
-                  );
-                }}
-                label="Vote deadcoin (YES)"
-                className="w-full sm:w-auto"
-              />
-              {voteMessage && <div className="mt-2 text-xs text-gray-300">{voteMessage}</div>}
-            </div>
-          )}
+          {/* 🧟 Sadece walking_dead için oy alanı */}
+          {listStatus === 'walking_dead' &&
+            tokenMint &&
+            fetchStatus === 'found' &&
+            derivedUsd > 0 && (
+              <div className="mt-2">
+                <p className="text-xs text-orange-200 mb-2">
+                  Community can vote this token as Deadcoin if liquidity/volume stays critically low.
+                  <br />
+                  <strong>3 YES</strong> votes will mark it as Deadcoin.
+                </p>
+                <DeadcoinVoteButton
+                  mint={tokenMint}
+                  onVoted={(res) => {
+                    onDeadcoinVote('yes');
+                    if (res?.applied) setListStatus('deadcoin');
+                    setVoteMessage(
+                      res?.applied
+                        ? '✅ Threshold reached – marked as Deadcoin.'
+                        : `👍 Vote recorded (${res?.votesYes ?? 1}/${res?.threshold ?? 3})`
+                    );
+                  }}
+                  label="Vote deadcoin (YES)"
+                  className="w-full sm:w-auto"
+                />
+                {voteMessage && <div className="mt-2 text-xs text-gray-300">{voteMessage}</div>}
+              </div>
+            )}
         </div>
-
         <div className="flex justify-end gap-2 mt-6">
           <button
             onClick={onCancel}
