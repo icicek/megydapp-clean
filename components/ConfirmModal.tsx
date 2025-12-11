@@ -79,6 +79,8 @@ export default function ConfirmModal({
   const [statusAt, setStatusAt] = useState<string | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [internalBusy, setInternalBusy] = useState(false);
+  const [votesYes, setVotesYes] = useState<number | null>(null);
+  const [voteThreshold, setVoteThreshold] = useState<number | null>(null);
 
   const busy = confirmBusy || internalBusy;
 
@@ -95,6 +97,12 @@ export default function ConfirmModal({
         if (abort) return;
         setListStatus(data.status as ListStatus);
         setStatusAt(data.statusAt ?? null);
+        setVotesYes(
+          typeof data.votesYes === 'number' ? data.votesYes : null
+        );
+        setVoteThreshold(
+          typeof data.threshold === 'number' ? data.threshold : null
+        );        
       } catch {
         if (!abort) {
           setListStatus(null);
@@ -323,13 +331,37 @@ export default function ConfirmModal({
                 <p className="text-xs text-orange-200 mb-2">
                   Community can vote this token as Deadcoin if liquidity/volume stays critically low.
                   <br />
-                  <strong>3 YES</strong> votes will mark it as Deadcoin.
+                  <strong>{voteThreshold ?? 3} YES</strong> votes will mark it as Deadcoin.
                 </p>
+
+                {/* 🏷️ Votes rozet */}
+                {typeof votesYes === 'number' && typeof voteThreshold === 'number' && (
+                  <div className="inline-flex items-center gap-2 rounded-full bg-black/30 px-3 py-1 text-[11px] text-orange-100 mb-2">
+                    <span>Community votes:</span>
+                    <span className="font-semibold">
+                      {votesYes} / {voteThreshold}
+                    </span>
+                    {votesYes < voteThreshold && (
+                      <span className="opacity-80">
+                        ({voteThreshold - votesYes} more to mark as Deadcoin)
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <DeadcoinVoteButton
                   mint={tokenMint}
                   onVoted={(res) => {
                     onDeadcoinVote('yes');
                     if (res?.applied) setListStatus('deadcoin');
+
+                    if (typeof res?.votesYes === 'number') {
+                      setVotesYes(res.votesYes);
+                    }
+                    if (typeof res?.threshold === 'number') {
+                      setVoteThreshold(res.threshold);
+                    }
+
                     setVoteMessage(
                       res?.applied
                         ? '✅ Threshold reached – marked as Deadcoin.'

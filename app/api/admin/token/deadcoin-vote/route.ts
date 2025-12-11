@@ -1,4 +1,42 @@
 // app/api/admin/token/deadcoin-vote/route.ts
+
+/**
+ * LEGACY / DEPRECATED ENDPOINT
+ *
+ * This endpoint belongs to an old voting system that:
+ *   - wrote to `deadcoin_votes` without using the `vote_yes` boolean column,
+ *   - updated the `tokens` table (deadcoin_votes + status),
+ * while the live Coincarnation flow now uses:
+ *   - `/api/vote` (with wallet_address + vote_yes),
+ *   - `token_registry` as the single source of truth for token status.
+ *
+ * To avoid confusion and unintended writes, this route is now HARD-DISABLED.
+ * Any calls to this endpoint will receive HTTP 410 (Gone).
+ *
+ * ✅ Use `/api/vote` + `token_registry` instead.
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+export async function POST(req: NextRequest) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: 'deprecated endpoint: use /api/vote instead',
+      code: 'DEADCOIN_VOTE_ADMIN_LEGACY',
+    },
+    { status: 410 },
+  );
+}
+
+/*
+─────────────────────────────────────────────────────────────────────────────
+ LEGACY IMPLEMENTATION (KEPT FOR HISTORICAL REFERENCE ONLY)
+─────────────────────────────────────────────────────────────────────────────
+
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import { httpErrorFrom } from '@/app/api/_lib/http';
@@ -74,3 +112,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(body, { status });
   }
 }
+*/

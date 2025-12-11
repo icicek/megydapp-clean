@@ -1,3 +1,9 @@
+// LEGACY: Thin wrapper around applyLvCategory (token_status-based).
+// The live Coincarnation flow uses `token_registry` and `/api/vote` instead.
+// Consider removing this endpoint if no external LV client calls it.
+
+// app/api/lv/apply/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { applyLvCategory } from '@/app/api/list/repo';
 

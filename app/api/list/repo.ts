@@ -1,3 +1,7 @@
+// LEGACY: This file is not used by the main Coincarnation registry anymore.
+// It operates on `token_status` table, while the live system uses `token_registry`.
+// Kept only for potential LV/list experiments. Safe to delete when no longer needed.
+
 // app/api/list/repo.ts
 import { neon } from '@neondatabase/serverless';
 
