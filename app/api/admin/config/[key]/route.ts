@@ -3,6 +3,10 @@ import { NextRequest } from 'next/server';
 import { sql } from '@/app/api/_lib/db';
 import { requireAdmin } from '@/app/api/_lib/jwt';
 
+// ✅ NEW: classification cache invalidation helpers
+import { invalidateClassificationCaches } from '@/app/api/_lib/classification-cache';
+import { TOKEN_THRESHOLD_KEYS } from '@/app/api/_lib/token-thresholds';
+
 // Hangi keylerin UI üzerinden yönetilebileceğini beyaz liste ile sınırlıyoruz
 const ALLOWED_KEYS = new Set<string>([
   // mevcut config anahtarları
@@ -12,6 +16,12 @@ const ALLOWED_KEYS = new Set<string>([
   'distribution_pool',
   'coincarnation_rate',
   'admins',
+
+  // 🔽 Token classification thresholds (DB-backed)
+  'healthy_min_liq_usd',
+  'healthy_min_vol_usd',
+  'walking_dead_min_liq_usd',
+  'walking_dead_min_vol_usd',
 
   // 🔽 CorePoint ağırlıkları
   'cp_usd_per_1',
@@ -117,6 +127,11 @@ async function saveConfig(req: NextRequest, context: any) {
       updated_by = EXCLUDED.updated_by,
       updated_at = NOW()
   `;
+
+  // ✅ NEW: if threshold key updated, invalidate in-memory caches immediately
+  if (TOKEN_THRESHOLD_KEYS.has(key)) {
+    invalidateClassificationCaches({ thresholds: true });
+  }
 
   return Response.json({ success: true, key, value: valueWrapper });
 }

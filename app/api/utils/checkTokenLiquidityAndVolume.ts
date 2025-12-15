@@ -1,43 +1,11 @@
 // app/api/utils/checkTokenLiquidityAndVolume.ts
 import getVolumeAndLiquidity from './getVolumeAndLiquidity';
 import type { TokenCategory } from './classifyToken';
+import { getTokenThresholds } from '@/app/api/_lib/token-thresholds';
 
-/**
- * SINIFLANDIRMA KURALI (24h):
- * - healthy       : totalVolumeUSD ≥ HEALTHY_MIN_VOL_USD  VE  dexLiquidityUSD ≥ HEALTHY_MIN_LIQ_USD
- * - walking_dead  : totalVolumeUSD ≥ WD_MIN_VOL_USD       VE  dexLiquidityUSD ≥ WD_MIN_LIQ_USD
- * - deadcoin      : diğer tüm durumlar (özellikle her ikisi de 100 altı ya da ≈0)
- *
- * Eşikler ENV ile ayarlanabilir; verilmezse varsayılanlar kullanılır.
- */
-
-// ── ENV eşikleri (projeyle tutarlı isimler + backward-compat) ──────────────────
-const HEALTHY_MIN_VOL = Number(
-  process.env.HEALTHY_MIN_VOL_USD ??
-    process.env.HEALTHY_MIN_USD ?? // eski ad
-    10_000
-);
-
-const HEALTHY_MIN_LIQ = Number(
-  process.env.HEALTHY_MIN_LIQ_USD ??
-    10_000
-);
-
-const WD_MIN_VOL = Number(
-  process.env.WALKING_DEAD_MIN_VOL_USD ??
-    process.env.WALKING_DEAD_MIN_USD ?? // eski ad
-    100
-);
-
-const WD_MIN_LIQ = Number(
-  process.env.WALKING_DEAD_MIN_LIQ_USD ??
-    100
-);
-
-// Giriş tipi
 type TokenInfo = { mint: string; symbol?: string };
 
-// getVolumeAndLiquidity dönüşünü yerel tip ile karşılıyoruz (tip uyumsuzluklarını engellemek için)
+// getVolumeAndLiquidity dönüşünü yerel tip ile karşılıyoruz
 type VL = {
   dexVolumeUSD: number | null;
   dexLiquidityUSD: number | null;
@@ -47,66 +15,89 @@ type VL = {
   cexSource: 'coingecko' | 'none';
 };
 
-// Dışarıya döndüğümüz sonuç
+export type LiquidityReason =
+  | 'healthy'
+  | 'low_activity'
+  | 'illiquid'
+  | 'no_data';
+
 export interface LiquidityResult {
-  // toplulaştırılmış sinyaller
-  volume: number | null;         // 24h toplam (DEX + opsiyonel CEX)
-  dexVolume: number | null;      // 24h DEX
-  cexVolume: number | null;      // 24h CEX
-  liquidity: number | null;      // en yüksek DEX pool likiditesi (signal)
+  volume: number | null;      // 24h total (DEX + optional CEX)
+  dexVolume: number | null;   // 24h DEX
+  cexVolume: number | null;   // 24h CEX
+  liquidity: number | null;   // max pool liquidity
 
-  // karar
-  category: TokenCategory;
+  category: TokenCategory;    // healthy | walking_dead | deadcoin | ...
 
-  // kaynak bilgisi
+  reason: LiquidityReason;    // 👈 NEW (debug + meta)
+
   sources: {
     dex: 'dexscreener' | 'geckoterminal' | 'none';
     cex: 'coingecko' | 'none';
   };
 }
 
+function toNonNegNumber(x: any): number {
+  const n = Number(x);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 /**
- * Hacim & likiditeyi getirir, eşiklere göre kategoriyi belirler.
+ * Liquidity-first classification (DB-backed thresholds):
+ *
+ * - If no DEX data at all → deadcoin (no_data)  [NOTE: price-deadcoin is handled elsewhere]
+ * - If liquidity < WD_MIN_LIQ → walking_dead (illiquid)  (MEGY decision handled in payout layer)
+ * - Else if liquidity >= HEALTHY_MIN_LIQ AND volume >= HEALTHY_MIN_VOL → healthy
+ * - Else → walking_dead (low_activity)
+ *
+ * Volume is secondary; liquidity is primary.
  */
 export async function checkTokenLiquidityAndVolume(token: TokenInfo): Promise<LiquidityResult> {
-  // Tip uyarılarını önlemek için bilinmeyenden yerel tipe cast ediyoruz
   const vl = (await getVolumeAndLiquidity(token)) as unknown as VL;
 
-  const {
-    dexVolumeUSD,
-    cexVolumeUSD,
-    totalVolumeUSD,
-    dexLiquidityUSD,
-    dexSource,
-    cexSource,
-  } = vl;
+  const dexVol = toNonNegNumber(vl?.dexVolumeUSD ?? 0);
+  const cexVol = toNonNegNumber(vl?.cexVolumeUSD ?? 0);
+  const totalVol = toNonNegNumber(vl?.totalVolumeUSD ?? (dexVol + cexVol));
+  const liq = toNonNegNumber(vl?.dexLiquidityUSD ?? 0);
 
-  // Güvenli sayısal dönüştürme + alt sınır 0
-  const vol = Math.max(0, Number(totalVolumeUSD ?? 0));
-  const liq = Math.max(0, Number(dexLiquidityUSD ?? 0));
+  const dexSource = vl?.dexSource ?? 'none';
+  const cexSource = vl?.cexSource ?? 'none';
 
-  // ── Karar (İKİSİ BİRDEN şartı) ───────────────────────────────────────────────
+  const { healthyMinLiq, healthyMinVol, walkingDeadMinLiq, walkingDeadMinVol } =
+    await getTokenThresholds();
+
+  // If absolutely no DEX signal, treat as deadcoin by metrics layer.
+  // (Price-based deadcoin is determined in getUsdValue/classifyToken.)
+  const noDexSignal = (dexSource === 'none') && liq === 0 && dexVol === 0;
+
   let category: TokenCategory = 'deadcoin';
+  let reason: LiquidityReason = 'no_data';
 
-  // healthy: İKİSİ DE yüksek eşiklerde
-  if (vol >= HEALTHY_MIN_VOL && liq >= HEALTHY_MIN_LIQ) {
-    category = 'healthy';
-  }
-  // walking_dead: İKİSİ DE orta bantta (alt eşiklerin üstünde)
-  else if (vol >= WD_MIN_VOL && liq >= WD_MIN_LIQ) {
-    category = 'walking_dead';
-  }
-  // deadcoin: diğer tüm durumlar (ikisi de düşük / biri düşük)
-  else {
+  if (noDexSignal) {
     category = 'deadcoin';
+    reason = 'no_data';
+  } else if (liq < walkingDeadMinLiq) {
+    // illiquid but still has some signal (or could be just small liq)
+    category = 'walking_dead';
+    reason = 'illiquid';
+  } else if (liq >= healthyMinLiq && totalVol >= healthyMinVol) {
+    category = 'healthy';
+    reason = 'healthy';
+  } else {
+    // liquidity is ok-ish (>= WD_MIN_LIQ) but not healthy, or volume too low
+    // WD_VOL can be 0 (your setting). Keep it as an additional hint, but not required.
+    // If you want WD_VOL to hard-gate WD, we can enforce it later.
+    category = 'walking_dead';
+    reason = totalVol <= walkingDeadMinVol ? 'low_activity' : 'low_activity';
   }
 
   return {
-    volume: vol,
-    dexVolume: Math.max(0, Number(dexVolumeUSD ?? 0)),
-    cexVolume: Math.max(0, Number(cexVolumeUSD ?? 0)),
+    volume: totalVol,
+    dexVolume: dexVol,
+    cexVolume: cexVol,
     liquidity: liq,
     category,
+    reason,
     sources: { dex: dexSource, cex: cexSource },
   };
 }

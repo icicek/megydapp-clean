@@ -4,29 +4,28 @@ import { cache, statusKey, STATUS_TTL } from '@/app/api/_lib/cache';
 import type { TokenStatus } from '@/app/api/_lib/types';
 import { verifyCsrf } from '@/app/api/_lib/csrf';
 
-// Effective status hesapları (override + eşikler)
+// Effective status hesapları
 import { getEffectiveStatus, getStatusRow } from '@/app/api/_lib/registry';
 
-// Manuel upsert için mevcut helper'lar (compat)
+// Manuel upsert için compat
 import {
   getStatus as getTokenStatus,
   setStatus as upsertTokenStatus,
 } from '@/app/api/_lib/token-registry';
 
-// 🔹 YENİ: vote sayısı ve threshold için
+// votes
 import { sql } from '@/app/api/_lib/db';
 import { getVoteThreshold } from '@/app/api/_lib/settings';
+
+// ✅ NEW: thresholds + optional metrics
+import { getTokenThresholds } from '@/app/api/_lib/token-thresholds';
+import { checkTokenLiquidityAndVolume } from '@/app/api/utils/checkTokenLiquidityAndVolume';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/status?mint=...
- * - Effective status döner (red/black override + eşikler).
- * - statusAt için registry satırından en uygun alan seçilir.
- * - Node-cache ile kısa süreli cache (STATUS_TTL) uygular.
- * - Ek olarak community oy sayısı ve threshold döner.
- * Yanıt: { success: true, mint, status, statusAt, votesYes, threshold }
+ * GET /api/status?mint=...&includeMetrics=1
  */
 export async function GET(req: NextRequest) {
   try {
@@ -38,15 +37,16 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const includeMetrics =
+      req.nextUrl.searchParams.get('includeMetrics') === '1';
+
     // --- 1) Status + statusAt (cache destekli) ---
     const key = statusKey(mint);
 
     let status: TokenStatus;
     let statusAt: string | null;
 
-    const cached = cache.get<{ status: TokenStatus; statusAt: string | null }>(
-      key,
-    );
+    const cached = cache.get<{ status: TokenStatus; statusAt: string | null }>(key);
     if (cached) {
       status = cached.status;
       statusAt = cached.statusAt;
@@ -54,8 +54,7 @@ export async function GET(req: NextRequest) {
       const eff = (await getEffectiveStatus(mint)) as TokenStatus;
 
       const row: any = await getStatusRow(mint);
-      const at =
-        row?.status_at ?? row?.updated_at ?? row?.created_at ?? null;
+      const at = row?.status_at ?? row?.updated_at ?? row?.created_at ?? null;
 
       status = eff;
       statusAt = at;
@@ -72,10 +71,32 @@ export async function GET(req: NextRequest) {
 
     const votesYes = yesRows[0]?.c ?? 0;
 
-    // Dinamik threshold (admin panelden değişebilir)
+    // Dinamik vote threshold
     const threshold = await getVoteThreshold();
 
-    // --- 3) Yanıt ---
+    // --- 3) Token thresholds (DB) ---
+    // admin panel değişince /api/admin/config invalidate ediyor; burada ayrıca TTL var
+    const thresholds = await getTokenThresholds();
+
+    // --- 4) Optional metrics snapshot (liq/vol) ---
+    let metrics: any = null;
+    if (includeMetrics) {
+      try {
+        const m = await checkTokenLiquidityAndVolume({ mint });
+        metrics = {
+          category: m.category,
+          reason: (m as any).reason ?? null,
+          liquidity: m.liquidity,
+          volume: m.volume,
+          dexVolume: m.dexVolume,
+          cexVolume: m.cexVolume,
+          sources: m.sources,
+        };
+      } catch (e: any) {
+        metrics = { error: e?.message || 'metrics_failed' };
+      }
+    }
+
     return NextResponse.json(
       {
         success: true,
@@ -84,6 +105,8 @@ export async function GET(req: NextRequest) {
         statusAt,
         votesYes,
         threshold,
+        thresholds, // ✅ new
+        metrics,    // ✅ new (optional)
       },
       {
         headers: {
@@ -100,11 +123,7 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * PUT /api/status
- * Body: { mint, status, reason?, source?="manual", force?=false, meta?={}, changedBy? }
- * - Eski sözleşmeyle uyumlu (reason/source/force/meta desteklenir).
- * - upsert sonrası token-registry.setStatus cache invalidation yapıyorsa ek iş yok;
- *   yine de emniyet için local cache'i siliyoruz.
+ * PUT /api/status (unchanged, only keep)
  */
 export async function PUT(req: NextRequest) {
   try {
@@ -118,7 +137,7 @@ export async function PUT(req: NextRequest) {
       source = 'manual',
       force = false,
       meta = {},
-      changedBy, // optional
+      changedBy,
     } = body || {};
 
     const allowed: TokenStatus[] = [
@@ -135,20 +154,15 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    // Önceki durum (compat)
     const prev = await getTokenStatus(mint);
-
-    // Actor
     const actor = (changedBy as string) || (source as string) || 'manual';
 
-    // Meta birleştir
     const mergedMeta = {
       ...((typeof meta === 'object' && meta) || {}),
       source,
       force: !!force,
     };
 
-    // Upsert + audit + (genelde) cache invalidation inside
     const after = await upsertTokenStatus({
       mint,
       newStatus: status as TokenStatus,
@@ -157,7 +171,6 @@ export async function PUT(req: NextRequest) {
       meta: mergedMeta,
     });
 
-    // Emniyet: local cache'i de temizle
     try {
       cache.del(statusKey(mint));
     } catch {}
