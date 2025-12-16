@@ -1,6 +1,8 @@
 name: Reclassify tokens (cron)
 
 on:
+  schedule:
+    - cron: "0 */12 * * *" # every 12 hours (UTC)
   # Elle tetiklemek için:
   workflow_dispatch:
     inputs:
@@ -15,16 +17,15 @@ concurrency:
 
 jobs:
   call-cron-endpoint:
-    name: Call CRON endpoint (manual)
+    name: Call CRON endpoint
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # environment: production  # (prod env/secretlarını sabitlemek istiyorsan aç)
 
     steps:
       - name: Resolve envs (prefer secrets, fallback to vars)
         id: prep
         env:
-          CRON_URL_SECRET: ${{ secrets.CRON_URL }}   # Örn: https://<site>/api/admin/reclassify
+          CRON_URL_SECRET: ${{ secrets.CRON_URL }}   # e.g. https://<site>/api/admin/reclassify
           CRON_URL_VAR:    ${{ vars.CRON_URL }}
           CRON_SECRET_S:   ${{ secrets.CRON_SECRET }}
           CRON_SECRET_V:   ${{ vars.CRON_SECRET }}
@@ -40,12 +41,55 @@ jobs:
             echo "CRON_SECRET eksik"; exit 1;
           fi
 
+          # Toggle endpoint: /api/admin/config/cron_enabled
+          # CRON_URL: .../api/admin/reclassify
+          BASE="${CRON_URL%/api/admin/reclassify}"
+          CONFIG_URL="${BASE}/api/admin/config/cron_enabled"
+
           echo "cron_url=$CRON_URL" >> "$GITHUB_OUTPUT"
+          echo "config_url=$CONFIG_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Check Cron Enabled (DB toggle) — skip early if disabled
+        env:
+          CONFIG_URL: ${{ steps.prep.outputs.config_url }}
+        run: |
+          set -euo pipefail
+          BODY=$(curl -sS -L --retry 2 --retry-delay 2 \
+            "$CONFIG_URL?v=$(date +%s)")
+
+          echo "Toggle response: $BODY"
+
+          # Expected: { "success": true, "value": "true"|"false" }
+          ENABLED="true"
+          if command -v jq >/dev/null 2>&1; then
+            ENABLED=$(echo "$BODY" | jq -r '.value // "true"' | tr '[:upper:]' '[:lower:]')
+          else
+            # fallback: naive parse
+            if echo "$BODY" | grep -qi '"value"[[:space:]]*:[[:space:]]*"false"'; then
+              ENABLED="false"
+            fi
+          fi
+
+          if [ "$ENABLED" != "true" ]; then
+            echo "Cron disabled in DB (cron_enabled=false) — skipping without calling reclassify."
+            {
+              echo "### Reclassify cron — SKIPPED"
+              echo ""
+              echo "- Reason: cron_enabled=false"
+              echo "- Config URL: $CONFIG_URL"
+              echo ""
+              echo '```json'
+              echo "$BODY"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
 
       - name: HEAD (sanity check)
         env:
           CRON_URL: ${{ steps.prep.outputs.cron_url }}
         run: |
+          set amplification on
           set -euo pipefail
           CODE=$(curl -sS -I -L \
             --retry 2 --retry-delay 2 \
