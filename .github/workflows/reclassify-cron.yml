@@ -174,3 +174,4 @@ jobs:
               echo "Endpoint ok:false döndürdü veya JSON geçersiz"; exit 1
             fi
           fi
+nano .github/workflows/reclassify-cron.yml
