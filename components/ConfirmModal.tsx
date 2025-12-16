@@ -84,6 +84,49 @@ export default function ConfirmModal({
 
   const busy = confirmBusy || internalBusy;
 
+  // ✅ Safe USD derivation (unit price * amount)
+  const firstUnit = useMemo(() => {
+    const p =
+      Array.isArray(priceSources) && priceSources[0]?.price
+        ? Number(priceSources[0].price)
+        : 0;
+    return Number.isFinite(p) ? p : 0;
+  }, [priceSources]);
+
+  const derivedUsd = useMemo(() => {
+    const total =
+      usdValue > 0
+        ? usdValue
+        : firstUnit > 0
+        ? firstUnit * Math.max(1, amount)
+        : 0;
+    return Number.isFinite(total) ? total : 0;
+  }, [usdValue, firstUnit, amount]);
+
+  // 🔒 Effective status resolver (UI single source of truth)
+  function resolveEffectiveStatus() {
+    if (listStatus === 'blacklist') return 'blacklist';
+    if (listStatus === 'redlist') return 'redlist';
+    if (listStatus === 'deadcoin') return 'deadcoin';
+    if (listStatus === 'walking_dead') return 'walking_dead';
+
+    if (
+      fetchStatus !== 'loading' &&
+      fetchStatus !== 'error' &&
+      derivedUsd === 0
+    ) {
+      return 'deadcoin';
+    }
+
+    return 'healthy';
+  }
+
+  const effectiveStatus = useMemo(() => resolveEffectiveStatus(), [
+    listStatus,
+    fetchStatus,
+    derivedUsd,
+  ]);  
+
   // 🔎 Token list status (optional)
   useEffect(() => {
     let abort = false;
@@ -91,7 +134,10 @@ export default function ConfirmModal({
       if (!isOpen || !tokenMint) return;
       try {
         setStatusLoading(true);
-        const res = await fetch(`/api/status?mint=${encodeURIComponent(tokenMint)}`, { cache: 'no-store' });
+        const res = await fetch(
+          `/api/status?mint=${encodeURIComponent(tokenMint)}&includeMetrics=1`,
+          { cache: 'no-store' }
+        );        
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();
         if (abort) return;
@@ -129,24 +175,10 @@ export default function ConfirmModal({
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).has('debug');
 
-  // ✅ Safe USD derivation (unit price * amount) if needed
-  const firstUnit = useMemo(() => {
-    const p = Array.isArray(priceSources) && priceSources[0]?.price ? Number(priceSources[0].price) : 0;
-    return Number.isFinite(p) ? p : 0;
-  }, [priceSources]);
-
-  const derivedUsd = useMemo(() => {
-    const total = usdValue > 0 ? usdValue : (firstUnit > 0 ? firstUnit * Math.max(1, amount) : 0);
-    return Number.isFinite(total) ? total : 0;
-  }, [usdValue, firstUnit, amount]);
-
   // ✅ Rules: Black/Red list hard block; Deadcoin allowed
-  const isHardBlocked = listStatus === 'blacklist' || listStatus === 'redlist';
-  const isDeadcoin =
-  listStatus === 'deadcoin' ||
-  (fetchStatus !== 'loading' &&
-    fetchStatus !== 'error' &&
-    derivedUsd === 0);
+  const isHardBlocked =
+  effectiveStatus === 'blacklist' || effectiveStatus === 'redlist';
+  const isDeadcoin = effectiveStatus === 'deadcoin';
 
   // UI helpers
   const short = (s?: string | null) =>
@@ -221,7 +253,10 @@ export default function ConfirmModal({
       ? 'Confirm Deadcoin Coincarnation'
       : `Confirm Coincarnation${amount ? ` (${amount} ${tokenSymbol})` : ''}`);
 
-  const titleText = isDeadcoin ? 'Confirm Deadcoin Coincarnation' : 'Confirm Coincarnation';
+  const titleText =
+  effectiveStatus === 'deadcoin'
+    ? 'Confirm Deadcoin Coincarnation'
+    : 'Confirm Coincarnation';
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onCancel(); }}>

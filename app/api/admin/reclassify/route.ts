@@ -20,6 +20,13 @@ async function tryImportReclassifyAll():
   }
 }
 
+export async function GET() {
+  return NextResponse.json(
+    { ok: false, error: 'method_not_allowed' },
+    { status: 405, headers: { 'Cache-Control': 'no-store' } }
+  );
+}
+
 export async function POST(req: Request) {
   try {
     // 🚦 Global cron guard (ENV/DB toggle)
@@ -31,19 +38,19 @@ export async function POST(req: Request) {
     if (!expected) {
       return NextResponse.json(
         { ok: false, error: 'server_missing_cron_secret' },
-        { status: 500 }
+        { status: 500, headers: { 'Cache-Control': 'no-store' } }
       );
     }
     if (!header) {
       return NextResponse.json(
         { ok: false, error: 'missing_header' },
-        { status: 401 }
+        { status: 401, headers: { 'Cache-Control': 'no-store' } }
       );
     }
     if (header !== expected) {
       return NextResponse.json(
         { ok: false, error: 'bad_secret' },
-        { status: 401 }
+        { status: 401, headers: { 'Cache-Control': 'no-store' } }
       );
     }
 
@@ -52,7 +59,7 @@ export async function POST(req: Request) {
     if (!url) {
       return NextResponse.json(
         { ok: false, error: 'server_missing_db_url' },
-        { status: 500 }
+        { status: 500, headers: { 'Cache-Control': 'no-store' } }
       );
     }
     const sql = neon(url) as unknown as Sql;
@@ -65,18 +72,28 @@ export async function POST(req: Request) {
     // 🧠 Business logic (dynamic import keeps cold start low if unused)
     const reclassifyAll = await tryImportReclassifyAll();
     if (!reclassifyAll) {
-      return NextResponse.json({
-        ok: true,
-        stage: 'no_impl',
-        skipped: true,
-        reason: 'no_reclassify_impl',
-      });
+      return NextResponse.json(
+        {
+          ok: true,
+          stage: 'no_impl',
+          skipped: true,
+          reason: 'no_reclassify_impl',
+          force,
+        },
+        { headers: { 'Cache-Control': 'no-store' } }
+      );
     }
 
     const result = await reclassifyAll(sql, { force });
-    return NextResponse.json({ ok: true, stage: 'after_reclassify', ...result });
+    return NextResponse.json(
+      { ok: true, stage: 'after_reclassify', force, ...result },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
   } catch (err: unknown) {
     const { status, body } = httpErrorFrom(err, 500);
-    return NextResponse.json({ ok: false, ...body }, { status });
+    return NextResponse.json(
+      { ok: false, ...body },
+      { status, headers: { 'Cache-Control': 'no-store' } }
+    );
   }
 }

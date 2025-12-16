@@ -181,10 +181,72 @@ export function computeStatusDecision(arg: any): any {
   return { status: 'walking_dead', voteSuggested: suggest };
 }
 
-// -------------------- Etkili statü --------------------
-export async function getEffectiveStatus(mint: string): Promise<TokenStatus> {
-  const row = await getStatusRow(mint);
-  if (!row) return 'healthy';
-  if (row.status === 'blacklist' || row.status === 'redlist') return row.status;
-  return row.status;
+// -------------------- Effective status (final decision) --------------------
+
+export type EffectiveStatusInput = {
+  registryStatus: TokenStatus | null;
+  registrySource: string | null; // meta.source gibi (manual/community/system)
+  metricsCategory: 'healthy' | 'walking_dead' | 'deadcoin' | null;
+  usdValue: number; // 0 => fiyat yok / deadcoin muamelesi
+};
+
+/**
+ * ✅ FINAL DECISION (single source of truth)
+ *
+ * Hard rules:
+ * 1) blacklist/redlist hard lock
+ * 2) registry deadcoin (admin/community/system) LOCKED (no auto-upgrade)
+ *
+ * Auto transitions allowed:
+ * - healthy -> walking_dead
+ * - healthy -> deadcoin
+ * - walking_dead -> deadcoin
+ * - walking_dead -> healthy   ✅ (requested)
+ */
+export function resolveEffectiveStatus(input: EffectiveStatusInput): TokenStatus {
+  const { registryStatus, metricsCategory, usdValue } = input;
+
+  // 1) hard locks
+  if (registryStatus === 'blacklist') return 'blacklist';
+  if (registryStatus === 'redlist') return 'redlist';
+
+  // 2) deadcoin lock (whoever set it)
+  if (registryStatus === 'deadcoin') return 'deadcoin';
+
+  // 3) price says "0" => deadcoin (unless list-locked already handled above)
+  if (usdValue === 0) return 'deadcoin';
+
+  // 4) metrics says deadcoin => deadcoin
+  if (metricsCategory === 'deadcoin') return 'deadcoin';
+
+  // 5) walking_dead <-> healthy is allowed automatically (your rule)
+  if (metricsCategory === 'walking_dead') return 'walking_dead';
+  if (metricsCategory === 'healthy') return 'healthy';
+
+  // fallback
+  return registryStatus ?? 'healthy';
+}
+
+/**
+ * Overload:
+ * - getEffectiveStatus(mint)  -> compat (registry raw-ish)
+ * - getEffectiveStatus(input) -> final decision
+ */
+export function getEffectiveStatus(input: EffectiveStatusInput): TokenStatus;
+export async function getEffectiveStatus(mint: string): Promise<TokenStatus>;
+export function getEffectiveStatus(arg: any): any {
+  // NEW: decision path
+  if (typeof arg === 'object' && arg) {
+    return resolveEffectiveStatus(arg as EffectiveStatusInput);
+  }
+
+  // OLD: compat path (mint -> registry only)
+  return (async () => {
+    const mint = String(arg || '').trim();
+    const row = await getStatusRow(mint);
+    if (!row) return 'healthy';
+    if (row.status === 'blacklist' || row.status === 'redlist') return row.status;
+    // compat: returning registry status (not metrics)
+    return row.status;
+  })();
 }

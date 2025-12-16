@@ -3,7 +3,16 @@ import getUsdValue from './getUsdValue';
 import { checkTokenLiquidityAndVolume } from './checkTokenLiquidityAndVolume';
 import type { LiquidityResult } from './checkTokenLiquidityAndVolume';
 
-export type TokenCategory = 'healthy' | 'walking_dead' | 'deadcoin' | 'redlist' | 'blacklist' | 'unknown';
+import { getEffectiveStatus } from '@/app/api/_lib/registry';
+import type { TokenStatus } from '@/app/api/_lib/types';
+
+export type TokenCategory =
+  | 'healthy'
+  | 'walking_dead'
+  | 'deadcoin'
+  | 'redlist'
+  | 'blacklist'
+  | 'unknown';
 
 interface TokenInfo {
   mint: string;
@@ -18,23 +27,46 @@ interface ClassificationResult {
   liquidity: number | null;
   status: 'ok' | 'not_found' | 'loading' | 'error';
 
-  // 🔽 Yeni (opsiyonel, geriye dönük uyumlu):
   volumeBreakdown?: {
     dexVolumeUSD: number | null;
     cexVolumeUSD: number | null;
     totalVolumeUSD: number | null;
   };
-  volumeSources?: LiquidityResult['sources']; // { dex, cex }
+  volumeSources?: LiquidityResult['sources'];
 }
 
-// 🔹 Bu listeler ileride DB/JSON’dan beslenecek (şimdilik placeholder)
+// 🔹 Placeholder listeler (şimdilik)
 const DeadcoinList = new Set<string>([]);
 const Redlist = new Set<string>([]);
 const Blacklist = new Set<string>([]);
 
-export default async function classifyToken(token: TokenInfo, amount: number): Promise<ClassificationResult> {
-  // 1) Öncelik: yönetimsel listeler
-  if (Blacklist.has(token.mint)) {
+function mapRegistryToCategory(s: TokenStatus | null): TokenCategory | null {
+  if (!s) return null;
+  if (s === 'blacklist') return 'blacklist';
+  if (s === 'redlist') return 'redlist';
+  if (s === 'deadcoin') return 'deadcoin';
+  if (s === 'walking_dead') return 'walking_dead';
+  if (s === 'healthy') return 'healthy';
+  return null;
+}
+
+export default async function classifyToken(
+  token: TokenInfo,
+  amount: number,
+): Promise<ClassificationResult> {
+  // 0) Registry override (DB)
+  // Not: getEffectiveStatus red/black override + registry status kararını tek yerden verir.
+  let regCategory: TokenCategory | null = null;
+  try {
+    const eff = (await getEffectiveStatus(token.mint)) as TokenStatus;
+    regCategory = mapRegistryToCategory(eff);
+  } catch {
+    regCategory = null;
+  }
+
+  // 1) Öncelik: yönetimsel listeler (placeholder) + registry hard overrides
+  // Registry + placeholder aynı sınıfta: black/red/deadcoin kesin blok/override.
+  if (Blacklist.has(token.mint) || regCategory === 'blacklist') {
     return {
       category: 'blacklist',
       usdValue: 0,
@@ -44,7 +76,7 @@ export default async function classifyToken(token: TokenInfo, amount: number): P
       status: 'ok',
     };
   }
-  if (Redlist.has(token.mint)) {
+  if (Redlist.has(token.mint) || regCategory === 'redlist') {
     return {
       category: 'redlist',
       usdValue: 0,
@@ -54,7 +86,7 @@ export default async function classifyToken(token: TokenInfo, amount: number): P
       status: 'ok',
     };
   }
-  if (DeadcoinList.has(token.mint)) {
+  if (DeadcoinList.has(token.mint) || regCategory === 'deadcoin') {
     return {
       category: 'deadcoin',
       usdValue: 0,
@@ -65,10 +97,9 @@ export default async function classifyToken(token: TokenInfo, amount: number): P
     };
   }
 
-  // 2) Fiyat sorgusu (kısa devre kuralları)
+  // 2) Fiyat sorgusu
   const priceResult = await getUsdValue(token as any, amount);
 
-  // getUsdValue artık 'loading' dönmüyor → error/not_found/ok
   if (priceResult.status === 'error') {
     return {
       category: 'unknown',
@@ -81,7 +112,6 @@ export default async function classifyToken(token: TokenInfo, amount: number): P
   }
 
   if (priceResult.status === 'not_found' || priceResult.usdValue <= 0) {
-    // Fiyat yok veya 0 → Deadcoin
     return {
       category: 'deadcoin',
       usdValue: 0,
@@ -92,18 +122,23 @@ export default async function classifyToken(token: TokenInfo, amount: number): P
     };
   }
 
-  // 3) Hacim & likidite kontrolü (kararı burada vereceğiz)
+  // 3) Metrics (liq/vol) classification
   const liq: LiquidityResult = await checkTokenLiquidityAndVolume(token);
 
+  // 4) walking_dead registry override: eğer registry WD ise,
+  // metrics healthy olsa bile WD olarak dön.
+  const finalCategory: TokenCategory =
+    regCategory === 'walking_dead'
+      ? 'walking_dead'
+      : (liq.category as TokenCategory);
+
   return {
-    category: liq.category,
+    category: finalCategory,
     usdValue: priceResult.usdValue,
     priceSources: priceResult.sources,
     volume: liq.volume,
     liquidity: liq.liquidity,
     status: 'ok',
-
-    // ↴ yeni kırılımlar ve kaynak bilgisi (UI/analiz için faydalı)
     volumeBreakdown: {
       dexVolumeUSD: liq.dexVolume,
       cexVolumeUSD: liq.cexVolume,
