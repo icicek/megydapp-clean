@@ -19,6 +19,7 @@ export type LiquidityReason =
   | 'healthy'
   | 'low_activity'
   | 'illiquid'
+  | 'subhealthy'
   | 'no_data';
 
 export interface LiquidityResult {
@@ -84,11 +85,10 @@ export async function checkTokenLiquidityAndVolume(token: TokenInfo): Promise<Li
     category = 'healthy';
     reason = 'healthy';
   } else {
-    // liquidity is ok-ish (>= WD_MIN_LIQ) but not healthy, or volume too low
-    // WD_VOL can be 0 (your setting). Keep it as an additional hint, but not required.
-    // If you want WD_VOL to hard-gate WD, we can enforce it later.
     category = 'walking_dead';
-    reason = totalVol <= walkingDeadMinVol ? 'low_activity' : 'low_activity';
+    // Volume secondary: liq yeterli olsa bile volume düşükse “low_activity”,
+    // volume WD_MIN_VOL üstündeyse “subhealthy” (liq ok, volume ok-ish, ama healthy barı geçmedi)
+    reason = totalVol <= walkingDeadMinVol ? 'low_activity' : 'subhealthy';
   }
 
   return {
