@@ -47,7 +47,7 @@ jobs:
           CRON_URL: ${{ steps.prep.outputs.cron_url }}
         run: |
           set -euo pipefail
-          CODE=$(curl -sS -I \
+          CODE=$(curl -sS -I -L \
             --retry 2 --retry-delay 2 \
             -o /dev/null -w "%{http_code}" \
             "$CRON_URL?v=$(date +%s)")
@@ -84,7 +84,7 @@ jobs:
             URL="${URL}&force=1"
           fi
 
-          STATUS=$(curl -sS -X POST "$URL" \
+          STATUS=$(curl -sS -L -X POST "$URL" \
             -H "X-CRON-SECRET: $CRON_SECRET" \
             --retry 2 --retry-delay 2 \
             -o /tmp/body.json -w "%{http_code}")
