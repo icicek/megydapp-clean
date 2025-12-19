@@ -2,12 +2,11 @@ name: Reclassify tokens (cron)
 
 on:
   schedule:
-    - cron: "0 */12 * * *" # every 12 hours (UTC)
-  # Elle tetiklemek için:
+    - cron: "0 */12 * * *"   # every 12 hours (UTC)
   workflow_dispatch:
     inputs:
       force:
-        description: "Cooldown'ı bypass et (1 = evet)"
+        description: "Cooldown bypass (1 = yes) — manual only"
         required: false
         default: "0"
 
@@ -17,7 +16,6 @@ concurrency:
 
 jobs:
   call-cron-endpoint:
-    name: Call CRON endpoint
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -25,63 +23,48 @@ jobs:
       - name: Resolve envs (prefer secrets, fallback to vars)
         id: prep
         env:
-          CRON_URL_SECRET: ${{ secrets.CRON_URL }}   # e.g. https://<site>/api/admin/reclassify
+          CRON_URL_SECRET: ${{ secrets.CRON_URL }}   # https://<site>/api/admin/reclassify
           CRON_URL_VAR:    ${{ vars.CRON_URL }}
           CRON_SECRET_S:   ${{ secrets.CRON_SECRET }}
           CRON_SECRET_V:   ${{ vars.CRON_SECRET }}
+
+          CRON_ENABLED_URL_SECRET: ${{ secrets.CRON_ENABLED_URL }}  # https://<site>/api/admin/config/cron_enabled
+          CRON_ENABLED_URL_VAR:    ${{ vars.CRON_ENABLED_URL }}
         run: |
           set -euo pipefail
+
           CRON_URL="${CRON_URL_SECRET:-${CRON_URL_VAR:-}}"
           CRON_SECRET="${CRON_SECRET_S:-${CRON_SECRET_V:-}}"
+          CRON_ENABLED_URL="${CRON_ENABLED_URL_SECRET:-${CRON_ENABLED_URL_VAR:-}}"
 
           if [ -z "${CRON_URL:-}" ]; then
-            echo "CRON_URL eksik (örn: https://<site>/api/admin/reclassify)"; exit 1;
+            echo "CRON_URL missing"; exit 1;
           fi
           if [ -z "${CRON_SECRET:-}" ]; then
-            echo "CRON_SECRET eksik"; exit 1;
+            echo "CRON_SECRET missing"; exit 1;
           fi
-
-          # Toggle endpoint: /api/admin/config/cron_enabled
-          # CRON_URL: .../api/admin/reclassify
-          BASE="${CRON_URL%/api/admin/reclassify}"
-          CONFIG_URL="${BASE}/api/admin/config/cron_enabled"
+          if [ -z "${CRON_ENABLED_URL:-}" ]; then
+            echo "CRON_ENABLED_URL missing"; exit 1;
+          fi
 
           echo "cron_url=$CRON_URL" >> "$GITHUB_OUTPUT"
-          echo "config_url=$CONFIG_URL" >> "$GITHUB_OUTPUT"
+          echo "cron_enabled_url=$CRON_ENABLED_URL" >> "$GITHUB_OUTPUT"
 
-      - name: Check Cron Enabled (DB toggle) — skip early if disabled
+      - name: Precheck cron_enabled (skip only for schedule)
+        if: ${{ github.event_name == 'schedule' }}
         env:
-          CONFIG_URL: ${{ steps.prep.outputs.config_url }}
+          CRON_ENABLED_URL: ${{ steps.prep.outputs.cron_enabled_url }}
         run: |
           set -euo pipefail
-          BODY=$(curl -sS -L --retry 2 --retry-delay 2 \
-            "$CONFIG_URL?v=$(date +%s)")
+          BODY=$(curl -sS -L --retry 2 --retry-delay 2 "$CRON_ENABLED_URL?v=$(date +%s)" || true)
+          echo "cron_enabled response: $BODY"
 
-          echo "Toggle response: $BODY"
+          # Your endpoint returns: { success: true, value: "true"|"false" }
+          ENABLED=$(echo "$BODY" | jq -r '.value // "true"' 2>/dev/null || echo "true")
+          ENABLED=$(echo "$ENABLED" | tr '[:upper:]' '[:lower:]')
 
-          # Expected: { "success": true, "value": "true"|"false" }
-          ENABLED="true"
-          if command -v jq >/dev/null 2>&1; then
-            ENABLED=$(echo "$BODY" | jq -r '.value // "true"' | tr '[:upper:]' '[:lower:]')
-          else
-            # fallback: naive parse
-            if echo "$BODY" | grep -qi '"value"[[:space:]]*:[[:space:]]*"false"'; then
-              ENABLED="false"
-            fi
-          fi
-
-          if [ "$ENABLED" != "true" ]; then
-            echo "Cron disabled in DB (cron_enabled=false) — skipping without calling reclassify."
-            {
-              echo "### Reclassify cron — SKIPPED"
-              echo ""
-              echo "- Reason: cron_enabled=false"
-              echo "- Config URL: $CONFIG_URL"
-              echo ""
-              echo '```json'
-              echo "$BODY"
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$ENABLED" != "true" ] && [ "$ENABLED" != "1" ] && [ "$ENABLED" != "yes" ] && [ "$ENABLED" != "on" ]; then
+            echo "Cron disabled in admin panel — skipping scheduled run."
             exit 0
           fi
 
@@ -89,7 +72,6 @@ jobs:
         env:
           CRON_URL: ${{ steps.prep.outputs.cron_url }}
         run: |
-          set amplification on
           set -euo pipefail
           CODE=$(curl -sS -I -L \
             --retry 2 --retry-delay 2 \
@@ -97,16 +79,6 @@ jobs:
             "$CRON_URL?v=$(date +%s)")
           echo "HEAD status: $CODE"
 
-          {
-            echo "### Reclassify cron — HEAD"
-            echo ""
-            echo "- Event: **${{ github.event_name }}**"
-            echo "- Ref: **${{ github.ref_name }}**"
-            echo "- URL: $CRON_URL"
-            echo "- Status: $CODE"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          # 404 = path yanlış; kabul edilenler: 200/204/405/308
           case "$CODE" in
             200|204|405|308) true ;;
             404) echo "Not found (bad path)"; exit 1 ;;
@@ -123,7 +95,7 @@ jobs:
           CRON_SECRET="${CRON_SECRET_S:-${CRON_SECRET_V:-}}"
 
           URL="$CRON_URL?v=$(date +%s)"
-          # Manuel tetiklemede force=1 isteğe bağlı
+          # Only manual dispatch can add force=1
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.force }}" = "1" ]; then
             URL="${URL}&force=1"
           fi
@@ -134,44 +106,23 @@ jobs:
             -o /tmp/body.json -w "%{http_code}")
 
           echo "HTTP $STATUS"
-          echo "---- Response body ----"
           cat /tmp/body.json || true
 
-          {
-            echo "### Reclassify cron — POST"
-            echo ""
-            echo "- URL: $URL"
-            echo "- HTTP: **$STATUS**"
-            echo ""
-            echo '```json'
-            cat /tmp/body.json || true
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          # 503 CRON_DISABLED ise 'skipped' say ve hataya düşme
+          # Treat CRON_DISABLED as skipped (no failure)
           if [ "$STATUS" = "503" ]; then
-            if command -v jq >/dev/null 2>&1; then
-              ERR=$(jq -r '.error // empty' /tmp/body.json 2>/dev/null || true)
-              if [ "$ERR" = "CRON_DISABLED" ]; then
-                echo "Cron disabled — skipping without failure."
-                exit 0
-              fi
-            else
-              echo "503 received — treating as skipped."
+            ERR=$(jq -r '.error // empty' /tmp/body.json 2>/dev/null || true)
+            if [ "$ERR" = "CRON_DISABLED" ]; then
+              echo "Cron disabled — skipping without failure."
               exit 0
             fi
           fi
 
-          # Diğer HTTP hatalarında fail
           if [ "$STATUS" -ge 400 ]; then
             exit 1
           fi
 
-          # JSON 'ok:false' ise fail (jq varsa kontrol)
-          if command -v jq >/dev/null 2>&1; then
-            OK=$(jq -r '.ok // empty' /tmp/body.json 2>/dev/null || true)
-            if [ "$OK" != "true" ]; then
-              echo "Endpoint ok:false döndürdü veya JSON geçersiz"; exit 1
-            fi
+          OK=$(jq -r '.ok // empty' /tmp/body.json 2>/dev/null || true)
+          if [ "$OK" != "true" ]; then
+            echo "Endpoint ok:false or invalid JSON"
+            exit 1
           fi
-nano .github/workflows/reclassify-cron.yml
