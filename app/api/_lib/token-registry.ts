@@ -34,10 +34,10 @@ function normalizeMetaForStatus(newStatus: TokenStatus, meta: any) {
     meta && typeof meta === 'object' && !Array.isArray(meta) ? { ...meta } : {};
 
   // Clean all lock-shaped fields first (defensive)
+  if (m.lock && typeof m.lock === 'object') delete (m.lock as any).deadcoin;
   delete (m as any).lock;
   delete (m as any).lock_deadcoin;
   delete (m as any).lock_list;
-  if (m.lock && typeof m.lock === 'object') delete (m.lock as any).deadcoin;
 
   if (newStatus === 'deadcoin') {
     // lock deadcoin permanently (whoever/whatever sets it)
@@ -56,7 +56,23 @@ export async function setStatus({
   meta = {},
 }: SetStatusInput): Promise<{ status: TokenStatus; statusAt: string }> {
   const normalizedMeta = normalizeMetaForStatus(newStatus, meta);
+  type LegacySource = 'engine' | 'vote' | 'manual' | 'external';
+
+  function legacySourceFrom(changedBy: string, meta: any): LegacySource {
+    const src = String(meta?.source ?? changedBy ?? '').toLowerCase();
+
+    if (src.includes('cron')) return 'engine';
+    if (src.includes('vote') || src.includes('community')) return 'vote';
+    if (src.includes('admin')) return 'manual';
+    if (src.includes('system')) return 'manual';
+
+    // wallet address / unknown actor
+    return 'external';
+  }
+
   const metaJson = normalizedMeta ? JSON.stringify(normalizedMeta) : null;
+  const legacySource = legacySourceFrom(changedBy, normalizedMeta);
+
 
   const rows = (await sql`
     WITH prev AS (
@@ -84,11 +100,29 @@ export async function setStatus({
         updated_at = NOW()
       RETURNING status, status_at
     ),
+    compat AS (
+      INSERT INTO token_status (mint, status, status_reason, status_source, status_at, meta)
+      VALUES (
+        ${mint},
+        ${newStatus}::token_status_enum,
+        ${reason},
+        ${legacySource}::token_status_source_enum,
+        NOW(),
+        ${metaJson}::jsonb
+      )
+      ON CONFLICT (mint) DO UPDATE
+        SET status        = EXCLUDED.status,
+            status_reason = EXCLUDED.status_reason,
+            status_source = EXCLUDED.status_source,
+            status_at     = EXCLUDED.status_at,
+            meta          = EXCLUDED.meta
+      RETURNING 1
+    ),
     audit_ins AS (
       INSERT INTO token_audit (mint, old_status, new_status, reason, meta, updated_by)
       SELECT
         ${mint},
-        (SELECT old_status FROM prev)::token_status_enum,
+        COALESCE((SELECT old_status FROM prev), 'healthy')::token_status_enum
         (SELECT status FROM upsert)::token_status_enum,
         ${reason},
         ${metaJson},

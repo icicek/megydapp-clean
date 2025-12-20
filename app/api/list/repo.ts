@@ -1,10 +1,20 @@
-// LEGACY: This file is not used by the main Coincarnation registry anymore.
-// It operates on `token_status` table, while the live system uses `token_registry`.
-// Kept only for potential LV/list experiments. Safe to delete when no longer needed.
-
 // app/api/list/repo.ts
-import { neon } from '@neondatabase/serverless';
+//
+// LEGACY: kept for potential LV/list experiments.
+// IMPORTANT: Single source of truth is token_registry.
+// This file now PROXIES status read/write to token_registry,
+// which also keeps token_status in sync via compat upsert.
+//
+// deadcoin_votes table stays as-is.
 
+import { neon } from '@neondatabase/serverless';
+import type { TokenStatus as RegistryStatus } from '@/app/api/_lib/types';
+import {
+  getStatus as getRegistryStatus,
+  setStatus as setRegistryStatus,
+} from '@/app/api/_lib/token-registry';
+
+// Keep a local sql ONLY for deadcoin_votes reads/writes.
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
 export type TokenStatus = 'healthy' | 'walking_dead' | 'deadcoin' | 'redlist' | 'blacklist';
@@ -18,23 +28,41 @@ const precedence: Record<TokenStatus, number> = {
   blacklist: 5,
 };
 
-export async function getStatus(mint: string): Promise<{ status: TokenStatus; statusAt: string | null }> {
-  const res = await sql`
-    SELECT status::text AS status, status_at
-    FROM token_status
-    WHERE mint = ${mint}
-    LIMIT 1
-  `;
-  const rows = res as unknown as { status: string; status_at: string | null }[];
-  if (rows.length) {
-    return { status: rows[0].status as TokenStatus, statusAt: rows[0].status_at ?? null };
+function toRegistryStatus(s: TokenStatus): RegistryStatus {
+  return s as RegistryStatus;
+}
+
+function toLocalStatus(s: RegistryStatus): TokenStatus {
+  return s as TokenStatus;
+}
+
+function legacyChangedBy(source: Source): string {
+  switch (source) {
+    case 'engine':
+      return 'legacy:list_repo:engine';
+    case 'vote':
+      return 'legacy:list_repo:vote';
+    case 'manual':
+      return 'legacy:list_repo:manual';
+    default:
+      return 'legacy:list_repo:external';
   }
-  return { status: 'healthy', statusAt: null };
+}
+
+export async function getStatus(
+  mint: string
+): Promise<{ status: TokenStatus; statusAt: string | null }> {
+  // ✅ Read from token_registry (single source of truth)
+  const r = await getRegistryStatus(mint);
+  return { status: toLocalStatus(r.status), statusAt: r.statusAt };
 }
 
 /**
- * Statüyü atomik olarak günceller.
- * Varsayılan: daha güçlü bir statü mevcutsa downgrade'e izin vermez (force ile aşılabilir).
+ * Atomically updates status.
+ * Default: if a stronger status already exists, it won't downgrade (unless force=true).
+ *
+ * NOTE: This now writes to token_registry.
+ * token_status will be synced via compat upsert in token-registry.setStatus.
  */
 export async function setStatus(
   mint: string,
@@ -43,41 +71,36 @@ export async function setStatus(
 ) {
   const reason = opts?.reason ?? null;
   const source = (opts?.source ?? 'engine') as Source;
-  const force  = !!opts?.force;
+  const force = !!opts?.force;
   const meta = opts?.meta ?? {};
 
-  const currentRows = await sql`
-    SELECT status::text AS status
-    FROM token_status
-    WHERE mint = ${mint}
-    LIMIT 1
-  `;
-  const current: TokenStatus | null = (currentRows as any[]).length ? (currentRows as any[])[0].status as TokenStatus : null;
-
-  if (current && !force) {
-    // blacklist/redlist gibi daha güçlü statüyü koru
-    if (precedence[current] >= precedence[newStatus]) {
-      return { skipped: true, currentStatus: current };
+  const current = await getStatus(mint);
+  if (current.status && !force) {
+    if (precedence[current.status] >= precedence[newStatus]) {
+      return { skipped: true, currentStatus: current.status };
     }
   }
 
-  await sql`
-    INSERT INTO token_status (mint, status, status_reason, status_source, status_at, meta)
-    VALUES (${mint}, ${newStatus}::token_status_enum, ${reason}, ${source}::token_status_source_enum, now(), ${JSON.stringify(meta)}::jsonb)
-    ON CONFLICT (mint) DO UPDATE
-      SET status        = EXCLUDED.status,
-          status_reason = EXCLUDED.status_reason,
-          status_source = EXCLUDED.status_source,
-          status_at     = EXCLUDED.status_at,
-          meta          = EXCLUDED.meta;
-  `;
+  await setRegistryStatus({
+    mint,
+    newStatus: toRegistryStatus(newStatus),
+    changedBy: legacyChangedBy(source),
+    reason,
+    meta: { ...meta, source: 'legacy' },
+  });
 
   const after = await getStatus(mint);
   return { skipped: false, currentStatus: after.status };
 }
 
-/** Oy kaydı + eşik geçilirse deadcoin’e terfi */
-export async function recordVote(mint: string, voterWallet: string, voteYes: boolean, threshold = 3) {
+/** Vote record + promote to deadcoin if threshold met */
+export async function recordVote(
+  mint: string,
+  voterWallet: string,
+  voteYes: boolean,
+  threshold = 3
+) {
+  // ✅ keep votes table as legacy-compatible
   await sql`
     INSERT INTO deadcoin_votes (mint, voter_wallet, vote)
     VALUES (${mint}, ${voterWallet}, ${voteYes})
@@ -93,7 +116,7 @@ export async function recordVote(mint: string, voterWallet: string, voteYes: boo
   `;
   const rows = res as unknown as { yes: number; no: number }[];
   const yes = rows[0]?.yes ?? 0;
-  const no  = rows[0]?.no  ?? 0;
+  const no = rows[0]?.no ?? 0;
 
   let promoted = false;
   if (yes >= threshold) {
@@ -103,21 +126,22 @@ export async function recordVote(mint: string, voterWallet: string, voteYes: boo
   return { yes, no, promoted };
 }
 
-/** L/V kategorisini uygula (blacklist/redlist’e saygılı) */
-export async function applyLvCategory(mint: string, category: 'healthy'|'walking_dead'|'deadcoin') {
+/** Apply L/V category (respects blacklist/redlist) */
+export async function applyLvCategory(
+  mint: string,
+  category: 'healthy' | 'walking_dead' | 'deadcoin'
+) {
   const current = await getStatus(mint);
   if (current.status === 'blacklist' || current.status === 'redlist') {
     return { skipped: true, currentStatus: current.status };
   }
 
   if (category === 'healthy') {
-    // Kayıt dursun istiyorsan:
     await setStatus(mint, 'healthy', { source: 'engine' });
-    // Ya da tamamen kaldırmak istersen: await sql`DELETE FROM token_status WHERE mint = ${mint}`;
   } else if (category === 'walking_dead') {
     await setStatus(mint, 'walking_dead', { source: 'engine' });
   } else if (category === 'deadcoin') {
-    // Senin akış: önce WD, oy eşiği sonra deadcoin
+    // legacy flow: first WD awaiting_votes
     await setStatus(mint, 'walking_dead', { source: 'engine', reason: 'awaiting_votes' });
   }
 
