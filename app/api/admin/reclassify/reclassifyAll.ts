@@ -31,26 +31,15 @@ function registrySourceFromRow(row: any): string | null {
   return row?.meta?.source ?? row?.updated_by ?? row?.reason ?? null;
 }
 
-// ✅ Lock logic MUST match /api/status
+// ✅ Lock logic: only deadcoin is locked; WD is NOT locked.
 function isLockedDeadcoinRow(row: any): boolean {
-  if (!row) return false;
-  if (row.status !== 'deadcoin') return false;
-  const m = row.meta ?? {};
-  const src = m?.source ?? row.updated_by ?? null;
-  return (
-    m?.lock_deadcoin === true ||
-    m?.lock?.deadcoin === true ||
-    src === 'community' ||
-    src === 'admin'
-  );
+  return !!row && row.status === 'deadcoin';
 }
 
+// (İstersen bunu da basitleştirebilirsin; query zaten listleri çekmiyor)
 function isLockedListRow(row: any): boolean {
   if (!row) return false;
-  if (row.status !== 'blacklist' && row.status !== 'redlist') return false;
-  const m = row.meta ?? {};
-  const src = m?.source ?? row.updated_by ?? null;
-  return m?.lock_list === true || src === 'admin';
+  return row.status === 'blacklist' || row.status === 'redlist';
 }
 
 // ---------------- Main ----------------

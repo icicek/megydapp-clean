@@ -1,6 +1,8 @@
+// app/api/_lib/token-registry.ts
+
 import { sql } from '@/app/api/_lib/db';
 import type { TokenStatus } from '@/app/api/_lib/types';
-import { cache, statusKey } from '@/app/api/_lib/cache'; // <-- eklendi
+import { cache, statusKey } from '@/app/api/_lib/cache';
 
 export async function getStatus(
   mint: string
@@ -26,6 +28,26 @@ type SetStatusInput = {
   meta?: any;
 };
 
+// ✅ Only deadcoin is lockable; WD/healthy must never carry lock metadata.
+function normalizeMetaForStatus(newStatus: TokenStatus, meta: any) {
+  const m =
+    meta && typeof meta === 'object' && !Array.isArray(meta) ? { ...meta } : {};
+
+  // Clean all lock-shaped fields first (defensive)
+  delete (m as any).lock;
+  delete (m as any).lock_deadcoin;
+  delete (m as any).lock_list;
+  if (m.lock && typeof m.lock === 'object') delete (m.lock as any).deadcoin;
+
+  if (newStatus === 'deadcoin') {
+    // lock deadcoin permanently (whoever/whatever sets it)
+    (m as any).lock_deadcoin = true;
+    (m as any).lock = true; // backward/compat signal
+  }
+
+  return m;
+}
+
 export async function setStatus({
   mint,
   newStatus,
@@ -33,7 +55,8 @@ export async function setStatus({
   reason = null,
   meta = {},
 }: SetStatusInput): Promise<{ status: TokenStatus; statusAt: string }> {
-  const metaJson = meta ? JSON.stringify(meta) : null;
+  const normalizedMeta = normalizeMetaForStatus(newStatus, meta);
+  const metaJson = normalizedMeta ? JSON.stringify(normalizedMeta) : null;
 
   const rows = (await sql`
     WITH prev AS (
@@ -76,7 +99,7 @@ export async function setStatus({
       (SELECT status_at     FROM upsert)  AS status_at
   `) as unknown as { status: TokenStatus; status_at: string }[];
 
-  // cache invalidation: bu mint için eski cache’i sil
+  // cache invalidation
   cache.del(statusKey(mint));
 
   return { status: rows[0].status, statusAt: rows[0].status_at };
