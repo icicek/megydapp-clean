@@ -88,7 +88,7 @@ export async function setStatus({
         NOW(),
         ${changedBy},
         ${reason},
-        ${metaJson}
+        ${metaJson}::jsonb
       )
       ON CONFLICT (mint) DO UPDATE
       SET
@@ -96,7 +96,7 @@ export async function setStatus({
         status_at  = NOW(),
         updated_by = ${changedBy},
         reason     = ${reason},
-        meta       = ${metaJson},
+        meta       = ${metaJson}::jsonb,
         updated_at = NOW()
       RETURNING status, status_at
     ),
@@ -122,16 +122,17 @@ export async function setStatus({
       INSERT INTO token_audit (mint, old_status, new_status, reason, meta, updated_by)
       SELECT
         ${mint},
-        COALESCE((SELECT old_status FROM prev), 'healthy')::token_status_enum
+        (SELECT old_status FROM prev)::token_status_enum,
         (SELECT status FROM upsert)::token_status_enum,
         ${reason},
-        ${metaJson},
+        ${metaJson}::jsonb,
         ${changedBy}
+      RETURNING 1
     )
     SELECT
       (SELECT status::text FROM upsert)   AS status,
       (SELECT status_at     FROM upsert)  AS status_at
-  `) as unknown as { status: TokenStatus; status_at: string }[];
+  `) as unknown as { status: TokenStatus; status_at: string }[];  
 
   // cache invalidation
   cache.del(statusKey(mint));
