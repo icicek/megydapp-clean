@@ -124,16 +124,8 @@ export default async function classifyToken(
 
   // 3) Metrics (liq/vol) classification
   const liq: LiquidityResult = await checkTokenLiquidityAndVolume(token);
-
-  // 4) walking_dead registry override: eğer registry WD ise,
-  // metrics healthy olsa bile WD olarak dön.
-  const finalCategory: TokenCategory =
-    regCategory === 'walking_dead'
-      ? 'walking_dead'
-      : (liq.category as TokenCategory);
-
   return {
-    category: finalCategory,
+    category: liq.category as TokenCategory,
     usdValue: priceResult.usdValue,
     priceSources: priceResult.sources,
     volume: liq.volume,
@@ -145,5 +137,5 @@ export default async function classifyToken(
       totalVolumeUSD: liq.volume,
     },
     volumeSources: liq.sources,
-  };
+  };  
 }
