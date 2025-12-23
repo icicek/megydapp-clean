@@ -39,6 +39,11 @@ type MetricsResp = {
     cexVolumeUSD: number;
     sources: { dex: string; cex: string };
   };
+  effective?: {
+    status: string;
+    reason?: string;
+    usdValue?: number;
+  };
   why: { reasons: string[] };
 };
 
@@ -55,6 +60,11 @@ type Props = {
 function fmt(n: number | null | undefined) {
   const x = typeof n === 'number' ? n : 0;
   return '$' + x.toLocaleString();
+}
+
+function prettyReason(s: string) {
+  // 215.64000000000001 -> 215.64 gibi
+  return String(s).replace(/(\d+\.\d{2})\d+/g, '$1');
 }
 
 function MetricCard({
@@ -97,16 +107,24 @@ export default function TokenInfoModal({
   // ESC → close
   useEffect(() => {
     if (!open) return;
+
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
     }
+
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  // Load "Why?" metrics
+  // Load "Why?" metrics (and clear on close)
   useEffect(() => {
-    if (!open || !mint) return;
+    if (!open) {
+      setWhyLoading(false);
+      setWhyErr(null);
+      setWhyData(null);
+      return;
+    }
+    if (!mint) return;
 
     let cancelled = false;
 
@@ -114,13 +132,28 @@ export default function TokenInfoModal({
       try {
         setWhyLoading(true);
         setWhyErr(null);
+
         const r = await fetch(`/api/admin/tokens/metrics?mint=${encodeURIComponent(mint)}`, {
           credentials: 'include',
           cache: 'no-store',
         });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const j = await r.json();
-        if (!j?.success) throw new Error(j?.error || 'metrics error');
+        const j: unknown = await r.json();
+
+        const ok =
+          typeof j === 'object' &&
+          j !== null &&
+          'success' in j &&
+          (j as any).success === true;
+
+        if (!ok) {
+          const msg =
+            typeof j === 'object' && j !== null && 'error' in j
+              ? String((j as any).error || 'metrics error')
+              : 'metrics error';
+          throw new Error(msg);
+        }
+
         if (!cancelled) setWhyData(j as MetricsResp);
       } catch (e: any) {
         if (!cancelled) {
@@ -139,15 +172,22 @@ export default function TokenInfoModal({
 
   if (!open) return null;
 
+  const showLock = Boolean(whyData?.registry?.lock);
+
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden
+      />
       <div className="absolute inset-0 flex items-center justify-center p-4">
         <div
           className="w-[92vw] max-w-lg bg-gray-900 border border-gray-700 rounded-2xl overflow-hidden text-white tabular-nums shadow-2xl"
           role="dialog"
           aria-modal="true"
         >
+          {/* Header */}
           <div className="p-4 border-b border-gray-800 flex items-center justify-between min-h-[56px]">
             <div className="font-semibold">
               Volume &amp; Liquidity
@@ -190,6 +230,7 @@ export default function TokenInfoModal({
             </button>
           </div>
 
+          {/* Body */}
           <div className="p-4 sm:p-5 space-y-3">
             {loading && <div className="text-sm text-gray-400">Loading…</div>}
 
@@ -207,6 +248,7 @@ export default function TokenInfoModal({
 
             {!loading && !error && data && (
               <>
+                {/* Top row: DEX & CEX */}
                 <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   <MetricCard
                     label="DEX Volume (24h)"
@@ -220,6 +262,7 @@ export default function TokenInfoModal({
                   />
                 </div>
 
+                {/* Bottom row: Total & Max Liquidity */}
                 <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   <MetricCard label="Total Volume (24h)" value={fmt(data.totalVolumeUSD)} />
                   <MetricCard label="Max Pool Liquidity" value={fmt(data.dexLiquidityUSD)} />
@@ -231,6 +274,7 @@ export default function TokenInfoModal({
               </>
             )}
 
+            {/* WHY */}
             <div className="mt-3 border border-gray-800 rounded-xl bg-gray-950 p-3">
               <div className="text-xs text-gray-300 font-semibold mb-2">Why?</div>
 
@@ -239,6 +283,35 @@ export default function TokenInfoModal({
 
               {!whyLoading && !whyErr && whyData && (
                 <div className="space-y-2 text-xs text-gray-300">
+                  {/* Effective */}
+                  {whyData.effective?.status ? (
+                    <div className="flex items-center justify-between gap-2 bg-gray-900/40 border border-gray-800 rounded-lg p-2">
+                      <div>
+                        <div className="text-[11px] text-gray-400">effective.status</div>
+                        <div className="font-semibold">{whyData.effective.status}</div>
+
+                        {whyData.effective.reason ? (
+                          <div className="text-[11px] text-gray-500 mt-0.5">
+                            reason: {whyData.effective.reason}
+                          </div>
+                        ) : null}
+
+                        {typeof whyData.effective.usdValue === 'number' ? (
+                          <div className="text-[11px] text-gray-500 mt-0.5">
+                            usdValue: {fmt(whyData.effective.usdValue)}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {showLock ? (
+                        <span className="text-[11px] px-2 py-1 rounded-md bg-gray-800 border border-gray-700 text-gray-200">
+                          🔒 locked
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {/* Metrics cards */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-2">
                       <div className="text-[11px] text-gray-400">metrics.category</div>
@@ -250,22 +323,29 @@ export default function TokenInfoModal({
                     </div>
                   </div>
 
+                  {/* Thresholds */}
                   <div className="text-[11px] text-gray-400">
-                    thresholds: healthyMinVol={whyData.thresholds.healthyMinVol}, healthyMinLiq={whyData.thresholds.healthyMinLiq}, wdMinVol={whyData.thresholds.walkingDeadMinVol}, wdMinLiq={whyData.thresholds.walkingDeadMinLiq}
+                    thresholds: healthyMinVol={whyData.thresholds.healthyMinVol}, healthyMinLiq=
+                    {whyData.thresholds.healthyMinLiq}, wdMinVol={whyData.thresholds.walkingDeadMinVol}
+                    , wdMinLiq={whyData.thresholds.walkingDeadMinLiq}
                   </div>
 
-                  {Array.isArray(whyData.why?.reasons) && whyData.why.reasons.length > 0 && (
+                  {/* Reasons */}
+                  {Array.isArray(whyData.why?.reasons) && whyData.why.reasons.length > 0 ? (
                     <ul className="list-disc pl-5 text-[11px] text-gray-400 space-y-1">
-                      {whyData.why.reasons.slice(0, 10).map((x, i) => (
-                        <li key={i}>{x}</li>
+                      {whyData.why.reasons.slice(0, 12).map((x, i) => (
+                        <li key={i}>{prettyReason(x)}</li>
                       ))}
                     </ul>
+                  ) : (
+                    <div className="text-[11px] text-gray-500">No reasons.</div>
                   )}
                 </div>
               )}
             </div>
           </div>
 
+          {/* Footer */}
           <div className="p-4 border-t border-gray-800">
             <button
               onClick={onClose}
