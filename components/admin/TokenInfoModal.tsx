@@ -1,4 +1,4 @@
-// app/components/admin/TokenInfoModal.tsx
+// components/admin/TokenInfoModal.tsx
 'use client';
 
 import React, { useEffect } from 'react';
@@ -120,6 +120,26 @@ export default function TokenInfoModal({
                   {' — '}
                   <span className="font-mono text-xs text-gray-300">{mint}</span>
                 </>
+              ) : null}
+              {mint ? (
+                <div className="mt-1 text-[11px] text-gray-400 flex gap-3 font-normal">
+                  <a
+                    href={`https://dexscreener.com/search?q=${encodeURIComponent(mint)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hover:underline underline-offset-2"
+                  >
+                    Dexscreener
+                  </a>
+                  <a
+                    href={`https://www.coingecko.com/en/search?query=${encodeURIComponent(mint)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hover:underline underline-offset-2"
+                  >
+                    CoinGecko
+                  </a>
+                </div>
               ) : null}
             </div>
             <button

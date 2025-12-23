@@ -264,12 +264,11 @@ export default function AdminTokensPage() {
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
   // settings (genişletildi)
   const [includeCEX, setIncludeCEX] = useState<boolean>(false);
-
-  const [healthyMinVolUSD, setHealthyMinVolUSD] = useState<number>(10000);
+  
+  const [healthyMinVolUSD, setHealthyMinVolUSD] = useState<number>(100);
   const [healthyMinLiqUSD, setHealthyMinLiqUSD] = useState<number>(10000);
-  const [walkingDeadMinVolUSD, setWalkingDeadMinVolUSD] = useState<number>(100);
+  const [walkingDeadMinVolUSD, setWalkingDeadMinVolUSD] = useState<number>(0);
   const [walkingDeadMinLiqUSD, setWalkingDeadMinLiqUSD] = useState<number>(100);
-
 
   // INFO modal state
   const [infoOpen, setInfoOpen] = useState(false);
@@ -284,7 +283,9 @@ export default function AdminTokensPage() {
       setInfoMint(mintVal);
       setInfoLoading(true);
       setInfoErr(null);
-      const data = await api<VolumeResp>(`/api/admin/tokens/volume?mint=${encodeURIComponent(mintVal)}`);
+      const data = await api<VolumeResp>(
+        `/api/admin/tokens/volume?mint=${encodeURIComponent(mintVal)}&includeCEX=${includeCEX ? '1' : '0'}`
+      );      
       setInfoData(data);
     } catch (e: any) {
       setInfoErr(e?.message || 'Load error');
@@ -338,10 +339,15 @@ export default function AdminTokensPage() {
     }
   }, [push]);
 
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
   const loadSettings = useCallback(async () => {
     try {
       const r = await fetch('/api/admin/settings', { credentials: 'include', cache: 'no-store' });
-      if (!r.ok) return;
+      if (!r.ok) {
+        setSettingsLoaded(true);
+        return;
+      }
       const d = await r.json();
       if (d?.success) {
         setVoteThreshold(d.voteThreshold ?? 3);
@@ -353,19 +359,23 @@ export default function AdminTokensPage() {
       }
     } catch {
       // sessiz geç
+    } finally {
+      setSettingsLoaded(true);
     }
-  }, []);  
+  }, []);
 
-  /* ── effects ───────────────────────────────────────────── */
+
+  // mount: stats + settings
   useEffect(() => {
     loadStats();
     loadSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // params değişince load (debounced)
+  useEffect(() => {
     const id = setTimeout(load, 200);
     return () => clearTimeout(id);
-  }, [load, loadStats, loadSettings]);
-
-  useEffect(() => {
-    load();
   }, [load, params]);
 
   useEffect(() => {
@@ -712,10 +722,10 @@ export default function AdminTokensPage() {
           <div className="mt-4 flex items-center gap-3">
             <button
               onClick={saveSettings}
-              disabled={savingThreshold}
+              disabled={savingThreshold || !settingsLoaded}
               className="px-3 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
             >
-              {savingThreshold ? 'Saving…' : 'Save'}
+              {!settingsLoaded ? 'Loading…' : savingThreshold ? 'Saving…' : 'Save'}
             </button>
             {settingsMsg && <div className="text-xs text-gray-300">{settingsMsg}</div>}
           </div>
@@ -789,9 +799,15 @@ export default function AdminTokensPage() {
                   <td className="p-2 w-[460px]">
                     <div className="grid gap-1 sm:grid-cols-[1fr_auto] items-start">
                       <div className="min-w-0">
-                        <span className="font-mono truncate block" title={it.mint}>
-                          {it.mint}
-                        </span>
+                      <a
+                        href={`https://dexscreener.com/search?q=${encodeURIComponent(it.mint)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-mono truncate block hover:underline underline-offset-2"
+                        title="Open in Dexscreener"
+                      >
+                        {it.mint}
+                      </a>
                         <div className="text-[11px] text-gray-400">
                           {nameMap[it.mint]?.symbol || nameMap[it.mint]?.name ? (
                             <>

@@ -9,7 +9,6 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    // admin auth (cookie tabanlı)
     await requireAdmin(req as any);
 
     const { searchParams } = new URL(req.url);
@@ -23,7 +22,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       mint,
-      ...vl, // { dexVolumeUSD, cexVolumeUSD, totalVolumeUSD, dexLiquidityUSD, dexSource, cexSource }
+      ...vl,
     });
   } catch (e: any) {
     const { status, body } = httpErrorFrom(e, 500);
