@@ -50,6 +50,7 @@ type MetricsResp = {
 type Props = {
   open: boolean;
   mint: string | null;
+  tokenName?: string | null;
   loading: boolean;
   data: VolumeResp | null;
   error: string | null;
@@ -94,6 +95,7 @@ function MetricCard({
 export default function TokenInfoModal({
   open,
   mint,
+  tokenName,
   loading,
   data,
   error,
@@ -201,13 +203,21 @@ export default function TokenInfoModal({
           <div className="sticky top-0 z-10 bg-gray-900 p-4 border-b border-gray-800 flex items-start justify-between gap-3">
             <div className="font-semibold min-w-0">
               <div className="truncate">
-                Volume &amp; Liquidity
-                {mint ? (
-                  <>
-                    {' — '}
-                    <span className="font-mono text-xs text-gray-300">{mint}</span>
-                  </>
-                ) : null}
+              Volume &amp; Liquidity
+              {(tokenName || mint) ? (
+                <>
+                  {' — '}
+                  {tokenName ? (
+                    <span className="font-semibold">{tokenName}</span>
+                  ) : null}
+                  {mint ? (
+                    <span className="font-mono text-xs text-gray-300">
+                      {tokenName ? ' · ' : ''}
+                      {mint}
+                    </span>
+                  ) : null}
+                </>
+              ) : null}
               </div>
 
               {mint ? (
@@ -218,15 +228,16 @@ export default function TokenInfoModal({
                     rel="noreferrer"
                     className="hover:underline underline-offset-2"
                   >
-                    Dexscreener
+                    Open in Dexscreener
                   </a>
+
                   <a
                     href={`https://www.coingecko.com/en/search?query=${encodeURIComponent(mint)}`}
                     target="_blank"
                     rel="noreferrer"
                     className="hover:underline underline-offset-2"
                   >
-                    CoinGecko
+                    Search on CoinGecko
                   </a>
                 </div>
               ) : null}

@@ -185,9 +185,10 @@ export function computeStatusDecision(arg: any): any {
 
 export type EffectiveStatusInput = {
   registryStatus: TokenStatus | null;
-  registrySource: string | null; // meta.source gibi (manual/community/system)
+  registrySource: string | null;
   metricsCategory: 'healthy' | 'walking_dead' | 'deadcoin' | null;
-  usdValue: number; // 0 => fiyat yok / deadcoin muamelesi
+  usdValue: number;
+  liquidityUSD?: number | null; // ✅ NEW
 };
 
 /**
@@ -203,8 +204,9 @@ export type EffectiveStatusInput = {
  * - walking_dead -> deadcoin
  * - walking_dead -> healthy   ✅ (requested)
  */
+
 export function resolveEffectiveStatus(input: EffectiveStatusInput): TokenStatus {
-  const { registryStatus, metricsCategory, usdValue } = input;
+  const { registryStatus, metricsCategory, usdValue, liquidityUSD } = input;
 
   // 1) hard locks
   if (registryStatus === 'blacklist') return 'blacklist';
@@ -213,13 +215,21 @@ export function resolveEffectiveStatus(input: EffectiveStatusInput): TokenStatus
   // 2) deadcoin lock (whoever set it)
   if (registryStatus === 'deadcoin') return 'deadcoin';
 
+  // ✅ 2.5) High-liquidity exception (only when priced)
+  // If token is priced (usdValue > 0) and liquidity is high enough,
+  // treat as healthy even if metrics says walking_dead due to low volume.
+  const liq = Number(liquidityUSD ?? 0) || 0;
+  if (usdValue > 0 && liq >= ENV_THRESHOLDS.HEALTHY_MIN_LIQ_USD) {
+    return 'healthy';
+  }
+
   // 3) price says "0" => deadcoin (unless list-locked already handled above)
   if (usdValue === 0) return 'deadcoin';
 
   // 4) metrics says deadcoin => deadcoin
   if (metricsCategory === 'deadcoin') return 'deadcoin';
 
-  // 5) walking_dead <-> healthy is allowed automatically (your rule)
+  // 5) walking_dead <-> healthy is allowed automatically
   if (metricsCategory === 'walking_dead') return 'walking_dead';
   if (metricsCategory === 'healthy') return 'healthy';
 

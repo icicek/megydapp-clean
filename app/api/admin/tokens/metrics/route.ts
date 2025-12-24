@@ -14,12 +14,13 @@ import getUsdValue, { type PriceResult } from '@/app/api/utils/getUsdValue';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function n2(x: number) {
+function n2(x: number): number {
   return Number.isFinite(x) ? Math.round(x * 100) / 100 : 0;
 }
 
-type MetricsCategory = 'healthy' | 'walking_dead' | 'deadcoin';
-function asMetricsCat(x: string | null | undefined): MetricsCategory | null {
+type MetricsCat = 'healthy' | 'walking_dead' | 'deadcoin' | null;
+
+function asMetricsCat(x: string | null | undefined): MetricsCat {
   if (x === 'healthy' || x === 'walking_dead' || x === 'deadcoin') return x;
   return null;
 }
@@ -27,32 +28,50 @@ function asMetricsCat(x: string | null | undefined): MetricsCategory | null {
 function pickRegistrySource(meta: unknown): string | null {
   if (!meta || typeof meta !== 'object') return null;
   const m = meta as Record<string, unknown>;
-  const source = typeof m.source === 'string' ? m.source : null;
-  const via = typeof m.via === 'string' ? m.via : null;
-  return source ?? via ?? null;
+  const src = m.source;
+  const via = m.via;
+  if (typeof src === 'string' && src.trim()) return src;
+  if (typeof via === 'string' && via.trim()) return via;
+  return null;
 }
 
-function pickLock(meta: unknown): boolean {
-  if (!meta || typeof meta !== 'object') return false;
+function pickLock(meta: unknown): unknown | null {
+  if (!meta || typeof meta !== 'object') return null;
   const m = meta as Record<string, unknown>;
-  return Boolean(m.lock);
+  return (m.lock as unknown) ?? null;
+}
+
+function priceError(msg: string): PriceResult {
+  // PriceResult requires: status, usdValue, unitPriceUSD, sources (+ optional ok/error)
+  return {
+    status: 'error',
+    usdValue: 0,
+    unitPriceUSD: 0,
+    sources: [],
+    ok: false,
+    error: msg,
+  };
 }
 
 function computeEffectiveReason(input: {
   registryStatus: TokenStatus | null;
-  metricsCategory: MetricsCategory | null;
-  usdValue: number;
-}) {
+  metricsCategory: MetricsCat;
+  price: PriceResult;
+}): string {
   const rs = input.registryStatus;
   const mc = input.metricsCategory;
-  const usd = Number(input.usdValue) || 0;
+  const p = input.price;
 
   if (rs === 'blacklist') return 'registry_blacklist_lock';
   if (rs === 'redlist') return 'registry_redlist_lock';
   if (rs === 'deadcoin') return 'registry_deadcoin_lock';
 
-  if (usd === 0) return 'price_zero_deadcoin';
+  // price signal
+  if (p.status === 'found' && (Number(p.usdValue) || 0) === 0) return 'price_zero_deadcoin';
+  if (p.status === 'not_found') return 'price_not_found';
+  if (p.status === 'error') return 'price_error';
 
+  // metrics signal
   if (mc === 'deadcoin') return 'metrics_category_deadcoin';
   if (mc === 'walking_dead') return 'metrics_category_walking_dead';
   if (mc === 'healthy') return 'metrics_category_healthy';
@@ -60,33 +79,9 @@ function computeEffectiveReason(input: {
   return 'fallback_registry_or_healthy';
 }
 
-// Type-safe price snapshot (no any)
-async function readUsdValueForMint(mint: string): Promise<{ usdValue: number; price: PriceResult }> {
-  try {
-    const pr: PriceResult = await getUsdValue({ mint, amount: 1 });
-
-    // We only need “is there a price?” signal.
-    // If found → use usdValue (already amount-adjusted)
-    // else → 0
-    const v = pr.status === 'found' ? Number(pr.usdValue || 0) : 0;
-    return { usdValue: Number.isFinite(v) && v > 0 ? v : 0, price: pr };
-  } catch {
-    // If getUsdValue throws, treat as unpriced
-    const fallback: PriceResult = {
-      status: 'error',
-      usdValue: 0,
-      unitPriceUSD: 0,
-      sources: [],
-      ok: false,
-      error: 'getUsdValue threw',
-    };
-    return { usdValue: 0, price: fallback };
-  }
-}
-
 export async function GET(req: NextRequest) {
   try {
-    await requireAdmin(req as unknown as NextRequest);
+    await requireAdmin(req);
 
     const { searchParams } = new URL(req.url);
     const mint = (searchParams.get('mint') || '').trim();
@@ -101,9 +96,9 @@ export async function GET(req: NextRequest) {
     const row = await getStatusRow(mint);
     const meta: unknown = row?.meta ?? null;
 
-    const registryStatus: TokenStatus | null = row ? row.status : null;
-    const registrySource = pickRegistrySource(meta);
     const lock = pickLock(meta);
+    const registryStatus: TokenStatus | null = (row?.status ?? null) as TokenStatus | null;
+    const registrySource = pickRegistrySource(meta);
 
     // 3) Metrics decision (liq/vol + sources + reason)
     const liq = await checkTokenLiquidityAndVolume({ mint });
@@ -116,22 +111,32 @@ export async function GET(req: NextRequest) {
 
     const metricsCategory = asMetricsCat(liq.category);
 
-    // 5) Price snapshot (for effective decision)
-    const priced = await readUsdValueForMint(mint);
-    const usdValue = n2(priced.usdValue);
+    // 5) Price snapshot (typed, no casts)
+    let price: PriceResult;
+    try {
+      price = await getUsdValue({ mint, amount: 1 });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'price_failed';
+      price = priceError(msg);
+    }
+
+    // For resolver: "pricedUsdValue" is usdValue for amount=1 (already amount-adjusted)
+    const pricedUsdValue = price.status === 'found' ? n2(Number(price.usdValue) || 0) : 0;
 
     // 6) Effective status (registry + metrics + price)
-    const effectiveStatus: TokenStatus = resolveEffectiveStatus({
+    // IMPORTANT: resolveEffectiveStatus signature currently expects:
+    // { registryStatus, registrySource, metricsCategory, usdValue }
+    const effectiveStatus = resolveEffectiveStatus({
       registryStatus,
       registrySource,
       metricsCategory,
-      usdValue,
+      usdValue: pricedUsdValue,
     });
 
     const effectiveReason = computeEffectiveReason({
       registryStatus,
       metricsCategory,
-      usdValue,
+      price,
     });
 
     // 7) Build “why” reasons (human-readable)
@@ -140,13 +145,27 @@ export async function GET(req: NextRequest) {
     reasons.push(`effective.reason=${effectiveReason}`);
     reasons.push(`registry.status=${registryStatus ?? 'null'}`);
     reasons.push(`registry.source=${registrySource ?? 'null'}`);
-    reasons.push(`registry.lock=${String(lock)}`);
-    reasons.push(`price.status=${priced.price.status}`);
-    reasons.push(`price.usdValue=${usdValue}`);
+    reasons.push(`registry.lock=${Boolean(lock)}`);
+
+    reasons.push(`price.status=${price.status}`);
+    reasons.push(`price.usdValue=${pricedUsdValue}`);
+    reasons.push(`price.unitPriceUSD=${n2(Number(price.unitPriceUSD) || 0)}`);
+    if (Array.isArray(price.sources) && price.sources.length) {
+      const top = price.sources
+        .slice(0, 4)
+        .map(s => `${s.source}:${n2(s.price)}`)
+        .join(', ');
+      reasons.push(`price.sources=${top}`);
+    } else {
+      reasons.push(`price.sources=none`);
+    }
+    if (price.error) reasons.push(`price.error=${price.error}`);
+
     reasons.push(`metrics.category=${liq.category}`);
     reasons.push(`metrics.reason=${liq.reason}`);
     reasons.push(`sources.dex=${liq.sources.dex}`);
     reasons.push(`sources.cex=${liq.sources.cex}`);
+
     reasons.push(
       `liq=${liquidity} vs WD_MIN_LIQ=${thresholds.walkingDeadMinLiq} / HEALTHY_MIN_LIQ=${thresholds.healthyMinLiq}`
     );
@@ -181,12 +200,18 @@ export async function GET(req: NextRequest) {
         sources: liq.sources,
       },
 
+      price: {
+        status: price.status,
+        usdValue: pricedUsdValue,
+        unitPriceUSD: n2(Number(price.unitPriceUSD) || 0),
+        sources: price.sources,
+        error: price.error ?? null,
+      },
+
       effective: {
         status: effectiveStatus,
         reason: effectiveReason,
-        usdValue,
-        // optionally expose price.status/sources too (debug)
-        // price: priced.price,
+        usdValue: pricedUsdValue,
       },
 
       why: { reasons },
