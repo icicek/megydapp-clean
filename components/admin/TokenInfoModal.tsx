@@ -176,27 +176,39 @@ export default function TokenInfoModal({
 
   return (
     <div className="fixed inset-0 z-50">
+      {/* overlay */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden
       />
+
+      {/* container */}
       <div className="absolute inset-0 flex items-center justify-center p-4">
         <div
-          className="w-[92vw] max-w-lg bg-gray-900 border border-gray-700 rounded-2xl overflow-hidden text-white tabular-nums shadow-2xl"
+          className="
+            w-[92vw] max-w-lg
+            bg-gray-900 border border-gray-700 rounded-2xl
+            text-white tabular-nums shadow-2xl
+            overflow-hidden
+            flex flex-col
+            max-h-[85vh] sm:max-h-[88vh]
+          "
           role="dialog"
           aria-modal="true"
         >
-          {/* Header */}
-          <div className="p-4 border-b border-gray-800 flex items-center justify-between min-h-[56px]">
-            <div className="font-semibold">
-              Volume &amp; Liquidity
-              {mint ? (
-                <>
-                  {' — '}
-                  <span className="font-mono text-xs text-gray-300">{mint}</span>
-                </>
-              ) : null}
+          {/* Header (sticky) */}
+          <div className="sticky top-0 z-10 bg-gray-900 p-4 border-b border-gray-800 flex items-start justify-between gap-3">
+            <div className="font-semibold min-w-0">
+              <div className="truncate">
+                Volume &amp; Liquidity
+                {mint ? (
+                  <>
+                    {' — '}
+                    <span className="font-mono text-xs text-gray-300">{mint}</span>
+                  </>
+                ) : null}
+              </div>
 
               {mint ? (
                 <div className="mt-1 text-[11px] text-gray-400 flex gap-3 font-normal">
@@ -222,7 +234,7 @@ export default function TokenInfoModal({
 
             <button
               onClick={onClose}
-              className="h-9 px-3 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700"
+              className="shrink-0 h-9 w-9 grid place-items-center rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700"
               aria-label="Close"
               title="Close"
             >
@@ -230,8 +242,8 @@ export default function TokenInfoModal({
             </button>
           </div>
 
-          {/* Body */}
-          <div className="p-4 sm:p-5 space-y-3">
+          {/* Body (scrollable) */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
             {loading && <div className="text-sm text-gray-400">Loading…</div>}
 
             {!loading && error && (
@@ -296,9 +308,9 @@ export default function TokenInfoModal({
                           </div>
                         ) : null}
 
-                        {typeof whyData.effective.usdValue === 'number' ? (
+                        {typeof (whyData as any).effective?.usdValue === 'number' ? (
                           <div className="text-[11px] text-gray-500 mt-0.5">
-                            usdValue: {fmt(whyData.effective.usdValue)}
+                            usdValue: {fmt((whyData as any).effective.usdValue)}
                           </div>
                         ) : null}
                       </div>
@@ -326,8 +338,8 @@ export default function TokenInfoModal({
                   {/* Thresholds */}
                   <div className="text-[11px] text-gray-400">
                     thresholds: healthyMinVol={whyData.thresholds.healthyMinVol}, healthyMinLiq=
-                    {whyData.thresholds.healthyMinLiq}, wdMinVol={whyData.thresholds.walkingDeadMinVol}
-                    , wdMinLiq={whyData.thresholds.walkingDeadMinLiq}
+                    {whyData.thresholds.healthyMinLiq}, wdMinVol={whyData.thresholds.walkingDeadMinVol}, wdMinLiq=
+                    {whyData.thresholds.walkingDeadMinLiq}
                   </div>
 
                   {/* Reasons */}
@@ -345,8 +357,8 @@ export default function TokenInfoModal({
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="p-4 border-t border-gray-800">
+          {/* Footer (sticky) */}
+          <div className="sticky bottom-0 z-10 bg-gray-900 p-4 border-t border-gray-800">
             <button
               onClick={onClose}
               className="w-full h-10 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm font-medium transition-colors"
