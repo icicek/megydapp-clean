@@ -185,10 +185,10 @@ export function computeStatusDecision(arg: any): any {
 
 export type EffectiveStatusInput = {
   registryStatus: TokenStatus | null;
-  registrySource: string | null;
+  registrySource: string | null; // meta.source gibi (manual/community/system)
   metricsCategory: 'healthy' | 'walking_dead' | 'deadcoin' | null;
-  usdValue: number;
-  liquidityUSD?: number | null; // ✅ NEW
+  usdValue: number; // 0 => fiyat yok / deadcoin muamelesi
+  liquidityUSD?: number | null; // 👈 High-liquidity exception için eklendi
 };
 
 /**
@@ -206,7 +206,14 @@ export type EffectiveStatusInput = {
  */
 
 export function resolveEffectiveStatus(input: EffectiveStatusInput): TokenStatus {
-  const { registryStatus, metricsCategory, usdValue, liquidityUSD } = input;
+  const {
+    registryStatus,
+    metricsCategory,
+    usdValue,
+    liquidityUSD,
+  } = input;
+
+  const liq = Number(liquidityUSD ?? 0);
 
   // 1) hard locks
   if (registryStatus === 'blacklist') return 'blacklist';
@@ -215,21 +222,24 @@ export function resolveEffectiveStatus(input: EffectiveStatusInput): TokenStatus
   // 2) deadcoin lock (whoever set it)
   if (registryStatus === 'deadcoin') return 'deadcoin';
 
-  // ✅ 2.5) High-liquidity exception (only when priced)
-  // If token is priced (usdValue > 0) and liquidity is high enough,
-  // treat as healthy even if metrics says walking_dead due to low volume.
-  const liq = Number(liquidityUSD ?? 0) || 0;
-  if (usdValue > 0 && liq >= ENV_THRESHOLDS.HEALTHY_MIN_LIQ_USD) {
-    return 'healthy';
+  // 3) price says "0" => deadcoin (unless list-locked already handled above)
+  if (usdValue === 0) {
+    // High-liquidity exception: fiyat sinyali 0 ama havuz çok büyükse
+    if (liq >= ENV_THRESHOLDS.HEALTHY_MIN_LIQ_USD) {
+      return 'walking_dead';
+    }
+    return 'deadcoin';
   }
 
-  // 3) price says "0" => deadcoin (unless list-locked already handled above)
-  if (usdValue === 0) return 'deadcoin';
+  // 4) metrics says deadcoin => deadcoin, ama again high-liq exception
+  if (metricsCategory === 'deadcoin') {
+    if (liq >= ENV_THRESHOLDS.HEALTHY_MIN_LIQ_USD) {
+      return 'walking_dead';
+    }
+    return 'deadcoin';
+  }
 
-  // 4) metrics says deadcoin => deadcoin
-  if (metricsCategory === 'deadcoin') return 'deadcoin';
-
-  // 5) walking_dead <-> healthy is allowed automatically
+  // 5) walking_dead <-> healthy is allowed automatically (your rule)
   if (metricsCategory === 'walking_dead') return 'walking_dead';
   if (metricsCategory === 'healthy') return 'healthy';
 

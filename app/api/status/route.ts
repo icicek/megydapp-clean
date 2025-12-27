@@ -101,6 +101,7 @@ export async function GET(req: NextRequest) {
     let metricsCategory: 'healthy' | 'walking_dead' | 'deadcoin' | null = null;
     let usdValue = 0;
     let metrics: any = null;
+    let metricsLiquidityUSD = 0;
 
     if (includeMetrics) {
       try {
@@ -114,6 +115,7 @@ export async function GET(req: NextRequest) {
             : null;
 
         usdValue = Number(cls.usdValue ?? 0) || 0;
+        metricsLiquidityUSD = Number(cls.liquidity ?? 0) || 0;
 
         metrics = {
           category: metricsCategory ?? cls.category,
@@ -141,6 +143,7 @@ export async function GET(req: NextRequest) {
       registrySource,
       metricsCategory,
       usdValue,
+      liquidityUSD: metricsLiquidityUSD,
     });
 
     /* -------------------------------------------------

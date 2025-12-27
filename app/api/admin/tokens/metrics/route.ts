@@ -131,7 +131,8 @@ export async function GET(req: NextRequest) {
       registrySource,
       metricsCategory,
       usdValue: pricedUsdValue,
-    });
+      liquidityUSD: liquidity, // 👈 yeni parametre
+    });    
 
     const effectiveReason = computeEffectiveReason({
       registryStatus,
