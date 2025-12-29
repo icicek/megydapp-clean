@@ -5,6 +5,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import DeadcoinVoteButton from '@/components/community/DeadcoinVoteButton';
 import {
   getAssociatedTokenAddress,
   getAccount,
@@ -45,6 +46,17 @@ export default function CoincarneForm() {
   const [confirmed, setConfirmed] = useState(false);
   const [participantNumber, setParticipantNumber] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  type StatusZone = 'healthy' | 'wd_gray' | 'wd_vote' | 'deadzone';
+
+  interface StatusDecision {
+    status: ListStatus;      // healthy / walking_dead / deadcoin / redlist / blacklist
+    zone: StatusZone;        // resolveEffectiveStatus().decision.zone
+    voteEligible: boolean;   // resolveEffectiveStatus().decision.voteEligible
+  }
+
+  const [statusDecision, setStatusDecision] = useState<StatusDecision | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   // NEW: vote state
   const [voteEligible, setVoteEligible] = useState(false);
@@ -99,6 +111,46 @@ export default function CoincarneForm() {
     }
   };
 
+  async function fetchStatusForToken(token: TokenInfo) {
+    setStatusDecision(null);
+    setStatusError(null);
+  
+    // SOL için WSOL mint kullanıyoruz
+    const mint = token.symbol === 'SOL' ? WSOL_MINT : token.address;
+    if (!mint) return;
+  
+    try {
+      setStatusLoading(true);
+      const res = await fetch(
+        `/api/status?mint=${encodeURIComponent(mint)}&includeMetrics=1`,
+        { cache: 'no-store' }
+      );
+  
+      if (!res.ok) {
+        const txt = await res.text();
+        console.error('status fetch failed', res.status, txt);
+        setStatusError('Status service unavailable');
+        return;
+      }
+  
+      const j = await res.json();
+  
+      const rawStatus = (j?.status ?? 'healthy') as ListStatus;
+      const dec = j?.decision ?? {};
+  
+      setStatusDecision({
+        status: rawStatus,
+        zone: (dec.zone ?? 'healthy') as StatusZone,
+        voteEligible: !!dec.voteEligible,
+      });
+    } catch (e: any) {
+      console.error('status fetch error', e);
+      setStatusError(e?.message || 'Status fetch error');
+    } finally {
+      setStatusLoading(false);
+    }
+  }  
+
   const handleSelect = (sym: string) => {
     let token = tokens.find((t) => t.symbol === sym) || null;
     if (!token && sym === 'SOL') {
@@ -113,6 +165,7 @@ export default function CoincarneForm() {
       setLastMint(null);
       setLastStatus(null);
       fetchWalletBalance(token);
+      fetchStatusForToken(token);
     }
   };
 
@@ -398,6 +451,54 @@ export default function CoincarneForm() {
                     placeholder="Enter amount"
                     className="mt-4 w-full p-2 rounded bg-gray-800 border border-gray-600 text-white"
                   />
+
+                  {/* 🆕 Status + vote info */}
+                  <div className="mt-3 text-left space-y-1">
+                    {statusLoading && (
+                      <p className="text-xs text-gray-400">
+                        Checking token health &amp; vote status…
+                      </p>
+                    )}
+
+                    {!statusLoading && statusDecision && (
+                      <div className="text-xs text-gray-300 space-y-1">
+                        <p>
+                          Current status:{' '}
+                          <span className="font-semibold capitalize">
+                            {statusDecision.status.replace('_', ' ')}
+                          </span>
+                        </p>
+                        <p className="text-[11px] text-gray-400">
+                          Zone: {statusDecision.zone}
+                          {statusDecision.zone === 'wd_vote' && ' (community review zone)'}
+                        </p>
+
+                        {statusDecision.voteEligible && selectedToken && (
+                          <div className="mt-2">
+                            <DeadcoinVoteButton
+                              mint={
+                                selectedToken.symbol === 'SOL'
+                                  ? WSOL_MINT
+                                  : selectedToken.address
+                              }
+                              label="🗳️ Join the deadcoin vote"
+                              onVoted={() => {
+                                // Oy verildikten sonra statüyü tekrar çek
+                                fetchStatusForToken(selectedToken);
+                              }}
+                              className="w-full justify-center"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {!statusLoading && statusError && (
+                      <p className="text-xs text-rose-400">
+                        {statusError}
+                      </p>
+                    )}
+                  </div>
 
                   {showDebug && (
                     <p className="mt-3 text-xs text-yellow-400">

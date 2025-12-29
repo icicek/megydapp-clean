@@ -412,9 +412,10 @@ export default function ConfirmModal({
         </div>
         <div className="flex justify-end gap-2 mt-6">
           <button
+            type="button"
             onClick={onCancel}
-            className="bg-gray-400 text-black px-4 py-2 rounded"
             disabled={busy}
+            className="rounded bg-gray-500/70 px-4 py-2 font-semibold text-white transition hover:bg-gray-500 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             Cancel
           </button>

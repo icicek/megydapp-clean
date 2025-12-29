@@ -10,6 +10,12 @@ import {
   getStatus as getTokenStatus,
 } from '@/app/api/_lib/token-registry';
 import { getVoteThreshold } from '@/app/api/_lib/settings';
+
+import { getStatusRow, resolveEffectiveStatus } from '@/app/api/_lib/registry';
+import type { TokenStatus } from '@/app/api/_lib/types';
+import { getTokenThresholds } from '@/app/api/_lib/token-thresholds';
+import classifyToken from '@/app/api/utils/classifyToken';
+
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 
@@ -54,6 +60,71 @@ function parseAllowedOrigins(): string[] {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+// registry.meta içinden source seçimi (status resolver ile uyumlu)
+function pickRegistrySource(row: any): string | null {
+  const meta = row?.meta;
+  if (meta && typeof meta === 'object') {
+    const src = (meta as any).source;
+    if (typeof src === 'string') return src;
+  }
+  return row?.updated_by ?? row?.reason ?? null;
+}
+
+/**
+ * Yeni mimariye göre: bu mint için voteEligible mı?
+ * - registry + metrics + thresholds + resolveEffectiveStatus
+ */
+async function computeVoteEligibility(mint: string): Promise<{
+  status: TokenStatus;
+  decision: {
+    zone: 'healthy' | 'wd_gray' | 'wd_vote' | 'deadzone';
+    highLiq: boolean;
+    voteEligible: boolean;
+  };
+}> {
+  // 1) Registry snapshot
+  const row = await getStatusRow(mint);
+  const registryStatus = (row?.status ?? null) as TokenStatus | null;
+  const registrySource = pickRegistrySource(row);
+
+  // 2) Thresholds
+  const thresholds = await getTokenThresholds();
+
+  // 3) Metrics + USD (classifyToken)
+  const cls = await classifyToken({ mint }, 1);
+
+  const metricsCategory =
+    cls.category === 'healthy' ||
+    cls.category === 'walking_dead' ||
+    cls.category === 'deadcoin'
+      ? cls.category
+      : null;
+
+  const usdValue = Number(cls.usdValue ?? 0) || 0;
+  const liquidityUSD = Number(cls.liquidity ?? 0) || 0;
+  const volumeUSD = Number(cls.volume ?? 0) || 0;
+
+  // 4) Effective decision → resolveEffectiveStatus zaten { status, decision } dönüyor
+  const resolved = resolveEffectiveStatus({
+    registryStatus,
+    registrySource,
+    metricsCategory,
+    usdValue,
+    liquidityUSD,
+    volumeUSD,
+    thresholds,
+  });
+
+  const status = (resolved as any).status as TokenStatus;
+  const decision = (resolved as any).decision ?? {
+    zone: 'wd_gray' as const,
+    highLiq: false,
+    voteEligible: false,
+  };
+
+  return { status, decision };
 }
 
 export async function POST(req: NextRequest) {
@@ -110,6 +181,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Invalid signature' },
         { status: 401 },
+      );
+    }
+
+    // ✅ Yeni: vote eligibility kontrolü
+    let eligibility;
+    try {
+      eligibility = await computeVoteEligibility(mint);
+    } catch (err: any) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'vote_eligibility_unavailable',
+          detail: err?.message || null,
+        },
+        { status: 503 },
+      );
+    }
+
+    if (!eligibility.decision.voteEligible) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'vote_not_eligible',
+          status: eligibility.status,
+          decision: eligibility.decision,
+        },
+        { status: 409 },
       );
     }
 

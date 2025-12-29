@@ -12,6 +12,22 @@ function buildMessage(mint: string, wallet: string, ts: number) {
   return `coincarnation:vote:deadcoin\nmint:${mint}\nwallet:${wallet}\nts:${ts}`;
 }
 
+type VoteResponse = {
+  success: boolean;
+  votesYes?: number;
+  threshold?: number;
+  applied?: boolean;
+  blocked?: boolean;
+  blockedBy?: string;
+  error?: string;
+  status?: string;
+  decision?: {
+    zone?: string;
+    highLiq?: boolean;
+    voteEligible?: boolean;
+  };
+};
+
 export default function DeadcoinVoteButton({
   mint,
   onVoted,
@@ -19,7 +35,7 @@ export default function DeadcoinVoteButton({
   className = '',
 }: {
   mint: string;
-  onVoted?: (res: any) => void;
+  onVoted?: (res: VoteResponse) => void;
   label?: string;
   className?: string;
 }) {
@@ -55,18 +71,43 @@ export default function DeadcoinVoteButton({
         body: JSON.stringify({
           mint,
           voterWallet: wallet,
-          voteYes: true,   // bu buton "YES" oy verir
+          voteYes: true, // bu buton "YES" oy verir
           ts,
           message,
           signature,
         }),
       });
 
-      const j = await res.json();
-      if (!res.ok) throw new Error(j?.error || 'Vote failed');
+      const j: VoteResponse = await res.json();
+
+      if (!res.ok || !j.success) {
+        // vote_not_eligible gibi durumlar için daha anlaşılır mesaj
+        if (j.error === 'vote_not_eligible') {
+          alert('This token is not in the deadcoin-vote zone right now.');
+        } else if (j.error === 'vote_eligibility_unavailable') {
+          alert('Vote eligibility could not be checked. Please try again later.');
+        } else {
+          throw new Error(j.error || 'Vote failed');
+        }
+        return;
+      }
 
       onVoted?.(j);
-      alert(j.applied ? '✅ Threshold reached! Marked as deadcoin.' : `👍 Vote recorded (${j.votesYes}/3)`);
+
+      if (j.blocked) {
+        alert(
+          `👍 Vote recorded, but this token is locked as ${j.blockedBy ?? 'list'}. Status will not change.`,
+        );
+        return;
+      }
+
+      if (j.applied) {
+        alert('✅ Threshold reached! Token marked as deadcoin.');
+      } else {
+        const v = j.votesYes ?? 0;
+        const th = j.threshold ?? '?';
+        alert(`👍 Vote recorded (${v}/${th})`);
+      }
     } catch (e: any) {
       alert(e?.message || 'Vote error');
     } finally {
