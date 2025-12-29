@@ -183,80 +183,272 @@ export function computeStatusDecision(arg: any): any {
 
 // -------------------- Effective status (final decision) --------------------
 
+// Girdi tipi (artık daha zengin)
 export type EffectiveStatusInput = {
   registryStatus: TokenStatus | null;
-  registrySource: string | null; // meta.source gibi (manual/community/system)
+  registrySource: string | null; // meta.source / updated_by / reason vs.
+
   metricsCategory: 'healthy' | 'walking_dead' | 'deadcoin' | null;
-  usdValue: number; // 0 => fiyat yok / deadcoin muamelesi
-  liquidityUSD?: number | null; // 👈 High-liquidity exception için eklendi
+
+  // Fiyat sinyali (0 → mezarlık sinyali)
+  usdValue: number;
+
+  // Hacim / likidite (opsiyonel ama tavsiye edilir)
+  liquidityUSD?: number | null;
+  volumeUSD?: number | null;
+
+  // Admin panelden gelen eşikler (opsiyonel ama varsa kullanırız)
+  thresholds?: {
+    healthyMinLiq: number;
+    healthyMinVol: number;
+    walkingDeadMinLiq: number;
+    walkingDeadMinVol: number;
+  } | null;
+
+  // Kilit bilgileri (deadcoin / list lock)
+  locks?: {
+    lockDeadcoin: boolean;
+    lockList: boolean;
+  } | null;
 };
+
+export type EffectiveZone = 'healthy' | 'wd_gray' | 'wd_vote' | 'deadzone';
+
+export type EffectiveDecision = {
+  status: TokenStatus;   // final: healthy / walking_dead / deadcoin / blacklist / redlist
+  zone: EffectiveZone;   // UI & oylama mantığı için
+  highLiq: boolean;      // high-liquidity exception uygulandı mı?
+  voteEligible: boolean; // deadcoin oylaması açılabilir mi?
+};
+
+// küçük helper: sayı normalize
+function num(x: unknown): number {
+  const n = typeof x === 'number' ? x : Number(x ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function computeMetricsZone(
+  usdValue: number,
+  liq: number | null,
+  vol: number | null,
+  thresholds?: EffectiveStatusInput['thresholds'],
+  metricsCategory?: EffectiveStatusInput['metricsCategory']
+): { baseStatus: TokenStatus; zone: EffectiveZone; highLiq: boolean; voteEligible: boolean } {
+  const usd = num(usdValue);
+  const L = liq ?? 0;
+  const V = vol ?? 0;
+
+  const t = thresholds ?? null;
+
+  // Varsayılanlar (thresholds yoksa eski davranış)
+  if (!t || (!Number.isFinite(L) && !Number.isFinite(V))) {
+    // Eski basit mantık:
+    if (usd === 0) {
+      return { baseStatus: 'deadcoin', zone: 'deadzone', highLiq: false, voteEligible: false };
+    }
+    if (metricsCategory === 'deadcoin') {
+      return { baseStatus: 'deadcoin', zone: 'deadzone', highLiq: false, voteEligible: false };
+    }
+    if (metricsCategory === 'walking_dead') {
+      return { baseStatus: 'walking_dead', zone: 'wd_gray', highLiq: false, voteEligible: false };
+    }
+    if (metricsCategory === 'healthy') {
+      return { baseStatus: 'healthy', zone: 'healthy', highLiq: false, voteEligible: false };
+    }
+    // fallback
+    return { baseStatus: 'healthy', zone: 'healthy', highLiq: false, voteEligible: false };
+  }
+
+  const HLiq = num(t.healthyMinLiq);
+  const HVol = num(t.healthyMinVol);
+  const WDLiq = num(t.walkingDeadMinLiq);
+  const WDVol = num(t.walkingDeadMinVol);
+
+  // 1) DEADZONE: tam mezarlık
+  if (usd === 0 || (L < WDLiq && V < WDVol)) {
+    return { baseStatus: 'deadcoin', zone: 'deadzone', highLiq: false, voteEligible: false };
+  }
+
+  // 2) HEALTHY: en az bir metrik çok iyi
+  if (L >= HLiq || V >= HVol) {
+    return { baseStatus: 'healthy', zone: 'healthy', highLiq: false, voteEligible: false };
+  }
+
+  // 3) WD_GRAY: ikisi de gri bölgede
+  const inWDLiqBand = L >= WDLiq && L < HLiq;
+  const inWDVolBand = V >= WDVol && V < HVol;
+
+  if (usd > 0 && inWDLiqBand && inWDVolBand) {
+    return { baseStatus: 'walking_dead', zone: 'wd_gray', highLiq: false, voteEligible: false };
+  }
+
+  // 4) WD_VOTE: biri WD alt sınırının altında, diğeri değil
+  const liqBelowWDL = L < WDLiq;
+  const volBelowWDV = V < WDVol;
+  const deadzoneLike = liqBelowWDL && volBelowWDV;
+  const oneSideBroken = liqBelowWDL !== volBelowWDV; // XOR
+
+  if (usd > 0 && !deadzoneLike && oneSideBroken) {
+    return { baseStatus: 'walking_dead', zone: 'wd_vote', highLiq: false, voteEligible: true };
+  }
+
+  // 5) Hiçbirine girmiyorsa metricsCategory’ye saygılı küçük fallback
+  if (metricsCategory === 'deadcoin') {
+    return { baseStatus: 'deadcoin', zone: 'deadzone', highLiq: false, voteEligible: false };
+  }
+  if (metricsCategory === 'walking_dead') {
+    return { baseStatus: 'walking_dead', zone: 'wd_gray', highLiq: false, voteEligible: false };
+  }
+  if (metricsCategory === 'healthy') {
+    return { baseStatus: 'healthy', zone: 'healthy', highLiq: false, voteEligible: false };
+  }
+
+  return { baseStatus: 'healthy', zone: 'healthy', highLiq: false, voteEligible: false };
+}
 
 /**
  * ✅ FINAL DECISION (single source of truth)
  *
- * Hard rules:
- * 1) blacklist/redlist hard lock
- * 2) registry deadcoin (admin/community/system) LOCKED (no auto-upgrade)
- *
- * Auto transitions allowed:
- * - healthy -> walking_dead
- * - healthy -> deadcoin
- * - walking_dead -> deadcoin
- * - walking_dead -> healthy   ✅ (requested)
+ * - Admin / community statülerine mümkün olduğunca saygı duyar.
+ * - blacklist / redlist ve kilitli deadcoin → dokunulmaz.
+ * - Diğer durumlarda metrics + price + thresholds ile karar verir.
+ * - High-liquidity exception: metrics deadcoin dese bile likidite çok yüksekse WD’e çeker.
  */
+export function computeEffectiveDecision(input: EffectiveStatusInput): EffectiveDecision {
+  const registryStatus = input.registryStatus;
+  const registrySource = (input.registrySource || '').toLowerCase();
+  const metricsCategory = input.metricsCategory;
+  const usd = num(input.usdValue);
+  const liq = input.liquidityUSD ?? null;
+  const vol = input.volumeUSD ?? null;
+  const thresholds = input.thresholds ?? null;
+  const locks = input.locks ?? { lockDeadcoin: false, lockList: false };
 
-export function resolveEffectiveStatus(input: EffectiveStatusInput): TokenStatus {
-  const {
-    registryStatus,
+  const manualSource =
+    registrySource === 'admin' || registrySource === 'community';
+
+  // 1) HARD LOCK: blacklist / redlist
+  if (
+    registryStatus === 'blacklist' ||
+    registryStatus === 'redlist' ||
+    locks.lockList
+  ) {
+    const finalStatus: TokenStatus =
+      registryStatus === 'blacklist' || registryStatus === 'redlist'
+        ? registryStatus
+        : 'blacklist';
+    return {
+      status: finalStatus,
+      zone: 'deadzone',
+      highLiq: false,
+      voteEligible: false,
+    };
+  }
+
+  // 2) HARD LOCK: deadcoin (admin / community / lock)
+  if (
+    registryStatus === 'deadcoin' &&
+    (locks.lockDeadcoin || manualSource || registryStatus === 'deadcoin')
+  ) {
+    return {
+      status: 'deadcoin',
+      zone: 'deadzone',
+      highLiq: false,
+      voteEligible: false,
+    };
+  }
+
+  // 3) Metrics tabanlı karar (zone + baseStatus)
+  let { baseStatus, zone, highLiq, voteEligible } = computeMetricsZone(
+    usd,
+    liq,
+    vol,
+    thresholds,
     metricsCategory,
-    usdValue,
-    liquidityUSD,
-  } = input;
+  );
 
-  const liq = Number(liquidityUSD ?? 0);
-
-  // 1) hard locks
-  if (registryStatus === 'blacklist') return 'blacklist';
-  if (registryStatus === 'redlist') return 'redlist';
-
-  // 2) deadcoin lock (whoever set it)
-  if (registryStatus === 'deadcoin') return 'deadcoin';
-
-  // 3) price says "0" => deadcoin (unless list-locked already handled above)
-  if (usdValue === 0) {
-    // High-liquidity exception: fiyat sinyali 0 ama havuz çok büyükse
-    if (liq >= ENV_THRESHOLDS.HEALTHY_MIN_LIQ_USD) {
-      return 'walking_dead';
+  // 4) High-liquidity exception:
+  //    metricsCategory 'deadcoin' dese bile likidite çok yüksekse direkt mezarlığa atma,
+  //    walking_dead statüsüne çek, WD prosedürleri çalışsın.
+  if (usd > 0 && metricsCategory === 'deadcoin' && thresholds && liq !== null) {
+    const HLiq = num(thresholds.healthyMinLiq);
+    const WDVol = num(thresholds.walkingDeadMinVol);
+    if (liq >= HLiq) {
+      highLiq = true;
+      baseStatus = 'walking_dead';
+      // hacim çok zayıfsa → oylamaya açılabilir
+      if (vol !== null && vol < WDVol) {
+        zone = 'wd_vote';
+        voteEligible = true;
+      } else {
+        // aksi halde gri bölge walking_dead
+        if (zone === 'deadzone') zone = 'wd_gray';
+      }
     }
-    return 'deadcoin';
   }
 
-  // 4) metrics says deadcoin => deadcoin, ama again high-liq exception
-  if (metricsCategory === 'deadcoin') {
-    if (liq >= ENV_THRESHOLDS.HEALTHY_MIN_LIQ_USD) {
-      return 'walking_dead';
-    }
-    return 'deadcoin';
+  // 5) Admin / community manual healthy / WD ise:
+  //    status = registryStatus, zone/sinyaller metrics’ten gelsin (UI için).
+  if (
+    manualSource &&
+    (registryStatus === 'healthy' || registryStatus === 'walking_dead')
+  ) {
+    return {
+      status: registryStatus,
+      zone,
+      highLiq,
+      voteEligible,
+    };
   }
 
-  // 5) walking_dead <-> healthy is allowed automatically (your rule)
-  if (metricsCategory === 'walking_dead') return 'walking_dead';
-  if (metricsCategory === 'healthy') return 'healthy';
+  // 6) Otomatik statüler arası izin verilen geçişler
+  //    (healthy <-> walking_dead, walking_dead -> deadcoin, healthy -> deadcoin)
+  let finalStatus: TokenStatus = baseStatus;
 
-  // fallback
-  return registryStatus ?? 'healthy';
+  if (registryStatus) {
+    if (registryStatus === 'healthy') {
+      // healthy → her yöne serbest
+      finalStatus = baseStatus;
+    } else if (registryStatus === 'walking_dead') {
+      // walking_dead → healthy veya deadcoin veya walking_dead (hepsi serbest)
+      finalStatus = baseStatus;
+    } else if (registryStatus === 'deadcoin') {
+      // buraya normalde 2. blokta dönmüş olmamız lazımdı; safety:
+      finalStatus = 'deadcoin';
+    } else {
+      // blacklist/redlist yukarıda ele alındı; burada sadece safety fallback
+      finalStatus = baseStatus;
+    }
+  }
+
+  return {
+    status: finalStatus,
+    zone,
+    highLiq,
+    voteEligible,
+  };
+}
+
+/**
+ * Eski imza ile uyumlu resolver:
+ *   - Sadece final status döndürür.
+ *   - zone / highLiq / voteEligible gibi detaylar için computeEffectiveDecision kullan.
+ */
+export function resolveEffectiveStatus(input: EffectiveStatusInput): TokenStatus {
+  const decision = computeEffectiveDecision(input);
+  return decision.status;
 }
 
 /**
  * Overload:
- * - getEffectiveStatus(mint)  -> compat (registry raw-ish)
- * - getEffectiveStatus(input) -> final decision
+ * - getEffectiveStatus(input) -> final decision sadece status (compat)
+ * - getEffectiveStatus(mint)  -> registry tabanlı eski davranış (async)
  */
 export function getEffectiveStatus(input: EffectiveStatusInput): TokenStatus;
 export async function getEffectiveStatus(mint: string): Promise<TokenStatus>;
-export function getEffectiveStatus(arg: any): any {
+export function getEffectiveStatus(arg: unknown): TokenStatus | Promise<TokenStatus> {
   // NEW: decision path
-  if (typeof arg === 'object' && arg) {
+  if (typeof arg === 'object' && arg !== null) {
     return resolveEffectiveStatus(arg as EffectiveStatusInput);
   }
 
@@ -266,7 +458,7 @@ export function getEffectiveStatus(arg: any): any {
     const row = await getStatusRow(mint);
     if (!row) return 'healthy';
     if (row.status === 'blacklist' || row.status === 'redlist') return row.status;
-    // compat: returning registry status (not metrics)
+    // compat: sadece registry status’ü döndürüyoruz (metrics yok)
     return row.status;
   })();
 }

@@ -6,7 +6,10 @@ import type { TokenStatus } from '@/app/api/_lib/types';
 import { verifyCsrf } from '@/app/api/_lib/csrf';
 
 // registry (raw row + final decision helper)
-import { getStatusRow, resolveEffectiveStatus } from '@/app/api/_lib/registry';
+import {
+  getStatusRow,
+  computeEffectiveDecision,
+} from '@/app/api/_lib/registry';
 
 // compat (manual override)
 import {
@@ -32,7 +35,12 @@ function isLockedDeadcoinRow(row: any): boolean {
   if (row.status !== 'deadcoin') return false;
   const m = row.meta ?? {};
   const src = m?.source ?? row.updated_by ?? null;
-  return m?.lock_deadcoin === true || m?.lock?.deadcoin === true || src === 'community' || src === 'admin';
+  return (
+    m?.lock_deadcoin === true ||
+    m?.lock?.deadcoin === true ||
+    src === 'community' ||
+    src === 'admin'
+  );
 }
 
 function isLockedListRow(row: any): boolean {
@@ -40,7 +48,13 @@ function isLockedListRow(row: any): boolean {
   if (row.status !== 'blacklist' && row.status !== 'redlist') return false;
   const m = row.meta ?? {};
   const src = m?.source ?? row.updated_by ?? null;
-  return m?.lock_list === true || src === 'admin';
+  return m?.lock_list === true || m?.lock?.list === true || src === 'admin';
+}
+
+// küçük helper: sayı normalize
+function num(x: unknown): number {
+  const n = typeof x === 'number' ? x : Number(x ?? 0);
+  return Number.isFinite(n) ? n : 0;
 }
 
 /**
@@ -78,6 +92,10 @@ export async function GET(req: NextRequest) {
       row?.created_at ??
       null;
 
+    // kilit bilgileri
+    const lockDeadcoin = isLockedDeadcoinRow(row);
+    const lockList = isLockedListRow(row);
+
     /* -------------------------------------------------
      * 2) COMMUNITY VOTES (live)
      * ------------------------------------------------- */
@@ -96,31 +114,38 @@ export async function GET(req: NextRequest) {
     const thresholds = await getTokenThresholds();
 
     /* -------------------------------------------------
-     * 4) METRICS + USD (optional)
+     * 4) METRICS + USD
+     *    (includeMetrics = 0 olsa bile, effective karar için
+     *     mümkün olduğunca classifyToken kullanıyoruz)
      * ------------------------------------------------- */
     let metricsCategory: 'healthy' | 'walking_dead' | 'deadcoin' | null = null;
     let usdValue = 0;
     let metrics: any = null;
-    let metricsLiquidityUSD = 0;
+    let liq: number | null = null;
+    let vol: number | null = null;
 
-    if (includeMetrics) {
-      try {
-        // amount=1: sadece stat/metrics görmek için
-        const cls = await classifyToken({ mint }, 1);
+    try {
+      // amount=1: sadece stat/metrics görmek için
+      const cls = await classifyToken({ mint }, 1);
 
-        // classifyToken: 'unknown' da dönebilir → resolver'a null veriyoruz
-        metricsCategory =
-          cls.category === 'healthy' || cls.category === 'walking_dead' || cls.category === 'deadcoin'
-            ? cls.category
-            : null;
+      // classifyToken: 'unknown' da dönebilir → resolver'a null veriyoruz
+      metricsCategory =
+        cls.category === 'healthy' ||
+        cls.category === 'walking_dead' ||
+        cls.category === 'deadcoin'
+          ? cls.category
+          : null;
 
-        usdValue = Number(cls.usdValue ?? 0) || 0;
-        metricsLiquidityUSD = Number(cls.liquidity ?? 0) || 0;
+      usdValue = Number(cls.usdValue ?? 0) || 0;
 
+      liq = cls.liquidity ?? null;
+      vol = cls.volume ?? null;
+
+      if (includeMetrics) {
         metrics = {
           category: metricsCategory ?? cls.category,
-          liquidity: cls.liquidity ?? null,
-          volume: cls.volume ?? null,
+          liquidity: liq,
+          volume: vol,
 
           // ✅ doğru alanlar (sende bu şekilde kalsın)
           dexVolume: cls.volumeBreakdown?.dexVolumeUSD ?? null,
@@ -128,9 +153,13 @@ export async function GET(req: NextRequest) {
 
           sources: cls.volumeSources ?? null,
         };
-      } catch (e: any) {
-        metricsCategory = null;
-        usdValue = 0;
+      }
+    } catch (e: any) {
+      metricsCategory = null;
+      usdValue = 0;
+      liq = null;
+      vol = null;
+      if (includeMetrics) {
         metrics = { error: e?.message || 'metrics_failed' };
       }
     }
@@ -138,13 +167,28 @@ export async function GET(req: NextRequest) {
     /* -------------------------------------------------
      * 5) 🔑 EFFECTIVE STATUS (single source of truth)
      * ------------------------------------------------- */
-    const status: TokenStatus = resolveEffectiveStatus({
+    const decision = computeEffectiveDecision({
       registryStatus,
       registrySource,
       metricsCategory,
-      usdValue,
-      liquidityUSD: metricsLiquidityUSD,
+      usdValue: num(usdValue),
+      liquidityUSD: liq,
+      volumeUSD: vol,
+      thresholds: thresholds
+        ? {
+            healthyMinLiq: thresholds.healthyMinLiq,
+            healthyMinVol: thresholds.healthyMinVol,
+            walkingDeadMinLiq: thresholds.walkingDeadMinLiq,
+            walkingDeadMinVol: thresholds.walkingDeadMinVol,
+          }
+        : undefined,
+      locks: {
+        lockDeadcoin,
+        lockList,
+      },
     });
+
+    const status: TokenStatus = decision.status;
 
     /* -------------------------------------------------
      * 6) CACHE
@@ -164,10 +208,22 @@ export async function GET(req: NextRequest) {
         status,
         statusAt,
 
+        // yeni ama uyumlu: decision detayları
+        decision: {
+          zone: decision.zone,
+          highLiq: decision.highLiq,
+          voteEligible: decision.voteEligible,
+        },
+
         // debug / admin visibility
         registry: {
           status: registryStatus,
           source: registrySource,
+        },
+
+        locks: {
+          deadcoin: lockDeadcoin,
+          list: lockList,
         },
 
         votesYes,
@@ -185,7 +241,7 @@ export async function GET(req: NextRequest) {
     );
   } catch (e: any) {
     return NextResponse.json(
-      { success: false, error: e?.message || 'Internal error' },
+      { success: false, error: (e as any)?.message || 'Internal error' },
       { status: 500 },
     );
   }
@@ -250,7 +306,12 @@ export async function PUT(req: NextRequest) {
           { status: 409 },
         );
       }
-      if (isLockedListRow(row) && (status === 'healthy' || status === 'walking_dead' || status === 'deadcoin')) {
+      if (
+        isLockedListRow(row) &&
+        (status === 'healthy' ||
+          status === 'walking_dead' ||
+          status === 'deadcoin')
+      ) {
         return NextResponse.json(
           {
             success: false,
@@ -296,7 +357,7 @@ export async function PUT(req: NextRequest) {
       ...lockPatch,
 
       // ✅ Always stamp admin source for PUT (prevents spoofing)
-      source: 'admin',
+      source: source || 'admin',
 
       // keep force info
       force: !!force,
@@ -323,7 +384,7 @@ export async function PUT(req: NextRequest) {
     });
   } catch (e: any) {
     return NextResponse.json(
-      { success: false, error: e?.message || 'Internal error' },
+      { success: false, error: (e as any)?.message || 'Internal error' },
       { status: 500 },
     );
   }
