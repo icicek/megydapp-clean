@@ -9,7 +9,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-
 import dynamic from 'next/dynamic';
 
 type DeadcoinVoteButtonProps = {
@@ -81,7 +80,11 @@ export default function ConfirmModal({
   const [internalBusy, setInternalBusy] = useState(false);
   const [votesYes, setVotesYes] = useState<number | null>(null);
   const [voteThreshold, setVoteThreshold] = useState<number | null>(null);
-  const [statusVoteEligible, setStatusVoteEligible] = useState<boolean>(false);
+
+  // 🔹 API decision detayları
+  const [zone, setZone] = useState<'healthy' | 'wd_gray' | 'wd_vote' | 'deadzone' | null>(null);
+  const [highLiq, setHighLiq] = useState(false);
+  const [voteEligible, setVoteEligible] = useState(false);
 
   const busy = confirmBusy || internalBusy;
 
@@ -111,6 +114,7 @@ export default function ConfirmModal({
     if (listStatus === 'deadcoin') return 'deadcoin';
     if (listStatus === 'walking_dead') return 'walking_dead';
 
+    // Registry'de bilgi yok ama fiyat sıfır → fallback deadcoin
     if (
       fetchStatus !== 'loading' &&
       fetchStatus !== 'error' &&
@@ -122,13 +126,12 @@ export default function ConfirmModal({
     return 'healthy';
   }
 
-  const effectiveStatus = useMemo(() => resolveEffectiveStatus(), [
-    listStatus,
-    fetchStatus,
-    derivedUsd,
-  ]);  
+  const effectiveStatus = useMemo(
+    () => resolveEffectiveStatus(),
+    [listStatus, fetchStatus, derivedUsd]
+  );
 
-  // 🔎 Token list status (optional)
+  // 🔎 Token list status & decision
   useEffect(() => {
     let abort = false;
     async function load() {
@@ -142,22 +145,33 @@ export default function ConfirmModal({
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();
         if (abort) return;
-  
-        setListStatus(data.status as ListStatus);
+
+        // 🔹 DB → registry.status öncelikli
+        const registryStatus = (data?.registry?.status ?? null) as ListStatus | null;
+        const effStatus = (data?.status ?? null) as ListStatus | null;
+
+        setListStatus(registryStatus ?? effStatus);
         setStatusAt(data.statusAt ?? null);
+
         setVotesYes(
           typeof data.votesYes === 'number' ? data.votesYes : null
         );
         setVoteThreshold(
           typeof data.threshold === 'number' ? data.threshold : null
         );
-        // 🔹 WD oylama bölgesi (wd_vote) bilgisi
-        setStatusVoteEligible(!!data?.decision?.voteEligible);
-      } catch {
+
+        // 🔹 decision.zone / highLiq / voteEligible
+        setZone(data?.decision?.zone ?? null);
+        setHighLiq(Boolean(data?.decision?.highLiq));
+        setVoteEligible(Boolean(data?.decision?.voteEligible));
+      } catch (e) {
         if (!abort) {
+          console.warn('⚠️ /api/status failed in ConfirmModal:', e);
           setListStatus(null);
           setStatusAt(null);
-          setStatusVoteEligible(false);
+          setZone(null);
+          setHighLiq(false);
+          setVoteEligible(false);
         }
       } finally {
         if (!abort) setStatusLoading(false);
@@ -167,13 +181,16 @@ export default function ConfirmModal({
     return () => {
       abort = true;
     };
-  }, [isOpen, tokenMint]);  
+  }, [isOpen, tokenMint]);
 
   useEffect(() => {
     if (!isOpen) return;
     // light debug info
     console.debug('ConfirmModal props', {
-      fetchStatus, usdValue, amount, priceSources,
+      fetchStatus,
+      usdValue,
+      amount,
+      priceSources,
       firstSource: Array.isArray(priceSources) ? priceSources[0] : null,
     });
   }, [isOpen, fetchStatus, usdValue, amount, priceSources]);
@@ -184,7 +201,7 @@ export default function ConfirmModal({
 
   // ✅ Rules: Black/Red list hard block; Deadcoin allowed
   const isHardBlocked =
-  effectiveStatus === 'blacklist' || effectiveStatus === 'redlist';
+    effectiveStatus === 'blacklist' || effectiveStatus === 'redlist';
   const isDeadcoin = effectiveStatus === 'deadcoin';
 
   // UI helpers
@@ -201,7 +218,9 @@ export default function ConfirmModal({
         <div className={`bg-red-600 ${base}`}>
           ⛔ This token is on the <strong>Blacklist</strong>.
           {statusAt ? <> Since {new Date(statusAt).toLocaleString()}.</> : null}
-          <div className="text-xs opacity-90">Coincarnation is blocked for blacklisted tokens.</div>
+          <div className="text-xs opacity-90">
+            Coincarnation is blocked for blacklisted tokens.
+          </div>
         </div>
       );
     }
@@ -210,7 +229,9 @@ export default function ConfirmModal({
         <div className={`bg-amber-600 ${base}`}>
           ⚠️ This token is on the <strong>Redlist</strong>.
           {statusAt ? <> Since {new Date(statusAt).toLocaleString()}.</> : null}
-          <div className="text-xs opacity-90">Existing Coincarnations before listing remain valid.</div>
+          <div className="text-xs opacity-90">
+            Existing Coincarnations before listing remain valid.
+          </div>
         </div>
       );
     }
@@ -230,7 +251,9 @@ export default function ConfirmModal({
         <div className={`bg-orange-700 ${base}`}>
           🧟 This token is on the <strong>Walking Deadcoin</strong> list.
           {statusAt ? <> Since {new Date(statusAt).toLocaleString()}.</> : null}
-          <div className="text-xs opacity-90">It may turn into a Deadcoin; consider coincarnating sooner.</div>
+          <div className="text-xs opacity-90">
+            It may turn into a Deadcoin; consider coincarnating sooner.
+          </div>
         </div>
       );
     }
@@ -258,12 +281,14 @@ export default function ConfirmModal({
       ? 'Processing…'
       : isDeadcoin
       ? 'Confirm Deadcoin Coincarnation'
-      : `Confirm Coincarnation${amount ? ` (${amount} ${tokenSymbol})` : ''}`);
+      : `Confirm Coincarnation${
+          amount ? ` (${amount} ${tokenSymbol})` : ''
+        }`);
 
   const titleText =
-  effectiveStatus === 'deadcoin'
-    ? 'Confirm Deadcoin Coincarnation'
-    : 'Confirm Coincarnation';
+    effectiveStatus === 'deadcoin'
+      ? 'Confirm Deadcoin Coincarnation'
+      : 'Confirm Coincarnation';
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onCancel(); }}>
@@ -280,14 +305,27 @@ export default function ConfirmModal({
             <div>usdValue: <b>{String(usdValue)}</b></div>
             <div>derivedUsd: <b>{String(derivedUsd)}</b></div>
             <div>amount: <b>{String(amount)}</b></div>
-            <div>priceSources: <b>{Array.isArray(priceSources) ? priceSources.length : 0}</b></div>
+            <div>
+              priceSources:{' '}
+              <b>{Array.isArray(priceSources) ? priceSources.length : 0}</b>
+            </div>
             {Array.isArray(priceSources) && priceSources[0] && (
               <>
-                <div>first source: <b>{priceSources[0].source}</b> @ <b>{String(priceSources[0].price)}</b></div>
-                <div>price typeof: <b>{typeof priceSources[0].price}</b></div>
+                <div>
+                  first source:{' '}
+                  <b>{priceSources[0].source}</b> @{' '}
+                  <b>{String(priceSources[0].price)}</b>
+                </div>
+                <div>
+                  price typeof:{' '}
+                  <b>{typeof priceSources[0].price}</b>
+                </div>
               </>
             )}
             <div>listStatus: <b>{listStatus ?? '—'}</b></div>
+            <div>zone: <b>{zone ?? '—'}</b></div>
+            <div>highLiq: <b>{String(highLiq)}</b></div>
+            <div>voteEligible: <b>{String(voteEligible)}</b></div>
             <div>isHardBlocked: <b>{String(isHardBlocked)}</b></div>
             <div>isDeadcoin: <b>{String(isDeadcoin)}</b></div>
           </div>
@@ -295,20 +333,41 @@ export default function ConfirmModal({
 
         <div className="mt-3 text-sm text-white space-y-1">
           <p>
-            You are about to coincarnate <strong>{tokenSymbol}</strong> ({amount} units).
+            You are about to coincarnate <strong>{tokenSymbol}</strong> ({amount}{' '}
+            units).
           </p>
           {isDeadcoin && (
             <p className="text-xs text-amber-200 mt-1">
-              This asset is treated as a <strong>Deadcoin</strong> in Coincarnation.
-              You will earn <strong>CorePoints</strong>, but{' '}
+              This asset is treated as a <strong>Deadcoin</strong> in
+              Coincarnation. You will earn <strong>CorePoints</strong>, but{' '}
               <strong>no $MEGY will be distributed</strong> for this swap.
             </p>
           )}
-          {(networkLabel || tokenContract || tokenMint) && (
+          {(networkLabel || tokenContract || tokenMint || currentWallet) && (
             <div className="text-xs text-gray-300 space-y-0.5 mt-1">
-              {networkLabel && <div>Network: <b>{networkLabel}</b></div>}
-              {tokenContract && <div>Contract: <b title={tokenContract}>{short(tokenContract)}</b></div>}
-              {tokenMint && <div>Mint: <b title={tokenMint}>{short(tokenMint)}</b></div>}
+              {networkLabel && (
+                <div>
+                  Network: <b>{networkLabel}</b>
+                </div>
+              )}
+              {currentWallet && (
+                <div>
+                  From wallet:{' '}
+                  <b title={currentWallet}>{short(currentWallet)}</b>
+                </div>
+              )}
+              {tokenContract && (
+                <div>
+                  Contract:{' '}
+                  <b title={tokenContract}>{short(tokenContract)}</b>
+                </div>
+              )}
+              {tokenMint && (
+                <div>
+                  Mint:{' '}
+                  <b title={tokenMint}>{short(tokenMint)}</b>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -323,7 +382,7 @@ export default function ConfirmModal({
             </div>
           )}
 
-          {/* ☠️ SADECE registry deadcoin DEĞİLSE ve sistem deadcoin diyorsa göster */}
+          {/* ☠️ Registry'de deadcoin değil ama sistem deadcoin diyorsa açıklama */}
           {isDeadcoin &&
             listStatus !== 'deadcoin' &&
             fetchStatus !== 'loading' &&
@@ -336,18 +395,24 @@ export default function ConfirmModal({
               </div>
             )}
 
-          {/* ✅ SADECE healthy tokenlerde değer göster */}
+          {/* ✅ Değer bulduysak HER durumda (hard block değilse) göster */}
           {fetchStatus === 'found' &&
             !isHardBlocked &&
-            !isDeadcoin &&
             derivedUsd > 0 && (
               <div className="bg-green-700 text-white p-3 rounded font-medium">
-                ✅ Estimated value: <strong>${derivedUsd.toString()}</strong>
+                ✅ Estimated value:{' '}
+                <strong>${derivedUsd.toString()}</strong>
+                {isDeadcoin && (
+                  <div className="text-xs mt-1 opacity-80">
+                    This value is shown for transparency only; deadcoin
+                    Coincarnations do not receive $MEGY.
+                  </div>
+                )}
               </div>
             )}
 
-          {/* ✅ Fiyat kaynakları SADECE healthy ise göster */}
-          {!isDeadcoin &&
+          {/* ✅ Fiyat kaynaklarını da şeffaflık için her durumda göster (hard block hariç) */}
+          {!isHardBlocked &&
             fetchStatus !== 'loading' &&
             fetchStatus !== 'error' &&
             Array.isArray(priceSources) &&
@@ -364,21 +429,19 @@ export default function ConfirmModal({
               </div>
             )}
 
-          {/* 🧟 Sadece walking_dead için oy alanı */}
-          {listStatus === 'walking_dead' &&
-            statusVoteEligible &&
-            tokenMint &&
-            fetchStatus === 'found' &&
-            derivedUsd > 0 && (
-              <div className="mt-2">
-                <p className="text-xs text-orange-200 mb-2">
-                  Community can vote this token as Deadcoin if liquidity/volume stays critically low.
-                  <br />
-                  <strong>{voteThreshold ?? 3} YES</strong> votes will mark it as Deadcoin.
-                </p>
+          {/* 🧟 Deadcoin oylaması: sadece backend voteEligible ise */}
+          {voteEligible && listStatus === 'walking_dead' && tokenMint && (
+            <div className="mt-2">
+              <p className="text-xs text-orange-200 mb-2">
+                Community can vote this token as Deadcoin if liquidity/volume
+                stays critically low.
+                <br />
+                <strong>{voteThreshold ?? 3} YES</strong> votes will mark it as
+                Deadcoin.
+              </p>
 
-                {/* 🏷️ Votes rozet */}
-                {typeof votesYes === 'number' && typeof voteThreshold === 'number' && (
+              {typeof votesYes === 'number' &&
+                typeof voteThreshold === 'number' && (
                   <div className="inline-flex items-center gap-2 rounded-full bg-black/30 px-3 py-1 text-[11px] text-orange-100 mb-2">
                     <span>Community votes:</span>
                     <span className="font-semibold">
@@ -392,32 +455,39 @@ export default function ConfirmModal({
                   </div>
                 )}
 
-                <DeadcoinVoteButton
-                  mint={tokenMint}
-                  onVoted={(res) => {
-                    onDeadcoinVote('yes');
-                    if (res?.applied) setListStatus('deadcoin');
+              <DeadcoinVoteButton
+                mint={tokenMint}
+                onVoted={(res) => {
+                  onDeadcoinVote('yes');
+                  if (res?.applied) setListStatus('deadcoin');
 
-                    if (typeof res?.votesYes === 'number') {
-                      setVotesYes(res.votesYes);
-                    }
-                    if (typeof res?.threshold === 'number') {
-                      setVoteThreshold(res.threshold);
-                    }
+                  if (typeof res?.votesYes === 'number') {
+                    setVotesYes(res.votesYes);
+                  }
+                  if (typeof res?.threshold === 'number') {
+                    setVoteThreshold(res.threshold);
+                  }
 
-                    setVoteMessage(
-                      res?.applied
-                        ? '✅ Threshold reached – marked as Deadcoin.'
-                        : `👍 Vote recorded (${res?.votesYes ?? 1}/${res?.threshold ?? 3})`
-                    );
-                  }}
-                  label="Vote deadcoin (YES)"
-                  className="w-full sm:w-auto"
-                />
-                {voteMessage && <div className="mt-2 text-xs text-gray-300">{voteMessage}</div>}
-              </div>
-            )}
+                  setVoteMessage(
+                    res?.applied
+                      ? '✅ Threshold reached – marked as Deadcoin.'
+                      : `👍 Vote recorded (${res?.votesYes ?? 1}/${
+                          res?.threshold ?? 3
+                        })`
+                  );
+                }}
+                label="Vote deadcoin (YES)"
+                className="w-full sm:w-auto"
+              />
+              {voteMessage && (
+                <div className="mt-2 text-xs text-gray-300">
+                  {voteMessage}
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
         <div className="flex justify-end gap-2 mt-6">
           <button
             type="button"
