@@ -81,6 +81,7 @@ export default function ConfirmModal({
   const [internalBusy, setInternalBusy] = useState(false);
   const [votesYes, setVotesYes] = useState<number | null>(null);
   const [voteThreshold, setVoteThreshold] = useState<number | null>(null);
+  const [statusVoteEligible, setStatusVoteEligible] = useState<boolean>(false);
 
   const busy = confirmBusy || internalBusy;
 
@@ -137,10 +138,11 @@ export default function ConfirmModal({
         const res = await fetch(
           `/api/status?mint=${encodeURIComponent(tokenMint)}&includeMetrics=1`,
           { cache: 'no-store' }
-        );        
+        );
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();
         if (abort) return;
+  
         setListStatus(data.status as ListStatus);
         setStatusAt(data.statusAt ?? null);
         setVotesYes(
@@ -148,19 +150,24 @@ export default function ConfirmModal({
         );
         setVoteThreshold(
           typeof data.threshold === 'number' ? data.threshold : null
-        );        
+        );
+        // 🔹 WD oylama bölgesi (wd_vote) bilgisi
+        setStatusVoteEligible(!!data?.decision?.voteEligible);
       } catch {
         if (!abort) {
           setListStatus(null);
           setStatusAt(null);
+          setStatusVoteEligible(false);
         }
       } finally {
         if (!abort) setStatusLoading(false);
       }
     }
     load();
-    return () => { abort = true; };
-  }, [isOpen, tokenMint]);
+    return () => {
+      abort = true;
+    };
+  }, [isOpen, tokenMint]);  
 
   useEffect(() => {
     if (!isOpen) return;
@@ -359,6 +366,7 @@ export default function ConfirmModal({
 
           {/* 🧟 Sadece walking_dead için oy alanı */}
           {listStatus === 'walking_dead' &&
+            statusVoteEligible &&
             tokenMint &&
             fetchStatus === 'found' &&
             derivedUsd > 0 && (

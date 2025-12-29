@@ -26,11 +26,21 @@ import { getDestAddress, __dest_debug__ } from '@/lib/chain/env';
 import { getTokenMeta } from '@/lib/solana/tokenMeta';
 import type { SharePayload } from '@/components/share/intent';
 
+type TokenStatusApi =
+  | 'healthy'
+  | 'walking_dead'
+  | 'deadcoin'
+  | 'redlist'
+  | 'blacklist'
+  | 'unknown';
+
 type CoincarnationResultProps = {
   tokenFrom: string;
   number: number;
   txId: string;
   referral?: string;
+  voteEligible?: boolean;
+  tokenStatus?: TokenStatusApi | null;
   onRecoincarnate: () => void;
   onGoToProfile: () => void;
 };
@@ -74,6 +84,18 @@ const ConfirmModal = dynamic(
   () => import('@/components/ConfirmModal'),
   { ssr: false }
 ) as React.ComponentType<ConfirmModalProps>;
+
+type StatusApiDecision = {
+  status?: TokenStatusApi | null;
+  zone: 'healthy' | 'wd_gray' | 'wd_vote' | 'deadzone';
+  highLiq: boolean;
+  voteEligible: boolean;
+};
+
+type StatusApiResponse = {
+  status: TokenStatusApi | null;
+  decision?: StatusApiDecision;
+};
 
 /* -------- Local types & consts -------- */
 
@@ -146,18 +168,6 @@ export default function CoincarneModal({
     }
   }, []);
 
-  useEffect(() => {
-    try {
-      const addr = getDestAddress('solana');
-      setDestSol(new PublicKey(addr));
-      setDestErr(null);
-    } catch (e: any) {
-      setDestSol(null);
-      setDestErr('Destination address is not configured. Please set NEXT_PUBLIC_DEST_SOL.');
-      console.warn('NEXT_PUBLIC_DEST_SOL error:', e?.message || e);
-    }
-  }, []);
-
   /* ------------------ LOCAL UI STATE ------------------ */
   const [loading, setLoading] = useState(false);
   const [amountInput, setAmountInput] = useState('');
@@ -167,7 +177,11 @@ export default function CoincarneModal({
     number: number;
     txId: string;
     referralCode?: string | null;
-  } | null>(null);  
+    voteEligible?: boolean;
+    tokenStatus?: TokenStatusApi | null;
+  } | null>(null);
+  
+  const [statusInfo, setStatusInfo] = useState<StatusApiResponse | null>(null);  
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [priceView, setPriceView] = useState<PriceView>({
@@ -219,6 +233,46 @@ export default function CoincarneModal({
     error: balError,
     isSOL: isSolFromHook,
   } = useInternalBalance(token.mint, { isSOL: isSOLToken });
+
+  // ------------------ STATUS / VOTE INFO ------------------
+  useEffect(() => {
+    let abort = false;
+    const mint = isSOLToken ? WSOL_MINT : token.mint;
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/status?mint=${encodeURIComponent(mint)}`,
+          { cache: 'no-store' }
+        );
+        if (!res.ok) return;
+        const data = (await res.json()) as StatusApiResponse;
+        if (abort) return;
+        setStatusInfo(data);
+      } catch (e) {
+        if (!abort) {
+          console.warn('⚠️ status fetch failed in CoincarneModal:', e);
+          setStatusInfo(null);
+        }
+      }
+    })();
+
+    return () => {
+      abort = true;
+    };
+  }, [token.mint, isSOLToken]);
+
+  useEffect(() => {
+    try {
+      const addr = getDestAddress('solana');
+      setDestSol(new PublicKey(addr));
+      setDestErr(null);
+    } catch (e: any) {
+      setDestSol(null);
+      setDestErr('Destination address is not configured. Please set NEXT_PUBLIC_DEST_SOL.');
+      console.warn('NEXT_PUBLIC_DEST_SOL error:', e?.message || e);
+    }
+  }, []);
 
   /* ------------------ CONFIRM PREPARE (PRICING) ------------------ */
   const handlePrepareConfirm = async () => {
@@ -400,8 +454,11 @@ export default function CoincarneModal({
         tokenFrom: displaySymbol,
         number: userNumber,
         referralCode,
-        txId: stableTxId,   // ⬅️ Artık her zaman blockchain tx hash (veya en kötü fallback)
-      });
+        txId: stableTxId,
+        // 🔹 status API’den gelen bilgiyi success ekranına taşı
+        voteEligible: !!statusInfo?.decision?.voteEligible,
+        tokenStatus: statusInfo?.status ?? null,
+      });      
 
       setConfirmModalOpen(false);
       refetchTokens?.();
@@ -476,6 +533,8 @@ export default function CoincarneModal({
               number={resultData.number}
               txId={resultData.txId}
               referral={resultData.referralCode ?? undefined}
+              voteEligible={resultData.voteEligible}
+              tokenStatus={resultData.tokenStatus ?? undefined}
               onRecoincarnate={() => setResultData(null)}
               onGoToProfile={() => {
                 onClose();

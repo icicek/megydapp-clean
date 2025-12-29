@@ -165,8 +165,8 @@ export async function GET(req: NextRequest) {
     }
 
     /* -------------------------------------------------
-     * 5) 🔑 EFFECTIVE STATUS (single source of truth)
-     * ------------------------------------------------- */
+    * 5) 🔑 EFFECTIVE STATUS (registry-first)
+    * ------------------------------------------------- */
     const decision = computeEffectiveDecision({
       registryStatus,
       registrySource,
@@ -188,7 +188,12 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    const status: TokenStatus = decision.status;
+    // 🔹 UI ve tüm read-only taraflar için KESİN statü:
+    //    1) Eğer registry’de statü varsa → onu kullan
+    //    2) Yoksa (null/unknown) → computeEffectiveDecision önerisini kullan
+    const status: TokenStatus =
+      (registryStatus as TokenStatus | null) ?? decision.status;
+
 
     /* -------------------------------------------------
      * 6) CACHE
@@ -210,10 +215,11 @@ export async function GET(req: NextRequest) {
 
         // yeni ama uyumlu: decision detayları
         decision: {
+          status: decision.status,   // 🔹 otomatik (cron/metrics) öneri
           zone: decision.zone,
           highLiq: decision.highLiq,
           voteEligible: decision.voteEligible,
-        },
+        },        
 
         // debug / admin visibility
         registry: {

@@ -11,6 +11,15 @@ type Props = {
   number: number;
   txId: string;
   referral?: string;
+  voteEligible?: boolean;
+  tokenStatus?:
+    | 'healthy'
+    | 'walking_dead'
+    | 'deadcoin'
+    | 'redlist'
+    | 'blacklist'
+    | 'unknown'
+    | null;
   onRecoincarnate: () => void;
   onGoToProfile: () => void;
 };
@@ -20,6 +29,8 @@ export default function CoincarnationResult({
   number,
   txId,
   referral,
+  voteEligible,
+  tokenStatus, // şimdilik sadece debug / future use
   onRecoincarnate,
   onGoToProfile,
 }: Props) {
@@ -90,6 +101,30 @@ export default function CoincarnationResult({
           Your referral code:{' '}
           <span className="font-mono text-purple-300">{referral}</span>
         </p>
+      )}
+
+      {voteEligible && (
+        <div className="mb-6 mt-2 rounded-xl border border-amber-500/60 bg-amber-500/10 px-4 py-3 text-sm text-amber-50 text-left">
+          <div className="mb-1 font-semibold">
+            This token is under community review.
+          </div>
+          <p className="mb-2 text-xs opacity-80">
+            You can help decide whether ${tokenFrom} should be classified as a
+            real Deadcoin. Your vote also shapes how the Fair Future Fund
+            protects future contributors.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.open('/vote', '_blank', 'noopener,noreferrer');
+              }
+            }}
+            className="inline-flex items-center rounded-lg border border-amber-400 px-3 py-1 text-xs font-semibold text-amber-50 transition hover:bg-amber-400/10"
+          >
+            🗳️ Go to Deadcoin Vote
+          </button>
+        </div>
       )}
 
       {/* 🔹 Success için merkezi share sistemi (intent.ts + buildTwitterIntent) */}
