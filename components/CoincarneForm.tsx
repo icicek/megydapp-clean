@@ -46,12 +46,21 @@ export default function CoincarneForm() {
   const [participantNumber, setParticipantNumber] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // NEW: vote state
+  const [voteEligible, setVoteEligible] = useState(false);
+  const [lastMint, setLastMint] = useState<string | null>(null);
+  const [lastStatus, setLastStatus] = useState<ListStatus | null>(null);
+
   const showDebug =
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).has('debug');
 
   const destKey = useMemo(() => {
-    try { return DEST_SOLANA ? new PublicKey(DEST_SOLANA) : null; } catch { return null; }
+    try {
+      return DEST_SOLANA ? new PublicKey(DEST_SOLANA) : null;
+    } catch {
+      return null;
+    }
   }, []);
 
   useEffect(() => {
@@ -100,6 +109,9 @@ export default function CoincarneForm() {
       setAmount('');
       setConfirmed(false);
       setModalOpen(true);
+      setVoteEligible(false);
+      setLastMint(null);
+      setLastStatus(null);
       fetchWalletBalance(token);
     }
   };
@@ -189,7 +201,9 @@ export default function CoincarneForm() {
       if (!res2.ok) {
         const txt2 = await res2.text();
         console.error('[record] /api/record failed:', res2.status, txt2);
-        throw new Error(`Record failed.\n/coincarnation/record: ${res.status} ${txt}\n/record: ${res2.status} ${txt2}`);
+        throw new Error(
+          `Record failed.\n/coincarnation/record: ${res.status} ${txt}\n/record: ${res2.status} ${txt2}`,
+        );
       }
       return res2;
     }
@@ -209,13 +223,31 @@ export default function CoincarneForm() {
 
     setIsProcessing(true);
     try {
-      // 1) Redlist/Blacklist
+      // 1) Status + vote info
       const mint = selectedToken.symbol === 'SOL' ? WSOL_MINT : selectedToken.address!;
       let listStatus: ListStatus | null = null;
+      let decisionVoteEligible = false;
+
       try {
-        const stRes = await fetch(`/api/status?mint=${encodeURIComponent(mint)}`, { cache: 'no-store' });
-        if (stRes.ok) listStatus = (await stRes.json())?.status ?? null;
-      } catch {}
+        const qs = new URLSearchParams({
+          mint,
+          includeMetrics: '1',
+        });
+        const stRes = await fetch(`/api/status?${qs.toString()}`, { cache: 'no-store' });
+        if (stRes.ok) {
+          const sj = await stRes.json();
+          listStatus = (sj?.status ?? null) as ListStatus | null;
+          decisionVoteEligible = Boolean(sj?.decision?.voteEligible);
+        }
+      } catch (err) {
+        console.error('Status fetch failed', err);
+      }
+
+      setLastMint(mint);
+      setLastStatus(listStatus);
+      setVoteEligible(decisionVoteEligible);
+
+      // Redlist/Blacklist blokajı
       if (listStatus === 'blacklist' || listStatus === 'redlist') {
         alert('⛔ This token is blocked (blacklist/redlist).');
         setIsProcessing(false);
@@ -233,7 +265,9 @@ export default function CoincarneForm() {
         if (j?.ok || j?.success) {
           usdTotal = Number(j.usdValue ?? 0) || Number(j.priceUsd ?? 0) * amt || 0;
         }
-      } catch {}
+      } catch (err) {
+        console.error('Price fetch failed', err);
+      }
 
       // 3) On-chain transfer
       let signature = '';
@@ -262,13 +296,14 @@ export default function CoincarneForm() {
         token_symbol: selectedToken.symbol,
         token_contract: selectedToken.symbol === 'SOL' ? null : selectedToken.address,
         token_amount: amt,
-        usd_value: isDeadcoinForMegy ? 0 : (usdTotal || 0),  // 🔴 ESKİ: usdTotal || 0
+        // NOTE: deadcoin için MEGY yok → usd_value backend’de CP ve dağıtım kurallarına göre kullanılacak
+        usd_value: isDeadcoinForMegy ? 0 : (usdTotal || 0),
         network: 'solana',
         transaction_signature: signature,
         idempotency_key: idem,
         user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
         asset_kind: assetKind,
-        token_category: isDeadcoinForMegy ? 'deadcoin' : 'healthy',
+        token_category: isDeadcoinForMegy ? 'deadcoin' : 'healthy', // WD ayrımı backend’de status’e göre yapılacak
       };
 
       const rec = await recordContribution(payload);
@@ -319,12 +354,25 @@ export default function CoincarneForm() {
             <div className="bg-gray-900 border border-white rounded-2xl p-6 w-full max-w-md text-center mx-auto">
               {isProcessing ? (
                 <div className="flex flex-col items-center justify-center py-8">
-                  <img src="/icons/hourglass.svg" className="w-10 h-10 mb-4 animate-spin" alt="Coincarnating..." />
+                  <img
+                    src="/icons/hourglass.svg"
+                    className="w-10 h-10 mb-4 animate-spin"
+                    alt="Coincarnating..."
+                  />
                   <p className="text-white text-lg font-semibold">🕒 Coincarnating...</p>
                 </div>
               ) : !confirmed ? (
                 <>
-                  <h2 className="text-xl font-bold mb-4">Coincarnate {selectedToken.symbol}</h2>
+                  <h2 className="text-xl font-bold mb-1">
+                    Coincarnate {selectedToken.symbol}
+                  </h2>
+
+                  {lastStatus && showDebug && (
+                    <p className="text-xs text-cyan-400 mb-1">
+                      Status: {lastStatus} • voteEligible: {String(voteEligible)}
+                    </p>
+                  )}
+
                   {availableAmount !== null && (
                     <p className="text-sm text-gray-400 mb-2">
                       Available: {availableAmount.toFixed(4)} {selectedToken.symbol}
@@ -333,7 +381,11 @@ export default function CoincarneForm() {
 
                   <div className="mt-2 space-x-2">
                     {[25, 50, 75, 100].map((pct) => (
-                      <button key={pct} onClick={() => handleQuickSelect(pct)} className="bg-gray-700 px-3 py-1 rounded text-white">
+                      <button
+                        key={pct}
+                        onClick={() => handleQuickSelect(pct)}
+                        className="bg-gray-700 px-3 py-1 rounded text-white"
+                      >
                         %{pct}
                       </button>
                     ))}
@@ -361,7 +413,17 @@ export default function CoincarneForm() {
                   </button>
 
                   <button
-                    onClick={() => { setModalOpen(false); setSelectedToken(null); setAmount(''); }}
+                    onClick={() => {
+                      setModalOpen(false);
+                      setSelectedToken(null);
+                      setAmount('');
+                      setAvailableAmount(null);
+                      setConfirmed(false);
+                      setParticipantNumber(null);
+                      setVoteEligible(false);
+                      setLastMint(null);
+                      setLastStatus(null);
+                    }}
                     className="mt-2 w-full bg-gray-700 hover:bg-gray-600 py-2 rounded-xl"
                   >
                     Cancel
@@ -373,7 +435,9 @@ export default function CoincarneForm() {
                   <p className="text-sm text-yellow-400 mb-2">
                     ✅ {amount} {selectedToken?.symbol} registered successfully.
                   </p>
-                  <p className="text-sm text-cyan-400 mb-4">👻 Coincarnator #{participantNumber}</p>
+                  <p className="text-sm text-cyan-400 mb-4">
+                    👻 Coincarnator #{participantNumber}
+                  </p>
 
                   <div className="space-y-2 mt-4">
                     <button
@@ -384,6 +448,9 @@ export default function CoincarneForm() {
                         setAvailableAmount(null);
                         setConfirmed(false);
                         setParticipantNumber(null);
+                        setVoteEligible(false);
+                        setLastMint(null);
+                        setLastStatus(null);
                       }}
                       className="w-full py-2 rounded-xl bg-gray-700 hover:bg-gray-600"
                     >
@@ -391,11 +458,27 @@ export default function CoincarneForm() {
                     </button>
 
                     <button
-                      onClick={() => { window.location.href = '/claim'; }}
+                      onClick={() => {
+                        window.location.href = '/claim';
+                      }}
                       className="w-full py-2 rounded-xl bg-blue-700 hover:bg-blue-600"
                     >
                       👤 Go to Profile
                     </button>
+
+                    {voteEligible && lastMint && (
+                      <button
+                        onClick={() => {
+                          // TODO: Bu route'u istediğin yapıya göre güncelleyebilirsin
+                          window.location.href = `/vote/deadcoin?mint=${encodeURIComponent(
+                            lastMint,
+                          )}`;
+                        }}
+                        className="w-full py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600"
+                      >
+                        ⚖️ Join Deadcoin Vote for this token
+                      </button>
+                    )}
                   </div>
                 </>
               )}
