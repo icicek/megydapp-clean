@@ -21,8 +21,8 @@ export const DOC_SECTIONS: DocSection[] = [
     Content: () => (
       <>
         <p>
-          Coincarnation is a chain-agnostic contribution & distribution protocol that
-          revives stranded crypto value (“deadcoins” & “walking-deadcoins”) into a
+          Coincarnation is a chain-agnostic contribution &amp; distribution protocol that
+          revives stranded crypto value (“deadcoins” &amp; “walking-deadcoins”) into a
           common unit, <strong>$MEGY</strong>. Instead of relying on a volatile market
           price, each phase opens a fixed supply pool and allocates MEGY
           <em> pro-rata</em> by contributed USD value. The design emphasizes fairness,
@@ -49,7 +49,7 @@ export const DOC_SECTIONS: DocSection[] = [
     Content: () => (
       <>
         <p>
-          Users contribute assets on Solana (SOL & SPL) in Phase-1 and on major EVM
+          Users contribute assets on Solana (SOL &amp; SPL) in Phase-1 and on major EVM
           chains in Phase-2. Each contribution is normalized to USD through a priority
           source stack. For a phase with pool <code>Pₖ</code> MEGY and total demand{" "}
           <code>USDₖ</code>, a user with contribution <code>USDᵢ</code> obtains:
@@ -82,7 +82,7 @@ export const DOC_SECTIONS: DocSection[] = [
           <li>Optional reference rate (UI only): <code>r_targetₖ</code> USD/MEGY.</li>
         </ul>
 
-        <h3 className="font-semibold mt-4 mb-2">3.2 Floor & Partial-Open Policy</h3>
+        <h3 className="font-semibold mt-4 mb-2">3.2 Floor &amp; Partial-Open Policy</h3>
         <ul className="list-disc pl-5 space-y-1">
           <li>
             Monotone floor: <code>r_floorₖ ≥ max(r_realized₍ₖ₋₁₎, r_targetₖ)</code>
@@ -102,7 +102,7 @@ export const DOC_SECTIONS: DocSection[] = [
           (subject to per-wallet caps and vesting, if enabled).
         </p>
 
-        <h3 className="font-semibold mt-4 mb-2">3.4 Optional Caps & Vesting</h3>
+        <h3 className="font-semibold mt-4 mb-2">3.4 Optional Caps &amp; Vesting</h3>
         <ul className="list-disc pl-5 space-y-1">
           <li>Per-wallet cap to reduce concentration and sybil risks.</li>
           <li>Linear vesting or cliffs to smooth post-phase token release.</li>
@@ -152,7 +152,295 @@ export const DOC_SECTIONS: DocSection[] = [
     ),
   },
 
-  // --- The remaining sections (expanded in English) ---
+  /**
+   * NEW: Token classification & rewards
+   */
+  {
+    slug: "token-classification",
+    title: "Token Classification, Rewards & Voting",
+    updatedAt: "2025-12-30",
+    words: 650,
+    summary:
+      "How price, liquidity, volume and registry status map to categories, rewards (MEGY, CorePoint, Deadcoin Bonus) and voting.",
+    Content: () => (
+      <>
+        <p className="mb-3 text-sm text-white/80">
+          Coincarnation separates <strong>valuation</strong> (price),{" "}
+          <strong>market structure</strong> (liquidity &amp; volume), and{" "}
+          <strong>registry status</strong> (admin/community decisions). This section
+          explains how these layers combine into a final category and how that
+          category drives MEGY distribution, CorePoint, Deadcoin Bonus, and voting.
+        </p>
+
+        <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-50">
+          <div className="font-semibold mb-1">Golden rule</div>
+          <ul className="list-disc pl-4 space-y-1">
+            <li>
+              Once a token is classified as <strong>deadcoin</strong>,{" "}
+              <strong>no further MEGY</strong> is ever distributed for new
+              Coincarnations of that asset.
+            </li>
+            <li>
+              CorePoint from Coincarnation contribution requires{" "}
+              <strong>USD value &gt; 0</strong>. If the token has truly zero USD
+              value, contribution-based CP is <strong>not</strong> awarded; only a
+              Deadcoin Bonus may apply.
+            </li>
+            <li>
+              Past rewards are never revoked, except for{" "}
+              <strong>blacklisted</strong> tokens where the protocol may invalidate
+              past contributions and offer refunds.
+            </li>
+          </ul>
+        </div>
+
+        <h3 className="font-semibold mb-2 text-sm">
+          1. Category → Reward Matrix (at time of contribution)
+        </h3>
+
+        <div className="overflow-x-auto text-xs mb-4">
+          <table className="w-full border-collapse border border-white/10">
+            <thead className="bg-white/5">
+              <tr>
+                <th className="border border-white/10 px-2 py-1 text-left">Category at intake</th>
+                <th className="border border-white/10 px-2 py-1 text-left">USD Value</th>
+                <th className="border border-white/10 px-2 py-1 text-left">MEGY from pool</th>
+                <th className="border border-white/10 px-2 py-1 text-left">CorePoint (Contribution)</th>
+                <th className="border border-white/10 px-2 py-1 text-left">Deadcoin Bonus</th>
+                <th className="border border-white/10 px-2 py-1 text-left">Voting</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="bg-black/20">
+                <td className="border border-white/10 px-2 py-1">
+                  <span className="inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-200">
+                    healthy
+                  </span>
+                </td>
+                <td className="border border-white/10 px-2 py-1">&gt; 0</td>
+                <td className="border border-white/10 px-2 py-1">✅ Yes (pool-proportional)</td>
+                <td className="border border-white/10 px-2 py-1">✅ Yes (USD-weighted CP)</td>
+                <td className="border border-white/10 px-2 py-1">🚫 No</td>
+                <td className="border border-white/10 px-2 py-1">🚫 No (no deadcoin vote)</td>
+              </tr>
+
+              <tr>
+                <td className="border border-white/10 px-2 py-1">
+                  <span className="inline-flex rounded-full bg-orange-500/10 px-2 py-0.5 text-orange-200">
+                    walking_dead (metrics)
+                  </span>
+                </td>
+                <td className="border border-white/10 px-2 py-1">&gt; 0</td>
+                <td className="border border-white/10 px-2 py-1">✅ Yes (pool-proportional)</td>
+                <td className="border border-white/10 px-2 py-1">✅ Yes (USD-weighted CP)</td>
+                <td className="border border-white/10 px-2 py-1">🚫 No (until it becomes deadcoin)</td>
+                <td className="border border-white/10 px-2 py-1">
+                  ⚠️ Maybe – if backend marks it{" "}
+                  <code>voteEligible=true</code> (WD → deadcoin vote).
+                </td>
+              </tr>
+
+              <tr className="bg-black/20">
+                <td className="border border-white/10 px-2 py-1">
+                  <span className="inline-flex rounded-full bg-yellow-500/10 px-2 py-0.5 text-yellow-100">
+                    deadcoin (registry, USD &gt; 0)
+                  </span>
+                </td>
+                <td className="border border-white/10 px-2 py-1">&gt; 0</td>
+                <td className="border border-white/10 px-2 py-1">🚫 No</td>
+                <td className="border border-white/10 px-2 py-1">
+                  ✅ Yes (Coincarnation contribution CP)
+                </td>
+                <td className="border border-white/10 px-2 py-1">
+                  ✅ Yes (Deadcoin Bonus, extra CP)
+                </td>
+                <td className="border border-white/10 px-2 py-1">🚫 No (status already final)</td>
+              </tr>
+
+              <tr>
+                <td className="border border-white/10 px-2 py-1">
+                  <span className="inline-flex rounded-full bg-yellow-500/10 px-2 py-0.5 text-yellow-100">
+                    deadcoin (price-layer, USD = 0)
+                  </span>
+                </td>
+                <td className="border border-white/10 px-2 py-1">= 0 / not found</td>
+                <td className="border border-white/10 px-2 py-1">🚫 No</td>
+                <td className="border border-white/10 px-2 py-1">
+                  🚫 No (no USD → no contrib CP)
+                </td>
+                <td className="border border-white/10 px-2 py-1">
+                  ✅ Yes (Deadcoin Bonus only)
+                </td>
+                <td className="border border-white/10 px-2 py-1">
+                  ⚠️ Optional – can be escalated into registry deadcoin via admin/governance.
+                </td>
+              </tr>
+
+              <tr className="bg-black/20">
+                <td className="border border-white/10 px-2 py-1">
+                  <span className="inline-flex rounded-full bg-red-500/10 px-2 py-0.5 text-red-200">
+                    redlist
+                  </span>
+                </td>
+                <td className="border border-white/10 px-2 py-1">n/a</td>
+                <td className="border border-white/10 px-2 py-1">
+                  🚫 No for new intake (past contributions stay as originally classified).
+                </td>
+                <td className="border border-white/10 px-2 py-1">
+                  Past CP kept as-is; no new intake CP.
+                </td>
+                <td className="border border-white/10 px-2 py-1">No new bonus</td>
+                <td className="border border-white/10 px-2 py-1">By governance only</td>
+              </tr>
+
+              <tr>
+                <td className="border border-white/10 px-2 py-1">
+                  <span className="inline-flex rounded-full bg-red-700/15 px-2 py-0.5 text-red-200">
+                    blacklist
+                  </span>
+                </td>
+                <td className="border border-white/10 px-2 py-1">n/a</td>
+                <td className="border border-white/10 px-2 py-1">🚫 No (intake fully blocked)</td>
+                <td className="border border-white/10 px-2 py-1">
+                  🚫 No – past CP can be invalidated with optional refunds.
+                </td>
+                <td className="border border-white/10 px-2 py-1">🚫 No</td>
+                <td className="border border-white/10 px-2 py-1">
+                  Admin / governance only (risk event).
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 className="font-semibold mb-2 text-sm">
+          2. Metrics Layer: USD Value, Liquidity &amp; Volume → Category
+        </h3>
+
+        <p className="text-xs text-white/70 mb-2">
+          After registry overrides, the system uses the metrics layer to classify tokens.
+          Thresholds are stored in config (e.g. <code>healthyMinLiq</code>,{" "}
+          <code>healthyMinVol</code>, <code>walkingDeadMinLiq</code>,{" "}
+          <code>walkingDeadMinVol</code>) and can evolve over time.
+        </p>
+
+        <div className="overflow-x-auto text-xs">
+          <table className="w-full border-collapse border border-white/10 mb-3">
+            <thead className="bg-white/5">
+              <tr>
+                <th className="border border-white/10 px-2 py-1 text-left">Condition</th>
+                <th className="border border-white/10 px-2 py-1 text-left">Category</th>
+                <th className="border border-white/10 px-2 py-1 text-left">Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="bg-black/20">
+                <td className="border border-white/10 px-2 py-1">
+                  Price not found or <code>usdValue ≤ 0</code>
+                </td>
+                <td className="border border-white/10 px-2 py-1">
+                  <span className="inline-flex rounded-full bg-yellow-500/10 px-2 py-0.5 text-yellow-100">
+                    deadcoin
+                  </span>
+                </td>
+                <td className="border border-white/10 px-2 py-1">Price-layer deadcoin (no usable valuation).</td>
+              </tr>
+
+              <tr>
+                <td className="border border-white/10 px-2 py-1">
+                  No DEX signal (no pools, <code>liq = 0</code>, <code>dexSource = 'none'</code>)
+                </td>
+                <td className="border border-white/10 px-2 py-1">
+                  <span className="inline-flex rounded-full bg-yellow-500/10 px-2 py-0.5 text-yellow-100">
+                    deadcoin
+                  </span>
+                </td>
+                <td className="border border-white/10 px-2 py-1">
+                  Metrics-layer deadcoin (<code>reason = 'no_data'</code>).
+                </td>
+              </tr>
+
+              <tr className="bg-black/20">
+                <td className="border border-white/10 px-2 py-1">
+                  <code>0 &lt; liq &lt; walkingDeadMinLiq</code>
+                </td>
+                <td className="border border-white/10 px-2 py-1">
+                  <span className="inline-flex rounded-full bg-orange-500/10 px-2 py-0.5 text-orange-200">
+                    walking_dead
+                  </span>
+                </td>
+                <td className="border border-white/10 px-2 py-1">
+                  Illiquid but with some on-chain signal
+                  (<code>reason = 'illiquid'</code>).
+                </td>
+              </tr>
+
+              <tr>
+                <td className="border border-white/10 px-2 py-1">
+                  <code>liq ≥ healthyMinLiq</code> and{" "}
+                  <code>volume ≥ healthyMinVol</code>
+                </td>
+                <td className="border border-white/10 px-2 py-1">
+                  <span className="inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-200">
+                    healthy
+                  </span>
+                </td>
+                <td className="border border-white/10 px-2 py-1">
+                  Strong liquidity &amp; volume
+                  (<code>reason = 'healthy'</code>).
+                </td>
+              </tr>
+
+              <tr className="bg-black/20">
+                <td className="border border-white/10 px-2 py-1">
+                  <code>walkingDeadMinLiq ≤ liq &lt; healthyMinLiq</code>{" "}
+                  and <code>volume ≤ walkingDeadMinVol</code>
+                </td>
+                <td className="border border-white/10 px-2 py-1">
+                  <span className="inline-flex rounded-full bg-orange-500/10 px-2 py-0.5 text-orange-200">
+                    walking_dead
+                  </span>
+                </td>
+                <td className="border border-white/10 px-2 py-1">
+                  Adequate liquidity but very low activity
+                  (<code>reason = 'low_activity'</code>).
+                </td>
+              </tr>
+
+              <tr>
+                <td className="border border-white/10 px-2 py-1">
+                  <code>walkingDeadMinLiq ≤ liq &lt; healthyMinLiq</code>{" "}
+                  and <code>volume &gt; walkingDeadMinVol</code>
+                </td>
+                <td className="border border-white/10 px-2 py-1">
+                  <span className="inline-flex rounded-full bg-orange-500/10 px-2 py-0.5 text-orange-200">
+                    walking_dead
+                  </span>
+                </td>
+                <td className="border border-white/10 px-2 py-1">
+                  Borderline case, not yet healthy
+                  (<code>reason = 'subhealthy'</code>).
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 className="font-semibold mb-2 text-sm">3. Registry Locks &amp; Time</h3>
+        <p className="text-xs text-white/70">
+          Admin and community decisions can <strong>lock</strong> a token&apos;s status
+          (e.g. walking_dead → deadcoin). Once locked, cron and metrics reclassification
+          respect that decision. Future contributions follow the locked category, while
+          all <strong>past rewards remain intact</strong> (except for blacklist cases where
+          contributions may be invalidated with refunds). This ensures that early
+          participants are not retroactively penalized when thresholds or policies evolve.
+        </p>
+      </>
+    ),
+  },
+
+  // --- Existing sections, unchanged in structure ---
+
   {
     slug: "governance-and-admin",
     title: "Governance & Admin Controls",
@@ -162,7 +450,7 @@ export const DOC_SECTIONS: DocSection[] = [
       "Multisig, feature flags, audit logs, emergency procedures, and operational discipline.",
     Content: () => (
       <>
-        <h3 className="font-semibold mb-2">6.1 Roles & AuthN/AuthZ</h3>
+        <h3 className="font-semibold mb-2">6.1 Roles &amp; AuthN/AuthZ</h3>
         <ul className="list-disc pl-5 space-y-1">
           <li><strong>Treasury Multisig:</strong> custody and sensitive parameter changes.</li>
           <li>
@@ -190,7 +478,7 @@ export const DOC_SECTIONS: DocSection[] = [
         <ul className="list-disc pl-5 space-y-1">
           <li><strong>Cooldowns:</strong> change interval for critical parameters—“announce → grace → apply”.</li>
           <li><strong>On-chain ref-hash (optional):</strong> parameter set hashes written on-chain to enable public verification.</li>
-          <li><strong>CSV & public dashboards:</strong> external-audit-friendly visibility.</li>
+          <li><strong>CSV &amp; public dashboards:</strong> external-audit-friendly visibility.</li>
         </ul>
 
         <h3 className="font-semibold mt-4 mb-2">6.4 Emergency Procedures</h3>
@@ -231,10 +519,10 @@ export const DOC_SECTIONS: DocSection[] = [
           </li>
         </ul>
 
-        <h3 className="font-semibold mt-4 mb-2">7.2 Intake Rules & Guards</h3>
+        <h3 className="font-semibold mt-4 mb-2">7.2 Intake Rules &amp; Guards</h3>
         <ul className="list-disc pl-5 space-y-1">
           <li>Pre-check: network match, mint/address format, min-liquidity/pricing threshold.</li>
-          <li>Intake doesn’t finalize until valuation pipeline yields a valid price.</li>
+          <li>Intake doesn&apos;t finalize until valuation pipeline yields a valid price.</li>
           <li>Per-token cap and per-wallet cap are optional.</li>
         </ul>
 
@@ -289,7 +577,9 @@ export const DOC_SECTIONS: DocSection[] = [
       <>
         <p>
           CorePoint aggregates contribution (USD-weighted), referrals, first-time share-on-X events,
-          and deadcoin multipliers. It powers leaderboards and future PVC minting.
+          and deadcoin multipliers. It powers leaderboards and future Personal Value Currency (PVC)
+          minting, where each wallet can eventually mint a PVC token/NFT that encodes their
+          long-term contribution to the Fair Future Fund.
         </p>
       </>
     ),
@@ -306,15 +596,15 @@ export const DOC_SECTIONS: DocSection[] = [
         <h3 className="font-semibold mb-2">11.1 Application Security</h3>
         <ul className="list-disc pl-5 space-y-1">
           <li>Admin cookie: HttpOnly, SameSite, short-lived; origin and CSRF checks.</li>
-          <li>Idempotency keys & replay protection on all write operations.</li>
+          <li>Idempotency keys &amp; replay protection on all write operations.</li>
           <li>Rate limits; wallet allowlist for admin areas.</li>
-          <li>Signed caching & server-side price proxy (mobile-friendly & CORS-safe).</li>
+          <li>Signed caching &amp; server-side price proxy (mobile-friendly &amp; CORS-safe).</li>
         </ul>
 
         <h3 className="font-semibold mt-4 mb-2">11.2 Data Hygiene</h3>
         <ul className="list-disc pl-5 space-y-1">
           <li>PII minimization; user-agent/IP kept only to the operational extent necessary.</li>
-          <li>Log rotation & retention windows; store only when required.</li>
+          <li>Log rotation &amp; retention windows; store only when required.</li>
         </ul>
 
         <h3 className="font-semibold mt-4 mb-2">11.3 Legal Posture</h3>
@@ -345,7 +635,7 @@ export const DOC_SECTIONS: DocSection[] = [
     Content: () => (
       <>
         <ol className="list-decimal pl-5 space-y-1">
-          <li>Phase-1: Solana live; snapshot/claim tooling; dashboards & CSV.</li>
+          <li>Phase-1: Solana live; snapshot/claim tooling; dashboards &amp; CSV.</li>
           <li>Phase-2: EVM integrations; cross-chain valuation harmonization.</li>
           <li>Phase-3: Governance expansion, PVC minting, audits, OSS modules.</li>
         </ol>
