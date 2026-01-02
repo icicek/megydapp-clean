@@ -219,6 +219,7 @@ export async function GET(req: NextRequest) {
           zone: decision.zone,
           highLiq: decision.highLiq,
           voteEligible: decision.voteEligible,
+          reward: decision.reward,   // 🆕 MEGY / CP / DeadcoinBonus bayrakları
         },        
 
         // debug / admin visibility

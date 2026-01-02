@@ -532,15 +532,63 @@ export async function POST(req: NextRequest) {
     // ——— CorePoint: USD + Deadcoin (corepoint_events tablosu) ———
     const stableTxId = txHashOrSig ? String(txHashOrSig) : null;
 
-    // 🔍 Deadcoin tespiti:
+    // 🔍 Deadcoin tespiti (local):
     //  - fiyat tabanlı: usd_value === 0 && mint varsa
     //  - statü tabanlı: token_registry.status === 'deadcoin'
     const isDeadcoinByPrice = usdValueNum === 0 && !!token_contract;
     const isDeadcoin = isDeadcoinByPrice || isDeadcoinByStatus;
 
+    // 🧠 Varsayılan reward bayrakları (fallback):
+    // - usdValue > 0 ise CP verilebilir
+    // - deadcoin ise deadcoin bonus verilebilir
+    let rewardCorePoints: 'none' | 'standard' =
+      usdValueNum > 0 ? 'standard' : 'none';
+    let rewardDeadcoinBonus: 'none' | 'standard' =
+      isDeadcoin ? 'standard' : 'none';
+
+    // Eğer mint varsa, gerçek decision.reward bilgisini /api/status'tan çekelim.
+    if (hasMint && token_contract) {
+      try {
+        const statusUrl = new URL(
+          `/api/status?mint=${encodeURIComponent(token_contract)}`,
+          req.url,
+        );
+        const r = await fetch(statusUrl.toString(), { cache: 'no-store' });
+
+        if (r.ok) {
+          const js: any = await r.json();
+          const rw = js?.decision?.reward;
+          if (rw) {
+            // computeEffectiveDecision içindeki reward haritasını kullan
+            rewardCorePoints =
+              rw.corePoints === 'standard' ? 'standard' : 'none';
+            rewardDeadcoinBonus =
+              rw.deadcoinBonus === 'standard' ? 'standard' : 'none';
+          }
+        } else {
+          console.warn(
+            '⚠️ /api/status responded non-OK for reward decision:',
+            r.status,
+          );
+        }
+      } catch (e) {
+        console.warn(
+          '⚠️ failed to fetch /api/status for reward decision:',
+          (e as any)?.message || e,
+        );
+      }
+    }
+
     try {
-      // 💵 USD katkısı → her durumda CP (deadcoin bile olsa katkı sayıyoruz)
-      if (usdValueNum > 0 && stableTxId) {
+      // 💵 USD katkısı:
+      //  - decision.reward.corePoints === 'standard' OLMALI
+      //  - bu işleme ait usdValue > 0 OLMALI
+      //  - txId olmalı (idempotent insert için)
+      if (
+        rewardCorePoints === 'standard' &&
+        usdValueNum > 0 &&
+        stableTxId
+      ) {
         await awardUsdPoints({
           wallet: wallet_address,
           usdValue: usdValueNum,
@@ -549,9 +597,14 @@ export async function POST(req: NextRequest) {
       }
 
       // 💀 Deadcoin bonusu:
-      //  - fiyat 0 olanlar
-      //  - VEYA admin/vote ile deadcoin statüsüne çekilmiş olanlar
-      if (isDeadcoin && token_contract) {
+      //  - decision.reward.deadcoinBonus === 'standard' olmalı
+      //  - token bu kayıt bağlamında deadcoin sayılıyor olmalı (isDeadcoin)
+      //  - token_contract olmalı
+      if (
+        rewardDeadcoinBonus === 'standard' &&
+        isDeadcoin &&
+        token_contract
+      ) {
         await awardDeadcoinFirst({
           wallet: wallet_address,
           tokenContract: token_contract,
@@ -564,6 +617,7 @@ export async function POST(req: NextRequest) {
         (e as any)?.message || e,
       );
     }
+
 
     // ——— Kullanıcı numarası ———
     let number = 0;

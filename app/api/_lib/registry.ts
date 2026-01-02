@@ -214,11 +214,23 @@ export type EffectiveStatusInput = {
 
 export type EffectiveZone = 'healthy' | 'wd_gray' | 'wd_vote' | 'deadzone';
 
+// 🆕 Reward tipleri
+export type RewardMegy = 'none' | 'full';
+export type RewardCorePoints = 'none' | 'standard';
+export type RewardDeadcoinBonus = 'none' | 'standard';
+
+export type EffectiveRewardDecision = {
+  megy: RewardMegy;
+  corePoints: RewardCorePoints;
+  deadcoinBonus: RewardDeadcoinBonus;
+};
+
 export type EffectiveDecision = {
   status: TokenStatus;   // final: healthy / walking_dead / deadcoin / blacklist / redlist
   zone: EffectiveZone;   // UI & oylama mantığı için
   highLiq: boolean;      // high-liquidity exception uygulandı mı?
   voteEligible: boolean; // deadcoin oylaması açılabilir mi?
+  reward: EffectiveRewardDecision; // 🆕 MEGY / CP / DeadcoinBonus bayrakları
 };
 
 // küçük helper: sayı normalize
@@ -306,6 +318,60 @@ function computeMetricsZone(
   return { baseStatus: 'healthy', zone: 'healthy', highLiq: false, voteEligible: false };
 }
 
+// -------------------- Reward karar helper'ı --------------------
+function computeRewardForStatus(
+  status: TokenStatus,
+  locks: { lockDeadcoin: boolean; lockList: boolean },
+  usd: number,
+): EffectiveRewardDecision {
+  const hasPrice = usd > 0;
+
+  // Redlist / blacklist: hiçbir ödül yok
+  if (status === 'redlist' || status === 'blacklist' || locks.lockList) {
+    return {
+      megy: 'none',
+      corePoints: 'none',
+      deadcoinBonus: 'none',
+    };
+  }
+
+  // Healthy ve WalkingDead:
+  // - MEGY: full
+  // - CP: sadece fiyat > 0 ise, usdValue=0 ise CP de yok
+  // - DeadcoinBonus: yok
+  if (status === 'healthy' || status === 'walking_dead') {
+    return {
+      megy: 'full',
+      corePoints: hasPrice ? 'standard' : 'none',
+      deadcoinBonus: 'none',
+    };
+  }
+
+  // Buraya geldiysek status === 'deadcoin'
+
+  // 🔒 Topluluk / admin kilitli deadcoin:
+  // - MEGY yok
+  // - fiyat > 0 iken CP var, fiyat 0 olduğunda CP yok
+  // - her durumda DeadcoinBonus var
+  if (locks.lockDeadcoin) {
+    return {
+      megy: 'none',
+      corePoints: hasPrice ? 'standard' : 'none',
+      deadcoinBonus: 'standard',
+    };
+  }
+
+  // Otomatik (metrics) deadcoin:
+  // - MEGY yok
+  // - CP yok
+  // - sadece DeadcoinBonus
+  return {
+    megy: 'none',
+    corePoints: 'none',
+    deadcoinBonus: 'standard',
+  };
+}
+
 /**
  * ✅ FINAL DECISION (single source of truth)
  *
@@ -337,11 +403,15 @@ export function computeEffectiveDecision(input: EffectiveStatusInput): Effective
       registryStatus === 'blacklist' || registryStatus === 'redlist'
         ? registryStatus
         : 'blacklist';
+
+    const reward = computeRewardForStatus(finalStatus, locks, usd);
+
     return {
       status: finalStatus,
       zone: 'deadzone',
       highLiq: false,
       voteEligible: false,
+      reward,
     };
   }
 
@@ -350,11 +420,15 @@ export function computeEffectiveDecision(input: EffectiveStatusInput): Effective
     registryStatus === 'deadcoin' &&
     (locks.lockDeadcoin || manualSource || registryStatus === 'deadcoin')
   ) {
+    const status: TokenStatus = 'deadcoin';
+    const reward = computeRewardForStatus(status, locks, usd);
+
     return {
-      status: 'deadcoin',
+      status,
       zone: 'deadzone',
       highLiq: false,
       voteEligible: false,
+      reward,
     };
   }
 
@@ -393,11 +467,15 @@ export function computeEffectiveDecision(input: EffectiveStatusInput): Effective
     manualSource &&
     (registryStatus === 'healthy' || registryStatus === 'walking_dead')
   ) {
+    const status = registryStatus as TokenStatus;
+    const reward = computeRewardForStatus(status, locks, usd);
+
     return {
-      status: registryStatus,
+      status,
       zone,
       highLiq,
       voteEligible,
+      reward,
     };
   }
 
@@ -421,11 +499,14 @@ export function computeEffectiveDecision(input: EffectiveStatusInput): Effective
     }
   }
 
+  const reward = computeRewardForStatus(finalStatus, locks, usd);
+
   return {
     status: finalStatus,
     zone,
     highLiq,
     voteEligible,
+    reward,
   };
 }
 
