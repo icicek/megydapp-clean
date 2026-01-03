@@ -93,6 +93,8 @@ export async function awardUsdPoints({
   return { awarded: pts };
 }
 
+// app/api/_lib/corepoints.ts (YENİ HALİ)
+
 export async function awardDeadcoinFirst({
   wallet,
   tokenContract,
@@ -107,11 +109,6 @@ export async function awardDeadcoinFirst({
   if (pts <= 0) {
     return { awarded: 0 };
   }
-
-  // ⚠️ ÖNEMLİ NOT:
-  // participants.core_point artık "source of truth" değil.
-  // Tüm CorePoint hesapları corepoint_events üzerinden SUM() ile yapılıyor.
-  // Bu yüzden burada SADECE corepoint_events'e yazıyoruz, participants.core_point'e dokunmuyoruz.
 
   // 1) İdempotent kontrol:
   //    Aynı (wallet, type='deadcoin_first', token_contract) zaten varsa
@@ -130,13 +127,16 @@ export async function awardDeadcoinFirst({
     return { awarded: 0 };
   }
 
-  // 2) corepoint_events'e kayıt aç
+  // 2) Sadece corepoint_events'e kayıt aç
   await sql/* sql */ `
     INSERT INTO corepoint_events (wallet_address, type, points, token_contract, tx_id)
     VALUES (${wallet}, 'deadcoin_first', ${pts}, ${tokenContract}, ${txId ?? null})
   `;
 
-  // participants.core_point güncellenmiyor → tek kaynak corepoint_events
+  // ❗ participants.core_point artık "source of truth" değil.
+  //    Tüm toplamlar corepoint_events üzerinden hesaplanıyor.
+  //    Bu yüzden burada participants.core_point'i güncellemiyoruz.
+
   return { awarded: pts };
 }
 
@@ -284,30 +284,6 @@ export async function totalCorePoints(wallet: string): Promise<number> {
 // CorePoint: USD + Deadcoin (admin_config tabanlı, corepoint_events’e yazar)
 // ---------------------------------------------------------------------------
 
-/**
- * DEPRECATED / LEGACY HELPER
- *
- * This helper is kept only for backwards compatibility.
- *
- * ✅ Production flows SHOULD use:
- *    - awardUsdPoints   → for usd-based CorePoints (idempotent on tx_id)
- *    - awardDeadcoinFirst → for deadcoin bonus CorePoints (idempotent per wallet+token)
- *
- * ⚠ If you think you need awardUsdCorepoints, double-check your use case and
- *    consider refactoring to the newer helpers above. This function is NOT
- *    guaranteed to be idempotent for every call pattern.
- */
-// ---------------------------------------------------------------------------
-// CorePoint: USD + Deadcoin (admin_config tabanlı, corepoint_events’e yazar)
-//
-// NOT:
-// - Şu an production akışında KULLANILMIYOR.
-// - Asıl yol: /coincarnation/record içinde
-//     • awardUsdPoints  (idempotent, tx_id tabanlı)
-//     • awardDeadcoinFirst  (idempotent, token_contract tabanlı)
-// - Bu helper’ı kullanmak istersen, txId göndermeyi UNUTMA; aksi halde
-//   usd event’i idempotent olmayacaktır.
-// ---------------------------------------------------------------------------
 export async function awardUsdCorepoints(opts: {
   wallet: string;
   usdValue: number;
@@ -330,41 +306,17 @@ export async function awardUsdCorepoints(opts: {
     const points = Math.max(0, Math.floor(base * mUsd));
 
     if (points > 0) {
-      if (txId) {
-        // txId VARSA → idempotent: (wallet, type='usd', tx_id) başına tek kayıt
-        await sql/* sql */ `
-          INSERT INTO corepoint_events
-            (wallet_address, type, points, value, token_contract, tx_id)
-          SELECT
-            ${wallet},
-            'usd',
-            ${points},
-            ${usdValue},
-            ${tokenContract},
-            ${txId}
-          WHERE NOT EXISTS (
-            SELECT 1
-            FROM corepoint_events
-            WHERE wallet_address = ${wallet}
-              AND type          = 'usd'
-              AND tx_id         = ${txId}
-          )
-        `;
-      } else {
-        // txId YOKSA → idempotentlik garanti edilemez, düz insert
-        await sql/* sql */ `
-          INSERT INTO corepoint_events
-            (wallet_address, type, points, value, token_contract, tx_id)
-          VALUES
-            (${wallet}, 'usd', ${points}, ${usdValue}, ${tokenContract}, NULL)
-        `;
-      }
+      await sql/* sql */ `
+        INSERT INTO corepoint_events
+          (wallet_address, type, points, value, token_contract, tx_id)
+        VALUES
+          (${wallet}, 'usd', ${points}, ${usdValue}, ${tokenContract}, ${txId})
+      `;
     }
   }
 
   // 2) Deadcoin bonusu (ilk kez ise) → type = 'deadcoin_first'
   if (opts.isDeadcoin && tokenContract) {
-    // Aynı (wallet, type='deadcoin_first', token_contract) daha önce yazılmış mı?
     const seen = (await sql/* sql */ `
       SELECT 1
       FROM corepoint_events
@@ -384,7 +336,7 @@ export async function awardUsdCorepoints(opts: {
           INSERT INTO corepoint_events
             (wallet_address, type, points, value, token_contract, tx_id)
           VALUES
-            (${wallet}, 'deadcoin_first', ${points}, ${usdValue}, ${tokenContract}, ${txId ?? null})
+            (${wallet}, 'deadcoin_first', ${points}, ${usdValue}, ${tokenContract}, ${txId})
         `;
       }
     }
