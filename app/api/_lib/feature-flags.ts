@@ -26,23 +26,30 @@ function parseNumberLoose(v: unknown, def: number): number {
   return def;
 }
 
-/** Read config.value (text) from DB, fallback to null on any error */
 async function getConfigValueFromDB(key: string): Promise<string | null> {
   try {
-    // Generic kullanmadan sorgula; sonra güvenli daralt
     const rows = await sql`
-      SELECT value FROM config WHERE key = ${key} LIMIT 1
+      SELECT value FROM admin_config WHERE key = ${key} LIMIT 1
     `;
 
     const arr = rows as unknown as Array<Record<string, unknown>>;
     const raw = arr?.[0]?.value;
 
-    if (typeof raw === 'string') return raw;
     if (raw == null) return null;
-    // Değer başka tipteyse string'e çevir
+
+    // admin_config.value = jsonb, çoğunlukla { "value": ... }
+    if (typeof raw === 'object') {
+      const obj = raw as any;
+      const inner = obj?.value;
+      if (inner == null) return null;
+      if (typeof inner === 'string') return inner;
+      return String(inner);
+    }
+
+    // fallback: primitive gelirse
+    if (typeof raw === 'string') return raw;
     return String(raw);
   } catch {
-    // Edge/DB erişilemezse sessizce null döneriz (üst katman default kullanır)
     return null;
   }
 }

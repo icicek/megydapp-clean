@@ -3,94 +3,130 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/app/api/_lib/db';
-import { getDistributionPoolNumber, getCoincarnationRateNumber } from '@/app/api/_lib/feature-flags';
+import {
+  getDistributionPoolNumber,
+  getCoincarnationRateNumber,
+} from '@/app/api/_lib/feature-flags';
 
-// Ağırlık katsayıları (değişmedi)
-const USD_CONTRIBUTION_WEIGHT = 100;
-const REFERRAL_PERSON_WEIGHT = 100;
-const REFERRAL_USD_WEIGHT = 50;
-const DEADCOIN_WEIGHT = 100;
-const REFERRAL_DEADCOIN_WEIGHT = 100;
-const SHARE_ON_X_WEIGHT = 30;
+// Sol için küçük helper (istersen ENV'den de alabiliriz)
+const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
 export async function GET(req: NextRequest) {
   try {
     const wallet = req.nextUrl.searchParams.get('wallet')?.trim();
     if (!wallet) {
-      return NextResponse.json({ success: false, error: 'Missing wallet' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Missing wallet' },
+        { status: 400 },
+      );
     }
 
-    const [
-      referralCountRes,
-      referralUsdRes,
-      referralDeadRes,
-      totalStatsRes,
-      deadcoinRes,
-      shareCheckRes,
-      totalCorePointRes,
-    ] = await Promise.all([
-      sql`SELECT COUNT(*) FROM contributions WHERE referrer_wallet = ${wallet};`,
-      sql`SELECT COALESCE(SUM(usd_value), 0) AS referral_usd_contributions FROM contributions WHERE referrer_wallet = ${wallet};`,
-      sql`SELECT COUNT(DISTINCT token_contract) AS referral_deadcoins FROM contributions WHERE referrer_wallet = ${wallet} AND usd_value = 0;`,
-      sql`SELECT COALESCE(SUM(usd_value), 0) AS total_usd_contributed, COUNT(*) AS total_coins_contributed FROM contributions WHERE wallet_address = ${wallet};`,
-      sql`SELECT DISTINCT token_contract FROM contributions WHERE wallet_address = ${wallet} AND usd_value = 0;`,
-      sql`SELECT COUNT(*) FROM shares WHERE wallet_address = ${wallet};`,
-      sql`
-        SELECT SUM(
-          COALESCE(
-            (SELECT SUM(usd_value) FROM contributions WHERE wallet_address = p.wallet_address) * ${USD_CONTRIBUTION_WEIGHT}
-            + (SELECT COUNT(*) FROM contributions WHERE referrer_wallet = p.wallet_address) * ${REFERRAL_PERSON_WEIGHT}
-            + (SELECT SUM(usd_value) FROM contributions WHERE referrer_wallet = p.wallet_address) * ${REFERRAL_USD_WEIGHT}
-            + (SELECT COUNT(DISTINCT token_contract) FROM contributions WHERE wallet_address = p.wallet_address AND usd_value = 0) * ${DEADCOIN_WEIGHT}
-            + (SELECT COUNT(DISTINCT token_contract) FROM contributions WHERE referrer_wallet = p.wallet_address AND usd_value = 0) * ${REFERRAL_DEADCOIN_WEIGHT}
-            + (SELECT CASE WHEN EXISTS (SELECT 1 FROM shares WHERE wallet_address = p.wallet_address) THEN ${SHARE_ON_X_WEIGHT} ELSE 0 END)
-          , 0)
-        ) AS total_core_point
-        FROM participants p;
-      `,
-    ]);
+    // 1) Kullanıcının toplam USD katkısı (bilgi amaçlı)
+    // 2) Kullanıcının MEGY-eligible USD katkısı
+    // 3) Tüm sistemin MEGY-eligible toplam USD katkısı
+    const [userTotalRes, userEligibleRes, globalEligibleRes] =
+      await Promise.all([
+        // 1) Kullanıcının tüm USD katkısı (token statüsüne bakmadan)
+        sql/* sql */ `
+          SELECT COALESCE(SUM(usd_value), 0)::float AS usd_total
+          FROM contributions
+          WHERE wallet_address = ${wallet}
+        `,
+        // 2) Kullanıcının MEGY-eligible USD katkısı
+        sql/* sql */ `
+          SELECT COALESCE(SUM(c.usd_value), 0)::float AS usd_eligible
+          FROM contributions c
+          LEFT JOIN token_registry tr
+            ON tr.mint = c.token_contract
+          WHERE c.wallet_address = ${wallet}
+            AND (
+              -- SOL & native katkılar (contract boş veya SOL sembolü)
+              c.token_contract IS NULL
+              OR c.token_contract = ${WSOL_MINT}
+              OR UPPER(c.token_symbol) = 'SOL'
+              OR (
+                -- SPL token ise registry.status'e bak
+                tr.status IN ('healthy', 'walking_dead')
+                AND tr.status NOT IN ('blacklist', 'redlist', 'deadcoin')
+              )
+            )
+        `,
+        // 3) Tüm sistemin MEGY-eligible USD katkısı
+        sql/* sql */ `
+          SELECT COALESCE(SUM(c.usd_value), 0)::float AS usd_eligible
+          FROM contributions c
+          LEFT JOIN token_registry tr
+            ON tr.mint = c.token_contract
+          WHERE
+            c.usd_value > 0 -- 0 USD olanlar havuzu etkilemesin
+            AND (
+              c.token_contract IS NULL
+              OR c.token_contract = ${WSOL_MINT}
+              OR UPPER(c.token_symbol) = 'SOL'
+              OR (
+                tr.status IN ('healthy', 'walking_dead')
+                AND tr.status NOT IN ('blacklist', 'redlist', 'deadcoin')
+              )
+            )
+        `,
+      ]);
 
-    const referral_count = parseInt((referralCountRes[0] as any).count || '0', 10);
-    const referral_usd_contributions = parseFloat((referralUsdRes[0] as any).referral_usd_contributions || 0);
-    const referral_deadcoin_count = parseInt((referralDeadRes[0] as any).referral_deadcoins || '0', 10);
-    const total_usd_contributed = parseFloat((totalStatsRes[0] as any).total_usd_contributed || 0);
-    const uniqueDeadcoinCount = (deadcoinRes as any[]).length;
-    const hasShared = parseInt((shareCheckRes[0] as any).count || '0', 10) > 0;
-    const sharePoint = hasShared ? SHARE_ON_X_WEIGHT : 0;
+    const userUsdTotal = Number(
+      (userTotalRes[0] as any)?.usd_total ?? 0,
+    );
+    const userUsdEligible = Number(
+      (userEligibleRes[0] as any)?.usd_eligible ?? 0,
+    );
+    const globalUsdEligible = Number(
+      (globalEligibleRes[0] as any)?.usd_eligible ?? 0,
+    );
 
-    const core_point =
-      total_usd_contributed * USD_CONTRIBUTION_WEIGHT +
-      referral_count * REFERRAL_PERSON_WEIGHT +
-      referral_usd_contributions * REFERRAL_USD_WEIGHT +
-      uniqueDeadcoinCount * DEADCOIN_WEIGHT +
-      referral_deadcoin_count * REFERRAL_DEADCOIN_WEIGHT +
-      sharePoint;
-
-    const total_core_point = parseFloat((totalCorePointRes[0] as any).total_core_point || 0);
-
-    // Pool-mode (mevcut davranış)
-    const pool = await getDistributionPoolNumber();
-    const share = total_core_point > 0 ? core_point / total_core_point : 0;
+    // 4) Pool-mode (klasik havuz paylaşımı)
+    const pool = await getDistributionPoolNumber(); // admin panel: Distribution Pool
+    const share =
+      globalUsdEligible > 0 ? userUsdEligible / globalUsdEligible : 0;
     const poolAmount = pool * share;
 
-    // Rate-mode (yeni): yalnız KENDİ USD katkısı baz alınır
-    const rate = await getCoincarnationRateNumber(); // USD/MEGY
-    const rateAmount = rate > 0 ? total_usd_contributed / rate : 0; // MEGY
+    // 5) Rate-mode (Coincarnation Rate: USD / MEGY)
+    const rate = await getCoincarnationRateNumber(); // admin panel: Coincarnation Rate (USD per 1 MEGY)
+    const rateAmount = rate > 0 ? userUsdEligible / rate : 0;
 
     return NextResponse.json({
       success: true,
-      // geriye dönük uyum için eski alanlar:
+
+      // Geriye dönük uyum (eski alanlar)
       pool,
       share,
       amount: poolAmount,
-      // yeni alanlar:
+
+      // Yeni, daha açıklayıcı alanlar
       mode: {
-        pool: { pool, share, amount: poolAmount },
-        rate: { rate, userUsd: total_usd_contributed, amount: rateAmount },
+        pool: {
+          pool, // havuzun toplam MEGY miktarı
+          share, // kullanıcının havuzdaki oranı (0..1)
+          userUsdEligible, // kullanıcının MEGY-eligible USD katkısı
+          globalUsdEligible, // tüm sistemdeki MEGY-eligible toplam USD
+          amount: poolAmount, // bu moda göre hak edilen MEGY
+        },
+        rate: {
+          rate, // 1 MEGY için gereken USD
+          userUsd: userUsdEligible, // sadece eligible USD
+          amount: rateAmount, // bu moda göre hak edilen MEGY
+        },
+      },
+
+      // UI / debug için yardımcı alanlar
+      stats: {
+        userUsdTotal, // kullanıcının tüm USD katkısı (deadcoin + healthy)
+        userUsdEligible, // sadece MEGY veren katkılar
+        globalUsdEligible,
       },
     });
   } catch (error: any) {
     console.error('[claim/preview] error:', error);
-    return NextResponse.json({ success: false, error: error?.message || 'Internal error' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: error?.message || 'Internal error' },
+      { status: 500 },
+    );
   }
 }
