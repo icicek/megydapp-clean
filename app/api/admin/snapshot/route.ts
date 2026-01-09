@@ -9,18 +9,39 @@ import { httpErrorFrom } from '@/app/api/_lib/http';
 // Normalize result shapes (neon returns arrays; pg may return { rows: [...] })
 function asRows<T = any>(r: any): T[] {
   if (Array.isArray(r)) return r as T[];
-  if (r && Array.isArray(r.rows)) return r.rows as T[];
+  if (r && Array.isArray((r as any).rows)) return (r as any).rows as T[];
   return [];
+}
+
+// admin_config.value JSONB wrapper -> extract primitive safely
+function unwrapValue(raw: unknown): unknown {
+  if (raw && typeof raw === 'object' && 'value' in (raw as any)) {
+    return (raw as any).value;
+  }
+  return raw;
 }
 
 export async function GET() {
   try {
-    // Read total distributable MEGY from config table
+    const key = 'distribution_pool';
+
+    // admin_config: value JSONB (usually { value: <something> })
     const res = await sql/* sql */`
-      SELECT value->>'value' AS value FROM admin_config WHERE key='distribution_pool' LIMIT 1
+      SELECT value
+      FROM admin_config
+      WHERE key = ${key}
+      LIMIT 1
     `;
-    const raw = asRows<{ value: unknown }>(res)[0]?.value ?? '0';
-    const value = typeof raw === 'string' ? raw : String(raw);
+
+    const row = asRows<{ value?: unknown }>(res)[0];
+    const unwrapped = unwrapValue(row?.value);
+
+    // normalize to string number (UI expects string or numeric; we return string here)
+    const str = unwrapped == null ? '0' : String(unwrapped);
+    const n = Number(str);
+
+    // If invalid, fallback to "0" (do not break UI)
+    const value = Number.isFinite(n) ? String(n) : '0';
 
     return NextResponse.json({ success: true, value });
   } catch (err: unknown) {
