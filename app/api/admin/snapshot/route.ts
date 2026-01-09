@@ -17,7 +17,7 @@ export async function GET() {
   try {
     // Read total distributable MEGY from config table
     const res = await sql/* sql */`
-      SELECT value FROM config WHERE key = 'distribution_pool' LIMIT 1;
+      SELECT value->>'value' AS value FROM admin_config WHERE key='distribution_pool' LIMIT 1
     `;
     const raw = asRows<{ value: unknown }>(res)[0]?.value ?? '0';
     const value = typeof raw === 'string' ? raw : String(raw);
