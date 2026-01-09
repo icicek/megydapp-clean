@@ -28,27 +28,24 @@ function parseNumberLoose(v: unknown, def: number): number {
 
 async function getConfigValueFromDB(key: string): Promise<string | null> {
   try {
-    const rows = await sql`
-      SELECT value FROM admin_config WHERE key = ${key} LIMIT 1
+    const rows = await sql/* sql */`
+      SELECT value
+      FROM admin_config
+      WHERE key = ${key}
+      LIMIT 1
     `;
 
-    const arr = rows as unknown as Array<Record<string, unknown>>;
+    const arr = rows as unknown as Array<{ value?: any }>;
     const raw = arr?.[0]?.value;
 
-    if (raw == null) return null;
-
-    // admin_config.value = jsonb, çoğunlukla { "value": ... }
-    if (typeof raw === 'object') {
-      const obj = raw as any;
-      const inner = obj?.value;
-      if (inner == null) return null;
-      if (typeof inner === 'string') return inner;
-      return String(inner);
+    // admin_config.value genelde { "value": ... }
+    if (raw && typeof raw === 'object' && raw.value != null) {
+      return String(raw.value);
     }
 
-    // fallback: primitive gelirse
-    if (typeof raw === 'string') return raw;
-    return String(raw);
+    // fallback: direkt primitive json ise
+    if (raw == null) return null;
+    return typeof raw === 'string' ? raw : String(raw);
   } catch {
     return null;
   }
