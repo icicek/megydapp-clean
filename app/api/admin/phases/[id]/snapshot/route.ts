@@ -1,3 +1,5 @@
+// app/api/admin/phases/[id]/snapshot/route.ts
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -119,6 +121,25 @@ export async function POST(req: NextRequest, context: any) {
         FROM phase_allocations pa
         WHERE pa.phase_id = ${phaseId}
         GROUP BY pa.wallet_address
+      `;
+
+      // 6) phase transitions: close current, open next (if planned)
+      await sql/* sql */`
+        UPDATE phases
+        SET status = 'closed',
+            status_v2 = 'finalized'
+        WHERE id = ${phaseId};
+      `;
+
+      await sql/* sql */`
+        UPDATE phases
+        SET status = 'open',
+            status_v2 = 'active'
+        WHERE phase_no = (
+        SELECT phase_no + 1 FROM phases WHERE id = ${phaseId}
+        )
+        AND status = 'planned'
+        AND snapshot_taken_at IS NULL;
       `;
 
       return NextResponse.json({
