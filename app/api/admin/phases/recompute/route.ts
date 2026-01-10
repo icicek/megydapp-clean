@@ -21,10 +21,19 @@ function num(v: unknown, def = 0): number {
 type Phase = {
   id: number;
   phase_no: number;
+
+  // legacy
   pool_megy: any;
   rate_usd_per_megy: any;
   target_usd: any;
   status: 'planned' | 'open' | 'closed';
+
+  // v2 (new)
+  megy_pool?: any;
+  rate?: any;
+  usd_cap?: any;
+  status_v2?: 'draft' | 'active' | 'finalized' | null;
+  snapshot_taken_at?: string | null;
 };
 
 type Contribution = {
@@ -50,25 +59,40 @@ export async function POST(req: NextRequest) {
     try {
       // 1) start phase
       const start = (await sql/* sql */`
-        SELECT id, phase_no, status
+        SELECT id, phase_no, status, snapshot_taken_at
         FROM phases
         WHERE id = ${phaseId}
         LIMIT 1
-      `) as any[];
+      `) as any[];      
 
       const startRow = start?.[0];
       if (!startRow) {
         return NextResponse.json({ success: false, error: 'PHASE_NOT_FOUND' }, { status: 404 });
       }
-      if (startRow.status === 'closed') {
-        return NextResponse.json({ success: false, error: 'PHASE_CLOSED' }, { status: 409 });
+      if (startRow.snapshot_taken_at) {
+        return NextResponse.json({ success: false, error: 'PHASE_SNAPSHOTTED' }, { status: 409 });
       }
+      if (startRow.status === 'closed') {
+        // closed zaten “finalized” sayılabilir, ama asıl kural snapshot. Yine de safe kalsın.
+        return NextResponse.json({ success: false, error: 'PHASE_CLOSED' }, { status: 409 });
+      }      
 
       const startNo = Number(startRow.phase_no);
 
       // 2) phases to recompute (planned/open only)
       const phases = (await sql/* sql */`
-        SELECT id, phase_no, pool_megy, rate_usd_per_megy, target_usd, status
+        SELECT
+          id,
+          phase_no,
+          pool_megy,
+          rate_usd_per_megy,
+          target_usd,
+          status,
+          megy_pool,
+          rate,
+          usd_cap,
+          status_v2,
+          snapshot_taken_at
         FROM phases
         WHERE phase_no >= ${startNo}
           AND status IN ('planned','open')
@@ -79,11 +103,24 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'NO_PHASES_TO_RECOMPUTE' }, { status: 409 });
       }
 
+      const snap = phases.find((p) => p.snapshot_taken_at);
+      if (snap) {
+       return NextResponse.json(
+        { success: false, error: 'RECOMPUTE_BLOCKED_BY_SNAPSHOT', phaseId: snap.id, phaseNo: snap.phase_no },
+        { status: 409 }
+       );
+      }
+
       // 3) delete allocations only for recompute phases
+      const phaseIds = phases.map((p) => Number(p.id)).filter((x) => Number.isFinite(x) && x > 0);
+
+      if (phaseIds.length) {
       await sql/* sql */`
-        DELETE FROM phase_allocations
-        WHERE phase_id = ANY(${phases.map((p) => p.id)}::bigint[])
-      `;
+          DELETE FROM phase_allocations pa
+          USING jsonb_to_recordset(${JSON.stringify(phaseIds)}::jsonb) AS x(id text)
+          WHERE pa.phase_id = x.id::bigint
+        `;
+      }
 
       // 4) baseline: closed phases already consumed some eligible USD
       //    (closed phases immutable by design)
@@ -91,7 +128,7 @@ export async function POST(req: NextRequest) {
         SELECT COALESCE(SUM(pa.usd_allocated), 0)::float AS usd_used
         FROM phase_allocations pa
         JOIN phases p ON p.id = pa.phase_id
-        WHERE p.status = 'closed'
+        WHERE p.snapshot_taken_at IS NOT NULL
       `) as any[];
       const baselineUsedUsd = num(baselineRes?.[0]?.usd_used, 0);
 
@@ -134,20 +171,23 @@ export async function POST(req: NextRequest) {
 
       // 7) local phase state
       const state = phases.map((p) => {
-        const pool = num(p.pool_megy, 0);
-        const rate = num(p.rate_usd_per_megy, 1);
-        const targetUsd = num(p.target_usd, pool * rate);
+        const pool = num(p.megy_pool ?? p.pool_megy, 0);
+        const rate = num(p.rate ?? p.rate_usd_per_megy, 1);
+      
+        // usd_cap öncelikli; yoksa target_usd; yoksa pool*rate
+        const cap = num(p.usd_cap ?? p.target_usd ?? (pool * rate), 0);
+      
         return {
-          id: p.id,
-          phase_no: p.phase_no,
+          id: Number(p.id),
+          phase_no: Number(p.phase_no),
           status: p.status,
           pool,
           rate,
-          targetUsd,
-          remainingUsd: targetUsd,
+          targetUsd: cap,
+          remainingUsd: cap,
           usedMegy: 0,
         };
-      });
+      });      
 
       const rowsToInsert: Array<{
         phase_id: number;
@@ -219,12 +259,12 @@ export async function POST(req: NextRequest) {
 
       const summary = state.map((p) => ({
         phase_no: p.phase_no,
-        target_usd: p.targetUsd,
+        usd_cap: p.targetUsd,
         remaining_usd: p.remainingUsd,
         used_megy: p.usedMegy,
-        pool_megy: p.pool,
+        megy_pool: p.pool,
         rate_usd_per_megy: p.rate,
-      }));
+      }));      
 
       return NextResponse.json({
         success: true,
