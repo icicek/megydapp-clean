@@ -55,7 +55,9 @@ export async function POST(req: NextRequest) {
     }
 
     // single-flight recompute lock
-    await sql`SELECT pg_advisory_lock(942001)`;
+    const lockKey = BigInt(942001) * BigInt(1_000_000_000) + BigInt(Math.trunc(phaseId));
+
+    await sql`SELECT pg_advisory_lock(${lockKey}::bigint)`;
     try {
       // 1) start phase
       const start = (await sql/* sql */`
@@ -115,12 +117,12 @@ export async function POST(req: NextRequest) {
       const phaseIds = phases.map((p) => Number(p.id)).filter((x) => Number.isFinite(x) && x > 0);
 
       if (phaseIds.length) {
-      await sql/* sql */`
+        await sql/* sql */`
           DELETE FROM phase_allocations pa
           USING jsonb_to_recordset(${JSON.stringify(phaseIds)}::jsonb) AS x(id text)
           WHERE pa.phase_id = x.id::bigint
         `;
-      }
+      }      
 
       // 4) baseline: closed phases already consumed some eligible USD
       //    (closed phases immutable by design)
@@ -275,7 +277,7 @@ export async function POST(req: NextRequest) {
         phases: summary,
       });
     } finally {
-      await sql`SELECT pg_advisory_unlock(942001)`;
+        await sql`SELECT pg_advisory_unlock(${lockKey}::bigint)`;
     }
   } catch (err: unknown) {
     const { status, body } = httpErrorFrom(err, 500);
