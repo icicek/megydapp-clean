@@ -96,7 +96,8 @@ export async function POST(req: NextRequest, context: any) {
         await sql/* sql */`
           DELETE FROM claim_snapshots cs
           USING jsonb_to_recordset(${JSON.stringify(walletObjs)}::jsonb) AS x(wallet text)
-          WHERE cs.wallet_address = x.wallet::text
+          WHERE cs.phase_id = ${phaseId}
+            AND cs.wallet_address = x.wallet::text
         `;
       }
 
@@ -105,9 +106,10 @@ export async function POST(req: NextRequest, context: any) {
       // Şimdilik: 0 yazıyoruz (daha sonra upgrade edeceğiz).
       await sql/* sql */`
         INSERT INTO claim_snapshots
-          (wallet_address, megy_amount, claim_status, coincarnator_no, contribution_usd, share_ratio, created_at)
+          (phase_id, wallet_address, megy_amount, claim_status, coincarnator_no, contribution_usd, share_ratio, created_at)
         SELECT
-          pa.wallet_address::text AS wallet_address,
+        ${phaseId}::bigint AS phase_id,  
+        pa.wallet_address::text AS wallet_address,
           SUM(pa.megy_allocated)::numeric AS megy_amount,
           FALSE AS claim_status,
           0::int AS coincarnator_no,
