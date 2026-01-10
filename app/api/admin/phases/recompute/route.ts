@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     }
 
     // single-flight recompute lock
-    const lockKey = BigInt(942001) * BigInt(1_000_000_000) + BigInt(Math.trunc(phaseId));
+    const lockKey = (BigInt(942001) * BigInt(1_000_000_000) + BigInt(Math.trunc(phaseId))).toString();
 
     await sql`SELECT pg_advisory_lock(${lockKey}::bigint)`;
     try {
@@ -117,9 +117,10 @@ export async function POST(req: NextRequest) {
       const phaseIds = phases.map((p) => Number(p.id)).filter((x) => Number.isFinite(x) && x > 0);
 
       if (phaseIds.length) {
+        const phaseIdObjs = phaseIds.map((id) => ({ id }));
         await sql/* sql */`
           DELETE FROM phase_allocations pa
-          USING jsonb_to_recordset(${JSON.stringify(phaseIds)}::jsonb) AS x(id text)
+          USING jsonb_to_recordset(${JSON.stringify(phaseIdObjs)}::jsonb) AS x(id text)
           WHERE pa.phase_id = x.id::bigint
         `;
       }      
