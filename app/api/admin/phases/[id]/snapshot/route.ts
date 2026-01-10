@@ -11,11 +11,11 @@ function num(v: unknown, def = 0): number {
   return Number.isFinite(n) ? n : def;
 }
 
-export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
+export async function POST(req: NextRequest, context: any) {
   try {
     await requireAdmin(req as any);
 
-    const phaseId = Number(ctx?.params?.id);
+    const phaseId = Number(context?.params?.id);
     if (!Number.isFinite(phaseId) || phaseId <= 0) {
       return NextResponse.json({ success: false, error: 'invalid phase id' }, { status: 400 });
     }
