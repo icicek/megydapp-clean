@@ -14,7 +14,8 @@ export async function POST(req: NextRequest) {
     await requireAdmin(req as any);
 
     const body = (await req.json().catch(() => ({}))) as Body;
-    const phaseId = Number(body.phaseId);
+    const phaseId = Number(body?.phaseId);
+
     if (!Number.isFinite(phaseId) || phaseId <= 0) {
       return NextResponse.json({ success: false, error: 'phaseId is required' }, { status: 400 });
     }
