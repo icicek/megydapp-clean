@@ -13,9 +13,10 @@ function num(v: unknown, def = 0): number {
   return Number.isFinite(n) ? n : def;
 }
 
-type Ctx = { params: { id: string } };
-
-export async function POST(req: NextRequest, ctx: Ctx) {
+export async function POST(
+  req: NextRequest,
+  ctx: { params: { id: string } }
+) {
   try {
     await requireAdmin(req as any);
 
@@ -24,12 +25,13 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       return NextResponse.json({ success: false, error: 'invalid phase id' }, { status: 400 });
     }
 
+    // phase-bazlı lock (snapshot tekil olmalı)
     const lockKey = (BigInt(942002) * BigInt(1_000_000_000) + BigInt(Math.trunc(phaseId))).toString();
     await sql`SELECT pg_advisory_lock(${lockKey}::bigint)`;
 
     try {
-      // 1) phase’i oku (snapshot yoksa devam)
-      const rows = (await sql/* sql */ `
+      // 1) phase’i kilitleyerek oku
+      const rows = (await sql/* sql */`
         SELECT id, phase_no, status, snapshot_taken_at
         FROM phases
         WHERE id = ${phaseId}
@@ -41,14 +43,15 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       if (!ph) {
         return NextResponse.json({ success: false, error: 'PHASE_NOT_FOUND' }, { status: 404 });
       }
+
       if (ph.snapshot_taken_at) {
         return NextResponse.json({ success: false, error: 'PHASE_ALREADY_SNAPSHOTTED' }, { status: 409 });
       }
 
       const phaseNo = Number(ph.phase_no);
 
-      // 2) allocations totals
-      const tot = (await sql/* sql */ `
+      // 2) phase için allocation var mı?
+      const tot = (await sql/* sql */`
         SELECT
           COALESCE(SUM(usd_allocated), 0)::float AS usd_sum,
           COALESCE(SUM(megy_allocated), 0)::float AS megy_sum,
@@ -69,7 +72,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       }
 
       // 3) snapshot_taken_at set
-      const nowRow = (await sql/* sql */ `
+      const nowRow = (await sql/* sql */`
         UPDATE phases
         SET snapshot_taken_at = NOW()
         WHERE id = ${phaseId} AND snapshot_taken_at IS NULL
@@ -79,12 +82,12 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       const snapshotAt = nowRow?.[0]?.snapshot_taken_at;
 
       // 4) claim_snapshots write (phase-scoped)
-      await sql/* sql */ `
+      await sql/* sql */`
         DELETE FROM claim_snapshots
         WHERE phase_id = ${phaseId}
       `;
 
-      await sql/* sql */ `
+      await sql/* sql */`
         INSERT INTO claim_snapshots
           (phase_id, wallet_address, megy_amount, claim_status, coincarnator_no, contribution_usd, share_ratio, created_at)
         SELECT
@@ -102,7 +105,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       `;
 
       // 5) close current phase
-      await sql/* sql */ `
+      await sql/* sql */`
         UPDATE phases
         SET status = 'closed',
             status_v2 = 'finalized'
@@ -110,7 +113,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       `;
 
       // 6) open next planned phase (phase_no + 1)
-      const next = (await sql/* sql */ `
+      const next = (await sql/* sql */`
         UPDATE phases
         SET status = 'open',
             status_v2 = 'active'
@@ -122,7 +125,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
       const nextRow = next?.[0] || null;
 
-      // 7) If next opened, recompute from next to pull pending allocations into it (and beyond)
+      // 7) If next opened, recompute from next to pull pending allocations into it
       let recompute: any = null;
       if (nextRow?.id) {
         recompute = await recomputeFromPhaseId(Number(nextRow.id));
