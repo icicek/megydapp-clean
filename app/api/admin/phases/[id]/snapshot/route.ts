@@ -14,17 +14,17 @@ function num(v: unknown, def = 0): number {
   return Number.isFinite(n) ? n : def;
 }
 
-export async function POST(
-  req: NextRequest,
-  context: { params: { id: string } } // ✅ inline type (alias YOK)
-) {
-  try {
-    await requireAdmin(req as any);
-
-    const phaseId = Number(context?.params?.id);
-    if (!Number.isFinite(phaseId) || phaseId <= 0) {
-      return NextResponse.json({ success: false, error: 'invalid phase id' }, { status: 400 });
-    }
+export async function POST(req: NextRequest, ctx: any) {
+    try {
+      await requireAdmin(req as any);
+  
+      const phaseId = Number(ctx?.params?.id);
+      if (!Number.isFinite(phaseId) || phaseId <= 0) {
+        return NextResponse.json(
+          { success: false, error: 'invalid phase id' },
+          { status: 400 }
+        );
+      }
 
     const lockKey = (
       BigInt(942002) * BigInt(1_000_000_000) + BigInt(Math.trunc(phaseId))
