@@ -1,4 +1,5 @@
 // app/api/admin/phases/[id]/snapshot/route.ts
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -15,22 +16,23 @@ function num(v: unknown, def = 0): number {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } } // ✅ inline type (alias YOK)
 ) {
   try {
     await requireAdmin(req as any);
 
-    const phaseId = Number(params?.id);
+    const phaseId = Number(context?.params?.id);
     if (!Number.isFinite(phaseId) || phaseId <= 0) {
       return NextResponse.json({ success: false, error: 'invalid phase id' }, { status: 400 });
     }
 
-    // phase-bazlı lock (snapshot tekil olmalı)
-    const lockKey = (BigInt(942002) * BigInt(1_000_000_000) + BigInt(Math.trunc(phaseId))).toString();
+    const lockKey = (
+      BigInt(942002) * BigInt(1_000_000_000) + BigInt(Math.trunc(phaseId))
+    ).toString();
+
     await sql`SELECT pg_advisory_lock(${lockKey}::bigint)`;
 
     try {
-      // 1) phase’i kilitleyerek oku
       const rows = (await sql/* sql */`
         SELECT id, phase_no, status, snapshot_taken_at
         FROM phases
@@ -43,14 +45,12 @@ export async function POST(
       if (!ph) {
         return NextResponse.json({ success: false, error: 'PHASE_NOT_FOUND' }, { status: 404 });
       }
-
       if (ph.snapshot_taken_at) {
         return NextResponse.json({ success: false, error: 'PHASE_ALREADY_SNAPSHOTTED' }, { status: 409 });
       }
 
       const phaseNo = Number(ph.phase_no);
 
-      // 2) phase için allocation var mı?
       const tot = (await sql/* sql */`
         SELECT
           COALESCE(SUM(usd_allocated), 0)::float AS usd_sum,
@@ -71,7 +71,6 @@ export async function POST(
         );
       }
 
-      // 3) snapshot_taken_at set
       const nowRow = (await sql/* sql */`
         UPDATE phases
         SET snapshot_taken_at = NOW()
@@ -81,7 +80,6 @@ export async function POST(
 
       const snapshotAt = nowRow?.[0]?.snapshot_taken_at;
 
-      // 4) claim_snapshots write (phase-scoped)
       await sql/* sql */`
         DELETE FROM claim_snapshots
         WHERE phase_id = ${phaseId}
@@ -104,7 +102,6 @@ export async function POST(
         GROUP BY pa.wallet_address
       `;
 
-      // ✅ 4.5) Bu phase’e allocate edilmiş contribution’ları “snapshotted” yap
       await sql/* sql */`
         UPDATE contributions c
         SET alloc_status = 'snapshotted',
@@ -114,15 +111,13 @@ export async function POST(
           AND pa.contribution_id = c.id
       `;
 
-      // 5) close current phase
       await sql/* sql */`
         UPDATE phases
         SET status = 'closed',
             status_v2 = 'finalized'
-        WHERE id = ${phaseId};
+        WHERE id = ${phaseId}
       `;
 
-      // 6) open next planned phase (phase_no + 1)
       const next = (await sql/* sql */`
         UPDATE phases
         SET status = 'open',
@@ -135,7 +130,6 @@ export async function POST(
 
       const nextRow = next?.[0] || null;
 
-      // 7) next opened ise recompute çalıştır (pending queue phase 2/3’e akabilsin)
       let recompute: any = null;
       if (nextRow?.id) {
         recompute = await recomputeFromPhaseId(Number(nextRow.id));
