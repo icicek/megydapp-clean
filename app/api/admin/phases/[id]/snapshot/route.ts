@@ -13,14 +13,17 @@ function num(v: unknown, def = 0): number {
   return Number.isFinite(n) ? n : def;
 }
 
-export async function POST(req: NextRequest, ctx: any) {
-    try {
-      await requireAdmin(req as any);
-  
-      const phaseId = Number(ctx?.params?.id);
-      if (!Number.isFinite(phaseId) || phaseId <= 0) {
-        return NextResponse.json({ success: false, error: 'invalid phase id' }, { status: 400 });
-      }  
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    await requireAdmin(req as any);
+
+    const phaseId = Number(params?.id);
+    if (!Number.isFinite(phaseId) || phaseId <= 0) {
+      return NextResponse.json({ success: false, error: 'invalid phase id' }, { status: 400 });
+    }
 
     // phase-bazlı lock (snapshot tekil olmalı)
     const lockKey = (BigInt(942002) * BigInt(1_000_000_000) + BigInt(Math.trunc(phaseId))).toString();
@@ -101,6 +104,16 @@ export async function POST(req: NextRequest, ctx: any) {
         GROUP BY pa.wallet_address
       `;
 
+      // ✅ 4.5) Bu phase’e allocate edilmiş contribution’ları “snapshotted” yap
+      await sql/* sql */`
+        UPDATE contributions c
+        SET alloc_status = 'snapshotted',
+            alloc_updated_at = NOW()
+        FROM phase_allocations pa
+        WHERE pa.phase_id = ${phaseId}
+          AND pa.contribution_id = c.id
+      `;
+
       // 5) close current phase
       await sql/* sql */`
         UPDATE phases
@@ -122,7 +135,7 @@ export async function POST(req: NextRequest, ctx: any) {
 
       const nextRow = next?.[0] || null;
 
-      // 7) If next opened, recompute from next to pull pending allocations into it
+      // 7) next opened ise recompute çalıştır (pending queue phase 2/3’e akabilsin)
       let recompute: any = null;
       if (nextRow?.id) {
         recompute = await recomputeFromPhaseId(Number(nextRow.id));

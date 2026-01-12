@@ -452,7 +452,9 @@ export async function POST(req: NextRequest) {
             timestamp,
             referral_code,
             referrer_wallet,
-            asset_kind
+            asset_kind,
+            alloc_status,
+            alloc_updated_at
           ) VALUES (
             ${wallet_address},
             ${token_symbol},
@@ -469,6 +471,8 @@ export async function POST(req: NextRequest) {
             ${contribReferralCode},
             ${contribReferrerWallet},
             ${assetKindFinal}
+            'pending',
+            NOW()
           )
           ON CONFLICT (network, tx_hash) DO NOTHING
           RETURNING id;
@@ -491,6 +495,8 @@ export async function POST(req: NextRequest) {
             timestamp,
             referral_code,
             referrer_wallet
+            alloc_status,
+            alloc_updated_at
           ) VALUES (
             ${wallet_address},
             ${token_symbol},
@@ -506,6 +512,8 @@ export async function POST(req: NextRequest) {
             ${timestamp},
             ${contribReferralCode},
             ${contribReferrerWallet}
+            'pending',
+            NOW()
           )
           ON CONFLICT (network, tx_hash) DO NOTHING
           RETURNING id;

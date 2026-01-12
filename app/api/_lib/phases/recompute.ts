@@ -61,7 +61,7 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
 
   try {
     // 1) start phase
-    const start = (await sql/* sql */ `
+    const start = (await sql/* sql */`
       SELECT id, phase_no, status, snapshot_taken_at
       FROM phases
       WHERE id = ${phaseId}
@@ -79,7 +79,7 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
     const startNo = Number(startRow.phase_no);
 
     // 2) phases to recompute (planned/open only)
-    const phases = (await sql/* sql */ `
+    const phases = (await sql/* sql */`
       SELECT
         id,
         phase_no,
@@ -102,6 +102,7 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
       throw Object.assign(new Error('NO_PHASES_TO_RECOMPUTE'), { statusCode: 409, code: 'NO_PHASES_TO_RECOMPUTE' });
     }
 
+    // planned/open içinde snapshot varsa blokla
     const snap = phases.find((p) => p.snapshot_taken_at);
     if (snap) {
       throw Object.assign(new Error('RECOMPUTE_BLOCKED_BY_SNAPSHOT'), {
@@ -112,19 +113,37 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
       });
     }
 
-    // 3) delete allocations only for recompute phases
+    // 3) recompute edilecek phase id’leri
     const phaseIds = phases.map((p) => Number(p.id)).filter((x) => Number.isFinite(x) && x > 0);
     if (phaseIds.length) {
       const phaseIdObjs = phaseIds.map((id) => ({ id }));
-      await sql/* sql */ `
+
+      // ✅ KRİTİK FIX:
+      // Bu phase'lere daha önce allocate edilmiş contribution'ları tekrar pending'e çek
+      // (snapshotlı phase’ler zaten burada yok, sadece planned/open seti)
+      await sql/* sql */`
+        UPDATE contributions c
+        SET alloc_status = 'pending',
+            alloc_updated_at = NOW()
+        WHERE c.id IN (
+          SELECT DISTINCT pa.contribution_id
+          FROM phase_allocations pa
+          JOIN jsonb_to_recordset(${JSON.stringify(phaseIdObjs)}::jsonb) AS x(id text)
+            ON pa.phase_id = x.id::bigint
+        )
+        AND COALESCE(c.alloc_status,'pending') = 'allocated'
+      `;
+
+      // allocations’ı sil
+      await sql/* sql */`
         DELETE FROM phase_allocations pa
         USING jsonb_to_recordset(${JSON.stringify(phaseIdObjs)}::jsonb) AS x(id text)
         WHERE pa.phase_id = x.id::bigint
       `;
     }
 
-    // 4) baseline: snapshotted phases already consumed some eligible USD (immutable)
-    const baselineRes = (await sql/* sql */ `
+    // 4) baseline: snapshotted phases already used some USD (rapor amaçlı)
+    const baselineRes = (await sql/* sql */`
       SELECT COALESCE(SUM(pa.usd_allocated), 0)::float AS usd_used
       FROM phase_allocations pa
       JOIN phases p ON p.id = pa.phase_id
@@ -132,8 +151,8 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
     `) as any[];
     const baselineUsedUsd = num(baselineRes?.[0]?.usd_used, 0);
 
-    // 5) eligible contributions, ordered
-    const contribs = (await sql/* sql */ `
+    // 5) eligible + pending contributions
+    const contribs = (await sql/* sql */`
       SELECT
         c.id,
         c.wallet_address,
@@ -144,6 +163,7 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
       LEFT JOIN token_registry tr ON tr.mint = c.token_contract
       WHERE
         COALESCE(c.usd_value,0) > 0
+        AND COALESCE(c.alloc_status,'pending') = 'pending'
         AND (
           c.token_contract IS NULL
           OR c.token_contract = ${WSOL_MINT}
@@ -155,15 +175,7 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
       ORDER BY c.timestamp ASC, c.id ASC
     `) as any as Contribution[];
 
-    // 6) advance cursor by baselineUsedUsd
-    let cursor = 0;
-    let acc = 0;
-    while (cursor < contribs.length && acc < baselineUsedUsd) {
-      acc += num(contribs[cursor].usd_value, 0);
-      cursor++;
-    }
-
-    // 7) local phase state
+    // 6) phase state
     const state = phases.map((p) => {
       const pool = num(p.megy_pool ?? p.pool_megy, 0);
       const rate = num(p.rate ?? p.rate_usd_per_megy, 1);
@@ -188,8 +200,8 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
       megy_allocated: number;
     }> = [];
 
-    // 8) split allocation (A)
-    for (let i = cursor; i < contribs.length; i++) {
+    // 7) split allocation
+    for (let i = 0; i < contribs.length; i++) {
       let usdLeft = num(contribs[i].usd_value, 0);
       if (usdLeft <= 0) continue;
 
@@ -220,11 +232,11 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
       }
     }
 
-    // 9) bulk insert
+    // 8) bulk insert allocations
     const CHUNK = 800;
     for (let i = 0; i < rowsToInsert.length; i += CHUNK) {
       const chunk = rowsToInsert.slice(i, i + CHUNK);
-      await sql/* sql */ `
+      await sql/* sql */`
         INSERT INTO phase_allocations
           (phase_id, contribution_id, wallet_address, usd_allocated, megy_allocated)
         SELECT
@@ -243,11 +255,13 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
       `;
     }
 
-    // 10) mark allocated contributions (pending -> allocated)
-    const uniqContribIds = Array.from(new Set(rowsToInsert.map((r) => r.contribution_id))).filter((x) => Number.isFinite(x) && x > 0);
+    // 9) mark allocated contributions (pending -> allocated)
+    const uniqContribIds = Array.from(new Set(rowsToInsert.map((r) => r.contribution_id)))
+      .filter((x) => Number.isFinite(x) && x > 0);
+
     if (uniqContribIds.length) {
       const objs = uniqContribIds.map((id) => ({ id }));
-      await sql/* sql */ `
+      await sql/* sql */`
         UPDATE contributions c
         SET alloc_status = 'allocated',
             alloc_updated_at = NOW()
