@@ -279,6 +279,8 @@ export default function ClaimPanel() {
           claim_amount: claimAmount,
           destination,
           tx_signature,
+          // TODO(claim-fee): Replace hardcoded fee fields with real on-chain fee receipt.
+          // For now we keep them fixed to stabilize API contract.
           sol_fee_paid: true,
           sol_fee_amount: 0,
         })             

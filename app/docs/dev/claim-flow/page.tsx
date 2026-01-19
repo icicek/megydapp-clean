@@ -48,7 +48,6 @@ export default function ClaimFlowPage() {
         <h2>📦 Key Files</h2>
         <ul>
           <li><code>components/ClaimPanel.js</code> — UI + client logic</li>
-          <li><code>app/api/claim/route.ts</code> — server action (fee + mint/transfer)</li>
           <li><code>lib/claim/alloc.ts</code> — allocation math & snapshot helpers</li>
           <li><code>db: claims</code> — append-only proof of claim</li>
         </ul>
