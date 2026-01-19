@@ -42,6 +42,26 @@ function toNum(v: any, d = 0): number {
   return Number.isFinite(n) ? n : d;
 }
 
+function normalizeTokenContractForDb(input: {
+  token_symbol: unknown;
+  token_contract: unknown;
+}): string {
+  const sym = String(input.token_symbol || '').trim().toUpperCase();
+  const mintRaw = String(input.token_contract || '').trim();
+
+  // SOL ise her durumda WSOL mint yaz
+  if (sym === 'SOL') return WSOL_MINT;
+
+  // SOL değilse: token_contract boş olamaz -> en azından sembolü yazma, mint bekle
+  // (SPL için mutlaka mint gelmeli; gelmiyorsa DB’ye kötü veri yazmaktansa 400 dön)
+  if (!mintRaw) return '';
+
+  // Bazı eski clientlar "SOL" string'i yolluyor olabilir -> WSOL'a çevir
+  if (mintRaw.toUpperCase() === 'SOL') return WSOL_MINT;
+
+  return mintRaw;
+}
+
 /* ---------- Basit JSON-RPC helper ---------- */
 async function rpc(method: string, params: any[]) {
   const r = await fetch(SOLANA_RPC_URL, {
@@ -185,6 +205,15 @@ export async function POST(req: NextRequest) {
       isSolSymbol && (!token_contract || token_contract === WSOL_MINT)
         ? 'sol'
         : 'spl';
+    // ✅ token_contract'ı DB için kesinleştir
+    const tokenContractFinal = normalizeTokenContractForDb({ token_symbol, token_contract });
+
+    if (!tokenContractFinal) {
+      return NextResponse.json(
+        { success: false, error: 'token_contract (mint) is required for SPL tokens' },
+        { status: 400 }
+      );
+    }
     const assetKindFinal: 'sol' | 'spl' =
       asset_kind === 'sol' || asset_kind === 'spl'
         ? asset_kind
@@ -458,7 +487,7 @@ export async function POST(req: NextRequest) {
           ) VALUES (
             ${wallet_address},
             ${token_symbol},
-            ${token_contract ?? null},
+            ${tokenContractFinal},
             ${networkNorm},
             ${tokenAmountNum},
             ${usdValueNum},
@@ -500,7 +529,7 @@ export async function POST(req: NextRequest) {
           ) VALUES (
             ${wallet_address},
             ${token_symbol},
-            ${token_contract ?? null},
+            ${tokenContractFinal},
             ${networkNorm},
             ${tokenAmountNum},
             ${usdValueNum},
