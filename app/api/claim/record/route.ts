@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'tx_signature is required' }, { status: 400 });
     }
     if (claim_amount == null || !Number.isFinite(Number(claim_amount)) || Number(claim_amount) <= 0) {
-      return NextResponse.json({ success: false, error: 'claim_amount must be a non-negative number' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'claim_amount must be a positive number' }, { status: 400 });
     }
     if (typeof sol_fee_paid !== 'boolean') {
       return NextResponse.json({ success: false, error: 'sol_fee_paid must be boolean' }, { status: 400 });
