@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ✅ SOL için registry yok: SOL'u DB'de WSOL_MINT ile temsil ediyoruz
-    const hasMint = tokenContractFinal !== WSOL_MINT;
+    const hasMint = assetKindFinal === 'spl';
 
     let tokenStatus: TokenStatus | null = null;
     let isDeadcoinByStatus = false;
