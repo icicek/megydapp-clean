@@ -8,8 +8,6 @@ import { neon } from '@neondatabase/serverless';
 import { generateReferralCode } from '@/app/api/utils/generateReferralCode';
 
 import {
-  ensureFirstSeenRegistry,
-  computeStatusDecision,
   getStatusRow,
   type TokenStatus,
 } from '@/app/api/_lib/registry';
@@ -245,14 +243,15 @@ export async function POST(req: NextRequest) {
       console.log('✅ Tx confirmed on-chain:', transaction_signature);
     }
 
-    // ——— Redlist/Blacklist + statü okuma ———
-    const hasMint = Boolean(token_contract && token_contract !== 'SOL');
+    // ✅ SOL için registry yok: SOL'u DB'de WSOL_MINT ile temsil ediyoruz
+    const hasMint = tokenContractFinal !== WSOL_MINT;
+
     let tokenStatus: TokenStatus | null = null;
     let isDeadcoinByStatus = false;
 
     if (hasMint) {
       try {
-        const reg = await getStatusRow(token_contract!);
+        const reg = await getStatusRow(tokenContractFinal);
         tokenStatus = (reg?.status ?? null) as TokenStatus | null;
 
         if (tokenStatus === 'blacklist') {
@@ -268,15 +267,11 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        // 🟤 vote / admin kararıyla deadcoin olmuş token
         if (tokenStatus === 'deadcoin') {
           isDeadcoinByStatus = true;
         }
       } catch (e) {
-        console.warn(
-          '⚠️ registry check failed, continuing:',
-          (e as any)?.message || e,
-        );
+        console.warn('⚠️ registry check failed, continuing:', (e as any)?.message || e);
       }
     }
 
@@ -497,7 +492,7 @@ export async function POST(req: NextRequest) {
             ${timestamp},
             ${contribReferralCode},
             ${contribReferrerWallet},
-            ${assetKindFinal}
+            ${assetKindFinal},
             'pending',
             NOW()
           )
@@ -521,7 +516,7 @@ export async function POST(req: NextRequest) {
             user_agent,
             timestamp,
             referral_code,
-            referrer_wallet
+            referrer_wallet,
             alloc_status,
             alloc_updated_at
           ) VALUES (
@@ -538,7 +533,7 @@ export async function POST(req: NextRequest) {
             ${user_agent || ''},
             ${timestamp},
             ${contribReferralCode},
-            ${contribReferrerWallet}
+            ${contribReferrerWallet},
             'pending',
             NOW()
           )
@@ -570,7 +565,9 @@ export async function POST(req: NextRequest) {
     // 🔍 Deadcoin tespiti (local):
     //  - fiyat tabanlı: usd_value === 0 && mint varsa
     //  - statü tabanlı: token_registry.status === 'deadcoin'
-    const isDeadcoinByPrice = usdValueNum === 0 && !!token_contract;
+    // sadece SPL için price=0 → deadcoin adayı; SOL'u burada deadcoin sayma
+    const isDeadcoinByPrice = usdValueNum === 0 && tokenContractFinal !== WSOL_MINT;
+
     const isDeadcoin = isDeadcoinByPrice || isDeadcoinByStatus;
 
     // 🧠 Varsayılan reward bayrakları (fallback):
@@ -582,10 +579,10 @@ export async function POST(req: NextRequest) {
       isDeadcoin ? 'standard' : 'none';
 
     // Eğer mint varsa, gerçek decision.reward bilgisini /api/status'tan çekelim.
-    if (hasMint && token_contract) {
+    if (hasMint) {
       try {
         const statusUrl = new URL(
-          `/api/status?mint=${encodeURIComponent(token_contract)}`,
+          `/api/status?mint=${encodeURIComponent(tokenContractFinal)}`,
           req.url,
         );
         const r = await fetch(statusUrl.toString(), { cache: 'no-store' });
@@ -638,11 +635,11 @@ export async function POST(req: NextRequest) {
       if (
         rewardDeadcoinBonus === 'standard' &&
         isDeadcoin &&
-        token_contract
+        hasMint
       ) {
         await awardDeadcoinFirst({
           wallet: wallet_address,
-          tokenContract: token_contract,
+          tokenContract: tokenContractFinal,
           txId: stableTxId,
         });
       }
