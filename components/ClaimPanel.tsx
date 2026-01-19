@@ -279,9 +279,9 @@ export default function ClaimPanel() {
           claim_amount: claimAmount,
           destination,
           tx_signature,
-          sol_fee_paid,     // boolean
-          sol_fee_amount,   // number (required by backend)
-        }),        
+          sol_fee_paid: true,
+          sol_fee_amount: 0,
+        })             
       });
 
       const recJson = await rec.json().catch(() => ({}));
