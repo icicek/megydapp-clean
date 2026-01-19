@@ -1,4 +1,4 @@
-// ✅ File: app/api/claim/route.ts
+// app/api/claim/route.ts
 
 import { neon } from '@neondatabase/serverless';
 import { NextRequest, NextResponse } from 'next/server';

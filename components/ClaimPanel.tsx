@@ -97,7 +97,8 @@ export default function ClaimPanel() {
         // ✅ Boş profil desteği: success değilse de UI açık kalsın
         if (userData?.success) {
           setData(userData.data);
-          setClaimed(Boolean(userData.data?.claimed));
+          const claimedMegyTotal = Number(userData.data?.claim?.claimed_megy_total ?? 0);
+          setClaimed(claimedMegyTotal > 0);
         } else {
           setData({
             id: '-',
@@ -120,6 +121,12 @@ export default function ClaimPanel() {
               deadcoins: 0,
               shares: 0,
             },
+            claim: {
+              finalized_megy_total: 0,
+              claimed_megy_total: 0,
+              claimable_megy_total: 0,
+              finalized_by_phase: [],
+            },            
           });
           setClaimed(false);
         }
@@ -202,50 +209,101 @@ export default function ClaimPanel() {
   // ✅ Crash fix: tx listesi yoksa dizi kullan
   const txs: any[] = Array.isArray(data.transactions) ? data.transactions : [];
 
+  const finalizedClaim = data?.claim ?? null;
+  const claimableFromFinalized =
+    finalizedClaim && typeof finalizedClaim.claimable_megy_total === 'number'
+      ? Math.max(0, finalizedClaim.claimable_megy_total)
+      : null;
+
   // 🔹 Deadcoins Revived sayısını artık backend'den alıyoruz
   const deadcoinsRevived = Number(data.deadcoins_revived ?? 0);
 
   const shareRatio =
     globalStats.totalUsd > 0 ? Number(data.total_usd_contributed || 0) / globalStats.totalUsd : 0;
-  const claimableMegy = Math.floor(shareRatio * distributionPool);
+
+  const claimableMegyEstimate = Math.floor(shareRatio * distributionPool);
+
+  const claimableMegy =
+    claimableFromFinalized != null
+      ? Math.floor(claimableFromFinalized)
+      : claimableMegyEstimate;
+
+  const finalizedTotal = Number(finalizedClaim?.finalized_megy_total ?? 0);
+  const claimedTotal = Number(finalizedClaim?.claimed_megy_total ?? 0);
+  const fullyClaimed = finalizedTotal > 0 && claimedTotal >= finalizedTotal;
+
+  const PHASE_ID = 7; // TODO: later fetch latest finalized/open phase from API
 
   const handleClaim = async () => {
     if (!publicKey || claimAmount <= 0) {
       setMessage('❌ Please enter a valid claim amount.');
       return;
     }
+
+    // finalized varsa claimable guardı client’ta da yapalım
+    if (claimAmount > claimableMegy) {
+      setMessage('❌ Claim amount exceeds your available balance.');
+      return;
+    }
+
+    const destination = useAltAddress ? altAddress.trim() : publicKey.toBase58();
+    if (!destination) {
+      setMessage('❌ Please provide a destination address.');
+      return;
+    }
+
     setIsClaiming(true);
     setMessage(null);
 
     try {
-      const destination = useAltAddress ? altAddress.trim() : publicKey.toBase58();
-      const res = await fetch('/api/claim', {
+      // 🧪 Temporary: ask for tx signature (until we wire the real signed tx flow)
+      const tx_signature = window
+        .prompt('Paste claim transaction signature (tx_signature):')
+        ?.trim();
+
+      if (!tx_signature) {
+        setMessage('❌ Missing tx signature.');
+        return;
+      }
+
+      const sol_fee_paid = true;
+      const sol_fee_amount = 0; // TODO: set the real SOL fee amount you charged (numeric)
+
+      const rec = await fetch('/api/claim/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet: destination, amount: claimAmount }),
+        credentials: 'include',
+        body: JSON.stringify({
+          phase_id: PHASE_ID,
+          wallet_address: publicKey.toBase58(),
+          claim_amount: claimAmount,
+          destination,
+          tx_signature,
+          sol_fee_paid,     // boolean
+          sol_fee_amount,   // number (required by backend)
+        }),        
       });
-      const json = await res.json();
 
-      if (json.success) {
-        const tx_signature = json.tx_signature || 'mock-tx-signature';
-        const sol_fee_paid = true;
+      const recJson = await rec.json().catch(() => ({}));
+      if (!rec.ok || !recJson?.success) {
+        const err = recJson?.error || `Claim record failed (${rec.status})`;
+        setMessage(`❌ ${err}`);
+        return;
+      }
 
-        await fetch('/api/claim/record', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            wallet_address: destination,
-            claim_amount: claimAmount,
-            destination,
-            tx_signature,
-            sol_fee_paid,
-          }),
-        });
+      setMessage('✅ Claim recorded successfully!');
 
-        setClaimed(true);
-        setMessage('✅ Claim successful!');
+      // Refresh profile after claim
+      const refreshed = await fetch(`/api/claim/${publicKey.toBase58()}`, { cache: 'no-store' });
+      const refreshedJson = await refreshed.json().catch(() => ({}));
+
+      if (refreshedJson?.success) {
+        setData(refreshedJson.data);
+        const claimedMegyTotal = Number(refreshedJson.data?.claim?.claimed_megy_total ?? 0);
+        setClaimed(claimedMegyTotal > 0);
       } else {
-        setMessage(`❌ ${json.error}`);
+        // fallback: optimistic UI
+        setClaimed(true);
       }
     } catch (err) {
       console.error('Claim request failed:', err);
@@ -334,14 +392,37 @@ export default function ClaimPanel() {
             <StatBox label="Your Share" value={`${(shareRatio * 100).toFixed(2)}%`} color="yellow" />
           </div>
 
+          {finalizedClaim && (Number(finalizedClaim.finalized_megy_total ?? 0) > 0 ||
+            (Array.isArray(finalizedClaim.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 0)) && (
+
+            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-sm">
+              <p className="text-gray-400 mb-2">📌 Finalized Snapshot</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <p className="text-gray-400 text-xs">Finalized</p>
+                  <p className="font-semibold">{Number(finalizedClaim.finalized_megy_total || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs">Claimed</p>
+                  <p className="font-semibold">{Number(finalizedClaim.claimed_megy_total || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs">Claimable</p>
+                  <p className="font-semibold text-purple-300">{Number(finalizedClaim.claimable_megy_total || 0).toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 mb-4 text-center">
             <p className="text-sm text-gray-400 mb-1">🎯 Claimable $MEGY</p>
             <p className="text-2xl font-extrabold text-purple-400">
               {claimableMegy.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </p>
             <p className="text-xs text-gray-400 italic mt-2">
-              ⚠️ This amount is estimated. Final value depends on total participation and will be
-              locked at the end of Coincarnation.
+              {claimableFromFinalized != null
+                ? '✅ This amount is finalized from the latest snapshot.'
+                : '⚠️ This amount is estimated. Final value will be locked at the end of Coincarnation.'}
             </p>
           </div>
 
@@ -405,12 +486,30 @@ export default function ClaimPanel() {
               </div>
             )}
 
-            {claimed ? (
-              <p className="text-green-400 font-semibold text-center mt-4">✅ Already claimed</p>
-            ) : claimOpen ? (
+            {(() => {
+              const finalizedTotal = Number(finalizedClaim?.finalized_megy_total ?? 0);
+              const claimedTotal = Number(finalizedClaim?.claimed_megy_total ?? 0);
+
+              const fullyClaimed = finalizedTotal > 0 && claimedTotal >= finalizedTotal;
+              const partiallyClaimed = claimedTotal > 0 && !fullyClaimed;
+
+              if (fullyClaimed) {
+                return <p className="text-green-400 font-semibold text-center mt-4">✅ Fully claimed</p>;
+              }
+              if (partiallyClaimed) {
+                return (
+                  <p className="text-yellow-300 font-semibold text-center mt-4">
+                    🟡 Partially claimed ({Math.floor(claimedTotal).toLocaleString()} claimed)
+                  </p>
+                );
+              }
+              return null;
+            })()}
+
+            {claimOpen ? (
               <button
                 onClick={handleClaim}
-                disabled={isClaiming || claimAmount <= 0 || claimAmount > claimableMegy}
+                disabled={fullyClaimed || isClaiming || claimAmount <= 0 || claimAmount > claimableMegy}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:scale-105 transition-all text-white font-bold py-3 rounded-xl disabled:opacity-50"
               >
                 {isClaiming ? '🚀 Claiming...' : '🎉 Claim Now'}
