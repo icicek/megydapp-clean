@@ -20,11 +20,11 @@ type Body = {
 };
 
 export async function POST(req: NextRequest) {
-  // Server-side enforcement
-  await requireAppEnabled();
-  await requireClaimOpen();
-
   try {
+    // Server-side enforcement
+    await requireAppEnabled();
+    await requireClaimOpen();
+
     const body = (await req.json()) as Body;
 
     const phase_id = Number(body?.phase_id);
