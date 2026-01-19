@@ -42,24 +42,23 @@ function toNum(v: any, d = 0): number {
   return Number.isFinite(n) ? n : d;
 }
 
-function normalizeTokenContractForDb(input: {
+function normalizeTokenContractForDb(p: {
   token_symbol: unknown;
   token_contract: unknown;
-}): string {
-  const sym = String(input.token_symbol || '').trim().toUpperCase();
-  const mintRaw = String(input.token_contract || '').trim();
+}): string | null {
+  const sym = String(p.token_symbol || '').trim().toUpperCase();
+  const raw = String(p.token_contract || '').trim();
 
-  // SOL ise her durumda WSOL mint yaz
+  // SOL: DB'de NULL yok -> WSOL mint ile temsil ediyoruz
   if (sym === 'SOL') return WSOL_MINT;
 
-  // SOL değilse: token_contract boş olamaz -> en azından sembolü yazma, mint bekle
-  // (SPL için mutlaka mint gelmeli; gelmiyorsa DB’ye kötü veri yazmaktansa 400 dön)
-  if (!mintRaw) return '';
+  // SPL: mint zorunlu
+  if (!raw) return null;
 
-  // Bazı eski clientlar "SOL" string'i yolluyor olabilir -> WSOL'a çevir
-  if (mintRaw.toUpperCase() === 'SOL') return WSOL_MINT;
+  // geçmişte yanlışlıkla "SOL" string'i yazıldıysa düzelt
+  if (raw.toUpperCase() === 'SOL') return WSOL_MINT;
 
-  return mintRaw;
+  return raw;
 }
 
 /* ---------- Basit JSON-RPC helper ---------- */
@@ -199,25 +198,24 @@ export async function POST(req: NextRequest) {
     const networkNorm = String(network || 'solana');
     const idemKey = (idempotency_key || idemHeader || '').trim() || null;
 
-    // ——— Varlık türünü türet ———
-    const isSolSymbol = String(token_symbol).toUpperCase() === 'SOL';
-    const derivedKind: 'sol' | 'spl' =
-      isSolSymbol && (!token_contract || token_contract === WSOL_MINT)
-        ? 'sol'
-        : 'spl';
     // ✅ token_contract'ı DB için kesinleştir
     const tokenContractFinal = normalizeTokenContractForDb({ token_symbol, token_contract });
 
+    // SPL için mint zorunlu (SOL zaten WSOL ile normalize olur)
     if (!tokenContractFinal) {
       return NextResponse.json(
         { success: false, error: 'token_contract (mint) is required for SPL tokens' },
         { status: 400 }
       );
     }
+
+    // ——— Varlık türünü türet ———
+    const isSolSymbol = String(token_symbol).toUpperCase() === 'SOL';
+    const derivedKind: 'sol' | 'spl' =
+      isSolSymbol && tokenContractFinal === WSOL_MINT ? 'sol' : 'spl';
+
     const assetKindFinal: 'sol' | 'spl' =
-      asset_kind === 'sol' || asset_kind === 'spl'
-        ? asset_kind
-        : derivedKind;
+      asset_kind === 'sol' || asset_kind === 'spl' ? asset_kind : derivedKind;
 
     // ——— On-chain confirm (polling ile ZORUNLU) ———
     if (
