@@ -219,13 +219,17 @@ export default function ClaimPanel() {
 
   // ⛑️ İlk kare guard’ları
   if (!publicKey) {
-    setMessage('❌ Please connect your wallet.');
-    return;
+    return (
+      <p className="text-center text-yellow-400">
+        ❌ Please connect your wallet.
+      </p>
+    );
   }
-  if (claimAmount <= 0) {
-    setMessage('❌ Please enter a valid claim amount.');
-    return;
-  }  
+  
+  if (loading || data === null) {
+    return <p className="text-center text-blue-400">⏳ Loading your claim data...</p>;
+  }
+  
   if (loading || data === null) {
     return <p className="text-center text-blue-400">⏳ Loading your claim data...</p>;
   }
@@ -285,7 +289,7 @@ export default function ClaimPanel() {
     }
 
     setIsClaiming(true);
-    setMessage('');
+    setMessage(null);
 
     try {
       // 🧪 Temporary: ask for tx signature (until we wire the real signed tx flow)
