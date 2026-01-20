@@ -56,7 +56,6 @@ export default function ClaimPanel() {
   const [claimAmount, setClaimAmount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
-  const [claimed, setClaimed] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [claimOpen, setClaimOpen] = useState(true);
   const [useAltAddress, setUseAltAddress] = useState(false);
@@ -74,6 +73,7 @@ export default function ClaimPanel() {
   const [cpHistory, setCpHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
   const [shareAnchor, setShareAnchor] = useState<string | undefined>(undefined);
+  const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -99,8 +99,6 @@ export default function ClaimPanel() {
         // ✅ Boş profil desteği: success değilse de UI açık kalsın
         if (userData?.success) {
           setData(userData.data);
-          const claimedMegyTotal = Number(userData.data?.claim?.claimed_megy_total ?? 0);
-          setClaimed(claimedMegyTotal > 0);
         } else {
           setData({
             id: '-',
@@ -130,7 +128,6 @@ export default function ClaimPanel() {
               finalized_by_phase: [],
             },            
           });
-          setClaimed(false);
         }
 
         if (globalData?.success) {
@@ -197,37 +194,37 @@ export default function ClaimPanel() {
   }, [publicKey]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        setPhaseLoading(true);
-        const r = await fetch('/api/phases/finalized/latest', { cache: 'no-store' });
-        const j = await r.json().catch(() => ({}));
-  
-        if (r.ok && j?.success && Number.isFinite(Number(j.phase_id))) {
-          setPhaseId(Number(j.phase_id));
-        } else {
-          setPhaseId(null);
-        }
-      } catch (e) {
-        console.warn('phase fetch failed:', e);
-        setPhaseId(null);
-      } finally {
-        setPhaseLoading(false);
-      }
-    })();
-  }, []);  
+  (async () => {
+    try {
+      setPhaseLoading(true);
+      const r = await fetch('/api/phases/finalized/latest', { cache: 'no-store' });
+      const j = await r.json().catch(() => ({}));
 
-  // ⛑️ İlk kare guard’ları
+      const pid = Number(j?.phase_id);
+      if (r.ok && j?.success && Number.isFinite(pid) && pid > 0) {
+        setPhaseId(pid);
+        setSelectedPhaseId(pid); // default: latest finalized
+      } else {
+        setPhaseId(null);
+        setSelectedPhaseId(null);
+      }
+    } catch (e) {
+      console.warn('phase fetch failed:', e);
+      setPhaseId(null);
+      setSelectedPhaseId(null);
+    } finally {
+      setPhaseLoading(false);
+    }
+  })();
+}, []);
+
+  // ⛑️ İlk kare guard’ları (render içinde setState YOK!)
   if (!publicKey) {
     return (
-      <p className="text-center text-yellow-400">
-        ❌ Please connect your wallet.
-      </p>
+      <div className="bg-zinc-950 min-h-screen py-10 px-4 text-white">
+        <p className="text-center text-yellow-300 font-medium">❌ Please connect your wallet.</p>
+      </div>
     );
-  }
-  
-  if (loading || data === null) {
-    return <p className="text-center text-blue-400">⏳ Loading your claim data...</p>;
   }
   
   if (loading || data === null) {
@@ -302,9 +299,6 @@ export default function ClaimPanel() {
         return;
       }
 
-      const sol_fee_paid = true;
-      const sol_fee_amount = 0; // TODO: set the real SOL fee amount you charged (numeric)
-
       const rec = await fetch('/api/claim/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -337,11 +331,6 @@ export default function ClaimPanel() {
 
       if (refreshedJson?.success) {
         setData(refreshedJson.data);
-        const claimedMegyTotal = Number(refreshedJson.data?.claim?.claimed_megy_total ?? 0);
-        setClaimed(claimedMegyTotal > 0);
-      } else {
-        // fallback: optimistic UI
-        setClaimed(true);
       }
     } catch (err) {
       console.error('Claim request failed:', err);
@@ -350,6 +339,24 @@ export default function ClaimPanel() {
       setIsClaiming(false);
     }
   };
+
+  const claimDisabled =
+    !phaseId ||
+    phaseLoading ||
+    fullyClaimed ||
+    isClaiming ||
+    claimAmount <= 0 ||
+    claimAmount > claimableMegy;
+
+  const claimButtonLabel = phaseLoading
+    ? '⏳ Loading phase...'
+    : !phaseId
+      ? '❌ No finalized phase'
+      : isClaiming
+        ? '🚀 Claiming...'
+        : fullyClaimed
+          ? '✅ Fully Claimed'
+          : '🎉 Claim Now';
 
   return (
     <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
@@ -379,7 +386,7 @@ export default function ClaimPanel() {
               className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 min-h-[100px] flex flex-col justify-between relative cursor-pointer hover:bg-zinc-700 transition"
               onClick={() => {
                 if (!data?.referral_code) return;
-                const url = `${APP_URL}?r=${encodeURIComponent(data.referral_code)}`;
+                const url = buildReferralUrl(data.referral_code);
                 navigator.clipboard.writeText(url);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
@@ -452,6 +459,109 @@ export default function ClaimPanel() {
             </div>
           )}
 
+          {Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 0 && (() => {
+            const phases = finalizedClaim.finalized_by_phase
+              .slice()
+              .map((p: any) => ({
+                pid: Number(p?.phase_id ?? p?.phaseId ?? 0),
+                created: p?.created_at ?? p?.snapshot_taken_at ?? p?.createdAt ?? null,
+                claimable: Number(p?.claimable_megy ?? p?.claimable ?? p?.claimableMegy ?? 0),
+              }))
+              .filter((x: any) => Number.isFinite(x.pid) && x.pid > 0)
+              .sort((a: any, b: any) => b.pid - a.pid);
+
+            const options = phases.map((x: any) => x.pid);
+
+            const activePid =
+              (selectedPhaseId && options.includes(selectedPhaseId)) ? selectedPhaseId : options[0] ?? null;
+
+            const active = phases.find((x: any) => x.pid === activePid) ?? null;
+
+            return (
+              <div className="mt-4 bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-sm">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <p className="text-gray-400">🗂 Snapshot History</p>
+
+                  {/* Phase selector */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">View phase</span>
+                    <select
+                      value={activePid ?? ''}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        setSelectedPhaseId(Number.isFinite(v) ? v : null);
+                      }}
+                      className="bg-zinc-900 border border-zinc-600 text-white text-xs rounded-md px-2 py-1"
+                    >
+                      {options.map((pid: number) => (
+                        <option key={pid} value={pid}>
+                          Phase #{pid}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Selected phase summary */}
+                {active && (
+                  <div className="mb-3 bg-zinc-900/40 border border-zinc-700 rounded-lg p-3 flex items-center justify-between">
+                    <div className="text-gray-300">
+                      <div className="text-white font-semibold">Selected: Phase #{active.pid}</div>
+                      {active.created ? (
+                        <div className="text-xs text-gray-500">{formatDate(String(active.created))}</div>
+                      ) : (
+                        <div className="text-xs text-gray-500">Date: -</div>
+                      )}
+                    </div>
+
+                    <div className="text-right">
+                      <div className="text-xs text-gray-400">Claimable</div>
+                      <div className="font-semibold text-purple-300">
+                        {Math.floor(active.claimable).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Full list */}
+                <div className="space-y-2">
+                  {phases.map((p: any) => (
+                    <div key={p.pid} className="flex items-center justify-between gap-3">
+                      <div className="text-gray-300">
+                        <span className="text-white font-semibold">Phase #{p.pid}</span>
+                        {p.created ? (
+                          <span className="text-gray-500"> · {formatDate(String(p.created))}</span>
+                        ) : null}
+                      </div>
+
+                      <div className="text-right">
+                        <div className="text-xs text-gray-400">Claimable</div>
+                        <div className="font-semibold text-purple-300">
+                          {Math.floor(p.claimable).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          <div className="flex items-center justify-center gap-2 text-xs mb-3">
+            <span className="text-gray-400">Finalized phase</span>
+            {phaseLoading ? (
+              <span className="px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-gray-300">Loading…</span>
+            ) : phaseId ? (
+              <span className="px-2 py-1 rounded bg-emerald-900/30 border border-emerald-700 text-emerald-200 font-semibold">
+                #{phaseId}
+              </span>
+            ) : (
+              <span className="px-2 py-1 rounded bg-red-900/30 border border-red-700 text-red-200 font-semibold">
+                None
+              </span>
+            )}
+          </div>
+
           <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 mb-4 text-center">
             <p className="text-sm text-gray-400 mb-1">🎯 Claimable $MEGY</p>
             <p className="text-2xl font-extrabold text-purple-400">
@@ -517,7 +627,10 @@ export default function ClaimPanel() {
                 <input
                   type="number"
                   value={claimAmount}
-                  onChange={(e) => setClaimAmount(Number(e.target.value))}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    setClaimAmount(Number.isFinite(v) ? v : 0);
+                  }}
                   placeholder="Enter amount to claim"
                   className="w-full bg-zinc-900 border border-zinc-600 p-2 rounded-md text-sm text-white"
                 />
@@ -547,23 +660,10 @@ export default function ClaimPanel() {
             {claimOpen ? (
               <button
                 onClick={handleClaim}
-                disabled={
-                  !phaseId ||
-                  phaseLoading ||
-                  fullyClaimed ||
-                  isClaiming ||
-                  claimAmount <= 0 ||
-                  claimAmount > claimableMegy
-                }
+                disabled={claimDisabled}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:scale-105 transition-all text-white font-bold py-3 rounded-xl disabled:opacity-50"
               >
-                {phaseLoading
-                  ? '⏳ Loading phase...'
-                  : isClaiming
-                    ? '🚀 Claiming...'
-                    : fullyClaimed
-                      ? '✅ Fully Claimed'
-                      : '🎉 Claim Now'}
+                {claimButtonLabel}
               </button>
             ) : (
               <p className="text-yellow-400 text-center font-medium mt-4">
