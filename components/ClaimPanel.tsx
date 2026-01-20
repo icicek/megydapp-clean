@@ -219,12 +219,13 @@ export default function ClaimPanel() {
 
   // ⛑️ İlk kare guard’ları
   if (!publicKey) {
-    return (
-      <p className="text-center text-yellow-400">
-        🔌 Please connect your wallet to view your claim profile.
-      </p>
-    );
+    setMessage('❌ Please connect your wallet.');
+    return;
   }
+  if (claimAmount <= 0) {
+    setMessage('❌ Please enter a valid claim amount.');
+    return;
+  }  
   if (loading || data === null) {
     return <p className="text-center text-blue-400">⏳ Loading your claim data...</p>;
   }
@@ -267,6 +268,16 @@ export default function ClaimPanel() {
       return;
     }
 
+    if (phaseLoading) {
+      setMessage('⏳ Phase is still loading. Please try again in a second.');
+      return;
+    }    
+
+    if (!phaseId) {
+      setMessage('❌ No finalized phase found. Claims are not ready yet.');
+      return;
+    }
+
     const destination = useAltAddress ? altAddress.trim() : publicKey.toBase58();
     if (!destination) {
       setMessage('❌ Please provide a destination address.');
@@ -274,7 +285,7 @@ export default function ClaimPanel() {
     }
 
     setIsClaiming(true);
-    setMessage(null);
+    setMessage('');
 
     try {
       // 🧪 Temporary: ask for tx signature (until we wire the real signed tx flow)
@@ -532,10 +543,23 @@ export default function ClaimPanel() {
             {claimOpen ? (
               <button
                 onClick={handleClaim}
-                disabled={!phaseId || phaseLoading || fullyClaimed || isClaiming || claimAmount <= 0 || claimAmount > claimableMegy}
+                disabled={
+                  !phaseId ||
+                  phaseLoading ||
+                  fullyClaimed ||
+                  isClaiming ||
+                  claimAmount <= 0 ||
+                  claimAmount > claimableMegy
+                }
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:scale-105 transition-all text-white font-bold py-3 rounded-xl disabled:opacity-50"
               >
-                {phaseLoading ? '⏳ Loading phase...' : isClaiming ? '🚀 Claiming...' : '🎉 Claim Now'}
+                {phaseLoading
+                  ? '⏳ Loading phase...'
+                  : isClaiming
+                    ? '🚀 Claiming...'
+                    : fullyClaimed
+                      ? '✅ Fully Claimed'
+                      : '🎉 Claim Now'}
               </button>
             ) : (
               <p className="text-yellow-400 text-center font-medium mt-4">

@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/app/api/_lib/db';
+import { getLatestFinalizedPhaseId } from '@/app/api/_lib/phases';
 import {
   getDistributionPoolNumber,
   getCoincarnationRateNumber,
@@ -11,17 +12,16 @@ import {
 // Sol için küçük helper
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
-async function getLatestFinalizedPhaseId(): Promise<number | null> {
-  const rows = await sql/* sql */`
-    SELECT id
-    FROM phases
-    WHERE snapshot_taken_at IS NOT NULL
-      AND LOWER(status_v2) = 'finalized'
-    ORDER BY snapshot_taken_at DESC
-    LIMIT 1
-  `;
-  const id = Number((rows[0] as any)?.id ?? 0);
-  return id > 0 ? id : null;
+function parsePhaseId(req: NextRequest): number | null {
+  // destek: ?phase_id=7 (preferred) veya ?phaseId=7 (legacy)
+  const raw =
+    req.nextUrl.searchParams.get('phase_id') ??
+    req.nextUrl.searchParams.get('phaseId');
+
+  if (!raw) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return null;
+  return n;
 }
 
 export async function GET(req: NextRequest) {
@@ -31,21 +31,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing wallet' }, { status: 400 });
     }
 
-    // phaseId opsiyonel: verilmezse en son finalized phase
-    const phaseIdParam = req.nextUrl.searchParams.get('phaseId');
-    let phaseId: number | null = null;
-    if (phaseIdParam != null && phaseIdParam !== '') {
-      const n = Number(phaseIdParam);
-      phaseId = Number.isFinite(n) && n > 0 ? n : null;
-    }
-    if (!phaseId) {
-      phaseId = await getLatestFinalizedPhaseId();
-    }
+    // phase_id opsiyonel: verilmezse en son finalized phase
+    let phaseId = parsePhaseId(req);
+    if (!phaseId) phaseId = await getLatestFinalizedPhaseId();
 
     // -----------------------------
     // FINALIZED truth (snapshot varsa)
     // -----------------------------
-    let finalized: { phaseId: number; finalized: number; claimed: number; claimable: number } | null = null;
+    let finalized:
+      | { phaseId: number; finalized: number; claimed: number; claimable: number }
+      | null = null;
 
     if (phaseId) {
       const fin = await sql/* sql */`
@@ -139,6 +134,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+
+      // debug / UI convenience
+      phase_id: phaseId ?? null,
 
       // NEW: finalized truth (varsa)
       finalized,

@@ -32,12 +32,24 @@ function extractWalletFromPath(req: NextRequest): string | null {
   return m?.[1] ? decodeURIComponent(m[1]) : null;
 }
 
+function parsePhaseId(req: NextRequest): number | null {
+  const raw =
+    req.nextUrl.searchParams.get('phase_id') ??
+    req.nextUrl.searchParams.get('phaseId');
+  if (!raw) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return null;
+  return n;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const wallet = extractWalletFromPath(req);
     if (!wallet) {
       return NextResponse.json({ success: false, error: 'Invalid wallet path' }, { status: 400 });
     }
+
+    const requestedPhaseId = parsePhaseId(req);
 
     // 1) Participant
     const participantResult = await sql`
@@ -188,7 +200,7 @@ export async function GET(req: NextRequest) {
     const pvc_share = total_core_point > 0 ? core_point / total_core_point : 0;
 
     // -----------------------------
-    // NEW: Claim truth (snapshot + claims)
+    // Claim truth (snapshot + claims)
     // -----------------------------
     const snaps = (await sql/* sql */`
       SELECT
@@ -221,10 +233,15 @@ export async function GET(req: NextRequest) {
       if (Number.isFinite(pid)) claimedMap.set(pid, c);
     }
 
+    // phase filter
+    const snapsFiltered = requestedPhaseId
+      ? snaps.filter((s) => Number(s.phase_id) === requestedPhaseId)
+      : snaps;
+
     let finalized_megy_total = 0;
     let claimed_megy_total = 0;
 
-    const finalized_by_phase = snaps.map((s) => {
+    const finalized_by_phase = snapsFiltered.map((s) => {
       const pid = Number(s.phase_id);
       const finalized = Number(s.megy_amount ?? 0);
       const claimed = Number(claimedMap.get(pid) ?? 0);
@@ -251,6 +268,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      phase_id: requestedPhaseId ?? null,
       data: {
         id: participant.id,
         wallet_address: participant.wallet_address,
@@ -277,7 +295,6 @@ export async function GET(req: NextRequest) {
           shares: cpShares,
         },
 
-        // NEW claim truth fields
         claim: {
           finalized_megy_total,
           claimed_megy_total,
