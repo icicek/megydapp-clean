@@ -61,6 +61,8 @@ export default function ClaimPanel() {
   const [claimOpen, setClaimOpen] = useState(true);
   const [useAltAddress, setUseAltAddress] = useState(false);
   const [altAddress, setAltAddress] = useState('');
+  const [phaseId, setPhaseId] = useState<number | null>(null);
+  const [phaseLoading, setPhaseLoading] = useState<boolean>(true);
 
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
   const [distributionPool, setDistributionPool] = useState(0);
@@ -192,7 +194,28 @@ export default function ClaimPanel() {
       setCpHistory(events);
       setLoadingHistory(false);
     })();
-  }, [publicKey]);  
+  }, [publicKey]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setPhaseLoading(true);
+        const r = await fetch('/api/phases/finalized/latest', { cache: 'no-store' });
+        const j = await r.json().catch(() => ({}));
+  
+        if (r.ok && j?.success && Number.isFinite(Number(j.phase_id))) {
+          setPhaseId(Number(j.phase_id));
+        } else {
+          setPhaseId(null);
+        }
+      } catch (e) {
+        console.warn('phase fetch failed:', e);
+        setPhaseId(null);
+      } finally {
+        setPhaseLoading(false);
+      }
+    })();
+  }, []);  
 
   // ⛑️ İlk kare guard’ları
   if (!publicKey) {
@@ -231,8 +254,6 @@ export default function ClaimPanel() {
   const finalizedTotal = Number(finalizedClaim?.finalized_megy_total ?? 0);
   const claimedTotal = Number(finalizedClaim?.claimed_megy_total ?? 0);
   const fullyClaimed = finalizedTotal > 0 && claimedTotal >= finalizedTotal;
-
-  const PHASE_ID = 7; // TODO: later fetch latest finalized/open phase from API
 
   const handleClaim = async () => {
     if (!publicKey || claimAmount <= 0) {
@@ -274,7 +295,7 @@ export default function ClaimPanel() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          phase_id: PHASE_ID,
+          phase_id: phaseId,
           wallet_address: publicKey.toBase58(),
           claim_amount: claimAmount,
           destination,
@@ -511,10 +532,10 @@ export default function ClaimPanel() {
             {claimOpen ? (
               <button
                 onClick={handleClaim}
-                disabled={fullyClaimed || isClaiming || claimAmount <= 0 || claimAmount > claimableMegy}
+                disabled={!phaseId || phaseLoading || fullyClaimed || isClaiming || claimAmount <= 0 || claimAmount > claimableMegy}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:scale-105 transition-all text-white font-bold py-3 rounded-xl disabled:opacity-50"
               >
-                {isClaiming ? '🚀 Claiming...' : '🎉 Claim Now'}
+                {phaseLoading ? '⏳ Loading phase...' : isClaiming ? '🚀 Claiming...' : '🎉 Claim Now'}
               </button>
             ) : (
               <p className="text-yellow-400 text-center font-medium mt-4">
