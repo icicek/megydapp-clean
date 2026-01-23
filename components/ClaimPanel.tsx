@@ -470,10 +470,12 @@ export default function ClaimPanel() {
               .filter((x: any) => Number.isFinite(x.pid) && x.pid > 0)
               .sort((a: any, b: any) => b.pid - a.pid);
 
-            const options = phases.map((x: any) => x.pid);
+              const options: number[] = Array.from(new Set(phases.map((x: any) => x.pid)));
 
             const activePid =
-              (selectedPhaseId && options.includes(selectedPhaseId)) ? selectedPhaseId : options[0] ?? null;
+              (selectedPhaseId != null && options.includes(selectedPhaseId))
+                ? selectedPhaseId
+                : (options[0] ?? null);
 
             const active = phases.find((x: any) => x.pid === activePid) ?? null;
 
@@ -482,19 +484,21 @@ export default function ClaimPanel() {
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <p className="text-gray-400">🗂 Snapshot History</p>
 
-                  {/* Phase selector */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400">View phase</span>
+                  <div className="w-full sm:w-auto flex flex-col sm:flex-row sm:items-center gap-2">
+                    <span className="text-xs text-gray-400 shrink-0">View phase</span>
+
                     <select
-                      value={activePid ?? ''}
+                      value={activePid ? String(activePid) : ''}
                       onChange={(e) => {
-                        const v = Number(e.target.value);
-                        setSelectedPhaseId(Number.isFinite(v) ? v : null);
+                        const raw = e.target.value;
+                        const v = Number(raw);
+                        setSelectedPhaseId(raw === '' ? null : (Number.isFinite(v) ? v : null));
                       }}
-                      className="bg-zinc-900 border border-zinc-600 text-white text-xs rounded-md px-2 py-1"
+                      className="w-full sm:w-44 bg-zinc-900 border border-zinc-600 text-white text-xs rounded-md px-2 py-2 sm:py-1"
                     >
-                      {options.map((pid: number) => (
-                        <option key={pid} value={pid}>
+                      <option value="">Latest</option>
+                      {options.map((pid) => (
+                        <option key={pid} value={String(pid)}>
                           Phase #{pid}
                         </option>
                       ))}
@@ -504,7 +508,7 @@ export default function ClaimPanel() {
 
                 {/* Selected phase summary */}
                 {active && (
-                  <div className="mb-3 bg-zinc-900/40 border border-zinc-700 rounded-lg p-3 flex items-center justify-between">
+                  <div className="mb-3 bg-emerald-400/10 border border-emerald-400/30 rounded-lg p-3 flex items-center justify-between">
                     <div className="text-gray-300">
                       <div className="text-white font-semibold">Selected: Phase #{active.pid}</div>
                       {active.created ? (
@@ -525,23 +529,54 @@ export default function ClaimPanel() {
 
                 {/* Full list */}
                 <div className="space-y-2">
-                  {phases.map((p: any) => (
-                    <div key={p.pid} className="flex items-center justify-between gap-3">
-                      <div className="text-gray-300">
-                        <span className="text-white font-semibold">Phase #{p.pid}</span>
-                        {p.created ? (
-                          <span className="text-gray-500"> · {formatDate(String(p.created))}</span>
-                        ) : null}
-                      </div>
+                  {phases.map((p: any) => {
+                    const isSelected = activePid != null && p.pid === activePid;
 
-                      <div className="text-right">
-                        <div className="text-xs text-gray-400">Claimable</div>
-                        <div className="font-semibold text-purple-300">
-                          {Math.floor(p.claimable).toLocaleString()}
+                    return (
+                      <div
+                        key={p.pid}
+                        className={[
+                          "rounded-lg border px-3 py-2 flex items-center justify-between gap-3 transition",
+                          isSelected
+                            ? "border-emerald-400/40 bg-emerald-400/10 shadow-[0_0_0_1px_rgba(52,211,153,0.25)]"
+                            : "border-zinc-700 bg-zinc-900/20 opacity-70 hover:opacity-90",
+                        ].join(" ")}
+                      >
+                        <div className="text-gray-300">
+                          <div className="flex items-center gap-2">
+                            <span className="text-white font-semibold">Phase #{p.pid}</span>
+
+                            {isSelected && (
+                              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
+                                🟢 Active
+                              </span>
+                            )}
+                          </div>
+
+                          {p.created ? (
+                            <div className="text-xs text-gray-500">{formatDate(String(p.created))}</div>
+                          ) : null}
+                        </div>
+
+                        <div className="text-right">
+                          <div className="text-xs text-gray-400 flex items-center justify-end gap-1">
+                            Claimable
+                            {isSelected && (
+                              <span
+                                className="text-gray-500 cursor-help"
+                                title="This claimable value belongs to the selected finalized snapshot phase."
+                              >
+                                ⓘ
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-semibold text-purple-300">
+                            {Math.floor(p.claimable).toLocaleString()}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -729,9 +764,7 @@ export default function ClaimPanel() {
                       <td className="px-4 py-2 text-center">
                       <button
                         onClick={() => {
-                          const url = data.referral_code
-                            ? `${APP_URL}?r=${data.referral_code}`
-                            : APP_URL;
+                          const url = buildReferralUrl(data.referral_code);
 
                           const payload = buildPayload(
                             'contribution',
