@@ -14,33 +14,32 @@ function num(v: unknown, def = 0): number {
   return Number.isFinite(n) ? n : def;
 }
 
-export async function POST(req: NextRequest, ctx: any) {
+export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   try {
     await requireAdmin(req as any);
 
     const phaseId = Number(ctx?.params?.id);
     if (!Number.isFinite(phaseId) || phaseId <= 0) {
-      return NextResponse.json({ success: false, error: 'INVALID_PHASE_ID' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'BAD_PHASE_ID' }, { status: 400 });
     }
 
-    // Per-phase advisory lock (prevents concurrent snapshot for same phase)
+    // Advisory lock: aynı phase için aynı anda snapshot çalışmasın
     const lockKey = (BigInt(942002) * BigInt(1_000_000_000) + BigInt(Math.trunc(phaseId))).toString();
-
     await sql`SELECT pg_advisory_lock(${lockKey}::bigint)`;
 
     try {
       await sql`BEGIN`;
 
-      // Lock the phase row
-      const rows = (await sql/* sql */`
-        SELECT id, phase_no, status, snapshot_taken_at, opened_at, closed_at
+      // Phase'ı kilitleyerek oku
+      const phRows = (await sql/* sql */`
+        SELECT id, phase_no, status, snapshot_taken_at
         FROM phases
         WHERE id = ${phaseId}
         LIMIT 1
         FOR UPDATE
       `) as any[];
 
-      const ph = rows?.[0];
+      const ph = phRows?.[0];
       if (!ph) {
         await sql`ROLLBACK`;
         return NextResponse.json({ success: false, error: 'PHASE_NOT_FOUND' }, { status: 404 });
@@ -51,9 +50,15 @@ export async function POST(req: NextRequest, ctx: any) {
         return NextResponse.json({ success: false, error: 'PHASE_ALREADY_SNAPSHOTTED' }, { status: 409 });
       }
 
+      // Sadece active phase snapshot alınsın (kuralı sen netleştiriyorsun)
+      if (String(ph.status) !== 'active') {
+        await sql`ROLLBACK`;
+        return NextResponse.json({ success: false, error: 'PHASE_NOT_ACTIVE' }, { status: 409 });
+      }
+
       const phaseNo = Number(ph.phase_no);
 
-      // Totals from allocations
+      // allocations totals
       const tot = (await sql/* sql */`
         SELECT
           COALESCE(SUM(usd_allocated), 0)::float AS usd_sum,
@@ -75,18 +80,22 @@ export async function POST(req: NextRequest, ctx: any) {
         );
       }
 
-      // Mark snapshot taken
-      const nowRow = (await sql/* sql */`
+      // snapshot_taken_at set + phase complete (timestamps)
+      const snapRow = (await sql/* sql */`
         UPDATE phases
-        SET snapshot_taken_at = NOW(),
-            updated_at = NOW()
-        WHERE id = ${phaseId} AND snapshot_taken_at IS NULL
+        SET
+          snapshot_taken_at = NOW(),
+          status = 'completed',
+          closed_at = COALESCE(closed_at, NOW()),
+          updated_at = NOW()
+        WHERE id = ${phaseId}
+          AND snapshot_taken_at IS NULL
         RETURNING snapshot_taken_at
       `) as any[];
 
-      const snapshotAt = nowRow?.[0]?.snapshot_taken_at ?? null;
+      const snapshotAt = snapRow?.[0]?.snapshot_taken_at ?? null;
 
-      // Rebuild claim_snapshots for this phase
+      // claim_snapshots rebuild
       await sql/* sql */`
         DELETE FROM claim_snapshots
         WHERE phase_id = ${phaseId}
@@ -109,7 +118,7 @@ export async function POST(req: NextRequest, ctx: any) {
         GROUP BY pa.wallet_address
       `;
 
-      // Mark contributions as snapshotted
+      // contributions -> snapshotted
       await sql/* sql */`
         UPDATE contributions c
         SET alloc_status = 'snapshotted',
@@ -119,37 +128,20 @@ export async function POST(req: NextRequest, ctx: any) {
           AND pa.contribution_id = c.id
       `;
 
-      // Enforce "single active" rule: complete any other active phases (safety)
-      await sql/* sql */`
-        UPDATE phases
-        SET status = 'completed',
-            closed_at = COALESCE(closed_at, NOW()),
-            updated_at = NOW()
-        WHERE status = 'active'
-          AND id <> ${phaseId}
-      `;
-
-      // Close this phase
-      await sql/* sql */`
-        UPDATE phases
-        SET status = 'completed',
-            closed_at = COALESCE(closed_at, NOW()),
-            updated_at = NOW()
-        WHERE id = ${phaseId}
-      `;
-
-      // Open the next planned phase (smallest phase_no greater than current)
+      // ✅ NEXT PHASE: "next planned by phase_no ASC" (override değil, otomatik)
+      // Not: phase_no = current+1 şartı yerine "en küçük planned phase_no > current" alıyoruz.
       const next = (await sql/* sql */`
         UPDATE phases
-        SET status = 'active',
-            opened_at = COALESCE(opened_at, NOW()),
-            updated_at = NOW()
+        SET
+          status = 'active',
+          opened_at = COALESCE(opened_at, NOW()),
+          updated_at = NOW()
         WHERE id = (
           SELECT id
           FROM phases
-          WHERE phase_no > ${phaseNo}
-            AND status = 'planned'
+          WHERE status = 'planned'
             AND snapshot_taken_at IS NULL
+            AND phase_no > ${phaseNo}
           ORDER BY phase_no ASC
           LIMIT 1
           FOR UPDATE
@@ -157,11 +149,11 @@ export async function POST(req: NextRequest, ctx: any) {
         RETURNING id, phase_no
       `) as any[];
 
-      const nextRow = next?.[0] ?? null;
+      const nextRow = next?.[0] || null;
 
       await sql`COMMIT`;
 
-      // Optional recompute for the newly opened phase (outside tx is OK)
+      // recompute: yeni phase açıldıysa
       let recompute: any = null;
       if (nextRow?.id) {
         recompute = await recomputeFromPhaseId(Number(nextRow.id));
@@ -177,9 +169,7 @@ export async function POST(req: NextRequest, ctx: any) {
         recompute,
       });
     } catch (e) {
-      try {
-        await sql`ROLLBACK`;
-      } catch {}
+      try { await sql`ROLLBACK`; } catch {}
       throw e;
     } finally {
       await sql`SELECT pg_advisory_unlock(${lockKey}::bigint)`;

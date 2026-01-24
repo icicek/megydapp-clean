@@ -308,8 +308,8 @@ export default function AdminPhasesPage() {
                             <button
                               onClick={() => closePhase(p.phase_id)}
                               disabled={isBusy}
-                              className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs disabled:opacity-50"
-                              title="Manually complete this phase (override)"
+                              className="px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-[11px] text-white/70"
+                              title="Override: manually complete this phase"
                             >
                               {isBusy ? 'Working…' : 'Close'}
                             </button>
