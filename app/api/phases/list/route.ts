@@ -1,3 +1,4 @@
+// app/api/phases/route.ts
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
@@ -22,9 +23,9 @@ export async function GET(_req: NextRequest) {
     const sql = neon(process.env.DATABASE_URL!);
 
     const rows = await sql`
-      SELECT *
-      FROM phases
-      ORDER BY phase_no DESC, id DESC
+        SELECT *
+        FROM phases
+        ORDER BY phase_no DESC, id DESC;
     `;
 
     const phases = (rows as AnyRow[]).map((r) => {

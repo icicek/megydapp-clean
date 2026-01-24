@@ -41,9 +41,9 @@ export async function POST(req: NextRequest) {
     const nextNo = Number(maxRows?.[0]?.max_no ?? 0) + 1;
 
     const rows = await sql`
-      INSERT INTO phases (phase_no, name, note, status, pool_megy, rate_usd_per_megy, target_usd)
-      VALUES (${nextNo}, ${name}, ${note || null}, 'planned', ${pool_megy}, ${rate_usd_per_megy}, ${target_usd})
-      RETURNING *;
+        INSERT INTO phases (phase_no, name, status, pool_megy, rate_usd_per_megy)
+        VALUES (${nextNo}, ${name}, 'planned', ${pool_megy}, ${rate_usd_per_megy})
+        RETURNING *;
     `;
 
     return NextResponse.json({ success: true, phase: (rows as any[])[0] ?? null });
