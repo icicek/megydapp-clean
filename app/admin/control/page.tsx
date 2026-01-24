@@ -360,12 +360,21 @@ export default function AdminControlPage() {
               Manage global switches & distribution settings
             </p>
           </div>
-          <Link
-            href="/admin/tokens"
-            className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
-          >
-            Tokens
-          </Link>
+
+          <div className="flex items-center gap-2">
+            <Link
+              href="/admin/tokens"
+              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
+            >
+              Tokens
+            </Link>
+            <Link
+              href="/admin/phases"
+              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
+            >
+              Phases
+            </Link>
+          </div>
         </div>
 
         {/* Alerts */}

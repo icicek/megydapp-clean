@@ -38,3 +38,12 @@ export function absoluteUrl(path: string = ''): string {
   const rel = path.startsWith('/') ? path : `/${path}`;
   return `${base}${rel}`;
 }
+
+export function buildReferralUrl(referralCode?: string | null): string {
+  const base = APP_URL || 'https://coincarnation.com';
+  if (!referralCode) return base;
+
+  const u = new URL(base);
+  u.searchParams.set('r', referralCode);
+  return u.toString();
+}

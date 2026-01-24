@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import CorePointChart from './CorePointChart';
 import Leaderboard from './Leaderboard';
-import { APP_URL } from '@/app/lib/origin';
+import { buildReferralUrl } from '@/app/lib/origin';
 import type { SharePayload } from '@/components/share/intent';
 import ShareCenter from '@/components/share/ShareCenter';
 import { buildPayload } from '@/components/share/intent';
@@ -478,6 +478,13 @@ export default function ClaimPanel() {
                 : (options[0] ?? null);
 
             const active = phases.find((x: any) => x.pid === activePid) ?? null;
+            const ordered =
+              activePid
+                ? [
+                    ...phases.filter((x: any) => x.pid === activePid),
+                    ...phases.filter((x: any) => x.pid !== activePid),
+                  ]
+                : phases;
 
             return (
               <div className="mt-4 bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-sm">
@@ -494,7 +501,8 @@ export default function ClaimPanel() {
                         const v = Number(raw);
                         setSelectedPhaseId(raw === '' ? null : (Number.isFinite(v) ? v : null));
                       }}
-                      className="w-full sm:w-44 bg-zinc-900 border border-zinc-600 text-white text-xs rounded-md px-2 py-2 sm:py-1"
+                      disabled={options.length === 0}
+                      className="w-full sm:w-44 bg-zinc-900 border border-zinc-600 text-white text-xs rounded-md px-2 py-2 sm:py-1 disabled:opacity-50"
                     >
                       <option value="">Latest</option>
                       {options.map((pid) => (
@@ -510,7 +518,10 @@ export default function ClaimPanel() {
                 {active && (
                   <div className="mb-3 bg-emerald-400/10 border border-emerald-400/30 rounded-lg p-3 flex items-center justify-between">
                     <div className="text-gray-300">
-                      <div className="text-white font-semibold">Selected: Phase #{active.pid}</div>
+                      <div className="text-white font-semibold">
+                        Selected: Phase #{active.pid}
+                        <span className="ml-2 text-[11px] text-gray-400 font-normal">(finalized)</span>
+                      </div>
                       {active.created ? (
                         <div className="text-xs text-gray-500">{formatDate(String(active.created))}</div>
                       ) : (
@@ -529,7 +540,7 @@ export default function ClaimPanel() {
 
                 {/* Full list */}
                 <div className="space-y-2">
-                  {phases.map((p: any) => {
+                  {ordered.map((p: any) => {
                     const isSelected = activePid != null && p.pid === activePid;
 
                     return (
@@ -563,10 +574,10 @@ export default function ClaimPanel() {
                             Claimable
                             {isSelected && (
                               <span
-                                className="text-gray-500 cursor-help"
+                                className="ml-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-gray-300 border border-white/10"
                                 title="This claimable value belongs to the selected finalized snapshot phase."
                               >
-                                ⓘ
+                                info
                               </span>
                             )}
                           </div>
@@ -1135,14 +1146,6 @@ function StatBox({
       <p className="font-semibold text-sm mt-1">{value}</p>
     </div>
   );
-}
-
-function buildReferralUrl(referralCode: string | null | undefined): string {
-  const base = APP_URL || 'https://coincarnation.com';
-  if (!referralCode) return base;
-  const u = new URL(base);
-  u.searchParams.set('r', referralCode);
-  return u.toString();
 }
 
 function shorten(addr: string) {

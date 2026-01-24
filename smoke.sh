@@ -46,7 +46,9 @@ check "is-allowed"           "$BASE/api/admin/is-allowed"                "400|40
 check "tokens"               "$BASE/api/admin/tokens"                    "401|403|400|500"
 check "export.csv"           "$BASE/api/admin/tokens/export.csv"         "200|401|405"
 check "settings"             "$BASE/api/admin/settings"                  "200|401"
-check "snapshot"             "$BASE/api/admin/snapshot"                  "200|401"
+check "phases list (public)" "$BASE/api/phases/list"                     "200"
+check "admin phases (unauth)""$BASE/api/admin/phases"                    "401|403|405"
+
 
 echo "== Cron endpoint (POST secret şart) =="
 if [ -n "$SECRET" ]; then
