@@ -1,3 +1,4 @@
+// app/api/admin/phases/[id]/open/route.ts
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
@@ -6,42 +7,43 @@ import { sql } from '@/app/api/_lib/db';
 import { requireAdmin } from '@/app/api/_lib/jwt';
 import { httpErrorFrom } from '@/app/api/_lib/http';
 
-export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
+export async function POST(req: NextRequest, ctx: any) {
   try {
     await requireAdmin(req as any);
 
-    const phaseId = Number(ctx.params.id);
+    const phaseId = Number(ctx?.params?.id);
     if (!Number.isFinite(phaseId) || phaseId <= 0) {
       return NextResponse.json({ success: false, error: 'BAD_PHASE_ID' }, { status: 400 });
     }
 
     await sql`BEGIN`;
+    try {
+      // close any active (except target)
+      await sql/* sql */`
+        UPDATE phases
+        SET status='completed',
+            closed_at=COALESCE(closed_at, NOW()),
+            updated_at=NOW()
+        WHERE status='active' AND id <> ${phaseId}
+      `;
 
-    // Complete any other active (safety)
-    await sql/* sql */`
-      UPDATE phases
-      SET status='completed',
-          closed_at=COALESCE(closed_at, NOW()),
-          updated_at=NOW()
-      WHERE status='active' AND id <> ${phaseId}
-    `;
+      // open target
+      const rows = (await sql/* sql */`
+        UPDATE phases
+        SET status='active',
+            opened_at=COALESCE(opened_at, NOW()),
+            updated_at=NOW()
+        WHERE id=${phaseId}
+        RETURNING *
+      `) as any[];
 
-    // Open target (only if not completed)
-    const rows = (await sql/* sql */`
-      UPDATE phases
-      SET status='active',
-          opened_at=COALESCE(opened_at, NOW()),
-          updated_at=NOW()
-      WHERE id=${phaseId}
-        AND status <> 'completed'
-      RETURNING *
-    `) as any[];
-
-    await sql`COMMIT`;
-
-    return NextResponse.json({ success: true, phase: rows?.[0] ?? null });
+      await sql`COMMIT`;
+      return NextResponse.json({ success: true, phase: rows?.[0] ?? null });
+    } catch (e) {
+      await sql`ROLLBACK`;
+      throw e;
+    }
   } catch (err: unknown) {
-    try { await sql`ROLLBACK`; } catch {}
     const { status, body } = httpErrorFrom(err, 500);
     return NextResponse.json(body, { status });
   }

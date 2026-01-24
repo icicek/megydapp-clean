@@ -24,7 +24,7 @@ export async function GET(_req: NextRequest) {
     const rows = await sql`
       SELECT *
       FROM phases
-      ORDER BY id DESC
+      ORDER BY phase_no DESC, id DESC
     `;
 
     const phases = (rows as AnyRow[]).map((r) => {
