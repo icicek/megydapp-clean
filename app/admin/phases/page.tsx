@@ -67,11 +67,7 @@ function fmtDate(v: any): string {
 type SnapshotResponse = {
   success: boolean;
   error?: string;
-  nextOpened?: {
-    phaseNo?: number;
-    phase_no?: number;
-    phase?: { phase_no?: number };
-  } | null;
+  nextOpened?: { id: number; phaseNo: number } | null;
 };
 
 export default function AdminPhasesPage() {
@@ -138,6 +134,18 @@ export default function AdminPhasesPage() {
 
   const active = useMemo(() => rows.find((r) => r.status === 'active') ?? null, [rows]);
 
+  const nextPlannedId = useMemo(() => {
+    const planned = rows.filter((r) => !r.status || r.status === 'planned');
+    if (planned.length === 0) return null;
+  
+    // find smallest phase_no among planned phases
+    let best = planned[0];
+    for (const r of planned) {
+      if (Number(r.phase_no) < Number(best.phase_no)) best = r;
+    }
+    return best.phase_id;
+  }, [rows]);
+
   async function refresh() {
     setLoading(true);
     setMsg(null);
@@ -186,13 +194,24 @@ export default function AdminPhasesPage() {
   async function openPhase(id: number) {
     setMsg(null);
     setBusyId(id);
+  
     try {
       await sendJSON(`/api/admin/phases/${id}/open`, 'POST');
       await refresh();
       setMsg('✅ Phase opened');
       scrollToPhase(id);
     } catch (e: any) {
-      setMsg(`❌ ${e?.message || 'Open failed'}`);
+      const err = String(e?.message || '');
+  
+      if (err.includes('ACTIVE_PHASE_EXISTS')) {
+        setMsg('⚠️ There is already an active phase. Close it or take a snapshot first.');
+      } else if (err.includes('PHASE_NOT_PLANNED')) {
+        setMsg('⚠️ Only planned phases can be opened.');
+      } else if (err.includes('PHASE_NOT_FOUND')) {
+        setMsg('❌ Phase not found.');
+      } else {
+        setMsg(`❌ ${err || 'Open failed'}`);
+      }
     } finally {
       setBusyId(null);
     }
@@ -252,13 +271,20 @@ export default function AdminPhasesPage() {
   async function closePhase(id: number) {
     setMsg(null);
     setBusyId(id);
+  
     try {
       await sendJSON(`/api/admin/phases/${id}/close`, 'POST');
       await refresh();
       setMsg('✅ Phase closed');
       scrollToPhase(id);
     } catch (e: any) {
-      setMsg(`❌ ${e?.message || 'Close failed'}`);
+      const err = String(e?.message || '');
+  
+      if (err.includes('PHASE_NOT_ACTIVE')) {
+        setMsg('⚠️ Only an active phase can be closed.');
+      } else {
+        setMsg(`❌ ${err || 'Close failed'}`);
+      }
     } finally {
       setBusyId(null);
     }
@@ -276,23 +302,16 @@ export default function AdminPhasesPage() {
 
       const j = await sendJSON<SnapshotResponse>(`/api/admin/phases/${id}/snapshot`, 'POST');
 
-      const nextNo =
-        j?.nextOpened?.phaseNo ??
-        j?.nextOpened?.phase_no ??
-        j?.nextOpened?.phase?.phase_no ??
-        null;
+      const nextNo = j?.nextOpened?.phaseNo ?? null;
 
       await refresh();
 
       if (j?.success) {
+        if (j?.nextOpened?.id) {
+            scrollToPhase(j.nextOpened.id);
+        }
         const next = nextNo ? ` → Next opened: #${nextNo}` : '';
         setMsg(`✅ Snapshot complete${next}`);
-
-        // UX: if next opened exists, scroll to it (best effort)
-        if (nextNo) {
-          const nextRow = rows.find((r) => r.phase_no === nextNo);
-          if (nextRow?.phase_id) scrollToPhase(nextRow.phase_id);
-        }
       } else {
         setMsg(`❌ ${j?.error || 'SNAPSHOT_FAILED'}`);
       }
@@ -406,6 +425,7 @@ export default function AdminPhasesPage() {
                   const isCompleted = p.status === 'completed';
                   const isPlanned = !p.status || p.status === 'planned';
                   const isBusy = busyId === p.phase_id;
+                  const canShowOpen = isPlanned && !active && nextPlannedId === p.phase_id;
 
                   return (
                     <tr
@@ -450,14 +470,16 @@ export default function AdminPhasesPage() {
                           {/* Planned actions */}
                           {isPlanned && !isCompleted && (
                             <>
-                              <button
-                                onClick={() => openPhase(p.phase_id)}
-                                disabled={isBusy}
-                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs disabled:opacity-50"
-                                title="Manually set this phase to active (override)"
-                              >
-                                {isBusy ? 'Working…' : 'Open'}
-                              </button>
+                              {canShowOpen && (
+                                <button
+                                    onClick={() => openPhase(p.phase_id)}
+                                    disabled={isBusy}
+                                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs disabled:opacity-50"
+                                    title="Start operation: open the next planned phase"
+                                >
+                                    {isBusy ? 'Working…' : 'Open'}
+                                </button>
+                              )}
 
                               <button
                                 onClick={() => startEdit(p)}

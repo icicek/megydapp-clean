@@ -20,7 +20,8 @@ export async function POST(req: NextRequest, ctx: any) {
     if (!id) return NextResponse.json({ success: false, error: 'BAD_PHASE_ID' }, { status: 400 });
 
     const body = await req.json().catch(() => ({}));
-    const dir = String(body?.dir || 'up'); // 'up' | 'down'
+    const dirRaw = String(body?.dir || 'up');
+    const dir = dirRaw === 'down' ? 'down' : 'up'; // only 'up' | 'down'
 
     await sql`BEGIN`;
 
