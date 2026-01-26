@@ -5,436 +5,454 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 
 type PhaseRow = {
-  phase_id: number;
-  phase_no: number;
-  name: string;
-  status: string; // planned | active | completed
-  note?: string;
-  pool_megy?: any;
-  rate_usd_per_megy?: any;
-  target_usd?: any;
-  opened_at?: any;
-  closed_at?: any;
-  snapshot_taken_at?: any;
-  created_at?: any;
-  updated_at?: any;
+    phase_id: number;
+    phase_no: number;
+    name: string;
+    status: string; // planned | active | completed
+    pool_megy?: any;
+    rate_usd_per_megy?: any;
+    target_usd?: any;
+    opened_at?: any;
+    closed_at?: any;
+    snapshot_taken_at?: any;
+    created_at?: any;
+    updated_at?: any;
 };
 
 type CreatePhaseResponse =
-  | { success: true; phase: any }
-  | { success: false; error: string };
+    | { success: true; phase: any }
+    | { success: false; error: string };
 
 const CARD =
-  'rounded-2xl border border-white/10 bg-[#0b0f18] p-5 shadow-sm hover:shadow transition-shadow';
+    'rounded-2xl border border-white/10 bg-[#0b0f18] p-5 shadow-sm hover:shadow transition-shadow';
 
 async function getJSON<T>(url: string): Promise<T> {
-  const r = await fetch(url, { credentials: 'include', cache: 'no-store' });
-  const j = await r.json().catch(() => ({} as any));
-  if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
-  return j;
+    const r = await fetch(url, { credentials: 'include', cache: 'no-store' });
+    const j = await r.json().catch(() => ({} as any));
+    if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+    return j;
 }
 
 async function postJSON<T>(url: string, body?: any): Promise<T> {
-  const r = await fetch(url, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
-    body: JSON.stringify(body ?? {}),
-  });
-  const j = await r.json().catch(() => ({} as any));
-  if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
-  return j;
+    const r = await fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
+        body: JSON.stringify(body ?? {}),
+    });
+    const j = await r.json().catch(() => ({} as any));
+    if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+    return j;
 }
 
 function fmtNum(v: any): string {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return '-';
-  return n.toLocaleString();
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '-';
+    return n.toLocaleString();
 }
 
 function fmtDate(v: any): string {
-  if (!v) return '-';
-  try {
-    const d = new Date(v);
-    if (Number.isNaN(d.getTime())) return String(v);
-    return d.toLocaleString();
-  } catch {
-    return String(v);
-  }
+    if (!v) return '-';
+    try {
+        const d = new Date(v);
+        if (Number.isNaN(d.getTime())) return String(v);
+        return d.toLocaleString();
+    } catch {
+        return String(v);
+    }
 }
 
 export default function AdminPhasesPage() {
-  const [rows, setRows] = useState<PhaseRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+    const [rows, setRows] = useState<PhaseRow[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [msg, setMsg] = useState<string | null>(null);
 
-  // create modal form
-  const [openCreate, setOpenCreate] = useState(false);
-  const [name, setName] = useState('');
-  const [note, setNote] = useState('');
-  const [pool, setPool] = useState('500000');
-  const [rate, setRate] = useState('1');
-  const [target, setTarget] = useState(''); // allow null
-  const [saving, setSaving] = useState(false);
+    // create modal form
+    const [openCreate, setOpenCreate] = useState(false);
+    const [name, setName] = useState('');
+    const [pool, setPool] = useState('500000');
+    const [rate, setRate] = useState('1');
+    const [saving, setSaving] = useState(false);
 
-  // action busy flags
-  const [busyId, setBusyId] = useState<number | null>(null);
+    const computedTarget = useMemo(() => {
+        const p = Number(pool);
+        const r = Number(rate);
+        if (!Number.isFinite(p) || !Number.isFinite(r) || p <= 0 || r <= 0) return '';
+        return String(p * r);
+    }, [pool, rate]);
 
-  const active = useMemo(() => rows.find((r) => r.status === 'active') ?? null, [rows]);
+    const canCreate = useMemo(() => {
+        const p = Number(pool);
+        const r = Number(rate);
+        return (
+            name.trim() !== '' &&
+            Number.isFinite(p) && p > 0 &&
+            Number.isFinite(r) && r > 0
+        );
+    }, [name, pool, rate]);
 
-  async function refresh() {
-    setLoading(true);
-    setMsg(null);
-    try {
-      const j = await getJSON<{ success: boolean; phases: PhaseRow[] }>('/api/phases/list');
-      setRows(Array.isArray(j?.phases) ? j.phases : []);
-    } catch (e: any) {
-      setMsg(`❌ Failed to load phases (${e?.message || 'error'})`);
-    } finally {
-      setLoading(false);
+    // action busy flags
+    const [busyId, setBusyId] = useState<number | null>(null);
+
+    const active = useMemo(() => rows.find((r) => r.status === 'active') ?? null, [rows]);
+
+    async function refresh() {
+        setLoading(true);
+        setMsg(null);
+        try {
+            const j = await getJSON<{ success: boolean; phases: PhaseRow[] }>('/api/phases/list');
+            setRows(Array.isArray(j?.phases) ? j.phases : []);
+        } catch (e: any) {
+            setMsg(`❌ Failed to load phases (${e?.message || 'error'})`);
+        } finally {
+            setLoading(false);
+        }
     }
-  }
 
-  useEffect(() => {
-    refresh();
-  }, []);
+    useEffect(() => {
+        refresh();
+    }, []);
 
-  async function createPhase() {
-    setSaving(true);
-    setMsg(null);
-    try {
-      const body = {
-        name: name.trim(),
-        note: note.trim(),
-        pool_megy: Number(pool),
-        rate_usd_per_megy: Number(rate),
-        target_usd: target.trim() === '' ? null : Number(target),
-      };
+    async function createPhase() {
+        setSaving(true);
+        setMsg(null);
+        try {
+            const body = {
+                name: name.trim(),
+                pool_megy: Number(pool),
+                rate_usd_per_megy: Number(rate),
+            };
 
-      const j = await postJSON<CreatePhaseResponse>('/api/admin/phases', body);
-      if (!j.success) throw new Error(j.error || 'CREATE_FAILED');
+            const j = await postJSON<CreatePhaseResponse>('/api/admin/phases', body);
+            if (!j.success) throw new Error(j.error || 'CREATE_FAILED');
 
-      setOpenCreate(false);
-      setName('');
-      setNote('');
-      // keep defaults if you want; or reset:
-      // setPool('500000'); setRate('1'); setTarget('');
-      await refresh();
-      setMsg('✅ Phase created');
-    } catch (e: any) {
-      setMsg(`❌ ${e?.message || 'Create failed'}`);
-    } finally {
-      setSaving(false);
+            setOpenCreate(false);
+            setName('');
+            // keep defaults if you want; or reset:
+            // setPool('500000'); setRate('1'); setTarget('');
+            await refresh();
+            setMsg('✅ Phase created');
+        } catch (e: any) {
+            setMsg(`❌ ${e?.message || 'Create failed'}`);
+        } finally {
+            setSaving(false);
+        }
     }
-  }
 
-  async function openPhase(id: number) {
-    setMsg(null);
-    setBusyId(id);
-    try {
-      await postJSON(`/api/admin/phases/${id}/open`);
-      await refresh();
-      setMsg('✅ Phase opened');
-    } catch (e: any) {
-      setMsg(`❌ ${e?.message || 'Open failed'}`);
-    } finally {
-      setBusyId(null);
+    async function openPhase(id: number) {
+        setMsg(null);
+        setBusyId(id);
+        try {
+            await postJSON(`/api/admin/phases/${id}/open`);
+            await refresh();
+            setMsg('✅ Phase opened');
+        } catch (e: any) {
+            setMsg(`❌ ${e?.message || 'Open failed'}`);
+        } finally {
+            setBusyId(null);
+        }
     }
-  }
 
-  async function closePhase(id: number) {
-    setMsg(null);
-    setBusyId(id);
-    try {
-      await postJSON(`/api/admin/phases/${id}/close`);
-      await refresh();
-      setMsg('✅ Phase closed');
-    } catch (e: any) {
-      setMsg(`❌ ${e?.message || 'Close failed'}`);
-    } finally {
-      setBusyId(null);
+    async function closePhase(id: number) {
+        setMsg(null);
+        setBusyId(id);
+        try {
+            await postJSON(`/api/admin/phases/${id}/close`);
+            await refresh();
+            setMsg('✅ Phase closed');
+        } catch (e: any) {
+            setMsg(`❌ ${e?.message || 'Close failed'}`);
+        } finally {
+            setBusyId(null);
+        }
     }
-  }
 
-  async function snapshotPhase(id: number) {
-    setMsg(null);
-    setBusyId(id);
-    try {
-      // Snapshot is a high-impact action: confirm
-      const ok = window.confirm(
-        'Take snapshot for this phase?\n\nThis will close the active phase and automatically activate the next planned phase (if any).'
-      );
-      if (!ok) return;
+    async function snapshotPhase(id: number) {
+        setMsg(null);
+        setBusyId(id);
+        try {
+            // Snapshot is a high-impact action: confirm
+            const ok = window.confirm(
+                'Take snapshot for this phase?\n\nThis will close the active phase and automatically activate the next planned phase (if any).'
+            );
+            if (!ok) return;
 
-      const j = await postJSON<any>(`/api/admin/phases/${id}/snapshot`);
-      await refresh();
+            const j = await postJSON<any>(`/api/admin/phases/${id}/snapshot`);
+            await refresh();
 
-      if (j?.success) {
-        const next = j?.nextOpened?.phaseNo ? ` → Next opened: #${j.nextOpened.phaseNo}` : '';
-        setMsg(`✅ Snapshot complete${next}`);
-      } else {
-        setMsg(`❌ ${j?.error || 'SNAPSHOT_FAILED'}`);
-      }
-    } catch (e: any) {
-      setMsg(`❌ ${e?.message || 'Snapshot failed'}`);
-    } finally {
-      setBusyId(null);
+            if (j?.success) {
+                const next = j?.nextOpened?.phaseNo ? ` → Next opened: #${j.nextOpened.phaseNo}` : '';
+                setMsg(`✅ Snapshot complete${next}`);
+            } else {
+                setMsg(`❌ ${j?.error || 'SNAPSHOT_FAILED'}`);
+            }
+        } catch (e: any) {
+            setMsg(`❌ ${e?.message || 'Snapshot failed'}`);
+        } finally {
+            setBusyId(null);
+        }
     }
-  }
 
-  return (
-    <main className="min-h-screen bg-[#090d15] text-white">
-      <div className="mx-auto max-w-5xl px-6 py-8 space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold">Phases</h1>
-            <p className="text-xs text-white/60 mt-1">
-              Create phases, set iconic names, and control open/close/snapshot.
-            </p>
-          </div>
+    return (
+        <main className="min-h-screen bg-[#090d15] text-white">
+            <div className="mx-auto max-w-5xl px-6 py-8 space-y-8">
+                {/* Header */}
+                <div className="flex items-center justify-between gap-3">
+                    <div>
+                        <h1 className="text-2xl font-semibold">Phases</h1>
+                        <p className="text-xs text-white/60 mt-1">
+                            Create phases, set iconic names, and control open/close/snapshot.
+                        </p>
+                    </div>
 
-          <div className="flex items-center gap-2">
-            <Link
-              href="/admin/control"
-              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
-            >
-              Control
-            </Link>
-            <button
-              onClick={() => setOpenCreate(true)}
-              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm"
-            >
-              + Add Phase
-            </button>
-          </div>
-        </div>
-
-        {msg && <div className={`${CARD} text-sm`}>{msg}</div>}
-        {loading && <div className={`${CARD} text-sm text-white/70`}>Loading…</div>}
-
-        {/* Active banner */}
-        <div className={CARD}>
-          <div className="text-sm text-white/80">
-            Active phase:{' '}
-            {active ? (
-              <span className="font-semibold text-emerald-300">
-                #{active.phase_no} — {active.name}
-              </span>
-            ) : (
-              <span className="font-semibold text-white/60">None</span>
-            )}
-          </div>
-          <div className="text-[11px] text-white/55 mt-1">
-            Rule: Only one phase can be active at a time. Snapshot closes active and auto-opens the next planned phase.
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="rounded-2xl border border-white/10 overflow-hidden bg-[#0b0f18]">
-          <div className="overflow-x-auto">
-            <table className="min-w-[980px] w-full text-sm">
-              <thead className="bg-white/5 text-white/70">
-                <tr>
-                  <th className="text-left px-4 py-3">Phase</th>
-                  <th className="text-left px-4 py-3">Status</th>
-                  <th className="text-left px-4 py-3">Pool (MEGY)</th>
-                  <th className="text-left px-4 py-3">Rate (USD/MEGY)</th>
-                  <th className="text-left px-4 py-3">Target (USD)</th>
-                  <th className="text-left px-4 py-3">Opened</th>
-                  <th className="text-left px-4 py-3">Closed</th>
-                  <th className="text-left px-4 py-3">Snapshot</th>
-                  <th className="text-right px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {rows.map((p) => {
-                  const isActive = p.status === 'active';
-                  const isCompleted = p.status === 'completed';
-                  const isPlanned = !p.status || p.status === 'planned';
-                  const isBusy = busyId === p.phase_id;
-
-                  return (
-                    <tr key={p.phase_id} className="border-t border-white/10 hover:bg-white/5">
-                      <td className="px-4 py-3">
-                        <div className="font-semibold text-white">
-                          #{p.phase_no} — {p.name || '(unnamed)'}
-                        </div>
-                        {p.note ? <div className="text-[11px] text-white/55 mt-1">{p.note}</div> : null}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <span
-                          className={[
-                            'px-2 py-1 rounded-md text-xs border',
-                            isActive
-                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
-                              : isCompleted
-                                ? 'bg-blue-500/10 border-blue-500/30 text-blue-200'
-                                : 'bg-white/5 border-white/10 text-white/70',
-                          ].join(' ')}
+                    <div className="flex items-center gap-2">
+                        <Link
+                            href="/admin/control"
+                            className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
                         >
-                          {(p.status || 'planned') as any}
-                        </span>
-                      </td>
+                            Control
+                        </Link>
+                        <button
+                            onClick={() => setOpenCreate(true)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm"
+                        >
+                            + Add Phase
+                        </button>
+                    </div>
+                </div>
 
-                      <td className="px-4 py-3 text-white/80">{fmtNum(p.pool_megy ?? 0)}</td>
-                      <td className="px-4 py-3 text-white/80">{fmtNum(p.rate_usd_per_megy ?? 0)}</td>
-                      <td className="px-4 py-3 text-white/80">
-                        {p.target_usd == null || p.target_usd === '' ? '-' : fmtNum(p.target_usd)}
-                      </td>
+                {msg && <div className={`${CARD} text-sm`}>{msg}</div>}
+                {loading && <div className={`${CARD} text-sm text-white/70`}>Loading…</div>}
 
-                      <td className="px-4 py-3 text-white/60 text-xs">{fmtDate(p.opened_at)}</td>
-                      <td className="px-4 py-3 text-white/60 text-xs">{fmtDate(p.closed_at)}</td>
-                      <td className="px-4 py-3 text-white/60 text-xs">{p.snapshot_taken_at ? '✅ taken' : '-'}</td>
+                {/* Active banner */}
+                <div className={CARD}>
+                    <div className="text-sm text-white/80">
+                        Active phase:{' '}
+                        {active ? (
+                            <span className="font-semibold text-emerald-300">
+                                #{active.phase_no} — {active.name}
+                            </span>
+                        ) : (
+                            <span className="font-semibold text-white/60">None</span>
+                        )}
+                    </div>
+                    <div className="text-[11px] text-white/55 mt-1">
+                        Rule: Only one phase can be active at a time. Snapshot closes active and auto-opens the next planned phase.
+                    </div>
+                </div>
 
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-2">
-                          {/* Open: only for planned; never for completed */}
-                          {isPlanned && !isCompleted && (
-                            <button
-                              onClick={() => openPhase(p.phase_id)}
-                              disabled={isBusy}
-                              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs disabled:opacity-50"
-                              title="Manually set this phase to active (override)"
-                            >
-                              {isBusy ? 'Working…' : 'Open'}
-                            </button>
-                          )}
+                {/* Table */}
+                <div className="rounded-2xl border border-white/10 overflow-hidden bg-[#0b0f18]">
+                    <div className="overflow-x-auto">
+                        <table className="min-w-[980px] w-full text-sm">
+                            <thead className="bg-white/5 text-white/70">
+                                <tr>
+                                    <th className="text-left px-4 py-3">Phase</th>
+                                    <th className="text-left px-4 py-3">Status</th>
+                                    <th className="text-left px-4 py-3">Pool (MEGY)</th>
+                                    <th className="text-left px-4 py-3">Rate (USD/MEGY)</th>
+                                    <th className="text-left px-4 py-3">Target (USD)</th>
+                                    <th className="text-left px-4 py-3">Opened</th>
+                                    <th className="text-left px-4 py-3">Closed</th>
+                                    <th className="text-left px-4 py-3">Snapshot</th>
+                                    <th className="text-right px-4 py-3">Actions</th>
+                                </tr>
+                            </thead>
 
-                          {/* Close: only for active */}
-                          {isActive && (
-                            <button
-                              onClick={() => closePhase(p.phase_id)}
-                              disabled={isBusy}
-                              className="px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-[11px] text-white/70"
-                              title="Override: manually complete this phase"
-                            >
-                              {isBusy ? 'Working…' : 'Close'}
-                            </button>
-                          )}
+                            <tbody>
+                                {rows.map((p) => {
+                                    const isActive = p.status === 'active';
+                                    const isCompleted = p.status === 'completed';
+                                    const isPlanned = !p.status || p.status === 'planned';
+                                    const isBusy = busyId === p.phase_id;
 
-                          {/* Snapshot: only for active (because it closes + auto-advances) */}
-                          {isActive && (
-                            <button
-                              onClick={() => snapshotPhase(p.phase_id)}
-                              disabled={isBusy}
-                              className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
-                              title="Snapshot closes this active phase and auto-opens next planned phase"
-                            >
-                              {isBusy ? 'Working…' : 'Snapshot'}
-                            </button>
-                          )}
+                                    return (
+                                        <tr key={p.phase_id} className="border-t border-white/10 hover:bg-white/5">
+                                            <td className="px-4 py-3">
+                                                <div className="font-semibold text-white">
+                                                    #{p.phase_no} — {p.name || '(unnamed)'}
+                                                </div>
+                                            </td>
+
+                                            <td className="px-4 py-3">
+                                                <span
+                                                    className={[
+                                                        'px-2 py-1 rounded-md text-xs border',
+                                                        isActive
+                                                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
+                                                            : isCompleted
+                                                                ? 'bg-blue-500/10 border-blue-500/30 text-blue-200'
+                                                                : 'bg-white/5 border-white/10 text-white/70',
+                                                    ].join(' ')}
+                                                >
+                                                    {(p.status || 'planned') as any}
+                                                </span>
+                                            </td>
+
+                                            <td className="px-4 py-3 text-white/80">{fmtNum(p.pool_megy ?? 0)}</td>
+                                            <td className="px-4 py-3 text-white/80">{fmtNum(p.rate_usd_per_megy ?? 0)}</td>
+                                            <td className="px-4 py-3 text-white/80">
+                                                {p.target_usd == null || p.target_usd === '' ? '-' : fmtNum(p.target_usd)}
+                                            </td>
+
+                                            <td className="px-4 py-3 text-white/60 text-xs">{fmtDate(p.opened_at)}</td>
+                                            <td className="px-4 py-3 text-white/60 text-xs">{fmtDate(p.closed_at)}</td>
+                                            <td className="px-4 py-3 text-white/60 text-xs">{p.snapshot_taken_at ? '✅ taken' : '-'}</td>
+
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {/* Open: only for planned; never for completed */}
+                                                    {isPlanned && !isCompleted && (
+                                                        <button
+                                                            onClick={() => openPhase(p.phase_id)}
+                                                            disabled={isBusy}
+                                                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs disabled:opacity-50"
+                                                            title="Manually set this phase to active (override)"
+                                                        >
+                                                            {isBusy ? 'Working…' : 'Open'}
+                                                        </button>
+                                                    )}
+
+                                                    {/* Close: only for active */}
+                                                    {isActive && (
+                                                        <button
+                                                            onClick={() => closePhase(p.phase_id)}
+                                                            disabled={isBusy}
+                                                            className="px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-[11px] text-white/70"
+                                                            title="Override: manually complete this phase"
+                                                        >
+                                                            {isBusy ? 'Working…' : 'Close'}
+                                                        </button>
+                                                    )}
+
+                                                    {/* Snapshot: only for active (because it closes + auto-advances) */}
+                                                    {isActive && (
+                                                        <button
+                                                            onClick={() => snapshotPhase(p.phase_id)}
+                                                            disabled={isBusy}
+                                                            className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
+                                                            title="Snapshot closes this active phase and auto-opens next planned phase"
+                                                        >
+                                                            {isBusy ? 'Working…' : 'Snapshot'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+
+                                {rows.length === 0 && (
+                                    <tr>
+                                        <td className="px-4 py-6 text-white/60" colSpan={9}>
+                                            No phases yet. Create Phase #1.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Create modal */}
+                {openCreate && (
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+                        <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-[#0b0f18] p-5">
+                            <div className="flex items-center justify-between">
+                                <div className="font-semibold">Create Phase</div>
+                                <button
+                                    onClick={() => setOpenCreate(false)}
+                                    className="px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-sm"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <div className="mt-4 space-y-3">
+                                <div>
+                                    <div className="text-xs text-white/60 mb-1">Name</div>
+                                    <input
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        className="w-full rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
+                                        placeholder="Phase 1 — Genesis"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div>
+                                        <div className="text-xs text-white/60 mb-1">Pool (MEGY)</div>
+                                        <input
+                                            type="number"
+                                            inputMode="decimal"
+                                            min={0}
+                                            step="1"
+                                            value={pool}
+                                            onChange={(e) => setPool(e.target.value)}
+                                            className="w-full rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
+                                        />
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-white/60 mb-1">Rate (USD/MEGY)</div>
+
+                                        <input
+                                            type="number"
+                                            inputMode="decimal"
+                                            min={0}
+                                            step="0.01"
+                                            value={rate}
+                                            onChange={(e) => setRate(e.target.value)}
+                                            className="w-full rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
+                                            placeholder="1"
+                                        />
+
+                                        <div className="text-[11px] text-white/45 mt-1">
+                                            Example: 1 means 1 USD per 1 MEGY.
+                                        </div>
+
+                                        {Number(rate) > 10 && (
+                                            <div className="text-[11px] mt-1 text-yellow-300">
+                                                ⚠ Rate looks unusually high. Are you sure?
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-white/60 mb-1">Target (USD)</div>
+                                        <input
+                                            value={computedTarget || ''}
+                                            readOnly
+                                            className="w-full rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2 opacity-80"
+                                            placeholder="Auto-calculated (Pool × Rate)"
+                                            title="Auto-calculated: Pool × Rate. Saved in DB as generated column."
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-end gap-2 pt-2">
+                                    <button
+                                        onClick={() => setOpenCreate(false)}
+                                        className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm"
+                                        disabled={saving}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={createPhase}
+                                        className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm disabled:opacity-50"
+                                        disabled={saving || !canCreate}
+                                    >
+                                        {saving ? 'Creating…' : 'Create'}
+                                    </button>
+                                </div>
+
+                                <div className="text-[11px] text-white/55">
+                                    Tip: Give iconic names. These will show in ClaimPanel snapshot history.
+                                </div>
+                            </div>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-
-                {rows.length === 0 && (
-                  <tr>
-                    <td className="px-4 py-6 text-white/60" colSpan={9}>
-                      No phases yet. Create Phase #1.
-                    </td>
-                  </tr>
+                    </div>
                 )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Create modal */}
-        {openCreate && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-            <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-[#0b0f18] p-5">
-              <div className="flex items-center justify-between">
-                <div className="font-semibold">Create Phase</div>
-                <button
-                  onClick={() => setOpenCreate(false)}
-                  className="px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-sm"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                <div>
-                  <div className="text-xs text-white/60 mb-1">Name</div>
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
-                    placeholder="Phase 1 — Genesis"
-                  />
-                </div>
-
-                <div>
-                  <div className="text-xs text-white/60 mb-1">Note (optional)</div>
-                  <input
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    className="w-full rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
-                    placeholder="Short marketing line / theme"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <div className="text-xs text-white/60 mb-1">Pool (MEGY)</div>
-                    <input
-                      inputMode="decimal"
-                      value={pool}
-                      onChange={(e) => setPool(e.target.value)}
-                      className="w-full rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
-                    />
-                  </div>
-                  <div>
-                    <div className="text-xs text-white/60 mb-1">Rate (USD/MEGY)</div>
-                    <input
-                      inputMode="decimal"
-                      value={rate}
-                      onChange={(e) => setRate(e.target.value)}
-                      className="w-full rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
-                    />
-                  </div>
-                  <div>
-                    <div className="text-xs text-white/60 mb-1">Target (USD) (optional)</div>
-                    <input
-                      inputMode="decimal"
-                      value={target}
-                      onChange={(e) => setTarget(e.target.value)}
-                      className="w-full rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
-                      placeholder="Leave empty for no cap"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  <button
-                    onClick={() => setOpenCreate(false)}
-                    className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm"
-                    disabled={saving}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={createPhase}
-                    className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm disabled:opacity-50"
-                    disabled={saving || name.trim() === ''}
-                  >
-                    {saving ? 'Creating…' : 'Create'}
-                  </button>
-                </div>
-
-                <div className="text-[11px] text-white/55">
-                  Tip: Give iconic names. These will show in ClaimPanel snapshot history.
-                </div>
-              </div>
             </div>
-          </div>
-        )}
-      </div>
-    </main>
-  );
+        </main>
+    );
 }

@@ -18,32 +18,35 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     const name = String(body?.name ?? '').trim();
-    const note = String(body?.note ?? '').trim();
 
     const pool_megy = asNum(body?.pool_megy);
     const rate_usd_per_megy = asNum(body?.rate_usd_per_megy);
-    const target_usd = body?.target_usd === null ? null : asNum(body?.target_usd);
 
     if (!name) {
       return NextResponse.json({ success: false, error: 'NAME_REQUIRED' }, { status: 400 });
     }
-    if (pool_megy == null || pool_megy < 0) {
+    if (pool_megy == null || pool_megy <= 0) {
       return NextResponse.json({ success: false, error: 'POOL_INVALID' }, { status: 400 });
     }
     if (rate_usd_per_megy == null || rate_usd_per_megy <= 0) {
       return NextResponse.json({ success: false, error: 'RATE_INVALID' }, { status: 400 });
     }
-    if (target_usd != null && target_usd < 0) {
-      return NextResponse.json({ success: false, error: 'TARGET_INVALID' }, { status: 400 });
-    }
 
-    const maxRows = (await sql`SELECT COALESCE(MAX(phase_no), 0) AS max_no FROM phases;`) as any[];
+    // next phase_no
+    const maxRows = (await sql`
+      SELECT COALESCE(MAX(phase_no), 0) AS max_no
+      FROM phases;
+    `) as any[];
+
     const nextNo = Number(maxRows?.[0]?.max_no ?? 0) + 1;
 
+    // IMPORTANT:
+    // - target_usd DB'de GENERATED ALWAYS (pool_megy * rate_usd_per_megy) → asla insert etmiyoruz.
+    // - note kolonu DB'de yok → asla insert etmiyoruz.
     const rows = await sql`
-        INSERT INTO phases (phase_no, name, status, pool_megy, rate_usd_per_megy)
-        VALUES (${nextNo}, ${name}, 'planned', ${pool_megy}, ${rate_usd_per_megy})
-        RETURNING *;
+      INSERT INTO phases (phase_no, name, status, pool_megy, rate_usd_per_megy, created_at, updated_at)
+      VALUES (${nextNo}, ${name}, 'planned', ${pool_megy}, ${rate_usd_per_megy}, NOW(), NOW())
+      RETURNING *;
     `;
 
     return NextResponse.json({ success: true, phase: (rows as any[])[0] ?? null });
