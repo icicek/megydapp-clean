@@ -38,16 +38,31 @@ export async function POST(req: NextRequest, ctx: any) {
       return NextResponse.json({ success: false, error: 'PHASE_NOT_MOVABLE' }, { status: 409 });
     }
 
-    // neighbor planned phase
-    const neighRows = await sql`
-      SELECT id, phase_no
-      FROM phases
-      WHERE (status IS NULL OR status='planned')
-        AND phase_no ${dir === 'up' ? '<' : '>'} ${cur.phase_no}
-      ORDER BY phase_no ${dir === 'up' ? 'DESC' : 'ASC'}
-      LIMIT 1
-      FOR UPDATE;
+    // neighbor planned phase (NO dynamic SQL operators!)
+    let neighRows: any;
+
+    if (dir === 'up') {
+    neighRows = await sql`
+        SELECT id, phase_no
+        FROM phases
+        WHERE (status IS NULL OR status='planned')
+        AND phase_no < ${cur.phase_no}
+        ORDER BY phase_no DESC
+        LIMIT 1
+        FOR UPDATE;
     `;
+    } else {
+    neighRows = await sql`
+        SELECT id, phase_no
+        FROM phases
+        WHERE (status IS NULL OR status='planned')
+        AND phase_no > ${cur.phase_no}
+        ORDER BY phase_no ASC
+        LIMIT 1
+        FOR UPDATE;
+    `;
+    }
+
     const neigh = (neighRows as any[])[0];
     if (!neigh) {
       await sql`ROLLBACK`;
