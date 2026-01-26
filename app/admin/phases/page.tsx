@@ -53,6 +53,13 @@ function fmtNum(v: any): string {
   return n.toLocaleString();
 }
 
+function fmtRate(v: any): string {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '-';
+  // small rates like 0.0001 should be visible
+  return n.toLocaleString(undefined, { maximumFractionDigits: 12 });
+}
+
 function fmtDate(v: any): string {
   if (!v) return '-';
   try {
@@ -456,7 +463,7 @@ export default function AdminPhasesPage() {
                       </td>
 
                       <td className="px-4 py-3 text-white/80">{fmtNum(p.pool_megy ?? 0)}</td>
-                      <td className="px-4 py-3 text-white/80">{fmtNum(p.rate_usd_per_megy ?? 0)}</td>
+                      <td className="px-4 py-3 text-white/80">{fmtRate(p.rate_usd_per_megy ?? 0)}</td>
                       <td className="px-4 py-3 text-white/80">
                         {p.target_usd == null || p.target_usd === '' ? '-' : fmtNum(p.target_usd)}
                       </td>
@@ -709,7 +716,7 @@ export default function AdminPhasesPage() {
                       className="w-full rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
                     />
                     <div className="text-[11px] text-white/45 mt-1">Example: 1 means 1 USD per 1 MEGY.</div>
-                    {Number(editRate) > 10 && (
+                    {Number(rate) > 10 && (
                       <div className="text-[11px] mt-1 text-yellow-300">⚠ Rate looks unusually high. Are you sure?</div>
                     )}
                   </div>

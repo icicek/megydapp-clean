@@ -32,7 +32,7 @@ export async function POST(req: NextRequest, ctx: any) {
 
       // Phase'ı kilitleyerek oku
       const phRows = (await sql/* sql */`
-        SELECT id, phase_no, status, snapshot_taken_at
+        SELECT id, phase_no, status, snapshot_taken_at, rate_usd_per_megy
         FROM phases
         WHERE id = ${phaseId}
         LIMIT 1
@@ -57,6 +57,7 @@ export async function POST(req: NextRequest, ctx: any) {
       }
 
       const phaseNo = Number(ph.phase_no);
+      const currentRate = Number(ph.rate_usd_per_megy ?? 0);
 
       // allocations totals
       const tot = (await sql/* sql */`
@@ -142,6 +143,7 @@ export async function POST(req: NextRequest, ctx: any) {
           WHERE status = 'planned'
             AND snapshot_taken_at IS NULL
             AND phase_no > ${phaseNo}
+            AND rate_usd_per_megy >= ${currentRate}
           ORDER BY phase_no ASC
           LIMIT 1
           FOR UPDATE
@@ -150,6 +152,18 @@ export async function POST(req: NextRequest, ctx: any) {
       `) as any[];
 
       const nextRow = next?.[0] || null;
+      if (!nextRow) {
+        await sql`ROLLBACK`;
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'NO_VALID_NEXT_PHASE_RATE',
+            rule: 'next.rate_must_be >= current.rate',
+            currentRate,
+          },
+          { status: 409 }
+        );
+      }
 
       await sql`COMMIT`;
 
