@@ -12,6 +12,11 @@ function toId(params: any): number {
   return Number.isFinite(id) ? id : 0;
 }
 
+function toInt(v: any): number | null {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.trunc(n) : null;
+}
+
 export async function POST(req: NextRequest, ctx: any) {
   try {
     await requireAdmin(req as any);
@@ -28,28 +33,33 @@ export async function POST(req: NextRequest, ctx: any) {
     await sql`BEGIN`;
 
     // current planned phase
-    const curRows = await sql`
+    const curRows = (await sql`
       SELECT id, phase_no
       FROM phases
       WHERE id=${id} AND (status IS NULL OR status='planned')
       FOR UPDATE;
-    `;
-    const cur = (curRows as any[])[0];
+    `) as any[];
 
+    const cur = curRows?.[0];
     if (!cur) {
       await sql`ROLLBACK`;
       return NextResponse.json({ success: false, error: 'PHASE_NOT_MOVABLE' }, { status: 409 });
     }
 
-    // neighbor planned phase
-    let neighRows: any[];
+    const curNo = toInt(cur.phase_no);
+    if (!curNo) {
+      await sql`ROLLBACK`;
+      return NextResponse.json({ success: false, error: 'PHASE_NO_INVALID' }, { status: 409 });
+    }
 
+    // neighbor planned phase
+    let neighRows: any[] = [];
     if (dir === 'up') {
       neighRows = (await sql`
         SELECT id, phase_no
         FROM phases
         WHERE (status IS NULL OR status='planned')
-          AND phase_no < ${cur.phase_no}
+          AND phase_no < ${curNo}
         ORDER BY phase_no DESC
         LIMIT 1
         FOR UPDATE;
@@ -59,7 +69,7 @@ export async function POST(req: NextRequest, ctx: any) {
         SELECT id, phase_no
         FROM phases
         WHERE (status IS NULL OR status='planned')
-          AND phase_no > ${cur.phase_no}
+          AND phase_no > ${curNo}
         ORDER BY phase_no ASC
         LIMIT 1
         FOR UPDATE;
@@ -72,17 +82,59 @@ export async function POST(req: NextRequest, ctx: any) {
       return NextResponse.json({ success: false, error: 'NO_NEIGHBOR' }, { status: 409 });
     }
 
-    // swap phase_no atomically (avoids unique constraint violation)
+    const neighNo = toInt(neigh.phase_no);
+    if (!neighNo) {
+      await sql`ROLLBACK`;
+      return NextResponse.json({ success: false, error: 'NEIGHBOR_PHASE_NO_INVALID' }, { status: 409 });
+    }
+
+    // ✅ EXTRA SAFETY: Eğer DB’de zaten duplicate phase_no varsa burada yakalayalım
+    const dupCur = (await sql`
+      SELECT COUNT(*)::int AS n
+      FROM phases
+      WHERE phase_no=${curNo} AND id <> ${cur.id};
+    `) as any[];
+    const dupNeigh = (await sql`
+      SELECT COUNT(*)::int AS n
+      FROM phases
+      WHERE phase_no=${neighNo} AND id <> ${neigh.id};
+    `) as any[];
+
+    if ((dupCur?.[0]?.n ?? 0) > 0 || (dupNeigh?.[0]?.n ?? 0) > 0) {
+      await sql`ROLLBACK`;
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'PHASE_NO_NOT_UNIQUE',
+          details: { curNo, neighNo, dupCur: dupCur?.[0]?.n ?? 0, dupNeigh: dupNeigh?.[0]?.n ?? 0 },
+        },
+        { status: 409 }
+      );
+    }
+
+    // ✅ Guaranteed swap using a temporary unique value
+    // Choose a temp that cannot collide: negative based on current timestamp
+    const tempNo = -1 * Math.trunc(Date.now() / 1000);
+
+    // 1) cur -> temp
     await sql`
       UPDATE phases
-      SET
-        phase_no = CASE
-          WHEN id = ${cur.id} THEN ${neigh.phase_no}
-          WHEN id = ${neigh.id} THEN ${cur.phase_no}
-          ELSE phase_no
-        END,
-        updated_at = NOW()
-      WHERE id IN (${cur.id}, ${neigh.id});
+      SET phase_no=${tempNo}, updated_at=NOW()
+      WHERE id=${cur.id};
+    `;
+
+    // 2) neigh -> curNo
+    await sql`
+      UPDATE phases
+      SET phase_no=${curNo}, updated_at=NOW()
+      WHERE id=${neigh.id};
+    `;
+
+    // 3) cur -> neighNo
+    await sql`
+      UPDATE phases
+      SET phase_no=${neighNo}, updated_at=NOW()
+      WHERE id=${cur.id};
     `;
 
     await sql`COMMIT`;
