@@ -45,6 +45,18 @@ async function postJSON<T>(url: string, body?: any): Promise<T> {
     return j;
 }
 
+async function sendJSON<T>(url: string, method: string, body?: any): Promise<T> {
+    const r = await fetch(url, {
+        method,
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
+        body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const j = await r.json().catch(() => ({} as any));
+    if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+    return j;
+}
+
 function fmtNum(v: any): string {
     const n = Number(v);
     if (!Number.isFinite(n)) return '-';
@@ -193,6 +205,25 @@ export default function AdminPhasesPage() {
         }
     }
 
+    async function deletePhase(id: number) {
+        setMsg(null);
+        setBusyId(id);
+        try {
+            const ok = window.confirm(
+                'Delete this planned phase?\n\nThis cannot be undone.'
+            );
+            if (!ok) return;
+
+            await sendJSON(`/api/admin/phases/${id}`, 'DELETE');
+            await refresh();
+            setMsg('✅ Phase deleted');
+        } catch (e: any) {
+            setMsg(`❌ ${e?.message || 'Delete failed'}`);
+        } finally {
+            setBusyId(null);
+        }
+    }
+
     return (
         <main className="min-h-screen bg-[#090d15] text-white">
             <div className="mx-auto max-w-5xl px-6 py-8 space-y-8">
@@ -303,14 +334,25 @@ export default function AdminPhasesPage() {
                                                 <div className="flex items-center justify-end gap-2">
                                                     {/* Open: only for planned; never for completed */}
                                                     {isPlanned && !isCompleted && (
-                                                        <button
-                                                            onClick={() => openPhase(p.phase_id)}
-                                                            disabled={isBusy}
-                                                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs disabled:opacity-50"
-                                                            title="Manually set this phase to active (override)"
-                                                        >
-                                                            {isBusy ? 'Working…' : 'Open'}
-                                                        </button>
+                                                        <>
+                                                            <button
+                                                                onClick={() => openPhase(p.phase_id)}
+                                                                disabled={isBusy}
+                                                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs disabled:opacity-50"
+                                                                title="Manually set this phase to active (override)"
+                                                            >
+                                                                {isBusy ? 'Working…' : 'Open'}
+                                                            </button>
+
+                                                            <button
+                                                                onClick={() => deletePhase(p.phase_id)}
+                                                                disabled={isBusy}
+                                                                className="px-3 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/15 text-xs text-red-200 disabled:opacity-50"
+                                                                title="Delete planned phase (cannot be undone)"
+                                                            >
+                                                                {isBusy ? 'Working…' : 'Delete'}
+                                                            </button>
+                                                        </>
                                                     )}
 
                                                     {/* Close: only for active */}
