@@ -45,6 +45,18 @@ async function postJSON<T>(url: string, body?: any): Promise<T> {
     return j;
 }
 
+async function patchJSON<T>(url: string, body?: any): Promise<T> {
+    const r = await fetch(url, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
+        body: JSON.stringify(body ?? {}),
+    });
+    const j = await r.json().catch(() => ({} as any));
+    if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+    return j;
+}
+
 async function sendJSON<T>(url: string, method: string, body?: any): Promise<T> {
     const r = await fetch(url, {
         method,
@@ -102,6 +114,30 @@ export default function AdminPhasesPage() {
             Number.isFinite(r) && r > 0
         );
     }, [name, pool, rate]);
+
+    const [openEdit, setOpenEdit] = useState(false);
+    const [editId, setEditId] = useState<number | null>(null);
+    const [editName, setEditName] = useState('');
+    const [editPool, setEditPool] = useState('500000');
+    const [editRate, setEditRate] = useState('1');
+
+    const computedEditTarget = useMemo(() => {
+        const p = Number(editPool);
+        const r = Number(editRate);
+        if (!Number.isFinite(p) || !Number.isFinite(r) || p <= 0 || r <= 0) return '';
+        return String(p * r);
+    }, [editPool, editRate]);
+
+    const canSaveEdit = useMemo(() => {
+        const p = Number(editPool);
+        const r = Number(editRate);
+        return (
+            editId != null &&
+            editName.trim() !== '' &&
+            Number.isFinite(p) && p > 0 &&
+            Number.isFinite(r) && r > 0
+        );
+    }, [editId, editName, editPool, editRate]);
 
     // action busy flags
     const [busyId, setBusyId] = useState<number | null>(null);
@@ -162,6 +198,45 @@ export default function AdminPhasesPage() {
             setMsg(`❌ ${e?.message || 'Open failed'}`);
         } finally {
             setBusyId(null);
+        }
+    }
+
+    function startEdit(p: PhaseRow) {
+        setMsg(null);
+        setEditId(p.phase_id);
+        setEditName(String(p.name || ''));
+        setEditPool(String(p.pool_megy ?? ''));
+        setEditRate(String(p.rate_usd_per_megy ?? ''));
+        setOpenEdit(true);
+    }
+
+    async function saveEdit() {
+        if (editId == null) return;
+
+        setSaving(true);
+        setMsg(null);
+        try {
+            const body = {
+                name: editName.trim(),
+                pool_megy: Number(editPool),
+                rate_usd_per_megy: Number(editRate),
+            };
+
+            const j = await patchJSON<{ success: boolean; phase?: any; error?: string }>(
+                `/api/admin/phases/${editId}`,
+                body
+            );
+
+            if (!j?.success) throw new Error(j?.error || 'PHASE_EDIT_FAILED');
+
+            setOpenEdit(false);
+            setEditId(null);
+            await refresh();
+            setMsg('✅ Phase updated');
+        } catch (e: any) {
+            setMsg(`❌ ${e?.message || 'Edit failed'}`);
+        } finally {
+            setSaving(false);
         }
     }
 
@@ -355,6 +430,37 @@ export default function AdminPhasesPage() {
                                                         </>
                                                     )}
 
+                                                    {isPlanned && !isCompleted && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => openPhase(p.phase_id)}
+                                                                disabled={isBusy}
+                                                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs disabled:opacity-50"
+                                                                title="Manually set this phase to active (override)"
+                                                            >
+                                                                {isBusy ? 'Working…' : 'Open'}
+                                                            </button>
+
+                                                            <button
+                                                                onClick={() => startEdit(p)}
+                                                                disabled={isBusy}
+                                                                className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
+                                                                title="Edit planned phase (override)"
+                                                            >
+                                                                Edit
+                                                            </button>
+
+                                                            <button
+                                                                onClick={() => deletePhase(p.phase_id)}   // sende zaten çalışıyordu
+                                                                disabled={isBusy}
+                                                                className="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-xs disabled:opacity-50"
+                                                                title="Delete planned phase (irreversible)"
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        </>
+                                                    )}
+
                                                     {/* Close: only for active */}
                                                     {isActive && (
                                                         <button
@@ -489,6 +595,100 @@ export default function AdminPhasesPage() {
 
                                 <div className="text-[11px] text-white/55">
                                     Tip: Give iconic names. These will show in ClaimPanel snapshot history.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {openEdit && (
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+                        <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-[#0b0f18] p-5">
+                            <div className="flex items-center justify-between">
+                                <div className="font-semibold">Edit Phase</div>
+                                <button
+                                    onClick={() => setOpenEdit(false)}
+                                    className="px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-sm"
+                                    disabled={saving}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <div className="mt-4 space-y-3">
+                                <div>
+                                    <div className="text-xs text-white/60 mb-1">Name</div>
+                                    <input
+                                        value={editName}
+                                        onChange={(e) => setEditName(e.target.value)}
+                                        className="w-full rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
+                                        placeholder="Phase 2 — ..."
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div>
+                                        <div className="text-xs text-white/60 mb-1">Pool (MEGY)</div>
+                                        <input
+                                            inputMode="decimal"
+                                            value={editPool}
+                                            onChange={(e) => setEditPool(e.target.value)}
+                                            className="w-full rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <div className="text-xs text-white/60 mb-1">Rate (USD/MEGY)</div>
+                                        <input
+                                            inputMode="decimal"
+                                            value={editRate}
+                                            onChange={(e) => setEditRate(e.target.value)}
+                                            className="w-full rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
+                                            placeholder="1"
+                                            min={0}
+                                            step="0.01"
+                                        />
+                                        <div className="text-[11px] text-white/45 mt-1">
+                                            Example: 1 means 1 USD per 1 MEGY.
+                                        </div>
+                                        {Number(editRate) > 10 && (
+                                            <div className="text-[11px] mt-1 text-yellow-300">
+                                                ⚠ Rate looks unusually high. Are you sure?
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <div className="text-xs text-white/60 mb-1">Target (USD)</div>
+                                        <input
+                                            value={computedEditTarget || ''}
+                                            readOnly
+                                            className="w-full rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2 opacity-80"
+                                            placeholder="Auto-calculated (Pool × Rate)"
+                                            title="Auto-calculated: Pool × Rate. DB will store target_usd automatically."
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-end gap-2 pt-2">
+                                    <button
+                                        onClick={() => setOpenEdit(false)}
+                                        className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm"
+                                        disabled={saving}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={saveEdit}
+                                        className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm disabled:opacity-50"
+                                        disabled={saving || !canSaveEdit}
+                                    >
+                                        {saving ? 'Saving…' : 'Save'}
+                                    </button>
+                                </div>
+
+                                <div className="text-[11px] text-white/55">
+                                    Rule: Only planned phases are editable.
                                 </div>
                             </div>
                         </div>
