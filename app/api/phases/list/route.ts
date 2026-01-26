@@ -1,4 +1,4 @@
-// app/api/phases/route.ts
+// app/api/phases/list/route.ts
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
@@ -25,19 +25,23 @@ export async function GET(_req: NextRequest) {
     const rows = await sql`
         SELECT *
         FROM phases
-        ORDER BY phase_no DESC, id DESC;
+        ORDER BY phase_no ASC, id ASC;
     `;
 
     const phases = (rows as AnyRow[]).map((r) => {
       const id = asNumber(pickFirst(r, ['id', 'phase_id', 'phaseId'])) ?? 0;
-
+    
+      // 🔽 BURASI ÖNEMLİ
+      const rateRaw = pickFirst(r, ['rate_usd_per_megy', 'rate'], null);
+      const rateNum = rateRaw === '' ? null : asNumber(rateRaw);
+    
       return {
         phase_id: id,
         phase_no: asNumber(pickFirst(r, ['phase_no', 'phaseNo'])) ?? id,
         name: String(pickFirst(r, ['name'], '') ?? ''),
         status: String(pickFirst(r, ['status', 'status_v2'], '') ?? ''),
         pool_megy: pickFirst(r, ['pool_megy', 'megy_pool'], null),
-        rate_usd_per_megy: pickFirst(r, ['rate_usd_per_megy', 'rate'], null),
+        rate_usd_per_megy: rateNum, // ✅ BURASI DEĞİŞTİ
         target_usd: pickFirst(r, ['target_usd', 'usd_cap'], null),
         opened_at: pickFirst(r, ['opened_at'], null),
         closed_at: pickFirst(r, ['closed_at'], null),
