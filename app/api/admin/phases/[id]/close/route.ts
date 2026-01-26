@@ -21,8 +21,7 @@ export async function POST(req: NextRequest, ctx: any) {
       return NextResponse.json({ success: false, error: 'BAD_PHASE_ID' }, { status: 400 });
     }
 
-    // Only ACTIVE phase can be closed.
-    const rows = await sql`
+    const rows = (await sql`
       UPDATE phases
       SET status='completed',
           closed_at=COALESCE(closed_at, NOW()),
@@ -30,14 +29,14 @@ export async function POST(req: NextRequest, ctx: any) {
       WHERE id=${phaseId}
         AND status='active'
       RETURNING *;
-    `;
+    `) as any[];
 
-    const phase = (rows as any[])[0] ?? null;
-    if (!phase) {
+    const ph = rows?.[0] ?? null;
+    if (!ph) {
       return NextResponse.json({ success: false, error: 'PHASE_NOT_ACTIVE' }, { status: 409 });
     }
 
-    return NextResponse.json({ success: true, phase });
+    return NextResponse.json({ success: true, phase: ph });
   } catch (err: unknown) {
     const { status, body } = httpErrorFrom(err, 500);
     return NextResponse.json(body, { status });

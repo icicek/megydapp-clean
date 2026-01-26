@@ -23,85 +23,79 @@ export async function POST(req: NextRequest, ctx: any) {
 
     await sql`BEGIN`;
 
-    // If any active exists, do NOT override (snapshot is the only advance mechanism)
-    const activeRows = await sql`
-      SELECT id, phase_no
+    // 1) Active phase var mı? (varsa OPEN yasak)
+    const activeRows = (await sql`
+      SELECT id
       FROM phases
       WHERE status='active'
       LIMIT 1
       FOR UPDATE;
-    `;
-    const active = (activeRows as any[])[0] ?? null;
-    if (active) {
+    `) as any[];
+
+    if (activeRows?.length) {
       await sql`ROLLBACK`;
-      return NextResponse.json(
-        { success: false, error: 'ACTIVE_PHASE_EXISTS', activePhaseId: Number(active.id) },
-        { status: 409 }
-      );
+      return NextResponse.json({ success: false, error: 'ACTIVE_PHASE_EXISTS' }, { status: 409 });
     }
 
-    // Target must be planned
-    const targetRows = await sql`
-      SELECT id, phase_no, status
+    // 2) Target phase planned mı?
+    const targetRows = (await sql`
+      SELECT id, status, phase_no
       FROM phases
       WHERE id=${phaseId}
       LIMIT 1
       FOR UPDATE;
-    `;
-    const target = (targetRows as any[])[0] ?? null;
+    `) as any[];
+
+    const target = targetRows?.[0];
     if (!target) {
       await sql`ROLLBACK`;
       return NextResponse.json({ success: false, error: 'PHASE_NOT_FOUND' }, { status: 404 });
     }
 
-    const st = String(target.status ?? 'planned');
-    if (st !== 'planned') {
+    const st = String(target.status || 'planned');
+    if (!(st === 'planned')) {
       await sql`ROLLBACK`;
       return NextResponse.json({ success: false, error: 'PHASE_NOT_PLANNED' }, { status: 409 });
     }
 
-    // Optional: only allow opening the "next planned" (smallest phase_no among planned)
-    const nextPlannedRows = await sql`
+    // 3) Active yokken sadece "next planned" açılabilsin (min phase_no planned)
+    const nextRows = (await sql`
       SELECT id, phase_no
       FROM phases
       WHERE (status IS NULL OR status='planned')
+        AND snapshot_taken_at IS NULL
       ORDER BY phase_no ASC
       LIMIT 1
       FOR UPDATE;
-    `;
-    const nextPlanned = (nextPlannedRows as any[])[0] ?? null;
-    if (nextPlanned && Number(nextPlanned.id) !== Number(phaseId)) {
+    `) as any[];
+
+    const nextPlanned = nextRows?.[0] ?? null;
+    if (!nextPlanned) {
+      await sql`ROLLBACK`;
+      return NextResponse.json({ success: false, error: 'NO_PLANNED_PHASE' }, { status: 409 });
+    }
+
+    if (Number(nextPlanned.id) !== Number(phaseId)) {
       await sql`ROLLBACK`;
       return NextResponse.json(
-        {
-          success: false,
-          error: 'NOT_NEXT_PLANNED',
-          nextPlannedPhaseId: Number(nextPlanned.id),
-          nextPlannedPhaseNo: Number(nextPlanned.phase_no),
-        },
+        { success: false, error: 'NOT_NEXT_PLANNED', nextPlannedId: Number(nextPlanned.id) },
         { status: 409 }
       );
     }
 
-    // Open it
-    const openedRows = await sql`
+    // 4) Open it
+    const updated = (await sql`
       UPDATE phases
       SET status='active',
           opened_at=COALESCE(opened_at, NOW()),
           updated_at=NOW()
       WHERE id=${phaseId}
-        AND (status IS NULL OR status='planned')
       RETURNING *;
-    `;
-    const opened = (openedRows as any[])[0] ?? null;
-
-    if (!opened) {
-      await sql`ROLLBACK`;
-      return NextResponse.json({ success: false, error: 'OPEN_FAILED' }, { status: 409 });
-    }
+    `) as any[];
 
     await sql`COMMIT`;
-    return NextResponse.json({ success: true, phase: opened });
+
+    return NextResponse.json({ success: true, phase: updated?.[0] ?? null });
   } catch (err: unknown) {
     try { await sql`ROLLBACK`; } catch {}
     const { status, body } = httpErrorFrom(err, 500);
