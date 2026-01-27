@@ -74,7 +74,16 @@ function fmtDate(v: any): string {
 type SnapshotResponse = {
     success: boolean;
     error?: string;
+
+    // ✅ bunu ekle
+    message?: string;
+
+    phaseId?: number;
+    phaseNo?: number;
+    snapshot_taken_at?: string | null;
+    totals?: { usdSum: number; megySum: number; allocations: number };
     nextOpened?: { id: number; phaseNo: number } | null;
+    recompute?: any;
 };
 
 export default function AdminPhasesPage() {
@@ -151,6 +160,15 @@ export default function AdminPhasesPage() {
             if (Number(r.phase_no) < Number(best.phase_no)) best = r;
         }
         return best.phase_id;
+    }, [rows]);
+
+    const sortedRows = useMemo(() => {
+        return [...rows].sort((a, b) => {
+            const an = Number(a.phase_no ?? 0);
+            const bn = Number(b.phase_no ?? 0);
+            if (an !== bn) return an - bn;
+            return Number(a.phase_id ?? 0) - Number(b.phase_id ?? 0);
+        });
     }, [rows]);
 
     async function refresh() {
@@ -277,50 +295,34 @@ export default function AdminPhasesPage() {
         }
     }
 
-    async function closePhase(id: number) {
-        setMsg(null);
-        setBusyId(id);
-
-        try {
-            await sendJSON(`/api/admin/phases/${id}/close`, 'POST');
-            await refresh();
-            setMsg('✅ Phase closed');
-            scrollToPhase(id);
-        } catch (e: any) {
-            const err = String(e?.message || '');
-
-            if (err.includes('PHASE_NOT_ACTIVE')) {
-                setMsg('⚠️ Only an active phase can be closed.');
-            } else {
-                setMsg(`❌ ${err || 'Close failed'}`);
-            }
-        } finally {
-            setBusyId(null);
-        }
-    }
-
     async function snapshotPhase(id: number) {
         setMsg(null);
         setBusyId(id);
 
         try {
             const ok = window.confirm(
-                'Take snapshot for this phase?\n\nThis will close the active phase and automatically activate the next planned phase (if any).'
+                'Take snapshot for this phase?\n\nThis will close the active phase and try to auto-open the next planned phase (if any).'
             );
             if (!ok) return;
 
             const j = await sendJSON<SnapshotResponse>(`/api/admin/phases/${id}/snapshot`, 'POST');
 
-            const nextNo = j?.nextOpened?.phaseNo ?? null;
-
             await refresh();
+            await new Promise((r) => setTimeout(r, 50)); // opsiyonel ama öneririm
 
             if (j?.success) {
                 if (j?.nextOpened?.id) {
                     scrollToPhase(j.nextOpened.id);
+                } else {
+                    scrollToPhase(id);
                 }
-                const next = nextNo ? ` → Next opened: #${nextNo}` : '';
-                setMsg(`✅ Snapshot complete${next}`);
+
+                setMsg(
+                    j?.message ||
+                    (j?.nextOpened?.id
+                        ? `✅ Snapshot complete → Next opened: #${j.nextOpened.phaseNo}`
+                        : '✅ Snapshot complete — No next phase to open.')
+                );
             } else {
                 setMsg(`❌ ${j?.error || 'SNAPSHOT_FAILED'}`);
             }
@@ -429,7 +431,7 @@ export default function AdminPhasesPage() {
                             </thead>
 
                             <tbody>
-                                {rows.map((p) => {
+                                {sortedRows.map((p) => {
                                     const isActive = p.status === 'active';
                                     const isCompleted = p.status === 'completed';
                                     const isPlanned = !p.status || p.status === 'planned';
@@ -551,14 +553,6 @@ export default function AdminPhasesPage() {
                                                     {/* Active actions */}
                                                     {isActive && (
                                                         <>
-                                                            <button
-                                                                onClick={() => closePhase(p.phase_id)}
-                                                                disabled={isBusy}
-                                                                className="px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-[11px] text-white/70 disabled:opacity-50"
-                                                                title="Override: manually complete this phase"
-                                                            >
-                                                                {isBusy ? 'Working…' : 'Close'}
-                                                            </button>
 
                                                             <button
                                                                 onClick={() => snapshotPhase(p.phase_id)}

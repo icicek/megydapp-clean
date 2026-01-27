@@ -129,8 +129,7 @@ export async function POST(req: NextRequest, ctx: any) {
           AND pa.contribution_id = c.id
       `;
 
-      // ✅ NEXT PHASE: "next planned by phase_no ASC" (override değil, otomatik)
-      // Not: phase_no = current+1 şartı yerine "en küçük planned phase_no > current" alıyoruz.
+      // ✅ NEXT PHASE: try auto-open, but don't fail snapshot if none exists
       const next = (await sql/* sql */`
         UPDATE phases
         SET
@@ -140,7 +139,7 @@ export async function POST(req: NextRequest, ctx: any) {
         WHERE id = (
           SELECT id
           FROM phases
-          WHERE status = 'planned'
+          WHERE (status IS NULL OR status='planned')
             AND snapshot_taken_at IS NULL
             AND phase_no > ${phaseNo}
             AND rate_usd_per_megy >= ${currentRate}
@@ -152,29 +151,23 @@ export async function POST(req: NextRequest, ctx: any) {
       `) as any[];
 
       const nextRow = next?.[0] || null;
-      if (!nextRow) {
-        await sql`ROLLBACK`;
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'NO_VALID_NEXT_PHASE_RATE',
-            rule: 'next.rate_must_be >= current.rate',
-            currentRate,
-          },
-          { status: 409 }
-        );
-      }
 
+      // ✅ Commit ALWAYS (snapshot must succeed)
       await sql`COMMIT`;
 
-      // recompute: yeni phase açıldıysa
+      // recompute: sadece yeni phase açıldıysa
       let recompute: any = null;
       if (nextRow?.id) {
         recompute = await recomputeFromPhaseId(Number(nextRow.id));
       }
 
+      const message = nextRow?.id
+        ? `✅ Snapshot complete → Next opened: #${Number(nextRow.phase_no)}`
+        : `✅ Snapshot complete — No next phase to open.`;
+
       return NextResponse.json({
         success: true,
+        message,
         phaseId,
         phaseNo,
         snapshot_taken_at: snapshotAt,
