@@ -434,6 +434,7 @@ export default function AdminPhasesPage() {
                                     const isActive = p.status === 'active';
                                     const isCompleted = p.status === 'completed';
                                     const isPlanned = !p.status || p.status === 'planned';
+                                    const canShowClaimPreview = isCompleted || !!p.snapshot_taken_at;
                                     const isBusy = busyId === p.phase_id;
                                     const canShowOpen = isPlanned && !active && nextPlannedId === p.phase_id;
                                     const activeRate = active ? Number(active.rate_usd_per_megy ?? 0) : null;
@@ -561,15 +562,17 @@ export default function AdminPhasesPage() {
                                                             >
                                                                 {isBusy ? 'Working…' : 'Snapshot'}
                                                             </button>
-                                                            <button
-                                                                onClick={() => window.open(`/api/admin/phases/${p.phase_id}/claim-preview`, '_blank')}
-                                                                disabled={isBusy}
-                                                                className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
-                                                                title="Open read-only claim preview JSON"
-                                                            >
-                                                                Claim Preview
-                                                            </button>
                                                         </>
+                                                    )}
+                                                    {canShowClaimPreview && (
+                                                        <button
+                                                            onClick={() => window.open(`/api/admin/phases/${p.phase_id}/claim-preview`, '_blank')}
+                                                            disabled={isBusy}
+                                                            className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
+                                                            title="Open read-only claim preview JSON"
+                                                        >
+                                                            Claim Preview
+                                                        </button>
                                                     )}
                                                 </div>
                                             </td>
