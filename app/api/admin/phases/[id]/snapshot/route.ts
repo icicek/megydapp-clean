@@ -27,6 +27,8 @@ export async function POST(req: NextRequest, ctx: any) {
     const lockKey = (BigInt(942002) * BigInt(1_000_000_000) + BigInt(Math.trunc(phaseId))).toString();
     await sql`SELECT pg_advisory_lock(${lockKey}::bigint)`;
 
+    await recomputeFromPhaseId(Number(phaseId));
+
     try {
       await sql`BEGIN`;
 
