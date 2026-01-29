@@ -75,7 +75,6 @@ type SnapshotResponse = {
     success: boolean;
     error?: string;
 
-    // ✅ bunu ekle
     message?: string;
 
     phaseId?: number;
