@@ -78,7 +78,7 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
 
     const startNo = Number(startRow.phase_no);
 
-    // 2) phases to recompute (planned/open only)
+    // 2) phases to recompute (planned/active only, v2)
     const phases = (await sql/* sql */`
       SELECT
         id,
@@ -94,7 +94,8 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
         snapshot_taken_at
       FROM phases
       WHERE phase_no >= ${startNo}
-        AND status IN ('planned','open')
+        AND (status IS NULL OR status IN ('planned','active'))
+        AND snapshot_taken_at IS NULL
       ORDER BY phase_no ASC
     `) as any as Phase[];
 
