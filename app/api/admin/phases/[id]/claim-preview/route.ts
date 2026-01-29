@@ -67,6 +67,17 @@ function buildWarnings(input: {
   const snapWallets = toNum(snap.n_wallets);
   const shareSum = toNum(snap.share_ratio_sum);
 
+  const hasAlloc = allocWallets > 0 || allocUsd > 0 || allocMegy > 0;
+  const hasSnap = snapWallets > 0 || snapUsd > 0 || snapMegy > 0;
+
+  if (hasAlloc && !hasSnap) {
+    w.push({
+      level: 'warn',
+      code: 'SNAPSHOT_EMPTY',
+      message: 'No claim_snapshots found. Snapshot may not have been taken yet.',
+    });
+  }
+
   // Tolerances (numeric + rounding)
   const USD_EPS = 0.01;     // 1 cent
   const MEGY_EPS = 0.0001;  // small token tolerance
@@ -270,7 +281,12 @@ function renderHtml(data: {
 
     <div class="box">
       <h2>Actions</h2>
-      <div class="actions">
+      <button class="btn" data-copy="${escapeHtml(urls.json)}" onclick="copyFromDataset(this)">
+        Copy JSON URL
+      </button>
+      <button class="btn" data-copy="${escapeHtml(urls.html)}" onclick="copyFromDataset(this)">
+        Copy HTML URL
+      </button>
         <a class="btn" href="${escapeHtml(urls.json)}" target="_blank" rel="noreferrer">Open JSON</a>
         <a class="btn" href="${escapeHtml(urls.html)}" target="_blank" rel="noreferrer">Open HTML</a>
         <button class="btn" onclick="copyText('${escapeHtml(urls.json)}')">Copy JSON URL</button>
@@ -307,6 +323,17 @@ function renderHtml(data: {
 
         <div class="k">Snapshot taken</div>
         <div class="v">${escapeHtml(fmtDate(phase?.snapshot_taken_at))}</div>
+
+        ${phase?.finalized_at ? `
+          <div class="k">Finalized</div>
+          <div class="v">
+            <span class="pill">✅ finalized</span>
+            <span class="muted" style="margin-left:8px;">${escapeHtml(fmtDate(phase.finalized_at))}</span>
+          </div>
+        ` : `
+          <div class="k">Finalized</div>
+          <div class="v"><span class="pill" style="opacity:.7;">not finalized</span></div>
+        `}
       </div>
     </div>
 
@@ -369,6 +396,10 @@ function renderHtml(data: {
 
   <div id="toast" class="toast"></div>
   <script>
+    function copyFromDataset(btn){
+      const v = btn && btn.dataset ? btn.dataset.copy : '';
+      copyText(v || '');
+    }
     function showToast(msg){
       const t = document.getElementById('toast');
       t.textContent = msg;
@@ -410,7 +441,7 @@ export async function GET(req: NextRequest, ctx: any) {
 
     // Phase
     const ph = (await sql`
-      SELECT id, phase_no, name, status, snapshot_taken_at, opened_at, closed_at, rate_usd_per_megy
+      SELECT id, phase_no, name, status, snapshot_taken_at, opened_at, closed_at, rate_usd_per_megy, finalized_at
       FROM phases
       WHERE id = ${phaseId}
       LIMIT 1;

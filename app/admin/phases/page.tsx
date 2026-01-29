@@ -17,6 +17,7 @@ type PhaseRow = {
     opened_at?: any;
     closed_at?: any;
     snapshot_taken_at?: any;
+    finalized_at?: any;
     created_at?: any;
     updated_at?: any;
 };
@@ -332,6 +333,31 @@ export default function AdminPhasesPage() {
         }
     }
 
+    async function finalizePhase(id: number) {
+        setMsg(null);
+        setBusyId(id);
+
+        try {
+            const ok = window.confirm(
+                'Finalize this phase?\n\nThis will mark the snapshot as approved (read-only metadata).'
+            );
+            if (!ok) return;
+
+            const j = await sendJSON<{ success: boolean; error?: string; message?: string }>(
+                `/api/admin/phases/${id}/finalize`,
+                'POST'
+            );
+
+            await refresh();
+            setMsg(j?.message || '✅ Phase finalized');
+            scrollToPhase(id);
+        } catch (e: any) {
+            setMsg(`❌ ${e?.message || 'Finalize failed'}`);
+        } finally {
+            setBusyId(null);
+        }
+    }
+
     async function deletePhase(id: number) {
         setMsg(null);
         setBusyId(id);
@@ -435,6 +461,8 @@ export default function AdminPhasesPage() {
                                     const isCompleted = p.status === 'completed';
                                     const isPlanned = !p.status || p.status === 'planned';
                                     const canShowClaimPreview = isActive || isCompleted || !!p.snapshot_taken_at;
+                                    const isFinalized = !!p.finalized_at;
+                                    const canFinalize = isCompleted && !!p.snapshot_taken_at && !isFinalized;
                                     const isBusy = busyId === p.phase_id;
                                     const canShowOpen = isPlanned && !active && nextPlannedId === p.phase_id;
                                     const activeRate = active ? Number(active.rate_usd_per_megy ?? 0) : null;
@@ -564,17 +592,32 @@ export default function AdminPhasesPage() {
                                                             </button>
                                                         </>
                                                     )}
+                                                    {canFinalize && (
+                                                        <button
+                                                            onClick={() => finalizePhase(p.phase_id)}
+                                                            disabled={isBusy}
+                                                            className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs disabled:opacity-50"
+                                                            title="Mark this snapshot as approved (finalized)"
+                                                        >
+                                                            {isBusy ? 'Working…' : 'Finalize'}
+                                                        </button>
+                                                    )}
+
                                                     {canShowClaimPreview && (
                                                         <button
-                                                            onClick={() =>
-                                                                window.open(`/api/admin/phases/${p.phase_id}/claim-preview?format=html`, '_blank')
-                                                            }
+                                                            onClick={() => window.open(`/api/admin/phases/${p.phase_id}/claim-preview?format=html`, '_blank')}
                                                             disabled={isBusy}
                                                             className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
-                                                            title="Open read-only claim preview JSON"
+                                                            title="Open read-only claim preview (HTML)"
                                                         >
                                                             Claim Preview
                                                         </button>
+                                                    )}
+
+                                                    {isFinalized && (
+                                                        <span className="px-2 py-1 rounded-md text-xs border bg-blue-500/10 border-blue-500/30 text-blue-200">
+                                                            finalized
+                                                        </span>
                                                     )}
                                                 </div>
                                             </td>

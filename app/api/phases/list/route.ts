@@ -46,6 +46,7 @@ export async function GET(_req: NextRequest) {
         opened_at: pickFirst(r, ['opened_at'], null),
         closed_at: pickFirst(r, ['closed_at'], null),
         snapshot_taken_at: pickFirst(r, ['snapshot_taken_at'], null),
+        finalized_at: pickFirst(r, ['finalized_at'], null),
         created_at: pickFirst(r, ['created_at'], null),
         updated_at: pickFirst(r, ['updated_at'], null),
       };
