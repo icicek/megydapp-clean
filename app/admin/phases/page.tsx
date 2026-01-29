@@ -434,7 +434,7 @@ export default function AdminPhasesPage() {
                                     const isActive = p.status === 'active';
                                     const isCompleted = p.status === 'completed';
                                     const isPlanned = !p.status || p.status === 'planned';
-                                    const canShowClaimPreview = isCompleted || !!p.snapshot_taken_at;
+                                    const canShowClaimPreview = isActive || isCompleted || !!p.snapshot_taken_at;
                                     const isBusy = busyId === p.phase_id;
                                     const canShowOpen = isPlanned && !active && nextPlannedId === p.phase_id;
                                     const activeRate = active ? Number(active.rate_usd_per_megy ?? 0) : null;
