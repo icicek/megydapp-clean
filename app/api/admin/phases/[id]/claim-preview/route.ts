@@ -39,17 +39,110 @@ function fmtDate(v: any): string {
   }
 }
 
+type Warn = { level: 'info' | 'warn' | 'error'; code: string; message: string };
+
+function toNum(v: any): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function nearlyEqual(a: number, b: number, eps = 1e-6) {
+  return Math.abs(a - b) <= eps;
+}
+
+function buildWarnings(input: {
+  alloc: any;
+  snap: any;
+}): Warn[] {
+  const w: Warn[] = [];
+  const alloc = input.alloc ?? {};
+  const snap = input.snap ?? {};
+
+  const allocUsd = toNum(alloc.usd_sum);
+  const allocMegy = toNum(alloc.megy_sum);
+  const allocWallets = toNum(alloc.n_wallets);
+
+  const snapUsd = toNum(snap.usd_sum);
+  const snapMegy = toNum(snap.megy_sum);
+  const snapWallets = toNum(snap.n_wallets);
+  const shareSum = toNum(snap.share_ratio_sum);
+
+  // Tolerances (numeric + rounding)
+  const USD_EPS = 0.01;     // 1 cent
+  const MEGY_EPS = 0.0001;  // small token tolerance
+  const SHARE_EPS = 1e-4;
+
+  if (!nearlyEqual(allocMegy, snapMegy, MEGY_EPS)) {
+    w.push({
+      level: 'warn',
+      code: 'MEGY_POOL_MISMATCH',
+      message: `MEGY mismatch: allocations=${allocMegy} vs claim_snapshots=${snapMegy}`,
+    });
+  }
+  if (!nearlyEqual(allocUsd, snapUsd, USD_EPS)) {
+    w.push({
+      level: 'warn',
+      code: 'USD_TOTAL_MISMATCH',
+      message: `USD mismatch: allocations=${allocUsd} vs claim_snapshots=${snapUsd}`,
+    });
+  }
+  if (allocWallets !== 0 && snapWallets !== 0 && allocWallets !== snapWallets) {
+    w.push({
+      level: 'warn',
+      code: 'WALLET_COUNT_MISMATCH',
+      message: `Wallet count mismatch: allocations=${allocWallets} vs claim_snapshots=${snapWallets}`,
+    });
+  }
+
+  // Share ratio sanity (only meaningful if there are snapshots)
+  if (snapWallets > 0) {
+    if (!nearlyEqual(shareSum, 1, SHARE_EPS)) {
+      w.push({
+        level: 'info',
+        code: 'SHARE_SUM_NOT_ONE',
+        message: `Share ratio sum is ${shareSum} (expected ~1.0)`,
+      });
+    }
+  }
+
+  // Quick sanity on negative totals
+  if (allocUsd < -USD_EPS || snapUsd < -USD_EPS || allocMegy < -MEGY_EPS || snapMegy < -MEGY_EPS) {
+    w.push({
+      level: 'error',
+      code: 'NEGATIVE_TOTALS',
+      message: `Negative totals detected (allocUsd=${allocUsd}, snapUsd=${snapUsd}, allocMegy=${allocMegy}, snapMegy=${snapMegy})`,
+    });
+  }
+
+  return w;
+}
+
 function renderHtml(data: {
   phase: any;
   totals: { allocations: any; claimSnapshots: any };
   top: any[];
+  warnings: Warn[];
+  urls: { json: string; html: string };
 }) {
-  const { phase, totals, top } = data;
+  const { phase, totals, top, warnings, urls } = data;
 
   const title = `Claim Preview – Phase #${phase?.phase_no ?? '?'}`;
 
   const alloc = totals?.allocations ?? {};
   const snap = totals?.claimSnapshots ?? {};
+
+  const banner = (warnings ?? []).map((x) => {
+    const cls =
+      x.level === 'error'
+        ? 'border:#ef4444;background:rgba(239,68,68,0.12);color:#fecaca;'
+        : x.level === 'warn'
+        ? 'border:#f59e0b;background:rgba(245,158,11,0.12);color:#fde68a;'
+        : 'border:#60a5fa;background:rgba(96,165,250,0.10);color:#bfdbfe;';
+    return `<div class="alert" style="${cls}">
+      <div class="code">${escapeHtml(x.code)}</div>
+      <div class="msg">${escapeHtml(x.message)}</div>
+    </div>`;
+  }).join('');
 
   return `<!doctype html>
 <html>
@@ -131,13 +224,68 @@ function renderHtml(data: {
     }
     .k{ color:var(--muted); }
     .v{ color:var(--text); overflow-wrap:anywhere; }
-    .links{ margin-top:10px; display:flex; gap:10px; flex-wrap:wrap; }
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .btn{
+      cursor:pointer;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,0.06);
+      color:var(--text);
+      padding:8px 10px;
+      border-radius:10px;
+      font-size:12px;
+    }
+    .btn:hover{ background:rgba(255,255,255,0.10); }
+    .alerts{ display:flex; flex-direction:column; gap:10px; margin-top:14px; }
+    .alert{
+      border:1px solid;
+      border-radius:12px;
+      padding:10px 12px;
+    }
+    .alert .code{ font-weight:700; font-size:12px; margin-bottom:2px; }
+    .alert .msg{ font-size:12px; }
+    .toast{
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      background: rgba(17, 24, 39, 0.92);
+      border: 1px solid var(--line);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      display:none;
+      max-width: 360px;
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>${escapeHtml(title)}</h1>
     <div class="muted">Read-only. Generated from <code>claim_snapshots</code> + <code>phase_allocations</code>.</div>
+
+    <div class="box">
+      <h2>Actions</h2>
+      <div class="actions">
+        <a class="btn" href="${escapeHtml(urls.json)}" target="_blank" rel="noreferrer">Open JSON</a>
+        <a class="btn" href="${escapeHtml(urls.html)}" target="_blank" rel="noreferrer">Open HTML</a>
+        <button class="btn" onclick="copyText('${escapeHtml(urls.json)}')">Copy JSON URL</button>
+        <button class="btn" onclick="copyText('${escapeHtml(urls.html)}')">Copy HTML URL</button>
+      </div>
+      <div class="muted" style="margin-top:8px;">
+        JSON URL: <span style="font-family:ui-monospace, SFMono-Regular, Menlo, monospace;">${escapeHtml(urls.json)}</span>
+      </div>
+    </div>
+
+    ${
+      warnings?.length
+        ? `<div class="alerts">${banner}</div>`
+        : `<div class="box"><div class="muted">No anomalies detected ✅</div></div>`
+    }
 
     <div class="box">
       <h2>Phase Meta</h2>
@@ -159,12 +307,6 @@ function renderHtml(data: {
 
         <div class="k">Snapshot taken</div>
         <div class="v">${escapeHtml(fmtDate(phase?.snapshot_taken_at))}</div>
-      </div>
-
-      <div class="links muted">
-        <a href="?">View JSON</a>
-        <span>·</span>
-        <a href="?format=html">View HTML</a>
       </div>
     </div>
 
@@ -222,7 +364,34 @@ function renderHtml(data: {
         Tip: use browser search (Ctrl/⌘+F) to find a wallet quickly.
       </div>
     </div>
+
   </div>
+
+  <div id="toast" class="toast"></div>
+  <script>
+    function showToast(msg){
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.display = 'block';
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(()=>{ t.style.display='none'; }, 1800);
+    }
+    async function copyText(text){
+      try{
+        await navigator.clipboard.writeText(text);
+        showToast('Copied ✅');
+      }catch(e){
+        // fallback
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        showToast('Copied ✅');
+      }
+    }
+  </script>
 </body>
 </html>`;
 }
@@ -288,6 +457,16 @@ export async function GET(req: NextRequest, ctx: any) {
       LIMIT 50;
     `) as any[];
 
+    const warnings = buildWarnings({
+      alloc: alloc?.[0] ?? null,
+      snap: snap?.[0] ?? null,
+    });
+
+    // Build absolute-ish URLs (relative is ok too, but this is nicer for copy)
+    const origin = req.nextUrl.origin;
+    const jsonUrl = `${origin}/api/admin/phases/${phaseId}/claim-preview`;
+    const htmlUrl = `${origin}/api/admin/phases/${phaseId}/claim-preview?format=html`;
+
     const payload = {
       phase: ph[0],
       totals: {
@@ -295,12 +474,20 @@ export async function GET(req: NextRequest, ctx: any) {
         claimSnapshots: snap?.[0] ?? null,
       },
       top,
+      warnings,
     };
 
     if (wantsHtml) {
-      return new NextResponse(renderHtml(payload), {
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      });
+      return new NextResponse(
+        renderHtml({
+          phase: payload.phase,
+          totals: payload.totals,
+          top: payload.top,
+          warnings: payload.warnings,
+          urls: { json: jsonUrl, html: htmlUrl },
+        }),
+        { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+      );
     }
 
     return NextResponse.json({
