@@ -559,25 +559,30 @@ export default function AdminPhasesPage() {
                                             <td className="px-4 py-3 text-white/80">
                                                 {(() => {
                                                     const target = Number(p.target_usd ?? 0);
-                                                    const allocUsd = Number((p as any).alloc_usd_sum ?? 0);
+                                                    const usedUsd = Number((p as any).used_usd ?? 0);
 
                                                     if (!Number.isFinite(target) || target <= 0) {
                                                         return <span className="text-white/40 text-xs">—</span>;
                                                     }
 
-                                                    const pct = Math.max(0, Math.min(100, (allocUsd / target) * 100));
+                                                    const pct = Math.max(0, Math.min(100, (usedUsd / target) * 100));
 
                                                     return (
-                                                        <div className="min-w-[180px]">
+                                                        <div className="min-w-[220px]">
                                                             <div className="flex items-center justify-between text-[11px] text-white/60 mb-1">
                                                                 <span>
-                                                                    {allocUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })} / {target.toLocaleString()}
+                                                                    {usedUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })} / {target.toLocaleString()}
                                                                 </span>
                                                                 <span className="font-semibold text-white/70">{pct.toFixed(1)}%</span>
                                                             </div>
 
                                                             <div className="h-2 rounded-full bg-white/10 overflow-hidden border border-white/10">
                                                                 <div className="h-full bg-emerald-500/70" style={{ width: `${pct}%` }} />
+                                                            </div>
+
+                                                            <div className="mt-1 text-[10px] text-white/40">
+                                                                {Number((p as any).alloc_wallets ?? 0).toLocaleString()} wallets •{' '}
+                                                                {Number((p as any).alloc_rows ?? 0).toLocaleString()} allocations
                                                             </div>
                                                         </div>
                                                     );
@@ -675,25 +680,34 @@ export default function AdminPhasesPage() {
                                                         </button>
                                                     )}
                                                     {canShowClaimPreview && (
-                                                        <>
+                                                        <div className="flex items-center gap-2">
                                                             <button
-                                                                onClick={() => window.open(`/api/admin/phases/${p.phase_id}/claim-preview`, '_blank')}
+                                                                onClick={() => window.open(`/api/admin/phases/${p.phase_id}/claim-preview?format=html`, '_blank')}
                                                                 disabled={isBusy}
                                                                 className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
-                                                                title="Open claim preview (JSON)"
+                                                                title="Open claim preview"
                                                             >
-                                                                Preview JSON
+                                                                Preview
                                                             </button>
 
                                                             <button
                                                                 onClick={() => window.open(`/api/admin/phases/${p.phase_id}/claim-preview?format=html`, '_blank')}
                                                                 disabled={isBusy}
-                                                                className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
-                                                                title="Open claim preview (HTML)"
+                                                                className="px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-200 hover:bg-emerald-500/15 disabled:opacity-50"
+                                                                title="Preview as HTML"
                                                             >
-                                                                Preview HTML
+                                                                HTML
                                                             </button>
-                                                        </>
+
+                                                            <button
+                                                                onClick={() => window.open(`/api/admin/phases/${p.phase_id}/claim-preview?format=json`, '_blank')}
+                                                                disabled={isBusy}
+                                                                className="px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/30 text-[11px] text-blue-200 hover:bg-blue-500/15 disabled:opacity-50"
+                                                                title="Preview as JSON"
+                                                            >
+                                                                JSON
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </td>
