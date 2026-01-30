@@ -566,6 +566,9 @@ export default function AdminPhasesPage() {
                                                     }
 
                                                     const pct = Math.max(0, Math.min(100, (usedUsd / target) * 100));
+                                                    const barWidth = pct > 0 ? Math.max(pct, 0.25) : 0; // %0.25 min görünürlük
+
+                                                    <div className="h-full bg-emerald-500/70" style={{ width: `${barWidth}%` }} />
 
                                                     return (
                                                         <div className="min-w-[220px]">

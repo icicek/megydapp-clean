@@ -561,6 +561,168 @@ export async function GET(req: NextRequest, ctx: any) {
       warnings,
     };
 
+    const rate = Number(ph[0]?.rate_usd_per_megy || 0);
+    if (!Number.isFinite(rate) || rate <= 0) {
+      return NextResponse.json({ success: false, error: 'BAD_PHASE_RATE' }, { status: 400 });
+    }
+
+    // LIVE MODE: snapshot yoksa contributions üzerinden hesapla
+    const wantsLive = !ph[0]?.snapshot_taken_at;
+
+    let allocRow = null;
+    let snapRow = null;
+    let topRows: any[] = [];
+
+    if (wantsLive) {
+      // 1) Live wallet allocations for THIS phase
+      const liveTop = (await sql`
+        WITH phases_sorted AS (
+          SELECT
+            p.id,
+            p.phase_no,
+            COALESCE(p.target_usd,0)::numeric AS target_usd_num,
+            SUM(COALESCE(p.target_usd,0)::numeric) OVER (ORDER BY p.phase_no ASC, p.id ASC) AS cum_target,
+            (SUM(COALESCE(p.target_usd,0)::numeric) OVER (ORDER BY p.phase_no ASC, p.id ASC)
+              - COALESCE(p.target_usd,0)::numeric) AS cum_prev
+          FROM phases p
+        ),
+        this_phase AS (
+          SELECT * FROM phases_sorted WHERE id = ${phaseId} LIMIT 1
+        ),
+        eligible AS (
+          SELECT
+            c.id AS contribution_id,
+            c.wallet_address,
+            COALESCE(c.usd_value,0)::numeric AS usd_value,
+            c.timestamp
+          FROM contributions c
+          WHERE COALESCE(c.usd_value,0)::numeric > 0
+            AND COALESCE(c.network,'solana') = 'solana'
+            AND COALESCE(c.alloc_status,'pending') <> 'invalid'
+          ORDER BY c.timestamp ASC, c.id ASC
+        ),
+        running AS (
+          SELECT
+            e.*,
+            (SUM(e.usd_value) OVER (ORDER BY e.timestamp ASC, e.contribution_id ASC) - e.usd_value) AS rt_prev,
+            SUM(e.usd_value) OVER (ORDER BY e.timestamp ASC, e.contribution_id ASC) AS rt
+          FROM eligible e
+        ),
+        alloc AS (
+          SELECT
+            r.wallet_address,
+            GREATEST(
+              0,
+              LEAST(r.rt, tp.cum_target) - GREATEST(r.rt_prev, tp.cum_prev)
+            )::numeric AS usd_allocated
+          FROM running r
+          CROSS JOIN this_phase tp
+          WHERE r.rt > tp.cum_prev AND r.rt_prev < tp.cum_target
+        ),
+        wallet_alloc AS (
+          SELECT
+            wallet_address,
+            SUM(usd_allocated)::numeric AS usd_sum
+          FROM alloc
+          WHERE usd_allocated > 0
+          GROUP BY wallet_address
+        ),
+        with_megy AS (
+          SELECT
+            wallet_address,
+            usd_sum AS contribution_usd,
+            (usd_sum / ${rate})::numeric AS megy_amount
+          FROM wallet_alloc
+        ),
+        totals AS (
+          SELECT
+            COALESCE(SUM(contribution_usd),0)::numeric AS usd_total,
+            COALESCE(SUM(megy_amount),0)::numeric AS megy_total
+          FROM with_megy
+        )
+        SELECT
+          w.wallet_address,
+          w.megy_amount,
+          w.contribution_usd,
+          CASE WHEN t.megy_total > 0 THEN (w.megy_amount / t.megy_total) ELSE 0 END AS share_ratio,
+          'live'::text AS claim_status,
+          NOW() AS created_at
+        FROM with_megy w
+        CROSS JOIN totals t
+        ORDER BY w.megy_amount DESC, w.contribution_usd DESC
+        LIMIT 50;
+      `) as any[];
+
+      topRows = liveTop;
+
+      // 2) Live totals (allocRow gibi davranacak)
+      const liveTotals = (await sql`
+        WITH phases_sorted AS (
+          SELECT
+            p.id,
+            COALESCE(p.target_usd,0)::numeric AS target_usd_num,
+            SUM(COALESCE(p.target_usd,0)::numeric) OVER (ORDER BY p.phase_no ASC, p.id ASC) AS cum_target,
+            (SUM(COALESCE(p.target_usd,0)::numeric) OVER (ORDER BY p.phase_no ASC, p.id ASC)
+              - COALESCE(p.target_usd,0)::numeric) AS cum_prev
+          FROM phases p
+        ),
+        this_phase AS (
+          SELECT * FROM phases_sorted WHERE id = ${phaseId} LIMIT 1
+        ),
+        eligible AS (
+          SELECT
+            c.id AS contribution_id,
+            c.wallet_address,
+            COALESCE(c.usd_value,0)::numeric AS usd_value,
+            c.timestamp
+          FROM contributions c
+          WHERE COALESCE(c.usd_value,0)::numeric > 0
+            AND COALESCE(c.network,'solana') = 'solana'
+            AND COALESCE(c.alloc_status,'pending') <> 'invalid'
+          ORDER BY c.timestamp ASC, c.id ASC
+        ),
+        running AS (
+          SELECT
+            e.*,
+            (SUM(e.usd_value) OVER (ORDER BY e.timestamp ASC, e.contribution_id ASC) - e.usd_value) AS rt_prev,
+            SUM(e.usd_value) OVER (ORDER BY e.timestamp ASC, e.contribution_id ASC) AS rt
+          FROM eligible e
+        ),
+        alloc AS (
+          SELECT
+            r.contribution_id,
+            r.wallet_address,
+            GREATEST(
+              0,
+              LEAST(r.rt, tp.cum_target) - GREATEST(r.rt_prev, tp.cum_prev)
+            )::numeric AS usd_allocated
+          FROM running r
+          CROSS JOIN this_phase tp
+          WHERE r.rt > tp.cum_prev AND r.rt_prev < tp.cum_target
+        ),
+        wallet_alloc AS (
+          SELECT
+            wallet_address,
+            SUM(usd_allocated)::numeric AS usd_sum
+          FROM alloc
+          WHERE usd_allocated > 0
+          GROUP BY wallet_address
+        )
+        SELECT
+          (SELECT COUNT(*) FROM alloc WHERE usd_allocated > 0)::int AS n_rows,
+          (SELECT COUNT(*) FROM wallet_alloc)::int AS n_wallets,
+          COALESCE((SELECT SUM(usd_sum) FROM wallet_alloc),0)::numeric AS usd_sum,
+          COALESCE((SELECT SUM(usd_sum)/${rate} FROM wallet_alloc),0)::numeric AS megy_sum
+      `) as any[];
+
+      allocRow = liveTotals?.[0] ?? { n_rows: 0, n_wallets: 0, usd_sum: 0, megy_sum: 0 };
+
+      // Live mode’da claim_snapshots yokmuş gibi gösteriyoruz
+      snapRow = { n_wallets: 0, usd_sum: 0, megy_sum: 0, share_ratio_sum: 0 };
+    } else {
+      // mevcut snapshot/allocations yolu (senin kodun)
+    }
+
     if (wantsHtml) {
       return new NextResponse(
         renderHtml({
