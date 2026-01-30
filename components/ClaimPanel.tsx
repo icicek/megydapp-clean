@@ -74,6 +74,9 @@ export default function ClaimPanel() {
   const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
   const [shareAnchor, setShareAnchor] = useState<string | undefined>(undefined);
   const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
+  const [phasesList, setPhasesList] = useState<any[]>([]);
+  const [currentPhase, setCurrentPhase] = useState<any | null>(null);
+  const [phasesLoading, setPhasesLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -174,6 +177,34 @@ export default function ClaimPanel() {
         });
       } catch (e) {
         console.warn('⚠️ cpConfig fetch failed:', e);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setPhasesLoading(true);
+        const r = await fetch('/api/phases/list', { cache: 'no-store' });
+        const j = await r.json().catch(() => ({}));
+        const list = Array.isArray(j?.phases) ? j.phases : [];
+        setPhasesList(list);
+  
+        const norm = (s: any) => String(s ?? '').toLowerCase().trim();
+  
+        const active =
+          list.find((p: any) => norm(p.status) === 'active') ||
+          list.find((p: any) => norm(p.status) === 'open') ||
+          list.slice().sort((a: any, b: any) => Number(b.phase_no ?? 0) - Number(a.phase_no ?? 0))[0] ||
+          null;
+  
+        setCurrentPhase(active);
+      } catch (e) {
+        console.warn('phases list fetch failed:', e);
+        setPhasesList([]);
+        setCurrentPhase(null);
+      } finally {
+        setPhasesLoading(false);
       }
     })();
   }, []);
@@ -422,6 +453,79 @@ export default function ClaimPanel() {
           <h3 className="text-blue-400 text-sm font-semibold uppercase mb-4 tracking-wide">
             📊 Claim & Statistics
           </h3>
+
+          {/* 🌍 Current Phase Progress */}
+          <div className="mb-6">
+            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-gray-400 text-xs uppercase tracking-wide">Current Phase</p>
+                  <p className="text-white font-semibold">
+                    {phasesLoading ? 'Loading…' : currentPhase ? `Phase #${currentPhase.phase_no} — ${currentPhase.name || ''}` : 'No phase'}
+                  </p>
+
+                  <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                    {currentPhase?.finalized_at ? (
+                      <span className="px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-200">
+                        ✅ finalized
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300">
+                        live
+                      </span>
+                    )}
+                    {currentPhase?.snapshot_taken_at && (
+                      <span className="px-2 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-200">
+                        snapshot taken
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-gray-400 text-xs">Fill</p>
+                  <p className="text-white font-semibold">
+                    {(() => {
+                      const fill = Number(currentPhase?.fill_pct ?? 0);
+                      if (!Number.isFinite(fill)) return '0%';
+                      return `${(fill * 100).toFixed(fill >= 1 ? 0 : 1)}%`;
+                    })()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              <div className="mt-3">
+                {(() => {
+                  const fill = Number(currentPhase?.fill_pct ?? 0);
+                  const pct = Number.isFinite(fill) ? Math.max(0, Math.min(fill, 1)) : 0;
+                  return (
+                    <div className="w-full h-3 bg-zinc-900 border border-zinc-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-emerald-500 to-lime-400"
+                        style={{ width: `${pct * 100}%` }}
+                      />
+                    </div>
+                  );
+                })()}
+                <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+                  <span>
+                    Used: ${Number(currentPhase?.used_usd ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  </span>
+                  <span>
+                    Cap: ${Number(currentPhase?.target_usd ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                {/* Overfill note */}
+                {Number(currentPhase?.fill_pct ?? 0) > 1 && (
+                  <div className="mt-2 text-xs text-yellow-300">
+                    ⚠️ Phase is overfilled (Used exceeded Cap). This can happen when the last contribution crosses the target.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
             <StatBox

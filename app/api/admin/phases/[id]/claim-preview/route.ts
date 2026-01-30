@@ -50,13 +50,11 @@ function nearlyEqual(a: number, b: number, eps = 1e-6) {
   return Math.abs(a - b) <= eps;
 }
 
-function buildWarnings(input: {
-  alloc: any;
-  snap: any;
-}): Warn[] {
+function buildWarnings(input: { alloc: any; snap: any; phaseFinalizedAt?: any }): Warn[] {
   const w: Warn[] = [];
   const alloc = input.alloc ?? {};
   const snap = input.snap ?? {};
+  const isFinalized = !!input.phaseFinalizedAt;
 
   const allocUsd = toNum(alloc.usd_sum);
   const allocMegy = toNum(alloc.megy_sum);
@@ -70,6 +68,49 @@ function buildWarnings(input: {
   const hasAlloc = allocWallets > 0 || allocUsd > 0 || allocMegy > 0;
   const hasSnap = snapWallets > 0 || snapUsd > 0 || snapMegy > 0;
 
+  // Tolerances (numeric + rounding)
+  const USD_EPS = 0.01;     // 1 cent
+  const MEGY_EPS = 0.0001;  // small token tolerance
+  const SHARE_EPS = 1e-4;
+
+  // ✅ FINALIZED MODE: suppress noisy warnings, show only actionable errors
+  if (isFinalized) {
+    const megyOk = nearlyEqual(allocMegy, snapMegy, MEGY_EPS);
+    const usdOk = nearlyEqual(allocUsd, snapUsd, USD_EPS);
+
+    if (!megyOk || !usdOk) {
+      w.push({
+        level: 'error',
+        code: 'FINALIZE_BLOCKED_MISMATCH',
+        message:
+          'Phase is finalized but totals do not match. Finalized phases must have exact allocation↔snapshot consistency.',
+      });
+
+      w.push({
+        level: 'info',
+        code: 'WHAT_TO_CHECK',
+        message:
+          'Look at: (1) phase_allocations totals vs claim_snapshots totals, (2) missing/extra wallets, (3) if NOT finalized you can re-run snapshot, (4) check for late contributions included/excluded.',
+      });
+
+      return w; // ✅ stop here: no other warn/info noise
+    }
+
+    // If finalized and totals are OK, we can optionally still check share sum.
+    // (Share sum is informational and can be useful.)
+    if (snapWallets > 0 && !nearlyEqual(shareSum, 1, SHARE_EPS)) {
+      w.push({
+        level: 'info',
+        code: 'SHARE_SUM_NOT_ONE',
+        message: `Share ratio sum is ${shareSum} (expected ~1.0)`,
+      });
+    }
+
+    return w; // ✅ finalized + ok → done
+  }
+
+  // ---- NON-FINALIZED MODE (normal warnings) ----
+
   if (hasAlloc && !hasSnap) {
     w.push({
       level: 'warn',
@@ -78,11 +119,6 @@ function buildWarnings(input: {
     });
   }
 
-  // Tolerances (numeric + rounding)
-  const USD_EPS = 0.01;     // 1 cent
-  const MEGY_EPS = 0.0001;  // small token tolerance
-  const SHARE_EPS = 1e-4;
-
   if (!nearlyEqual(allocMegy, snapMegy, MEGY_EPS)) {
     w.push({
       level: 'warn',
@@ -90,6 +126,7 @@ function buildWarnings(input: {
       message: `MEGY mismatch: allocations=${allocMegy} vs claim_snapshots=${snapMegy}`,
     });
   }
+
   if (!nearlyEqual(allocUsd, snapUsd, USD_EPS)) {
     w.push({
       level: 'warn',
@@ -97,6 +134,7 @@ function buildWarnings(input: {
       message: `USD mismatch: allocations=${allocUsd} vs claim_snapshots=${snapUsd}`,
     });
   }
+
   if (allocWallets !== 0 && snapWallets !== 0 && allocWallets !== snapWallets) {
     w.push({
       level: 'warn',
@@ -105,15 +143,12 @@ function buildWarnings(input: {
     });
   }
 
-  // Share ratio sanity (only meaningful if there are snapshots)
-  if (snapWallets > 0) {
-    if (!nearlyEqual(shareSum, 1, SHARE_EPS)) {
-      w.push({
-        level: 'info',
-        code: 'SHARE_SUM_NOT_ONE',
-        message: `Share ratio sum is ${shareSum} (expected ~1.0)`,
-      });
-    }
+  if (snapWallets > 0 && !nearlyEqual(shareSum, 1, SHARE_EPS)) {
+    w.push({
+      level: 'info',
+      code: 'SHARE_SUM_NOT_ONE',
+      message: `Share ratio sum is ${shareSum} (expected ~1.0)`,
+    });
   }
 
   // Quick sanity on negative totals
@@ -149,9 +184,26 @@ function renderHtml(data: {
         : x.level === 'warn'
         ? 'border:#f59e0b;background:rgba(245,158,11,0.12);color:#fde68a;'
         : 'border:#60a5fa;background:rgba(96,165,250,0.10);color:#bfdbfe;';
+  
+    const extra =
+      x.code === 'FINALIZE_BLOCKED_MISMATCH'
+        ? `
+          <div class="muted" style="margin-top:6px;">
+            What to check:
+            <ul style="margin:6px 0 0 16px; padding:0;">
+              <li>phase_allocations totals vs claim_snapshots totals</li>
+              <li>Missing or extra wallets in snapshots</li>
+              <li>If NOT finalized, re-run snapshot</li>
+              <li>Late contributions included / excluded</li>
+            </ul>
+          </div>
+        `
+        : '';
+  
     return `<div class="alert" style="${cls}">
       <div class="code">${escapeHtml(x.code)}</div>
       <div class="msg">${escapeHtml(x.message)}</div>
+      ${extra}
     </div>`;
   }).join('');
 
@@ -491,6 +543,7 @@ export async function GET(req: NextRequest, ctx: any) {
     const warnings = buildWarnings({
       alloc: alloc?.[0] ?? null,
       snap: snap?.[0] ?? null,
+      phaseFinalizedAt: ph?.[0]?.finalized_at ?? null,
     });
 
     // Build absolute-ish URLs (relative is ok too, but this is nicer for copy)

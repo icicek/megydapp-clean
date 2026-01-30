@@ -23,26 +23,50 @@ export async function GET(_req: NextRequest) {
     const sql = neon(process.env.DATABASE_URL!);
 
     const rows = await sql`
-        SELECT *
-        FROM phases
-        ORDER BY phase_no ASC, id ASC;
+      SELECT
+        p.*,
+        COALESCE(a.used_usd, 0)::numeric AS used_usd,
+        COALESCE(a.alloc_wallets, 0)::int AS alloc_wallets,
+        COALESCE(a.alloc_rows, 0)::int AS alloc_rows,
+        CASE
+          WHEN COALESCE(p.target_usd, 0)::numeric > 0
+          THEN (COALESCE(a.used_usd, 0)::numeric / COALESCE(p.target_usd, 0)::numeric)
+          ELSE 0
+        END AS fill_pct
+      FROM phases p
+      LEFT JOIN (
+        SELECT
+          phase_id,
+          COUNT(*)::int AS alloc_rows,
+          COUNT(DISTINCT wallet_address)::int AS alloc_wallets,
+          COALESCE(SUM(usd_allocated), 0)::numeric AS used_usd
+        FROM phase_allocations
+        GROUP BY phase_id
+      ) a ON a.phase_id = p.id
+      ORDER BY p.phase_no ASC, p.id ASC;
     `;
 
     const phases = (rows as AnyRow[]).map((r) => {
       const id = asNumber(pickFirst(r, ['id', 'phase_id', 'phaseId'])) ?? 0;
-    
-      // 🔽 BURASI ÖNEMLİ
+
       const rateRaw = pickFirst(r, ['rate_usd_per_megy', 'rate'], null);
       const rateNum = rateRaw === '' ? null : asNumber(rateRaw);
-    
+
       return {
         phase_id: id,
         phase_no: asNumber(pickFirst(r, ['phase_no', 'phaseNo'])) ?? id,
         name: String(pickFirst(r, ['name'], '') ?? ''),
         status: String(pickFirst(r, ['status', 'status_v2'], '') ?? ''),
         pool_megy: pickFirst(r, ['pool_megy', 'megy_pool'], null),
-        rate_usd_per_megy: rateNum, // ✅ BURASI DEĞİŞTİ
+        rate_usd_per_megy: rateNum,
         target_usd: pickFirst(r, ['target_usd', 'usd_cap'], null),
+
+        // ✅ NEW: progress fields
+        used_usd: pickFirst(r, ['used_usd'], 0),
+        fill_pct: pickFirst(r, ['fill_pct'], 0),
+        alloc_wallets: pickFirst(r, ['alloc_wallets'], 0),
+        alloc_rows: pickFirst(r, ['alloc_rows'], 0),
+
         opened_at: pickFirst(r, ['opened_at'], null),
         closed_at: pickFirst(r, ['closed_at'], null),
         snapshot_taken_at: pickFirst(r, ['snapshot_taken_at'], null),

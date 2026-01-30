@@ -20,6 +20,8 @@ type PhaseRow = {
     finalized_at?: any;
     created_at?: any;
     updated_at?: any;
+    alloc_usd_sum?: any;
+    alloc_wallets?: any;
 };
 
 type CreatePhaseResponse =
@@ -175,8 +177,33 @@ export default function AdminPhasesPage() {
         setLoading(true);
         setMsg(null);
         try {
-            const j = await getJSON<{ success: boolean; phases: PhaseRow[] }>('/api/phases/list');
-            setRows(Array.isArray(j?.phases) ? j.phases : []);
+            const [j1, j2] = await Promise.all([
+                getJSON<{ success: boolean; phases: PhaseRow[] }>('/api/phases/list'),
+                getJSON<{ success: boolean; rows: Array<{ phase_id: number; alloc_usd_sum: any; alloc_wallets: any }> }>(
+                    '/api/admin/phases/progress'
+                ).catch(() => ({ success: false, rows: [] as any[] })),
+            ]);
+
+            const phases = Array.isArray(j1?.phases) ? j1.phases : [];
+            const progRows = Array.isArray((j2 as any)?.rows) ? (j2 as any).rows : [];
+
+            const progMap = new Map<number, { alloc_usd_sum: any; alloc_wallets: any }>();
+            for (const r of progRows) {
+                const id = Number((r as any).phase_id ?? 0);
+                if (Number.isFinite(id) && id > 0) {
+                    progMap.set(id, {
+                        alloc_usd_sum: (r as any).alloc_usd_sum ?? 0,
+                        alloc_wallets: (r as any).alloc_wallets ?? 0,
+                    });
+                }
+            }
+
+            const merged = phases.map((p) => {
+                const prog = progMap.get(Number(p.phase_id));
+                return prog ? { ...p, ...prog } : p;
+            });
+
+            setRows(merged);
         } catch (e: any) {
             setMsg(`❌ Failed to load phases (${e?.message || 'error'})`);
         } finally {
@@ -448,6 +475,7 @@ export default function AdminPhasesPage() {
                                     <th className="text-left px-4 py-3">Pool (MEGY)</th>
                                     <th className="text-left px-4 py-3">Rate (USD/MEGY)</th>
                                     <th className="text-left px-4 py-3">Target (USD)</th>
+                                    <th className="text-left px-4 py-3">Progress</th>
                                     <th className="text-left px-4 py-3">Opened</th>
                                     <th className="text-left px-4 py-3">Closed</th>
                                     <th className="text-left px-4 py-3">Snapshot</th>
@@ -500,24 +528,60 @@ export default function AdminPhasesPage() {
                                             </td>
 
                                             <td className="px-4 py-3">
-                                                <span
-                                                    className={[
-                                                        'px-2 py-1 rounded-md text-xs border',
-                                                        isActive
-                                                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
-                                                            : isCompleted
-                                                                ? 'bg-blue-500/10 border-blue-500/30 text-blue-200'
-                                                                : 'bg-white/5 border-white/10 text-white/70',
-                                                    ].join(' ')}
-                                                >
-                                                    {(p.status || 'planned') as any}
-                                                </span>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span
+                                                        className={[
+                                                            'px-2 py-1 rounded-md text-xs border',
+                                                            isActive
+                                                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
+                                                                : isCompleted
+                                                                    ? 'bg-blue-500/10 border-blue-500/30 text-blue-200'
+                                                                    : 'bg-white/5 border-white/10 text-white/70',
+                                                        ].join(' ')}
+                                                    >
+                                                        {(p.status || 'planned') as any}
+                                                    </span>
+
+                                                    {/* ✅ finalized pill right next to status */}
+                                                    {isFinalized && (
+                                                        <span className="px-2 py-1 rounded-md text-xs border bg-emerald-500/10 border-emerald-500/30 text-emerald-200 font-semibold">
+                                                            finalized
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
 
                                             <td className="px-4 py-3 text-white/80">{fmtNum(p.pool_megy)}</td>
                                             <td className="px-4 py-3 text-white/80">{fmtRate(p.rate_usd_per_megy)}</td>
                                             <td className="px-4 py-3 text-white/80">
                                                 {p.target_usd == null || p.target_usd === '' ? '-' : fmtNum(p.target_usd)}
+                                            </td>
+                                            <td className="px-4 py-3 text-white/80">
+                                                {(() => {
+                                                    const target = Number(p.target_usd ?? 0);
+                                                    const allocUsd = Number((p as any).alloc_usd_sum ?? 0);
+
+                                                    if (!Number.isFinite(target) || target <= 0) {
+                                                        return <span className="text-white/40 text-xs">—</span>;
+                                                    }
+
+                                                    const pct = Math.max(0, Math.min(100, (allocUsd / target) * 100));
+
+                                                    return (
+                                                        <div className="min-w-[180px]">
+                                                            <div className="flex items-center justify-between text-[11px] text-white/60 mb-1">
+                                                                <span>
+                                                                    {allocUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })} / {target.toLocaleString()}
+                                                                </span>
+                                                                <span className="font-semibold text-white/70">{pct.toFixed(1)}%</span>
+                                                            </div>
+
+                                                            <div className="h-2 rounded-full bg-white/10 overflow-hidden border border-white/10">
+                                                                <div className="h-full bg-emerald-500/70" style={{ width: `${pct}%` }} />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </td>
 
                                             <td className="px-4 py-3 text-white/60 text-xs">{fmtDate(p.opened_at)}</td>
@@ -597,27 +661,39 @@ export default function AdminPhasesPage() {
                                                             onClick={() => finalizePhase(p.phase_id)}
                                                             disabled={isBusy}
                                                             className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs disabled:opacity-50"
-                                                            title="Mark this snapshot as approved (finalized)"
+                                                            title={
+                                                                !isCompleted
+                                                                    ? 'Requires: phase status = completed'
+                                                                    : !p.snapshot_taken_at
+                                                                        ? 'Requires: snapshot_taken_at'
+                                                                        : isFinalized
+                                                                            ? 'Already finalized'
+                                                                            : 'Mark this snapshot as approved (finalized)'
+                                                            }
                                                         >
                                                             {isBusy ? 'Working…' : 'Finalize'}
                                                         </button>
                                                     )}
-
                                                     {canShowClaimPreview && (
-                                                        <button
-                                                            onClick={() => window.open(`/api/admin/phases/${p.phase_id}/claim-preview?format=html`, '_blank')}
-                                                            disabled={isBusy}
-                                                            className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
-                                                            title="Open read-only claim preview (HTML)"
-                                                        >
-                                                            Claim Preview
-                                                        </button>
-                                                    )}
+                                                        <>
+                                                            <button
+                                                                onClick={() => window.open(`/api/admin/phases/${p.phase_id}/claim-preview`, '_blank')}
+                                                                disabled={isBusy}
+                                                                className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
+                                                                title="Open claim preview (JSON)"
+                                                            >
+                                                                Preview JSON
+                                                            </button>
 
-                                                    {isFinalized && (
-                                                        <span className="px-2 py-1 rounded-md text-xs border bg-blue-500/10 border-blue-500/30 text-blue-200">
-                                                            finalized
-                                                        </span>
+                                                            <button
+                                                                onClick={() => window.open(`/api/admin/phases/${p.phase_id}/claim-preview?format=html`, '_blank')}
+                                                                disabled={isBusy}
+                                                                className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
+                                                                title="Open claim preview (HTML)"
+                                                            >
+                                                                Preview HTML
+                                                            </button>
+                                                        </>
                                                     )}
                                                 </div>
                                             </td>
