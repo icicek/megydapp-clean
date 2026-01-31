@@ -92,7 +92,7 @@ export async function GET(_req: NextRequest) {
         LEFT JOIN eligible_contributions ec
           ON p.opened_at IS NOT NULL
          AND ec.timestamp >= p.opened_at
-         AND ec.timestamp < COALESCE(p.closed_at, CURRENT_TIMESTAMP())
+         AND ec.timestamp < COALESCE(p.closed_at, NOW())
         GROUP BY p.id
       ),
 
