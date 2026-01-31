@@ -36,11 +36,32 @@ export async function GET(_req: NextRequest) {
       WITH phases_sorted AS (
         SELECT
           p.*,
-          COALESCE(p.target_usd, 0)::numeric AS target_usd_num,
-            COALESCE(p.target_usd, (p.pool_megy * p.rate_usd_per_megy), 0)::numeric AS target_usd_num
-          SUM(COALESCE(p.target_usd,0)::numeric) OVER (ORDER BY p.phase_no ASC, p.id ASC) AS cum_target,
-          (SUM(COALESCE(p.target_usd,0)::numeric) OVER (ORDER BY p.phase_no ASC, p.id ASC)
-            - COALESCE(p.target_usd,0)::numeric) AS cum_prev
+          COALESCE(
+            p.target_usd,
+            (COALESCE(p.pool_megy,0)::numeric * COALESCE(p.rate_usd_per_megy,0)::numeric),
+            0
+          )::numeric AS target_usd_num,
+          SUM(
+            COALESCE(
+              p.target_usd,
+              (COALESCE(p.pool_megy,0)::numeric * COALESCE(p.rate_usd_per_megy,0)::numeric),
+              0
+            )::numeric
+          ) OVER (ORDER BY p.phase_no ASC, p.id ASC) AS cum_target,
+          (
+            SUM(
+              COALESCE(
+                p.target_usd,
+                (COALESCE(p.pool_megy,0)::numeric * COALESCE(p.rate_usd_per_megy,0)::numeric),
+                0
+              )::numeric
+            ) OVER (ORDER BY p.phase_no ASC, p.id ASC)
+            - COALESCE(
+                p.target_usd,
+                (COALESCE(p.pool_megy,0)::numeric * COALESCE(p.rate_usd_per_megy,0)::numeric),
+                0
+              )::numeric
+          ) AS cum_prev
         FROM phases p
       ),
 
