@@ -22,83 +22,98 @@ export async function GET(_req: NextRequest) {
   try {
     const sql = neon(process.env.DATABASE_URL!);
 
-    // ✅ Live progress = phase time window based
+    /**
+     * We compute BOTH:
+     * 1) Window (time) totals: contributions within [opened_at, closed_at) (active => closed_at is null => NOW())
+     * 2) Forecast (capacity) totals: cumulative target fill across phases (splits contributions virtually)
+     *
+     * Output mapping:
+     * - used_usd/fill_pct/alloc_*      => Window (live)
+     * - used_usd_forecast/...         => Forecast
+     */
+
     const rows = await sql`
-      WITH base AS (
+      WITH phases_sorted AS (
         SELECT
           p.*,
-          COALESCE(p.target_usd, 0)::numeric AS target_usd_num
+          COALESCE(p.target_usd, 0)::numeric AS target_usd_num,
+          SUM(COALESCE(p.target_usd,0)::numeric) OVER (ORDER BY p.phase_no ASC, p.id ASC) AS cum_target,
+          (SUM(COALESCE(p.target_usd,0)::numeric) OVER (ORDER BY p.phase_no ASC, p.id ASC)
+            - COALESCE(p.target_usd,0)::numeric) AS cum_prev
         FROM phases p
       ),
-      agg AS (
+
+      -- Eligible contributions (same rules for both models)
+      eligible_contributions AS (
         SELECT
-          b.id AS phase_id,
+          c.id AS contribution_id,
+          c.wallet_address,
+          COALESCE(c.usd_value, 0)::numeric AS usd_value,
+          c.token_contract,
+          COALESCE(c.network,'solana') AS network,
+          COALESCE(c.alloc_status,'pending') AS alloc_status,
+          c.timestamp
+        FROM contributions c
+        WHERE COALESCE(c.usd_value,0)::numeric > 0
+          AND COALESCE(c.network,'solana') = 'solana'
+          AND COALESCE(c.alloc_status,'pending') <> 'invalid'
+      ),
 
-          COALESCE(SUM(
-            CASE
-              WHEN b.opened_at IS NULL THEN 0
-              WHEN c.timestamp < b.opened_at THEN 0
-              WHEN b.closed_at IS NOT NULL AND c.timestamp >= b.closed_at THEN 0
-              ELSE COALESCE(c.usd_value,0)::numeric
-            END
-          ), 0)::numeric AS used_usd,
+      -- Window totals per phase
+      phase_window_totals AS (
+        SELECT
+          p.id AS phase_id,
+          COALESCE(SUM(ec.usd_value),0)::numeric AS used_usd_window,
+          COUNT(ec.contribution_id)::int AS alloc_rows_window,
+          COUNT(DISTINCT ec.wallet_address)::int AS alloc_wallets_window
+        FROM phases_sorted p
+        LEFT JOIN eligible_contributions ec
+          ON p.opened_at IS NOT NULL
+         AND ec.timestamp >= p.opened_at
+         AND ec.timestamp < COALESCE(p.closed_at, NOW())
+        GROUP BY p.id
+      ),
 
-          COALESCE(COUNT(*) FILTER (
-            WHERE b.opened_at IS NOT NULL
-              AND c.timestamp >= b.opened_at
-              AND (b.closed_at IS NULL OR c.timestamp < b.closed_at)
-              AND COALESCE(c.usd_value,0)::numeric > 0
-              AND COALESCE(c.alloc_status,'pending') <> 'invalid'
-              AND COALESCE(c.network,'solana') = 'solana'
-          ), 0)::int AS alloc_rows,
+      -- Running totals for Forecast splitting
+      contrib_running AS (
+        SELECT
+          ec.*,
+          (SUM(ec.usd_value) OVER (ORDER BY ec.timestamp ASC, ec.contribution_id ASC) - ec.usd_value) AS rt_prev,
+          SUM(ec.usd_value) OVER (ORDER BY ec.timestamp ASC, ec.contribution_id ASC) AS rt
+        FROM eligible_contributions ec
+      ),
 
-          COALESCE(COUNT(DISTINCT c.wallet_address) FILTER (
-            WHERE b.opened_at IS NOT NULL
-              AND c.timestamp >= b.opened_at
-              AND (b.closed_at IS NULL OR c.timestamp < b.closed_at)
-              AND COALESCE(c.usd_value,0)::numeric > 0
-              AND COALESCE(c.alloc_status,'pending') <> 'invalid'
-              AND COALESCE(c.network,'solana') = 'solana'
-          ), 0)::int AS alloc_wallets
+      -- Virtual split of contributions across phases by cumulative targets
+      contrib_to_phase AS (
+        SELECT
+          ps.id AS phase_id,
+          cr.contribution_id,
+          cr.wallet_address,
+          GREATEST(
+            0,
+            LEAST(cr.rt, ps.cum_target) - GREATEST(cr.rt_prev, ps.cum_prev)
+          )::numeric AS usd_allocated_virtual
+        FROM contrib_running cr
+        JOIN phases_sorted ps
+          ON cr.rt > ps.cum_prev
+         AND cr.rt_prev < ps.cum_target
+      ),
 
-        FROM base b
-        LEFT JOIN contributions c
-          ON COALESCE(c.network,'solana') = 'solana'
-         AND COALESCE(c.alloc_status,'pending') <> 'invalid'
-         AND COALESCE(c.usd_value,0)::numeric > 0
-        GROUP BY b.id
+      phase_virtual_totals AS (
+        SELECT
+          phase_id,
+          COALESCE(SUM(usd_allocated_virtual),0)::numeric AS used_usd_forecast,
+          COUNT(*)::int AS alloc_rows_forecast,
+          COUNT(DISTINCT wallet_address)::int AS alloc_wallets_forecast
+        FROM contrib_to_phase
+        WHERE usd_allocated_virtual > 0
+        GROUP BY phase_id
       )
-      SELECT
-        b.*,
-        COALESCE(a.used_usd, 0)::numeric AS used_usd,
-        COALESCE(a.alloc_wallets, 0)::int AS alloc_wallets,
-        COALESCE(a.alloc_rows, 0)::int AS alloc_rows,
-        CASE
-          WHEN COALESCE(b.target_usd_num, 0)::numeric > 0
-          THEN (COALESCE(a.used_usd, 0)::numeric / COALESCE(b.target_usd_num, 0)::numeric)
-          ELSE 0
-        END AS fill_pct
-      FROM base b
-      LEFT JOIN agg a ON a.phase_id = b.id
-      ORDER BY b.phase_no ASC, b.id ASC;
-    `;
 
-    // Debug: overall sanity + active window sanity
-    const debugRows = await sql`
       SELECT
         ps.*,
 
-        -- Forecast (capacity)
-        COALESCE(pvt.used_usd, 0)::numeric AS used_usd_forecast,
-        COALESCE(pvt.alloc_wallets, 0)::int AS alloc_wallets_forecast,
-        COALESCE(pvt.alloc_rows, 0)::int AS alloc_rows_forecast,
-        CASE
-          WHEN COALESCE(ps.target_usd_num, 0)::numeric > 0
-          THEN (COALESCE(pvt.used_usd, 0)::numeric / COALESCE(ps.target_usd_num, 0)::numeric)
-          ELSE 0
-        END AS fill_pct_forecast,
-
-        -- Window (time)
+        -- Window (live)
         COALESCE(pwt.used_usd_window, 0)::numeric AS used_usd_window,
         COALESCE(pwt.alloc_wallets_window, 0)::int AS alloc_wallets_window,
         COALESCE(pwt.alloc_rows_window, 0)::int AS alloc_rows_window,
@@ -106,27 +121,35 @@ export async function GET(_req: NextRequest) {
           WHEN COALESCE(ps.target_usd_num, 0)::numeric > 0
           THEN (COALESCE(pwt.used_usd_window, 0)::numeric / COALESCE(ps.target_usd_num, 0)::numeric)
           ELSE 0
-        END AS fill_pct_window
+        END AS fill_pct_window,
+
+        -- Forecast (capacity)
+        COALESCE(pvt.used_usd_forecast, 0)::numeric AS used_usd_forecast,
+        COALESCE(pvt.alloc_wallets_forecast, 0)::int AS alloc_wallets_forecast,
+        COALESCE(pvt.alloc_rows_forecast, 0)::int AS alloc_rows_forecast,
+        CASE
+          WHEN COALESCE(ps.target_usd_num, 0)::numeric > 0
+          THEN (COALESCE(pvt.used_usd_forecast, 0)::numeric / COALESCE(ps.target_usd_num, 0)::numeric)
+          ELSE 0
+        END AS fill_pct_forecast
 
       FROM phases_sorted ps
-      , phase_window_totals AS (
-        SELECT
-          p.id AS phase_id,
-          COALESCE(SUM(c.usd_value),0)::numeric AS used_usd_window,
-          COUNT(*)::int AS alloc_rows_window,
-          COUNT(DISTINCT c.wallet_address)::int AS alloc_wallets_window
-        FROM phases p
-        LEFT JOIN contributions c
-          ON COALESCE(c.usd_value,0)::numeric > 0
-        AND COALESCE(c.network,'solana') = 'solana'
-        AND COALESCE(c.alloc_status,'pending') <> 'invalid'
-        AND c.timestamp >= p.opened_at
-        AND c.timestamp < COALESCE(p.closed_at, NOW())
-        GROUP BY p.id
-      )
-      LEFT JOIN phase_virtual_totals pvt ON pvt.phase_id = ps.id
       LEFT JOIN phase_window_totals  pwt ON pwt.phase_id = ps.id
+      LEFT JOIN phase_virtual_totals pvt ON pvt.phase_id = ps.id
       ORDER BY ps.phase_no ASC, ps.id ASC;
+    `;
+
+    // Simple debug: global eligible contributions summary
+    const debug = await sql`
+      SELECT
+        COUNT(*)::int AS eligible_rows,
+        COALESCE(SUM(COALESCE(usd_value,0)::numeric),0)::numeric AS eligible_usd_sum,
+        MIN(timestamp) AS first_ts,
+        MAX(timestamp) AS last_ts
+      FROM contributions
+      WHERE COALESCE(usd_value,0)::numeric > 0
+        AND COALESCE(network,'solana') = 'solana'
+        AND COALESCE(alloc_status,'pending') <> 'invalid';
     `;
 
     const phases = (rows as AnyRow[]).map((r) => {
@@ -144,13 +167,13 @@ export async function GET(_req: NextRequest) {
         rate_usd_per_megy: rateNum,
         target_usd: pickFirst(r, ['target_usd', 'usd_cap'], null),
 
-        // window => primary live
+        // Window (live) => primary
         used_usd: pickFirst(r, ['used_usd_window'], 0),
         fill_pct: pickFirst(r, ['fill_pct_window'], 0),
         alloc_wallets: pickFirst(r, ['alloc_wallets_window'], 0),
         alloc_rows: pickFirst(r, ['alloc_rows_window'], 0),
 
-        // forecast => extra
+        // Forecast (capacity) => extra
         used_usd_forecast: pickFirst(r, ['used_usd_forecast'], 0),
         fill_pct_forecast: pickFirst(r, ['fill_pct_forecast'], 0),
         alloc_wallets_forecast: pickFirst(r, ['alloc_wallets_forecast'], 0),
@@ -168,10 +191,13 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({
       success: true,
       phases,
-      debug: (debugRows as AnyRow[])?.[0] ?? null,
+      debug: (debug as AnyRow[])?.[0] ?? null,
     });
   } catch (e) {
     console.error('GET /api/phases/list failed:', e);
-    return NextResponse.json({ success: false, error: 'PHASES_LIST_FAILED' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'PHASES_LIST_FAILED' },
+      { status: 500 }
+    );
   }
 }

@@ -164,13 +164,14 @@ function buildWarnings(input: { alloc: any; snap: any; phaseFinalizedAt?: any })
 }
 
 function renderHtml(data: {
+  mode: 'LIVE_FORECAST' | 'SNAPSHOT';
   phase: any;
   totals: { allocations: any; claimSnapshots: any };
   top: any[];
   warnings: Warn[];
   urls: { json: string; html: string };
 }) {
-  const { phase, totals, top, warnings, urls } = data;
+  const { mode, phase, totals, top, warnings, urls } = data;
 
   const title = `Claim Preview – Phase #${phase?.phase_no ?? '?'}`;
 
@@ -333,19 +334,22 @@ function renderHtml(data: {
 
     <div class="box">
       <h2>Actions</h2>
-      <button class="btn" data-copy="${escapeHtml(urls.json)}" onclick="copyFromDataset(this)">
-        Copy JSON URL
-      </button>
-      <button class="btn" data-copy="${escapeHtml(urls.html)}" onclick="copyFromDataset(this)">
-        Copy HTML URL
-      </button>
+      <div class="actions">
+        <button class="btn" data-copy="${escapeHtml(urls.json)}" onclick="copyFromDataset(this)">
+          Copy JSON URL
+        </button>
+        <button class="btn" data-copy="${escapeHtml(urls.html)}" onclick="copyFromDataset(this)">
+          Copy HTML URL
+        </button>
         <a class="btn" href="${escapeHtml(urls.json)}" target="_blank" rel="noreferrer">Open JSON</a>
         <a class="btn" href="${escapeHtml(urls.html)}" target="_blank" rel="noreferrer">Open HTML</a>
-        <button class="btn" onclick="copyText('${escapeHtml(urls.json)}')">Copy JSON URL</button>
-        <button class="btn" onclick="copyText('${escapeHtml(urls.html)}')">Copy HTML URL</button>
       </div>
+
       <div class="muted" style="margin-top:8px;">
-        JSON URL: <span style="font-family:ui-monospace, SFMono-Regular, Menlo, monospace;">${escapeHtml(urls.json)}</span>
+        JSON URL:
+        <span style="font-family:ui-monospace, SFMono-Regular, Menlo, monospace;">
+          ${escapeHtml(urls.json)}
+        </span>
       </div>
     </div>
 
@@ -363,6 +367,13 @@ function renderHtml(data: {
 
         <div class="k">Status</div>
         <div class="v"><span class="pill">${escapeHtml(phase?.status ?? '')}</span></div>
+
+        <div class="k">Mode</div>
+        <div class="v">
+          <span class="pill">
+            ${mode === 'LIVE_FORECAST' ? 'LIVE (forecast)' : 'SNAPSHOT (final)'}
+          </span>
+        </div>
 
         <div class="k">Rate</div>
         <div class="v">${escapeHtml(fmtNum(phase?.rate_usd_per_megy, 12))} USD/MEGY</div>
@@ -687,7 +698,12 @@ export async function GET(req: NextRequest, ctx: any) {
       `) as any[];
 
       allocRow = liveTotals?.[0] ?? { n_rows: 0, n_wallets: 0, usd_sum: 0, megy_sum: 0 };
-      snapRow  = { n_wallets: 0, usd_sum: 0, megy_sum: 0, share_ratio_sum: 0 };
+      snapRow = {
+        n_wallets: Number(allocRow?.n_wallets ?? 0),
+        usd_sum: allocRow?.usd_sum ?? 0,
+        megy_sum: allocRow?.megy_sum ?? 0,
+        share_ratio_sum: 1,
+      };      
       topRows  = liveTop;
     }
 
@@ -702,7 +718,10 @@ export async function GET(req: NextRequest, ctx: any) {
     const jsonUrl = `${origin}/api/admin/phases/${phaseId}/claim-preview`;
     const htmlUrl = `${origin}/api/admin/phases/${phaseId}/claim-preview?format=html`;
 
+    const mode = wantsLive ? 'LIVE_FORECAST' : (ph?.[0]?.snapshot_taken_at ? 'SNAPSHOT' : 'EMPTY');
+
     const payload = {
+      mode,
       phase: ph[0],
       totals: {
         allocations: allocRow,
@@ -712,14 +731,10 @@ export async function GET(req: NextRequest, ctx: any) {
       warnings,
     };
 
-    const rate = Number(ph[0]?.rate_usd_per_megy || 0);
-    if (!Number.isFinite(rate) || rate <= 0) {
-      return NextResponse.json({ success: false, error: 'BAD_PHASE_RATE' }, { status: 400 });
-    }
-
     if (wantsHtml) {
       return new NextResponse(
         renderHtml({
+          mode: wantsLive ? 'LIVE_FORECAST' : 'SNAPSHOT',
           phase: payload.phase,
           totals: payload.totals,
           top: payload.top,
@@ -728,7 +743,7 @@ export async function GET(req: NextRequest, ctx: any) {
         }),
         { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
       );
-    }
+    }    
 
     return NextResponse.json({
       success: true,
