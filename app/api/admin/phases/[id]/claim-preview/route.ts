@@ -335,12 +335,8 @@ function renderHtml(data: {
     <div class="box">
       <h2>Actions</h2>
       <div class="actions">
-        <button class="btn" data-copy="${escapeHtml(urls.json)}" onclick="copyFromDataset(this)">
-          Copy JSON URL
-        </button>
-        <button class="btn" data-copy="${escapeHtml(urls.html)}" onclick="copyFromDataset(this)">
-          Copy HTML URL
-        </button>
+        <button class="btn" onclick="copyText('${escapeHtml(urls.json)}')">Copy JSON URL</button>
+        <button class="btn" onclick="copyText('${escapeHtml(urls.html)}')">Copy HTML URL</button>
         <a class="btn" href="${escapeHtml(urls.json)}" target="_blank" rel="noreferrer">Open JSON</a>
         <a class="btn" href="${escapeHtml(urls.html)}" target="_blank" rel="noreferrer">Open HTML</a>
       </div>

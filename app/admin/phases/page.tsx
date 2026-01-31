@@ -573,7 +573,7 @@ export default function AdminPhasesPage() {
                                                             <span className="text-white/50">Window</span>
                                                             <span className="font-semibold text-white/70">{wPct.toFixed(1)}%</span>
                                                           </div>
-                                                          <div className="h-2 rounded-full bg-white/10 overflow-hidden border border-white/10">
+                                                          <div className="h-1.5 rounded-full bg-white/10 overflow-hidden border border-white/10">
                                                             <div className="h-full bg-emerald-500/70" style={{ width: `${wPct}%` }} />
                                                           </div>
                                                           <div className="mt-1 text-[10px] text-white/40">
@@ -714,7 +714,7 @@ export default function AdminPhasesPage() {
                                                             </button>
 
                                                             <button
-                                                                onClick={() => window.open(`/api/admin/phases/${p.phase_id}/claim-preview?format=json`, '_blank')}
+                                                                onClick={() => window.open(`/api/admin/phases/${p.phase_id}/claim-preview`, '_blank')}
                                                                 disabled={isBusy}
                                                                 className="px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/30 text-[11px] text-blue-200 hover:bg-blue-500/15 disabled:opacity-50"
                                                                 title="Preview as JSON"
@@ -731,7 +731,7 @@ export default function AdminPhasesPage() {
 
                                 {rows.length === 0 && (
                                     <tr>
-                                        <td className="px-4 py-6 text-white/60" colSpan={9}>
+                                        <td className="px-4 py-6 text-white/60" colSpan={10}>
                                             No phases yet. Create Phase #1.
                                         </td>
                                     </tr>
