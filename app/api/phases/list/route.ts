@@ -86,24 +86,47 @@ export async function GET(_req: NextRequest) {
     // Debug: overall sanity + active window sanity
     const debugRows = await sql`
       SELECT
-        COUNT(*)::int AS total_rows,
-        COUNT(*) FILTER (WHERE COALESCE(usd_value,0)::numeric > 0)::int AS usd_pos_rows,
-        COUNT(*) FILTER (WHERE COALESCE(alloc_status,'pending') <> 'invalid')::int AS not_invalid_rows,
-        COUNT(*) FILTER (
-          WHERE COALESCE(usd_value,0)::numeric > 0
-            AND COALESCE(alloc_status,'pending') <> 'invalid'
-            AND COALESCE(network,'solana') = 'solana'
-        )::int AS eligible_rows,
-        COALESCE(SUM(COALESCE(usd_value,0)::numeric) FILTER (
-          WHERE COALESCE(usd_value,0)::numeric > 0
-            AND COALESCE(alloc_status,'pending') <> 'invalid'
-            AND COALESCE(network,'solana') = 'solana'
-        ),0)::numeric AS eligible_usd_sum,
-        MIN(timestamp) AS first_ts,
-        MAX(timestamp) AS last_ts,
-        COUNT(*) FILTER (WHERE COALESCE(network,'solana') = 'solana')::int AS solana_rows,
-        COUNT(*) FILTER (WHERE COALESCE(network,'solana') <> 'solana')::int AS non_solana_rows
-      FROM contributions;
+        ps.*,
+
+        -- Forecast (capacity)
+        COALESCE(pvt.used_usd, 0)::numeric AS used_usd_forecast,
+        COALESCE(pvt.alloc_wallets, 0)::int AS alloc_wallets_forecast,
+        COALESCE(pvt.alloc_rows, 0)::int AS alloc_rows_forecast,
+        CASE
+          WHEN COALESCE(ps.target_usd_num, 0)::numeric > 0
+          THEN (COALESCE(pvt.used_usd, 0)::numeric / COALESCE(ps.target_usd_num, 0)::numeric)
+          ELSE 0
+        END AS fill_pct_forecast,
+
+        -- Window (time)
+        COALESCE(pwt.used_usd_window, 0)::numeric AS used_usd_window,
+        COALESCE(pwt.alloc_wallets_window, 0)::int AS alloc_wallets_window,
+        COALESCE(pwt.alloc_rows_window, 0)::int AS alloc_rows_window,
+        CASE
+          WHEN COALESCE(ps.target_usd_num, 0)::numeric > 0
+          THEN (COALESCE(pwt.used_usd_window, 0)::numeric / COALESCE(ps.target_usd_num, 0)::numeric)
+          ELSE 0
+        END AS fill_pct_window
+
+      FROM phases_sorted ps
+      , phase_window_totals AS (
+        SELECT
+          p.id AS phase_id,
+          COALESCE(SUM(c.usd_value),0)::numeric AS used_usd_window,
+          COUNT(*)::int AS alloc_rows_window,
+          COUNT(DISTINCT c.wallet_address)::int AS alloc_wallets_window
+        FROM phases p
+        LEFT JOIN contributions c
+          ON COALESCE(c.usd_value,0)::numeric > 0
+        AND COALESCE(c.network,'solana') = 'solana'
+        AND COALESCE(c.alloc_status,'pending') <> 'invalid'
+        AND c.timestamp >= p.opened_at
+        AND c.timestamp < COALESCE(p.closed_at, NOW())
+        GROUP BY p.id
+      )
+      LEFT JOIN phase_virtual_totals pvt ON pvt.phase_id = ps.id
+      LEFT JOIN phase_window_totals  pwt ON pwt.phase_id = ps.id
+      ORDER BY ps.phase_no ASC, ps.id ASC;
     `;
 
     const phases = (rows as AnyRow[]).map((r) => {
@@ -121,11 +144,17 @@ export async function GET(_req: NextRequest) {
         rate_usd_per_megy: rateNum,
         target_usd: pickFirst(r, ['target_usd', 'usd_cap'], null),
 
-        // ✅ progress fields (LIVE)
-        used_usd: pickFirst(r, ['used_usd'], 0),
-        fill_pct: pickFirst(r, ['fill_pct'], 0),
-        alloc_wallets: pickFirst(r, ['alloc_wallets'], 0),
-        alloc_rows: pickFirst(r, ['alloc_rows'], 0),
+        // window => primary live
+        used_usd: pickFirst(r, ['used_usd_window'], 0),
+        fill_pct: pickFirst(r, ['fill_pct_window'], 0),
+        alloc_wallets: pickFirst(r, ['alloc_wallets_window'], 0),
+        alloc_rows: pickFirst(r, ['alloc_rows_window'], 0),
+
+        // forecast => extra
+        used_usd_forecast: pickFirst(r, ['used_usd_forecast'], 0),
+        fill_pct_forecast: pickFirst(r, ['fill_pct_forecast'], 0),
+        alloc_wallets_forecast: pickFirst(r, ['alloc_wallets_forecast'], 0),
+        alloc_rows_forecast: pickFirst(r, ['alloc_rows_forecast'], 0),
 
         opened_at: pickFirst(r, ['opened_at'], null),
         closed_at: pickFirst(r, ['closed_at'], null),

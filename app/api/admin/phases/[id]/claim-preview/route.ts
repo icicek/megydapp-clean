@@ -540,41 +540,19 @@ export async function GET(req: NextRequest, ctx: any) {
       LIMIT 50;
     `) as any[];
 
-    const warnings = buildWarnings({
-      alloc: alloc?.[0] ?? null,
-      snap: snap?.[0] ?? null,
-      phaseFinalizedAt: ph?.[0]?.finalized_at ?? null,
-    });
+    // ✅ LIVE MODE (snapshot yoksa): contributions üzerinden hesapla
+    const wantsLive = !ph?.[0]?.snapshot_taken_at && !ph?.[0]?.finalized_at;
 
-    // Build absolute-ish URLs (relative is ok too, but this is nicer for copy)
-    const origin = req.nextUrl.origin;
-    const jsonUrl = `${origin}/api/admin/phases/${phaseId}/claim-preview`;
-    const htmlUrl = `${origin}/api/admin/phases/${phaseId}/claim-preview?format=html`;
-
-    const payload = {
-      phase: ph[0],
-      totals: {
-        allocations: alloc?.[0] ?? null,
-        claimSnapshots: snap?.[0] ?? null,
-      },
-      top,
-      warnings,
-    };
-
-    const rate = Number(ph[0]?.rate_usd_per_megy || 0);
-    if (!Number.isFinite(rate) || rate <= 0) {
-      return NextResponse.json({ success: false, error: 'BAD_PHASE_RATE' }, { status: 400 });
-    }
-
-    // LIVE MODE: snapshot yoksa contributions üzerinden hesapla
-    const wantsLive = !ph[0]?.snapshot_taken_at;
-
-    let allocRow = null;
-    let snapRow = null;
-    let topRows: any[] = [];
+    let allocRow = alloc?.[0] ?? null;
+    let snapRow  = snap?.[0] ?? null;
+    let topRows  = Array.isArray(top) ? top : [];
 
     if (wantsLive) {
-      // 1) Live wallet allocations for THIS phase
+      const rate = Number(ph?.[0]?.rate_usd_per_megy || 0);
+      if (!Number.isFinite(rate) || rate <= 0) {
+        return NextResponse.json({ success: false, error: 'BAD_PHASE_RATE' }, { status: 400 });
+      }
+
       const liveTop = (await sql`
         WITH phases_sorted AS (
           SELECT
@@ -620,9 +598,7 @@ export async function GET(req: NextRequest, ctx: any) {
           WHERE r.rt > tp.cum_prev AND r.rt_prev < tp.cum_target
         ),
         wallet_alloc AS (
-          SELECT
-            wallet_address,
-            SUM(usd_allocated)::numeric AS usd_sum
+          SELECT wallet_address, SUM(usd_allocated)::numeric AS usd_sum
           FROM alloc
           WHERE usd_allocated > 0
           GROUP BY wallet_address
@@ -653,9 +629,6 @@ export async function GET(req: NextRequest, ctx: any) {
         LIMIT 50;
       `) as any[];
 
-      topRows = liveTop;
-
-      // 2) Live totals (allocRow gibi davranacak)
       const liveTotals = (await sql`
         WITH phases_sorted AS (
           SELECT
@@ -701,9 +674,7 @@ export async function GET(req: NextRequest, ctx: any) {
           WHERE r.rt > tp.cum_prev AND r.rt_prev < tp.cum_target
         ),
         wallet_alloc AS (
-          SELECT
-            wallet_address,
-            SUM(usd_allocated)::numeric AS usd_sum
+          SELECT wallet_address, SUM(usd_allocated)::numeric AS usd_sum
           FROM alloc
           WHERE usd_allocated > 0
           GROUP BY wallet_address
@@ -716,11 +687,34 @@ export async function GET(req: NextRequest, ctx: any) {
       `) as any[];
 
       allocRow = liveTotals?.[0] ?? { n_rows: 0, n_wallets: 0, usd_sum: 0, megy_sum: 0 };
+      snapRow  = { n_wallets: 0, usd_sum: 0, megy_sum: 0, share_ratio_sum: 0 };
+      topRows  = liveTop;
+    }
 
-      // Live mode’da claim_snapshots yokmuş gibi gösteriyoruz
-      snapRow = { n_wallets: 0, usd_sum: 0, megy_sum: 0, share_ratio_sum: 0 };
-    } else {
-      // mevcut snapshot/allocations yolu (senin kodun)
+    const warnings = buildWarnings({
+      alloc: allocRow,
+      snap: snapRow,
+      phaseFinalizedAt: ph?.[0]?.finalized_at ?? null,
+    });
+
+    // Build absolute-ish URLs (relative is ok too, but this is nicer for copy)
+    const origin = req.nextUrl.origin;
+    const jsonUrl = `${origin}/api/admin/phases/${phaseId}/claim-preview`;
+    const htmlUrl = `${origin}/api/admin/phases/${phaseId}/claim-preview?format=html`;
+
+    const payload = {
+      phase: ph[0],
+      totals: {
+        allocations: allocRow,
+        claimSnapshots: snapRow,
+      },
+      top: topRows,
+      warnings,
+    };
+
+    const rate = Number(ph[0]?.rate_usd_per_megy || 0);
+    if (!Number.isFinite(rate) || rate <= 0) {
+      return NextResponse.json({ success: false, error: 'BAD_PHASE_RATE' }, { status: 400 });
     }
 
     if (wantsHtml) {
