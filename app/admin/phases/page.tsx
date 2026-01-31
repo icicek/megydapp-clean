@@ -488,7 +488,7 @@ export default function AdminPhasesPage() {
                                     const isActive = p.status === 'active';
                                     const isCompleted = p.status === 'completed';
                                     const isPlanned = !p.status || p.status === 'planned';
-                                    const canShowClaimPreview = isActive || isCompleted || !!p.snapshot_taken_at;
+                                    const canShowClaimPreview = isCompleted || !!p.snapshot_taken_at;
                                     const isFinalized = !!p.finalized_at;
                                     const canFinalize = isCompleted && !!p.snapshot_taken_at && !isFinalized;
                                     const isBusy = busyId === p.phase_id;

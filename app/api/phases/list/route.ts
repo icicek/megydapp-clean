@@ -215,11 +215,11 @@ export async function GET(_req: NextRequest) {
       phases,
       debug: (debug as AnyRow[])?.[0] ?? null,
     });
-  } catch (e) {
+  } catch (e: any) {
     console.error('GET /api/phases/list failed:', e);
     return NextResponse.json(
-      { success: false, error: 'PHASES_LIST_FAILED' },
+      { success: false, error: 'PHASES_LIST_FAILED', detail: String(e?.message || e) },
       { status: 500 }
     );
-  }
+  }  
 }
