@@ -383,6 +383,16 @@ export default function ClaimPanel() {
     }
   };
 
+  console.log('[ClaimPanel] phase', {
+    phaseId,
+    selectedPhaseId,
+    effectivePhaseId,
+    selectedClaimable,
+    finalizedByPhaseLen: Array.isArray(finalizedClaim?.finalized_by_phase)
+      ? finalizedClaim.finalized_by_phase.length
+      : 0,
+  });
+
   const claimDisabled =
     !effectivePhaseId ||
     phaseLoading ||
@@ -576,6 +586,7 @@ export default function ClaimPanel() {
             </div>
           )}
 
+          console.log('[ClaimPanel] finalized_by_phase raw:', finalizedClaim?.finalized_by_phase);
           {Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 0 && (() => {
             const phases = finalizedClaim.finalized_by_phase
               .slice()
@@ -676,7 +687,7 @@ export default function ClaimPanel() {
 
                             {isSelected && (
                               <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
-                                🟢 Active
+                                🟢 Selected
                               </span>
                             )}
                           </div>
