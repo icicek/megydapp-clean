@@ -389,7 +389,7 @@ export default function ClaimPanel() {
     isClaiming ||
     !claimOpen ||
     selectedClaimable <= 0 ||
-    claimAmount <= 0 ||
+    Number(claimAmount) <= 0 ||
     Number(claimAmount) > selectedClaimable;
 
   const claimButtonLabel = phaseLoading
@@ -401,7 +401,6 @@ export default function ClaimPanel() {
         : selectedClaimable <= 0
           ? '✅ Nothing to claim'
           : `🎉 Claim from Phase #${effectivePhaseId}`;
-
 
   return (
     <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
