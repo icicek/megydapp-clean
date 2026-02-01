@@ -586,7 +586,6 @@ export default function ClaimPanel() {
             </div>
           )}
 
-          console.log('[ClaimPanel] finalized_by_phase raw:', finalizedClaim?.finalized_by_phase);
           {Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 0 && (() => {
             const phases = finalizedClaim.finalized_by_phase
               .slice()
@@ -620,7 +619,7 @@ export default function ClaimPanel() {
                   <p className="text-gray-400">🗂 Snapshot History</p>
 
                   <div className="w-full sm:w-auto flex flex-col sm:flex-row sm:items-center gap-2">
-                    <span className="text-xs text-gray-400 shrink-0">View phase</span>
+                  <span className="text-xs text-gray-400 shrink-0">Select phase</span>
 
                     <select
                       value={activePid ? String(activePid) : ''}
@@ -642,30 +641,6 @@ export default function ClaimPanel() {
                   </div>
                 </div>
 
-                {/* Selected phase summary */}
-                {active && (
-                  <div className="mb-3 bg-emerald-400/10 border border-emerald-400/30 rounded-lg p-3 flex items-center justify-between">
-                    <div className="text-gray-300">
-                      <div className="text-white font-semibold">
-                        Selected: Phase #{active.pid}
-                        <span className="ml-2 text-[11px] text-gray-400 font-normal">(finalized)</span>
-                      </div>
-                      {active.created ? (
-                        <div className="text-xs text-gray-500">{formatDate(String(active.created))}</div>
-                      ) : (
-                        <div className="text-xs text-gray-500">Date: -</div>
-                      )}
-                    </div>
-
-                    <div className="text-right">
-                      <div className="text-xs text-gray-400">Claimable</div>
-                      <div className="font-semibold text-purple-300">
-                        {Math.floor(active.claimable).toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* Full list */}
                 <div className="space-y-2">
                   {ordered.map((p: any) => {
@@ -678,7 +653,7 @@ export default function ClaimPanel() {
                           "rounded-lg border px-3 py-2 flex items-center justify-between gap-3 transition",
                           isSelected
                             ? "border-emerald-400/40 bg-emerald-400/10 shadow-[0_0_0_1px_rgba(52,211,153,0.25)]"
-                            : "border-zinc-700 bg-zinc-900/20 opacity-70 hover:opacity-90",
+                            : "border-zinc-700 bg-zinc-900/20 hover:bg-zinc-800/40",
                         ].join(" ")}
                       >
                         <div className="text-gray-300">
