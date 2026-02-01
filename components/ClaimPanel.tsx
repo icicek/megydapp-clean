@@ -718,7 +718,9 @@ export default function ClaimPanel() {
             </p>
             <p className="text-xs text-gray-400 italic mt-2">
               {claimableFromFinalized != null
-                ? '✅ This amount is finalized from the latest snapshot.'
+                ? (Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 1
+                    ? '✅ This amount is finalized from snapshots (all finalized phases).'
+                    : '✅ This amount is finalized from the latest snapshot.')
                 : '⚠️ This amount is estimated. Final value will be locked at the end of Coincarnation.'}
             </p>
           </div>
