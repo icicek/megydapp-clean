@@ -10,7 +10,7 @@ export async function GET() {
       SELECT id, snapshot_taken_at, status_v2
       FROM phases
       WHERE snapshot_taken_at IS NOT NULL
-        AND LOWER(COALESCE(status_v2, '')) = 'finalized'
+        AND LOWER(COALESCE(status_v2, 'finalized')) = 'finalized'
       ORDER BY snapshot_taken_at DESC
       LIMIT 1
     `;

@@ -288,81 +288,93 @@ export default function ClaimPanel() {
   const claimedTotal = Number(finalizedClaim?.claimed_megy_total ?? 0);
   const fullyClaimed = finalizedTotal > 0 && claimedTotal >= finalizedTotal;
 
+  // Phase selection (Option A: phase-based claim)
+  const latestFinalizedPhaseId = phaseId;
+
+  const effectivePhaseId =
+    (selectedPhaseId != null && Number.isFinite(selectedPhaseId) && selectedPhaseId > 0)
+      ? selectedPhaseId
+      : latestFinalizedPhaseId;
+
+  const selectedPhaseRow =
+    (effectivePhaseId && Array.isArray(finalizedClaim?.finalized_by_phase))
+      ? finalizedClaim.finalized_by_phase.find((p: any) => Number(p.phase_id) === Number(effectivePhaseId))
+      : null;
+
+  const selectedClaimable = selectedPhaseRow
+    ? Math.max(0, Number(selectedPhaseRow.claimable_megy ?? 0))
+    : 0;
+
   const handleClaim = async () => {
-    if (!publicKey || claimAmount <= 0) {
-      setMessage('❌ Please enter a valid claim amount.');
-      return;
-    }
-
-    // finalized varsa claimable guardı client’ta da yapalım
-    if (claimAmount > claimableMegy) {
-      setMessage('❌ Claim amount exceeds your available balance.');
-      return;
-    }
-
     if (phaseLoading) {
       setMessage('⏳ Phase is still loading. Please try again in a second.');
       return;
-    }    
-
-    if (!phaseId) {
+    }
+  
+    if (!effectivePhaseId) {
       setMessage('❌ No finalized phase found. Claims are not ready yet.');
       return;
     }
-
+  
+    if (!publicKey) {
+      setMessage('❌ Please connect your wallet.');
+      return;
+    }
+  
+    const amt = Number(claimAmount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      setMessage('❌ Please enter a valid claim amount.');
+      return;
+    }
+  
+    // ✅ phase bazında guard
+    if (amt > selectedClaimable) {
+      setMessage('❌ Claim amount exceeds selected phase balance.');
+      return;
+    }
+  
     const destination = useAltAddress ? altAddress.trim() : publicKey.toBase58();
     if (!destination) {
       setMessage('❌ Please provide a destination address.');
       return;
     }
-
+  
     setIsClaiming(true);
     setMessage(null);
-
+  
     try {
-      // 🧪 Temporary: ask for tx signature (until we wire the real signed tx flow)
-      const tx_signature = window
-        .prompt('Paste claim transaction signature (tx_signature):')
-        ?.trim();
-
+      const tx_signature = window.prompt('Paste claim transaction signature (tx_signature):')?.trim();
       if (!tx_signature) {
         setMessage('❌ Missing tx signature.');
         return;
       }
-
+  
       const rec = await fetch('/api/claim/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          phase_id: phaseId,
+          phase_id: effectivePhaseId,
           wallet_address: publicKey.toBase58(),
-          claim_amount: claimAmount,
+          claim_amount: amt,
           destination,
           tx_signature,
-          // TODO(claim-fee): Replace hardcoded fee fields with real on-chain fee receipt.
-          // For now we keep them fixed to stabilize API contract.
           sol_fee_paid: true,
           sol_fee_amount: 0,
-        })             
+        }),
       });
-
+  
       const recJson = await rec.json().catch(() => ({}));
       if (!rec.ok || !recJson?.success) {
-        const err = recJson?.error || `Claim record failed (${rec.status})`;
-        setMessage(`❌ ${err}`);
+        setMessage(`❌ ${recJson?.error || `Claim record failed (${rec.status})`}`);
         return;
       }
-
+  
       setMessage('✅ Claim recorded successfully!');
-
-      // Refresh profile after claim
+  
       const refreshed = await fetch(`/api/claim/${publicKey.toBase58()}`, { cache: 'no-store' });
       const refreshedJson = await refreshed.json().catch(() => ({}));
-
-      if (refreshedJson?.success) {
-        setData(refreshedJson.data);
-      }
+      if (refreshedJson?.success) setData(refreshedJson.data);
     } catch (err) {
       console.error('Claim request failed:', err);
       setMessage('❌ Internal error');
@@ -372,22 +384,24 @@ export default function ClaimPanel() {
   };
 
   const claimDisabled =
-    !phaseId ||
+    !effectivePhaseId ||
     phaseLoading ||
-    fullyClaimed ||
     isClaiming ||
+    !claimOpen ||
+    selectedClaimable <= 0 ||
     claimAmount <= 0 ||
-    claimAmount > claimableMegy;
+    Number(claimAmount) > selectedClaimable;
 
   const claimButtonLabel = phaseLoading
     ? '⏳ Loading phase...'
-    : !phaseId
+    : !effectivePhaseId
       ? '❌ No finalized phase'
       : isClaiming
         ? '🚀 Claiming...'
-        : fullyClaimed
-          ? '✅ Fully Claimed'
-          : '🎉 Claim Now';
+        : selectedClaimable <= 0
+          ? '✅ Nothing to claim'
+          : `🎉 Claim from Phase #${effectivePhaseId}`;
+
 
   return (
     <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
@@ -756,19 +770,19 @@ export default function ClaimPanel() {
                 <div className="flex items-center justify-between gap-2 text-xs text-gray-300 font-medium">
                   <button
                     className="bg-zinc-700 px-2 py-1 rounded hover:bg-zinc-600 transition"
-                    onClick={() => setClaimAmount(Math.floor(claimableMegy * 0.25))}
+                    onClick={() => setClaimAmount(Math.floor(selectedClaimable * 0.25))}
                   >
                     %25
                   </button>
                   <button
                     className="bg-zinc-700 px-2 py-1 rounded hover:bg-zinc-600 transition"
-                    onClick={() => setClaimAmount(Math.floor(claimableMegy * 0.5))}
+                    onClick={() => setClaimAmount(Math.floor(selectedClaimable * 0.5))}
                   >
                     %50
                   </button>
                   <button
                     className="bg-zinc-700 px-2 py-1 rounded hover:bg-zinc-600 transition"
-                    onClick={() => setClaimAmount(Math.floor(claimableMegy * 1.0))}
+                    onClick={() => setClaimAmount(Math.floor(selectedClaimable * 1.0))}
                   >
                     %100
                   </button>
