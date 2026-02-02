@@ -778,6 +778,11 @@ export default function ClaimPanel() {
             {claimOpen && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2 text-xs text-gray-300 font-medium">
+                  <div className="text-xs text-gray-400 text-center -mt-1">
+                    Claiming is <span className="text-white/80 font-semibold">per-phase</span>.  
+                    Selected: <span className="text-purple-300 font-semibold">{Math.floor(selectedClaimable).toLocaleString()}</span> — 
+                    Total: <span className="text-purple-300 font-semibold">{Math.floor(Number(finalizedClaim?.claimable_megy_total ?? 0)).toLocaleString()}</span>
+                  </div>
                   <button
                     className="bg-zinc-700 px-2 py-1 rounded hover:bg-zinc-600 transition"
                     onClick={() => setClaimAmount(Math.floor(selectedClaimable * 0.25))}
