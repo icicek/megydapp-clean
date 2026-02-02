@@ -711,14 +711,37 @@ export default function ClaimPanel() {
             )}
           </div>
 
-          <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 mb-4 text-center">
-            <p className="text-sm text-gray-400 mb-1">🎯 Claimable $MEGY</p>
-            <p className="text-2xl font-extrabold text-purple-400">
+          <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 mb-4">
+            <p className="text-sm text-gray-400 mb-3 text-center">🎯 Claimable $MEGY</p>
+
+            {/* Big number stays: total claimable (all phases) */}
+            <p className="text-2xl font-extrabold text-purple-400 text-center">
               {claimableMegy.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </p>
-            <p className="text-xs text-gray-400 italic mt-2">
+
+            {/* Breakdown */}
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
+                <p className="text-xs text-gray-400">Total claimable (all phases)</p>
+                <p className="font-semibold text-white">
+                  {Math.floor(Number(finalizedClaim?.claimable_megy_total ?? 0)).toLocaleString()}
+                </p>
+              </div>
+
+              <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
+                <p className="text-xs text-gray-400">
+                  Selected phase claimable{effectivePhaseId ? ` (Phase #${effectivePhaseId})` : ''}
+                </p>
+                <p className="font-semibold text-white">
+                  {Math.floor(Number(selectedClaimable ?? 0)).toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Footnote */}
+            <p className="text-xs text-gray-400 italic mt-3 text-center">
               {claimableFromFinalized != null
-                ? (Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 1
+                ? ((Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 1)
                     ? '✅ This amount is finalized from snapshots (all finalized phases).'
                     : '✅ This amount is finalized from the latest snapshot.')
                 : '⚠️ This amount is estimated. Final value will be locked at the end of Coincarnation.'}
