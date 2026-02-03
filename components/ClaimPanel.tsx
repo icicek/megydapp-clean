@@ -62,6 +62,7 @@ export default function ClaimPanel() {
   const [altAddress, setAltAddress] = useState('');
   const [phaseId, setPhaseId] = useState<number | null>(null);
   const [phaseLoading, setPhaseLoading] = useState<boolean>(true);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
   const [distributionPool, setDistributionPool] = useState(0);
@@ -225,6 +226,10 @@ export default function ClaimPanel() {
   }, [publicKey]);
 
   useEffect(() => {
+    setSessionId(null);
+  }, [publicKey]);  
+
+  useEffect(() => {
   (async () => {
     try {
       setPhaseLoading(true);
@@ -266,10 +271,10 @@ export default function ClaimPanel() {
   const txs: any[] = Array.isArray(data.transactions) ? data.transactions : [];
 
   const finalizedClaim = data?.claim ?? null;
-  const claimableFromFinalized =
-    finalizedClaim && typeof finalizedClaim.claimable_megy_total === 'number'
-      ? Math.max(0, finalizedClaim.claimable_megy_total)
-      : null;
+  const claimableFromFinalized = (() => {
+    const n = Number(finalizedClaim?.claimable_megy_total ?? NaN);
+    return Number.isFinite(n) ? Math.max(0, n) : null;
+  })();  
 
   // 🔹 Deadcoins Revived sayısını artık backend'den alıyoruz
   const deadcoinsRevived = Number(data.deadcoins_revived ?? 0);
@@ -304,6 +309,42 @@ export default function ClaimPanel() {
   const selectedClaimable = selectedPhaseRow
     ? Math.max(0, Number(selectedPhaseRow.claimable_megy ?? 0))
     : 0;
+
+  const ensureOpenSession = async (destination: string) => {
+    if (!publicKey) throw new Error('NO_WALLET');
+
+    // client cache: zaten session varsa tekrar açma
+    if (sessionId) return sessionId;
+
+    // fee tx signature (bu fee, sizin fee döngüsünü başlatmak için)
+    const feeSig = window
+      .prompt('Paste fee transaction signature (fee_tx_signature):')
+      ?.trim();
+
+    if (!feeSig) throw new Error('MISSING_FEE_TX_SIGNATURE');
+
+    const r = await fetch('/api/claim/session/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        wallet_address: publicKey.toBase58(),
+        destination,
+        fee_tx_signature: feeSig,
+        fee_amount: 0.25, // istersen burada kendi fee amount’unu numeric olarak kaydedebiliriz
+      }),
+    });
+
+    const j = await r.json().catch(() => ({}));
+
+    if (!r.ok || !j?.success) {
+      throw new Error(j?.error || `SESSION_START_FAILED_${r.status}`);
+    }
+
+    const sid = String(j.session_id);
+    setSessionId(sid);
+    return sid;
+  };
 
   const handleClaim = async () => {
     if (phaseLoading) {
@@ -349,11 +390,13 @@ export default function ClaimPanel() {
         return;
       }
   
+      const sid = await ensureOpenSession(destination);
       const rec = await fetch('/api/claim/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
+          session_id: sid,
           phase_id: effectivePhaseId,
           wallet_address: publicKey.toBase58(),
           claim_amount: amt,
@@ -374,7 +417,16 @@ export default function ClaimPanel() {
   
       const refreshed = await fetch(`/api/claim/${publicKey.toBase58()}`, { cache: 'no-store' });
       const refreshedJson = await refreshed.json().catch(() => ({}));
-      if (refreshedJson?.success) setData(refreshedJson.data);
+
+      if (refreshedJson?.success) {
+        setData(refreshedJson.data);
+
+        const remaining = Number(refreshedJson?.data?.claim?.claimable_megy_total ?? 0);
+        if (Number.isFinite(remaining) && remaining <= 0) {
+          setSessionId(null); // döngü bitti → yeni döngüde fee tekrar alınsın
+        }
+      }
+
     } catch (err) {
       console.error('Claim request failed:', err);
       setMessage('❌ Internal error');
@@ -748,8 +800,19 @@ export default function ClaimPanel() {
             </p>
           </div>
 
-          <div className="bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-4 sm:px-4 sm:py-5 space-y-6">
+          <div className="bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-4 sm:px-4 sm:py-5 space-y-4">
             <p className="text-sm font-medium text-gray-300">Claim To Address</p>
+
+            {/* 💸 Claim fee info */}
+            <div className="bg-zinc-900/60 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-gray-400 leading-relaxed">
+              <p>
+                💸 <span className="text-white font-medium">First claim in a session</span> requires a
+                <span className="text-purple-300 font-semibold"> ~$0.25 fee</span> (paid in SOL).
+              </p>
+              <p className="mt-1">
+                ✅ Next claims in the <span className="text-white font-medium">same session</span> are free.
+              </p>
+            </div>
 
             {!useAltAddress ? (
               <p className="text-green-400 text-sm font-mono break-all bg-zinc-900 p-2 rounded">
