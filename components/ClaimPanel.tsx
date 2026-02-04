@@ -312,20 +312,41 @@ export default function ClaimPanel() {
     : 0;
 
   async function ensureOpenSession(wallet: string, destination: string): Promise<string> {
-    // already have a session in state
-    if (sessionId) return sessionId;
-  
-    // Ask for fee tx signature ONLY when opening a new session
-    const feeSig = window
-      .prompt('Paste FEE transaction signature (fee_tx_signature):')
-      ?.trim();
-  
+    const FEE_SOL = 0.002;
+    const FEE_LAMPORTS = Math.round(FEE_SOL * 1_000_000_000); // 2,000,000
+
+    // 1) Önce fee olmadan dene: open session varsa reuse edilecek
+    let r = await fetch('/api/claim/session/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        wallet_address: wallet,
+        destination,
+        // fee_tx_signature yok
+        // fee_amount yok
+      }),
+    });
+
+    let j = await r.json().catch(() => ({}));
+
+    if (r.ok && j?.success && j?.session_id) {
+      const sid = String(j.session_id);
+      setSessionId(sid);
+      return sid;
+    }
+
+    // 2) Open session yoksa backend MISSING_FEE_SIGNATURE döner → fee iste
+    const err = String(j?.error || '');
+    if (err !== 'MISSING_FEE_SIGNATURE') {
+      throw new Error(err || `SESSION_START_FAILED (${r.status})`);
+    }
+
+    const feeSig = window.prompt('Paste FEE transaction signature (fee_tx_signature):')?.trim();
     if (!feeSig) throw new Error('MISSING_FEE_SIGNATURE');
 
-    const FEE_SOL = 0.002;
-    const FEE_LAMPORTS = Math.round(FEE_SOL * 1_000_000_000); // 2,000,000 lamports
-  
-    const r = await fetch('/api/claim/session/start', {
+    // 3) Bu kez fee ile tekrar dene
+    r = await fetch('/api/claim/session/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -336,17 +357,16 @@ export default function ClaimPanel() {
         fee_amount: FEE_LAMPORTS,
       }),
     });
-  
-    const j = await r.json().catch(() => ({}));
+
+    j = await r.json().catch(() => ({}));
     if (!r.ok || !j?.success || !j?.session_id) {
-      const err = j?.error || `SESSION_START_FAILED (${r.status})`;
-      throw new Error(err);
+      throw new Error(j?.error || `SESSION_START_FAILED (${r.status})`);
     }
-  
+
     const sid = String(j.session_id);
     setSessionId(sid);
     return sid;
-  }  
+  }
   
   const handleClaim = async () => {
     if (phaseLoading) {

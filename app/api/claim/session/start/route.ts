@@ -25,8 +25,8 @@ const MAX_TX_AGE_MINUTES = Number(process.env.CLAIM_FEE_MAX_TX_AGE_MINUTES ?? 30
 type Body = {
   wallet_address: string;
   destination: string;
-  fee_tx_signature: string;
-  fee_amount?: number; // lamports (numeric)
+  fee_tx_signature?: string; // ✅ optional (open session varsa gerekmez)
+  fee_amount?: number;       // ✅ optional (open session varsa gerekmez)
 };
 
 function json(status: number, data: any) {
@@ -107,29 +107,39 @@ export async function POST(req: NextRequest) {
 
   const wallet = String(body.wallet_address ?? '').trim();
   const destination = String(body.destination ?? '').trim();
-  const sig = String(body.fee_tx_signature ?? '').trim();
-  const feeLamports = Number(body.fee_amount ?? 0);
+  const sig = String(body.fee_tx_signature ?? '').trim(); // optional
+  const feeLamports = Number(body.fee_amount ?? 0);       // optional
 
-  if (!wallet || !destination || !sig) return json(400, { success: false, error: 'MISSING_FIELDS' });
-  if (!Number.isFinite(feeLamports) || feeLamports <= 0) return json(400, { success: false, error: 'BAD_FEE_AMOUNT' });
+  // ✅ artık sig zorunlu değil (open session varsa)
+  if (!wallet || !destination) return json(400, { success: false, error: 'MISSING_FIELDS' });
 
   // basic pubkey sanity
   if (!isBase58Pubkey(wallet) || !isBase58Pubkey(destination) || !isBase58Pubkey(TREASURY.toBase58())) {
     return json(400, { success: false, error: 'INVALID_PUBKEY' });
   }
 
-  // 1) Open session varsa: reuse (fee tekrar yok)
+  // ✅ 1) Open session varsa: wallet bazlı reuse (destination bağımsız)
   try {
     const open = await sql`
-      SELECT id
+      SELECT id, destination
       FROM claim_sessions
       WHERE wallet_address = ${wallet}
-        AND destination = ${destination}
         AND status = 'open'
       ORDER BY opened_at DESC
       LIMIT 1
     `;
+
     if (open?.length && open[0]?.id) {
+      // (opsiyonel) destination değiştiyse session row'u güncelle
+      const currentDest = String(open[0].destination ?? '').trim();
+      if (currentDest && currentDest !== destination) {
+        await sql`
+          UPDATE claim_sessions
+          SET destination = ${destination}
+          WHERE id = ${open[0].id}
+        `;
+      }
+
       return json(200, { success: true, session_id: open[0].id, reused: true });
     }
   } catch (e) {
@@ -137,7 +147,13 @@ export async function POST(req: NextRequest) {
     return json(500, { success: false, error: 'DB_ERROR_SELECT_OPEN_SESSION' });
   }
 
-  // 2) Fee signature reuse koruması (DB)
+  // ✅ 2) Open session yoksa fee zorunlu
+  if (!sig) return json(400, { success: false, error: 'MISSING_FEE_SIGNATURE' });
+  if (!Number.isFinite(feeLamports) || feeLamports <= 0) {
+    return json(400, { success: false, error: 'BAD_FEE_AMOUNT' });
+  }
+
+  // 3) Fee signature reuse koruması (DB)
   try {
     const used = await sql`
       SELECT id
@@ -153,7 +169,7 @@ export async function POST(req: NextRequest) {
     return json(500, { success: false, error: 'DB_ERROR_SIGNATURE_CHECK' });
   }
 
-  // 3) RPC doğrulama (wallet -> treasury transfer)
+  // 4) RPC doğrulama (wallet -> treasury transfer)
   try {
     await verifyFeeTransfer({
       signature: sig,
@@ -166,7 +182,7 @@ export async function POST(req: NextRequest) {
     return json(400, { success: false, error: msg });
   }
 
-  // 4) Session aç
+  // 5) Session aç
   try {
     const rows = await sql`
       INSERT INTO claim_sessions (
@@ -197,7 +213,6 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     console.error('claim_sessions insert failed:', e);
 
-    // Eğer DB’de UNIQUE constraint varsa, buraya düşebilir
     const msg = String(e?.message ?? '');
     if (msg.toLowerCase().includes('unique') || msg.toLowerCase().includes('duplicate')) {
       return json(409, { success: false, error: 'FEE_SIGNATURE_ALREADY_USED' });

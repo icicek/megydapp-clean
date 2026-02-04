@@ -73,10 +73,6 @@ export async function POST(req: NextRequest) {
       await sql`ROLLBACK`;
       return bad('SESSION_WALLET_MISMATCH', 403);
     }
-    if (String(s[0].destination) !== destination) {
-      await sql`ROLLBACK`;
-      return bad('SESSION_DESTINATION_MISMATCH', 403);
-    }
     if (String(s[0].status) !== 'open') {
       await sql`ROLLBACK`;
       return bad('SESSION_NOT_OPEN', 409);
