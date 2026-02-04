@@ -19,8 +19,8 @@ const TREASURY = new PublicKey(
 );
 
 // toleranslar
-const AMOUNT_TOLERANCE_PCT = 0.02; // %2 tolerans
-const MAX_TX_AGE_MINUTES = 30;
+const AMOUNT_TOLERANCE_PCT = Number(process.env.CLAIM_FEE_TOLERANCE_PCT ?? 0.02); // %2 default
+const MAX_TX_AGE_MINUTES = Number(process.env.CLAIM_FEE_MAX_TX_AGE_MINUTES ?? 30);
 
 type Body = {
   wallet_address: string;
@@ -28,6 +28,20 @@ type Body = {
   fee_tx_signature: string;
   fee_amount?: number; // lamports (numeric)
 };
+
+function json(status: number, data: any) {
+  return NextResponse.json(data, { status });
+}
+
+function isBase58Pubkey(s: string) {
+  try {
+    // eslint-disable-next-line no-new
+    new PublicKey(s);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // Tx içindeki "wallet -> treasury" transferini doğrula
 async function verifyFeeTransfer(opts: {
@@ -44,11 +58,9 @@ async function verifyFeeTransfer(opts: {
   });
 
   if (!tx) throw new Error('FEE_TX_NOT_FOUND');
-
-  // başarısız tx
   if (tx.meta?.err) throw new Error('FEE_TX_FAILED');
 
-  // yaş kontrolü (opsiyonel ama faydalı)
+  // yaş kontrolü
   if (typeof tx.blockTime === 'number') {
     const ageMs = Date.now() - tx.blockTime * 1000;
     if (ageMs > MAX_TX_AGE_MINUTES * 60 * 1000) throw new Error('FEE_TX_TOO_OLD');
@@ -85,44 +97,112 @@ async function verifyFeeTransfer(opts: {
 }
 
 export async function POST(req: NextRequest) {
+  let body: Body | null = null;
   try {
-    const body = (await req.json().catch(() => null)) as Body | null;
-    if (!body) return NextResponse.json({ success: false, error: 'BAD_JSON' }, { status: 400 });
+    body = (await req.json().catch(() => null)) as Body | null;
+  } catch {
+    body = null;
+  }
+  if (!body) return json(400, { success: false, error: 'BAD_JSON' });
 
-    const wallet = String(body.wallet_address ?? '').trim();
-    const destination = String(body.destination ?? '').trim();
-    const sig = String(body.fee_tx_signature ?? '').trim();
+  const wallet = String(body.wallet_address ?? '').trim();
+  const destination = String(body.destination ?? '').trim();
+  const sig = String(body.fee_tx_signature ?? '').trim();
+  const feeLamports = Number(body.fee_amount ?? 0);
 
-    const feeLamports = Number(body.fee_amount ?? 0);
+  if (!wallet || !destination || !sig) return json(400, { success: false, error: 'MISSING_FIELDS' });
+  if (!Number.isFinite(feeLamports) || feeLamports <= 0) return json(400, { success: false, error: 'BAD_FEE_AMOUNT' });
 
-    if (!wallet || !destination || !sig) {
-      return NextResponse.json({ success: false, error: 'MISSING_FIELDS' }, { status: 400 });
+  // basic pubkey sanity
+  if (!isBase58Pubkey(wallet) || !isBase58Pubkey(destination) || !isBase58Pubkey(TREASURY.toBase58())) {
+    return json(400, { success: false, error: 'INVALID_PUBKEY' });
+  }
+
+  // 1) Open session varsa: reuse (fee tekrar yok)
+  try {
+    const open = await sql`
+      SELECT id
+      FROM claim_sessions
+      WHERE wallet_address = ${wallet}
+        AND destination = ${destination}
+        AND status = 'open'
+      ORDER BY opened_at DESC
+      LIMIT 1
+    `;
+    if (open?.length && open[0]?.id) {
+      return json(200, { success: true, session_id: open[0].id, reused: true });
     }
-    if (!Number.isFinite(feeLamports) || feeLamports <= 0) {
-      return NextResponse.json({ success: false, error: 'BAD_FEE_AMOUNT' }, { status: 400 });
-    }
+  } catch (e) {
+    console.error('open session select failed:', e);
+    return json(500, { success: false, error: 'DB_ERROR_SELECT_OPEN_SESSION' });
+  }
 
-    // ✅ RPC doğrulama
+  // 2) Fee signature reuse koruması (DB)
+  try {
+    const used = await sql`
+      SELECT id
+      FROM claim_sessions
+      WHERE fee_tx_signature = ${sig}
+      LIMIT 1
+    `;
+    if (used?.length) {
+      return json(409, { success: false, error: 'FEE_SIGNATURE_ALREADY_USED' });
+    }
+  } catch (e) {
+    console.error('fee signature check failed:', e);
+    return json(500, { success: false, error: 'DB_ERROR_SIGNATURE_CHECK' });
+  }
+
+  // 3) RPC doğrulama (wallet -> treasury transfer)
+  try {
     await verifyFeeTransfer({
       signature: sig,
       payer: wallet,
       treasury: TREASURY,
-      minLamports: Math.floor(feeLamports), // fee_amount'ı "beklenen" olarak kabul ediyoruz
+      minLamports: Math.floor(feeLamports),
     });
+  } catch (e: any) {
+    const msg = String(e?.message ?? 'FEE_VERIFY_FAILED');
+    return json(400, { success: false, error: msg });
+  }
 
-    // ✅ Session aç (DB kolonları: fee_amount, fee_tx_signature, opened_at...)
-    // Eğer “açık session varsa tekrar açma” kuralın varsa burada SELECT ile kontrol ediyorsun varsayıyorum.
+  // 4) Session aç
+  try {
     const rows = await sql`
-      insert into claim_sessions (wallet_address, destination, status, fee_tx_signature, fee_amount, opened_at, total_claimed_in_session)
-      values (${wallet}, ${destination}, 'open', ${sig}, ${feeLamports}, now(), 0)
-      returning id
+      INSERT INTO claim_sessions (
+        wallet_address,
+        destination,
+        status,
+        fee_tx_signature,
+        fee_amount,
+        opened_at,
+        total_claimed_in_session
+      )
+      VALUES (
+        ${wallet},
+        ${destination},
+        'open',
+        ${sig},
+        ${Math.floor(feeLamports)},
+        now(),
+        0
+      )
+      RETURNING id
     `;
 
     const sessionId = rows?.[0]?.id ?? null;
+    if (!sessionId) return json(500, { success: false, error: 'SESSION_CREATE_FAILED' });
 
-    return NextResponse.json({ success: true, session_id: sessionId });
+    return json(200, { success: true, session_id: sessionId, reused: false });
   } catch (e: any) {
-    const msg = String(e?.message || 'UNKNOWN');
-    return NextResponse.json({ success: false, error: msg }, { status: 400 });
+    console.error('claim_sessions insert failed:', e);
+
+    // Eğer DB’de UNIQUE constraint varsa, buraya düşebilir
+    const msg = String(e?.message ?? '');
+    if (msg.toLowerCase().includes('unique') || msg.toLowerCase().includes('duplicate')) {
+      return json(409, { success: false, error: 'FEE_SIGNATURE_ALREADY_USED' });
+    }
+
+    return json(500, { success: false, error: 'DB_ERROR_INSERT_SESSION' });
   }
 }

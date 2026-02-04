@@ -11,6 +11,7 @@ import { buildReferralUrl } from '@/app/lib/origin';
 import type { SharePayload } from '@/components/share/intent';
 import ShareCenter from '@/components/share/ShareCenter';
 import { buildPayload } from '@/components/share/intent';
+import { PublicKey } from '@solana/web3.js';
 
 // 🔽 CorePoint geçmişini çeken küçük helper
 async function fetchCorepointHistory(wallet: string | null): Promise<any[]> {
@@ -310,42 +311,43 @@ export default function ClaimPanel() {
     ? Math.max(0, Number(selectedPhaseRow.claimable_megy ?? 0))
     : 0;
 
-  const ensureOpenSession = async (destination: string) => {
-    if (!publicKey) throw new Error('NO_WALLET');
-
-    // client cache: zaten session varsa tekrar açma
+  async function ensureOpenSession(wallet: string, destination: string): Promise<string> {
+    // already have a session in state
     if (sessionId) return sessionId;
-
-    // fee tx signature (bu fee, sizin fee döngüsünü başlatmak için)
+  
+    // Ask for fee tx signature ONLY when opening a new session
     const feeSig = window
-      .prompt('Paste fee transaction signature (fee_tx_signature):')
+      .prompt('Paste FEE transaction signature (fee_tx_signature):')
       ?.trim();
+  
+    if (!feeSig) throw new Error('MISSING_FEE_SIGNATURE');
 
-    if (!feeSig) throw new Error('MISSING_FEE_TX_SIGNATURE');
-
+    const FEE_SOL = 0.002;
+    const FEE_LAMPORTS = Math.round(FEE_SOL * 1_000_000_000); // 2,000,000 lamports
+  
     const r = await fetch('/api/claim/session/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({
-        wallet_address: publicKey.toBase58(),
+        wallet_address: wallet,
         destination,
         fee_tx_signature: feeSig,
-        fee_amount: 0.25, // istersen burada kendi fee amount’unu numeric olarak kaydedebiliriz
+        fee_amount: FEE_LAMPORTS,
       }),
     });
-
+  
     const j = await r.json().catch(() => ({}));
-
-    if (!r.ok || !j?.success) {
-      throw new Error(j?.error || `SESSION_START_FAILED_${r.status}`);
+    if (!r.ok || !j?.success || !j?.session_id) {
+      const err = j?.error || `SESSION_START_FAILED (${r.status})`;
+      throw new Error(err);
     }
-
+  
     const sid = String(j.session_id);
     setSessionId(sid);
     return sid;
-  };
-
+  }  
+  
   const handleClaim = async () => {
     if (phaseLoading) {
       setMessage('⏳ Phase is still loading. Please try again in a second.');
@@ -382,28 +384,45 @@ export default function ClaimPanel() {
   
     setIsClaiming(true);
     setMessage(null);
+
+    try {
+      // eslint-disable-next-line no-new
+      new PublicKey(destination);
+    } catch {
+      setMessage('❌ Destination address is not a valid Solana wallet.');
+      return;
+    }    
   
     try {
-      const tx_signature = window.prompt('Paste claim transaction signature (tx_signature):')?.trim();
-      if (!tx_signature) {
-        setMessage('❌ Missing tx signature.');
+  
+      const walletBase58 = publicKey.toBase58();
+      const sid = await ensureOpenSession(walletBase58, destination);
+
+      // claim tx signature (this is the real claim tx)
+      const claimTxSig = window
+        .prompt('Paste CLAIM transaction signature (tx_signature):')
+        ?.trim();
+
+      if (!claimTxSig) {
+        setMessage('❌ Missing claim tx signature.');
         return;
       }
-  
-      const sid = await ensureOpenSession(destination);
-      const rec = await fetch('/api/claim/record', {
+
+      const rec = await fetch('/api/claim/record-batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           session_id: sid,
-          phase_id: effectivePhaseId,
-          wallet_address: publicKey.toBase58(),
-          claim_amount: amt,
+          wallet_address: walletBase58,
           destination,
-          tx_signature,
-          sol_fee_paid: true,
-          sol_fee_amount: 0,
+          tx_signature: claimTxSig,
+          items: [
+            {
+              phase_id: effectivePhaseId,
+              claim_amount: amt,
+            },
+          ],
         }),
       });
   
@@ -414,16 +433,22 @@ export default function ClaimPanel() {
       }
   
       setMessage('✅ Claim recorded successfully!');
-  
-      const refreshed = await fetch(`/api/claim/${publicKey.toBase58()}`, { cache: 'no-store' });
+
+      // 🔄 PROFILI YENIDEN ÇEK
+      const refreshed = await fetch(
+        `/api/claim/${publicKey.toBase58()}`,
+        { cache: 'no-store' }
+      );
+
       const refreshedJson = await refreshed.json().catch(() => ({}));
 
       if (refreshedJson?.success) {
         setData(refreshedJson.data);
 
-        const remaining = Number(refreshedJson?.data?.claim?.claimable_megy_total ?? 0);
-        if (Number.isFinite(remaining) && remaining <= 0) {
-          setSessionId(null); // döngü bitti → yeni döngüde fee tekrar alınsın
+        // 🔁 SESSION KAPANIŞ KONTROLÜ (İŞTE ARADIĞIN YER)
+        if (recJson?.session_closed === true) {
+          setSessionId(null); 
+          // ✅ Döngü bitti → yeni claim döngüsünde fee tekrar alınacak
         }
       }
 
@@ -807,7 +832,7 @@ export default function ClaimPanel() {
             <div className="bg-zinc-900/60 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-gray-400 leading-relaxed">
               <p>
                 💸 <span className="text-white font-medium">First claim in a session</span> requires a
-                <span className="text-purple-300 font-semibold"> ~$0.25 fee</span> (paid in SOL).
+                <span className="text-purple-300 font-semibold"> ~0.002 SOL fee</span> (paid in SOL).
               </p>
               <p className="mt-1">
                 ✅ Next claims in the <span className="text-white font-medium">same session</span> are free.
