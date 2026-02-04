@@ -12,6 +12,13 @@ import type { SharePayload } from '@/components/share/intent';
 import ShareCenter from '@/components/share/ShareCenter';
 import { buildPayload } from '@/components/share/intent';
 import { PublicKey } from '@solana/web3.js';
+import { useConnection } from '@solana/wallet-adapter-react';
+import { Transaction, SystemProgram } from '@solana/web3.js';
+
+const TREASURY_PUBKEY = new PublicKey(
+  process.env.NEXT_PUBLIC_CLAIM_FEE_TREASURY ??
+    'D7iqkQmY3ryNFtc9qseUv6kPeVjxsSD98hKN5q3rkYTd'
+);
 
 // 🔽 CorePoint geçmişini çeken küçük helper
 async function fetchCorepointHistory(wallet: string | null): Promise<any[]> {
@@ -50,7 +57,8 @@ type CpConfig = {
 };
 
 export default function ClaimPanel() {
-  const { publicKey } = useWallet();
+  const { publicKey, sendTransaction } = useWallet();
+  const { connection } = useConnection();
 
   const [cpConfig, setCpConfig] = useState<CpConfig | null>(null);
   const [data, setData] = useState<any>(null);
@@ -315,7 +323,7 @@ export default function ClaimPanel() {
     const FEE_SOL = 0.002;
     const FEE_LAMPORTS = Math.round(FEE_SOL * 1_000_000_000); // 2,000,000
 
-    // 1) Önce fee olmadan dene: open session varsa reuse edilecek
+    // 1) First try without fee: reuse open session if exists
     let r = await fetch('/api/claim/session/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -323,8 +331,6 @@ export default function ClaimPanel() {
       body: JSON.stringify({
         wallet_address: wallet,
         destination,
-        // fee_tx_signature yok
-        // fee_amount yok
       }),
     });
 
@@ -336,16 +342,37 @@ export default function ClaimPanel() {
       return sid;
     }
 
-    // 2) Open session yoksa backend MISSING_FEE_SIGNATURE döner → fee iste
+    // 2) No open session → backend asks for fee
     const err = String(j?.error || '');
     if (err !== 'MISSING_FEE_SIGNATURE') {
       throw new Error(err || `SESSION_START_FAILED (${r.status})`);
     }
 
-    const feeSig = window.prompt('Paste FEE transaction signature (fee_tx_signature):')?.trim();
-    if (!feeSig) throw new Error('MISSING_FEE_SIGNATURE');
+    // 3) Production UX: pay fee automatically via wallet
+    if (!publicKey) throw new Error('WALLET_NOT_CONNECTED');
+    if (!connection) throw new Error('RPC_CONNECTION_MISSING');
+    if (!sendTransaction) throw new Error('WALLET_SEND_TX_UNAVAILABLE');
 
-    // 3) Bu kez fee ile tekrar dene
+    setMessage('💸 Paying the 0.002 SOL session fee… Please confirm in your wallet.');
+
+    const tx = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: publicKey,
+        toPubkey: TREASURY_PUBKEY,
+        lamports: FEE_LAMPORTS,
+      })
+    );
+
+    // Send & confirm
+    const rawSig = await sendTransaction(tx, connection);
+    const feeSig = String(rawSig);
+
+    const conf = await connection.confirmTransaction(feeSig, 'confirmed');
+    if (conf?.value?.err) {
+      throw new Error('FEE_TX_FAILED');
+    }
+
+    // 4) Now open the session with fee tx signature
     r = await fetch('/api/claim/session/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -472,12 +499,12 @@ export default function ClaimPanel() {
         }
       }
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('Claim request failed:', err);
-      setMessage('❌ Internal error');
+      setMessage(`❌ ${String(err?.message ?? 'Internal error')}`);
     } finally {
       setIsClaiming(false);
-    }
+    }    
   };
 
   console.log('[ClaimPanel] phase', {
