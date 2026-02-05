@@ -355,6 +355,7 @@ export default function ClaimPanel() {
 
     setMessage('💸 Paying the 0.002 SOL session fee… Please confirm in your wallet.');
 
+    // Build fee transfer transaction: payer (user) -> treasury
     const tx = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: publicKey,
@@ -363,12 +364,31 @@ export default function ClaimPanel() {
       })
     );
 
-    // Send & confirm
-    const rawSig = await sendTransaction(tx, connection);
-    const feeSig = String(rawSig);
+    // 🔒 Make tx more reliable: set fee payer + fresh blockhash
+    tx.feePayer = publicKey;
+    const latest = await connection.getLatestBlockhash('confirmed');
+    tx.recentBlockhash = latest.blockhash;
 
-    const conf = await connection.confirmTransaction(feeSig, 'confirmed');
+    // Send
+    const feeSig = String(await sendTransaction(tx, connection));
+
+    // ✅ Confirm with strategy (avoids 30s ambiguity in many cases)
+    const conf = await connection.confirmTransaction(
+      {
+        signature: feeSig,
+        blockhash: latest.blockhash,
+        lastValidBlockHeight: latest.lastValidBlockHeight,
+      },
+      'confirmed'
+    );
+
     if (conf?.value?.err) {
+      throw new Error('FEE_TX_FAILED');
+    }
+
+    // 🧾 Extra safety: fetch status details (optional but good)
+    const st = await connection.getSignatureStatus(feeSig, { searchTransactionHistory: true });
+    if (st?.value?.err) {
       throw new Error('FEE_TX_FAILED');
     }
 
