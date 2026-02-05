@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import CorePointChart from './CorePointChart';
@@ -11,9 +11,11 @@ import { buildReferralUrl } from '@/app/lib/origin';
 import type { SharePayload } from '@/components/share/intent';
 import ShareCenter from '@/components/share/ShareCenter';
 import { buildPayload } from '@/components/share/intent';
-import { PublicKey } from '@solana/web3.js';
-import { useConnection } from '@solana/wallet-adapter-react';
-import { Transaction, SystemProgram } from '@solana/web3.js';
+import {
+  PublicKey,
+  Transaction,
+  SystemProgram,
+} from '@solana/web3.js';
 
 const TREASURY_PUBKEY = new PublicKey(
   process.env.NEXT_PUBLIC_CLAIM_FEE_TREASURY ??
@@ -364,15 +366,22 @@ export default function ClaimPanel() {
       })
     );
 
-    // 🔒 Make tx more reliable: set fee payer + fresh blockhash
+    // 🔒 Reliability: set fee payer + fresh blockhash
     tx.feePayer = publicKey;
+
     const latest = await connection.getLatestBlockhash('confirmed');
     tx.recentBlockhash = latest.blockhash;
 
-    // Send
-    const feeSig = String(await sendTransaction(tx, connection));
+    // (Optional but helps) minimize “unknown” outcomes on flaky RPC
+    const feeSig = String(
+      await sendTransaction(tx, connection, {
+        skipPreflight: false,
+        preflightCommitment: 'confirmed',
+        maxRetries: 3,
+      } as any)
+    );
 
-    // ✅ Confirm with strategy (avoids 30s ambiguity in many cases)
+    // ✅ Confirm with blockhash strategy
     const conf = await connection.confirmTransaction(
       {
         signature: feeSig,
@@ -383,12 +392,14 @@ export default function ClaimPanel() {
     );
 
     if (conf?.value?.err) {
+      console.error('Fee tx confirm err:', conf.value.err, { feeSig });
       throw new Error('FEE_TX_FAILED');
     }
 
-    // 🧾 Extra safety: fetch status details (optional but good)
+    // 🧾 Extra safety: check final status (sometimes confirm is OK but meta err appears later)
     const st = await connection.getSignatureStatus(feeSig, { searchTransactionHistory: true });
     if (st?.value?.err) {
+      console.error('Fee tx status err:', st.value.err, { feeSig });
       throw new Error('FEE_TX_FAILED');
     }
 
