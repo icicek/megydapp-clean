@@ -325,18 +325,15 @@ export default function ClaimPanel() {
     const FEE_SOL = 0.002;
     const FEE_LAMPORTS = Math.round(FEE_SOL * 1_000_000_000); // 2,000,000
 
-    // 1) First try without fee: reuse open session if exists
+    // 1) First try WITHOUT fee: reuse open session if exists
     let r = await fetch('/api/claim/session/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({
-        wallet_address: wallet,
-        destination,
-      }),
+      body: JSON.stringify({ wallet_address: wallet, destination }),
     });
 
-    let j = await r.json().catch(() => ({}));
+    let j: any = await r.json().catch(() => ({}));
 
     if (r.ok && j?.success && j?.session_id) {
       const sid = String(j.session_id);
@@ -365,42 +362,56 @@ export default function ClaimPanel() {
         lamports: FEE_LAMPORTS,
       })
     );
-
-    // 🔒 Reliability: set fee payer + fresh blockhash
     tx.feePayer = publicKey;
 
-    const latest = await connection.getLatestBlockhash('confirmed');
-    tx.recentBlockhash = latest.blockhash;
-
-    // (Optional but helps) minimize “unknown” outcomes on flaky RPC
+    // ✅ Send (reliable-ish)
     const feeSig = String(
-      await sendTransaction(tx, connection, {
-        skipPreflight: false,
-        preflightCommitment: 'confirmed',
-        maxRetries: 3,
-      } as any)
+      await sendTransaction(
+        tx,
+        connection,
+        {
+          skipPreflight: false,
+          preflightCommitment: 'confirmed',
+          maxRetries: 3,
+        } as any
+      )
     );
 
-    // ✅ Confirm with blockhash strategy
-    const conf = await connection.confirmTransaction(
-      {
-        signature: feeSig,
-        blockhash: latest.blockhash,
-        lastValidBlockHeight: latest.lastValidBlockHeight,
-      },
-      'confirmed'
-    );
+    setMessage('⏳ Confirming fee payment on-chain…');
 
-    if (conf?.value?.err) {
-      console.error('Fee tx confirm err:', conf.value.err, { feeSig });
-      throw new Error('FEE_TX_FAILED');
-    }
+    // ✅ Confirm (robust): poll signature status
+    const start = Date.now();
+    const TIMEOUT_MS = 60_000;
 
-    // 🧾 Extra safety: check final status (sometimes confirm is OK but meta err appears later)
-    const st = await connection.getSignatureStatus(feeSig, { searchTransactionHistory: true });
-    if (st?.value?.err) {
-      console.error('Fee tx status err:', st.value.err, { feeSig });
-      throw new Error('FEE_TX_FAILED');
+    while (true) {
+      const st = await connection.getSignatureStatus(feeSig, {
+        searchTransactionHistory: true,
+      });
+
+      const cs = st?.value?.confirmationStatus;
+
+      if (st?.value?.err) {
+        console.error('Fee tx status err:', st.value.err, { feeSig });
+        throw new Error('FEE_TX_FAILED');
+      }
+
+      if (cs === 'confirmed' || cs === 'finalized') {
+        break;
+      }
+
+      if (Date.now() - start > TIMEOUT_MS) {
+        // last resort: if RPC didn't show status but tx exists, accept
+        const txInfo = await connection.getTransaction(feeSig, {
+          maxSupportedTransactionVersion: 0,
+        });
+
+        if (txInfo?.meta?.err) throw new Error('FEE_TX_FAILED');
+        if (txInfo) break;
+
+        throw new Error('FEE_TX_CONFIRM_TIMEOUT');
+      }
+
+      await new Promise((res) => setTimeout(res, 1200));
     }
 
     // 4) Now open the session with fee tx signature
@@ -417,6 +428,7 @@ export default function ClaimPanel() {
     });
 
     j = await r.json().catch(() => ({}));
+
     if (!r.ok || !j?.success || !j?.session_id) {
       throw new Error(j?.error || `SESSION_START_FAILED (${r.status})`);
     }
