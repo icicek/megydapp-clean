@@ -3,7 +3,7 @@
 'use client';
 
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import CorePointChart from './CorePointChart';
 import Leaderboard from './Leaderboard';
@@ -88,6 +88,7 @@ export default function ClaimPanel() {
   const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
   const [currentPhase, setCurrentPhase] = useState<any | null>(null);
   const [phasesLoading, setPhasesLoading] = useState<boolean>(true);
+  const attemptIdemKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -244,7 +245,11 @@ export default function ClaimPanel() {
 
   useEffect(() => {
     setSessionId(null);
-  }, [publicKey]);  
+  }, [publicKey]);
+
+  useEffect(() => {
+    attemptIdemKeyRef.current = null;
+  }, [claimAmount, altAddress, useAltAddress, selectedPhaseId]);  
 
   useEffect(() => {
   (async () => {
@@ -483,7 +488,13 @@ export default function ClaimPanel() {
       return;
     }
   
-    const amt = Number(claimAmount);
+    const raw = claimAmount.trim();
+    if (!raw) {
+      setMessage('❌ Please enter a claim amount.');
+      return;
+    }
+
+    const amt = Number(raw);
     if (!Number.isFinite(amt) || amt <= 0) {
       setMessage('❌ Please enter a valid claim amount.');
       return;
@@ -518,11 +529,14 @@ export default function ClaimPanel() {
       // 1) Ensure session (auto fee if needed)
       const sid = await ensureOpenSession(walletBase58, destination);
 
-      const idemKey =
-        (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
-          ? crypto.randomUUID()
-          : `claim_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-  
+      if (!attemptIdemKeyRef.current) {
+        attemptIdemKeyRef.current =
+          (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+            ? crypto.randomUUID()
+            : `claim_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      }
+      const idemKey = attemptIdemKeyRef.current;
+      
       // 2) Execute claim (server-side MEGY transfer + DB record)
       const execRes = await fetch('/api/claim/execute', {
         method: 'POST',
@@ -533,7 +547,7 @@ export default function ClaimPanel() {
           wallet_address: walletBase58,
           destination,
           phase_id: effectivePhaseId,
-          claim_amount: claimAmount,
+          claim_amount: raw,
           idempotency_key: idemKey,
         }),
       });
@@ -546,6 +560,7 @@ export default function ClaimPanel() {
       }
   
       setMessage(`✅ Claim sent! Tx: ${execJson.tx_signature}`);
+      attemptIdemKeyRef.current = null;
   
       // ✅ Optional: if backend closes session (only if execute returns it)
       if (execJson?.session_closed === true) {
