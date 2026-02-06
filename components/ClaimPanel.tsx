@@ -517,6 +517,11 @@ export default function ClaimPanel() {
   
       // 1) Ensure session (auto fee if needed)
       const sid = await ensureOpenSession(walletBase58, destination);
+
+      const idemKey =
+        (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+          ? crypto.randomUUID()
+          : `claim_${Date.now()}_${Math.random().toString(16).slice(2)}`;
   
       // 2) Execute claim (server-side MEGY transfer + DB record)
       const execRes = await fetch('/api/claim/execute', {
@@ -528,7 +533,8 @@ export default function ClaimPanel() {
           wallet_address: walletBase58,
           destination,
           phase_id: effectivePhaseId,
-          claim_amount: amt,
+          claim_amount: claimAmount,
+          idempotency_key: idemKey,
         }),
       });
   

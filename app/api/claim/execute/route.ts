@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { createHash } from 'crypto';
 import {
   Connection,
   Keypair,
@@ -32,6 +33,10 @@ function asNum(v: any, d = 0) {
   return Number.isFinite(n) ? n : d;
 }
 
+function asStr(v: any) {
+  return String(v ?? '').trim();
+}
+
 // Accepts MEGY_TREASURY_SECRET_KEY as either:
 // - JSON array string: "[12,34,...]"
 // - base64 string
@@ -39,15 +44,38 @@ function loadKeypair(): Keypair {
   const raw = String(process.env.MEGY_TREASURY_SECRET_KEY || '').trim();
   if (!raw) throw new Error('MISSING_TREASURY_SECRET');
 
-  // JSON array
   if (raw.startsWith('[')) {
     const arr = JSON.parse(raw);
     return Keypair.fromSecretKey(Uint8Array.from(arr));
   }
 
-  // base64
   const buf = Buffer.from(raw, 'base64');
   return Keypair.fromSecretKey(new Uint8Array(buf));
+}
+
+function sha256Hex(s: string): string {
+  return createHash('sha256').update(s).digest('hex');
+}
+
+/**
+ * Parse human amount (string/number) into base units bigint with decimals.
+ * - supports integer strings ("123")
+ * - supports decimal strings ("1.25") up to `decimals`
+ */
+function toBaseUnits(amountLike: string | number, decimals: number): bigint {
+  const raw = String(amountLike ?? '').trim();
+  if (!raw) throw new Error('BAD_AMOUNT');
+
+  // allow digits and one dot
+  if (!/^\d+(\.\d+)?$/.test(raw)) throw new Error('BAD_AMOUNT_FORMAT');
+
+  const [iPart, fPartRaw = ''] = raw.split('.');
+  const fPart = fPartRaw.slice(0, decimals);
+
+  const paddedFrac = fPart.padEnd(decimals, '0'); // right-pad
+  const full = `${iPart}${paddedFrac}`.replace(/^0+/, '') || '0';
+
+  return BigInt(full);
 }
 
 type Body = {
@@ -55,10 +83,12 @@ type Body = {
   wallet_address: string;
   destination: string;
   phase_id: number;
-  claim_amount: number;
+  claim_amount: string | number;
+  idempotency_key?: string | null;
 };
 
 export async function POST(req: NextRequest) {
+  // --- parse body ---
   let body: Body | null = null;
   try {
     body = (await req.json().catch(() => null)) as Body | null;
@@ -67,20 +97,19 @@ export async function POST(req: NextRequest) {
   }
   if (!body) return json(400, { success: false, error: 'BAD_JSON' });
 
-  const sessionId = String(body.session_id || '').trim();
-  const wallet = String(body.wallet_address || '').trim();
-  const destination = String(body.destination || '').trim();
+  const sessionId = asStr(body.session_id);
+  const wallet = asStr(body.wallet_address);
+  const destination = asStr(body.destination);
   const phaseId = asNum(body.phase_id);
-  const amount = asNum(body.claim_amount);
+  const idemKey = asStr(body.idempotency_key ?? '') || null;
 
-  if (!sessionId || !wallet || !destination) {
+  const claimAmountRaw = (body.claim_amount ?? '').toString().trim();
+
+  if (!sessionId || !wallet || !destination || !claimAmountRaw) {
     return json(400, { success: false, error: 'MISSING_FIELDS' });
   }
   if (!Number.isFinite(phaseId) || phaseId <= 0) {
     return json(400, { success: false, error: 'BAD_PHASE_ID' });
-  }
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return json(400, { success: false, error: 'BAD_AMOUNT' });
   }
 
   let walletPk: PublicKey;
@@ -92,14 +121,79 @@ export async function POST(req: NextRequest) {
     return json(400, { success: false, error: 'INVALID_PUBKEY' });
   }
 
-  const MEGY_MINT = String(process.env.MEGY_MINT || '').trim();
+  const MEGY_MINT = asStr(process.env.MEGY_MINT || '');
   if (!MEGY_MINT) return json(500, { success: false, error: 'MISSING_MEGY_MINT' });
+
+  const MEGY_DECIMALS = Number(process.env.MEGY_DECIMALS ?? 9);
+  if (!Number.isFinite(MEGY_DECIMALS) || MEGY_DECIMALS < 0 || MEGY_DECIMALS > 18) {
+    return json(500, { success: false, error: 'BAD_MEGY_DECIMALS' });
+  }
+
+  let amountBase: bigint;
+  let amountAsNumberForDb: number;
+  try {
+    amountBase = toBaseUnits(claimAmountRaw, MEGY_DECIMALS);
+
+    // DB numeric alanına "human amount" olarak yazacağız (senin UI mantığıyla uyumlu).
+    // İstersen ileride base units'i ayrıca kolona ekleriz.
+    const n = Number(claimAmountRaw);
+    if (!Number.isFinite(n) || n <= 0) throw new Error('BAD_AMOUNT');
+    amountAsNumberForDb = n;
+  } catch {
+    return json(400, { success: false, error: 'BAD_AMOUNT' });
+  }
 
   const mintPk = new PublicKey(MEGY_MINT);
 
-  // --- DB validation + claimable check ---
+  // request_hash: content-based idempotency (double-submit guard)
+  const requestHash = sha256Hex(
+    `v1|${wallet}|${destination}|${phaseId}|${claimAmountRaw}`
+  );
+
+  // --- quick idempotency: if idemKey exists and claim already recorded, return it ---
+  if (idemKey) {
+    const ex = await sql`
+      SELECT id, status, tx_signature, session_id, phase_id, wallet_address, destination, claim_amount
+      FROM claims
+      WHERE idempotency_key = ${idemKey}
+      LIMIT 1
+    `;
+    if (ex?.length) {
+      return json(200, {
+        success: true,
+        tx_signature: ex[0].tx_signature,
+        deduped: true,
+        status: ex[0].status,
+      });
+    }
+  }
+
+  // --- content-based dedupe: same requestHash in recent window ---
+  // (helps if frontend accidentally generated a different UUID on retry)
+  const recent = await sql`
+    SELECT id, status, tx_signature, timestamp
+    FROM claims
+    WHERE request_hash = ${requestHash}
+      AND wallet_address = ${wallet}
+      AND phase_id = ${phaseId}
+      AND timestamp > now() - interval '3 minutes'
+    ORDER BY id DESC
+    LIMIT 1
+  `;
+  if (recent?.length) {
+    return json(200, {
+      success: true,
+      tx_signature: recent[0].tx_signature,
+      deduped: true,
+      status: recent[0].status,
+      via: 'request_hash',
+    });
+  }
+
+  // --- DB transaction: lock session + serialize per (wallet, phase, destination) ---
   await sql`BEGIN`;
   try {
+    // Lock session row
     const s = await sql`
       SELECT id, wallet_address, destination, status
       FROM claim_sessions
@@ -107,31 +201,35 @@ export async function POST(req: NextRequest) {
       LIMIT 1
       FOR UPDATE
     `;
-
     if (!s?.length) {
       await sql`ROLLBACK`;
       return json(404, { success: false, error: 'SESSION_NOT_FOUND' });
     }
-
     if (String(s[0].wallet_address) !== wallet) {
       await sql`ROLLBACK`;
       return json(403, { success: false, error: 'SESSION_WALLET_MISMATCH' });
     }
-
     if (String(s[0].status) !== 'open') {
       await sql`ROLLBACK`;
       return json(409, { success: false, error: 'SESSION_NOT_OPEN' });
     }
 
-    // destination mismatch? allowed, because you asked: destination may change but same session
-    // (optional) update destination to latest
+    // Optional: keep destination updated
     if (String(s[0].destination) !== destination) {
       await sql`
-        UPDATE claim_sessions SET destination = ${destination}
+        UPDATE claim_sessions
+        SET destination = ${destination}
         WHERE id = ${sessionId}
       `;
     }
 
+    // Advisory lock (xact-scoped): prevents concurrent execute for same params
+    // Using hashtext ensures bigint key.
+    await sql`
+      SELECT pg_advisory_xact_lock(hashtext(${`claim|${wallet}|${phaseId}|${destination}`}))
+    `;
+
+    // Re-check claimable within the same transaction (prevents race)
     const rows = await sql`
       WITH snap AS (
         SELECT COALESCE(SUM(megy_amount), 0) AS snap_amount
@@ -152,20 +250,19 @@ export async function POST(req: NextRequest) {
     const claimed = asNum(rows?.[0]?.claimed_amount);
     const claimable = Math.max(0, snap - claimed);
 
-    if (amount > claimable) {
+    if (amountAsNumberForDb > claimable) {
       await sql`ROLLBACK`;
       return json(409, {
         success: false,
         error: 'AMOUNT_EXCEEDS_PHASE_CLAIMABLE',
-        want: amount,
+        want: amountAsNumberForDb,
         can: claimable,
         phase_id: phaseId,
       });
     }
 
-    // ✅ At this point, DB checks OK.
-    // We'll COMMIT after on-chain transfer + claim insert.
-    // (We keep transaction open to prevent concurrent double-claim.)
+    // Keep DB tx OPEN while we do on-chain.
+    // This is intentional: prevents concurrent claims until we insert.
   } catch (e) {
     try { await sql`ROLLBACK`; } catch {}
     console.error('execute precheck failed:', e);
@@ -173,6 +270,7 @@ export async function POST(req: NextRequest) {
   }
 
   // --- On-chain transfer (server signs) ---
+  let sig = '';
   try {
     const conn = new Connection(RPC_URL, 'confirmed');
     const treasurySigner = loadKeypair();
@@ -196,16 +294,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // IMPORTANT: amount is MEGY base units? (decimals)
-    // If claim_amount is already in "whole MEGY", you must convert using decimals.
-    // For now we assume claim_amount is already in base units OR MEGY has 0 decimals.
-    // If MEGY has decimals, tell me the decimals and I’ll patch conversion.
     ix.push(
       createTransferInstruction(
         fromAta,
         toAta,
         treasuryOwner,
-        BigInt(Math.floor(amount))
+        amountBase
       )
     );
 
@@ -217,7 +311,7 @@ export async function POST(req: NextRequest) {
 
     tx.sign(treasurySigner);
 
-    const sig = await conn.sendRawTransaction(tx.serialize(), {
+    sig = await conn.sendRawTransaction(tx.serialize(), {
       skipPreflight: false,
       maxRetries: 3,
       preflightCommitment: 'confirmed',
@@ -235,97 +329,153 @@ export async function POST(req: NextRequest) {
     if (conf?.value?.err) {
       throw new Error('CLAIM_TX_FAILED');
     }
+  } catch (e: any) {
+    try { await sql`ROLLBACK`; } catch {}
+    console.error('on-chain transfer failed:', e);
+    return json(500, { success: false, error: String(e?.message || 'TRANSFER_FAILED') });
+  }
 
-    // --- Insert claim row + close session if fully claimed ---
+  // --- Record claim + commit ---
+  try {
+    // Insert claim row (tx_signature NOT NULL satisfied)
+    // Idempotency: if same idemKey races, unique index will protect.
+    // If idemKey is null, content-based request_hash still helps.
+    let inserted: any[] = [];
     try {
-      // tx_signature reuse guard is already in DB indexes (unique)
-      const ins = await sql`
+      inserted = await sql`
         INSERT INTO claims (
-          phase_id,
           wallet_address,
           claim_amount,
           destination,
           tx_signature,
-          session_id,
           sol_fee_paid,
+          timestamp,
           sol_fee_amount,
-          timestamp
+          phase_id,
+          session_id,
+          status,
+          idempotency_key,
+          request_hash,
+          error
         )
         VALUES (
-          ${phaseId},
           ${wallet},
-          ${amount},
+          ${amountAsNumberForDb},
           ${destination},
           ${sig},
-          ${sessionId},
           ${true},
+          now(),
           ${0},
-          now()
+          ${phaseId},
+          ${sessionId},
+          ${'confirmed'},
+          ${idemKey},
+          ${requestHash},
+          ${null}
         )
         RETURNING id
       `;
-
-      if (!ins?.length) {
-        throw new Error('CLAIM_INSERT_FAILED');
+    } catch (e: any) {
+      // If idempotency_key conflict (or request_hash unique if you ever add it), fetch existing
+      if (idemKey) {
+        const ex = await sql`
+          SELECT id, status, tx_signature
+          FROM claims
+          WHERE idempotency_key = ${idemKey}
+          LIMIT 1
+        `;
+        if (ex?.length) {
+          await sql`COMMIT`;
+          return json(200, {
+            success: true,
+            tx_signature: ex[0].tx_signature,
+            deduped: true,
+            status: ex[0].status,
+          });
+        }
       }
 
+      // If not idemKey, try request_hash
+      const ex2 = await sql`
+        SELECT id, status, tx_signature
+        FROM claims
+        WHERE request_hash = ${requestHash}
+          AND wallet_address = ${wallet}
+          AND phase_id = ${phaseId}
+        ORDER BY id DESC
+        LIMIT 1
+      `;
+      if (ex2?.length) {
+        await sql`COMMIT`;
+        return json(200, {
+          success: true,
+          tx_signature: ex2[0].tx_signature,
+          deduped: true,
+          status: ex2[0].status,
+          via: 'request_hash',
+        });
+      }
+
+      throw e;
+    }
+
+    if (!inserted?.length) {
+      throw new Error('CLAIM_INSERT_FAILED');
+    }
+
+    await sql`
+      UPDATE claim_sessions
+      SET total_claimed_in_session = COALESCE(total_claimed_in_session, 0) + ${amountAsNumberForDb}
+      WHERE id = ${sessionId}
+    `;
+
+    // Close session if user has nothing left across ALL phases (optional behavior)
+    const totals = await sql`
+      WITH snaps AS (
+        SELECT COALESCE(SUM(megy_amount), 0) AS snap_sum
+        FROM claim_snapshots
+        WHERE wallet_address = ${wallet}
+      ),
+      cls AS (
+        SELECT COALESCE(SUM(claim_amount), 0) AS claimed_sum
+        FROM claims
+        WHERE wallet_address = ${wallet}
+      )
+      SELECT
+        (SELECT snap_sum FROM snaps) AS snap_sum,
+        (SELECT claimed_sum FROM cls) AS claimed_sum
+    `;
+
+    const snapSum = asNum(totals?.[0]?.snap_sum);
+    const claimedSum = asNum(totals?.[0]?.claimed_sum);
+    const totalClaimable = Math.max(0, snapSum - claimedSum);
+
+    let closed = false;
+    if (totalClaimable <= 0) {
       await sql`
         UPDATE claim_sessions
-        SET total_claimed_in_session = COALESCE(total_claimed_in_session, 0) + ${amount}
-        WHERE id = ${sessionId}
+        SET status = 'closed', closed_at = now()
+        WHERE id = ${sessionId} AND status = 'open'
       `;
-
-      const totals = await sql`
-        WITH snaps AS (
-          SELECT COALESCE(SUM(megy_amount), 0) AS snap_sum
-          FROM claim_snapshots
-          WHERE wallet_address = ${wallet}
-        ),
-        cls AS (
-          SELECT COALESCE(SUM(claim_amount), 0) AS claimed_sum
-          FROM claims
-          WHERE wallet_address = ${wallet}
-        )
-        SELECT
-          (SELECT snap_sum FROM snaps) AS snap_sum,
-          (SELECT claimed_sum FROM cls) AS claimed_sum
-      `;
-
-      const snapSum = asNum(totals?.[0]?.snap_sum);
-      const claimedSum = asNum(totals?.[0]?.claimed_sum);
-      const totalClaimable = Math.max(0, snapSum - claimedSum);
-
-      let closed = false;
-      if (totalClaimable <= 0) {
-        await sql`
-          UPDATE claim_sessions
-          SET status = 'closed', closed_at = now()
-          WHERE id = ${sessionId} AND status = 'open'
-        `;
-        closed = true;
-      }
-
-      await sql`COMMIT`;
-
-      return json(200, {
-        success: true,
-        tx_signature: sig,
-        session_closed: closed,
-        total_claimable_remaining: totalClaimable,
-      });
-    } catch (e) {
-      try { await sql`ROLLBACK`; } catch {}
-      console.error('DB insert after transfer failed:', e);
-      // ⚠️ Worst-case: tx sent but DB failed. Needs reconciliation.
-      return json(500, {
-        success: false,
-        error: 'DB_RECORD_FAILED_AFTER_TRANSFER',
-        tx_signature: sig,
-      });
+      closed = true;
     }
+
+    await sql`COMMIT`;
+
+    return json(200, {
+      success: true,
+      tx_signature: sig,
+      session_closed: closed,
+      total_claimable_remaining: totalClaimable,
+      megy_decimals: MEGY_DECIMALS,
+    });
   } catch (e: any) {
     try { await sql`ROLLBACK`; } catch {}
-    console.error('execute failed:', e);
-    return json(500, { success: false, error: String(e?.message || 'EXECUTE_FAILED') });
+    console.error('DB record failed after transfer:', e);
+    return json(500, {
+      success: false,
+      error: 'DB_RECORD_FAILED_AFTER_TRANSFER',
+      tx_signature: sig,
+    });
   }
 }
