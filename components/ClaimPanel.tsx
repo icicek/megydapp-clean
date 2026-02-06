@@ -64,11 +64,11 @@ export default function ClaimPanel() {
 
   const [cpConfig, setCpConfig] = useState<CpConfig | null>(null);
   const [data, setData] = useState<any>(null);
-  const [claimAmount, setClaimAmount] = useState(0);
+  const [claimAmount, setClaimAmount] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [claimOpen, setClaimOpen] = useState(true);
+  const [claimOpen, setClaimOpen] = useState(false);
   const [useAltAddress, setUseAltAddress] = useState(false);
   const [altAddress, setAltAddress] = useState('');
   const [phaseId, setPhaseId] = useState<number | null>(null);
@@ -86,11 +86,12 @@ export default function ClaimPanel() {
   const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
   const [shareAnchor, setShareAnchor] = useState<string | undefined>(undefined);
   const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
-  const [phasesList, setPhasesList] = useState<any[]>([]);
   const [currentPhase, setCurrentPhase] = useState<any | null>(null);
   const [phasesLoading, setPhasesLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    let alive = true;
+  
     const fetchData = async () => {
       if (!publicKey) return;
       setLoading(true);
@@ -101,17 +102,18 @@ export default function ClaimPanel() {
           fetch('/api/coincarnation/stats'),
           fetch('/api/admin/config/distribution_pool'),
         ]);
-
+  
         const [claimStatus, userData, globalData, poolData] = await Promise.all([
           claimStatusRes.json().catch(() => ({})),
           userRes.json().catch(() => ({})),
           globalRes.json().catch(() => ({})),
           poolRes.json().catch(() => ({})),
         ]);
-
+  
+        if (!alive) return;
+  
         setClaimOpen(asBool(claimStatus?.value));
-
-        // ✅ Boş profil desteği: success değilse de UI açık kalsın
+  
         if (userData?.success) {
           setData(userData.data);
         } else {
@@ -141,29 +143,35 @@ export default function ClaimPanel() {
               claimed_megy_total: 0,
               claimable_megy_total: 0,
               finalized_by_phase: [],
-            },            
+            },
           });
         }
-
+  
         if (globalData?.success) {
           setGlobalStats({
             totalUsd: Number(globalData.totalUsd ?? 0),
             totalParticipants: Number(globalData.totalParticipants ?? 0),
           });
         }
-
+  
         if (poolData?.success) {
           setDistributionPool(Number(poolData.value ?? 0));
         }
       } catch (err) {
+        if (!alive) return;
         console.error('Claim fetch error:', err);
       } finally {
+        if (!alive) return;
         setLoading(false);
       }
     };
-
+  
     fetchData();
-  }, [publicKey]);
+  
+    return () => {
+      alive = false;
+    };
+  }, [publicKey]);  
 
   // CorePoint config (server-side weights → UI descriptions)
   useEffect(() => {
@@ -200,7 +208,6 @@ export default function ClaimPanel() {
         const r = await fetch('/api/phases/list', { cache: 'no-store' });
         const j = await r.json().catch(() => ({}));
         const list = Array.isArray(j?.phases) ? j.phases : [];
-        setPhasesList(list);
   
         const norm = (s: any) => String(s ?? '').toLowerCase().trim();
   
@@ -213,7 +220,6 @@ export default function ClaimPanel() {
         setCurrentPhase(active);
       } catch (e) {
         console.warn('phases list fetch failed:', e);
-        setPhasesList([]);
         setCurrentPhase(null);
       } finally {
         setPhasesLoading(false);
@@ -302,7 +308,6 @@ export default function ClaimPanel() {
 
   const finalizedTotal = Number(finalizedClaim?.finalized_megy_total ?? 0);
   const claimedTotal = Number(finalizedClaim?.claimed_megy_total ?? 0);
-  const fullyClaimed = finalizedTotal > 0 && claimedTotal >= finalizedTotal;
 
   // Phase selection (Option A: phase-based claim)
   const latestFinalizedPhaseId = phaseId;
@@ -352,7 +357,11 @@ export default function ClaimPanel() {
     if (!connection) throw new Error('RPC_CONNECTION_MISSING');
     if (!sendTransaction) throw new Error('WALLET_SEND_TX_UNAVAILABLE');
 
-    setMessage('💸 Paying the 0.002 SOL session fee… Please confirm in your wallet.');
+    {claimOpen && (
+      <div className="bg-zinc-900/60 ...">
+        setMessage('💸 Paying the 0.002 SOL session fee… Please confirm in your wallet.');
+      </div>
+    )}
 
     // Build fee transfer transaction: payer (user) -> treasury
     const tx = new Transaction().add(
@@ -363,6 +372,9 @@ export default function ClaimPanel() {
       })
     );
     tx.feePayer = publicKey;
+
+    const latest = await connection.getLatestBlockhash('confirmed');
+    tx.recentBlockhash = latest.blockhash;
 
     // ✅ Send (reliable-ish)
     const feeSig = String(
@@ -379,39 +391,55 @@ export default function ClaimPanel() {
 
     setMessage('⏳ Confirming fee payment on-chain…');
 
-    // ✅ Confirm (robust): poll signature status
-    const start = Date.now();
-    const TIMEOUT_MS = 60_000;
+    let confirmedByConfirmTx = false;
 
-    while (true) {
-      const st = await connection.getSignatureStatus(feeSig, {
-        searchTransactionHistory: true,
-      });
+    try {
+      await connection.confirmTransaction(
+        {
+          signature: feeSig,
+          blockhash: latest.blockhash,
+          lastValidBlockHeight: latest.lastValidBlockHeight,
+        },
+        'confirmed'
+      );
+      confirmedByConfirmTx = true;
+    } catch (e) {
+      console.warn('[ClaimPanel] confirmTransaction failed; falling back to polling', e);
+    }
 
-      const cs = st?.value?.confirmationStatus;
+    if (!confirmedByConfirmTx) {
+      const start = Date.now();
+      const TIMEOUT_MS = 60_000;
 
-      if (st?.value?.err) {
-        console.error('Fee tx status err:', st.value.err, { feeSig });
-        throw new Error('FEE_TX_FAILED');
-      }
-
-      if (cs === 'confirmed' || cs === 'finalized') {
-        break;
-      }
-
-      if (Date.now() - start > TIMEOUT_MS) {
-        // last resort: if RPC didn't show status but tx exists, accept
-        const txInfo = await connection.getTransaction(feeSig, {
-          maxSupportedTransactionVersion: 0,
+      while (true) {
+        const st = await connection.getSignatureStatus(feeSig, {
+          searchTransactionHistory: true,
         });
 
-        if (txInfo?.meta?.err) throw new Error('FEE_TX_FAILED');
-        if (txInfo) break;
+        const cs = st?.value?.confirmationStatus;
 
-        throw new Error('FEE_TX_CONFIRM_TIMEOUT');
+        if (st?.value?.err) {
+          console.error('Fee tx status err:', st.value.err, { feeSig });
+          throw new Error('FEE_TX_FAILED');
+        }
+
+        if (cs === 'confirmed' || cs === 'finalized') {
+          break;
+        }
+
+        if (Date.now() - start > TIMEOUT_MS) {
+          const txInfo = await connection.getTransaction(feeSig, {
+            maxSupportedTransactionVersion: 0,
+          });
+
+          if (txInfo?.meta?.err) throw new Error('FEE_TX_FAILED');
+          if (txInfo) break;
+
+          throw new Error('FEE_TX_CONFIRM_TIMEOUT');
+        }
+
+        await new Promise((res) => setTimeout(res, 1200));
       }
-
-      await new Promise((res) => setTimeout(res, 1200));
     }
 
     // 4) Now open the session with fee tx signature
@@ -423,7 +451,8 @@ export default function ClaimPanel() {
         wallet_address: wallet,
         destination,
         fee_tx_signature: feeSig,
-        fee_amount: FEE_LAMPORTS,
+        fee_amount_lamports: FEE_LAMPORTS,
+        fee_amount_sol: FEE_SOL,
       }),
     });
 
@@ -460,7 +489,6 @@ export default function ClaimPanel() {
       return;
     }
   
-    // ✅ phase bazında guard
     if (amt > selectedClaimable) {
       setMessage('❌ Claim amount exceeds selected phase balance.');
       return;
@@ -472,33 +500,26 @@ export default function ClaimPanel() {
       return;
     }
   
-    setIsClaiming(true);
-    setMessage(null);
-
     try {
+      // validate destination pubkey
       // eslint-disable-next-line no-new
       new PublicKey(destination);
     } catch {
       setMessage('❌ Destination address is not a valid Solana wallet.');
       return;
-    }    
+    }
+  
+    setIsClaiming(true);
+    setMessage(null);
   
     try {
-  
       const walletBase58 = publicKey.toBase58();
+  
+      // 1) Ensure session (auto fee if needed)
       const sid = await ensureOpenSession(walletBase58, destination);
-
-      // claim tx signature (this is the real claim tx)
-      const claimTxSig = window
-        .prompt('Paste CLAIM transaction signature (tx_signature):')
-        ?.trim();
-
-      if (!claimTxSig) {
-        setMessage('❌ Missing claim tx signature.');
-        return;
-      }
-
-      const rec = await fetch('/api/claim/record-batch', {
+  
+      // 2) Execute claim (server-side MEGY transfer + DB record)
+      const execRes = await fetch('/api/claim/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -506,59 +527,52 @@ export default function ClaimPanel() {
           session_id: sid,
           wallet_address: walletBase58,
           destination,
-          tx_signature: claimTxSig,
-          items: [
-            {
-              phase_id: effectivePhaseId,
-              claim_amount: amt,
-            },
-          ],
+          phase_id: effectivePhaseId,
+          claim_amount: amt,
         }),
       });
   
-      const recJson = await rec.json().catch(() => ({}));
-      if (!rec.ok || !recJson?.success) {
-        setMessage(`❌ ${recJson?.error || `Claim record failed (${rec.status})`}`);
+      const execJson: any = await execRes.json().catch(() => ({}));
+  
+      if (!execRes.ok || !execJson?.success) {
+        setMessage(`❌ ${execJson?.error || `CLAIM_EXECUTE_FAILED (${execRes.status})`}`);
         return;
       }
   
-      setMessage('✅ Claim recorded successfully!');
-
-      // 🔄 PROFILI YENIDEN ÇEK
-      const refreshed = await fetch(
-        `/api/claim/${publicKey.toBase58()}`,
-        { cache: 'no-store' }
-      );
-
-      const refreshedJson = await refreshed.json().catch(() => ({}));
-
-      if (refreshedJson?.success) {
-        setData(refreshedJson.data);
-
-        // 🔁 SESSION KAPANIŞ KONTROLÜ (İŞTE ARADIĞIN YER)
-        if (recJson?.session_closed === true) {
-          setSessionId(null); 
-          // ✅ Döngü bitti → yeni claim döngüsünde fee tekrar alınacak
-        }
+      setMessage(`✅ Claim sent! Tx: ${execJson.tx_signature}`);
+  
+      // ✅ Optional: if backend closes session (only if execute returns it)
+      if (execJson?.session_closed === true) {
+        setSessionId(null);
       }
-
+  
+      // 3) Refresh profile
+      const refreshed = await fetch(`/api/claim/${walletBase58}`, { cache: 'no-store' });
+      const refreshedJson: any = await refreshed.json().catch(() => ({}));
+      if (refreshed.ok && refreshedJson?.success) {
+        setData(refreshedJson.data);
+      }
     } catch (err: any) {
       console.error('Claim request failed:', err);
       setMessage(`❌ ${String(err?.message ?? 'Internal error')}`);
     } finally {
       setIsClaiming(false);
-    }    
-  };
+    }
+  };  
 
-  console.log('[ClaimPanel] phase', {
-    phaseId,
-    selectedPhaseId,
-    effectivePhaseId,
-    selectedClaimable,
-    finalizedByPhaseLen: Array.isArray(finalizedClaim?.finalized_by_phase)
-      ? finalizedClaim.finalized_by_phase.length
-      : 0,
-  });
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[ClaimPanel] phase', {
+      phaseId,
+      selectedPhaseId,
+      effectivePhaseId,
+      selectedClaimable,
+      finalizedByPhaseLen: Array.isArray(finalizedClaim?.finalized_by_phase)
+        ? finalizedClaim.finalized_by_phase.length
+        : 0,
+    });
+  }  
+
+  const isClaimAmountEmpty = claimAmount.trim() === '';
 
   const claimDisabled =
     !effectivePhaseId ||
@@ -566,7 +580,7 @@ export default function ClaimPanel() {
     isClaiming ||
     !claimOpen ||
     selectedClaimable <= 0 ||
-    Number(claimAmount) <= 0 ||
+    isClaimAmountEmpty ||
     Number(claimAmount) > selectedClaimable;
 
   const claimButtonLabel = phaseLoading
@@ -607,7 +621,7 @@ export default function ClaimPanel() {
               className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 min-h-[100px] flex flex-col justify-between relative cursor-pointer hover:bg-zinc-700 transition"
               onClick={() => {
                 if (!data?.referral_code) return;
-                const url = buildReferralUrl(data.referral_code);
+                const url = buildReferralUrl(data.referral_code ?? '');
                 navigator.clipboard.writeText(url);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
@@ -955,42 +969,68 @@ export default function ClaimPanel() {
 
             {claimOpen && (
               <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2 text-xs text-gray-300 font-medium">
-                  <div className="text-xs text-gray-400 text-center -mt-1">
-                    Claiming is <span className="text-white/80 font-semibold">per-phase</span>.  
-                    Selected: <span className="text-purple-300 font-semibold">{Math.floor(selectedClaimable).toLocaleString()}</span> — 
-                    Total: <span className="text-purple-300 font-semibold">{Math.floor(Number(finalizedClaim?.claimable_megy_total ?? 0)).toLocaleString()}</span>
-                  </div>
-                  <button
-                    className="bg-zinc-700 px-2 py-1 rounded hover:bg-zinc-600 transition"
-                    onClick={() => setClaimAmount(Math.floor(selectedClaimable * 0.25))}
-                  >
-                    %25
-                  </button>
-                  <button
-                    className="bg-zinc-700 px-2 py-1 rounded hover:bg-zinc-600 transition"
-                    onClick={() => setClaimAmount(Math.floor(selectedClaimable * 0.5))}
-                  >
-                    %50
-                  </button>
-                  <button
-                    className="bg-zinc-700 px-2 py-1 rounded hover:bg-zinc-600 transition"
-                    onClick={() => setClaimAmount(Math.floor(selectedClaimable * 1.0))}
-                  >
-                    %100
-                  </button>
+                <div className="text-xs text-gray-400 text-center -mt-1">
+                  Claiming is <span className="text-white/80 font-semibold">per-phase</span>.{' '}
+                  Selected:{' '}
+                  <span className="text-purple-300 font-semibold">
+                    {Math.floor(selectedClaimable).toLocaleString()}
+                  </span>{' '}
+                  — Total:{' '}
+                  <span className="text-purple-300 font-semibold">
+                    {Math.floor(Number(finalizedClaim?.claimable_megy_total ?? 0)).toLocaleString()}
+                  </span>
                 </div>
 
-                <input
-                  type="number"
-                  value={claimAmount}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    setClaimAmount(Number.isFinite(v) ? v : 0);
-                  }}
-                  placeholder="Enter amount to claim"
-                  className="w-full bg-zinc-900 border border-zinc-600 p-2 rounded-md text-sm text-white"
-                />
+                {selectedClaimable > 0 && (
+                  <div className="space-y-2">
+                    {/* Quick buttons */}
+                    <div className="flex items-center justify-between gap-2 text-xs text-gray-300 font-medium">
+                      <button
+                        type="button"
+                        className="bg-zinc-700 px-2 py-1 rounded hover:bg-zinc-600 transition"
+                        onClick={() => setClaimAmount(String(Math.floor(selectedClaimable * 0.25)))}
+                      >
+                        %25
+                      </button>
+
+                      <button
+                        type="button"
+                        className="bg-zinc-700 px-2 py-1 rounded hover:bg-zinc-600 transition"
+                        onClick={() => setClaimAmount(String(Math.floor(selectedClaimable * 0.5)))}
+                      >
+                        %50
+                      </button>
+
+                      <button
+                        type="button"
+                        className="bg-zinc-700 px-2 py-1 rounded hover:bg-zinc-600 transition"
+                        onClick={() => setClaimAmount(String(Math.floor(selectedClaimable)))}
+                      >
+                        %100
+                      </button>
+                    </div>
+
+                    {/* Amount input */}
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={claimAmount}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/[^\d]/g, '');
+                        setClaimAmount(v);
+                      }}
+                      placeholder="Enter amount to claim"
+                      className="w-full bg-zinc-900 border border-zinc-600 p-2 rounded-md text-sm text-white"
+                    />
+
+                    {/* Helper text */}
+                    {isClaimAmountEmpty && (
+                      <p className="text-xs text-yellow-400 text-center">
+                        ⚠️ Enter an amount to claim
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1015,13 +1055,42 @@ export default function ClaimPanel() {
             })()}
 
             {claimOpen ? (
-              <button
-                onClick={handleClaim}
-                disabled={claimDisabled}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:scale-105 transition-all text-white font-bold py-3 rounded-xl disabled:opacity-50"
-              >
-                {claimButtonLabel}
-              </button>
+              <>
+                {effectivePhaseId && selectedClaimable <= 0 && (
+                  <p className="text-center text-xs text-yellow-300 mb-2">
+                    ⚠️ No claimable balance found for the selected phase. Please select another finalized phase.
+                  </p>
+                )}
+
+                <div className="relative group">
+                  <button
+                    onClick={handleClaim}
+                    disabled={claimDisabled}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:scale-105 transition-all text-white font-bold py-3 rounded-xl disabled:opacity-50"
+                  >
+                    {claimButtonLabel}
+                  </button>
+
+                  {/* Tooltip */}
+                  {claimOpen && effectivePhaseId && selectedClaimable > 0 && (
+                    <div
+                      className={[
+                        "pointer-events-none absolute left-1/2 -translate-x-1/2 -top-2 -translate-y-full",
+                        "opacity-0 group-hover:opacity-100 transition-opacity duration-150",
+                        "px-3 py-2 rounded-lg text-xs",
+                        "bg-zinc-900 border border-zinc-700 text-gray-200 shadow-lg",
+                        "whitespace-nowrap",
+                      ].join(" ")}
+                    >
+                      You can claim up to{" "}
+                      <span className="text-purple-300 font-semibold">
+                        {Math.floor(selectedClaimable).toLocaleString()}
+                      </span>{" "}
+                      MEGY in this phase.
+                    </div>
+                  )}
+                </div>
+              </>
             ) : (
               <p className="text-yellow-400 text-center font-medium mt-4">
                 ⚠️ Claiming is currently closed. You will be able to claim when the window opens.
@@ -1086,7 +1155,7 @@ export default function ClaimPanel() {
                       <td className="px-4 py-2 text-center">
                       <button
                         onClick={() => {
-                          const url = buildReferralUrl(data.referral_code);
+                          const url = buildReferralUrl(data.referral_code ?? '');
 
                           const payload = buildPayload(
                             'contribution',
@@ -1119,8 +1188,6 @@ export default function ClaimPanel() {
                             rawTxId
                               ? `contribution:${wallet}:${rawTxId}`
                               : `contribution:${wallet}:idx-${index}`;
-
-                          console.log('[ClaimPanel] open share from history', { rawTxId, anchor, tx });
 
                           // ✅ CP kuralı:
                           //    - Aynı tx için X (twitter) ve Copy (copy) ayrı ayrı 1 kez CP alabilir.
@@ -1269,7 +1336,7 @@ export default function ClaimPanel() {
                     <button
                       onClick={() => {
                         if (!data.referral_code) return;
-                        const url = buildReferralUrl(data.referral_code);
+                        const url = buildReferralUrl(data.referral_code ?? '');
                         navigator.clipboard.writeText(url);
                         setCopied(true);
                         setTimeout(() => setCopied(false), 2000);
@@ -1282,7 +1349,7 @@ export default function ClaimPanel() {
                       onClick={() => {
                         if (!data.referral_code) return;
 
-                        const url = buildReferralUrl(data.referral_code);
+                        const url = buildReferralUrl(data.referral_code ?? '');
 
                         const payload = buildPayload(
                           'profile',
