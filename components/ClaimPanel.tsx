@@ -74,6 +74,7 @@ export default function ClaimPanel() {
   const [phaseId, setPhaseId] = useState<number | null>(null);
   const [phaseLoading, setPhaseLoading] = useState<boolean>(true);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [feeSigForSupport, setFeeSigForSupport] = useState<string | null>(null);
 
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
   const [distributionPool, setDistributionPool] = useState(0);
@@ -332,8 +333,8 @@ export default function ClaimPanel() {
     : 0;
 
   async function ensureOpenSession(wallet: string, destination: string): Promise<string> {
-    const FEE_SOL = 0.002;
-    const FEE_LAMPORTS = Math.round(FEE_SOL * 1_000_000_000); // 2,000,000
+    const FEE_SOL = 0.003;
+    const FEE_LAMPORTS = Math.round(FEE_SOL * 1_000_000_000); // 3,000,000
 
     // 1) First try WITHOUT fee: reuse open session if exists
     let r = await fetch('/api/claim/session/start', {
@@ -348,6 +349,8 @@ export default function ClaimPanel() {
     if (r.ok && j?.success && j?.session_id) {
       const sid = String(j.session_id);
       setSessionId(sid);
+      setMessage(null);
+      setFeeSigForSupport(null); // ✅ nothing to support
       return sid;
     }
 
@@ -361,12 +364,9 @@ export default function ClaimPanel() {
     if (!publicKey) throw new Error('WALLET_NOT_CONNECTED');
     if (!connection) throw new Error('RPC_CONNECTION_MISSING');
     if (!sendTransaction) throw new Error('WALLET_SEND_TX_UNAVAILABLE');
+    if (!claimOpen) throw new Error('CLAIM_NOT_OPEN');
 
-    {claimOpen && (
-      <div className="bg-zinc-900/60 ...">
-        setMessage('💸 Paying the 0.002 SOL session fee… Please confirm in your wallet.');
-      </div>
-    )}
+    setMessage('💸 Paying the 0.003 SOL session fee… Please confirm in your wallet.');
 
     // Build fee transfer transaction: payer (user) -> treasury
     const tx = new Transaction().add(
@@ -381,7 +381,6 @@ export default function ClaimPanel() {
     const latest = await connection.getLatestBlockhash('confirmed');
     tx.recentBlockhash = latest.blockhash;
 
-    // ✅ Send (reliable-ish)
     const feeSig = String(
       await sendTransaction(
         tx,
@@ -393,6 +392,9 @@ export default function ClaimPanel() {
         } as any
       )
     );
+
+    // ✅ store for "support/copy" in case session open fails later
+    setFeeSigForSupport(feeSig);
 
     setMessage('⏳ Confirming fee payment on-chain…');
 
@@ -448,27 +450,44 @@ export default function ClaimPanel() {
     }
 
     // 4) Now open the session with fee tx signature
-    r = await fetch('/api/claim/session/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        wallet_address: wallet,
-        destination,
-        fee_tx_signature: feeSig,
-        fee_amount_lamports: FEE_LAMPORTS,
-        fee_amount_sol: FEE_SOL,
-      }),
-    });
+    const startWithFee = async () => {
+      const rr = await fetch('/api/claim/session/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          wallet_address: wallet,
+          destination,
+          fee_tx_signature: feeSig,
+          fee_amount: FEE_LAMPORTS,
+        }),
+      });
+      const jj = await rr.json().catch(() => ({}));
+      return { rr, jj };
+    };
 
-    j = await r.json().catch(() => ({}));
+    setMessage('🧩 Opening your claim session…');
 
-    if (!r.ok || !j?.success || !j?.session_id) {
-      throw new Error(j?.error || `SESSION_START_FAILED (${r.status})`);
+    // try #1
+    let { rr, jj } = await startWithFee();
+
+    // retry once (DB hiccup / transient)
+    if (!rr.ok || !jj?.success || !jj?.session_id) {
+      await new Promise((res) => setTimeout(res, 800));
+      ({ rr, jj } = await startWithFee());
     }
 
-    const sid = String(j.session_id);
+    if (!rr.ok || !jj?.success || !jj?.session_id) {
+      // IMPORTANT: fee is paid, but session couldn't be created.
+      // We keep feeSigForSupport so user can copy & retry.
+      setMessage('✅ Fee confirmed, but session could not be opened. Please press Claim again (no need to pay again if session opens).');
+      throw new Error(jj?.error || `SESSION_START_FAILED (${rr.status})`);
+    }
+
+    const sid = String(jj.session_id);
     setSessionId(sid);
+    setMessage(null);
+    setFeeSigForSupport(null); // ✅ success, no support needed
     return sid;
   }
   
@@ -575,7 +594,7 @@ export default function ClaimPanel() {
       }
     } catch (err: any) {
       console.error('Claim request failed:', err);
-      setMessage(`❌ ${String(err?.message ?? 'Internal error')}`);
+      setMessage(`❌ ${userFriendlyError(String(err?.message ?? ''))}`);
     } finally {
       setIsClaiming(false);
     }
@@ -595,6 +614,9 @@ export default function ClaimPanel() {
 
   const isClaimAmountEmpty = claimAmount.trim() === '';
 
+  const amtNum = Number(claimAmount);
+  const claimAmountInvalid = !Number.isFinite(amtNum) || amtNum <= 0;
+
   const claimDisabled =
     !effectivePhaseId ||
     phaseLoading ||
@@ -602,7 +624,8 @@ export default function ClaimPanel() {
     !claimOpen ||
     selectedClaimable <= 0 ||
     isClaimAmountEmpty ||
-    Number(claimAmount) > selectedClaimable;
+    claimAmountInvalid ||
+    amtNum > selectedClaimable;
 
   const claimButtonLabel = phaseLoading
     ? '⏳ Loading phase...'
@@ -957,7 +980,7 @@ export default function ClaimPanel() {
             <div className="bg-zinc-900/60 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-gray-400 leading-relaxed">
               <p>
                 💸 <span className="text-white font-medium">First claim in a session</span> requires a
-                <span className="text-purple-300 font-semibold"> ~0.002 SOL fee</span> (paid in SOL).
+                <span className="text-purple-300 font-semibold"> ~0.003 SOL fee</span> (paid in SOL).
               </p>
               <p className="mt-1">
                 ✅ Next claims in the <span className="text-white font-medium">same session</span> are free.
@@ -1119,6 +1142,25 @@ export default function ClaimPanel() {
             )}
 
             {message && <p className="text-center mt-3 text-sm">{message}</p>}
+            {feeSigForSupport && (
+              <div className="mt-3 flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText(feeSigForSupport)}
+                  className="bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 text-white text-xs px-3 py-2 rounded-lg transition"
+                >
+                  Copy fee tx
+                </button>
+                <a
+                  href={`https://solscan.io/tx/${feeSigForSupport}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-blue-300 underline"
+                >
+                  View on Solscan
+                </a>
+              </div>
+            )}
           </div>
 
           <motion.div
@@ -1547,8 +1589,11 @@ function StatBox({
   );
 }
 
-function shorten(addr: string) {
-  return addr.slice(0, 6) + '...' + addr.slice(-4);
+function shorten(addr: any) {
+  const s = String(addr ?? '').trim();
+  if (!s) return '-';
+  if (s.length <= 12) return s;
+  return s.slice(0, 6) + '...' + s.slice(-4);
 }
 
 function formatDate(dateStr: string) {
@@ -1595,4 +1640,20 @@ function ContributionCard({
       <p className="text-xs text-gray-400">{description}</p>
     </div>
   );
+}
+
+function userFriendlyError(msg: string) {
+  const m = String(msg || '').trim();
+
+  if (m === 'CLAIM_NOT_OPEN') return 'Claiming is currently closed.';
+  if (m === 'WALLET_NOT_CONNECTED') return 'Please connect your wallet.';
+  if (m === 'RPC_CONNECTION_MISSING') return 'RPC connection is missing. Please retry.';
+  if (m === 'FEE_TX_CONFIRM_TIMEOUT') return 'Fee payment is taking longer than usual. Please retry.';
+  if (m === 'FEE_TX_FAILED') return 'Fee transaction failed. Please retry.';
+  if (m === 'FEE_SIGNATURE_ALREADY_USED') return 'This fee transaction was already used. Please press Claim again.';
+  if (m.startsWith('SESSION_START_FAILED')) return 'Could not open claim session. Please retry.';
+  if (m.startsWith('CLAIM_EXECUTE_FAILED')) return 'Claim could not be executed. Please retry.';
+
+  // default
+  return m || 'Unexpected error. Please retry.';
 }

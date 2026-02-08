@@ -7,6 +7,7 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import { neon } from '@neondatabase/serverless';
 
 const sql = neon(process.env.DATABASE_URL!);
+const EXPECTED_FEE_LAMPORTS = Number(process.env.CLAIM_FEE_LAMPORTS ?? 3_000_000);
 
 const RPC_URL =
   process.env.SOLANA_RPC_URL ||
@@ -177,7 +178,7 @@ export async function POST(req: NextRequest) {
       signature: sig,
       payer: wallet,
       treasury: TREASURY,
-      minLamports: Math.floor(feeLamports),
+      minLamports: EXPECTED_FEE_LAMPORTS,
     });
   } catch (e: any) {
     const msg = String(e?.message ?? 'FEE_VERIFY_FAILED');
