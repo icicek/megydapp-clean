@@ -204,17 +204,20 @@ export async function GET(req: NextRequest) {
     // -----------------------------
     const snaps = (await sql/* sql */`
       SELECT
-        phase_id,
-        megy_amount,
-        contribution_usd,
-        share_ratio,
-        claim_status,
-        created_at,
-        coincarnator_no
-      FROM claim_snapshots
-      WHERE wallet_address = ${wallet}
-      ORDER BY phase_id DESC;
-    `) as any[];
+        cs.phase_id,
+        p.phase_no,
+        p.name AS phase_name,
+        cs.megy_amount,
+        cs.contribution_usd,
+        cs.share_ratio,
+        cs.claim_status,
+        cs.created_at,
+        cs.coincarnator_no
+      FROM claim_snapshots cs
+      JOIN phases p ON p.id = cs.phase_id
+      WHERE cs.wallet_address = ${wallet}
+      ORDER BY p.phase_no DESC, cs.created_at DESC;
+    `) as any[];    
 
     const claimsByPhase = (await sql/* sql */`
       SELECT
@@ -252,6 +255,11 @@ export async function GET(req: NextRequest) {
 
       return {
         phase_id: pid,
+      
+        // ✅ NEW
+        phase_no: Number(s.phase_no ?? 0) || null,
+        phase_name: s.phase_name ? String(s.phase_name) : null,
+      
         finalized_megy: finalized,
         contribution_usd: Number(s.contribution_usd ?? 0),
         share_ratio: Number(s.share_ratio ?? 0),
@@ -260,7 +268,7 @@ export async function GET(req: NextRequest) {
         coincarnator_no: s.coincarnator_no ?? null,
         claimed_megy: claimed,
         claimable_megy: claimable,
-      };
+      };      
     });
 
     const claimable_megy_total = Math.max(finalized_megy_total - claimed_megy_total, 0);

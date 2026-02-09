@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
   }
 
   const MEGY_MINT = asStr(process.env.MEGY_MINT || '');
-  if (!MEGY_MINT) return json(500, { success: false, error: 'MISSING_MEGY_MINT' });
+  if (!MEGY_MINT) return json(500, { success: false, error: 'Claim is not available yet. MEGY token is not live.' });
 
   const MEGY_DECIMALS = Number(process.env.MEGY_DECIMALS ?? 9);
   if (!Number.isFinite(MEGY_DECIMALS) || MEGY_DECIMALS < 0 || MEGY_DECIMALS > 18) {
@@ -212,32 +212,30 @@ export async function POST(req: NextRequest) {
     // re-check claimable inside TX (race safe)
     const rows = await sql`
       WITH snap AS (
-        SELECT COALESCE(SUM(megy_amount), 0) AS snap_amount
+        SELECT COALESCE(SUM(megy_amount_base), 0) AS snap_base
         FROM claim_snapshots
         WHERE wallet_address = ${wallet} AND phase_id = ${phaseId}
       ),
       cl AS (
-        SELECT COALESCE(SUM(claim_amount), 0) AS claimed_amount
+        SELECT COALESCE(SUM(claim_amount_base), 0) AS claimed_base
         FROM claims
         WHERE wallet_address = ${wallet} AND phase_id = ${phaseId}
-          AND status IN ('created','succeeded') -- treat pending as reserved
+          AND status IN ('created','succeeded')
       )
       SELECT
-        (SELECT snap_amount FROM snap) AS snap_amount,
-        (SELECT claimed_amount FROM cl) AS claimed_amount
+        (SELECT snap_base FROM snap) AS snap_base,
+        (SELECT claimed_base FROM cl) AS claimed_base
     `;
 
-    const snap = asNum(rows?.[0]?.snap_amount);
-    const claimed = asNum(rows?.[0]?.claimed_amount);
-    const claimable = Math.max(0, snap - claimed);
+    const snapBase = BigInt(String(rows?.[0]?.snap_base ?? '0'));
+    const claimedBase = BigInt(String(rows?.[0]?.claimed_base ?? '0'));
+    const claimableBase = snapBase > claimedBase ? (snapBase - claimedBase) : 0n;
 
-    if (amountAsNumberForDb > claimable) {
+    if (amountBase > claimableBase) {
       await sql`ROLLBACK`;
       return json(409, {
         success: false,
         error: 'AMOUNT_EXCEEDS_PHASE_CLAIMABLE',
-        want: amountAsNumberForDb,
-        can: claimable,
         phase_id: phaseId,
       });
     }
@@ -248,6 +246,7 @@ export async function POST(req: NextRequest) {
       INSERT INTO claims (
         wallet_address,
         claim_amount,
+        claim_amount_base,
         destination,
         tx_signature,
         sol_fee_paid,
@@ -263,6 +262,7 @@ export async function POST(req: NextRequest) {
       VALUES (
         ${wallet},
         ${amountAsNumberForDb},
+        ${amountBase.toString()},
         ${destination},
         ${null},
         ${true},
@@ -385,27 +385,27 @@ export async function POST(req: NextRequest) {
     // Optional: close session if total claimable across all phases is 0
     const totals = await sql`
       WITH snaps AS (
-        SELECT COALESCE(SUM(megy_amount), 0) AS snap_sum
+        SELECT COALESCE(SUM(megy_amount_base), 0) AS snap_base
         FROM claim_snapshots
         WHERE wallet_address = ${wallet}
       ),
       cls AS (
-        SELECT COALESCE(SUM(claim_amount), 0) AS claimed_sum
+        SELECT COALESCE(SUM(claim_amount_base), 0) AS claimed_base
         FROM claims
         WHERE wallet_address = ${wallet}
           AND status IN ('created','succeeded')
       )
       SELECT
-        (SELECT snap_sum FROM snaps) AS snap_sum,
-        (SELECT claimed_sum FROM cls) AS claimed_sum
+        (SELECT snap_base FROM snaps) AS snap_base,
+        (SELECT claimed_base FROM cls) AS claimed_base
     `;
 
-    const snapSum = asNum(totals?.[0]?.snap_sum);
-    const claimedSum = asNum(totals?.[0]?.claimed_sum);
-    const totalClaimable = Math.max(0, snapSum - claimedSum);
+    const snapBaseAll = BigInt(String(totals?.[0]?.snap_base ?? '0'));
+    const claimedBaseAll = BigInt(String(totals?.[0]?.claimed_base ?? '0'));
+    const totalClaimableBase = snapBaseAll > claimedBaseAll ? (snapBaseAll - claimedBaseAll) : 0n;
 
     let closed = false;
-    if (totalClaimable <= 0) {
+    if (totalClaimableBase <= 0n) {
       await sql`
         UPDATE claim_sessions
         SET status = 'closed', closed_at = now()
@@ -413,6 +413,9 @@ export async function POST(req: NextRequest) {
       `;
       closed = true;
     }
+
+    // UI/debug için “human” döndürmek istersen:
+    const totalClaimable = Number(totalClaimableBase) / Math.pow(10, MEGY_DECIMALS);
 
     await sql`COMMIT`;
 

@@ -819,12 +819,14 @@ export default function ClaimPanel() {
 
           {Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 0 && (() => {
             const phases = finalizedClaim.finalized_by_phase
-              .slice()
-              .map((p: any) => ({
-                pid: Number(p?.phase_id ?? p?.phaseId ?? 0),
-                created: p?.created_at ?? p?.snapshot_taken_at ?? p?.createdAt ?? null,
-                claimable: Number(p?.claimable_megy ?? p?.claimable ?? p?.claimableMegy ?? 0),
-              }))
+            .slice()
+            .map((p: any) => ({
+              pid: Number(p?.phase_id ?? p?.phaseId ?? 0),
+              phaseNo: Number(p?.phase_no ?? p?.phaseNo ?? 0) || null,
+              phaseName: p?.phase_name ?? p?.phaseName ?? null,
+              created: p?.created_at ?? p?.snapshot_taken_at ?? p?.createdAt ?? null,
+              claimable: Number(p?.claimable_megy ?? p?.claimable ?? p?.claimableMegy ?? 0),
+            }))          
               .filter((x: any) => Number.isFinite(x.pid) && x.pid > 0)
               .sort((a: any, b: any) => b.pid - a.pid);
 
@@ -863,11 +865,21 @@ export default function ClaimPanel() {
                       className="w-full sm:w-44 bg-zinc-900 border border-zinc-600 text-white text-xs rounded-md px-2 py-2 sm:py-1 disabled:opacity-50"
                     >
                       <option value="">Latest</option>
-                      {options.map((pid) => (
-                        <option key={pid} value={String(pid)}>
-                          Phase #{pid}
-                        </option>
-                      ))}
+                      {options.map((pid) => {
+                        const row = phases.find((x: any) => x.pid === pid);
+                        const label =
+                          row?.phaseName
+                            ? String(row.phaseName)
+                            : row?.phaseNo
+                              ? `Phase ${row.phaseNo}`
+                              : `Phase`;
+
+                        return (
+                          <option key={pid} value={String(pid)}>
+                            {label}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
                 </div>
@@ -889,7 +901,9 @@ export default function ClaimPanel() {
                       >
                         <div className="text-gray-300">
                           <div className="flex items-center gap-2">
-                            <span className="text-white font-semibold">Phase #{p.pid}</span>
+                            <span className="text-white font-semibold">
+                              {p.phaseName ? String(p.phaseName) : (p.phaseNo ? `Phase ${p.phaseNo}` : `Phase`)}
+                            </span>
 
                             {isSelected && (
                               <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
@@ -897,6 +911,12 @@ export default function ClaimPanel() {
                               </span>
                             )}
                           </div>
+
+                          {p.phaseName === 'Early Birds' && (
+                            <div className="text-[11px] text-emerald-300/90 mt-0.5">
+                              First movers • Limited • Experimental
+                            </div>
+                          )}
 
                           {p.created ? (
                             <div className="text-xs text-gray-500">{formatDate(String(p.created))}</div>
