@@ -480,7 +480,9 @@ export default function ClaimPanel() {
     if (!rr.ok || !jj?.success || !jj?.session_id) {
       // IMPORTANT: fee is paid, but session couldn't be created.
       // We keep feeSigForSupport so user can copy & retry.
-      setMessage('✅ Fee confirmed, but session could not be opened. Please press Claim again (no need to pay again if session opens).');
+      setMessage(
+        `✅ Fee confirmed on-chain, but we couldn't open a session. Please press Claim again.\nFee tx: ${feeSig}`
+      );
       throw new Error(jj?.error || `SESSION_START_FAILED (${rr.status})`);
     }
 
@@ -574,11 +576,15 @@ export default function ClaimPanel() {
       const execJson: any = await execRes.json().catch(() => ({}));
   
       if (!execRes.ok || !execJson?.success) {
-        setMessage(`❌ ${execJson?.error || `CLAIM_EXECUTE_FAILED (${execRes.status})`}`);
+        const rawErr = String(execJson?.error || `CLAIM_EXECUTE_FAILED (${execRes.status})`);
+        setMessage(`❌ ${userFriendlyError(rawErr)}`);
         return;
       }
   
-      setMessage(`✅ Claim sent! Tx: ${execJson.tx_signature}`);
+      setFeeSigForSupport(null);
+      setMessage(
+        `✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`
+      );      
       attemptIdemKeyRef.current = null;
   
       // ✅ Optional: if backend closes session (only if execute returns it)
@@ -598,7 +604,7 @@ export default function ClaimPanel() {
     } finally {
       setIsClaiming(false);
     }
-  };  
+  };
 
   if (process.env.NODE_ENV !== 'production') {
     console.log('[ClaimPanel] phase', {
@@ -1142,6 +1148,7 @@ export default function ClaimPanel() {
             )}
 
             {message && <p className="text-center mt-3 text-sm">{message}</p>}
+
             {feeSigForSupport && (
               <div className="mt-3 flex items-center justify-center gap-2">
                 <button
@@ -1151,6 +1158,7 @@ export default function ClaimPanel() {
                 >
                   Copy fee tx
                 </button>
+
                 <a
                   href={`https://solscan.io/tx/${feeSigForSupport}`}
                   target="_blank"
