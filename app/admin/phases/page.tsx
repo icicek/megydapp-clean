@@ -243,6 +243,31 @@ export default function AdminPhasesPage() {
         }
     }
 
+    async function assignUnassigned(id: number) {
+        setMsg(null);
+        setBusyId(id);
+
+        try {
+            const ok = window.confirm(
+                'Assign ALL unassigned contributions (phase_id = NULL) to this phase?\n\nThis action is safe and idempotent.'
+            );
+            if (!ok) return;
+
+            const j = await sendJSON<{ success: boolean; moved?: number; error?: string }>(
+                `/api/admin/phases/${id}/assign-unassigned`,
+                'POST'
+            );
+
+            await refresh();
+            setMsg(`✅ ${j.moved ?? 0} contributions assigned to phase #${id}`);
+            scrollToPhase(id);
+        } catch (e: any) {
+            setMsg(`❌ ${e?.message || 'Assign failed'}`);
+        } finally {
+            setBusyId(null);
+        }
+    }
+
     async function openPhase(id: number) {
         setMsg(null);
         setBusyId(id);
@@ -561,44 +586,44 @@ export default function AdminPhasesPage() {
                                                     const target = Number(p.target_usd ?? 0);
                                                     const wUsed = Number((p as any).used_usd ?? 0);
                                                     const fUsed = Number((p as any).used_usd_forecast ?? 0);
-                                                    
+
                                                     const wPct = target > 0 ? Math.min(100, (wUsed / target) * 100) : 0;
                                                     const fPct = target > 0 ? Math.min(100, (fUsed / target) * 100) : 0;
-                                                    
+
                                                     return (
-                                                      <div className="min-w-[260px] space-y-2">
-                                                        {/* WINDOW */}
-                                                        <div>
-                                                          <div className="flex items-center justify-between text-[11px] text-white/60 mb-1">
-                                                            <span className="text-white/50">Window</span>
-                                                            <span className="font-semibold text-white/70">{wPct.toFixed(1)}%</span>
-                                                          </div>
-                                                          <div className="h-1.5 rounded-full bg-white/10 overflow-hidden border border-white/10">
-                                                            <div className="h-full bg-emerald-500/70" style={{ width: `${wPct}%` }} />
-                                                          </div>
-                                                          <div className="mt-1 text-[10px] text-white/40">
-                                                            {wUsed.toLocaleString(undefined, { maximumFractionDigits: 4 })} / {target.toLocaleString()} •{" "}
-                                                            {Number((p as any).alloc_wallets ?? 0).toLocaleString()} wallets •{" "}
-                                                            {Number((p as any).alloc_rows ?? 0).toLocaleString()} rows
-                                                          </div>
+                                                        <div className="min-w-[260px] space-y-2">
+                                                            {/* WINDOW */}
+                                                            <div>
+                                                                <div className="flex items-center justify-between text-[11px] text-white/60 mb-1">
+                                                                    <span className="text-white/50">Window</span>
+                                                                    <span className="font-semibold text-white/70">{wPct.toFixed(1)}%</span>
+                                                                </div>
+                                                                <div className="h-1.5 rounded-full bg-white/10 overflow-hidden border border-white/10">
+                                                                    <div className="h-full bg-emerald-500/70" style={{ width: `${wPct}%` }} />
+                                                                </div>
+                                                                <div className="mt-1 text-[10px] text-white/40">
+                                                                    {wUsed.toLocaleString(undefined, { maximumFractionDigits: 4 })} / {target.toLocaleString()} •{" "}
+                                                                    {Number((p as any).alloc_wallets ?? 0).toLocaleString()} wallets •{" "}
+                                                                    {Number((p as any).alloc_rows ?? 0).toLocaleString()} rows
+                                                                </div>
+                                                            </div>
+
+                                                            {/* FORECAST */}
+                                                            <div>
+                                                                <div className="flex items-center justify-between text-[11px] text-white/60 mb-1">
+                                                                    <span className="text-white/50">Forecast</span>
+                                                                    <span className="font-semibold text-white/70">{fPct.toFixed(1)}%</span>
+                                                                </div>
+                                                                <div className="h-2 rounded-full bg-white/10 overflow-hidden border border-white/10">
+                                                                    <div className="h-full bg-sky-500/60" style={{ width: `${fPct}%` }} />
+                                                                </div>
+                                                                <div className="mt-1 text-[10px] text-white/40">
+                                                                    {fUsed.toLocaleString(undefined, { maximumFractionDigits: 4 })} / {target.toLocaleString()} •{" "}
+                                                                    {Number((p as any).alloc_wallets_forecast ?? 0).toLocaleString()} wallets •{" "}
+                                                                    {Number((p as any).alloc_rows_forecast ?? 0).toLocaleString()} rows
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                    
-                                                        {/* FORECAST */}
-                                                        <div>
-                                                          <div className="flex items-center justify-between text-[11px] text-white/60 mb-1">
-                                                            <span className="text-white/50">Forecast</span>
-                                                            <span className="font-semibold text-white/70">{fPct.toFixed(1)}%</span>
-                                                          </div>
-                                                          <div className="h-2 rounded-full bg-white/10 overflow-hidden border border-white/10">
-                                                            <div className="h-full bg-sky-500/60" style={{ width: `${fPct}%` }} />
-                                                          </div>
-                                                          <div className="mt-1 text-[10px] text-white/40">
-                                                            {fUsed.toLocaleString(undefined, { maximumFractionDigits: 4 })} / {target.toLocaleString()} •{" "}
-                                                            {Number((p as any).alloc_wallets_forecast ?? 0).toLocaleString()} wallets •{" "}
-                                                            {Number((p as any).alloc_rows_forecast ?? 0).toLocaleString()} rows
-                                                          </div>
-                                                        </div>
-                                                      </div>
                                                     );
                                                 })()}
                                             </td>

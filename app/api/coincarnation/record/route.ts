@@ -22,6 +22,44 @@ import {
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
+async function getActivePhase(): Promise<{ id: number; phase_no: number; target_usd: number | null } | null> {
+  try {
+    const rows = await sql/* sql */`
+      SELECT id, phase_no, target_usd
+      FROM phases
+      WHERE LOWER(status) = 'active'
+      ORDER BY opened_at DESC NULLS LAST, id DESC
+      LIMIT 1;
+    `;
+    if (!rows?.length) return null;
+
+    return {
+      id: Number(rows[0].id),
+      phase_no: Number(rows[0].phase_no),
+      target_usd: rows[0].target_usd == null ? null : Number(rows[0].target_usd),
+    };
+  } catch (e) {
+    console.warn('⚠️ getActivePhase failed:', (e as any)?.message || e);
+    return null;
+  }
+}
+
+async function getPhaseUsedUsd(phaseId: number): Promise<number> {
+  try {
+    const r = await sql/* sql */`
+      SELECT COALESCE(SUM(usd_value), 0) AS used
+      FROM contributions
+      WHERE phase_id = ${phaseId};
+    `;
+    const used = r?.[0]?.used ?? 0;
+    const n = Number(used);
+    return Number.isFinite(n) ? n : 0;
+  } catch (e) {
+    console.warn('⚠️ getPhaseUsedUsd failed:', (e as any)?.message || e);
+    return 0;
+  }
+}
+
 // RPC URL (öncelik)
 const SOLANA_RPC_URL =
   process.env.ALCHEMY_SOLANA_RPC ||        // 🔹 1. tercih: Alchemy
@@ -435,6 +473,38 @@ export async function POST(req: NextRequest) {
     const contribReferrerWallet: string | null =
       referrerWallet;
 
+    // ——— Phase allocation (active -> assign, else NULL) ———
+    const activePhase = await getActivePhase();
+
+    let phaseIdForContribution: number | null = null;
+    let allocPhaseNoForContribution: number | null = null;
+    let allocStatusForContribution: string | null = null;
+
+    if (!activePhase) {
+      // aktif faz yok → queue
+      phaseIdForContribution = null;
+      allocPhaseNoForContribution = null;
+      allocStatusForContribution = 'unassigned';
+    } else {
+      // aktif faz var → dolu mu kontrol et
+      const target = activePhase.target_usd; // null olabilir
+      const used = await getPhaseUsedUsd(activePhase.id);
+
+      const isFull = Number.isFinite(target as any) && target != null && target > 0 && used >= target;
+
+      if (isFull) {
+        // faz dolu → snapshot beklerken gelenleri queue’ya al
+        phaseIdForContribution = null;
+        allocPhaseNoForContribution = null;
+        allocStatusForContribution = 'unassigned';
+      } else {
+        // faz açık ve dolu değil → aktif faza dahil et
+        phaseIdForContribution = activePhase.id;
+        allocPhaseNoForContribution = activePhase.phase_no;
+        allocStatusForContribution = 'pending';
+      }
+    }
+
     // ——— CONTRIBUTIONS: ŞEMA TOLERANSLI INSERT ———
     let hasAssetKind = false;
     try {
@@ -458,89 +528,48 @@ export async function POST(req: NextRequest) {
 
     try {
       if (hasAssetKind) {
-        const insertResult = await sql`
-          INSERT INTO contributions (
-            wallet_address,
-            token_symbol,
-            token_contract,
-            network,
-            token_amount,
-            usd_value,
-            transaction_signature,
-            tx_hash,
-            tx_block,
-            idempotency_key,
-            user_agent,
-            timestamp,
-            referral_code,
-            referrer_wallet,
-            asset_kind,
-            alloc_status,
-            alloc_updated_at
-          ) VALUES (
-            ${wallet_address},
-            ${token_symbol},
-            ${tokenContractFinal},
-            ${networkNorm},
-            ${tokenAmountNum},
-            ${usdValueNum},
-            ${transaction_signature || null},
-            ${tx_hash || null},
-            ${tx_block ?? null},
-            ${idemKey},
-            ${user_agent || ''},
-            ${timestamp},
-            ${contribReferralCode},
-            ${contribReferrerWallet},
-            ${assetKindFinal},
-            'pending',
-            NOW()
-          )
-          ON CONFLICT (network, tx_hash) DO NOTHING
-          RETURNING id;
-        `;
-        insertedId = insertResult?.[0]?.id ?? null;
+        // ✅ choose correct conflict target deterministically
+        if (tx_hash) {
+          const insertResult = await sql`
+            INSERT INTO contributions (
+              wallet_address, token_symbol, token_contract, network,
+              token_amount, usd_value, transaction_signature, tx_hash, tx_block,
+              idempotency_key, user_agent, timestamp,
+              referral_code, referrer_wallet, asset_kind,
+              phase_id, alloc_phase_no, alloc_status, alloc_updated_at
+            ) VALUES (
+              ${wallet_address}, ${token_symbol}, ${tokenContractFinal}, ${networkNorm},
+              ${tokenAmountNum}, ${usdValueNum}, ${transaction_signature || null}, ${tx_hash || null}, ${tx_block ?? null},
+              ${idemKey}, ${user_agent || ''}, ${timestamp},
+              ${contribReferralCode}, ${contribReferrerWallet}, ${assetKindFinal},
+              ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW()
+            )
+            ON CONFLICT (network, tx_hash) DO NOTHING
+            RETURNING id;
+          `;
+          insertedId = insertResult?.[0]?.id ?? null;
+        } else {
+          const insertResult = await sql`
+            INSERT INTO contributions (
+              wallet_address, token_symbol, token_contract, network,
+              token_amount, usd_value, transaction_signature, tx_hash, tx_block,
+              idempotency_key, user_agent, timestamp,
+              referral_code, referrer_wallet, asset_kind,
+              phase_id, alloc_phase_no, alloc_status, alloc_updated_at
+            ) VALUES (
+              ${wallet_address}, ${token_symbol}, ${tokenContractFinal}, ${networkNorm},
+              ${tokenAmountNum}, ${usdValueNum}, ${transaction_signature || null}, ${tx_hash || null}, ${tx_block ?? null},
+              ${idemKey}, ${user_agent || ''}, ${timestamp},
+              ${contribReferralCode}, ${contribReferrerWallet}, ${assetKindFinal},
+              ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW()
+            )
+            ON CONFLICT (network, transaction_signature) DO NOTHING
+            RETURNING id;
+          `;
+          insertedId = insertResult?.[0]?.id ?? null;
+        }
       } else {
-        const insertResult = await sql`
-          INSERT INTO contributions (
-            wallet_address,
-            token_symbol,
-            token_contract,
-            network,
-            token_amount,
-            usd_value,
-            transaction_signature,
-            tx_hash,
-            tx_block,
-            idempotency_key,
-            user_agent,
-            timestamp,
-            referral_code,
-            referrer_wallet,
-            alloc_status,
-            alloc_updated_at
-          ) VALUES (
-            ${wallet_address},
-            ${token_symbol},
-            ${tokenContractFinal},
-            ${networkNorm},
-            ${tokenAmountNum},
-            ${usdValueNum},
-            ${transaction_signature || null},
-            ${tx_hash || null},
-            ${tx_block ?? null},
-            ${idemKey},
-            ${user_agent || ''},
-            ${timestamp},
-            ${contribReferralCode},
-            ${contribReferrerWallet},
-            'pending',
-            NOW()
-          )
-          ON CONFLICT (network, tx_hash) DO NOTHING
-          RETURNING id;
-        `;
-        insertedId = insertResult?.[0]?.id ?? null;
+        // (senin mevcut else branch’in kalsın)
       }
 
       console.log('📝 contribution inserted id:', insertedId);

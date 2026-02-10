@@ -90,6 +90,8 @@ export default function ClaimPanel() {
   const [currentPhase, setCurrentPhase] = useState<any | null>(null);
   const [phasesLoading, setPhasesLoading] = useState<boolean>(true);
   const attemptIdemKeyRef = useRef<string | null>(null);
+  const [activeEstimate, setActiveEstimate] = useState<any>(null);
+  const [estimateLoading, setEstimateLoading] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -202,6 +204,27 @@ export default function ClaimPanel() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!publicKey) {
+      setActiveEstimate(null);
+      return;
+    }
+  
+    const wallet = publicKey.toBase58();
+    setEstimateLoading(true);
+  
+    fetch(`/api/phases/active/estimate?wallet=${encodeURIComponent(wallet)}`, {
+      cache: 'no-store',
+    })
+      .then(r => r.json())
+      .then(j => {
+        if (j?.success && j?.active) setActiveEstimate(j);
+        else setActiveEstimate(null);
+      })
+      .catch(() => setActiveEstimate(null))
+      .finally(() => setEstimateLoading(false));
+  }, [publicKey?.toBase58()]);  
 
   useEffect(() => {
     (async () => {
@@ -633,6 +656,11 @@ export default function ClaimPanel() {
     claimAmountInvalid ||
     amtNum > selectedClaimable;
 
+  const effectivePhaseName =
+    selectedPhaseRow?.phase_name ||
+    selectedPhaseRow?.phaseName ||
+    null;
+
   const claimButtonLabel = phaseLoading
     ? '⏳ Loading phase...'
     : !effectivePhaseId
@@ -641,7 +669,7 @@ export default function ClaimPanel() {
         ? '🚀 Claiming...'
         : selectedClaimable <= 0
           ? '✅ Nothing to claim'
-          : `🎉 Claim from Phase #${effectivePhaseId}`;
+          : `🎉 Claim from ${effectivePhaseName ? String(effectivePhaseName) : `Phase #${effectivePhaseId}`}`;
 
   return (
     <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
@@ -781,6 +809,68 @@ export default function ClaimPanel() {
             </div>
           </div>
 
+          {/* 🔮 Active Phase – Estimated MEGY */}
+          {activeEstimate?.active && !currentPhase?.snapshot_taken_at && (
+            <div className="mb-6">
+              <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-gray-400 text-xs uppercase tracking-wide">
+                      Active Phase Estimate
+                    </p>
+                    <p className="text-white font-semibold">
+                      Phase #{activeEstimate.active.phaseNo} — {activeEstimate.active.name}
+                    </p>
+
+                    <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                      <span className="px-2 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/30 text-yellow-200">
+                        ⏳ live estimate
+                      </span>
+                      <span className="px-2 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300">
+                        changes until snapshot
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-gray-400 text-xs">Your Share</p>
+                    <p className="text-white font-semibold">
+                      {(activeEstimate.me.shareRatio * 100).toFixed(3)}%
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                  <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
+                    <p className="text-xs text-gray-400">Your USD (active phase)</p>
+                    <p className="font-semibold text-white">
+                      ${Number(activeEstimate.me.userUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+
+                  <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
+                    <p className="text-xs text-gray-400">Total USD (active phase)</p>
+                    <p className="font-semibold text-white">
+                      ${Number(activeEstimate.totals.totalUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+
+                  <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
+                    <p className="text-xs text-gray-400">Estimated MEGY</p>
+                    <p className="font-extrabold text-yellow-300 text-lg">
+                      {Math.floor(activeEstimate.me.estimatedMegy).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="mt-3 text-xs text-gray-400 italic text-center">
+                  ⚠️ This is a <span className="text-yellow-300 font-medium">live estimate</span>.
+                  Final MEGY amount will be locked at snapshot.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
             <StatBox
               label="Total Contribution Size"
@@ -864,7 +954,7 @@ export default function ClaimPanel() {
                       disabled={options.length === 0}
                       className="w-full sm:w-44 bg-zinc-900 border border-zinc-600 text-white text-xs rounded-md px-2 py-2 sm:py-1 disabled:opacity-50"
                     >
-                      <option value="">Latest</option>
+                      <option value="">Latest finalized snapshot</option>
                       {options.map((pid) => {
                         const row = phases.find((x: any) => x.pid === pid);
                         const label =
@@ -981,7 +1071,7 @@ export default function ClaimPanel() {
 
               <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
                 <p className="text-xs text-gray-400">
-                  Selected phase claimable{effectivePhaseId ? ` (Phase #${effectivePhaseId})` : ''}
+                  Selected phase claimable{effectivePhaseName ? ` (${String(effectivePhaseName)})` : (effectivePhaseId ? ` (Phase #${effectivePhaseId})` : '')}
                 </p>
                 <p className="font-semibold text-white">
                   {Math.floor(Number(selectedClaimable ?? 0)).toLocaleString()}

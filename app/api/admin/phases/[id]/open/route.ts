@@ -7,6 +7,68 @@ import { sql } from '@/app/api/_lib/db';
 import { requireAdmin } from '@/app/api/_lib/jwt';
 import { httpErrorFrom } from '@/app/api/_lib/http';
 
+async function sweepUnassignedToPhase(phaseId: number) {
+  // phase target + remaining capacity
+  const ph = (await sql/* sql */`
+    SELECT
+      id,
+      COALESCE(target_usd, 0)::numeric AS target_usd
+    FROM phases
+    WHERE id = ${phaseId}
+    LIMIT 1
+    FOR UPDATE
+  `) as any[];
+
+  const targetUsd = Number(ph?.[0]?.target_usd ?? 0);
+
+  // used usd already in this phase
+  const used = (await sql/* sql */`
+    SELECT COALESCE(SUM(COALESCE(usd_value, 0)), 0)::numeric AS used_usd
+    FROM contributions
+    WHERE phase_id = ${phaseId}
+  `) as any[];
+
+  const usedUsd = Number(used?.[0]?.used_usd ?? 0);
+
+  // if no target, assign all
+  const remaining = targetUsd > 0 ? Math.max(0, targetUsd - usedUsd) : null;
+
+  if (remaining !== null && remaining <= 0) {
+    return { moved: 0, reason: 'PHASE_FULL' as const };
+  }
+
+  // Move FIFO rows until remaining USD is reached (window sum)
+  const moved = (await sql/* sql */`
+    WITH queue AS (
+      SELECT
+        id,
+        COALESCE(usd_value, 0)::numeric AS usd_value,
+        SUM(COALESCE(usd_value, 0)::numeric) OVER (
+          ORDER BY timestamp ASC NULLS LAST, id ASC
+        ) AS run
+      FROM contributions
+      WHERE phase_id IS NULL
+        AND COALESCE(alloc_status, 'unassigned') = 'unassigned'
+        AND network = 'solana'
+    ),
+    pick AS (
+      SELECT id
+      FROM queue
+      WHERE ${remaining === null ? sql`TRUE` : sql`run <= ${remaining}`}
+    )
+    UPDATE contributions c
+    SET
+      phase_id = ${phaseId},
+      alloc_phase_no = (SELECT phase_no FROM phases WHERE id = ${phaseId}),
+      alloc_status = 'pending',
+      alloc_updated_at = NOW()
+    WHERE c.id IN (SELECT id FROM pick)
+    RETURNING c.id
+  `) as any[];
+
+  return { moved: moved?.length ?? 0, reason: 'OK' as const };
+}
+
 function toId(params: any): number {
   const id = Number(params?.id);
   return Number.isFinite(id) ? id : 0;
@@ -93,11 +155,16 @@ export async function POST(req: NextRequest, ctx: any) {
       RETURNING *;
     `) as any[];
 
+    // ✅ NEW: sweep queue into this newly opened phase (capacity-aware)
+    const sweep = await sweepUnassignedToPhase(phaseId);
+
     await sql`COMMIT`;
 
-    return NextResponse.json({ success: true, phase: updated?.[0] ?? null });
+    return NextResponse.json({ success: true, phase: updated?.[0] ?? null, sweep });
   } catch (err: unknown) {
-    try { await sql`ROLLBACK`; } catch {}
+    try {
+      await sql`ROLLBACK`;
+    } catch {}
     const { status, body } = httpErrorFrom(err, 500);
     return NextResponse.json(body, { status });
   }

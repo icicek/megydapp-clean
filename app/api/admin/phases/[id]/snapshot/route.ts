@@ -9,6 +9,68 @@ import { requireAdmin } from '@/app/api/_lib/jwt';
 import { httpErrorFrom } from '@/app/api/_lib/http';
 import { recomputeFromPhaseId } from '@/app/api/_lib/phases/recompute';
 
+async function sweepUnassignedToPhase(phaseId: number) {
+  // phase target + remaining capacity
+  const ph = (await sql/* sql */`
+    SELECT
+      id,
+      COALESCE(target_usd, 0)::numeric AS target_usd
+    FROM phases
+    WHERE id = ${phaseId}
+    LIMIT 1
+    FOR UPDATE
+  `) as any[];
+
+  const targetUsd = Number(ph?.[0]?.target_usd ?? 0);
+
+  // used usd already in this phase
+  const used = (await sql/* sql */`
+    SELECT COALESCE(SUM(COALESCE(usd_value, 0)), 0)::numeric AS used_usd
+    FROM contributions
+    WHERE phase_id = ${phaseId}
+  `) as any[];
+
+  const usedUsd = Number(used?.[0]?.used_usd ?? 0);
+
+  // if no target, assign all
+  const remaining = targetUsd > 0 ? Math.max(0, targetUsd - usedUsd) : null;
+
+  if (remaining !== null && remaining <= 0) {
+    return { moved: 0, reason: 'PHASE_FULL' as const };
+  }
+
+  // Move FIFO rows until remaining USD is reached (window sum)
+  const moved = (await sql/* sql */`
+    WITH queue AS (
+      SELECT
+        id,
+        COALESCE(usd_value, 0)::numeric AS usd_value,
+        SUM(COALESCE(usd_value, 0)::numeric) OVER (
+          ORDER BY timestamp ASC NULLS LAST, id ASC
+        ) AS run
+      FROM contributions
+      WHERE phase_id IS NULL
+        AND COALESCE(alloc_status, 'unassigned') = 'unassigned'
+        AND network = 'solana'
+    ),
+    pick AS (
+      SELECT id
+      FROM queue
+      WHERE ${remaining === null ? sql`TRUE` : sql`run <= ${remaining}`}
+    )
+    UPDATE contributions c
+    SET
+      phase_id = ${phaseId},
+      alloc_phase_no = (SELECT phase_no FROM phases WHERE id = ${phaseId}),
+      alloc_status = 'pending',
+      alloc_updated_at = NOW()
+    WHERE c.id IN (SELECT id FROM pick)
+    RETURNING c.id
+  `) as any[];
+
+  return { moved: moved?.length ?? 0, reason: 'OK' as const };
+}
+
 function num(v: unknown, def = 0): number {
   const n = typeof v === 'number' ? v : Number(v);
   return Number.isFinite(n) ? n : def;
@@ -26,8 +88,6 @@ export async function POST(req: NextRequest, ctx: any) {
     // Advisory lock: aynı phase için aynı anda snapshot çalışmasın
     const lockKey = (BigInt(942002) * BigInt(1_000_000_000) + BigInt(Math.trunc(phaseId))).toString();
     await sql`SELECT pg_advisory_lock(${lockKey}::bigint)`;
-
-    await recomputeFromPhaseId(Number(phaseId));
 
     try {
       await sql`BEGIN`;
@@ -154,6 +214,11 @@ export async function POST(req: NextRequest, ctx: any) {
 
       const nextRow = next?.[0] || null;
 
+      let sweep: any = null;
+      if (nextRow?.id) {
+        sweep = await sweepUnassignedToPhase(Number(nextRow.id));
+      }
+
       // ✅ Commit ALWAYS (snapshot must succeed)
       await sql`COMMIT`;
 
@@ -175,8 +240,9 @@ export async function POST(req: NextRequest, ctx: any) {
         snapshot_taken_at: snapshotAt,
         totals: { usdSum, megySum, allocations: nAlloc },
         nextOpened: nextRow ? { id: Number(nextRow.id), phaseNo: Number(nextRow.phase_no) } : null,
+        sweep,
         recompute,
-      });
+      });        
     } catch (e) {
       try { await sql`ROLLBACK`; } catch {}
       throw e;
