@@ -505,84 +505,72 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ——— CONTRIBUTIONS: ŞEMA TOLERANSLI INSERT ———
-    let hasAssetKind = false;
-    try {
-      const cols = await sql`
-        SELECT column_name
-        FROM information_schema.columns
-        WHERE table_name = 'contributions'
-      `;
-      hasAssetKind = cols.some(
-        (r: any) => r.column_name === 'asset_kind',
-      );
-    } catch (e) {
-      console.warn(
-        '⚠️ failed to inspect schema, assuming no asset_kind:',
-        (e as any)?.message || e,
-      );
-      hasAssetKind = false;
-    }
-
+    // ——— CONTRIBUTIONS: INSERT (deterministic + safe) ———
     let insertedId: number | null = null;
 
     try {
-      if (hasAssetKind) {
-        // ✅ choose correct conflict target deterministically
-        if (tx_hash) {
-          const insertResult = await sql`
-            INSERT INTO contributions (
-              wallet_address, token_symbol, token_contract, network,
-              token_amount, usd_value, transaction_signature, tx_hash, tx_block,
-              idempotency_key, user_agent, timestamp,
-              referral_code, referrer_wallet, asset_kind,
-              phase_id, alloc_phase_no, alloc_status, alloc_updated_at
-            ) VALUES (
-              ${wallet_address}, ${token_symbol}, ${tokenContractFinal}, ${networkNorm},
-              ${tokenAmountNum}, ${usdValueNum}, ${transaction_signature || null}, ${tx_hash || null}, ${tx_block ?? null},
-              ${idemKey}, ${user_agent || ''}, ${timestamp},
-              ${contribReferralCode}, ${contribReferrerWallet}, ${assetKindFinal},
-              ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW()
+      const conflictTarget =
+        tx_hash && String(tx_hash).trim()
+          ? sql`(network, tx_hash)`
+          : sql`(network, transaction_signature)`;
+
+      const insertResult = await sql`
+        INSERT INTO contributions (
+          wallet_address, token_symbol, token_contract, network,
+          token_amount, usd_value, transaction_signature, tx_hash, tx_block,
+          idempotency_key, user_agent, "timestamp",
+          referral_code, referrer_wallet, asset_kind,
+          phase_id, alloc_phase_no, alloc_status, alloc_updated_at
+        ) VALUES (
+          ${wallet_address}, ${token_symbol}, ${tokenContractFinal}, ${networkNorm},
+          ${tokenAmountNum}, ${usdValueNum}, ${transaction_signature || null}, ${tx_hash || null}, ${tx_block ?? null},
+          ${idemKey}, ${user_agent || ''}, ${timestamp},
+          ${contribReferralCode}, ${contribReferrerWallet}, ${assetKindFinal},
+          ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW()
+        )
+        ON CONFLICT ${conflictTarget} DO NOTHING
+        RETURNING id;
+      `;
+
+      insertedId = insertResult?.[0]?.id != null ? Number(insertResult[0].id) : null;
+
+      if (!insertedId) {
+        const exists = await sql`
+          SELECT id FROM contributions
+          WHERE network = ${networkNorm}
+            AND (
+              (${tx_hash || null} IS NOT NULL AND tx_hash = ${tx_hash || null})
+              OR
+              (${transaction_signature || null} IS NOT NULL AND transaction_signature = ${transaction_signature || null})
             )
-            ON CONFLICT (network, tx_hash) DO NOTHING
-            RETURNING id;
-          `;
-          insertedId = insertResult?.[0]?.id ?? null;
-        } else {
-          const insertResult = await sql`
-            INSERT INTO contributions (
-              wallet_address, token_symbol, token_contract, network,
-              token_amount, usd_value, transaction_signature, tx_hash, tx_block,
-              idempotency_key, user_agent, timestamp,
-              referral_code, referrer_wallet, asset_kind,
-              phase_id, alloc_phase_no, alloc_status, alloc_updated_at
-            ) VALUES (
-              ${wallet_address}, ${token_symbol}, ${tokenContractFinal}, ${networkNorm},
-              ${tokenAmountNum}, ${usdValueNum}, ${transaction_signature || null}, ${tx_hash || null}, ${tx_block ?? null},
-              ${idemKey}, ${user_agent || ''}, ${timestamp},
-              ${contribReferralCode}, ${contribReferrerWallet}, ${assetKindFinal},
-              ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW()
-            )
-            ON CONFLICT (network, transaction_signature) DO NOTHING
-            RETURNING id;
-          `;
-          insertedId = insertResult?.[0]?.id ?? null;
+          LIMIT 1
+        `;
+
+        if (exists?.length) {
+          const existingId = Number(exists[0].id);
+          return NextResponse.json({
+            success: true,
+            duplicate: true,
+            id: existingId,
+            tx_id: String(existingId),
+            txId: String(existingId),
+          });
         }
-      } else {
-        // (senin mevcut else branch’in kalsın)
+
+        return NextResponse.json(
+          { success: false, error: 'DB_INSERT_FAILED_NO_ROW' },
+          { status: 500 }
+        );
       }
 
       console.log('📝 contribution inserted id:', insertedId);
-    } catch (e) {
-      console.error(
-        '❌ contribution insert failed:',
-        (e as any)?.message || e,
-      );
+    } catch (e: any) {
+      console.error('❌ contribution insert failed:', e?.message || e);
       return NextResponse.json(
         {
           success: false,
           error: 'contribution insert failed',
-          detail: String((e as any)?.message || e),
+          detail: String(e?.message || e),
         },
         { status: 500 },
       );
