@@ -505,43 +505,85 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const sig =
+      transaction_signature && String(transaction_signature).trim()
+        ? String(transaction_signature).trim()
+        : null;
+
+    const hash =
+      tx_hash && String(tx_hash).trim()
+        ? String(tx_hash).trim()
+        : null;
+
     // ——— CONTRIBUTIONS: INSERT (deterministic + safe) ———
     let insertedId: number | null = null;
 
     try {
-      const conflictTarget =
-        tx_hash && String(tx_hash).trim()
-          ? sql`(network, tx_hash)`
-          : sql`(network, transaction_signature)`;
+      // IMPORTANT: conflict target must match a REAL unique index
+      // - if hash exists => ON CONFLICT (network, tx_hash)
+      // - else          => ON CONFLICT (network, transaction_signature)
 
-      const insertResult = await sql`
-        INSERT INTO contributions (
-          wallet_address, token_symbol, token_contract, network,
-          token_amount, usd_value, transaction_signature, tx_hash, tx_block,
-          idempotency_key, user_agent, "timestamp",
-          referral_code, referrer_wallet, asset_kind,
-          phase_id, alloc_phase_no, alloc_status, alloc_updated_at
-        ) VALUES (
-          ${wallet_address}, ${token_symbol}, ${tokenContractFinal}, ${networkNorm},
-          ${tokenAmountNum}, ${usdValueNum}, ${transaction_signature || null}, ${tx_hash || null}, ${tx_block ?? null},
-          ${idemKey}, ${user_agent || ''}, ${timestamp},
-          ${contribReferralCode}, ${contribReferrerWallet}, ${assetKindFinal},
-          ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW()
-        )
-        ON CONFLICT ${conflictTarget} DO NOTHING
-        RETURNING id;
-      `;
+      let insertResult: any;
+
+      if (hash) {
+        insertResult = await sql`
+          INSERT INTO contributions (
+            wallet_address, token_symbol, token_contract, network,
+            token_amount, usd_value,
+            transaction_signature, tx_hash, tx_block,
+            idempotency_key, user_agent, "timestamp",
+            referral_code, referrer_wallet, asset_kind,
+            phase_id, alloc_phase_no, alloc_status, alloc_updated_at
+          ) VALUES (
+            ${wallet_address}, ${token_symbol}, ${tokenContractFinal}, ${networkNorm},
+            ${tokenAmountNum}, ${usdValueNum},
+            ${sig}, ${hash}, ${tx_block ?? null},
+            ${idemKey}, ${user_agent || ''}, ${timestamp},
+            ${contribReferralCode}, ${contribReferrerWallet}, ${assetKindFinal},
+            ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW()
+          )
+          ON CONFLICT (network, tx_hash) DO NOTHING
+          RETURNING id;
+        `;
+      } else if (sig) {
+        insertResult = await sql`
+          INSERT INTO contributions (
+            wallet_address, token_symbol, token_contract, network,
+            token_amount, usd_value,
+            transaction_signature, tx_hash, tx_block,
+            idempotency_key, user_agent, "timestamp",
+            referral_code, referrer_wallet, asset_kind,
+            phase_id, alloc_phase_no, alloc_status, alloc_updated_at
+          ) VALUES (
+            ${wallet_address}, ${token_symbol}, ${tokenContractFinal}, ${networkNorm},
+            ${tokenAmountNum}, ${usdValueNum},
+            ${sig}, NULL, ${tx_block ?? null},
+            ${idemKey}, ${user_agent || ''}, ${timestamp},
+            ${contribReferralCode}, ${contribReferrerWallet}, ${assetKindFinal},
+            ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW()
+          )
+          ON CONFLICT (network, transaction_signature) DO NOTHING
+          RETURNING id;
+        `;
+      } else {
+        return NextResponse.json(
+          { success: false, error: 'MISSING_TX_ID' },
+          { status: 400 }
+        );
+      }
 
       insertedId = insertResult?.[0]?.id != null ? Number(insertResult[0].id) : null;
 
+      // If DO NOTHING happened, fetch existing id and treat as duplicate success
       if (!insertedId) {
         const exists = await sql`
-          SELECT id FROM contributions
+          SELECT id
+          FROM contributions
           WHERE network = ${networkNorm}
             AND (
-              (${tx_hash || null} IS NOT NULL AND tx_hash = ${tx_hash || null})
+              (${hash} IS NOT NULL AND tx_hash = ${hash})
               OR
-              (${transaction_signature || null} IS NOT NULL AND transaction_signature = ${transaction_signature || null})
+              (${sig}  IS NOT NULL AND transaction_signature = ${sig})
             )
           LIMIT 1
         `;
