@@ -515,6 +515,12 @@ export async function POST(req: NextRequest) {
         ? String(tx_hash).trim()
         : null;
 
+    console.log('🧾 tx ids resolved:', {
+      sig,
+      hash,
+      networkNorm,
+    });        
+
     // ——— CONTRIBUTIONS: INSERT (deterministic + safe) ———
     let insertedId: number | null = null;
 
@@ -524,6 +530,11 @@ export async function POST(req: NextRequest) {
       // - else          => ON CONFLICT (network, transaction_signature)
 
       let insertResult: any;
+
+      console.log(
+        '⚙️ conflict mode:',
+        hash ? 'hash (network, tx_hash)' : 'sig (network, transaction_signature)'
+      );      
 
       if (hash) {
         insertResult = await sql`
