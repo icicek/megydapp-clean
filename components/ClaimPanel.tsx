@@ -725,7 +725,41 @@ export default function ClaimPanel() {
           </div>
         </motion.section>
 
-        {/* 📊 Claim & Statistics */}
+        {/* 🌍 Global Momentum */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 sm:px-6 py-4 sm:py-5 mb-5 shadow-md"
+        >
+          <h3 className="text-emerald-300 text-sm font-semibold uppercase mb-4 tracking-wide">
+            🌍 Global Momentum
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <StatBox
+              label="Total Contribution Size"
+              value={`$${globalStats.totalUsd.toLocaleString()}`}
+              color="green"
+            />
+            <StatBox
+              label="Total Participants"
+              value={`${globalStats.totalParticipants}`}
+              color="blue"
+            />
+            <StatBox
+              label="Your Share"
+              value={`${(shareRatio * 100).toFixed(2)}%`}
+              color="yellow"
+            />
+          </div>
+
+          <p className="mt-3 text-xs text-gray-400 italic text-center">
+            Increase your share by Coincarnating more.
+          </p>
+        </motion.section>
+
+        {/* 📊 Claim */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -733,17 +767,24 @@ export default function ClaimPanel() {
           className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 sm:px-6 py-4 sm:py-5 mb-5 shadow-md"
         >
           <h3 className="text-blue-400 text-sm font-semibold uppercase mb-4 tracking-wide">
-            📊 Claim & Statistics
+            📊 Claim
           </h3>
 
-          {/* 🌍 Current Phase Progress */}
-          <div className="mb-6">
-            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
+          {/* 🟢 Phase Card: Current Phase + Your Estimate */}
+          <div className="mb-5">
+            <div
+              className={[
+                "bg-zinc-800 border rounded-xl p-4",
+                currentPhase && !currentPhase?.snapshot_taken_at && !currentPhase?.finalized_at
+                  ? "border-emerald-400/40 shadow-[0_0_0_1px_rgba(52,211,153,0.25)]"
+                  : "border-zinc-700",
+              ].join(" ")}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 min-w-0">
+                <div className="min-w-0">
                   <p className="text-gray-400 text-xs uppercase tracking-wide">Current Phase</p>
-                  <p className="text-white font-semibold">
-                    {phasesLoading ? 'Loading…' : currentPhase ? `Phase #${currentPhase.phase_no} — ${currentPhase.name || ''}` : 'No phase'}
+                  <p className="text-white font-semibold truncate">
+                    {phasesLoading ? 'Loading…' : currentPhase ? `${currentPhase.name || 'Current Phase'}` : 'No phase'}
                   </p>
 
                   <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
@@ -790,6 +831,7 @@ export default function ClaimPanel() {
                     </div>
                   );
                 })()}
+
                 <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
                   <span>
                     Used: ${Number(currentPhase?.used_usd ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
@@ -799,135 +841,91 @@ export default function ClaimPanel() {
                   </span>
                 </div>
 
-                {/* Overfill note */}
                 {Number(currentPhase?.fill_pct ?? 0) > 1 && (
                   <div className="mt-2 text-xs text-yellow-300">
                     ⚠️ Phase is overfilled (Used exceeded Cap). This can happen when the last contribution crosses the target.
                   </div>
                 )}
               </div>
-            </div>
-          </div>
 
-          {/* 🔮 Active Phase – Estimated MEGY */}
-          {activeEstimate?.active && !currentPhase?.snapshot_taken_at && (
-            <div className="mb-6">
-              <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-gray-400 text-xs uppercase tracking-wide">
-                      Active Phase Estimate
-                    </p>
-                    <p className="text-white font-semibold">
-                      Phase #{activeEstimate.active.phaseNo} — {activeEstimate.active.name}
-                    </p>
+              {/* Your estimate (inside the same card) */}
+              {activeEstimate?.active && !currentPhase?.snapshot_taken_at && (
+                <div className="mt-4 pt-4 border-t border-zinc-700">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div>
+                      <p className="text-gray-400 text-xs uppercase tracking-wide">
+                        Your live estimate
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                        <span className="px-2 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/30 text-yellow-200">
+                          ⏳ live estimate
+                        </span>
+                        <span className="px-2 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300">
+                          changes until snapshot
+                        </span>
+                      </div>
+                    </div>
 
-                    <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                      <span className="px-2 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/30 text-yellow-200">
-                        ⏳ live estimate
-                      </span>
-                      <span className="px-2 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300">
-                        changes until snapshot
-                      </span>
+                    <div className="text-right">
+                      <p className="text-gray-400 text-xs">Your Share</p>
+                      <p className="text-white font-semibold">
+                        {(activeEstimate.me.shareRatio * 100).toFixed(3)}%
+                      </p>
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <p className="text-gray-400 text-xs">Your Share</p>
-                    <p className="text-white font-semibold">
-                      {(activeEstimate.me.shareRatio * 100).toFixed(3)}%
-                    </p>
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                    <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
+                      <p className="text-xs text-gray-400">Your USD (active phase)</p>
+                      <p className="font-semibold text-white">
+                        ${Number(activeEstimate.me.userUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+
+                    <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
+                      <p className="text-xs text-gray-400">Total USD (active phase)</p>
+                      <p className="font-semibold text-white">
+                        ${Number(activeEstimate.totals.totalUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+
+                    <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
+                      <p className="text-xs text-gray-400">Estimated MEGY</p>
+                      <p className="font-extrabold text-yellow-300 text-lg">
+                        {Math.floor(activeEstimate.me.estimatedMegy).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
+
+                  <p className="mt-3 text-xs text-gray-400 italic text-center">
+                    ⚠️ This is a <span className="text-yellow-300 font-medium">live estimate</span>. Final MEGY amount will be locked at snapshot.
+                  </p>
                 </div>
-
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                  <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
-                    <p className="text-xs text-gray-400">Your USD (active phase)</p>
-                    <p className="font-semibold text-white">
-                      ${Number(activeEstimate.me.userUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    </p>
-                  </div>
-
-                  <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
-                    <p className="text-xs text-gray-400">Total USD (active phase)</p>
-                    <p className="font-semibold text-white">
-                      ${Number(activeEstimate.totals.totalUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    </p>
-                  </div>
-
-                  <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
-                    <p className="text-xs text-gray-400">Estimated MEGY</p>
-                    <p className="font-extrabold text-yellow-300 text-lg">
-                      {Math.floor(activeEstimate.me.estimatedMegy).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-
-                <p className="mt-3 text-xs text-gray-400 italic text-center">
-                  ⚠️ This is a <span className="text-yellow-300 font-medium">live estimate</span>.
-                  Final MEGY amount will be locked at snapshot.
-                </p>
-              </div>
+              )}
             </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-            <StatBox
-              label="Total Contribution Size"
-              value={`$${globalStats.totalUsd.toLocaleString()}`}
-              color="green"
-            />
-            <StatBox
-              label="Total Participants"
-              value={`${globalStats.totalParticipants}`}
-              color="blue"
-            />
-            <StatBox label="Your Share" value={`${(shareRatio * 100).toFixed(2)}%`} color="yellow" />
           </div>
 
-          {finalizedClaim && (Number(finalizedClaim.finalized_megy_total ?? 0) > 0 ||
-            (Array.isArray(finalizedClaim.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 0)) && (
-
-            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-sm">
-              <p className="text-gray-400 mb-2">📌 Finalized Snapshot</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <p className="text-gray-400 text-xs">Finalized</p>
-                  <p className="font-semibold">{Number(finalizedClaim.finalized_megy_total || 0).toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-xs">Claimed</p>
-                  <p className="font-semibold">{Number(finalizedClaim.claimed_megy_total || 0).toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-xs">Claimable</p>
-                  <p className="font-semibold text-purple-300">{Number(finalizedClaim.claimable_megy_total || 0).toLocaleString()}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
+          {/* 🧬 Snapshot Timeline */}
           {Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 0 && (() => {
             const phases = finalizedClaim.finalized_by_phase
-            .slice()
-            .map((p: any) => ({
-              pid: Number(p?.phase_id ?? p?.phaseId ?? 0),
-              phaseNo: Number(p?.phase_no ?? p?.phaseNo ?? 0) || null,
-              phaseName: p?.phase_name ?? p?.phaseName ?? null,
-              created: p?.created_at ?? p?.snapshot_taken_at ?? p?.createdAt ?? null,
-              claimable: Number(p?.claimable_megy ?? p?.claimable ?? p?.claimableMegy ?? 0),
-            }))          
+              .slice()
+              .map((p: any) => ({
+                pid: Number(p?.phase_id ?? p?.phaseId ?? 0),
+                phaseNo: Number(p?.phase_no ?? p?.phaseNo ?? 0) || null,
+                phaseName: p?.phase_name ?? p?.phaseName ?? null,
+                created: p?.created_at ?? p?.snapshot_taken_at ?? p?.createdAt ?? null,
+                claimable: Number(p?.claimable_megy ?? p?.claimable ?? p?.claimableMegy ?? 0),
+              }))
               .filter((x: any) => Number.isFinite(x.pid) && x.pid > 0)
               .sort((a: any, b: any) => b.pid - a.pid);
 
-              const options: number[] = Array.from(new Set(phases.map((x: any) => x.pid)));
+            const options: number[] = Array.from(new Set(phases.map((x: any) => x.pid)));
 
             const activePid =
               (selectedPhaseId != null && options.includes(selectedPhaseId))
                 ? selectedPhaseId
                 : (options[0] ?? null);
 
-            const active = phases.find((x: any) => x.pid === activePid) ?? null;
             const ordered =
               activePid
                 ? [
@@ -937,12 +935,12 @@ export default function ClaimPanel() {
                 : phases;
 
             return (
-              <div className="mt-4 bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-sm">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <p className="text-gray-400">🗂 Snapshot History</p>
+              <div className="mb-5 bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3 min-w-0">
+                  <p className="text-gray-300 font-medium">🧬 Snapshot Timeline</p>
 
-                  <div className="w-full sm:w-auto flex flex-col sm:flex-row sm:items-center gap-2">
-                  <span className="text-xs text-gray-400 shrink-0">Select phase</span>
+                  <div className="w-full sm:w-auto flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
+                    <span className="text-xs text-gray-400 shrink-0">Select phase</span>
 
                     <select
                       value={activePid ? String(activePid) : ''}
@@ -974,7 +972,6 @@ export default function ClaimPanel() {
                   </div>
                 </div>
 
-                {/* Full list */}
                 <div className="space-y-2">
                   {ordered.map((p: any) => {
                     const isSelected = activePid != null && p.pid === activePid;
@@ -983,37 +980,31 @@ export default function ClaimPanel() {
                       <div
                         key={p.pid}
                         className={[
-                          "rounded-lg border px-3 py-2 flex items-center justify-between gap-3 transition",
+                          "rounded-lg border px-3 py-2 flex items-start justify-between gap-3 transition min-w-0",
                           isSelected
                             ? "border-emerald-400/40 bg-emerald-400/10 shadow-[0_0_0_1px_rgba(52,211,153,0.25)]"
                             : "border-zinc-700 bg-zinc-900/20 hover:bg-zinc-800/40",
                         ].join(" ")}
                       >
-                        <div className="text-gray-300">
-                          <div className="flex items-center gap-2">
-                            <span className="text-white font-semibold">
+                        <div className="text-gray-300 min-w-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-white font-semibold truncate">
                               {p.phaseName ? String(p.phaseName) : (p.phaseNo ? `Phase ${p.phaseNo}` : `Phase`)}
                             </span>
 
                             {isSelected && (
-                              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
+                              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300 shrink-0">
                                 🟢 Selected
                               </span>
                             )}
                           </div>
-
-                          {p.phaseName === 'Early Birds' && (
-                            <div className="text-[11px] text-emerald-300/90 mt-0.5">
-                              First movers • Limited • Experimental
-                            </div>
-                          )}
 
                           {p.created ? (
                             <div className="text-xs text-gray-500">{formatDate(String(p.created))}</div>
                           ) : null}
                         </div>
 
-                        <div className="text-right">
+                        <div className="text-right shrink-0">
                           <div className="text-xs text-gray-400 flex items-center justify-end gap-1">
                             Claimable
                             {isSelected && (
@@ -1037,49 +1028,61 @@ export default function ClaimPanel() {
             );
           })()}
 
-          <div className="flex items-center justify-center gap-2 text-xs mb-3">
-            <span className="text-gray-400">Finalized phase</span>
-            {phaseLoading ? (
-              <span className="px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-gray-300">Loading…</span>
-            ) : phaseId ? (
-              <span className="px-2 py-1 rounded bg-emerald-900/30 border border-emerald-700 text-emerald-200 font-semibold">
-                #{phaseId}
-              </span>
-            ) : (
-              <span className="px-2 py-1 rounded bg-red-900/30 border border-red-700 text-red-200 font-semibold">
-                None
-              </span>
-            )}
-          </div>
+          {/* 🎯 Claim Summary (Finalized Snapshot integrated) */}
+          <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 mb-5">
+            <p className="text-sm text-gray-300 mb-3 text-center font-medium">🎯 Claimable $MEGY</p>
 
-          <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 mb-4">
-            <p className="text-sm text-gray-400 mb-3 text-center">🎯 Claimable $MEGY</p>
-
-            {/* Big number stays: total claimable (all phases) */}
             <p className="text-2xl font-extrabold text-purple-400 text-center">
               {claimableMegy.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </p>
 
-            {/* Breakdown */}
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
               <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
-                <p className="text-xs text-gray-400">Total claimable (all phases)</p>
+                <p className="text-xs text-gray-400">Finalized</p>
                 <p className="font-semibold text-white">
-                  {Math.floor(Number(finalizedClaim?.claimable_megy_total ?? 0)).toLocaleString()}
+                  {Math.floor(Number(finalizedClaim?.finalized_megy_total ?? 0)).toLocaleString()}
                 </p>
               </div>
 
               <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
+                <p className="text-xs text-gray-400">Claimed</p>
+                <p className="font-semibold text-white">
+                  {Math.floor(Number(finalizedClaim?.claimed_megy_total ?? 0)).toLocaleString()}
+                </p>
+              </div>
+
+              <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
+                <p className="text-xs text-gray-400">Claimable</p>
+                <p className="font-semibold text-purple-300">
+                  {Math.floor(Number(finalizedClaim?.claimable_megy_total ?? 0)).toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
                 <p className="text-xs text-gray-400">
-                  Selected phase claimable{effectivePhaseName ? ` (${String(effectivePhaseName)})` : (effectivePhaseId ? ` (Phase #${effectivePhaseId})` : '')}
+                  Selected phase claimable{effectivePhaseName ? ` (${String(effectivePhaseName)})` : ''}
                 </p>
                 <p className="font-semibold text-white">
                   {Math.floor(Number(selectedClaimable ?? 0)).toLocaleString()}
                 </p>
               </div>
+
+              <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
+                <p className="text-xs text-gray-400">Status</p>
+                <p className="font-semibold text-white">
+                  {(() => {
+                    const f = Number(finalizedClaim?.finalized_megy_total ?? 0);
+                    const c = Number(finalizedClaim?.claimed_megy_total ?? 0);
+                    if (f > 0 && c >= f) return '✅ Fully claimed';
+                    if (c > 0 && c < f) return `🟡 Partially claimed (${Math.floor(c).toLocaleString()})`;
+                    return '—';
+                  })()}
+                </p>
+              </div>
             </div>
 
-            {/* Footnote */}
             <p className="text-xs text-gray-400 italic mt-3 text-center">
               {claimableFromFinalized != null
                 ? ((Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 1)
@@ -1089,19 +1092,9 @@ export default function ClaimPanel() {
             </p>
           </div>
 
+          {/* 💳 Claim controls */}
           <div className="bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-4 sm:px-4 sm:py-5 space-y-4">
             <p className="text-sm font-medium text-gray-300">Claim To Address</p>
-
-            {/* 💸 Claim fee info */}
-            <div className="bg-zinc-900/60 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-gray-400 leading-relaxed">
-              <p>
-                💸 <span className="text-white font-medium">First claim in a session</span> requires a
-                <span className="text-purple-300 font-semibold"> ~0.003 SOL fee</span> (paid in SOL).
-              </p>
-              <p className="mt-1">
-                ✅ Next claims in the <span className="text-white font-medium">same session</span> are free.
-              </p>
-            </div>
 
             {!useAltAddress ? (
               <p className="text-green-400 text-sm font-mono break-all bg-zinc-900 p-2 rounded">
@@ -1143,7 +1136,6 @@ export default function ClaimPanel() {
 
                 {selectedClaimable > 0 && (
                   <div className="space-y-2">
-                    {/* Quick buttons */}
                     <div className="flex items-center justify-between gap-2 text-xs text-gray-300 font-medium">
                       <button
                         type="button"
@@ -1170,7 +1162,6 @@ export default function ClaimPanel() {
                       </button>
                     </div>
 
-                    {/* Amount input */}
                     <input
                       type="text"
                       inputMode="numeric"
@@ -1183,7 +1174,6 @@ export default function ClaimPanel() {
                       className="w-full bg-zinc-900 border border-zinc-600 p-2 rounded-md text-sm text-white"
                     />
 
-                    {/* Helper text */}
                     {isClaimAmountEmpty && (
                       <p className="text-xs text-yellow-400 text-center">
                         ⚠️ Enter an amount to claim
@@ -1193,26 +1183,6 @@ export default function ClaimPanel() {
                 )}
               </div>
             )}
-
-            {(() => {
-              const finalizedTotal = Number(finalizedClaim?.finalized_megy_total ?? 0);
-              const claimedTotal = Number(finalizedClaim?.claimed_megy_total ?? 0);
-
-              const fullyClaimed = finalizedTotal > 0 && claimedTotal >= finalizedTotal;
-              const partiallyClaimed = claimedTotal > 0 && !fullyClaimed;
-
-              if (fullyClaimed) {
-                return <p className="text-green-400 font-semibold text-center mt-4">✅ Fully claimed</p>;
-              }
-              if (partiallyClaimed) {
-                return (
-                  <p className="text-yellow-300 font-semibold text-center mt-4">
-                    🟡 Partially claimed ({Math.floor(claimedTotal).toLocaleString()} claimed)
-                  </p>
-                );
-              }
-              return null;
-            })()}
 
             {claimOpen ? (
               <>
@@ -1231,7 +1201,6 @@ export default function ClaimPanel() {
                     {claimButtonLabel}
                   </button>
 
-                  {/* Tooltip */}
                   {claimOpen && effectivePhaseId && selectedClaimable > 0 && (
                     <div
                       className={[
@@ -1257,7 +1226,7 @@ export default function ClaimPanel() {
               </p>
             )}
 
-            {message && <p className="text-center mt-3 text-sm">{message}</p>}
+            {message && <p className="text-center mt-3 text-sm whitespace-pre-line">{message}</p>}
 
             {feeSigForSupport && (
               <div className="mt-3 flex items-center justify-center gap-2">
