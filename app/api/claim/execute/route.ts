@@ -130,8 +130,11 @@ export async function POST(req: NextRequest) {
 
   const MEGY_MINT = asStr(process.env.MEGY_MINT || '');
   if (!MEGY_MINT) {
-    // keep behavior, but now you can test DB/session without mint by calling /session/start only
-    return json(500, { success: false, error: 'Claim is not available yet. MEGY token is not live.' });
+    return json(503, {
+      success: false,
+      code: 'CLAIM_NOT_LIVE',
+      error: 'Claim is not available yet. MEGY token is not live.',
+    });
   }
 
   const MEGY_DECIMALS = Number(process.env.MEGY_DECIMALS ?? 9);
