@@ -92,6 +92,17 @@ export default function ClaimPanel() {
   const attemptIdemKeyRef = useRef<string | null>(null);
   const [activeEstimate, setActiveEstimate] = useState<any>(null);
   const [estimateLoading, setEstimateLoading] = useState(false);
+  const [feeConfirmOpen, setFeeConfirmOpen] = useState(false);
+  const [pendingClaim, setPendingClaim] = useState<{
+    wallet: string;
+    destination: string;
+    phaseId: number;
+    claimAmountRaw: string;
+    idemKey: string;
+  } | null>(null);
+
+  const FEE_SOL = 0.003;
+  const FEE_LAMPORTS = Math.round(FEE_SOL * 1_000_000_000);
 
   useEffect(() => {
     let alive = true;
@@ -320,7 +331,7 @@ export default function ClaimPanel() {
   const claimableFromFinalized = (() => {
     const n = Number(finalizedClaim?.claimable_megy_total ?? NaN);
     return Number.isFinite(n) ? Math.max(0, n) : null;
-  })();  
+  })();
 
   // 🔹 Deadcoins Revived sayısını artık backend'den alıyoruz
   const deadcoinsRevived = Number(data.deadcoins_revived ?? 0);
@@ -355,165 +366,16 @@ export default function ClaimPanel() {
     ? Math.max(0, Number(selectedPhaseRow.claimable_megy ?? 0))
     : 0;
 
-  async function ensureOpenSession(wallet: string, destination: string): Promise<string> {
-    const FEE_SOL = 0.003;
-    const FEE_LAMPORTS = Math.round(FEE_SOL * 1_000_000_000); // 3,000,000
-
-    // 1) First try WITHOUT fee: reuse open session if exists
-    let r = await fetch('/api/claim/session/start', {
+  async function tryStartSessionWithoutFee(wallet: string, destination: string) {
+    const r = await fetch('/api/claim/session/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({ wallet_address: wallet, destination }),
     });
 
-    let j: any = await r.json().catch(() => ({}));
-
-    if (r.ok && j?.success && j?.session_id) {
-      const sid = String(j.session_id);
-      setSessionId(sid);
-      setMessage(null);
-      setFeeSigForSupport(null); // ✅ nothing to support
-      return sid;
-    }
-
-    // 2) No open session → backend asks for fee
-    const err = String(j?.error || '');
-    if (err !== 'MISSING_FEE_SIGNATURE') {
-      throw new Error(err || `SESSION_START_FAILED (${r.status})`);
-    }
-
-    // 3) Production UX: pay fee automatically via wallet
-    if (!publicKey) throw new Error('WALLET_NOT_CONNECTED');
-    if (!connection) throw new Error('RPC_CONNECTION_MISSING');
-    if (!sendTransaction) throw new Error('WALLET_SEND_TX_UNAVAILABLE');
-    if (!claimOpen) throw new Error('CLAIM_NOT_OPEN');
-
-    setMessage('💸 Paying the 0.003 SOL session fee… Please confirm in your wallet.');
-
-    // Build fee transfer transaction: payer (user) -> treasury
-    const tx = new Transaction().add(
-      SystemProgram.transfer({
-        fromPubkey: publicKey,
-        toPubkey: TREASURY_PUBKEY,
-        lamports: FEE_LAMPORTS,
-      })
-    );
-    tx.feePayer = publicKey;
-
-    const latest = await connection.getLatestBlockhash('confirmed');
-    tx.recentBlockhash = latest.blockhash;
-
-    const feeSig = String(
-      await sendTransaction(
-        tx,
-        connection,
-        {
-          skipPreflight: false,
-          preflightCommitment: 'confirmed',
-          maxRetries: 3,
-        } as any
-      )
-    );
-
-    // ✅ store for "support/copy" in case session open fails later
-    setFeeSigForSupport(feeSig);
-
-    setMessage('⏳ Confirming fee payment on-chain…');
-
-    let confirmedByConfirmTx = false;
-
-    try {
-      await connection.confirmTransaction(
-        {
-          signature: feeSig,
-          blockhash: latest.blockhash,
-          lastValidBlockHeight: latest.lastValidBlockHeight,
-        },
-        'confirmed'
-      );
-      confirmedByConfirmTx = true;
-    } catch (e) {
-      console.warn('[ClaimPanel] confirmTransaction failed; falling back to polling', e);
-    }
-
-    if (!confirmedByConfirmTx) {
-      const start = Date.now();
-      const TIMEOUT_MS = 60_000;
-
-      while (true) {
-        const st = await connection.getSignatureStatus(feeSig, {
-          searchTransactionHistory: true,
-        });
-
-        const cs = st?.value?.confirmationStatus;
-
-        if (st?.value?.err) {
-          console.error('Fee tx status err:', st.value.err, { feeSig });
-          throw new Error('FEE_TX_FAILED');
-        }
-
-        if (cs === 'confirmed' || cs === 'finalized') {
-          break;
-        }
-
-        if (Date.now() - start > TIMEOUT_MS) {
-          const txInfo = await connection.getTransaction(feeSig, {
-            maxSupportedTransactionVersion: 0,
-          });
-
-          if (txInfo?.meta?.err) throw new Error('FEE_TX_FAILED');
-          if (txInfo) break;
-
-          throw new Error('FEE_TX_CONFIRM_TIMEOUT');
-        }
-
-        await new Promise((res) => setTimeout(res, 1200));
-      }
-    }
-
-    // 4) Now open the session with fee tx signature
-    const startWithFee = async () => {
-      const rr = await fetch('/api/claim/session/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          wallet_address: wallet,
-          destination,
-          fee_tx_signature: feeSig,
-          fee_amount: FEE_LAMPORTS,
-        }),
-      });
-      const jj = await rr.json().catch(() => ({}));
-      return { rr, jj };
-    };
-
-    setMessage('🧩 Opening your claim session…');
-
-    // try #1
-    let { rr, jj } = await startWithFee();
-
-    // retry once (DB hiccup / transient)
-    if (!rr.ok || !jj?.success || !jj?.session_id) {
-      await new Promise((res) => setTimeout(res, 800));
-      ({ rr, jj } = await startWithFee());
-    }
-
-    if (!rr.ok || !jj?.success || !jj?.session_id) {
-      // IMPORTANT: fee is paid, but session couldn't be created.
-      // We keep feeSigForSupport so user can copy & retry.
-      setMessage(
-        `✅ Fee confirmed on-chain, but we couldn't open a session. Please press Claim again.\nFee tx: ${feeSig}`
-      );
-      throw new Error(jj?.error || `SESSION_START_FAILED (${rr.status})`);
-    }
-
-    const sid = String(jj.session_id);
-    setSessionId(sid);
-    setMessage(null);
-    setFeeSigForSupport(null); // ✅ success, no support needed
-    return sid;
+    const j: any = await r.json().catch(() => ({}));
+    return { r, j };
   }
   
   const handleClaim = async () => {
@@ -569,10 +431,8 @@ export default function ClaimPanel() {
   
     try {
       const walletBase58 = publicKey.toBase58();
-  
-      // 1) Ensure session (auto fee if needed)
-      const sid = await ensureOpenSession(walletBase58, destination);
-
+    
+      // 1) Ensure idempotency key (once per attempt)
       if (!attemptIdemKeyRef.current) {
         attemptIdemKeyRef.current =
           (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
@@ -580,18 +440,166 @@ export default function ClaimPanel() {
             : `claim_${Date.now()}_${Math.random().toString(16).slice(2)}`;
       }
       const idemKey = attemptIdemKeyRef.current;
-      
-      // 2) Execute claim (server-side MEGY transfer + DB record)
+    
+      // 2) Try to start session WITHOUT fee (preflight)
+      const { r: preR, j: preJ } = await tryStartSessionWithoutFee(walletBase58, destination);
+    
+      // ✅ Case A: session exists (no fee needed)
+      if (preR.ok && preJ?.success && preJ?.session_id) {
+        const sid = String(preJ.session_id);
+        setSessionId(sid);
+    
+        // Execute claim
+        const execRes = await fetch('/api/claim/execute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            session_id: sid,
+            wallet_address: walletBase58,
+            destination,
+            phase_id: effectivePhaseId, // 0 allowed for all phases (when we add toggle)
+            claim_amount: raw,
+            idempotency_key: idemKey,
+          }),
+        });
+    
+        const execJson: any = await execRes.json().catch(() => ({}));
+    
+        if (!execRes.ok || !execJson?.success) {
+          const rawErr = String(execJson?.error || `CLAIM_EXECUTE_FAILED (${execRes.status})`);
+          setMessage(`❌ ${userFriendlyError(rawErr)}`);
+          return;
+        }
+    
+        setFeeSigForSupport(null);
+        setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
+        attemptIdemKeyRef.current = null;
+    
+        if (execJson?.session_closed === true) setSessionId(null);
+    
+        // Refresh profile
+        const refreshed = await fetch(`/api/claim/${walletBase58}`, { cache: 'no-store' });
+        const refreshedJson: any = await refreshed.json().catch(() => ({}));
+        if (refreshed.ok && refreshedJson?.success) setData(refreshedJson.data);
+    
+        return;
+      }
+    
+      // ✅ Case B: backend says fee is required -> open confirm UI
+      const err = String(preJ?.error || '');
+    
+      if (err === 'MISSING_FEE_SIGNATURE') {
+        setPendingClaim({
+          wallet: walletBase58,
+          destination,
+          phaseId: effectivePhaseId, // can be 0 when "all phases" enabled
+          claimAmountRaw: raw,
+          idemKey,
+        });
+    
+        setFeeConfirmOpen(true);
+        setMessage(null);
+        return;
+      }
+    
+      // ✅ Other error
+      throw new Error(err || `SESSION_START_FAILED (${preR.status})`);
+    } catch (err: any) {
+      console.error('Claim request failed:', err);
+      setMessage(`❌ ${userFriendlyError(String(err?.message ?? ''))}`);
+    } finally {
+      setIsClaiming(false);
+    }    
+  };
+
+  const confirmAndPayFeeThenExecute = async () => {
+    if (!pendingClaim) return;
+  
+    const { wallet, destination, phaseId, claimAmountRaw, idemKey } = pendingClaim;
+  
+    try {
+      setIsClaiming(true);
+      setMessage(null);
+  
+      // Guards
+      if (!publicKey) throw new Error('WALLET_NOT_CONNECTED');
+      if (!connection) throw new Error('RPC_CONNECTION_MISSING');
+      if (!sendTransaction) throw new Error('WALLET_SEND_TX_UNAVAILABLE');
+      if (!claimOpen) throw new Error('CLAIM_NOT_OPEN');
+  
+      // 1) Pay fee on-chain (user wallet -> treasury)
+      setMessage(`💸 Paying the ${FEE_SOL} SOL session fee… Please confirm in your wallet.`);
+  
+      const feeTx = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: TREASURY_PUBKEY,
+          lamports: FEE_LAMPORTS,
+        })
+      );
+      feeTx.feePayer = publicKey;
+  
+      const latest = await connection.getLatestBlockhash('confirmed');
+      feeTx.recentBlockhash = latest.blockhash;
+  
+      const feeSig = String(
+        await sendTransaction(feeTx, connection, {
+          skipPreflight: false,
+          preflightCommitment: 'confirmed',
+          maxRetries: 3,
+        } as any)
+      );
+  
+      setFeeSigForSupport(feeSig);
+      setMessage('⏳ Confirming fee payment on-chain…');
+  
+      await connection.confirmTransaction(
+        {
+          signature: feeSig,
+          blockhash: latest.blockhash,
+          lastValidBlockHeight: latest.lastValidBlockHeight,
+        },
+        'confirmed'
+      );
+  
+      // 2) Start session WITH fee signature
+      setMessage('🧩 Opening your claim session…');
+  
+      const startRes = await fetch('/api/claim/session/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          wallet_address: wallet,
+          destination,
+          fee_tx_signature: feeSig,
+          fee_amount: FEE_LAMPORTS,
+        }),
+      });
+  
+      const startJson: any = await startRes.json().catch(() => ({}));
+      if (!startRes.ok || !startJson?.success || !startJson?.session_id) {
+        const rawErr = String(startJson?.error || `SESSION_START_FAILED (${startRes.status})`);
+        throw new Error(rawErr);
+      }
+  
+      const sid = String(startJson.session_id);
+      setSessionId(sid);
+  
+      // 3) Execute claim
+      setMessage('🚀 Executing your claim…');
+  
       const execRes = await fetch('/api/claim/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           session_id: sid,
-          wallet_address: walletBase58,
+          wallet_address: wallet,
           destination,
-          phase_id: effectivePhaseId,
-          claim_amount: raw,
+          phase_id: phaseId,          // 0 => all phases
+          claim_amount: claimAmountRaw,
           idempotency_key: idemKey,
         }),
       });
@@ -600,35 +608,29 @@ export default function ClaimPanel() {
   
       if (!execRes.ok || !execJson?.success) {
         const rawErr = String(execJson?.error || `CLAIM_EXECUTE_FAILED (${execRes.status})`);
-        setMessage(`❌ ${userFriendlyError(rawErr)}`);
-        return;
+        throw new Error(rawErr);
       }
   
       setFeeSigForSupport(null);
-      setMessage(
-        `✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`
-      );      
+      setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
       attemptIdemKeyRef.current = null;
   
-      // ✅ Optional: if backend closes session (only if execute returns it)
-      if (execJson?.session_closed === true) {
-        setSessionId(null);
-      }
+      if (execJson?.session_closed === true) setSessionId(null);
   
-      // 3) Refresh profile
-      const refreshed = await fetch(`/api/claim/${walletBase58}`, { cache: 'no-store' });
+      // 4) Refresh profile
+      const refreshed = await fetch(`/api/claim/${wallet}`, { cache: 'no-store' });
       const refreshedJson: any = await refreshed.json().catch(() => ({}));
-      if (refreshed.ok && refreshedJson?.success) {
-        setData(refreshedJson.data);
-      }
-    } catch (err: any) {
-      console.error('Claim request failed:', err);
-      setMessage(`❌ ${userFriendlyError(String(err?.message ?? ''))}`);
+      if (refreshed.ok && refreshedJson?.success) setData(refreshedJson.data);
+    } catch (e: any) {
+      const msg = String(e?.message ?? '');
+      setMessage(`❌ ${userFriendlyError(msg)}`);
     } finally {
       setIsClaiming(false);
+      setFeeConfirmOpen(false);
+      setPendingClaim(null);
     }
   };
-
+  
   if (process.env.NODE_ENV !== 'production') {
     console.log('[ClaimPanel] phase', {
       phaseId,
@@ -1638,6 +1640,77 @@ export default function ClaimPanel() {
           walletBase58={publicKey?.toBase58() ?? null}
           anchor={shareAnchor}
         />
+      )}
+      {/* ✅ Fee Confirm Modal */}
+      {feeConfirmOpen && pendingClaim && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/70"
+            onClick={() => {
+              if (isClaiming) return;
+              setFeeConfirmOpen(false);
+              setPendingClaim(null);
+            }}
+          />
+          <div className="relative w-full max-w-lg bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl p-5">
+            <h4 className="text-white font-extrabold text-xl text-center">
+              Confirm Session Fee
+            </h4>
+
+            <p className="text-gray-300 text-sm mt-3 text-center leading-relaxed">
+              To start a new claim session, a one-time fee of{" "}
+              <span className="text-purple-300 font-semibold">~{FEE_SOL} SOL</span>{" "}
+              is required.
+            </p>
+
+            <div className="mt-4 bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-sm text-gray-300 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-gray-400">Destination</span>
+                <span className="font-mono text-xs break-all text-white">
+                  {pendingClaim.destination}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-gray-400">Claim amount</span>
+                <span className="font-semibold text-white">
+                  {pendingClaim.claimAmountRaw} MEGY
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-gray-400">Scope</span>
+                <span className="font-semibold text-white">
+                  {pendingClaim.phaseId === 0 ? 'All finalized phases' : `Phase #${pendingClaim.phaseId}`}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-400 italic text-center mt-3">
+              Next claims in the same session are free.
+            </p>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                disabled={isClaiming}
+                onClick={() => {
+                  if (isClaiming) return;
+                  setFeeConfirmOpen(false);
+                  setPendingClaim(null);
+                }}
+                className="bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 text-white font-semibold py-3 rounded-xl disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                disabled={isClaiming}
+                onClick={confirmAndPayFeeThenExecute}
+                className="bg-gradient-to-r from-purple-600 to-pink-500 hover:scale-[1.02] transition-all text-white font-extrabold py-3 rounded-xl disabled:opacity-50"
+              >
+                {isClaiming ? 'Paying…' : 'Continue'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
