@@ -7,80 +7,134 @@ import { sql } from '@/app/api/_lib/db';
 import { requireAdmin } from '@/app/api/_lib/jwt';
 import { httpErrorFrom } from '@/app/api/_lib/http';
 
-async function pickUsdColumn(): Promise<string> {
-  // phase_allocations tablosunda usd kolonu isimleri projeden projeye değişebiliyor.
-  // Bu yüzden information_schema'dan kontrol edip en uygununu seçiyoruz.
-  const cols = (await sql`
-    SELECT column_name
+async function hasColumn(table: string, col: string): Promise<boolean> {
+  const r = (await sql`
+    SELECT 1
     FROM information_schema.columns
-    WHERE table_name = 'phase_allocations'
+    WHERE table_name = ${table}
+      AND column_name = ${col}
+    LIMIT 1;
   `) as any[];
-
-  const set = new Set((cols || []).map((c) => String(c.column_name)));
-
-  const candidates = ['usd_sum', 'usd_value', 'usd_amount', 'usd'];
-  for (const c of candidates) {
-    if (set.has(c)) return c;
-  }
-  // fallback: yoksa 0 döneceğiz
-  return '';
-}
-
-async function pickWalletColumn(): Promise<string> {
-  const cols = (await sql`
-    SELECT column_name
-    FROM information_schema.columns
-    WHERE table_name = 'phase_allocations'
-  `) as any[];
-
-  const set = new Set((cols || []).map((c) => String(c.column_name)));
-
-  const candidates = ['wallet_address', 'wallet', 'address'];
-  for (const c of candidates) {
-    if (set.has(c)) return c;
-  }
-  return '';
+  return (r?.length ?? 0) > 0;
 }
 
 export async function GET(req: NextRequest) {
   try {
     await requireAdmin(req as any);
 
-    const usdCol = await pickUsdColumn();
-    const walletCol = await pickWalletColumn();
-
-    // USD kolonu bulunamazsa yine de bozmadan boş result döndürelim
-    if (!usdCol) {
-      return NextResponse.json({ success: true, rows: [] });
+    // ---- phase_allocations column picking (safe) ----
+    const usdColCandidates = ['usd_sum', 'usd_value', 'usd_amount', 'usd'];
+    let usdCol: string | null = null;
+    for (const c of usdColCandidates) {
+      if (await hasColumn('phase_allocations', c)) {
+        usdCol = c;
+        break;
+      }
     }
 
-    // Dinamik kolon ismi için identifier injection riskine karşı:
-    // information_schema'dan gelen isim zaten whitelist candidates içinden seçiliyor.
-    const usdIdent = sql(usdCol as any);
-
-    if (walletCol) {
-      const walletIdent = sql(walletCol as any);
-      const rows = (await sql`
-        SELECT
-          p.id as phase_id,
-          COALESCE(SUM(${usdIdent}), 0) as alloc_usd_sum,
-          COALESCE(COUNT(DISTINCT ${walletIdent}), 0) as alloc_wallets
-        FROM phases p
-        LEFT JOIN phase_allocations a
-          ON a.phase_id = p.id
-        GROUP BY p.id
-        ORDER BY p.id ASC;
-      `) as any[];
-
-      return NextResponse.json({ success: true, rows });
+    const walletColCandidates = ['wallet_address', 'wallet', 'address'];
+    let walletCol: string | null = null;
+    for (const c of walletColCandidates) {
+      if (await hasColumn('phase_allocations', c)) {
+        walletCol = c;
+        break;
+      }
     }
 
-    // wallet kolonu yoksa sadece usd_sum döndür
+    // ---- Build alloc query in a safe branched way (no dynamic identifiers) ----
+    // If usd column doesn't exist, we still return rows with 0 allocs.
+    // used_* comes from contributions anyway.
+
+    const allocSelect =
+      usdCol === 'usd_sum'
+        ? sql`
+            COALESCE(SUM(a.usd_sum), 0) as alloc_usd_sum
+          `
+        : usdCol === 'usd_value'
+          ? sql`
+            COALESCE(SUM(a.usd_value), 0) as alloc_usd_sum
+          `
+          : usdCol === 'usd_amount'
+            ? sql`
+            COALESCE(SUM(a.usd_amount), 0) as alloc_usd_sum
+          `
+            : usdCol === 'usd'
+              ? sql`
+            COALESCE(SUM(a.usd), 0) as alloc_usd_sum
+          `
+              : sql`
+            0::numeric as alloc_usd_sum
+          `;
+
+    const allocWalletsSelect =
+      walletCol === 'wallet_address'
+        ? sql`COALESCE(COUNT(DISTINCT a.wallet_address), 0) as alloc_wallets`
+        : walletCol === 'wallet'
+          ? sql`COALESCE(COUNT(DISTINCT a.wallet), 0) as alloc_wallets`
+          : walletCol === 'address'
+            ? sql`COALESCE(COUNT(DISTINCT a.address), 0) as alloc_wallets`
+            : sql`0::int as alloc_wallets`;
+
     const rows = (await sql`
       SELECT
         p.id as phase_id,
-        COALESCE(SUM(${usdIdent}), 0) as alloc_usd_sum,
-        0 as alloc_wallets
+
+        -- snapshot allocations (post-snapshot)
+        ${allocSelect},
+        ${allocWalletsSelect},
+
+        -- live window (pre-snapshot assignments)
+        COALESCE((
+          SELECT SUM(COALESCE(c.usd_value, 0))
+          FROM contributions c
+          WHERE c.phase_id = p.id
+            AND COALESCE(c.alloc_status, '') IN ('pending','snapshotted')
+        ), 0) as used_usd,
+
+        COALESCE((
+          SELECT COUNT(*)
+          FROM contributions c
+          WHERE c.phase_id = p.id
+            AND COALESCE(c.alloc_status, '') IN ('pending','snapshotted')
+        ), 0) as used_rows,
+
+        COALESCE((
+          SELECT COUNT(DISTINCT c.wallet_address)
+          FROM contributions c
+          WHERE c.phase_id = p.id
+            AND COALESCE(c.alloc_status, '') IN ('pending','snapshotted')
+        ), 0) as used_wallets,
+
+        -- forecast (temporary = used)
+        COALESCE((
+          SELECT SUM(COALESCE(c.usd_value, 0))
+          FROM contributions c
+          WHERE c.phase_id = p.id
+            AND COALESCE(c.alloc_status, '') IN ('pending','snapshotted')
+        ), 0) as used_usd_forecast,
+
+        COALESCE((
+          SELECT COUNT(*)
+          FROM contributions c
+          WHERE c.phase_id = p.id
+            AND COALESCE(c.alloc_status, '') IN ('pending','snapshotted')
+        ), 0) as alloc_rows_forecast,
+
+        COALESCE((
+          SELECT COUNT(DISTINCT c.wallet_address)
+          FROM contributions c
+          WHERE c.phase_id = p.id
+            AND COALESCE(c.alloc_status, '') IN ('pending','snapshotted')
+        ), 0) as alloc_wallets_forecast,
+
+        -- global queue debug
+        COALESCE((
+          SELECT SUM(COALESCE(c2.usd_value, 0))
+          FROM contributions c2
+          WHERE c2.phase_id IS NULL
+            AND COALESCE(c2.alloc_status, 'unassigned') = 'unassigned'
+        ), 0) as queue_usd
+
       FROM phases p
       LEFT JOIN phase_allocations a
         ON a.phase_id = p.id

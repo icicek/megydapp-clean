@@ -112,10 +112,11 @@ export async function POST(req: NextRequest, ctx: any) {
         return NextResponse.json({ success: false, error: 'PHASE_ALREADY_SNAPSHOTTED' }, { status: 409 });
       }
 
-      // Sadece active phase snapshot alınsın (kuralı sen netleştiriyorsun)
-      if (String(ph.status) !== 'active') {
+      // allow snapshot for active OR reviewing (reviewing is the intended "full but not frozen yet" state)
+      const st = String(ph.status || '');
+      if (st !== 'active' && st !== 'reviewing') {
         await sql`ROLLBACK`;
-        return NextResponse.json({ success: false, error: 'PHASE_NOT_ACTIVE' }, { status: 409 });
+        return NextResponse.json({ success: false, error: 'PHASE_NOT_SNAPSHOTABLE' }, { status: 409 });
       }
 
       const phaseNo = Number(ph.phase_no);
@@ -172,11 +173,14 @@ export async function POST(req: NextRequest, ctx: any) {
           pa.wallet_address::text AS wallet_address,
           SUM(pa.megy_allocated)::numeric AS megy_amount,
           FALSE AS claim_status,
-          0::int AS coincarnator_no,
+          COALESCE(MAX(p.id), 0)::int AS coincarnator_no,
           SUM(pa.usd_allocated)::numeric AS contribution_usd,
           (SUM(pa.megy_allocated)::float / ${megySum})::numeric AS share_ratio,
           NOW() AS created_at
         FROM phase_allocations pa
+          LEFT JOIN participants p
+          ON p.wallet_address = pa.wallet_address
+        AND COALESCE(p.network, 'solana') = 'solana'
         WHERE pa.phase_id = ${phaseId}
         GROUP BY pa.wallet_address
       `;
@@ -191,45 +195,69 @@ export async function POST(req: NextRequest, ctx: any) {
           AND pa.contribution_id = c.id
       `;
 
-      // ✅ NEXT PHASE: try auto-open, but don't fail snapshot if none exists
-      const next = (await sql/* sql */`
-        UPDATE phases
-        SET
-          status = 'active',
-          opened_at = COALESCE(opened_at, NOW()),
-          updated_at = NOW()
-        WHERE id = (
-          SELECT id
-          FROM phases
-          WHERE (status IS NULL OR status='planned')
-            AND snapshot_taken_at IS NULL
-            AND phase_no > ${phaseNo}
-            AND rate_usd_per_megy >= ${currentRate}
-          ORDER BY phase_no ASC
-          LIMIT 1
-          FOR UPDATE
-        )
-        RETURNING id, phase_no
-      `) as any[];
-
-      const nextRow = next?.[0] || null;
-
+      // ✅ NEXT PHASE: open sequential planned phases (up to N), sweep queue each time.
+      // We still only snapshot ACTIVE phase. This is just queue distribution after closing.
+      const opened: Array<{ id: number; phaseNo: number }> = [];
       let sweep: any = null;
-      if (nextRow?.id) {
-        sweep = await sweepUnassignedToPhase(Number(nextRow.id));
+
+      let cursorPhaseNo = phaseNo;
+      let cursorRate = currentRate;
+
+      for (let i = 0; i < 10; i++) {
+        const next = (await sql/* sql */`
+          UPDATE phases
+          SET
+            status = 'active',
+            opened_at = COALESCE(opened_at, NOW()),
+            updated_at = NOW()
+          WHERE id = (
+            SELECT id
+            FROM phases
+            WHERE (status IS NULL OR status='planned')
+              AND snapshot_taken_at IS NULL
+              AND phase_no > ${cursorPhaseNo}
+              AND rate_usd_per_megy >= ${cursorRate}
+            ORDER BY phase_no ASC
+            LIMIT 1
+            FOR UPDATE
+          )
+          RETURNING id, phase_no, rate_usd_per_megy
+        `) as any[];
+
+        const row = next?.[0] || null;
+        if (!row?.id) break;
+
+        const rowId = Number(row.id);
+        const rowNo = Number(row.phase_no);
+
+        opened.push({ id: rowId, phaseNo: rowNo });
+
+        // Move queued contributions into this newly opened phase
+        const sw = await sweepUnassignedToPhase(rowId);
+        sweep = sw;
+
+        // advance cursor
+        cursorPhaseNo = rowNo;
+        cursorRate = Number(row.rate_usd_per_megy ?? cursorRate);
+
+        // If phase is NOT full, queue might be empty or partially moved.
+        // Stop here to avoid auto-opening too many phases unnecessarily.
+        if (sw?.reason !== 'PHASE_FULL') break;
       }
 
-      // ✅ Commit ALWAYS (snapshot must succeed)
       await sql`COMMIT`;
 
-      // recompute: sadece yeni phase açıldıysa
+      // recompute: only if at least one phase opened
       let recompute: any = null;
-      if (nextRow?.id) {
-        recompute = await recomputeFromPhaseId(Number(nextRow.id));
+      if (opened.length > 0) {
+        // recompute from the FIRST newly opened phase (most conservative)
+        recompute = await recomputeFromPhaseId(opened[0].id);
       }
 
-      const message = nextRow?.id
-        ? `✅ Snapshot complete → Next opened: #${Number(nextRow.phase_no)}`
+      const firstOpened = opened.length > 0 ? opened[0] : null;
+
+      const message = firstOpened
+        ? `✅ Snapshot complete → Next opened: #${firstOpened.phaseNo}`
         : `✅ Snapshot complete — No next phase to open.`;
 
       return NextResponse.json({
@@ -239,10 +267,11 @@ export async function POST(req: NextRequest, ctx: any) {
         phaseNo,
         snapshot_taken_at: snapshotAt,
         totals: { usdSum, megySum, allocations: nAlloc },
-        nextOpened: nextRow ? { id: Number(nextRow.id), phaseNo: Number(nextRow.phase_no) } : null,
+        nextOpened: firstOpened,
+        nextOpenedAll: opened, // optional but very useful for debugging
         sweep,
         recompute,
-      });        
+      });
     } catch (e) {
       try { await sql`ROLLBACK`; } catch {}
       throw e;

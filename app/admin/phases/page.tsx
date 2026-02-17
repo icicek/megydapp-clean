@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 
-type PhaseStatus = 'planned' | 'active' | 'completed';
+type PhaseStatus = 'planned' | 'active' | 'reviewing' | 'completed';
 
 type PhaseRow = {
     phase_id: number;
@@ -84,7 +84,11 @@ type SnapshotResponse = {
     phaseNo?: number;
     snapshot_taken_at?: string | null;
     totals?: { usdSum: number; megySum: number; allocations: number };
+
     nextOpened?: { id: number; phaseNo: number } | null;
+    nextOpenedAll?: Array<{ id: number; phaseNo: number }>;
+
+    sweep?: { moved?: number; reason?: string } | any;
     recompute?: any;
 };
 
@@ -150,7 +154,13 @@ export default function AdminPhasesPage() {
     // action busy flags
     const [busyId, setBusyId] = useState<number | null>(null);
 
-    const active = useMemo(() => rows.find((r) => r.status === 'active') ?? null, [rows]);
+    const actives = useMemo(() => rows.filter((r) => r.status === 'active'), [rows]);
+    const active = actives[0] ?? null;
+
+    const reviewingCount = useMemo(
+        () => rows.filter((r) => r.status === 'reviewing').length,
+        [rows]
+    );
 
     const nextPlannedId = useMemo(() => {
         const planned = rows.filter((r) => !r.status || r.status === 'planned');
@@ -187,13 +197,26 @@ export default function AdminPhasesPage() {
             const phases = Array.isArray(j1?.phases) ? j1.phases : [];
             const progRows = Array.isArray((j2 as any)?.rows) ? (j2 as any).rows : [];
 
-            const progMap = new Map<number, { alloc_usd_sum: any; alloc_wallets: any }>();
+            const progMap = new Map<number, any>();
             for (const r of progRows) {
                 const id = Number((r as any).phase_id ?? 0);
                 if (Number.isFinite(id) && id > 0) {
                     progMap.set(id, {
                         alloc_usd_sum: (r as any).alloc_usd_sum ?? 0,
                         alloc_wallets: (r as any).alloc_wallets ?? 0,
+
+                        // ✅ live window
+                        used_usd: (r as any).used_usd ?? 0,
+                        used_rows: (r as any).used_rows ?? 0,
+                        used_wallets: (r as any).used_wallets ?? 0,
+
+                        // ✅ forecast (şimdilik aynısı dönebilir)
+                        used_usd_forecast: (r as any).used_usd_forecast ?? (r as any).used_usd ?? 0,
+                        alloc_rows_forecast: (r as any).alloc_rows_forecast ?? (r as any).used_rows ?? 0,
+                        alloc_wallets_forecast: (r as any).alloc_wallets_forecast ?? (r as any).used_wallets ?? 0,
+
+                        // opsiyonel: global queue debug
+                        queue_usd: (r as any).queue_usd ?? 0,
                     });
                 }
             }
@@ -369,11 +392,24 @@ export default function AdminPhasesPage() {
                     scrollToPhase(id);
                 }
 
+                const openedAll = Array.isArray(j?.nextOpenedAll) ? j.nextOpenedAll : [];
+                const openedText =
+                    openedAll.length > 0
+                        ? openedAll.map((x) => `#${x.phaseNo}`).join(', ')
+                        : (j?.nextOpened?.phaseNo ? `#${j.nextOpened.phaseNo}` : '');
+
+                const sweepText =
+                    j?.sweep && typeof j.sweep === 'object'
+                        ? ` • sweep: ${Number((j.sweep as any).moved ?? 0)} moved (${String((j.sweep as any).reason ?? '')})`
+                        : '';
+
                 setMsg(
                     j?.message ||
-                    (j?.nextOpened?.id
-                        ? `✅ Snapshot complete → Next opened: #${j.nextOpened.phaseNo}`
-                        : '✅ Snapshot complete — No next phase to open.')
+                    (openedAll.length > 1
+                        ? `✅ Snapshot complete → Opened phases: ${openedText}${sweepText}`
+                        : j?.nextOpened?.id
+                            ? `✅ Snapshot complete → Next opened: #${j.nextOpened.phaseNo}${sweepText}`
+                            : `✅ Snapshot complete — No next phase to open.${sweepText}`)
                 );
             } else {
                 setMsg(`❌ ${j?.error || 'SNAPSHOT_FAILED'}`);
@@ -476,16 +512,45 @@ export default function AdminPhasesPage() {
                 <div className={CARD}>
                     <div className="text-sm text-white/80">
                         Active phase:{' '}
-                        {active ? (
+                        {actives.length === 0 ? (
+                            <span className="font-semibold text-white/60">None</span>
+                        ) : actives.length === 1 ? (
                             <span className="font-semibold text-emerald-300">
-                                #{active.phase_no} — {active.name}
+                                #{actives[0].phase_no} — {actives[0].name}
                             </span>
                         ) : (
-                            <span className="font-semibold text-white/60">None</span>
+                            <span className="font-semibold text-yellow-300">
+                                ⚠ Multiple active phases ({actives.length})
+                            </span>
                         )}
                     </div>
+
+                    {actives.length > 1 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            {actives
+                                .slice()
+                                .sort((a, b) => Number(a.phase_no) - Number(b.phase_no))
+                                .map((p) => (
+                                    <button
+                                        key={p.phase_id}
+                                        onClick={() => scrollToPhase(p.phase_id)}
+                                        className="px-2 py-1 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-[11px] text-yellow-200 hover:bg-yellow-500/15"
+                                        title="Scroll to phase"
+                                    >
+                                        #{p.phase_no} — {p.name || '(unnamed)'}
+                                    </button>
+                                ))}
+                        </div>
+                    )}
+
                     <div className="text-[11px] text-white/55 mt-1">
-                        Rule: Only one phase can be active at a time. Snapshot closes active and auto-opens the next planned phase.
+                        Reviewing phases: <span className="font-semibold text-yellow-200">{reviewingCount}</span>
+                    </div>
+
+
+                    <div className="text-[11px] text-white/55 mt-2">
+                        Snapshot closes the active phase and opens the next one automatically. Only one phase can be active.
+                        Extra contributions wait in queue and are assigned FIFO.
                     </div>
                 </div>
 
@@ -517,7 +582,7 @@ export default function AdminPhasesPage() {
                                     const isFinalized = !!p.finalized_at;
                                     const canFinalize = isCompleted && !!p.snapshot_taken_at && !isFinalized;
                                     const isBusy = busyId === p.phase_id;
-                                    const canShowOpen = isPlanned && !active && nextPlannedId === p.phase_id;
+                                    const canShowOpen = isPlanned && actives.length === 0 && nextPlannedId === p.phase_id;
                                     const activeRate = active ? Number(active.rate_usd_per_megy ?? 0) : null;
                                     const thisRate = Number(p.rate_usd_per_megy ?? 0);
 
@@ -559,9 +624,11 @@ export default function AdminPhasesPage() {
                                                             'px-2 py-1 rounded-md text-xs border',
                                                             isActive
                                                                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
-                                                                : isCompleted
-                                                                    ? 'bg-blue-500/10 border-blue-500/30 text-blue-200'
-                                                                    : 'bg-white/5 border-white/10 text-white/70',
+                                                                : p.status === 'reviewing'
+                                                                    ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-200'
+                                                                    : isCompleted
+                                                                        ? 'bg-blue-500/10 border-blue-500/30 text-blue-200'
+                                                                        : 'bg-white/5 border-white/10 text-white/70'
                                                         ].join(' ')}
                                                     >
                                                         {(p.status || 'planned') as any}
@@ -603,8 +670,9 @@ export default function AdminPhasesPage() {
                                                                 </div>
                                                                 <div className="mt-1 text-[10px] text-white/40">
                                                                     {wUsed.toLocaleString(undefined, { maximumFractionDigits: 4 })} / {target.toLocaleString()} •{" "}
-                                                                    {Number((p as any).alloc_wallets ?? 0).toLocaleString()} wallets •{" "}
-                                                                    {Number((p as any).alloc_rows ?? 0).toLocaleString()} rows
+                                                                    {Number((p as any).used_wallets ?? 0).toLocaleString()} wallets •{" "}
+                                                                    {Number((p as any).used_rows ?? 0).toLocaleString()} rows
+
                                                                 </div>
                                                             </div>
 
@@ -721,10 +789,10 @@ export default function AdminPhasesPage() {
                                                     {canShowClaimPreview && (
                                                         <div className="flex items-center gap-2">
                                                             <button
-                                                                onClick={() => window.open(`/api/admin/phases/${p.phase_id}/claim-preview?format=html`, '_blank')}
+                                                                onClick={() => window.open(`/api/admin/phases/${p.phase_id}/claim-preview`, '_blank')}
                                                                 disabled={isBusy}
                                                                 className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
-                                                                title="Open claim preview"
+                                                                title="Open claim preview (default)"
                                                             >
                                                                 Preview
                                                             </button>

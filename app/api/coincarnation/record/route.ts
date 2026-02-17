@@ -2,6 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+import { allocateQueueFIFO } from '@/app/api/_lib/phases/allocator';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
@@ -21,44 +22,6 @@ import {
 } from '@/app/api/_lib/corepoints';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
-
-async function getActivePhase(): Promise<{ id: number; phase_no: number; target_usd: number | null } | null> {
-  try {
-    const rows = await sql/* sql */`
-      SELECT id, phase_no, target_usd
-      FROM phases
-      WHERE LOWER(status) = 'active'
-      ORDER BY opened_at DESC NULLS LAST, id DESC
-      LIMIT 1;
-    `;
-    if (!rows?.length) return null;
-
-    return {
-      id: Number(rows[0].id),
-      phase_no: Number(rows[0].phase_no),
-      target_usd: rows[0].target_usd == null ? null : Number(rows[0].target_usd),
-    };
-  } catch (e) {
-    console.warn('⚠️ getActivePhase failed:', (e as any)?.message || e);
-    return null;
-  }
-}
-
-async function getPhaseUsedUsd(phaseId: number): Promise<number> {
-  try {
-    const r = await sql/* sql */`
-      SELECT COALESCE(SUM(usd_value), 0) AS used
-      FROM contributions
-      WHERE phase_id = ${phaseId};
-    `;
-    const used = r?.[0]?.used ?? 0;
-    const n = Number(used);
-    return Number.isFinite(n) ? n : 0;
-  } catch (e) {
-    console.warn('⚠️ getPhaseUsedUsd failed:', (e as any)?.message || e);
-    return 0;
-  }
-}
 
 // RPC URL (öncelik)
 const SOLANA_RPC_URL =
@@ -228,7 +191,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const timestamp = new Date().toISOString();
     const tokenAmountNum = toNum(token_amount, 0);
     const usdValueNum = toNum(usd_value, 0);
     const networkNorm = String(network || 'solana');
@@ -473,37 +435,10 @@ export async function POST(req: NextRequest) {
     const contribReferrerWallet: string | null =
       referrerWallet;
 
-    // ——— Phase allocation (active -> assign, else NULL) ———
-    const activePhase = await getActivePhase();
-
-    let phaseIdForContribution: number | null = null;
-    let allocPhaseNoForContribution: number | null = null;
-    let allocStatusForContribution: string | null = null;
-
-    if (!activePhase) {
-      // aktif faz yok → queue
-      phaseIdForContribution = null;
-      allocPhaseNoForContribution = null;
-      allocStatusForContribution = 'unassigned';
-    } else {
-      // aktif faz var → dolu mu kontrol et
-      const target = activePhase.target_usd; // null olabilir
-      const used = await getPhaseUsedUsd(activePhase.id);
-
-      const isFull = Number.isFinite(target as any) && target != null && target > 0 && used >= target;
-
-      if (isFull) {
-        // faz dolu → snapshot beklerken gelenleri queue’ya al
-        phaseIdForContribution = null;
-        allocPhaseNoForContribution = null;
-        allocStatusForContribution = 'unassigned';
-      } else {
-        // faz açık ve dolu değil → aktif faza dahil et
-        phaseIdForContribution = activePhase.id;
-        allocPhaseNoForContribution = activePhase.phase_no;
-        allocStatusForContribution = 'pending';
-      }
-    }
+    // ——— Phase allocation: ALWAYS queue, allocator will place FIFO ———
+    const phaseIdForContribution: number | null = null;
+    const allocPhaseNoForContribution: number | null = null;
+    const allocStatusForContribution: string | null = 'unassigned';
 
     const sig =
       transaction_signature && String(transaction_signature).trim()
@@ -549,7 +484,7 @@ export async function POST(req: NextRequest) {
             ${wallet_address}, ${token_symbol}, ${tokenContractFinal}, ${networkNorm},
             ${tokenAmountNum}, ${usdValueNum},
             ${sig}, ${hash}, ${tx_block ?? null},
-            ${idemKey}, ${user_agent || ''}, ${timestamp},
+            ${idemKey}, ${user_agent || ''}, NOW(),
             ${contribReferralCode}, ${contribReferrerWallet}, ${assetKindFinal},
             ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW()
           )
@@ -569,7 +504,7 @@ export async function POST(req: NextRequest) {
             ${wallet_address}, ${token_symbol}, ${tokenContractFinal}, ${networkNorm},
             ${tokenAmountNum}, ${usdValueNum},
             ${sig}, NULL, ${tx_block ?? null},
-            ${idemKey}, ${user_agent || ''}, ${timestamp},
+            ${idemKey}, ${user_agent || ''}, NOW(),
             ${contribReferralCode}, ${contribReferrerWallet}, ${assetKindFinal},
             ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW()
           )
@@ -627,6 +562,14 @@ export async function POST(req: NextRequest) {
         },
         { status: 500 },
       );
+    }
+
+    let allocator: any = null;
+    try {
+      allocator = await allocateQueueFIFO({ maxSteps: 20 });
+    } catch (e: any) {
+      // Record başarısını bozma; sadece logla
+      console.warn('⚠️ allocator failed:', e?.message || e);
     }
 
     // ——— CorePoint: USD + Deadcoin (corepoint_events tablosu) ———
@@ -744,6 +687,7 @@ export async function POST(req: NextRequest) {
       txId: stableTxId,
 
       message: '✅ Coincarnation recorded',
+      allocator,
     });
   } catch (error: any) {
     console.error('❌ Record API Error:', error?.message || error);
