@@ -81,7 +81,7 @@ async function hasQueue() {
     SELECT 1
     FROM contributions
     WHERE phase_id IS NULL
-      AND COALESCE(alloc_status, 'unassigned') = 'unassigned'
+      AND COALESCE(alloc_status, 'pending') = 'pending'
       AND network = 'solana'
     LIMIT 1
   `) as any[];
@@ -89,18 +89,17 @@ async function hasQueue() {
 }
 
 async function sweepUnassignedToPhase(phaseId: number, remaining: number | null) {
-  // Move FIFO rows until remaining USD is reached (window sum)
   const moved = (await sql/* sql */`
     WITH queue AS (
       SELECT
         id,
         COALESCE(usd_value, 0)::numeric AS usd_value,
         SUM(COALESCE(usd_value, 0)::numeric) OVER (
-          ORDER BY timestamp ASC NULLS LAST, id ASC
+          ORDER BY "timestamp" ASC NULLS LAST, id ASC
         ) AS run
       FROM contributions
       WHERE phase_id IS NULL
-        AND COALESCE(alloc_status, 'unassigned') = 'unassigned'
+        AND COALESCE(alloc_status, 'pending') = 'pending'
         AND network = 'solana'
     ),
     pick AS (
@@ -112,9 +111,11 @@ async function sweepUnassignedToPhase(phaseId: number, remaining: number | null)
     SET
       phase_id = ${phaseId},
       alloc_phase_no = (SELECT phase_no FROM phases WHERE id = ${phaseId}),
-      alloc_status = 'pending',
+      alloc_status = 'allocated',
       alloc_updated_at = NOW()
     WHERE c.id IN (SELECT id FROM pick)
+      AND c.phase_id IS NULL
+      AND COALESCE(c.alloc_status, 'pending') = 'pending'
     RETURNING c.id
   `) as any[];
 
