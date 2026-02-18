@@ -851,7 +851,7 @@ export default function ClaimPanel() {
               </div>
 
               {/* Your estimate (inside the same card) */}
-              {activeEstimate?.active && !currentPhase?.snapshot_taken_at && (
+              {activeEstimate?.active?.id && !currentPhase?.snapshot_taken_at && (
                 <div className="mt-4 pt-4 border-t border-zinc-700">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                     <div>
