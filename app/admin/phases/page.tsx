@@ -11,17 +11,32 @@ type PhaseRow = {
     phase_no: number;
     name: string;
     status?: PhaseStatus;
+
     pool_megy?: any;
     rate_usd_per_megy?: any;
     target_usd?: any;
+
     opened_at?: any;
     closed_at?: any;
     snapshot_taken_at?: any;
     finalized_at?: any;
     created_at?: any;
     updated_at?: any;
+
+    // progress (window)
+    used_usd?: any;
+    used_rows?: any;
+    used_wallets?: any;
+
+    // progress (forecast)
+    used_usd_forecast?: any;
+    alloc_rows_forecast?: any;
+    alloc_wallets_forecast?: any;
+
+    // admin progress extras
     alloc_usd_sum?: any;
     alloc_wallets?: any;
+    queue_usd?: any;
 };
 
 type CreatePhaseResponse =
@@ -61,6 +76,24 @@ function fmtRate(v: any): string {
     if (!Number.isFinite(n)) return '-';
     // small rates like 0.0001 should be visible
     return n.toLocaleString(undefined, { maximumFractionDigits: 12 });
+}
+
+function normalizePhaseStatus(s: any): PhaseStatus {
+    const v = String(s ?? '').trim().toLowerCase();
+
+    // backend/legacy synonyms
+    if (v === 'open') return 'active';
+    if (v === 'reviewed') return 'reviewing';
+    if (v === 'in_review' || v === 'inreview') return 'reviewing';
+
+    // canonical
+    if (v === 'active') return 'active';
+    if (v === 'reviewing') return 'reviewing';
+    if (v === 'completed') return 'completed';
+    if (v === 'planned' || v === '') return 'planned';
+
+    // fallback: keep safe default
+    return 'planned';
 }
 
 function fmtDate(v: any): string {
@@ -204,18 +237,6 @@ export default function AdminPhasesPage() {
                     progMap.set(id, {
                         alloc_usd_sum: (r as any).alloc_usd_sum ?? 0,
                         alloc_wallets: (r as any).alloc_wallets ?? 0,
-
-                        // ✅ live window
-                        used_usd: (r as any).used_usd ?? 0,
-                        used_rows: (r as any).used_rows ?? 0,
-                        used_wallets: (r as any).used_wallets ?? 0,
-
-                        // ✅ forecast (şimdilik aynısı dönebilir)
-                        used_usd_forecast: (r as any).used_usd_forecast ?? (r as any).used_usd ?? 0,
-                        alloc_rows_forecast: (r as any).alloc_rows_forecast ?? (r as any).used_rows ?? 0,
-                        alloc_wallets_forecast: (r as any).alloc_wallets_forecast ?? (r as any).used_wallets ?? 0,
-
-                        // opsiyonel: global queue debug
                         queue_usd: (r as any).queue_usd ?? 0,
                     });
                 }
@@ -223,7 +244,10 @@ export default function AdminPhasesPage() {
 
             const merged = phases.map((p) => {
                 const prog = progMap.get(Number(p.phase_id));
-                return prog ? { ...p, ...prog } : p;
+                const normStatus = normalizePhaseStatus((p as any).status);
+
+                const base = { ...p, status: normStatus };
+                return prog ? { ...base, ...prog } : base;
             });
 
             setRows(merged);
@@ -578,6 +602,7 @@ export default function AdminPhasesPage() {
                                     const isActive = p.status === 'active';
                                     const isCompleted = p.status === 'completed';
                                     const isPlanned = !p.status || p.status === 'planned';
+                                    const isReviewing = p.status === 'reviewing';
                                     const canShowClaimPreview = isCompleted || !!p.snapshot_taken_at;
                                     const isFinalized = !!p.finalized_at;
                                     const canFinalize = isCompleted && !!p.snapshot_taken_at && !isFinalized;
@@ -755,18 +780,15 @@ export default function AdminPhasesPage() {
                                                     )}
 
                                                     {/* Active actions */}
-                                                    {isActive && (
-                                                        <>
-
-                                                            <button
-                                                                onClick={() => snapshotPhase(p.phase_id)}
-                                                                disabled={isBusy}
-                                                                className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
-                                                                title="Snapshot closes this active phase and auto-opens next planned phase"
-                                                            >
-                                                                {isBusy ? 'Working…' : 'Snapshot'}
-                                                            </button>
-                                                        </>
+                                                    {(isActive || isReviewing) && (
+                                                        <button
+                                                            onClick={() => snapshotPhase(p.phase_id)}
+                                                            disabled={isBusy}
+                                                            className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs disabled:opacity-50"
+                                                            title="Snapshot closes this phase (active/reviewing) and auto-opens next planned phase"
+                                                        >
+                                                            {isBusy ? 'Working…' : 'Snapshot'}
+                                                        </button>
                                                     )}
                                                     {canFinalize && (
                                                         <button

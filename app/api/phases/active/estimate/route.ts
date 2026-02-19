@@ -45,17 +45,16 @@ export async function GET(req: NextRequest) {
     // - new: allocated, pending, snapshotted
     // - legacy: assigned
     // IMPORTANT: exclude 'unassigned' queue rows (phase_id IS NULL anyway)
-    const ACTIVE_STATUSES = ['allocated', 'pending', 'snapshotted', 'assigned'];
+    const ACTIVE_STATUSES = ['allocated', 'pending', 'assigned'];
 
-    // 2) totals in active phase (assigned/allocated contributions only)
     const tot = (await sql/* sql */`
-      SELECT
+    SELECT
         COALESCE(SUM(COALESCE(usd_value, 0)), 0)::numeric AS total_usd,
         COUNT(*)::int AS rows,
         COUNT(DISTINCT wallet_address)::int AS wallets
-      FROM contributions
-      WHERE phase_id = ${phaseId}
-        AND COALESCE(alloc_status, 'pending') = ANY(${ACTIVE_STATUSES}::text[])
+    FROM contributions
+    WHERE phase_id = ${phaseId}
+        AND COALESCE(alloc_status, 'allocated') = ANY(${ACTIVE_STATUSES}::text[])
     `) as any[];
 
     const totalUsd = num(tot?.[0]?.total_usd, 0);
@@ -68,7 +67,7 @@ export async function GET(req: NextRequest) {
       FROM contributions
       WHERE phase_id = ${phaseId}
         AND wallet_address = ${wallet}
-        AND COALESCE(alloc_status, 'pending') = ANY(${ACTIVE_STATUSES}::text[])
+        AND COALESCE(alloc_status, 'allocated') = ANY(${ACTIVE_STATUSES}::text[])
     `) as any[];
 
     const userUsd = num(me?.[0]?.user_usd, 0);
