@@ -19,7 +19,7 @@ async function isDeadcoinForMegy(
     const reg = await getStatusRow(mint);
     const status = (reg?.status ?? null) as TokenStatus | null;
     cache.set(mint, status);
-    return status === 'deadcoin';
+    return status === 'deadcoin' || status === 'redlist' || status === 'blacklist';
   } catch (e) {
     console.warn('[claim] getStatusRow failed, treating as non-deadcoin:', (e as any)?.message || e);
     cache.set(mint, null);
@@ -247,7 +247,10 @@ export async function GET(req: NextRequest) {
     const finalized_by_phase = snapsFiltered.map((s) => {
       const pid = Number(s.phase_id);
       const finalized = Number(s.megy_amount ?? 0);
-      const claimed = Number(claimedMap.get(pid) ?? 0);
+      const claimedRaw = Number(claimedMap.get(pid) ?? 0);
+
+      // clamp
+      const claimed = Math.min(Math.max(claimedRaw, 0), finalized);
       const claimable = Math.max(finalized - claimed, 0);
 
       finalized_megy_total += finalized;
