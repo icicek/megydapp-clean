@@ -10,6 +10,9 @@ function num(v: any, def = 0) {
   return Number.isFinite(n) ? n : def;
 }
 
+const WSOL_MINT = 'So11111111111111111111111111111111111111112';
+const ACTIVE_STATUSES = ['allocated', 'assigned'];
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -45,16 +48,23 @@ export async function GET(req: NextRequest) {
     // - new: allocated, pending, snapshotted
     // - legacy: assigned
     // IMPORTANT: exclude 'unassigned' queue rows (phase_id IS NULL anyway)
-    const ACTIVE_STATUSES = ['allocated', 'pending', 'assigned'];
 
     const tot = (await sql/* sql */`
-    SELECT
-        COALESCE(SUM(COALESCE(usd_value, 0)), 0)::numeric AS total_usd,
+      SELECT
+        COALESCE(SUM(COALESCE(c.usd_value, 0)), 0)::numeric AS total_usd,
         COUNT(*)::int AS rows,
-        COUNT(DISTINCT wallet_address)::int AS wallets
-    FROM contributions
-    WHERE phase_id = ${phaseId}
-        AND COALESCE(alloc_status, 'allocated') = ANY(${ACTIVE_STATUSES}::text[])
+        COUNT(DISTINCT c.wallet_address)::int AS wallets
+      FROM contributions c
+      LEFT JOIN token_registry tr ON tr.mint = c.token_contract
+      WHERE c.phase_id = ${phaseId}
+        AND COALESCE(c.alloc_status, 'allocated') = ANY(${ACTIVE_STATUSES}::text[])
+        AND COALESCE(c.network,'solana') = 'solana'
+        AND COALESCE(c.usd_value,0)::numeric > 0
+        AND (
+          c.token_contract IS NULL
+          OR c.token_contract = ${WSOL_MINT}
+          OR (tr.mint IS NOT NULL AND tr.status IN ('healthy','walking_dead'))
+        )
     `) as any[];
 
     const totalUsd = num(tot?.[0]?.total_usd, 0);
@@ -62,12 +72,21 @@ export async function GET(req: NextRequest) {
     // 3) user's usd in active phase
     const me = (await sql/* sql */`
       SELECT
-        COALESCE(SUM(COALESCE(usd_value, 0)), 0)::numeric AS user_usd,
+        COALESCE(SUM(COALESCE(c.usd_value, 0)), 0)::numeric AS user_usd,
         COUNT(*)::int AS user_rows
-      FROM contributions
-      WHERE phase_id = ${phaseId}
-        AND wallet_address = ${wallet}
-        AND COALESCE(alloc_status, 'allocated') = ANY(${ACTIVE_STATUSES}::text[])
+      FROM contributions c
+      LEFT JOIN token_registry tr ON tr.mint = c.token_contract
+      WHERE c.phase_id = ${phaseId}
+        AND c.wallet_address = ${wallet}
+        AND COALESCE(c.alloc_status, 'allocated') = ANY(${ACTIVE_STATUSES}::text[])
+        AND COALESCE(c.network,'solana') = 'solana'
+        AND COALESCE(c.usd_value,0)::numeric > 0
+        AND COALESCE(c.alloc_status,'') <> 'invalid'
+        AND (
+          c.token_contract IS NULL
+          OR c.token_contract = ${WSOL_MINT}
+          OR (tr.mint IS NOT NULL AND tr.status IN ('healthy','walking_dead'))
+        )
     `) as any[];
 
     const userUsd = num(me?.[0]?.user_usd, 0);

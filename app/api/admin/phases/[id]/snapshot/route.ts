@@ -7,69 +7,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/app/api/_lib/db';
 import { requireAdmin } from '@/app/api/_lib/jwt';
 import { httpErrorFrom } from '@/app/api/_lib/http';
-import { recomputeFromPhaseId } from '@/app/api/_lib/phases/recompute';
-
-async function sweepUnassignedToPhase(phaseId: number) {
-  // phase target + remaining capacity
-  const ph = (await sql/* sql */`
-    SELECT
-      id,
-      COALESCE(target_usd, 0)::numeric AS target_usd
-    FROM phases
-    WHERE id = ${phaseId}
-    LIMIT 1
-    FOR UPDATE
-  `) as any[];
-
-  const targetUsd = Number(ph?.[0]?.target_usd ?? 0);
-
-  // used usd already in this phase
-  const used = (await sql/* sql */`
-    SELECT COALESCE(SUM(COALESCE(usd_value, 0)), 0)::numeric AS used_usd
-    FROM contributions
-    WHERE phase_id = ${phaseId}
-  `) as any[];
-
-  const usedUsd = Number(used?.[0]?.used_usd ?? 0);
-
-  // if no target, assign all
-  const remaining = targetUsd > 0 ? Math.max(0, targetUsd - usedUsd) : null;
-
-  if (remaining !== null && remaining <= 0) {
-    return { moved: 0, reason: 'PHASE_FULL' as const };
-  }
-
-  // Move FIFO rows until remaining USD is reached (window sum)
-  const moved = (await sql/* sql */`
-    WITH queue AS (
-      SELECT
-        id,
-        COALESCE(usd_value, 0)::numeric AS usd_value,
-        SUM(COALESCE(usd_value, 0)::numeric) OVER (
-          ORDER BY timestamp ASC NULLS LAST, id ASC
-        ) AS run
-      FROM contributions
-      WHERE phase_id IS NULL
-        AND COALESCE(alloc_status, 'unassigned') = 'unassigned'
-        AND network = 'solana'
-    ),
-    pick AS (
-      SELECT id
-      FROM queue
-      WHERE ${remaining === null ? sql`TRUE` : sql`run <= ${remaining}`}
-    )
-    UPDATE contributions c
-    SET
-      phase_id = ${phaseId},
-      alloc_phase_no = (SELECT phase_no FROM phases WHERE id = ${phaseId}),
-      alloc_status = 'pending',
-      alloc_updated_at = NOW()
-    WHERE c.id IN (SELECT id FROM pick)
-    RETURNING c.id
-  `) as any[];
-
-  return { moved: moved?.length ?? 0, reason: 'OK' as const };
-}
 
 function num(v: unknown, def = 0): number {
   const n = typeof v === 'number' ? v : Number(v);
@@ -120,7 +57,6 @@ export async function POST(req: NextRequest, ctx: any) {
       }
 
       const phaseNo = Number(ph.phase_no);
-      const currentRate = Number(ph.rate_usd_per_megy ?? 0);
 
       // allocations totals
       const tot = (await sql/* sql */`
@@ -195,70 +131,9 @@ export async function POST(req: NextRequest, ctx: any) {
           AND pa.contribution_id = c.id
       `;
 
-      // ✅ NEXT PHASE: open sequential planned phases (up to N), sweep queue each time.
-      // We still only snapshot ACTIVE phase. This is just queue distribution after closing.
-      const opened: Array<{ id: number; phaseNo: number }> = [];
-      let sweep: any = null;
-
-      let cursorPhaseNo = phaseNo;
-      let cursorRate = currentRate;
-
-      for (let i = 0; i < 10; i++) {
-        const next = (await sql/* sql */`
-          UPDATE phases
-          SET
-            status = 'active',
-            opened_at = COALESCE(opened_at, NOW()),
-            updated_at = NOW()
-          WHERE id = (
-            SELECT id
-            FROM phases
-            WHERE (status IS NULL OR status='planned')
-              AND snapshot_taken_at IS NULL
-              AND phase_no > ${cursorPhaseNo}
-              AND rate_usd_per_megy >= ${cursorRate}
-            ORDER BY phase_no ASC
-            LIMIT 1
-            FOR UPDATE
-          )
-          RETURNING id, phase_no, rate_usd_per_megy
-        `) as any[];
-
-        const row = next?.[0] || null;
-        if (!row?.id) break;
-
-        const rowId = Number(row.id);
-        const rowNo = Number(row.phase_no);
-
-        opened.push({ id: rowId, phaseNo: rowNo });
-
-        // Move queued contributions into this newly opened phase
-        const sw = await sweepUnassignedToPhase(rowId);
-        sweep = sw;
-
-        // advance cursor
-        cursorPhaseNo = rowNo;
-        cursorRate = Number(row.rate_usd_per_megy ?? cursorRate);
-
-        // If phase is NOT full, queue might be empty or partially moved.
-        // Stop here to avoid auto-opening too many phases unnecessarily.
-        if (sw?.reason !== 'PHASE_FULL') break;
-      }
-
       await sql`COMMIT`;
 
-      // recompute: only if at least one phase opened
-      let recompute: any = null;
-      if (opened.length > 0) {
-        // recompute from the FIRST newly opened phase (most conservative)
-        recompute = await recomputeFromPhaseId(opened[0].id);
-      }
-
-      const firstOpened = opened.length > 0 ? opened[0] : null;
-
-      const message = firstOpened
-        ? `✅ Snapshot complete → Next opened: #${firstOpened.phaseNo}`
-        : `✅ Snapshot complete — No next phase to open.`;
+      const message = '✅ Snapshot complete (claims finalized for this phase).';
 
       return NextResponse.json({
         success: true,
@@ -267,11 +142,7 @@ export async function POST(req: NextRequest, ctx: any) {
         phaseNo,
         snapshot_taken_at: snapshotAt,
         totals: { usdSum, megySum, allocations: nAlloc },
-        nextOpened: firstOpened,
-        nextOpenedAll: opened, // optional but very useful for debugging
-        sweep,
-        recompute,
-      });
+      });      
     } catch (e) {
       try { await sql`ROLLBACK`; } catch {}
       throw e;

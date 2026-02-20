@@ -20,7 +20,7 @@ function pickFirst(row: AnyRow, keys: string[], fallback: any = null) {
 
 export async function GET(_req: NextRequest) {
   try {
-    const sql = neon(process.env.DATABASE_URL!);
+    const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
     /**
      * We compute BOTH:
@@ -63,12 +63,14 @@ export async function GET(_req: NextRequest) {
               )::numeric
           ) AS cum_prev
         FROM phases p
+        WHERE p.snapshot_taken_at IS NULL
       ),
 
       -- Eligible contributions (same rules for both models)
       eligible_contributions AS (
         SELECT
           c.id AS contribution_id,
+          c.phase_id,
           c.wallet_address,
           COALESCE(c.usd_value, 0)::numeric AS usd_value,
           c.token_contract,
@@ -76,9 +78,15 @@ export async function GET(_req: NextRequest) {
           COALESCE(c.alloc_status,'pending') AS alloc_status,
           c.timestamp
         FROM contributions c
+        LEFT JOIN token_registry tr ON tr.mint = c.token_contract
         WHERE COALESCE(c.usd_value,0)::numeric > 0
           AND COALESCE(c.network,'solana') = 'solana'
           AND COALESCE(c.alloc_status,'pending') <> 'invalid'
+          AND (
+            c.token_contract IS NULL
+            OR c.token_contract = 'So11111111111111111111111111111111111111112'
+            OR (tr.mint IS NOT NULL AND tr.status IN ('healthy','walking_dead'))
+          )
       ),
 
       -- Window totals per phase
@@ -132,6 +140,23 @@ export async function GET(_req: NextRequest) {
         GROUP BY phase_id
       )
 
+      ,
+      debug_summary AS (
+        SELECT
+          COUNT(*)::int AS eligible_rows,
+          COALESCE(SUM(usd_value),0)::numeric AS eligible_usd_sum,
+          MIN(timestamp) AS first_ts,
+          MAX(timestamp) AS last_ts
+        FROM eligible_contributions
+      ),
+      queue_summary AS (
+        SELECT
+          COALESCE(SUM(COALESCE(usd_value,0)),0)::numeric AS queue_usd
+        FROM eligible_contributions
+        WHERE phase_id IS NULL
+          AND COALESCE(alloc_status,'unassigned') IN ('unassigned','pending')
+      )
+
       SELECT
         ps.*,
 
@@ -165,13 +190,36 @@ export async function GET(_req: NextRequest) {
     const debug = await sql`
       SELECT
         COUNT(*)::int AS eligible_rows,
-        COALESCE(SUM(COALESCE(usd_value,0)::numeric),0)::numeric AS eligible_usd_sum,
-        MIN(timestamp) AS first_ts,
-        MAX(timestamp) AS last_ts
-      FROM contributions
-      WHERE COALESCE(usd_value,0)::numeric > 0
-        AND COALESCE(network,'solana') = 'solana'
-        AND COALESCE(alloc_status,'pending') <> 'invalid';
+        COALESCE(SUM(COALESCE(c.usd_value,0)::numeric),0)::numeric AS eligible_usd_sum,
+        MIN(c.timestamp) AS first_ts,
+        MAX(c.timestamp) AS last_ts
+      FROM contributions c
+      LEFT JOIN token_registry tr ON tr.mint = c.token_contract
+      WHERE COALESCE(c.usd_value,0)::numeric > 0
+        AND COALESCE(c.network,'solana') = 'solana'
+        AND COALESCE(c.alloc_status,'pending') <> 'invalid'
+        AND (
+          c.token_contract IS NULL
+          OR c.token_contract = 'So11111111111111111111111111111111111111112'
+          OR (tr.mint IS NOT NULL AND tr.status IN ('healthy','walking_dead'))
+        );
+    `;
+
+    const queue = await sql`
+      SELECT
+        COALESCE(SUM(COALESCE(c.usd_value,0)::numeric),0)::numeric AS queue_usd
+      FROM contributions c
+      LEFT JOIN token_registry tr ON tr.mint = c.token_contract
+      WHERE c.phase_id IS NULL
+        AND COALESCE(c.alloc_status,'unassigned') IN ('unassigned','pending')
+        AND COALESCE(c.network,'solana') = 'solana'
+        AND COALESCE(c.usd_value,0)::numeric > 0
+        AND COALESCE(c.alloc_status,'pending') <> 'invalid'
+        AND (
+          c.token_contract IS NULL
+          OR c.token_contract = 'So11111111111111111111111111111111111111112'
+          OR (tr.mint IS NOT NULL AND tr.status IN ('healthy','walking_dead'))
+        );
     `;
 
     const phases = (rows as AnyRow[]).map((r) => {
@@ -213,8 +261,9 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({
       success: true,
       phases,
-      debug: (debug as AnyRow[])?.[0] ?? null,
-    });
+      queue: (queue as any[])?.[0] ?? { queue_usd: 0 },
+      debug: (debug as any[])?.[0] ?? null,
+    });    
   } catch (e: any) {
     console.error('GET /api/phases/list failed:', e);
     return NextResponse.json(

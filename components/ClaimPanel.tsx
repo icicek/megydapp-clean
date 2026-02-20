@@ -103,6 +103,7 @@ export default function ClaimPanel() {
 
   const FEE_SOL = 0.003;
   const FEE_LAMPORTS = Math.round(FEE_SOL * 1_000_000_000);
+  const walletBase58 = publicKey?.toBase58() ?? null;
 
   useEffect(() => {
     let alive = true;
@@ -247,13 +248,34 @@ export default function ClaimPanel() {
   
         const norm = (s: any) => String(s ?? '').toLowerCase().trim();
   
-        const active =
-          list.find((p: any) => norm(p.status) === 'active') ||
-          list.find((p: any) => norm(p.status) === 'open') ||
-          list.slice().sort((a: any, b: any) => Number(b.phase_no ?? 0) - Number(a.phase_no ?? 0))[0] ||
-          null;
+        const pick = (list: any[]) => {
+          // 1) truly active
+          const active = list.find(
+            (p) => norm(p.status) === 'active' && !p.snapshot_taken_at
+          );
+          if (active) return active;
   
-        setCurrentPhase(active);
+          // 2) reviewing but not snapshotted
+          const reviewing = list.find(
+            (p) => norm(p.status) === 'reviewing' && !p.snapshot_taken_at
+          );
+          if (reviewing) return reviewing;
+  
+          // 3) most recently opened (opened_at exists)
+          const opened = list
+            .filter((p) => p.opened_at && !p.snapshot_taken_at)
+            .slice()
+            .sort(
+              (a, b) =>
+                new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
+            )[0];
+  
+          if (opened) return opened;
+  
+          return null;
+        };
+  
+        setCurrentPhase(pick(list));
       } catch (e) {
         console.warn('phases list fetch failed:', e);
         setCurrentPhase(null);
@@ -366,6 +388,16 @@ export default function ClaimPanel() {
     ? Math.max(0, Number(selectedPhaseRow.claimable_megy ?? 0))
     : 0;
 
+  const effectivePhaseLabel =
+  selectedPhaseRow?.phase_name ||
+  selectedPhaseRow?.phaseName ||
+  (effectivePhaseId ? 'Selected snapshot' : 'No snapshot');
+
+  const selectedScopeLabel =
+  selectedPhaseRow?.phase_name ||
+  selectedPhaseRow?.phaseName ||
+  'Selected snapshot';
+
   async function tryStartSessionWithoutFee(wallet: string, destination: string) {
     const r = await fetch('/api/claim/session/start', {
       method: 'POST',
@@ -379,6 +411,15 @@ export default function ClaimPanel() {
   }
   
   const handleClaim = async () => {
+    if (!publicKey) {
+      setMessage('❌ Please connect your wallet.');
+      return;
+    }
+    
+    if (!claimOpen) {
+      setMessage('⚠️ Claiming is currently closed. You will be able to claim when the window opens.');
+      return;
+    }
     if (phaseLoading) {
       setMessage('⏳ Phase is still loading. Please try again in a second.');
       return;
@@ -386,11 +427,6 @@ export default function ClaimPanel() {
   
     if (!effectivePhaseId) {
       setMessage('❌ No finalized phase found. Claims are not ready yet.');
-      return;
-    }
-  
-    if (!publicKey) {
-      setMessage('❌ Please connect your wallet.');
       return;
     }
   
@@ -671,7 +707,7 @@ export default function ClaimPanel() {
         ? '🚀 Claiming...'
         : selectedClaimable <= 0
           ? '✅ Nothing to claim'
-          : `🎉 Claim from ${effectivePhaseName ? String(effectivePhaseName) : `Phase #${effectivePhaseId}`}`;
+          : `🎉 Claim from ${effectivePhaseName ? String(effectivePhaseName) : `effectivePhaseLabel`}`;
 
   return (
     <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
@@ -810,30 +846,31 @@ export default function ClaimPanel() {
                 <div className="text-right">
                   <p className="text-gray-400 text-xs">Fill</p>
                   <p className="text-white font-semibold">
-                    {(() => {
-                      const fill = Number(currentPhase?.fill_pct ?? 0);
-                      if (!Number.isFinite(fill)) return '0%';
-                      return `${(fill * 100).toFixed(fill >= 1 ? 0 : 1)}%`;
-                    })()}
+                  {(() => {
+                    const fill = Number(currentPhase?.fill_pct ?? 0); // ratio
+                    const ratio = Number.isFinite(fill) ? fill : 0;
+                    return `${(ratio * 100).toFixed(ratio >= 1 ? 0 : 1)}%`;
+                  })()}
                   </p>
                 </div>
               </div>
 
               {/* Progress bar */}
               <div className="mt-3">
-                {(() => {
-                  const fill = Number(currentPhase?.fill_pct ?? 0);
-                  const pct = Number.isFinite(fill) ? Math.max(0, Math.min(fill, 1)) : 0;
-                  return (
-                    <div className="w-full h-3 bg-zinc-900 border border-zinc-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-emerald-500 to-lime-400"
-                        style={{ width: `${pct * 100}%` }}
-                      />
-                    </div>
-                  );
-                })()}
+              {(() => {
+                const fill = Number(currentPhase?.fill_pct ?? 0); // ratio
+                const ratio = Number.isFinite(fill) ? fill : 0;
+                const pct01 = Math.max(0, Math.min(ratio, 1));
 
+                return (
+                  <div className="w-full h-3 bg-zinc-900 border border-zinc-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-500 to-lime-400"
+                      style={{ width: `${pct01 * 100}%` }}
+                    />
+                  </div>
+                );
+              })()}
                 <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
                   <span>
                     Used: ${Number(currentPhase?.used_usd ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
@@ -843,7 +880,11 @@ export default function ClaimPanel() {
                   </span>
                 </div>
 
-                {Number(currentPhase?.fill_pct ?? 0) > 1 && (
+                {(() => {
+                  const fill = Number(currentPhase?.fill_pct ?? 0); // ratio
+                  const ratio = Number.isFinite(fill) ? fill : 0;
+                  return ratio > 1;
+                })() && (
                   <div className="mt-2 text-xs text-yellow-300">
                     ⚠️ Phase is overfilled (Used exceeded Cap). This can happen when the last contribution crosses the target.
                   </div>
@@ -1679,7 +1720,7 @@ export default function ClaimPanel() {
               <div className="flex items-center justify-between gap-3">
                 <span className="text-gray-400">Scope</span>
                 <span className="font-semibold text-white">
-                  {pendingClaim.phaseId === 0 ? 'All finalized phases' : `Phase #${pendingClaim.phaseId}`}
+                  {pendingClaim.phaseId === 0 ? 'All finalized phases' : `selectedScopeLabel`}
                 </span>
               </div>
             </div>

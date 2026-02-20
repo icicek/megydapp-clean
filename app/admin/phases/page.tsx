@@ -220,37 +220,23 @@ export default function AdminPhasesPage() {
         setLoading(true);
         setMsg(null);
         try {
-            const [j1, j2] = await Promise.all([
-                getJSON<{ success: boolean; phases: PhaseRow[] }>('/api/phases/list'),
-                getJSON<{ success: boolean; rows: Array<{ phase_id: number; alloc_usd_sum: any; alloc_wallets: any }> }>(
-                    '/api/admin/phases/progress'
-                ).catch(() => ({ success: false, rows: [] as any[] })),
-            ]);
+            const j1 = await getJSON<{ success: boolean; phases: PhaseRow[]; queue?: any }>('/api/phases/list');
 
             const phases = Array.isArray(j1?.phases) ? j1.phases : [];
-            const progRows = Array.isArray((j2 as any)?.rows) ? (j2 as any).rows : [];
+            const normalized = phases.map((p) => ({
+                ...p,
+                status: normalizePhaseStatus((p as any).status),
+                // queue_usd is global; if you want, attach it only to active row later
+            }));
 
-            const progMap = new Map<number, any>();
-            for (const r of progRows) {
-                const id = Number((r as any).phase_id ?? 0);
-                if (Number.isFinite(id) && id > 0) {
-                    progMap.set(id, {
-                        alloc_usd_sum: (r as any).alloc_usd_sum ?? 0,
-                        alloc_wallets: (r as any).alloc_wallets ?? 0,
-                        queue_usd: (r as any).queue_usd ?? 0,
-                    });
-                }
-            }
+            // Optional: attach queue_usd to ACTIVE phase row for display convenience
+            const qUsd = Number((j1 as any)?.queue?.queue_usd ?? 0);
+            const finalRows = normalized.map((p) =>
+                p.status === 'active' ? { ...p, queue_usd: qUsd } : p
+            );
 
-            const merged = phases.map((p) => {
-                const prog = progMap.get(Number(p.phase_id));
-                const normStatus = normalizePhaseStatus((p as any).status);
+            setRows(finalRows);
 
-                const base = { ...p, status: normStatus };
-                return prog ? { ...base, ...prog } : base;
-            });
-
-            setRows(merged);
         } catch (e: any) {
             setMsg(`❌ Failed to load phases (${e?.message || 'error'})`);
         } finally {
@@ -400,7 +386,7 @@ export default function AdminPhasesPage() {
 
         try {
             const ok = window.confirm(
-                'Take snapshot for this phase?\n\nThis will close the active phase and try to auto-open the next planned phase (if any).'
+                'Take snapshot for this phase?\n\nThis will finalize allocations for claims (snapshot). It does NOT open phases.'
             );
             if (!ok) return;
 
@@ -573,8 +559,7 @@ export default function AdminPhasesPage() {
 
 
                     <div className="text-[11px] text-white/55 mt-2">
-                        Snapshot closes the active phase and opens the next one automatically. Only one phase can be active.
-                        Extra contributions wait in queue and are assigned FIFO.
+                        Phases advance automatically when Forecast reaches 100% (fill_pct ≥ 1). Snapshot only finalizes a reviewing/active phase for claims.
                     </div>
                 </div>
 
@@ -730,16 +715,6 @@ export default function AdminPhasesPage() {
                                                     {/* Planned actions */}
                                                     {isPlanned && !isCompleted && (
                                                         <>
-                                                            {canShowOpen && (
-                                                                <button
-                                                                    onClick={() => openPhase(p.phase_id)}
-                                                                    disabled={isBusy}
-                                                                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs disabled:opacity-50"
-                                                                    title="Start operation: open the next planned phase"
-                                                                >
-                                                                    {isBusy ? 'Working…' : 'Open'}
-                                                                </button>
-                                                            )}
 
                                                             <button
                                                                 onClick={() => startEdit(p)}

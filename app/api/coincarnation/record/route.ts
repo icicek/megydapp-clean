@@ -7,6 +7,8 @@ import { allocateQueueFIFO } from '@/app/api/_lib/phases/allocator';
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import { generateReferralCode } from '@/app/api/utils/generateReferralCode';
+import { advancePhases } from '@/app/api/_lib/phases/advance';
+import { recomputeFromPhaseId } from '@/app/api/_lib/phases/recompute';
 
 import {
   getStatusRow,
@@ -109,6 +111,9 @@ async function waitForSolanaConfirm(
 export async function POST(req: NextRequest) {
   console.log('✅ /api/coincarnation/record called');
   await requireAppEnabled();
+
+  let adv: Awaited<ReturnType<typeof advancePhases>> | null = null;
+  let recompute: Awaited<ReturnType<typeof recomputeFromPhaseId>> | null = null;
 
   try {
     const idemHeader = req.headers.get('Idempotency-Key') || null;
@@ -568,8 +573,19 @@ export async function POST(req: NextRequest) {
     try {
       allocator = await allocateQueueFIFO({ maxSteps: 20 });
     } catch (e: any) {
-      // Record başarısını bozma; sadece logla
       console.warn('⚠️ allocator failed:', e?.message || e);
+    }
+    // ---- phase automation: advance + recompute (after allocator) ----
+    try {
+      adv = await advancePhases();
+
+      const fromId =
+        (adv?.openedPhaseIds?.length ? adv.openedPhaseIds[0] : null) ??
+        (adv?.activePhaseId ?? null);
+
+      recompute = fromId ? await recomputeFromPhaseId(Number(fromId)) : null;
+    } catch (e: any) {
+      console.warn('⚠️ advance/recompute failed:', e?.message || e);
     }
 
     // ——— CorePoint: USD + Deadcoin (corepoint_events tablosu) ———
@@ -681,14 +697,17 @@ export async function POST(req: NextRequest) {
       id: insertedId,
       number,
       referral_code: userReferralCode,
-
+    
       transaction_signature: txHashOrSig,
       tx_id: stableTxId,
       txId: stableTxId,
-
+    
       message: '✅ Coincarnation recorded',
       allocator,
-    });
+      recompute: recompute ?? null,
+      phaseAdvance: adv ?? null,
+
+    });    
   } catch (error: any) {
     console.error('❌ Record API Error:', error?.message || error);
     const status = Number(error?.status) || 500;

@@ -72,6 +72,9 @@ async function computeUsedUsd(phaseId: number) {
     SELECT COALESCE(SUM(COALESCE(usd_value, 0)), 0)::numeric AS used_usd
     FROM contributions
     WHERE phase_id = ${phaseId}
+      AND COALESCE(usd_value,0)::numeric > 0
+      AND COALESCE(alloc_status,'unassigned') <> 'invalid'
+      AND COALESCE(network,'solana') = 'solana'
   `) as any[];
   return num(rows?.[0]?.used_usd, 0);
 }
@@ -81,7 +84,7 @@ async function hasQueue() {
     SELECT 1
     FROM contributions
     WHERE phase_id IS NULL
-      AND COALESCE(alloc_status, 'pending') = 'pending'
+      AND COALESCE(alloc_status, 'unassigned') IN ('unassigned','pending')
       AND network = 'solana'
     LIMIT 1
   `) as any[];
@@ -99,7 +102,7 @@ async function sweepUnassignedToPhase(phaseId: number, remaining: number | null)
         ) AS run
       FROM contributions
       WHERE phase_id IS NULL
-        AND COALESCE(alloc_status, 'pending') = 'pending'
+        AND COALESCE(alloc_status, 'unassigned') IN ('unassigned','pending')
         AND network = 'solana'
     ),
     pick AS (
@@ -111,11 +114,11 @@ async function sweepUnassignedToPhase(phaseId: number, remaining: number | null)
     SET
       phase_id = ${phaseId},
       alloc_phase_no = (SELECT phase_no FROM phases WHERE id = ${phaseId}),
-      alloc_status = 'allocated',
+      alloc_status = 'unassigned',
       alloc_updated_at = NOW()
     WHERE c.id IN (SELECT id FROM pick)
       AND c.phase_id IS NULL
-      AND COALESCE(c.alloc_status, 'pending') = 'pending'
+      AND COALESCE(c.alloc_status, 'unassigned') IN ('unassigned','pending')
     RETURNING c.id
   `) as any[];
 
