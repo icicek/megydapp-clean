@@ -443,7 +443,7 @@ export async function POST(req: NextRequest) {
     // ——— Phase allocation: ALWAYS queue, allocator will place FIFO ———
     const phaseIdForContribution: number | null = null;
     const allocPhaseNoForContribution: number | null = null;
-    const allocStatusForContribution: string | null = 'pending';
+    const allocStatusForContribution: string | null = 'unassigned';
 
     const sig =
       transaction_signature && String(transaction_signature).trim()
