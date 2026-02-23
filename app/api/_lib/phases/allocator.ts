@@ -114,7 +114,7 @@ async function sweepUnassignedToPhase(phaseId: number, remaining: number | null)
     SET
       phase_id = ${phaseId},
       alloc_phase_no = (SELECT phase_no FROM phases WHERE id = ${phaseId}),
-      alloc_status = 'unassigned',
+      alloc_status = 'allocated',
       alloc_updated_at = NOW()
     WHERE c.id IN (SELECT id FROM pick)
       AND c.phase_id IS NULL
