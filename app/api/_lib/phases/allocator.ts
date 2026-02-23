@@ -1,6 +1,11 @@
 // app/api/_lib/phases/allocator.ts
 import { sql } from '@/app/api/_lib/db';
 
+const ALLOCATOR_VERSION =
+  process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ||
+  process.env.VERCEL_DEPLOYMENT_ID ||
+  'dev';
+
 type AllocateResult = {
   success: true;
   moved_total: number;
@@ -11,7 +16,10 @@ type AllocateResult = {
     moved: number;
     reason: 'OK' | 'PHASE_FULL' | 'NO_ACTIVE' | 'NO_PLANNED' | 'NO_QUEUE';
   }>;
+  version?: string;
 };
+
+const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
 function num(v: unknown, def = 0): number {
   const n = typeof v === 'number' ? v : Number(v);
@@ -20,7 +28,6 @@ function num(v: unknown, def = 0): number {
 
 // Global allocator lock (single-run)
 async function acquireAllocatorLock() {
-  // stable bigint key
   const key = (BigInt(942002) * BigInt(1_000_000_000) + BigInt(777)).toString();
   await sql`SELECT pg_advisory_lock(${key}::bigint)`;
   return key;
@@ -44,7 +51,6 @@ async function getActivePhaseForUpdate() {
 }
 
 async function openNextPlannedPhase(cursorPhaseNo: number | null) {
-  // open smallest phase_no among planned > cursor (or overall smallest planned)
   const rows = (await sql/* sql */`
     UPDATE phases
     SET
@@ -93,40 +99,72 @@ async function hasQueue() {
 
 async function sweepUnassignedToPhase(phaseId: number, remaining: number | null) {
   const moved = (await sql/* sql */`
-    WITH queue AS (
+    WITH ph AS (
+      SELECT id, phase_no, COALESCE(rate_usd_per_megy, 0)::numeric AS rate
+      FROM phases
+      WHERE id = ${phaseId}
+      LIMIT 1
+      FOR UPDATE
+    ),
+    queue AS (
       SELECT
-        id,
-        COALESCE(usd_value, 0)::numeric AS usd_value,
-        SUM(COALESCE(usd_value, 0)::numeric) OVER (
-          ORDER BY "timestamp" ASC NULLS LAST, id ASC
+        c.id,
+        c.wallet_address,
+        COALESCE(c.usd_value, 0)::numeric AS usd_value,
+        SUM(COALESCE(c.usd_value, 0)::numeric) OVER (
+          ORDER BY c."timestamp" ASC NULLS LAST, c.id ASC
         ) AS run
-      FROM contributions
-      WHERE phase_id IS NULL
-        AND COALESCE(alloc_status, 'unassigned') IN ('unassigned','pending')
-        AND network = 'solana'
+      FROM contributions c
+      LEFT JOIN token_registry tr ON tr.mint = c.token_contract
+      WHERE c.phase_id IS NULL
+        AND COALESCE(c.alloc_status, 'unassigned') IN ('unassigned','pending')
+        AND COALESCE(c.network,'solana') = 'solana'
+        AND COALESCE(c.usd_value,0)::numeric > 0
+        AND (
+          c.token_contract = ${WSOL_MINT}
+          OR tr.status IN ('healthy','walking_dead')
+        )
     ),
     pick AS (
       SELECT id
       FROM queue
       WHERE ${remaining === null ? sql`TRUE` : sql`run <= ${remaining}`}
+    ),
+    up AS (
+      UPDATE contributions c
+      SET
+        phase_id = ${phaseId},
+        alloc_phase_no = (SELECT phase_no FROM ph),
+        alloc_status = 'allocated',
+        alloc_updated_at = NOW()
+      WHERE c.id IN (SELECT id FROM pick)
+        AND c.phase_id IS NULL
+        AND COALESCE(c.alloc_status, 'unassigned') IN ('unassigned','pending')
+      RETURNING c.id, c.wallet_address, COALESCE(c.usd_value,0)::numeric AS usd_value
     )
-    UPDATE contributions c
-    SET
-      phase_id = ${phaseId},
-      alloc_phase_no = (SELECT phase_no FROM phases WHERE id = ${phaseId}),
-      alloc_status = 'allocated',
-      alloc_updated_at = NOW()
-    WHERE c.id IN (SELECT id FROM pick)
-      AND c.phase_id IS NULL
-      AND COALESCE(c.alloc_status, 'unassigned') IN ('unassigned','pending')
-    RETURNING c.id
+    INSERT INTO phase_allocations
+      (phase_id, contribution_id, wallet_address, usd_allocated, megy_allocated, created_at)
+    SELECT
+      ${phaseId}::bigint,
+      up.id::bigint,
+      up.wallet_address::text,
+      up.usd_value::numeric,
+      CASE WHEN (SELECT rate FROM ph) > 0
+           THEN (up.usd_value / (SELECT rate FROM ph))::numeric
+           ELSE 0::numeric
+      END AS megy_allocated,
+      NOW()
+    FROM up
+    WHERE NOT EXISTS (
+      SELECT 1 FROM phase_allocations pa WHERE pa.contribution_id = up.id
+    )
+    RETURNING contribution_id
   `) as any[];
 
   return moved?.length ?? 0;
 }
 
 async function maybeMarkReviewing(phaseId: number) {
-  // If phase is at/over target, mark as reviewing (but DO NOT snapshot)
   const rows = (await sql/* sql */`
     SELECT COALESCE(target_usd, 0)::numeric AS target_usd
     FROM phases
@@ -136,12 +174,11 @@ async function maybeMarkReviewing(phaseId: number) {
   `) as any[];
 
   const target = num(rows?.[0]?.target_usd, 0);
-  if (target <= 0) return false; // no target means never "full"
+  if (target <= 0) return false;
 
   const used = await computeUsedUsd(phaseId);
   if (used < target) return false;
 
-  // move active -> reviewing
   await sql/* sql */`
     UPDATE phases
     SET
@@ -156,32 +193,30 @@ async function maybeMarkReviewing(phaseId: number) {
   return true;
 }
 
-/**
- * Allocate queued (phase_id IS NULL) contributions into phases FIFO.
- * Guarantees at most ONE active phase.
- */
 export async function allocateQueueFIFO(opts?: { maxSteps?: number }): Promise<AllocateResult> {
   const maxSteps = Math.max(1, Math.min(50, Number(opts?.maxSteps ?? 20)));
 
   const lockKey = await acquireAllocatorLock();
-
   const phases_touched: AllocateResult['phases_touched'] = [];
   let moved_total = 0;
 
   try {
     await sql`BEGIN`;
 
-    // Quick exit if no queue
     const q = await hasQueue();
     if (!q) {
       await sql`COMMIT`;
-      return { success: true, moved_total: 0, phases_touched: [{ phase_id: 0, phase_no: 0, status: '-', moved: 0, reason: 'NO_QUEUE' }] };
+      return {
+        success: true,
+        moved_total: 0,
+        phases_touched: [{ phase_id: 0, phase_no: 0, status: '-', moved: 0, reason: 'NO_QUEUE' }],
+        version: ALLOCATOR_VERSION,
+      };
     }
 
     let cursorPhaseNo: number | null = null;
 
     for (let step = 0; step < maxSteps; step++) {
-      // Ensure exactly one active phase
       let active = await getActivePhaseForUpdate();
 
       if (!active) {
@@ -201,7 +236,6 @@ export async function allocateQueueFIFO(opts?: { maxSteps?: number }): Promise<A
       const remaining = targetUsd > 0 ? Math.max(0, targetUsd - usedUsd) : null;
 
       if (remaining !== null && remaining <= 0) {
-        // full already -> mark reviewing and continue to next planned
         const marked = await maybeMarkReviewing(phaseId);
         phases_touched.push({
           phase_id: phaseId,
@@ -214,11 +248,9 @@ export async function allocateQueueFIFO(opts?: { maxSteps?: number }): Promise<A
         continue;
       }
 
-      // Move from queue into this active phase
       const moved = await sweepUnassignedToPhase(phaseId, remaining);
       moved_total += moved;
 
-      // After moving, if it becomes full, mark reviewing
       const nowFull = await maybeMarkReviewing(phaseId);
 
       phases_touched.push({
@@ -229,20 +261,17 @@ export async function allocateQueueFIFO(opts?: { maxSteps?: number }): Promise<A
         reason: nowFull ? 'PHASE_FULL' : 'OK',
       });
 
-      // If we didn't fill the phase, stop (either queue is empty or phase not full yet)
       if (!nowFull) break;
 
-      // If phase became reviewing, continue to open next planned phase and keep draining queue
       cursorPhaseNo = phaseNo;
 
-      // If queue is empty, stop
       const stillQueue = await hasQueue();
       if (!stillQueue) break;
     }
 
     await sql`COMMIT`;
 
-    return { success: true, moved_total, phases_touched };
+    return { success: true, moved_total, phases_touched, version: ALLOCATOR_VERSION };
   } catch (e) {
     try { await sql`ROLLBACK`; } catch {}
     throw e;
