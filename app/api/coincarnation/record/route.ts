@@ -570,10 +570,13 @@ export async function POST(req: NextRequest) {
     }
 
     let allocator: any = null;
+    let allocatorError: string | null = null;
+
     try {
       allocator = await allocateQueueFIFO({ maxSteps: 20 });
     } catch (e: any) {
-      console.warn('⚠️ allocator failed:', e?.message || e);
+      allocatorError = String(e?.message || e);
+      console.error('❌ allocator failed:', allocatorError, e);
     }
     // ---- phase automation: advance + recompute (after allocator) ----
     try {
@@ -704,6 +707,7 @@ export async function POST(req: NextRequest) {
     
       message: '✅ Coincarnation recorded',
       allocator,
+      allocatorError,
       recompute: recompute ?? null,
       phaseAdvance: adv ?? null,
 
