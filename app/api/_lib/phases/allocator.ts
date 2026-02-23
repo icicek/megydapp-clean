@@ -79,7 +79,7 @@ async function computeUsedUsd(phaseId: number) {
     FROM contributions
     WHERE phase_id = ${phaseId}
       AND COALESCE(usd_value,0)::numeric > 0
-      AND COALESCE(alloc_status,'unassigned') <> 'invalid'
+      AND COALESCE(alloc_status,'unassigned') IN ('allocated','snapshotted')
       AND COALESCE(network,'solana') = 'solana'
   `) as any[];
   return num(rows?.[0]?.used_usd, 0);
@@ -94,6 +94,28 @@ async function hasQueue() {
       AND network = 'solana'
     LIMIT 1
   `) as any[];
+  return !!rows?.[0];
+}
+
+async function hasWork(activePhaseId: number | null) {
+  const rows = (await sql/* sql */`
+    SELECT 1
+    FROM contributions c
+    LEFT JOIN token_registry tr ON tr.mint = c.token_contract
+    WHERE COALESCE(c.network,'solana') = 'solana'
+      AND COALESCE(c.usd_value,0)::numeric > 0
+      AND (
+        c.token_contract = ${WSOL_MINT}
+        OR tr.status IN ('healthy','walking_dead')
+      )
+      AND (
+        (c.phase_id IS NULL AND COALESCE(c.alloc_status,'unassigned') IN ('unassigned','pending'))
+        OR
+        (${activePhaseId ?? null} IS NOT NULL AND c.phase_id = ${activePhaseId ?? null} AND COALESCE(c.alloc_status,'unassigned') = 'unassigned')
+      )
+    LIMIT 1
+  `) as any[];
+
   return !!rows?.[0];
 }
 
@@ -164,6 +186,71 @@ async function sweepUnassignedToPhase(phaseId: number, remaining: number | null)
   return moved?.length ?? 0;
 }
 
+async function healUnassignedInPhase(phaseId: number, remaining: number | null) {
+  const moved = (await sql/* sql */`
+    WITH ph AS (
+      SELECT id, phase_no, COALESCE(rate_usd_per_megy, 0)::numeric AS rate
+      FROM phases
+      WHERE id = ${phaseId}
+      LIMIT 1
+      FOR UPDATE
+    ),
+    stuck AS (
+      SELECT
+        c.id,
+        c.wallet_address,
+        COALESCE(c.usd_value, 0)::numeric AS usd_value,
+        SUM(COALESCE(c.usd_value, 0)::numeric) OVER (
+          ORDER BY c."timestamp" ASC NULLS LAST, c.id ASC
+        ) AS run
+      FROM contributions c
+      LEFT JOIN token_registry tr ON tr.mint = c.token_contract
+      WHERE c.phase_id = ${phaseId}
+        AND COALESCE(c.alloc_status,'unassigned') = 'unassigned'
+        AND COALESCE(c.network,'solana') = 'solana'
+        AND COALESCE(c.usd_value,0)::numeric > 0
+        AND (
+          c.token_contract = ${WSOL_MINT}
+          OR tr.status IN ('healthy','walking_dead')
+        )
+    ),
+    pick AS (
+      SELECT id
+      FROM stuck
+      WHERE ${remaining === null ? sql`TRUE` : sql`run <= ${remaining}`}
+    ),
+    up AS (
+      UPDATE contributions c
+      SET
+        alloc_status = 'allocated',
+        alloc_updated_at = NOW()
+      WHERE c.id IN (SELECT id FROM pick)
+        AND c.phase_id = ${phaseId}
+        AND COALESCE(c.alloc_status,'unassigned') = 'unassigned'
+      RETURNING c.id, c.wallet_address, COALESCE(c.usd_value,0)::numeric AS usd_value
+    )
+    INSERT INTO phase_allocations
+      (phase_id, contribution_id, wallet_address, usd_allocated, megy_allocated, created_at)
+    SELECT
+      ${phaseId}::bigint,
+      up.id::bigint,
+      up.wallet_address::text,
+      up.usd_value::numeric,
+      CASE WHEN (SELECT rate FROM ph) > 0
+           THEN (up.usd_value / (SELECT rate FROM ph))::numeric
+           ELSE 0::numeric
+      END AS megy_allocated,
+      NOW()
+    FROM up
+    WHERE NOT EXISTS (
+      SELECT 1 FROM phase_allocations pa WHERE pa.contribution_id = up.id
+    )
+    RETURNING contribution_id
+  `) as any[];
+
+  return moved?.length ?? 0;
+}
+
 async function maybeMarkReviewing(phaseId: number) {
   const rows = (await sql/* sql */`
     SELECT COALESCE(target_usd, 0)::numeric AS target_usd
@@ -203,8 +290,12 @@ export async function allocateQueueFIFO(opts?: { maxSteps?: number }): Promise<A
   try {
     await sql`BEGIN`;
 
-    const q = await hasQueue();
-    if (!q) {
+    // We may have "stuck" unassigned rows already inside the active phase even if queue is empty.
+    let preActive = await getActivePhaseForUpdate();
+    const preActiveId = preActive?.id ? Number(preActive.id) : null;
+
+    const work = await hasWork(preActiveId);
+    if (!work) {
       await sql`COMMIT`;
       return {
         success: true,
@@ -248,16 +339,25 @@ export async function allocateQueueFIFO(opts?: { maxSteps?: number }): Promise<A
         continue;
       }
 
+      // Self-heal: phase_id already set but alloc_status still unassigned (stuck state)
+      const healed = await healUnassignedInPhase(phaseId, remaining);
+      moved_total += healed;
+
+      // Move from queue into this active phase
       const moved = await sweepUnassignedToPhase(phaseId, remaining);
       moved_total += moved;
 
+      // Total moved in this step (healed + newly swept)
+      const movedStep = healed + moved;
+
+      // After moving, if it becomes full, mark reviewing
       const nowFull = await maybeMarkReviewing(phaseId);
 
       phases_touched.push({
         phase_id: phaseId,
         phase_no: phaseNo,
         status: nowFull ? 'reviewing' : 'active',
-        moved,
+        moved: movedStep,
         reason: nowFull ? 'PHASE_FULL' : 'OK',
       });
 
