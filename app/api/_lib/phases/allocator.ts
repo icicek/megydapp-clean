@@ -75,12 +75,9 @@ async function openNextPlannedPhase(cursorPhaseNo: number | null) {
 
 async function computeUsedUsd(phaseId: number) {
   const rows = (await sql/* sql */`
-    SELECT COALESCE(SUM(COALESCE(usd_value, 0)), 0)::numeric AS used_usd
-    FROM contributions
+    SELECT COALESCE(SUM(COALESCE(usd_allocated,0)::numeric),0)::numeric AS used_usd
+    FROM phase_allocations
     WHERE phase_id = ${phaseId}
-      AND COALESCE(usd_value,0)::numeric > 0
-      AND COALESCE(alloc_status,'unassigned') IN ('allocated','snapshotted')
-      AND COALESCE(network,'solana') = 'solana'
   `) as any[];
   return num(rows?.[0]?.used_usd, 0);
 }
