@@ -242,40 +242,51 @@ export default function ClaimPanel() {
     (async () => {
       try {
         setPhasesLoading(true);
+  
         const r = await fetch('/api/phases/list', { cache: 'no-store' });
         const j = await r.json().catch(() => ({}));
+  
         const list = Array.isArray(j?.phases) ? j.phases : [];
+        const activeId = Number(j?.current_active_phase_id ?? 0);
+        const activeNo = Number(j?.current_active_phase_no ?? 0);
   
         const norm = (s: any) => String(s ?? '').toLowerCase().trim();
   
-        const pick = (list: any[]) => {
-          // 1) truly active
-          const active = list.find(
-            (p) => norm(p.status) === 'active' && !p.snapshot_taken_at
-          );
-          if (active) return active;
+        // 1) AUTHORITATIVE: backend tells active phase id
+        const byId =
+          Number.isFinite(activeId) && activeId > 0
+            ? list.find((p: any) => Number(p.phase_id) === activeId || Number(p.id) === activeId)
+            : null;
   
-          // 2) reviewing but not snapshotted
-          const reviewing = list.find(
-            (p) => norm(p.status) === 'reviewing' && !p.snapshot_taken_at
-          );
-          if (reviewing) return reviewing;
+        if (byId) {
+          setCurrentPhase(byId);
+          return;
+        }
   
-          // 3) most recently opened (opened_at exists)
-          const opened = list
-            .filter((p) => p.opened_at && !p.snapshot_taken_at)
-            .slice()
-            .sort(
-              (a, b) =>
-                new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
-            )[0];
+        // 2) Fallback: backend active phase no
+        const byNo =
+          Number.isFinite(activeNo) && activeNo > 0
+            ? list.find((p: any) => Number(p.phase_no) === activeNo)
+            : null;
   
-          if (opened) return opened;
+        if (byNo) {
+          setCurrentPhase(byNo);
+          return;
+        }
   
-          return null;
-        };
+        // 3) Last resort heuristic
+        const active = list.find((p: any) => norm(p.status) === 'active' && !p.snapshot_taken_at);
+        if (active) { setCurrentPhase(active); return; }
   
-        setCurrentPhase(pick(list));
+        const reviewing = list.find((p: any) => norm(p.status) === 'reviewing' && !p.snapshot_taken_at);
+        if (reviewing) { setCurrentPhase(reviewing); return; }
+  
+        const opened = list
+          .filter((p: any) => p.opened_at && !p.snapshot_taken_at)
+          .slice()
+          .sort((a: any, b: any) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime())[0];
+  
+        setCurrentPhase(opened ?? null);
       } catch (e) {
         console.warn('phases list fetch failed:', e);
         setCurrentPhase(null);
@@ -707,7 +718,7 @@ export default function ClaimPanel() {
         ? '🚀 Claiming...'
         : selectedClaimable <= 0
           ? '✅ Nothing to claim'
-          : `🎉 Claim from ${effectivePhaseName ? String(effectivePhaseName) : `effectivePhaseLabel`}`;
+          : `🎉 Claim from ${effectivePhaseName ? String(effectivePhaseName) : String(effectivePhaseLabel)}`;
 
   return (
     <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
@@ -1720,7 +1731,7 @@ export default function ClaimPanel() {
               <div className="flex items-center justify-between gap-3">
                 <span className="text-gray-400">Scope</span>
                 <span className="font-semibold text-white">
-                  {pendingClaim.phaseId === 0 ? 'All finalized phases' : `selectedScopeLabel`}
+                  {pendingClaim.phaseId === 0 ? 'All finalized phases' : String(selectedScopeLabel)}
                 </span>
               </div>
             </div>

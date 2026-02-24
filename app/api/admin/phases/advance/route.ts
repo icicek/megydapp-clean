@@ -8,6 +8,7 @@ import { httpErrorFrom } from '@/app/api/_lib/http';
 import { advancePhases } from '@/app/api/_lib/phases/advance';
 import { recomputeFromPhaseId } from '@/app/api/_lib/phases/recompute';
 
+console.log('[advance] start', new Date().toISOString());
 export async function POST(req: NextRequest) {
   try {
     await requireAdmin(req as any);
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest) {
 
     const recompute = fromId ? await recomputeFromPhaseId(Number(fromId)) : null;
 
+    console.log('[advance] done', { adv, recompute: !!recompute });
     return NextResponse.json({
       success: true,
       phaseAdvance: adv,

@@ -258,12 +258,25 @@ export async function GET(_req: NextRequest) {
       };
     });
 
+    // current active phase (authoritative)
+    const activeNow = await sql`
+      SELECT id, phase_no
+      FROM phases
+      WHERE status = 'active'
+        AND snapshot_taken_at IS NULL
+      ORDER BY phase_no ASC, id ASC
+      LIMIT 1;
+    `;
+    const an = (activeNow as any[])?.[0] ?? null;
+
     return NextResponse.json({
       success: true,
+      current_active_phase_id: an?.id ? Number(an.id) : null,
+      current_active_phase_no: an?.phase_no ? Number(an.phase_no) : null,
       phases,
       queue: (queue as any[])?.[0] ?? { queue_usd: 0 },
       debug: (debug as any[])?.[0] ?? null,
-    });    
+    });
   } catch (e: any) {
     console.error('GET /api/phases/list failed:', e);
     return NextResponse.json(
