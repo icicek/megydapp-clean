@@ -134,7 +134,7 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
 
         await sql/* sql */`
           UPDATE contributions c
-          SET alloc_status = 'pending',
+          SET alloc_status = 'unassigned',
               alloc_updated_at = NOW()
           WHERE c.id IN (
             SELECT DISTINCT pa.contribution_id
@@ -142,7 +142,7 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
             JOIN jsonb_to_recordset(${JSON.stringify(phaseIdObjs)}::jsonb) AS x(id text)
               ON pa.phase_id = x.id::bigint
           )
-          AND COALESCE(c.alloc_status,'') NOT IN ('snapshotted','invalid')
+          AND COALESCE(c.alloc_status,'') <> 'snapshotted'
         `;
 
         await sql/* sql */`
@@ -174,7 +174,7 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
         LEFT JOIN token_registry tr ON tr.mint = c.token_contract
         WHERE
           COALESCE(c.usd_value,0) > 0
-          AND COALESCE(c.alloc_status,'pending') IN ('pending','unassigned')
+          AND COALESCE(c.alloc_status,'unassigned') = 'unassigned'
           AND (
             c.token_contract IS NULL
             OR c.token_contract = ${WSOL_MINT}

@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
       recompute,
     });
   } catch (err: unknown) {
+    console.error('[advance] ERROR', err);
     const { status, body } = httpErrorFrom(err, 500);
     return NextResponse.json(body, { status });
   }
