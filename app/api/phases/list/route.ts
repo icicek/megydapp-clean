@@ -1,4 +1,3 @@
-// app/api/phases/list/route.ts
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
@@ -18,19 +17,11 @@ function pickFirst(row: AnyRow, keys: string[], fallback: any = null) {
   return fallback;
 }
 
+const WSOL_MINT = 'So11111111111111111111111111111111111111112';
+
 export async function GET(_req: NextRequest) {
   try {
     const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
-
-    /**
-     * We compute BOTH:
-     * 1) Window (time) totals: contributions within [opened_at, closed_at) (active => closed_at is null => NOW())
-     * 2) Forecast (capacity) totals: cumulative target fill across phases (splits contributions virtually)
-     *
-     * Output mapping:
-     * - used_usd/fill_pct/alloc_*      => Window (live)
-     * - used_usd_forecast/...         => Forecast
-     */
 
     const rows = await sql`
       WITH phases_sorted AS (
@@ -66,7 +57,6 @@ export async function GET(_req: NextRequest) {
         WHERE p.snapshot_taken_at IS NULL
       ),
 
-      -- Eligible contributions (same rules for both models)
       eligible_contributions AS (
         SELECT
           c.id AS contribution_id,
@@ -84,27 +74,23 @@ export async function GET(_req: NextRequest) {
           AND COALESCE(c.alloc_status,'pending') <> 'invalid'
           AND (
             c.token_contract IS NULL
-            OR c.token_contract = 'So11111111111111111111111111111111111111112'
+            OR c.token_contract = ${WSOL_MINT}
             OR (tr.mint IS NOT NULL AND tr.status IN ('healthy','walking_dead'))
           )
       ),
 
-      -- Window totals per phase
-      phase_window_totals AS (
+      -- ✅ Allocations truth (economic truth)
+      phase_alloc_totals AS (
         SELECT
-          p.id AS phase_id,
-          COALESCE(SUM(ec.usd_value),0)::numeric AS used_usd_window,
-          COUNT(ec.contribution_id)::int AS alloc_rows_window,
-          COUNT(DISTINCT ec.wallet_address)::int AS alloc_wallets_window
-        FROM phases_sorted p
-        LEFT JOIN eligible_contributions ec
-          ON p.opened_at IS NOT NULL
-         AND ec.timestamp >= p.opened_at
-         AND ec.timestamp < COALESCE(p.closed_at, NOW())
-        GROUP BY p.id
+          pa.phase_id,
+          COALESCE(SUM(pa.usd_allocated),0)::numeric AS used_usd_alloc,
+          COUNT(*)::int AS alloc_rows_alloc,
+          COUNT(DISTINCT pa.wallet_address)::int AS alloc_wallets_alloc
+        FROM phase_allocations pa
+        GROUP BY pa.phase_id
       ),
 
-      -- Running totals for Forecast splitting
+      -- Forecast splitting (optional, preserved)
       contrib_running AS (
         SELECT
           ec.*,
@@ -113,7 +99,6 @@ export async function GET(_req: NextRequest) {
         FROM eligible_contributions ec
       ),
 
-      -- Virtual split of contributions across phases by cumulative targets
       contrib_to_phase AS (
         SELECT
           ps.id AS phase_id,
@@ -138,9 +123,8 @@ export async function GET(_req: NextRequest) {
         FROM contrib_to_phase
         WHERE usd_allocated_virtual > 0
         GROUP BY phase_id
-      )
+      ),
 
-      ,
       debug_summary AS (
         SELECT
           COUNT(*)::int AS eligible_rows,
@@ -149,6 +133,7 @@ export async function GET(_req: NextRequest) {
           MAX(timestamp) AS last_ts
         FROM eligible_contributions
       ),
+
       queue_summary AS (
         SELECT
           COALESCE(SUM(COALESCE(usd_value,0)),0)::numeric AS queue_usd
@@ -160,17 +145,17 @@ export async function GET(_req: NextRequest) {
       SELECT
         ps.*,
 
-        -- Window (live)
-        COALESCE(pwt.used_usd_window, 0)::numeric AS used_usd_window,
-        COALESCE(pwt.alloc_wallets_window, 0)::int AS alloc_wallets_window,
-        COALESCE(pwt.alloc_rows_window, 0)::int AS alloc_rows_window,
+        -- ✅ Allocations truth => primary
+        COALESCE(pat.used_usd_alloc, 0)::numeric AS used_usd_alloc,
+        COALESCE(pat.alloc_wallets_alloc, 0)::int AS alloc_wallets_alloc,
+        COALESCE(pat.alloc_rows_alloc, 0)::int AS alloc_rows_alloc,
         CASE
           WHEN COALESCE(ps.target_usd_num, 0)::numeric > 0
-          THEN (COALESCE(pwt.used_usd_window, 0)::numeric / COALESCE(ps.target_usd_num, 0)::numeric)
+          THEN (COALESCE(pat.used_usd_alloc, 0)::numeric / COALESCE(ps.target_usd_num, 0)::numeric)
           ELSE 0
-        END AS fill_pct_window,
+        END AS fill_pct_alloc,
 
-        -- Forecast (capacity)
+        -- Forecast (kept)
         COALESCE(pvt.used_usd_forecast, 0)::numeric AS used_usd_forecast,
         COALESCE(pvt.alloc_wallets_forecast, 0)::int AS alloc_wallets_forecast,
         COALESCE(pvt.alloc_rows_forecast, 0)::int AS alloc_rows_forecast,
@@ -181,12 +166,11 @@ export async function GET(_req: NextRequest) {
         END AS fill_pct_forecast
 
       FROM phases_sorted ps
-      LEFT JOIN phase_window_totals  pwt ON pwt.phase_id = ps.id
+      LEFT JOIN phase_alloc_totals  pat ON pat.phase_id = ps.id
       LEFT JOIN phase_virtual_totals pvt ON pvt.phase_id = ps.id
       ORDER BY ps.phase_no ASC, ps.id ASC;
     `;
 
-    // Simple debug: global eligible contributions summary
     const debug = await sql`
       SELECT
         COUNT(*)::int AS eligible_rows,
@@ -200,7 +184,7 @@ export async function GET(_req: NextRequest) {
         AND COALESCE(c.alloc_status,'pending') <> 'invalid'
         AND (
           c.token_contract IS NULL
-          OR c.token_contract = 'So11111111111111111111111111111111111111112'
+          OR c.token_contract = ${WSOL_MINT}
           OR (tr.mint IS NOT NULL AND tr.status IN ('healthy','walking_dead'))
         );
     `;
@@ -217,7 +201,7 @@ export async function GET(_req: NextRequest) {
         AND COALESCE(c.alloc_status,'pending') <> 'invalid'
         AND (
           c.token_contract IS NULL
-          OR c.token_contract = 'So11111111111111111111111111111111111111112'
+          OR c.token_contract = ${WSOL_MINT}
           OR (tr.mint IS NOT NULL AND tr.status IN ('healthy','walking_dead'))
         );
     `;
@@ -237,13 +221,13 @@ export async function GET(_req: NextRequest) {
         rate_usd_per_megy: rateNum,
         target_usd: pickFirst(r, ['target_usd', 'usd_cap'], null),
 
-        // Window (live) => primary
-        used_usd: pickFirst(r, ['used_usd_window'], 0),
-        fill_pct: pickFirst(r, ['fill_pct_window'], 0),
-        alloc_wallets: pickFirst(r, ['alloc_wallets_window'], 0),
-        alloc_rows: pickFirst(r, ['alloc_rows_window'], 0),
+        // ✅ Allocations truth => primary
+        used_usd: pickFirst(r, ['used_usd_alloc'], 0),
+        fill_pct: pickFirst(r, ['fill_pct_alloc'], 0),
+        alloc_wallets: pickFirst(r, ['alloc_wallets_alloc'], 0),
+        alloc_rows: pickFirst(r, ['alloc_rows_alloc'], 0),
 
-        // Forecast (capacity) => extra
+        // Forecast (kept)
         used_usd_forecast: pickFirst(r, ['used_usd_forecast'], 0),
         fill_pct_forecast: pickFirst(r, ['fill_pct_forecast'], 0),
         alloc_wallets_forecast: pickFirst(r, ['alloc_wallets_forecast'], 0),
@@ -258,7 +242,6 @@ export async function GET(_req: NextRequest) {
       };
     });
 
-    // current active phase (authoritative)
     const activeNow = await sql`
       SELECT id, phase_no
       FROM phases
@@ -283,5 +266,5 @@ export async function GET(_req: NextRequest) {
       { success: false, error: 'PHASES_LIST_FAILED', detail: String(e?.message || e) },
       { status: 500 }
     );
-  }  
+  }
 }
