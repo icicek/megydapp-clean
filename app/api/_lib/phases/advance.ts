@@ -22,7 +22,16 @@ function n(v: any, def = 0) {
 
 async function findOneActiveForUpdate() {
   const a = (await sql/* sql */`
-    SELECT id, phase_no, COALESCE(target_usd,0)::numeric AS target_usd
+    SELECT
+      id,
+      phase_no,
+      COALESCE(
+        target_usd,
+        usd_cap,
+        (COALESCE(pool_megy,0)::numeric * COALESCE(rate_usd_per_megy,0)::numeric),
+        (COALESCE(megy_pool,0)::numeric * COALESCE(rate,0)::numeric),
+        0
+      )::numeric AS target_usd
     FROM phases
     WHERE status = 'active'
       AND snapshot_taken_at IS NULL
@@ -51,7 +60,16 @@ async function openFirstPlannedForUpdate() {
       updated_at = NOW()
     FROM candidate c
     WHERE p.id = c.id
-    RETURNING p.id, p.phase_no, COALESCE(p.target_usd,0)::numeric AS target_usd
+    RETURNING
+      p.id,
+      p.phase_no,
+      COALESCE(
+        p.target_usd,
+        p.usd_cap,
+        (COALESCE(p.pool_megy,0)::numeric * COALESCE(p.rate_usd_per_megy,0)::numeric),
+        (COALESCE(p.megy_pool,0)::numeric * COALESCE(p.rate,0)::numeric),
+        0
+      )::numeric AS target_usd
   `) as any[];
   return r?.[0] ?? null;
 }
@@ -75,7 +93,16 @@ async function openNextPlannedAfterForUpdate(activePhaseNo: number) {
       updated_at = NOW()
     FROM candidate c
     WHERE p.id = c.id
-    RETURNING p.id, p.phase_no, COALESCE(p.target_usd,0)::numeric AS target_usd
+    RETURNING
+      p.id,
+      p.phase_no,
+      COALESCE(
+        p.target_usd,
+        p.usd_cap,
+        (COALESCE(p.pool_megy,0)::numeric * COALESCE(p.rate_usd_per_megy,0)::numeric),
+        (COALESCE(p.megy_pool,0)::numeric * COALESCE(p.rate,0)::numeric),
+        0
+      )::numeric AS target_usd
   `) as any[];
   return r?.[0] ?? null;
 }
