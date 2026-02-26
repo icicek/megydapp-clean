@@ -16,6 +16,8 @@ import {
 } from '@/app/api/_lib/registry';
 
 import { requireAppEnabled } from '@/app/api/_lib/feature-flags';
+import { PublicKey } from '@solana/web3.js';
+import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 
 import {
   awardUsdPoints,
@@ -43,8 +45,13 @@ const SOLANA_RPC_URL =
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
-// Confirm kontrolünü devre dışı bırakmak istersen: DISABLE_CONFIRM=true
+const IS_PROD =
+  process.env.VERCEL_ENV === 'production' ||
+  process.env.NODE_ENV === 'production';
+
+// Prod’da confirm kapatılamaz (DISABLE_CONFIRM sadece dev/local’da işe yarar)
 const DISABLE_CONFIRM =
+  !IS_PROD &&
   String(process.env.DISABLE_CONFIRM || '').toLowerCase() === 'true';
 
 function toNum(v: any, d = 0): number {
@@ -80,6 +87,143 @@ async function rpc(method: string, params: any[]) {
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
   });
   return r.json();
+}
+
+function toU64(ui: number, decimals: number): bigint {
+  if (!Number.isFinite(ui) || ui <= 0) return 0n;
+  // float riskini azaltmak için string tabanlı çevrim
+  const s = String(ui);
+  const [i = '0', f = ''] = s.split('.');
+  const frac = (f + '0'.repeat(decimals)).slice(0, decimals);
+  const joined = (i + frac).replace(/^0+/, '') || '0';
+  return BigInt(joined);
+}
+
+async function getSolanaTransaction(signature: string) {
+  // jsonParsed: instruction parse etmek kolay; meta balances ile doğrulama yapacağız
+  return rpc('getTransaction', [
+    signature,
+    {
+      encoding: 'jsonParsed',
+      commitment: 'confirmed',
+      maxSupportedTransactionVersion: 0,
+    },
+  ]);
+}
+
+async function getAccountInfoOwner(pubkey: string): Promise<string | null> {
+  const j = await rpc('getAccountInfo', [
+    pubkey,
+    { encoding: 'base64', commitment: 'confirmed' },
+  ]);
+  const v = j?.result?.value;
+  return v?.owner ? String(v.owner) : null;
+}
+
+async function verifySolanaTransferOrThrow(p: {
+  signature: string;
+  fromWallet: string;
+  destWallet: string;
+  kind: 'sol' | 'spl';
+  mint: string; // SPL mint; SOL için WSOL_MINT gelebilir
+  amountUi: number;
+}) {
+  const { signature, fromWallet, destWallet, kind, mint, amountUi } = p;
+
+  const txj = await getSolanaTransaction(signature);
+  const tx = txj?.result;
+
+  if (!tx) {
+    throw new Error('TX_NOT_FOUND');
+  }
+  if (tx?.meta?.err) {
+    throw new Error('TX_META_ERR');
+  }
+
+  const message = tx?.transaction?.message;
+  const meta = tx?.meta;
+
+  const accountKeys: string[] =
+    (message?.accountKeys || []).map((k: any) =>
+      typeof k === 'string' ? k : String(k?.pubkey)
+    );
+
+  // fromWallet gerçekten signer mı?
+  const signerHit =
+    (message?.accountKeys || []).some((k: any) => {
+      const pk = typeof k === 'string' ? k : String(k?.pubkey);
+      const signer = typeof k === 'string' ? false : !!k?.signer;
+      return signer && pk === fromWallet;
+    }) || accountKeys.includes(fromWallet);
+
+  if (!signerHit) {
+    throw new Error('FROM_WALLET_NOT_IN_TX');
+  }
+
+  // Dest wallet tx’de geçiyor mu? (çoğu durumda geçer; SOL transferde kesin geçer)
+  const destIndex = accountKeys.findIndex((a) => a === destWallet);
+
+  if (kind === 'sol') {
+    if (destIndex < 0) throw new Error('DEST_WALLET_NOT_IN_TX');
+
+    const pre = BigInt(meta?.preBalances?.[destIndex] ?? 0);
+    const post = BigInt(meta?.postBalances?.[destIndex] ?? 0);
+    const delta = post - pre;
+
+    const expectedLamports = BigInt(Math.floor(Number(amountUi) * 1e9));
+
+    if (delta < expectedLamports) {
+      throw new Error('SOL_DEST_DELTA_TOO_SMALL');
+    }
+    return; // ✅ SOL verified
+  }
+
+  // SPL doğrulaması: dest ATA bulunacak ve token delta kontrol edilecek
+  const mintOwner = await getAccountInfoOwner(mint);
+  if (!mintOwner) throw new Error('MINT_ACCOUNT_NOT_FOUND');
+
+  const programId =
+    mintOwner === String(TOKEN_2022_PROGRAM_ID)
+      ? TOKEN_2022_PROGRAM_ID
+      : TOKEN_PROGRAM_ID;
+
+  const destAta = getAssociatedTokenAddressSync(
+    new PublicKey(mint),
+    new PublicKey(destWallet),
+    false,
+    programId
+  ).toBase58();
+
+  const destAtaIndex = accountKeys.findIndex((a) => a === destAta);
+  if (destAtaIndex < 0) throw new Error('DEST_ATA_NOT_IN_TX');
+
+  // getTransaction meta token balances accountIndex ile gelir
+  const preTB = Array.isArray(meta?.preTokenBalances) ? meta.preTokenBalances : [];
+  const postTB = Array.isArray(meta?.postTokenBalances) ? meta.postTokenBalances : [];
+
+  const preRow =
+    preTB.find((x: any) => x?.mint === mint && x?.accountIndex === destAtaIndex) || null;
+  const postRow =
+    postTB.find((x: any) => x?.mint === mint && x?.accountIndex === destAtaIndex) || null;
+
+  // TokenBalances bazen sadece post’ta görünür (ilk defa ATA açıldıysa)
+  const decimals =
+    Number(postRow?.uiTokenAmount?.decimals ?? preRow?.uiTokenAmount?.decimals ?? 0);
+
+  const preAmount = BigInt(preRow?.uiTokenAmount?.amount ?? '0');
+  const postAmount = BigInt(postRow?.uiTokenAmount?.amount ?? '0');
+  const delta = postAmount - preAmount;
+
+  const expected = toU64(Number(amountUi), decimals);
+
+  // tolerans: 1 base unit (rounding vs float)
+  const tolerance = 1n;
+
+  if (delta + tolerance < expected) {
+    throw new Error('SPL_DEST_DELTA_TOO_SMALL');
+  }
+
+  return; // ✅ SPL verified
 }
 
 /* ---------- Tek seferlik status okuma ---------- */
@@ -303,6 +447,37 @@ export async function POST(req: NextRequest) {
         );
       }
       console.log('✅ Tx confirmed on-chain:', transaction_signature);
+    }
+
+    // ✅ On-chain transfer verification (dest’e gerçekten gitti mi?)
+    if (networkNorm === 'solana') {
+      const fromWallet = String(wallet_address).trim();
+      const destWallet = String(COINCARNE_DEST_WALLET).trim();
+
+      console.log('🔎 verifying transfer:', {
+        sig: String(transaction_signature).trim(),
+        kind: assetKindFinal,
+        mint: tokenContractFinal,
+        amount: tokenAmountNum,
+        dest: COINCARNE_DEST_WALLET,
+      });
+      
+      try {
+        await verifySolanaTransferOrThrow({
+          signature: String(transaction_signature).trim(),
+          fromWallet,
+          destWallet,
+          kind: assetKindFinal,
+          mint: tokenContractFinal,
+          amountUi: tokenAmountNum,
+        });
+      } catch (e: any) {
+        console.warn('❌ TRANSFER_NOT_VERIFIED:', e?.message || e);
+        return NextResponse.json(
+          { success: false, error: 'TRANSFER_NOT_VERIFIED', detail: String(e?.message || e) },
+          { status: 409 },
+        );
+      }
     }
 
     // ✅ SOL için registry yok: SOL'u DB'de WSOL_MINT ile temsil ediyoruz
