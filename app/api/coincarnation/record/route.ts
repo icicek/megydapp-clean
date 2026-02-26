@@ -23,6 +23,15 @@ import {
   awardReferralSignup,
 } from '@/app/api/_lib/corepoints';
 
+// ✅ Destination wallet must exist (server-side guard)
+// (env names you already use on Vercel)
+const COINCARNE_DEST_WALLET =
+  process.env.DEST_SOLANA ||
+  process.env.NEXT_PUBLIC_DEST_SOL ||
+  process.env.COINCARNE_DEST_WALLET ||
+  process.env.NEXT_PUBLIC_COINCARNE_DEST_WALLET ||
+  '';
+
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
 // RPC URL (öncelik)
@@ -198,8 +207,16 @@ export async function POST(req: NextRequest) {
 
     const tokenAmountNum = toNum(token_amount, 0);
     const usdValueNum = toNum(usd_value, 0);
-    const networkNorm = String(network || 'solana');
+    const networkNorm = String(network || 'solana').toLowerCase().trim();
     const idemKey = (idempotency_key || idemHeader || '').trim() || null;
+
+    // ✅ Guard: Solana record requires a destination wallet env
+    if (networkNorm === 'solana' && !COINCARNE_DEST_WALLET) {
+      return NextResponse.json(
+        { success: false, error: 'MISSING_DEST_WALLET' },
+        { status: 500 }
+      );
+    }
 
     // ✅ token_contract'ı DB için kesinleştir
     const tokenContractFinal = normalizeTokenContractForDb({ token_symbol, token_contract });

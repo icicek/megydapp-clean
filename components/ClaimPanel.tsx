@@ -11,6 +11,7 @@ import { buildReferralUrl } from '@/app/lib/origin';
 import type { SharePayload } from '@/components/share/intent';
 import ShareCenter from '@/components/share/ShareCenter';
 import { buildPayload } from '@/components/share/intent';
+import { toNum, toPct01 } from '@/app/lib/num';
 import {
   PublicKey,
   Transaction,
@@ -165,13 +166,13 @@ export default function ClaimPanel() {
   
         if (globalData?.success) {
           setGlobalStats({
-            totalUsd: Number(globalData.totalUsd ?? 0),
-            totalParticipants: Number(globalData.totalParticipants ?? 0),
+            totalUsd: toNum(globalData.totalUsd, 0),
+            totalParticipants: toNum(globalData.totalParticipants, 0),
           });
         }
   
         if (poolData?.success) {
-          setDistributionPool(Number(poolData.value ?? 0));
+          setDistributionPool(toNum(poolData.value, 0));
         }
       } catch (err) {
         if (!alive) return;
@@ -218,15 +219,14 @@ export default function ClaimPanel() {
   }, []);
 
   useEffect(() => {
-    if (!publicKey) {
+    if (!walletBase58) {
       setActiveEstimate(null);
       return;
     }
   
-    const wallet = publicKey.toBase58();
     setEstimateLoading(true);
   
-    fetch(`/api/phases/active/estimate?wallet=${encodeURIComponent(wallet)}`, {
+    fetch(`/api/phases/active/estimate?wallet=${encodeURIComponent(walletBase58)}`, {
       cache: 'no-store',
     })
       .then(r => r.json())
@@ -236,7 +236,7 @@ export default function ClaimPanel() {
       })
       .catch(() => setActiveEstimate(null))
       .finally(() => setEstimateLoading(false));
-  }, [publicKey?.toBase58()]);  
+  }, [walletBase58]);
 
   useEffect(() => {
     (async () => {
@@ -760,7 +760,7 @@ export default function ClaimPanel() {
               </p>
               {copied && (
                 <p className="absolute top-20 right-3 text-green-400 text-xs font-semibold">
-                  ✅ Code copied!
+                  ✅ Code refCopiedTop!
                 </p>
               )}
             </div>
@@ -857,11 +857,11 @@ export default function ClaimPanel() {
                 <div className="text-right">
                   <p className="text-gray-400 text-xs">Fill</p>
                   <p className="text-white font-semibold">
-                  {(() => {
-                    const fill = Number(currentPhase?.fill_pct ?? 0); // ratio
-                    const ratio = Number.isFinite(fill) ? fill : 0;
-                    return `${(ratio * 100).toFixed(ratio >= 1 ? 0 : 1)}%`;
-                  })()}
+                    {(() => {
+                      const ratio = toPct01(currentPhase?.fill_pct); // 0..1
+                      const pct = ratio * 100;
+                      return `${pct.toFixed(ratio >= 1 ? 0 : 1)}%`;
+                    })()}
                   </p>
                 </div>
               </div>
@@ -1584,7 +1584,7 @@ export default function ClaimPanel() {
 
                 {copied && (
                   <p className="absolute top-14 right-3 text-green-400 text-xs font-semibold">
-                    ✅ Copied!
+                    ✅ refCopiedPvc!
                   </p>
                 )}
               </div>
