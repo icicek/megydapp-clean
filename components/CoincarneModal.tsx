@@ -19,12 +19,13 @@ import {
   createAssociatedTokenAccountIdempotentInstruction,
   getMint,
 } from '@solana/spl-token';
-import { PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
+import { PublicKey, Transaction, SystemProgram, ComputeBudgetProgram } from '@solana/web3.js';
 import { connection } from '@/lib/solanaConnection';
 import { useInternalBalance, quantize } from '@/hooks/useInternalBalance';
 import { getDestAddress, __dest_debug__ } from '@/lib/chain/env';
 import { getTokenMeta } from '@/lib/solana/tokenMeta';
 import type { SharePayload } from '@/components/share/intent';
+
 
 type TokenStatusApi =
   | 'healthy'
@@ -363,11 +364,20 @@ export default function CoincarneModal({
     try {
       setLoading(true);
       let signature: string;
+      const bh = await connection.getLatestBlockhash('processed');
 
       if (isSOLToken) {
         const lamports = solToLamports(amountInput);
       
-        const tx = new Transaction().add(
+        const tx = new Transaction();
+      
+        // SOL için küçük priority yeterli
+        tx.add(
+          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 2_000 }),
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 40_000 })
+        );
+      
+        tx.add(
           SystemProgram.transfer({
             fromPubkey: publicKey,
             toPubkey: destSol,
@@ -375,10 +385,13 @@ export default function CoincarneModal({
           })
         );
       
+        tx.feePayer = publicKey;
+        tx.recentBlockhash = bh.blockhash;
+      
         signature = await sendTransaction(tx, connection, {
           skipPreflight: false,
           preflightCommitment: 'processed',
-          maxRetries: 3,
+          maxRetries: 5,
         });
       } else {
         const mint = new PublicKey(token.mint);
@@ -417,22 +430,32 @@ export default function CoincarneModal({
           )
         );
 
-        const tx = new Transaction().add(...ixs);
+        const tx = new Transaction();
+
+        tx.add(
+          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 8_000 }),
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 120_000 })
+        );
+
+        tx.add(...ixs);
+
+        tx.feePayer = publicKey;
+        tx.recentBlockhash = bh.blockhash;
+
         signature = await sendTransaction(tx, connection, {
           skipPreflight: false,
           preflightCommitment: 'processed',
-          maxRetries: 3,
+          maxRetries: 5,
         });
       }
 
       const referralFromUrl = getReferralFromUrl();
 
-      const latest = await connection.getLatestBlockhash('processed');
       await connection.confirmTransaction(
         {
           signature,
-          blockhash: latest.blockhash,
-          lastValidBlockHeight: latest.lastValidBlockHeight,
+          blockhash: bh.blockhash,
+          lastValidBlockHeight: bh.lastValidBlockHeight,
         },
         'confirmed'
       );
@@ -443,7 +466,7 @@ export default function CoincarneModal({
         body: JSON.stringify({
           wallet_address: publicKey.toBase58(),
           token_symbol: displaySymbol,
-          token_contract: isSOLToken ? WSOL_MINT : token.mint,
+          token_contract: token.mint,
           network: 'solana',
           token_amount: amountToSend,
           usd_value: priceView.usdValue,
