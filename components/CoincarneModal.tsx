@@ -343,6 +343,25 @@ export default function CoincarneModal({
     }
   };
 
+  async function waitForSig(
+    sig: string,
+    timeoutMs = 45_000,
+    intervalMs = 1_200
+  ) {
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+      const j = await connection.getSignatureStatuses([sig], {
+        searchTransactionHistory: true,
+      });
+      const s = j?.value?.[0];
+      if (s?.err) throw new Error('TX_FAILED');
+      const cs = s?.confirmationStatus;
+      if (cs === 'confirmed' || cs === 'finalized') return true;
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    return false;
+  }
+
   /* ------------------ SEND TX ------------------ */
   const handleSend = async () => {
     if (!publicKey || !amountInput) return;
@@ -364,7 +383,6 @@ export default function CoincarneModal({
     try {
       setLoading(true);
       let signature: string;
-      const bh = await connection.getLatestBlockhash('processed');
 
       if (isSOLToken) {
         const lamports = solToLamports(amountInput);
@@ -386,7 +404,6 @@ export default function CoincarneModal({
         );
       
         tx.feePayer = publicKey;
-        tx.recentBlockhash = bh.blockhash;
       
         signature = await sendTransaction(tx, connection, {
           skipPreflight: false,
@@ -440,7 +457,6 @@ export default function CoincarneModal({
         tx.add(...ixs);
 
         tx.feePayer = publicKey;
-        tx.recentBlockhash = bh.blockhash;
 
         signature = await sendTransaction(tx, connection, {
           skipPreflight: false,
@@ -451,14 +467,8 @@ export default function CoincarneModal({
 
       const referralFromUrl = getReferralFromUrl();
 
-      await connection.confirmTransaction(
-        {
-          signature,
-          blockhash: bh.blockhash,
-          lastValidBlockHeight: bh.lastValidBlockHeight,
-        },
-        'confirmed'
-      );
+      const ok = await waitForSig(signature);
+      if (!ok) throw new Error('TX_NOT_CONFIRMED_TIMEOUT');
 
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
