@@ -131,6 +131,16 @@ function toU64(ui: string | number, d: number): string {
   return joined.length ? joined : '0';
 }
 
+function solToLamports(ui: string | number): number {
+  const s = String(ui ?? '0').trim();
+  const [i = '0', f = ''] = s.split('.');
+  const frac = (f + '0'.repeat(9)).slice(0, 9);
+  const joined = (i + frac).replace(/^0+/, '') || '0';
+  const n = Number(joined);
+  if (!Number.isSafeInteger(n) || n <= 0) throw new Error('INVALID_LAMPORTS');
+  return n;
+}
+
 export default function CoincarneModal({
   token,
   onClose,
@@ -338,6 +348,13 @@ export default function CoincarneModal({
     const amountToSend = parseFloat(amountInput);
     if (isNaN(amountToSend) || amountToSend <= 0) return;
 
+    if (isSOLToken && internalBalance) {
+      const feeReserve = 0.002; // güvenli tampon
+      if (internalBalance.amount - amountToSend < feeReserve) {
+        throw new Error('LEAVE_SOL_FOR_FEES');
+      }
+    }
+
     if (!destSol) {
       alert('❌ Destination address missing. Please set NEXT_PUBLIC_DEST_SOL.');
       return;
@@ -348,14 +365,21 @@ export default function CoincarneModal({
       let signature: string;
 
       if (isSOLToken) {
+        const lamports = solToLamports(amountInput);
+      
         const tx = new Transaction().add(
           SystemProgram.transfer({
             fromPubkey: publicKey,
             toPubkey: destSol,
-            lamports: Math.floor(amountToSend * 1e9),
+            lamports,
           })
         );
-        signature = await sendTransaction(tx, connection);
+      
+        signature = await sendTransaction(tx, connection, {
+          skipPreflight: false,
+          preflightCommitment: 'processed',
+          maxRetries: 3,
+        });
       } else {
         const mint = new PublicKey(token.mint);
 
@@ -384,20 +408,26 @@ export default function CoincarneModal({
           );
         }
 
-        const raw = Number(toU64(amountToSend, decimals));
+        const raw = BigInt(toU64(amountToSend, decimals));
+        if (raw <= 0n) throw new Error('AMOUNT_TOO_SMALL');
         ixs.push(
           createTransferCheckedInstruction(
-            fromATA, mint, toATA, publicKey, raw, decimals, [], program
+            fromATA, mint, toATA, publicKey,
+            raw, decimals, [], program
           )
         );
 
         const tx = new Transaction().add(...ixs);
-        signature = await sendTransaction(tx, connection);
+        signature = await sendTransaction(tx, connection, {
+          skipPreflight: false,
+          preflightCommitment: 'processed',
+          maxRetries: 3,
+        });
       }
 
       const referralFromUrl = getReferralFromUrl();
 
-      const latest = await connection.getLatestBlockhash();
+      const latest = await connection.getLatestBlockhash('processed');
       await connection.confirmTransaction(
         {
           signature,
@@ -413,7 +443,7 @@ export default function CoincarneModal({
         body: JSON.stringify({
           wallet_address: publicKey.toBase58(),
           token_symbol: displaySymbol,
-          token_contract: token.mint,
+          token_contract: isSOLToken ? WSOL_MINT : token.mint,
           network: 'solana',
           token_amount: amountToSend,
           usd_value: priceView.usdValue,
@@ -478,9 +508,9 @@ export default function CoincarneModal({
           body: JSON.stringify({ mint: token.mint, category: tokenCategory }),
         }).catch((err) => console.warn('⚠️ lv/apply error:', err));
       } catch {}
-    } catch (err) {
-      console.error('❌ Transaction error:', err);
-      alert('❌ Transaction failed.');
+    } catch (err: any) {
+      console.error('❌ Transaction error full:', err);
+      alert(`❌ Transaction failed: ${err?.message || String(err)}`);
     } finally {
       setLoading(false);
     }
@@ -507,7 +537,7 @@ export default function CoincarneModal({
 
   return (
     <>
-      {priceStatus === 'ready' && confirmModalOpen && (
+      {confirmModalOpen && (
         <ConfirmModal
           isOpen={confirmModalOpen}
           onCancel={() => setConfirmModalOpen(false)}
