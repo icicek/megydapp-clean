@@ -189,10 +189,51 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const networkNorm = String(network || 'solana').toLowerCase().trim();
+
+    // ✅ SOLANA: transaction_signature zorunlu
+    if (networkNorm === 'solana') {
+      const sig = (transaction_signature && String(transaction_signature).trim()) || '';
+
+      if (!sig) {
+        return NextResponse.json(
+          { success: false, error: 'MISSING_TRANSACTION_SIGNATURE' },
+          { status: 400 }
+        );
+      }
+
+      // ✅ Solana’da tx_hash kabul etmeyelim (yanlış data gelirse DB’ye girmesin)
+      if (tx_hash && String(tx_hash).trim()) {
+        return NextResponse.json(
+          { success: false, error: 'TX_HASH_NOT_ALLOWED_ON_SOLANA' },
+          { status: 400 }
+        );
+      }
+
+      // (opsiyonel) Signature format sanity check (çok sıkı değil)
+      if (sig.length < 60) {
+        return NextResponse.json(
+          { success: false, error: 'INVALID_TRANSACTION_SIGNATURE' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // ✅ EVM (şimdilik yok ama ileride): tx_hash zorunlu
+    if (networkNorm !== 'solana') {
+      const hash = (tx_hash && String(tx_hash).trim()) || '';
+      if (!hash) {
+        return NextResponse.json(
+          { success: false, error: 'MISSING_TX_HASH' },
+          { status: 400 }
+        );
+      }
+    }
+
     const txHashOrSig =
-      (tx_hash && String(tx_hash).trim()) ||
-      (transaction_signature && String(transaction_signature).trim()) ||
-      null;
+      networkNorm === 'solana'
+        ? String(transaction_signature).trim()
+        : (tx_hash && String(tx_hash).trim()) || null;
 
     if (!txHashOrSig) {
       return NextResponse.json(
@@ -207,7 +248,6 @@ export async function POST(req: NextRequest) {
 
     const tokenAmountNum = toNum(token_amount, 0);
     const usdValueNum = toNum(usd_value, 0);
-    const networkNorm = String(network || 'solana').toLowerCase().trim();
     const idemKey = (idempotency_key || idemHeader || '').trim() || null;
 
     // ✅ Guard: Solana record requires a destination wallet env

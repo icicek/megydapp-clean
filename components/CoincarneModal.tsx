@@ -395,9 +395,17 @@ export default function CoincarneModal({
         signature = await sendTransaction(tx, connection);
       }
 
-      // Backend kayıt
-            // URL'den gelen referral kodu (varsa)
       const referralFromUrl = getReferralFromUrl();
+
+      const latest = await connection.getLatestBlockhash();
+      await connection.confirmTransaction(
+        {
+          signature,
+          blockhash: latest.blockhash,
+          lastValidBlockHeight: latest.lastValidBlockHeight,
+        },
+        'confirmed'
+      );
 
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
