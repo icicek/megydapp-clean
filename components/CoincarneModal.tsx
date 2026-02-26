@@ -343,23 +343,35 @@ export default function CoincarneModal({
     }
   };
 
-  async function waitForSig(
-    sig: string,
-    timeoutMs = 45_000,
-    intervalMs = 1_200
-  ) {
+  async function confirmSigOrThrow(sig: string, timeoutMs = 90_000) {
     const started = Date.now();
+    // confirmTransaction(signature, commitment) -> blockhash gerektirmez
     while (Date.now() - started < timeoutMs) {
-      const j = await connection.getSignatureStatuses([sig], {
-        searchTransactionHistory: true,
-      });
-      const s = j?.value?.[0];
-      if (s?.err) throw new Error('TX_FAILED');
-      const cs = s?.confirmationStatus;
-      if (cs === 'confirmed' || cs === 'finalized') return true;
-      await new Promise((r) => setTimeout(r, intervalMs));
+      try {
+        // Bu call çoğu RPC'de en stabil olanı
+        const r = await connection.confirmTransaction(sig, 'confirmed');
+        // r.value.err varsa fail
+        // @ts-ignore
+        if (r?.value?.err) throw new Error('TX_FAILED');
+        return true;
+      } catch (e: any) {
+        const msg = String(e?.message || e);
+        // RPC geçici sorunları / henüz görünmeme durumları: döngüye devam
+        if (
+          msg.includes('not found') ||
+          msg.includes('Blockhash not found') ||
+          msg.includes('Transaction was not confirmed') ||
+          msg.includes('Timed out') ||
+          msg.includes('timeout')
+        ) {
+          await new Promise((r) => setTimeout(r, 1200));
+          continue;
+        }
+        // başka bir hata ise yüzeye çıkar
+        throw e;
+      }
     }
-    return false;
+    throw new Error('TX_NOT_CONFIRMED_TIMEOUT');
   }
 
   /* ------------------ SEND TX ------------------ */
@@ -463,12 +475,13 @@ export default function CoincarneModal({
           preflightCommitment: 'processed',
           maxRetries: 5,
         });
+        console.log('✅ sent signature:', signature);
+        console.log('🔎 explorer:', `https://solscan.io/tx/${signature}`);
       }
 
       const referralFromUrl = getReferralFromUrl();
 
-      const ok = await waitForSig(signature);
-      if (!ok) throw new Error('TX_NOT_CONFIRMED_TIMEOUT');
+      await confirmSigOrThrow(signature);
 
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
