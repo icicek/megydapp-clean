@@ -392,16 +392,20 @@ export default function CoincarneModal({
     return `https://solscan.io/tx/${sig}`;
   }
   
-  async function pollSigOrThrow(sig: string, timeoutMs = 60_000, intervalMs = 1_200) {
+  async function pollSigOrThrow(sig: string, timeoutMs = 35_000, intervalMs = 900) {
     const started = Date.now();
     while (Date.now() - started < timeoutMs) {
-      const st = await connection.getSignatureStatuses([sig], { searchTransactionHistory: true });
+      const st = await connection.getSignatureStatuses([sig], {
+        searchTransactionHistory: false, // ✅ daha hızlı
+      });
       const s = st?.value?.[0];
   
       if (s?.err) throw new Error(`TX_FAILED:${JSON.stringify(s.err)}`);
   
-      const cs = s?.confirmationStatus;
-      if (cs === 'confirmed' || cs === 'finalized') return true;
+      // ✅ processed bile gelirse “ağa düştü” diyebiliriz
+      if (s?.confirmationStatus === 'processed' || s?.confirmationStatus === 'confirmed' || s?.confirmationStatus === 'finalized') {
+        return true;
+      }
   
       await new Promise((r) => setTimeout(r, intervalMs));
     }
@@ -471,8 +475,8 @@ export default function CoincarneModal({
       
         signature = await sendTransaction(tx, connection, {
           skipPreflight: false,
-          preflightCommitment: 'processed',
-          maxRetries: 5,
+          preflightCommitment: 'confirmed',
+          maxRetries: 3,
         });
       } else {
         const mint = new PublicKey(token.mint);
@@ -540,7 +544,7 @@ export default function CoincarneModal({
         const tx = new Transaction();
 
         tx.add(
-          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 8_000 }),
+          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 15_000 }),
           ComputeBudgetProgram.setComputeUnitLimit({ units: 120_000 })
         );
 
@@ -563,7 +567,7 @@ export default function CoincarneModal({
       console.log('✅ sent signature:', signature);
       console.log('🔎 explorer:', explorerUrlForSig(signature));
 
-      await pollSigOrThrow(signature, 120_000);
+      await pollSigOrThrow(signature, 35_000);
 
       const referralFromUrl = getReferralFromUrl();
 
