@@ -343,33 +343,29 @@ export default function CoincarneModal({
     }
   };
 
-  async function confirmSigOrThrow(sig: string, timeoutMs = 90_000) {
+  function explorerUrlForSig(sig: string) {
+    const ep = (connection as any)?.rpcEndpoint || '';
+    const isDevnet = ep.includes('devnet');
+    const isTestnet = ep.includes('testnet');
+  
+    // Solscan mainnet default; devnet/testnet için param ekleyelim
+    if (isDevnet) return `https://solscan.io/tx/${sig}?cluster=devnet`;
+    if (isTestnet) return `https://solscan.io/tx/${sig}?cluster=testnet`;
+    return `https://solscan.io/tx/${sig}`;
+  }
+  
+  async function pollSigOrThrow(sig: string, timeoutMs = 60_000, intervalMs = 1_200) {
     const started = Date.now();
-    // confirmTransaction(signature, commitment) -> blockhash gerektirmez
     while (Date.now() - started < timeoutMs) {
-      try {
-        // Bu call çoğu RPC'de en stabil olanı
-        const r = await connection.confirmTransaction(sig, 'confirmed');
-        // r.value.err varsa fail
-        // @ts-ignore
-        if (r?.value?.err) throw new Error('TX_FAILED');
-        return true;
-      } catch (e: any) {
-        const msg = String(e?.message || e);
-        // RPC geçici sorunları / henüz görünmeme durumları: döngüye devam
-        if (
-          msg.includes('not found') ||
-          msg.includes('Blockhash not found') ||
-          msg.includes('Transaction was not confirmed') ||
-          msg.includes('Timed out') ||
-          msg.includes('timeout')
-        ) {
-          await new Promise((r) => setTimeout(r, 1200));
-          continue;
-        }
-        // başka bir hata ise yüzeye çıkar
-        throw e;
-      }
+      const st = await connection.getSignatureStatuses([sig], { searchTransactionHistory: true });
+      const s = st?.value?.[0];
+  
+      if (s?.err) throw new Error(`TX_FAILED:${JSON.stringify(s.err)}`);
+  
+      const cs = s?.confirmationStatus;
+      if (cs === 'confirmed' || cs === 'finalized') return true;
+  
+      await new Promise((r) => setTimeout(r, intervalMs));
     }
     throw new Error('TX_NOT_CONFIRMED_TIMEOUT');
   }
@@ -431,6 +427,13 @@ export default function CoincarneModal({
         const is2022 = mintAcc.owner.equals(TOKEN_2022_PROGRAM_ID);
         const program = is2022 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
 
+        const solBal = await connection.getBalance(publicKey, 'processed');
+        console.log('💰 SOL balance (lamports):', solBal);
+
+        if (solBal < 500_000) { // ~0.0005 SOL
+          throw new Error('INSUFFICIENT_SOL_FOR_FEES_OR_ATA');
+        }
+
         // 2) Decimals
         const mintInfo = await getMint(connection, mint, 'confirmed', program);
         const decimals = mintInfo.decimals ?? 0;
@@ -476,12 +479,16 @@ export default function CoincarneModal({
           maxRetries: 5,
         });
         console.log('✅ sent signature:', signature);
-        console.log('🔎 explorer:', `https://solscan.io/tx/${signature}`);
+        console.log('🔎 explorer:', explorerUrlForSig(signature));
       }
 
-      const referralFromUrl = getReferralFromUrl();
+      console.log('🌐 rpc endpoint:', (connection as any)?.rpcEndpoint);
+      console.log('✅ sent signature:', signature);
+      console.log('🔎 explorer:', explorerUrlForSig(signature));
 
-      await confirmSigOrThrow(signature);
+      await pollSigOrThrow(signature, 60_000);
+
+      const referralFromUrl = getReferralFromUrl();
 
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
