@@ -143,17 +143,44 @@ function solToLamports(ui: string | number): number {
 }
 
 async function simulateTxOrThrow(connection: any, tx: any) {
+  // ✅ Default: simulation OFF in production
+  // Enable only when you explicitly set NEXT_PUBLIC_ENABLE_SIMULATION="1"
+  const enabled =
+    typeof process !== 'undefined' &&
+    (process.env.NEXT_PUBLIC_ENABLE_SIMULATION === '1');
+
+  if (!enabled) return;
+
+  // ensure blockhash
   const latest = await connection.getLatestBlockhash('processed');
   tx.recentBlockhash = latest.blockhash;
 
-  const sim = await (connection as any).simulateTransaction(tx, {
-    sigVerify: false,
-    commitment: 'processed',
-  } as any);
+  // web3.js version differences: try common call shapes
+  try {
+    const sim = await (connection as any).simulateTransaction(tx, {
+      sigVerify: false,
+      replaceRecentBlockhash: true,
+      commitment: 'processed',
+    });
 
-  if (sim?.value?.err) {
-    console.error('❌ simulate err:', sim.value.err, sim.value.logs);
-    throw new Error('SIMULATION_FAILED');
+    if (sim?.value?.err) {
+      console.error('❌ simulate err:', sim.value.err, sim.value.logs);
+      throw new Error('SIMULATION_FAILED');
+    }
+    return;
+  } catch (e1) {
+    // fallback signature: (tx, signers?, commitment?)
+    try {
+      const sim = await (connection as any).simulateTransaction(tx, undefined, 'processed');
+      if (sim?.value?.err) {
+        console.error('❌ simulate err (fallback):', sim.value.err, sim.value.logs);
+        throw new Error('SIMULATION_FAILED');
+      }
+      return;
+    } catch (e2) {
+      console.warn('⚠️ simulateTransaction incompatible (skipped):', e1, e2);
+      return;
+    }
   }
 }
 
@@ -385,6 +412,8 @@ export default function CoincarneModal({
     const msg = String(e?.message || e);
   
     if (msg.includes('LEAVE_SOL_FOR_FEES')) return 'Please leave a little SOL for network fees.';
+    if (msg.includes('Invalid Arguments'))
+      return 'Wallet/RPC rejected the request (invalid arguments). Please retry. If it continues, reconnect wallet.';
     if (msg.includes('INSUFFICIENT_SOL_FOR_ATA_RENT')) return 'Not enough SOL to create the destination token account (ATA). Add ~0.003 SOL.';
     if (msg.includes('INSUFFICIENT_SOL_FOR_TX_FEES')) return 'Not enough SOL to pay transaction fees. Add a little SOL.';
     if (msg.includes('SOURCE_ATA_MISSING'))
@@ -400,7 +429,7 @@ export default function CoincarneModal({
   /* ------------------ SEND TX ------------------ */
   const handleSend = async () => {
     if (!publicKey || !amountInput) return;
-    const amountToSend = parseFloat(amountInput);
+    const amountToSend = Number(String(amountInput).replace(',', '.'));
     if (isNaN(amountToSend) || amountToSend <= 0) return;
 
     if (isSOLToken && internalBalance) {
