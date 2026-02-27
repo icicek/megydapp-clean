@@ -142,6 +142,21 @@ function solToLamports(ui: string | number): number {
   return n;
 }
 
+async function simulateTxOrThrow(connection: any, tx: any) {
+  const latest = await connection.getLatestBlockhash('processed');
+  tx.recentBlockhash = latest.blockhash;
+
+  const sim = await (connection as any).simulateTransaction(tx, {
+    sigVerify: false,
+    commitment: 'processed',
+  } as any);
+
+  if (sim?.value?.err) {
+    console.error('❌ simulate err:', sim.value.err, sim.value.logs);
+    throw new Error('SIMULATION_FAILED');
+  }
+}
+
 export default function CoincarneModal({
   token,
   onClose,
@@ -201,7 +216,7 @@ export default function CoincarneModal({
     priceSources: [],
   });
   const [tokenCategory, setTokenCategory] = useState<TokenCategory>('unknown');
-  const [priceStatus, setPriceStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+
 
   /* ------------------ SYMBOL RESOLUTION ------------------ */
   const [displaySymbol, setDisplaySymbol] = useState<string>(
@@ -293,7 +308,6 @@ export default function CoincarneModal({
 
     try {
       setLoading(true);
-      setPriceStatus('loading');
       setPriceView({ fetchStatus: 'loading', usdValue: 0, priceSources: [] });
 
       const mint = isSOLToken ? WSOL_MINT : token.mint;
@@ -310,7 +324,6 @@ export default function CoincarneModal({
         });
         setTokenCategory('deadcoin');
         setConfirmModalOpen(true);
-        setPriceStatus('ready');
         return;
       }
 
@@ -332,11 +345,9 @@ export default function CoincarneModal({
       });
       setTokenCategory('healthy');
       setConfirmModalOpen(true);
-      setPriceStatus('ready');
     } catch (err) {
       console.error('❌ Error preparing confirmation:', err);
       setPriceView({ fetchStatus: 'error', usdValue: 0, priceSources: [] });
-      setPriceStatus('error');
       setConfirmModalOpen(true);
     } finally {
       setLoading(false);
@@ -368,6 +379,22 @@ export default function CoincarneModal({
       await new Promise((r) => setTimeout(r, intervalMs));
     }
     throw new Error('TX_NOT_CONFIRMED_TIMEOUT');
+  }
+
+  function humanizeTxError(e: any) {
+    const msg = String(e?.message || e);
+  
+    if (msg.includes('LEAVE_SOL_FOR_FEES')) return 'Please leave a little SOL for network fees.';
+    if (msg.includes('INSUFFICIENT_SOL_FOR_ATA_RENT')) return 'Not enough SOL to create the destination token account (ATA). Add ~0.003 SOL.';
+    if (msg.includes('INSUFFICIENT_SOL_FOR_TX_FEES')) return 'Not enough SOL to pay transaction fees. Add a little SOL.';
+    if (msg.includes('SOURCE_ATA_MISSING'))
+      return 'You do not have a token account for this asset (no balance / ATA missing).';
+    if (msg.includes('AMOUNT_TOO_SMALL')) return 'Amount is too small.';
+    if (msg.includes('SIMULATION_FAILED')) return 'Transaction simulation failed. (Check SOL balance / token accounts / amount.)';
+    if (msg.includes('TX_NOT_CONFIRMED_TIMEOUT'))
+      return 'Transaction was sent but not confirmed in time. Please check it on Explorer and try again if needed.';
+    if (msg.includes('mint-not-found')) return 'Token mint not found on this network.';
+    return msg;
   }
 
   /* ------------------ SEND TX ------------------ */
@@ -430,10 +457,6 @@ export default function CoincarneModal({
         const solBal = await connection.getBalance(publicKey, 'processed');
         console.log('💰 SOL balance (lamports):', solBal);
 
-        if (solBal < 500_000) { // ~0.0005 SOL
-          throw new Error('INSUFFICIENT_SOL_FOR_FEES_OR_ATA');
-        }
-
         // 2) Decimals
         const mintInfo = await getMint(connection, mint, 'confirmed', program);
         const decimals = mintInfo.decimals ?? 0;
@@ -441,10 +464,31 @@ export default function CoincarneModal({
         // 3) ATA’lar (programa göre!)
         const fromATA = getAssociatedTokenAddressSync(mint, publicKey, false, program);
         const toATA   = getAssociatedTokenAddressSync(mint, destSol,   false, program);
+        // 🔹 Kullanıcının ATA’sı var mı?
+        const fromAtaInfo = await connection.getAccountInfo(fromATA, 'confirmed');
+        if (!fromAtaInfo) {
+          throw new Error('SOURCE_ATA_MISSING');
+        }
 
         // 4) İxs
         const ixs: any[] = [];
+
+        // ATA var mı?
         const toAtaInfo = await connection.getAccountInfo(toATA, 'confirmed');
+        console.log('🏦 toATA exists?:', !!toAtaInfo);
+
+        // ✅ SOL yeterlilik kontrolü (ATA gerekiyorsa daha yüksek şart)
+        const MIN_SOL_FOR_ATA  = 3_000_000; // ~0.003 SOL (güvenli tampon)
+        const MIN_SOL_FOR_FEES = 150_000;   // ~0.00015 SOL
+
+        if (!toAtaInfo && solBal < MIN_SOL_FOR_ATA) {
+          throw new Error('INSUFFICIENT_SOL_FOR_ATA_RENT');
+        }
+        if (toAtaInfo && solBal < MIN_SOL_FOR_FEES) {
+          throw new Error('INSUFFICIENT_SOL_FOR_TX_FEES');
+        }
+
+        // ATA yoksa oluşturma ix’i ekle
         if (!toAtaInfo) {
           ixs.push(
             createAssociatedTokenAccountIdempotentInstruction(
@@ -453,8 +497,10 @@ export default function CoincarneModal({
           );
         }
 
+        // Transfer ix
         const raw = BigInt(toU64(amountToSend, decimals));
         if (raw <= 0n) throw new Error('AMOUNT_TOO_SMALL');
+
         ixs.push(
           createTransferCheckedInstruction(
             fromATA, mint, toATA, publicKey,
@@ -470,9 +516,11 @@ export default function CoincarneModal({
         );
 
         tx.add(...ixs);
-
         tx.feePayer = publicKey;
+        // ✅ preflight + erken hata yakalama
+        await simulateTxOrThrow(connection as any, tx);
 
+        // sonra gönder
         signature = await sendTransaction(tx, connection, {
           skipPreflight: false,
           preflightCommitment: 'processed',
@@ -486,7 +534,7 @@ export default function CoincarneModal({
       console.log('✅ sent signature:', signature);
       console.log('🔎 explorer:', explorerUrlForSig(signature));
 
-      await pollSigOrThrow(signature, 60_000);
+      await pollSigOrThrow(signature, 120_000);
 
       const referralFromUrl = getReferralFromUrl();
 
@@ -563,9 +611,7 @@ export default function CoincarneModal({
       } catch {}
     } catch (err: any) {
       console.error('❌ Transaction error full:', err);
-      alert(`❌ Transaction failed: ${err?.message || String(err)}`);
-    } finally {
-      setLoading(false);
+      alert(`❌ Transaction failed: ${humanizeTxError(err)}`);
     }
   };
 
