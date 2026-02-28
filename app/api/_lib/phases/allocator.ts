@@ -212,7 +212,7 @@ async function allocateIntoPhaseSplitFIFO(phaseId: number, remainingPhaseUsd: nu
         )
       ORDER BY c."timestamp" ASC NULLS LAST, c.id ASC
       LIMIT 1
-      FOR UPDATE
+      FOR UPDATE OF c
       SKIP LOCKED
     `) as any[];
 
@@ -225,10 +225,21 @@ async function allocateIntoPhaseSplitFIFO(phaseId: number, remainingPhaseUsd: nu
 
     const cLeft = Math.max(0, usdValue - usdAlloc);
     if (cLeft <= eps) {
-      // normalize status
+      // ✅ normalize status + alloc_phase_no (last touched phase)
       await sql/* sql */`
         UPDATE contributions
-        SET alloc_status='allocated', alloc_updated_at=NOW()
+        SET
+          alloc_status = 'allocated',
+          alloc_phase_no = COALESCE(
+            (
+              SELECT MAX(p.phase_no)
+              FROM phase_allocations pa
+              JOIN phases p ON p.id = pa.phase_id
+              WHERE pa.contribution_id = ${cId}
+            ),
+            ${phaseNo}
+          ),
+          alloc_updated_at = NOW()
         WHERE id = ${cId}
       `;
       continue;
