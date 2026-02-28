@@ -176,7 +176,8 @@ async function allocateIntoPhaseSplitFIFO(phaseId: number, remainingPhaseUsd: nu
 
   const phaseNo = Number(ph?.[0]?.phase_no ?? 0);
   const rate = num(ph?.[0]?.rate, 0);
-  
+
+  if (rate <= eps) return 0;
 
   let phaseLeft = remainingPhaseUsd;
 
