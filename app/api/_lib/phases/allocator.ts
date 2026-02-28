@@ -92,10 +92,16 @@ async function hasQueue() {
     SELECT 1
     FROM contributions c
     LEFT JOIN alloc a ON a.contribution_id = c.id
+    LEFT JOIN token_registry tr ON tr.mint = c.token_contract
     WHERE c.phase_id IS NULL
       AND COALESCE(c.alloc_status,'unassigned') IN ('unassigned','partial','pending')
       AND COALESCE(c.network,'solana') = 'solana'
       AND COALESCE(c.usd_value,0)::numeric > COALESCE(a.usd_alloc,0)::numeric
+      AND COALESCE(c.usd_value,0)::numeric > 0
+      AND (
+        c.token_contract = ${WSOL_MINT}
+        OR COALESCE(tr.status,'healthy') IN ('healthy','walking_dead')
+      )
     LIMIT 1
   `) as any[];
   return !!rows?.[0];
@@ -116,7 +122,7 @@ async function hasWork(_activePhaseId: number | null) {
       AND COALESCE(c.usd_value,0)::numeric > 0
       AND (
         c.token_contract = ${WSOL_MINT}
-        OR tr.status IN ('healthy','walking_dead')
+        OR COALESCE(tr.status,'healthy') IN ('healthy','walking_dead')
       )
       AND c.phase_id IS NULL
       AND COALESCE(c.alloc_status,'unassigned') IN ('unassigned','partial','pending')
@@ -170,6 +176,7 @@ async function allocateIntoPhaseSplitFIFO(phaseId: number, remainingPhaseUsd: nu
 
   const phaseNo = Number(ph?.[0]?.phase_no ?? 0);
   const rate = num(ph?.[0]?.rate, 0);
+  
 
   let phaseLeft = remainingPhaseUsd;
 
@@ -200,7 +207,7 @@ async function allocateIntoPhaseSplitFIFO(phaseId: number, remainingPhaseUsd: nu
         AND COALESCE(c.usd_value,0)::numeric > 0
         AND (
           c.token_contract = ${WSOL_MINT}
-          OR tr.status IN ('healthy','walking_dead')
+          OR COALESCE(tr.status,'healthy') IN ('healthy','walking_dead')
         )
       ORDER BY c."timestamp" ASC NULLS LAST, c.id ASC
       LIMIT 1
@@ -245,10 +252,13 @@ async function allocateIntoPhaseSplitFIFO(phaseId: number, remainingPhaseUsd: nu
 
     await sql/* sql */`
       UPDATE contributions
-      SET alloc_status = ${newStatus},
-          alloc_phase_no = ${phaseNo},
-          alloc_updated_at = NOW()
+      SET
+        phase_id = ${phaseId},          -- ✅ görünür faz
+        alloc_status = ${newStatus},
+        alloc_phase_no = ${phaseNo},
+        alloc_updated_at = NOW()
       WHERE id = ${cId}
+        AND c.phase_id IS NULL
     `;
 
     if (phaseLeft !== null) phaseLeft -= take;
