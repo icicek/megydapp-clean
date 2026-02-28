@@ -815,23 +815,24 @@ export async function POST(req: NextRequest) {
       allocatorError = String(e?.message || e);
       console.error('❌ allocator failed:', allocatorError, e);
     }
-
+    
     try {
       adv = await advancePhases();
-
+    
+      // yeni phase açıldıysa mini allocator (debug için ayrı sonuç)
       if (adv?.openedPhaseIds?.length) {
         try {
-          allocator2 = await allocateQueueFIFO({ maxSteps: 5 }); // ✅ sonucu tut
+          allocator2 = await allocateQueueFIFO({ maxSteps: 10 });
         } catch (e: any) {
           allocator2Error = String(e?.message || e);
-          console.warn('⚠️ mini allocator failed:', allocator2Error, e);
+          console.warn('⚠️ allocator2 failed:', allocator2Error, e);
         }
       }
-
+    
       const fromId =
         (adv?.openedPhaseIds?.length ? adv.openedPhaseIds[0] : null) ??
         (adv?.activePhaseId ?? null);
-
+    
       recompute = fromId ? await recomputeFromPhaseId(Number(fromId)) : null;
     } catch (e: any) {
       console.warn('⚠️ advance/recompute failed:', e?.message || e);

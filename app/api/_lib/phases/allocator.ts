@@ -230,6 +230,17 @@ async function allocateIntoPhaseSplitFIFO(phaseId: number, remainingPhaseUsd: nu
         UPDATE contributions
         SET
           alloc_status = 'allocated',
+          phase_id = COALESCE(
+            (
+              SELECT pa.phase_id
+              FROM phase_allocations pa
+              JOIN phases p ON p.id = pa.phase_id
+              WHERE pa.contribution_id = ${cId}
+              ORDER BY p.phase_no DESC, pa.created_at DESC
+              LIMIT 1
+            ),
+            phase_id
+          ),
           alloc_phase_no = COALESCE(
             (
               SELECT MAX(p.phase_no)
@@ -237,6 +248,7 @@ async function allocateIntoPhaseSplitFIFO(phaseId: number, remainingPhaseUsd: nu
               JOIN phases p ON p.id = pa.phase_id
               WHERE pa.contribution_id = ${cId}
             ),
+            alloc_phase_no,
             ${phaseNo}
           ),
           alloc_updated_at = NOW()
@@ -265,12 +277,11 @@ async function allocateIntoPhaseSplitFIFO(phaseId: number, remainingPhaseUsd: nu
     await sql/* sql */`
       UPDATE contributions
       SET
-        phase_id = ${phaseId},          -- ✅ görünür faz
+        phase_id = ${phaseId},
         alloc_status = ${newStatus},
         alloc_phase_no = ${phaseNo},
         alloc_updated_at = NOW()
       WHERE id = ${cId}
-        AND c.phase_id IS NULL
     `;
 
     if (phaseLeft !== null) phaseLeft -= take;
