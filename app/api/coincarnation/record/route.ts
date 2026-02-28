@@ -806,13 +806,15 @@ export async function POST(req: NextRequest) {
 
     try {
       allocator = await allocateQueueFIFO({ maxSteps: 20 });
-    } catch (e: any) {
-      allocatorError = String(e?.message || e);
-      console.error('❌ allocator failed:', allocatorError, e);
-    }
-    // ---- phase automation: advance + recompute (after allocator) ----
-    try {
+
       adv = await advancePhases();
+
+      // ✅ Eğer yeni faz açıldıysa, queue'yu o faza da akıtmak için 1 mini allocator daha
+      if (adv?.openedPhaseIds?.length) {
+        try {
+          await allocateQueueFIFO({ maxSteps: 5 });
+        } catch {}
+      }
 
       const fromId =
         (adv?.openedPhaseIds?.length ? adv.openedPhaseIds[0] : null) ??

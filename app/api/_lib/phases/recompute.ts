@@ -30,6 +30,7 @@ type Contribution = {
   wallet_address: string;
   token_contract: string | null;
   usd_value: number;
+  usd_allocated: number; // ✅ NEW
   timestamp: string;
 };
 
@@ -162,19 +163,29 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
 
       const baselineUsedUsd = num(baselineRes?.[0]?.usd_used, 0);
 
-      // 5) eligible + pending contributions
+      // 5) eligible + pending contributions (UNASSIGNED + PARTIAL) + already allocated sum
       const contribs = (await sql/* sql */`
+        WITH alloc AS (
+          SELECT
+            contribution_id,
+            COALESCE(SUM(COALESCE(usd_allocated,0)::numeric),0)::numeric AS usd_alloc
+          FROM phase_allocations
+          GROUP BY contribution_id
+        )
         SELECT
           c.id,
           c.wallet_address,
           c.token_contract,
           COALESCE(c.usd_value, 0)::float AS usd_value,
+          COALESCE(a.usd_alloc, 0)::float AS usd_allocated,
           COALESCE(c.timestamp, NOW())::text AS timestamp
         FROM contributions c
+        LEFT JOIN alloc a ON a.contribution_id = c.id
         LEFT JOIN token_registry tr ON tr.mint = c.token_contract
         WHERE
           COALESCE(c.usd_value,0) > 0
-          AND COALESCE(c.alloc_status,'unassigned') = 'unassigned'
+          AND COALESCE(c.alloc_status,'unassigned') IN ('unassigned','partial')
+          AND (COALESCE(c.usd_value,0)::numeric > COALESCE(a.usd_alloc,0)::numeric)
           AND (
             c.token_contract IS NULL
             OR c.token_contract = ${WSOL_MINT}
@@ -213,7 +224,8 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
 
       // 7) split allocation
       for (let i = 0; i < contribs.length; i++) {
-        let usdLeft = num(contribs[i].usd_value, 0);
+        const already = num(contribs[i].usd_allocated, 0);
+        let usdLeft = Math.max(0, num(contribs[i].usd_value, 0) - already);
         if (usdLeft <= 0) continue;
 
         for (const ph of state) {
@@ -266,19 +278,59 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
         `;
       }
 
-      // 9) mark allocated contributions
-      const uniqContribIds = Array.from(new Set(rowsToInsert.map((r) => r.contribution_id)))
-        .filter((x) => Number.isFinite(x) && x > 0);
+      // 9) mark contribution statuses correctly (allocated vs partial)
+      const eps = 1e-9;
+      const touchedIds = Array.from(new Set(contribs.map((c) => c.id))).filter((x) => x > 0);
 
-      if (uniqContribIds.length) {
-        const objs = uniqContribIds.map((id) => ({ id }));
-        await sql/* sql */`
-          UPDATE contributions c
-          SET alloc_status = 'allocated',
-              alloc_updated_at = NOW()
-          FROM jsonb_to_recordset(${JSON.stringify(objs)}::jsonb) AS x(id text)
-          WHERE c.id = x.id::bigint
-        `;
+      if (touchedIds.length) {
+        const statusRows = (await sql/* sql */`
+          WITH alloc AS (
+            SELECT
+              c.id,
+              COALESCE(SUM(COALESCE(pa.usd_allocated,0)::numeric),0)::numeric AS usd_alloc
+            FROM contributions c
+            LEFT JOIN phase_allocations pa ON pa.contribution_id = c.id
+            WHERE c.id = ANY(${touchedIds}::bigint[])
+            GROUP BY c.id
+          )
+          SELECT
+            c.id,
+            COALESCE(c.usd_value,0)::numeric AS usd_value,
+            COALESCE(a.usd_alloc,0)::numeric AS usd_alloc
+          FROM contributions c
+          LEFT JOIN alloc a ON a.id = c.id
+          WHERE c.id = ANY(${touchedIds}::bigint[])
+        `) as any[];
+
+        const toAllocated: number[] = [];
+        const toPartial: number[] = [];
+
+        for (const r of statusRows) {
+          const usdValue = num(r.usd_value, 0);
+          const usdAlloc = num(r.usd_alloc, 0);
+          const remaining = usdValue - usdAlloc;
+
+          if (remaining <= eps) toAllocated.push(Number(r.id));
+          else toPartial.push(Number(r.id));
+        }
+
+        if (toAllocated.length) {
+          await sql/* sql */`
+            UPDATE contributions
+            SET alloc_status = 'allocated',
+                alloc_updated_at = NOW()
+            WHERE id = ANY(${toAllocated}::bigint[])
+          `;
+        }
+
+        if (toPartial.length) {
+          await sql/* sql */`
+            UPDATE contributions
+            SET alloc_status = 'partial',
+                alloc_updated_at = NOW()
+            WHERE id = ANY(${toPartial}::bigint[])
+          `;
+        }
       }
 
       const summary = state.map((p) => ({
