@@ -805,24 +805,33 @@ export async function POST(req: NextRequest) {
     }
 
     let allocator: any = null;
-    let allocator2: any = null;
     let allocatorError: string | null = null;
+    let allocator2: any = null;                 // ✅ eklendi
+    let allocator2Error: string | null = null;  // ✅ opsiyonel ama iyi
 
     try {
       allocator = await allocateQueueFIFO({ maxSteps: 20 });
+    } catch (e: any) {
+      allocatorError = String(e?.message || e);
+      console.error('❌ allocator failed:', allocatorError, e);
+    }
 
+    try {
       adv = await advancePhases();
 
-      // ✅ Eğer yeni faz açıldıysa, queue/partial kalanları yeni active faza da akıt
       if (adv?.openedPhaseIds?.length) {
         try {
-          allocator2 = await allocateQueueFIFO({ maxSteps: 5 });
+          allocator2 = await allocateQueueFIFO({ maxSteps: 5 }); // ✅ sonucu tut
         } catch (e: any) {
-          console.warn('⚠️ allocator2 failed:', e?.message || e);
+          allocator2Error = String(e?.message || e);
+          console.warn('⚠️ mini allocator failed:', allocator2Error, e);
         }
       }
 
-      const fromId = adv?.activePhaseId ?? null;
+      const fromId =
+        (adv?.openedPhaseIds?.length ? adv.openedPhaseIds[0] : null) ??
+        (adv?.activePhaseId ?? null);
+
       recompute = fromId ? await recomputeFromPhaseId(Number(fromId)) : null;
     } catch (e: any) {
       console.warn('⚠️ advance/recompute failed:', e?.message || e);
@@ -946,6 +955,7 @@ export async function POST(req: NextRequest) {
       allocator,
       allocator2,
       allocatorError,
+      allocator2Error,
       recompute: recompute ?? null,
       phaseAdvance: adv ?? null,
 
