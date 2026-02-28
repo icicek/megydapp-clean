@@ -530,6 +530,7 @@ export async function POST(req: NextRequest) {
             duplicate: true,
             id: existingId,
             via: 'tx_hash/transaction_signature',
+            transaction_signature: txHashOrSig,
             tx_id: stableTxId,
             txId: stableTxId,
           });
@@ -551,6 +552,7 @@ export async function POST(req: NextRequest) {
             duplicate: true,
             id: existingId,
             via: 'idempotency_key',
+            transaction_signature: txHashOrSig,
             tx_id: stableTxId,
             txId: stableTxId,
           });
@@ -777,6 +779,7 @@ export async function POST(req: NextRequest) {
             success: true,
             duplicate: true,
             id: existingId,
+            transaction_signature: txHashOrSig,
             tx_id: String(existingId),
             txId: String(existingId),
           });
@@ -802,6 +805,7 @@ export async function POST(req: NextRequest) {
     }
 
     let allocator: any = null;
+    let allocator2: any = null;
     let allocatorError: string | null = null;
 
     try {
@@ -809,17 +813,16 @@ export async function POST(req: NextRequest) {
 
       adv = await advancePhases();
 
-      // ✅ Eğer yeni faz açıldıysa, queue'yu o faza da akıtmak için 1 mini allocator daha
+      // ✅ Eğer yeni faz açıldıysa, queue/partial kalanları yeni active faza da akıt
       if (adv?.openedPhaseIds?.length) {
         try {
-          await allocateQueueFIFO({ maxSteps: 5 });
-        } catch {}
+          allocator2 = await allocateQueueFIFO({ maxSteps: 5 });
+        } catch (e: any) {
+          console.warn('⚠️ allocator2 failed:', e?.message || e);
+        }
       }
 
-      const fromId =
-        (adv?.openedPhaseIds?.length ? adv.openedPhaseIds[0] : null) ??
-        (adv?.activePhaseId ?? null);
-
+      const fromId = adv?.activePhaseId ?? null;
       recompute = fromId ? await recomputeFromPhaseId(Number(fromId)) : null;
     } catch (e: any) {
       console.warn('⚠️ advance/recompute failed:', e?.message || e);
@@ -941,6 +944,7 @@ export async function POST(req: NextRequest) {
     
       message: '✅ Coincarnation recorded',
       allocator,
+      allocator2,
       allocatorError,
       recompute: recompute ?? null,
       phaseAdvance: adv ?? null,

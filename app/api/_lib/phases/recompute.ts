@@ -286,12 +286,11 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
         const statusRows = (await sql/* sql */`
           WITH alloc AS (
             SELECT
-              c.id,
+              pa.contribution_id AS id,
               COALESCE(SUM(COALESCE(pa.usd_allocated,0)::numeric),0)::numeric AS usd_alloc
-            FROM contributions c
-            LEFT JOIN phase_allocations pa ON pa.contribution_id = c.id
-            WHERE c.id = ANY(${touchedIds}::bigint[])
-            GROUP BY c.id
+            FROM phase_allocations pa
+            WHERE pa.contribution_id = ANY(${touchedIds}::bigint[])
+            GROUP BY pa.contribution_id
           )
           SELECT
             c.id,

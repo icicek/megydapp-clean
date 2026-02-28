@@ -26,23 +26,6 @@ function num(v: unknown, def = 0): number {
   return Number.isFinite(n) ? n : def;
 }
 
-async function getContributionRemainingUsd(contributionId: number): Promise<number> {
-  const r = (await sql/* sql */`
-    SELECT
-      COALESCE(c.usd_value,0)::numeric AS usd_value,
-      COALESCE(SUM(COALESCE(pa.usd_allocated,0)::numeric),0)::numeric AS usd_alloc
-    FROM contributions c
-    LEFT JOIN phase_allocations pa ON pa.contribution_id = c.id
-    WHERE c.id = ${contributionId}
-    GROUP BY c.id
-    LIMIT 1
-  `) as any[];
-
-  const usdValue = num(r?.[0]?.usd_value, 0);
-  const usdAlloc = num(r?.[0]?.usd_alloc, 0);
-  return Math.max(0, usdValue - usdAlloc);
-}
-
 // Global allocator lock (single-run)
 async function acquireAllocatorLock() {
   const key = (BigInt(942002) * BigInt(1_000_000_000) + BigInt(777)).toString();
@@ -118,11 +101,16 @@ async function hasQueue() {
   return !!rows?.[0];
 }
 
-async function hasWork(activePhaseId: number | null) {
-  // 1) Queue var mı?
+async function hasWork(_activePhaseId: number | null) {
   const q = (await sql/* sql */`
+    WITH alloc AS (
+      SELECT contribution_id, COALESCE(SUM(COALESCE(usd_allocated,0)::numeric),0)::numeric AS usd_alloc
+      FROM phase_allocations
+      GROUP BY contribution_id
+    )
     SELECT 1
     FROM contributions c
+    LEFT JOIN alloc a ON a.contribution_id = c.id
     LEFT JOIN token_registry tr ON tr.mint = c.token_contract
     WHERE COALESCE(c.network,'solana') = 'solana'
       AND COALESCE(c.usd_value,0)::numeric > 0
@@ -131,31 +119,12 @@ async function hasWork(activePhaseId: number | null) {
         OR tr.status IN ('healthy','walking_dead')
       )
       AND c.phase_id IS NULL
-      AND COALESCE(c.alloc_status,'unassigned') IN ('unassigned','pending')
+      AND COALESCE(c.alloc_status,'unassigned') IN ('unassigned','partial','pending')
+      AND COALESCE(c.usd_value,0)::numeric > COALESCE(a.usd_alloc,0)::numeric
     LIMIT 1
   `) as any[];
 
-  if (q?.[0]) return true;
-
-  // 2) Stuck var mı? (activePhaseId yoksa bakma)
-  if (!activePhaseId) return false;
-
-  const s = (await sql/* sql */`
-    SELECT 1
-    FROM contributions c
-    LEFT JOIN token_registry tr ON tr.mint = c.token_contract
-    WHERE COALESCE(c.network,'solana') = 'solana'
-      AND COALESCE(c.usd_value,0)::numeric > 0
-      AND (
-        c.token_contract = ${WSOL_MINT}
-        OR tr.status IN ('healthy','walking_dead')
-      )
-      AND c.phase_id = ${activePhaseId}
-      AND COALESCE(c.alloc_status,'unassigned') = 'unassigned'
-    LIMIT 1
-  `) as any[];
-
-  return !!s?.[0];
+  return !!q?.[0];
 }
 
 async function maybeMarkReviewing(phaseId: number) {

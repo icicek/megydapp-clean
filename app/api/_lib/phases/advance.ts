@@ -18,6 +18,8 @@ function n(v: any, def = 0) {
   return Number.isFinite(x) ? x : def;
 }
 
+const EPS = 1e-9;
+
 // ---- helpers ----
 
 async function findOneActiveForUpdate() {
@@ -158,6 +160,7 @@ async function fixMultipleActivesKeepFirst(): Promise<{ changed: boolean; note?:
     await sql/* sql */`
       UPDATE phases
       SET status = 'reviewing',
+          closed_at = COALESCE(closed_at, NOW()),
           updated_at = NOW()
       WHERE id = ANY(${dropIds}::bigint[])
     `;
@@ -211,7 +214,7 @@ export async function advancePhases(): Promise<AdvanceResult> {
 
       const usedUsd = await computeUsedUsdFromAllocations(activeId);
 
-      if (usedUsd < targetUsd) break;
+      if (usedUsd + EPS < targetUsd) break;
 
       // active is full => reviewing
       await markReviewing(activeId);
