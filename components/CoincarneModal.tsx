@@ -51,6 +51,8 @@ const CoincarnationResult = dynamic(
   { ssr: false }
 ) as React.ComponentType<CoincarnationResultProps>;
 
+const [precheckMsg, setPrecheckMsg] = useState<string | null>(null);
+
 type ConfirmModalProps = {
   isOpen: boolean;
   onCancel: () => void;
@@ -330,19 +332,80 @@ export default function CoincarneModal({
   /* ------------------ CONFIRM PREPARE (PRICING) ------------------ */
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
-    const amountToSend = parseFloat(amountInput);
-    if (isNaN(amountToSend) || amountToSend <= 0) return;
-
+  
+    setPrecheckMsg(null);
+  
+    const amountToSend = Number(String(amountInput).replace(',', '.'));
+    if (!Number.isFinite(amountToSend) || amountToSend <= 0) return;
+  
     try {
+      // --- Precheck: SOL sufficiency (fees / ATA rent) ---
+      const solLamports = await connection.getBalance(publicKey, 'processed');
+  
+      const FEE_BUF_LAMPORTS = 120_000; // ~0.00012 SOL
+      const TOKEN_ACCOUNT_SIZE = 165;
+  
+      if (isSOLToken) {
+        // For SOL transfer, user pays fee from SOL too
+        const sendLamports = solToLamports(amountInput);
+  
+        if (solLamports < sendLamports + FEE_BUF_LAMPORTS) {
+          setPrecheckMsg(
+            'Not enough SOL to cover the transfer + network fee. Please add a little SOL (e.g., 0.0002 SOL).'
+          );
+          return;
+        }
+      } else {
+        // SPL: may need ATA creation on destination
+        if (!destSol) {
+          setPrecheckMsg('Destination address is missing. Please set NEXT_PUBLIC_DEST_SOL.');
+          return;
+        }
+  
+        const mint = new PublicKey(token.mint);
+  
+        // which program? (Token2022 vs classic)
+        const mintAcc = await connection.getAccountInfo(mint, 'confirmed');
+        if (!mintAcc) {
+          setPrecheckMsg('Token mint not found on this network.');
+          return;
+        }
+        const is2022 = mintAcc.owner.equals(TOKEN_2022_PROGRAM_ID);
+        const program = is2022 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
+  
+        const toATA = getAssociatedTokenAddressSync(mint, destSol, false, program);
+        const toAtaInfo = await connection.getAccountInfo(toATA, 'confirmed');
+  
+        if (!toAtaInfo) {
+          const rentLamports = await connection.getMinimumBalanceForRentExemption(TOKEN_ACCOUNT_SIZE);
+          const need = rentLamports + FEE_BUF_LAMPORTS;
+  
+          if (solLamports < need) {
+            setPrecheckMsg(
+              `Not enough SOL to create the destination token account (ATA). Please add ~${(need / 1e9).toFixed(4)} SOL.`
+            );
+            return;
+          }
+        } else {
+          if (solLamports < FEE_BUF_LAMPORTS) {
+            setPrecheckMsg('Not enough SOL to pay transaction fees. Please add a little SOL.');
+            return;
+          }
+        }
+      }
+  
+      // --- Pricing fetch (only if precheck passes) ---
       setLoading(true);
       setPriceView({ fetchStatus: 'loading', usdValue: 0, priceSources: [] });
-
+  
       const mint = isSOLToken ? WSOL_MINT : token.mint;
       const qs = new URLSearchParams({ mint, amount: String(amountToSend) });
+  
       const res = await fetch(`/api/proxy/price?${qs.toString()}`, { cache: 'no-store' });
       const json = await res.json();
-
+  
       const ok = !!json?.ok || !!json?.success;
+  
       if (!ok) {
         setPriceView({
           fetchStatus: json?.status === 'not_found' ? 'not_found' : 'error',
@@ -353,28 +416,30 @@ export default function CoincarneModal({
         setConfirmModalOpen(true);
         return;
       }
-
+  
       const unit = Number(json?.priceUsd ?? 0);
       const summed = Number(json?.usdValue ?? 0);
       const total = summed > 0 ? summed : unit * amountToSend;
-
+  
       const sources: { price: number; source: string }[] =
         Array.isArray(json?.sources) && json.sources.length
           ? json.sources
           : unit > 0 && json?.source
           ? [{ source: String(json.source), price: unit }]
           : [];
-
+  
       setPriceView({
         fetchStatus: 'found',
         usdValue: Number.isFinite(total) ? total : 0,
         priceSources: sources,
       });
+  
       setTokenCategory('healthy');
       setConfirmModalOpen(true);
     } catch (err) {
       console.error('❌ Error preparing confirmation:', err);
       setPriceView({ fetchStatus: 'error', usdValue: 0, priceSources: [] });
+      setTokenCategory('unknown'); // optional
       setConfirmModalOpen(true);
     } finally {
       setLoading(false);
@@ -437,7 +502,7 @@ export default function CoincarneModal({
     if (isNaN(amountToSend) || amountToSend <= 0) return;
 
     if (isSOLToken && internalBalance) {
-      const feeReserve = 0.002; // güvenli tampon
+      const feeReserve = 0.0002; // güvenli tampon
       if (internalBalance.amount - amountToSend < feeReserve) {
         throw new Error('LEAVE_SOL_FOR_FEES');
       }
@@ -511,13 +576,17 @@ export default function CoincarneModal({
         console.log('🏦 toATA exists?:', !!toAtaInfo);
 
         // ✅ SOL yeterlilik kontrolü (ATA gerekiyorsa daha yüksek şart)
-        const MIN_SOL_FOR_ATA  = 3_000_000; // ~0.003 SOL (güvenli tampon)
-        const MIN_SOL_FOR_FEES = 150_000;   // ~0.00015 SOL
+        const FEE_BUF_LAMPORTS = 120_000; // ~0.00012 SOL
+        const TOKEN_ACCOUNT_SIZE = 165;
 
-        if (!toAtaInfo && solBal < MIN_SOL_FOR_ATA) {
+        const rentLamports = await connection.getMinimumBalanceForRentExemption(TOKEN_ACCOUNT_SIZE);
+        const needIfAtaMissing = rentLamports + FEE_BUF_LAMPORTS;
+        const needIfAtaExists = FEE_BUF_LAMPORTS;
+
+        if (!toAtaInfo && solBal < needIfAtaMissing) {
           throw new Error('INSUFFICIENT_SOL_FOR_ATA_RENT');
         }
-        if (toAtaInfo && solBal < MIN_SOL_FOR_FEES) {
+        if (toAtaInfo && solBal < needIfAtaExists) {
           throw new Error('INSUFFICIENT_SOL_FOR_TX_FEES');
         }
 
@@ -763,6 +832,12 @@ export default function CoincarneModal({
               >
                 {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate ${displaySymbol} Now`}
               </button>
+
+              {precheckMsg && (
+                <p className="mt-2 text-xs text-amber-300 text-center">
+                  {precheckMsg}
+                </p>
+              )}
 
               <button
                 onClick={onClose}

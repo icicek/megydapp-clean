@@ -31,7 +31,12 @@ export async function POST(req: NextRequest, ctx: any) {
 
       // Phase'ı kilitleyerek oku
       const phRows = (await sql/* sql */`
-        SELECT id, phase_no, status, snapshot_taken_at, rate_usd_per_megy
+        SELECT
+          id,
+          phase_no,
+          status,
+          snapshot_taken_at,
+          COALESCE(target_usd,0)::numeric AS target_usd
         FROM phases
         WHERE id = ${phaseId}
         LIMIT 1
@@ -49,11 +54,11 @@ export async function POST(req: NextRequest, ctx: any) {
         return NextResponse.json({ success: false, error: 'PHASE_ALREADY_SNAPSHOTTED' }, { status: 409 });
       }
 
-      // allow snapshot for active OR reviewing (reviewing is the intended "full but not frozen yet" state)
+      // ✅ Only reviewing is snapshotable
       const st = String(ph.status || '');
-      if (st !== 'active' && st !== 'reviewing') {
+      if (st !== 'reviewing') {
         await sql`ROLLBACK`;
-        return NextResponse.json({ success: false, error: 'PHASE_NOT_SNAPSHOTABLE' }, { status: 409 });
+        return NextResponse.json({ success: false, error: 'PHASE_NOT_REVIEWING' }, { status: 409 });
       }
 
       const phaseNo = Number(ph.phase_no);
@@ -72,6 +77,16 @@ export async function POST(req: NextRequest, ctx: any) {
       const megySum = num(tot?.[0]?.megy_sum, 0);
       const nAlloc = Number(tot?.[0]?.n ?? 0);
 
+      // ✅ Require full if target_usd > 0
+      const targetUsd = num(ph.target_usd, 0);
+      if (targetUsd > 0 && usdSum + 1e-9 < targetUsd) {
+        await sql`ROLLBACK`;
+        return NextResponse.json(
+          { success: false, error: 'PHASE_NOT_FULL', phaseId, usdSum, targetUsd },
+          { status: 409 }
+        );
+      }
+
       if (nAlloc <= 0 || megySum <= 0) {
         await sql`ROLLBACK`;
         return NextResponse.json(
@@ -80,7 +95,7 @@ export async function POST(req: NextRequest, ctx: any) {
         );
       }
 
-      // snapshot_taken_at set + phase complete (timestamps)
+      // snapshot_taken_at set + phase complete
       const snapRow = (await sql/* sql */`
         UPDATE phases
         SET
@@ -115,8 +130,8 @@ export async function POST(req: NextRequest, ctx: any) {
           NOW() AS created_at
         FROM phase_allocations pa
           LEFT JOIN participants p
-          ON p.wallet_address = pa.wallet_address
-        AND COALESCE(p.network, 'solana') = 'solana'
+            ON p.wallet_address = pa.wallet_address
+           AND COALESCE(p.network, 'solana') = 'solana'
         WHERE pa.phase_id = ${phaseId}
         GROUP BY pa.wallet_address
       `;
@@ -124,8 +139,9 @@ export async function POST(req: NextRequest, ctx: any) {
       // contributions -> snapshotted
       await sql/* sql */`
         UPDATE contributions c
-        SET alloc_status = 'snapshotted',
-            alloc_updated_at = NOW()
+        SET
+          alloc_status = 'snapshotted',
+          alloc_updated_at = NOW()
         FROM phase_allocations pa
         WHERE pa.phase_id = ${phaseId}
           AND pa.contribution_id = c.id
@@ -133,16 +149,14 @@ export async function POST(req: NextRequest, ctx: any) {
 
       await sql`COMMIT`;
 
-      const message = '✅ Snapshot complete (claims finalized for this phase).';
-
       return NextResponse.json({
         success: true,
-        message,
+        message: '✅ Snapshot complete (claims finalized for this phase).',
         phaseId,
         phaseNo,
         snapshot_taken_at: snapshotAt,
-        totals: { usdSum, megySum, allocations: nAlloc },
-      });      
+        totals: { usdSum, targetUsd, megySum, allocations: nAlloc },
+      });
     } catch (e) {
       try { await sql`ROLLBACK`; } catch {}
       throw e;
