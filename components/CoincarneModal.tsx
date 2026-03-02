@@ -51,8 +51,6 @@ const CoincarnationResult = dynamic(
   { ssr: false }
 ) as React.ComponentType<CoincarnationResultProps>;
 
-const [precheckMsg, setPrecheckMsg] = useState<string | null>(null);
-
 type ConfirmModalProps = {
   isOpen: boolean;
   onCancel: () => void;
@@ -226,6 +224,7 @@ export default function CoincarneModal({
   /* ------------------ LOCAL UI STATE ------------------ */
   const [loading, setLoading] = useState(false);
   const [amountInput, setAmountInput] = useState('');
+  const [precheckMsg, setPrecheckMsg] = useState<string | null>(null);
 
   const [resultData, setResultData] = useState<{
     tokenFrom: string;
@@ -819,7 +818,10 @@ export default function CoincarneModal({
                 type="number"
                 step="0.000001"
                 value={amountInput}
-                onChange={(e) => setAmountInput(e.target.value)}
+                onChange={(e) => {
+                  setAmountInput(e.target.value);
+                  setPrecheckMsg(null);
+                }}
                 placeholder="Enter amount"
                 className="w-full bg-zinc-800 text-white p-3 rounded-lg border border-zinc-600 mb-4"
                 disabled={loading}
