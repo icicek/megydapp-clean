@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/app/api/_lib/db';
 import { requireAdmin } from '@/app/api/_lib/jwt';
 import { httpErrorFrom } from '@/app/api/_lib/http';
+import { withDebugHeaders } from '@/app/api/_lib/debug';
 
 function num(v: unknown, def = 0): number {
   const n = typeof v === 'number' ? v : Number(v);
@@ -149,14 +150,17 @@ export async function POST(req: NextRequest, ctx: any) {
 
       await sql`COMMIT`;
 
-      return NextResponse.json({
-        success: true,
-        message: '✅ Snapshot complete (claims finalized for this phase).',
-        phaseId,
-        phaseNo,
-        snapshot_taken_at: snapshotAt,
-        totals: { usdSum, targetUsd, megySum, allocations: nAlloc },
-      });
+      return withDebugHeaders(
+        NextResponse.json({
+          success: true,
+          message: '✅ Snapshot complete (claims finalized for this phase).',
+          phaseId,
+          phaseNo,
+          snapshot_taken_at: snapshotAt,
+          totals: { usdSum, targetUsd, megySum, allocations: nAlloc },
+        }),
+        `/api/admin/phases/${phaseId}/snapshot`
+      );
     } catch (e) {
       try { await sql`ROLLBACK`; } catch {}
       throw e;
@@ -165,6 +169,10 @@ export async function POST(req: NextRequest, ctx: any) {
     }
   } catch (err: unknown) {
     const { status, body } = httpErrorFrom(err, 500);
-    return NextResponse.json(body, { status });
+    return withDebugHeaders(
+      NextResponse.json(body, { status }),
+      `/api/admin/phases/${ctx?.params?.id ?? 'unknown'}/snapshot`
+    );
+    
   }
 }
