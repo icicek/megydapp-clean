@@ -279,10 +279,11 @@ async function allocateIntoPhaseSplitFIFO(phaseId: number, remainingPhaseUsd: nu
       SET
         phase_id = ${phaseId},
         alloc_status = ${newStatus},
-        alloc_phase_no = ${phaseNo},
+        alloc_phase_no = GREATEST(COALESCE(alloc_phase_no, 0), ${phaseNo}),
         alloc_updated_at = NOW()
       WHERE id = ${cId}
-    `;
+        AND COALESCE(alloc_status,'unassigned') IN ('unassigned','partial','pending')
+      `;
 
     if (phaseLeft !== null) phaseLeft -= take;
   }
