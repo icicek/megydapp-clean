@@ -140,6 +140,7 @@ async function fetchOnce(conn: Connection, owner: PublicKey) {
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
+    const tag = url.searchParams.get('tag') || 'none';
     const owner = url.searchParams.get('owner');
     const cluster =
       (url.searchParams.get('cluster') as 'mainnet-beta' | 'devnet') || 'mainnet-beta';
@@ -166,7 +167,7 @@ export async function GET(req: Request) {
     const ref = req.headers.get('referer') || 'none';
 
     console.log(
-      `[api/solana/tokens] enter src=${src} page=${page} ref=${ref} ua=${ua.slice(0, 80)}`
+      `[api/solana/tokens] enter src=${src} page=${page} tag=${tag} ref=${ref} ua=${ua.slice(0, 80)}`
     );
 
     // 1) hot cache

@@ -292,13 +292,13 @@ export function useWalletTokens(options?: Options) {
               const page =
                 typeof window !== 'undefined' ? window.location.pathname : 'client';
 
-              const res = await fetch(`/api/solana/tokens?owner=${owner}`, {
-                cache: 'no-store',
-                headers: {
-                  'x-cc-source': 'useWalletTokens',
-                  'x-cc-page': page,
-                },
-              });
+                const res = await fetch(`/api/solana/tokens?owner=${owner}&tag=home`, {
+                  cache: 'no-store',
+                  headers: {
+                    'x-cc-source': 'useWalletTokens',
+                    'x-cc-page': 'HomePage',
+                  },
+                });
     
               if (res.ok) {
                 const data = await res.json();
