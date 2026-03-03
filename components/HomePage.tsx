@@ -16,7 +16,7 @@ import { useChain } from '@/app/providers/ChainProvider';
 import AdminLink from '@/components/admin/AdminLink';
 
 // PROD'da 60s, DEV'de 20s polling
-const POLL_MS = process.env.NODE_ENV === 'production' ? 60000 : 20000;
+const POLL_MS = process.env.NODE_ENV === 'production' ? 0 : 20000;
 
 export default function HomePage() {
   const router = useRouter();
@@ -34,7 +34,7 @@ export default function HomePage() {
   } = useWalletTokens({
     autoRefetchOnFocus: true,
     autoRefetchOnAccountChange: true,
-    pollMs: POLL_MS, // ⬅️ prod: 60s, dev: 20s
+    pollMs: POLL_MS, // prod: 0, dev: 20s
   });
 
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
@@ -158,9 +158,10 @@ export default function HomePage() {
                   </option>
                   {tokens.map((token) => {
                     const sym = (token.symbol ?? token.mint.slice(0, 4)).toUpperCase();
+                    const amt = token.uiAmountString ?? token.amount.toFixed(4);
                     return (
                       <option key={token.mint} value={token.mint}>
-                        {sym} — {token.amount.toFixed(4)}
+                        {sym} — {amt}
                       </option>
                     );
                   })}

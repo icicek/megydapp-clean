@@ -24,10 +24,25 @@ type Options = {
   pollMs?: number; // ms
 };
 
+const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 const DEBUG_TOKENS = true;
 const dbg = (...args: any[]) => { if (DEBUG_TOKENS) console.log('[TOKENS]', ...args); };
 
 /* -------------------------- Helpers & cache -------------------------- */
+
+// -------------------------- Client-side tokens cache (cross-component) --------------------------
+// This dedupes requests across multiple components using the hook.
+
+type TokensCacheRow = { at: number; tokens: TokenInfo[] };
+const TOKENS_MEMO = new Map<string, TokensCacheRow>();
+const TOKENS_INFLIGHT = new Map<string, Promise<TokenInfo[]>>();
+
+// 15s client TTL: prevents focus/visibility spam
+const TOKENS_TTL_MS = 15_000;
+
+function getOwnerKey(ownerBase58: string) {
+  return `solana:${ownerBase58}`;
+}
 
 const tidy = (x: any) => {
   if (!x) return null;
@@ -212,7 +227,7 @@ export function useWalletTokens(options?: Options) {
       try {
         const lamports = await connection.getBalance(owner, 'confirmed');
         if (lamports > 0) {
-          merged.set('SOL', {
+          merged.set(WSOL_MINT, {
             amount: lamports / 1e9,
             uiAmountString: rawToUiString(String(lamports), 9),
             decimals: 9,
@@ -248,81 +263,131 @@ export function useWalletTokens(options?: Options) {
     try {
       const owner = publicKey.toBase58();
       dbg('Owner', owner);
-
-      // 1) ÖNCE SERVER ROUTE
+    
+      // ------------------ 1) Cross-component memo/inflight (client-side) ------------------
       let tokenListRaw: TokenInfo[] = [];
-      try {
-        const res = await fetch(`/api/solana/tokens?owner=${owner}`, { cache: 'no-store' });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.success && Array.isArray(data.tokens)) {
-            tokenListRaw = data.tokens as TokenInfo[];
-            dbg('server route tokens', tokenListRaw.length);
-          } else {
-            dbg('server route bad response', data);
-          }
-        } else {
-          dbg('server route HTTP', res.status);
+      const key = getOwnerKey(owner);
+      const now = Date.now();
+    
+      // Silent refresh ise 15sn içinde tekrar fetch yapma (UI spam’i keser)
+      if (silent) {
+        const hot = TOKENS_MEMO.get(key);
+        if (hot && now - hot.at < TOKENS_TTL_MS) {
+          dbg('client memo HIT', key);
+          tokenListRaw = hot.tokens;
         }
-      } catch (e) {
-        dbg('server route fetch failed', e);
       }
-
-      // 2) Server route yoksa CLIENT RPC
+    
+      // Eğer memo’dan gelmediyse: inflight varsa ona katıl
       if (!tokenListRaw.length) {
-        dbg('fallback to client RPC (may 403 in browser)');
-        const rpcList = await clientRpcFetch(publicKey);
-        tokenListRaw = rpcList.map((t) => ({
-          mint: t.mint,
-          amount: t.amount,
-          uiAmountString: t.uiAmountString,
-          decimals: t.decimals,
-        }));
+        const existing = TOKENS_INFLIGHT.get(key);
+        if (existing) {
+          dbg('client inflight JOIN', key);
+          tokenListRaw = await existing;
+        } else {
+          // Yeni bir fetch başlat
+          const p = (async (): Promise<TokenInfo[]> => {
+            // 2) FIRST: SERVER ROUTE
+            try {
+              const res = await fetch(`/api/solana/tokens?owner=${owner}`, {
+                cache: 'no-store',
+                headers: { 'x-cc-source': 'useWalletTokens' },
+              });
+    
+              if (res.ok) {
+                const data = await res.json();
+                if (data?.success && Array.isArray(data.tokens)) {
+                  const list = data.tokens as TokenInfo[];
+                  dbg('server route tokens', list.length);
+                  TOKENS_MEMO.set(key, { at: Date.now(), tokens: list });
+                  return list;
+                } else {
+                  dbg('server route bad response', data);
+                }
+              } else {
+                dbg('server route HTTP', res.status);
+              }
+            } catch (e) {
+              dbg('server route fetch failed', e);
+            }
+    
+            // 3) FALLBACK: CLIENT RPC (expensive) — only if server route failed
+            dbg('fallback to client RPC (may 403 in browser)');
+            const rpcList = await clientRpcFetch(publicKey).catch(() => []);
+    
+            const list = rpcList.map((t) => ({
+              mint: t.mint,
+              amount: t.amount,
+              uiAmountString: t.uiAmountString,
+              decimals: t.decimals,
+            })) as TokenInfo[];
+    
+            TOKENS_MEMO.set(key, { at: Date.now(), tokens: list });
+            return list;
+          })();
+    
+          TOKENS_INFLIGHT.set(key, p);
+          try {
+            tokenListRaw = await p;
+          } finally {
+            TOKENS_INFLIGHT.delete(key);
+          }
+        }
       }
-
-      // 3) İlk anda ham/erken göster (mint kısaltması ile)
+    
+      // ------------------ 2) İlk anda ham/erken göster (mint kısaltması ile) ------------------
       if (reqIdRef.current === myReq) {
         setTokens(
-          tokenListRaw.map((t) =>
-            t.mint === 'SOL'
-              ? { ...t, symbol: 'SOL' }
-              : { ...t, symbol: t.symbol || t.mint.slice(0, 4) }
-          )
+          tokenListRaw.map((t) => {
+            const isSol = t.mint === 'SOL' || t.mint === WSOL_MINT;
+            return isSol
+              ? { ...t, mint: WSOL_MINT, symbol: 'SOL' } // mint’i de normalize etmek iyi olur
+              : { ...t, symbol: t.symbol || t.mint.slice(0, 4) };
+          })
         );
         setHasLoadedOnce(true);
         if (!silent) setError(null);
       }
-
-      // 4) Metadata zenginleştirme — YENİ SIRALAMA:
-      //    tokenlist → /api/symbol → (legacy fallback’lar)
-      const nonSolMints = tokenListRaw.filter(t => t.mint !== 'SOL').map(t => t.mint);
+      
+      if (!tokenListRaw.length) {
+        if (reqIdRef.current === myReq) setTokens([]);
+        return;
+      }
+      // ------------------ 3) Metadata zenginleştirme ------------------
+      const nonSolMints = tokenListRaw
+        .filter((t) => t.mint !== 'SOL' && t.mint !== WSOL_MINT)
+        .map((t) => t.mint);
+    
       const symMap = await resolveManySymbols(nonSolMints, 4); // concurrency=4
-
+    
       // (eski) utils token list’i sadece logo için son çare olarak dene
       let legacyMap: Map<string, any> | null = null;
       try {
         const list = await fetchSolanaTokenList().catch(() => []);
-        legacyMap = new Map((list || []).map((m: any) => [String(m.address || '').toLowerCase(), m]));
+        legacyMap = new Map(
+          (list || []).map((m: any) => [String(m.address || '').toLowerCase(), m])
+        );
       } catch {}
-
+    
       const enriched = await Promise.all(
         tokenListRaw.map(async (token) => {
-          if (token.mint === 'SOL') return { ...token, symbol: 'SOL' };
-
+          const isSol = token.mint === 'SOL' || token.mint === WSOL_MINT;
+          if (isSol) return { ...token, mint: WSOL_MINT, symbol: 'SOL' };
+    
           const resolved = symMap.get(token.mint) || { symbol: null, name: null };
-          let symbol = resolved.symbol || token.symbol || token.mint.slice(0, 4);
-
+          const symbol = resolved.symbol || token.symbol || token.mint.slice(0, 4);
+    
           // legacy logo (varsa)
           let logoURI: string | undefined = token.logoURI;
           if (!logoURI && legacyMap) {
             const meta = legacyMap.get(token.mint.toLowerCase());
             if (meta?.logoURI) logoURI = meta.logoURI;
           }
-
+    
           return { ...token, symbol, logoURI };
         })
       );
-
+    
       if (reqIdRef.current !== myReq) return;
       setTokens(enriched);
     } catch (e: any) {
@@ -359,10 +424,17 @@ export function useWalletTokens(options?: Options) {
     if (!connected) return;
     const { autoRefetchOnFocus = true, autoRefetchOnAccountChange = true, pollMs } = options || {};
 
-    const onVis = () => { if (document.visibilityState === 'visible') doFetch(true); };
-    const onFocus = () => doFetch(true);
+    let debounceTimer: any = null;
+    const debouncedFetch = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        if (document.visibilityState === 'visible') doFetch(true);
+      }, 350);
+    };
+    const onVis = () => { if (document.visibilityState === 'visible') debouncedFetch(); };
+    const onFocus = () => debouncedFetch();
     const provider = (typeof window !== 'undefined' ? (window as any).solana : null);
-    const onAcc = () => doFetch(true);
+    const onAcc = () => debouncedFetch();
 
     if (autoRefetchOnFocus) {
       document.addEventListener('visibilitychange', onVis);
@@ -391,6 +463,7 @@ export function useWalletTokens(options?: Options) {
       }
       stop = true;
       if (t) clearTimeout(t);
+      if (debounceTimer) clearTimeout(debounceTimer);
     };
   }, [connected, doFetch, options]);
 

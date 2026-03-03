@@ -4,7 +4,6 @@ import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 
 export const runtime = 'nodejs';
-export const revalidate = 0;
 export const dynamic = 'force-dynamic';
 
 // Multi-provider sıra (ilk başarılı olan kullanılır)
@@ -20,7 +19,7 @@ function fallbackRpc(cluster: 'mainnet-beta' | 'devnet') {
   return clusterApiUrl(cluster);
 }
 
-// ✅ Daha gerçekçi TTL (serverless + UX)
+// ✅ TTL (serverless + UX)
 const CACHE_TTL_MS = 20_000; // 20 sn
 
 type CacheEntry = { at: number; body: any; rpcUsed?: string };
@@ -29,10 +28,10 @@ const cache = new Map<string, CacheEntry>();
 // ✅ Aynı anda gelen istekleri tekle
 const inflight = new Map<string, Promise<{ body: any; rpcUsed: string }>>();
 
-// CDN cache header: 15 sn canlı, 60 sn SWR
-const CDN_CACHE_HEADER = 's-maxage=15, stale-while-revalidate=60';
+// ✅ CDN cache header: 15 sn canlı, 60 sn SWR
+const CDN_CACHE_HEADER = 'public, s-maxage=15, stale-while-revalidate=60';
 
-// Native SOL'u WSOL mint’i ile hizalıyoruz
+// ✅ Native SOL'u WSOL mint’i ile hizalıyoruz
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
 function isRateLimitedOrForbidden(err: unknown) {
@@ -52,6 +51,20 @@ type ParsedRow = { mint: string; raw: bigint; decimals: number };
 
 function safeBigInt(n: string): bigint {
   try { return BigInt(n); } catch { return 0n; }
+}
+
+function rawToUiString(raw: string, decimals: number): string {
+  if (!raw) return '0';
+  const s = String(raw).replace(/^0+/, '') || '0';
+  if (!decimals) return s;
+  if (s.length <= decimals) {
+    const zeros = '0'.repeat(decimals - s.length);
+    const frac = (zeros + s).replace(/0+$/, '');
+    return frac ? `0.${frac}` : '0';
+  }
+  const int = s.slice(0, s.length - decimals) || '0';
+  const frac = s.slice(s.length - decimals).replace(/0+$/, '');
+  return frac ? `${int}.${frac}` : int;
 }
 
 function extractRows(accs: any[]): ParsedRow[] {
@@ -106,15 +119,18 @@ async function fetchOnce(conn: Connection, owner: PublicKey) {
 
   const tokens = Array.from(merged.entries())
     .map(([mint, { raw, decimals }]) => {
-      // ⚠️ Number(bigint) overflow riskine karşı daha güvenli parse:
-      // (çok büyük değerlerde bile crash olmasın diye)
       const rawStr = raw.toString();
-      const amount =
-        decimals > 0
-          ? parseFloat(rawStr) / Math.pow(10, decimals)
-          : parseFloat(rawStr);
+      const uiAmountString = rawToUiString(rawStr, decimals);
 
-      return { mint, raw: rawStr, decimals, amount: Number.isFinite(amount) ? amount : 0 };
+      // amount: sadece sıralama için "yaklaşık" number (overflow olursa 0'a düş)
+      const approx =
+        decimals > 0
+          ? Number(uiAmountString) // ui string -> number (çok büyükse Infinity olabilir)
+          : Number(rawStr);
+
+      const amount = Number.isFinite(approx) ? approx : 0;
+
+      return { mint, raw: rawStr, decimals, uiAmountString, amount };
     })
     .sort((a, b) => b.amount - a.amount);
 
@@ -149,11 +165,11 @@ export async function GET(req: Request) {
       const res = NextResponse.json(hot.body);
       res.headers.set('x-cache', 'HIT');
       if (hot.rpcUsed) res.headers.set('x-rpc-used', hot.rpcUsed);
-      res.headers.set('cache-control', CDN_CACHE_HEADER);
+      res.headers.set('Cache-Control', CDN_CACHE_HEADER);
       return res;
     }
 
-    // 2) inflight dedupe (aynı key için tek RPC turu)
+    // 2) inflight dedupe
     if (!force) {
       const p = inflight.get(cacheKey);
       if (p) {
@@ -162,14 +178,13 @@ export async function GET(req: Request) {
         res.headers.set('x-cache', 'INFLIGHT');
         res.headers.set('x-inflight', '1');
         res.headers.set('x-rpc-used', rpcUsed);
-        res.headers.set('cache-control', CDN_CACHE_HEADER);
+        res.headers.set('Cache-Control', CDN_CACHE_HEADER);
         return res;
       }
     }
 
     let lastErr: any = null;
     let lastRpc = '';
-
     const endpoints = [...RPC_CANDIDATES, fallbackRpc(cluster)];
 
     const runner = (async () => {
@@ -185,7 +200,6 @@ export async function GET(req: Request) {
           lastErr = e;
           lastRpc = ep;
           if (isRateLimitedOrForbidden(e)) continue;
-          // diğer hatalarda da denemeye devam
         }
       }
       throw new Error(`All RPCs failed. lastRpc=${lastRpc} detail=${String(lastErr ?? '')}`);
@@ -198,15 +212,17 @@ export async function GET(req: Request) {
       const res = NextResponse.json(body);
       res.headers.set('x-cache', force ? 'BYPASS' : 'MISS');
       res.headers.set('x-rpc-used', rpcUsed);
-      res.headers.set('cache-control', CDN_CACHE_HEADER);
+      res.headers.set('Cache-Control', CDN_CACHE_HEADER);
       return res;
     } finally {
       inflight.delete(cacheKey);
     }
   } catch (e: any) {
-    return NextResponse.json(
+    const res = NextResponse.json(
       { success: false, error: e?.message || 'Server error' },
       { status: 500 }
     );
+    res.headers.set('Cache-Control', 'no-store');
+    return res;
   }
 }
