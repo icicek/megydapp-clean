@@ -289,11 +289,14 @@ export function useWalletTokens(options?: Options) {
           const p = (async (): Promise<TokenInfo[]> => {
             // 2) FIRST: SERVER ROUTE
             try {
+              const page =
+                typeof window !== 'undefined' ? window.location.pathname : 'client';
+
               const res = await fetch(`/api/solana/tokens?owner=${owner}`, {
                 cache: 'no-store',
                 headers: {
                   'x-cc-source': 'useWalletTokens',
-                  'x-cc-page': 'HomePage', // ✅ burada sabit başlayalım
+                  'x-cc-page': page,
                 },
               });
     
