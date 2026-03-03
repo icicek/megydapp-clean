@@ -159,9 +159,15 @@ export async function GET(req: Request) {
     const cacheKey = `${cluster}:${ownerPk.toBase58()}`;
     const now = Date.now();
 
+    // ✅ DEBUG: who is calling me?
+    const src = req.headers.get('x-cc-source') || 'unknown';
+    const page = req.headers.get('x-cc-page') || 'unknown';
+    console.log(`[api/solana/tokens] src=${src} page=${page} owner=${owner?.slice(0, 6) ?? 'none'}...`);
+
     // 1) hot cache
     const hot = cache.get(cacheKey);
     if (!force && hot && now - hot.at < CACHE_TTL_MS) {
+      console.log(`[api/solana/tokens] cache=HIT page=${page} src=${src}`);
       const res = NextResponse.json(hot.body);
       res.headers.set('x-cache', 'HIT');
       if (hot.rpcUsed) res.headers.set('x-rpc-used', hot.rpcUsed);
@@ -173,6 +179,7 @@ export async function GET(req: Request) {
     if (!force) {
       const p = inflight.get(cacheKey);
       if (p) {
+        console.log(`[api/solana/tokens] cache=INFLIGHT page=${page} src=${src}`);
         const { body, rpcUsed } = await p;
         const res = NextResponse.json(body);
         res.headers.set('x-cache', 'INFLIGHT');
@@ -209,6 +216,7 @@ export async function GET(req: Request) {
 
     try {
       const { body, rpcUsed } = await runner;
+      console.log(`[api/solana/tokens] cache=${force ? 'BYPASS' : 'MISS'} page=${page} src=${src}`);
       const res = NextResponse.json(body);
       res.headers.set('x-cache', force ? 'BYPASS' : 'MISS');
       res.headers.set('x-rpc-used', rpcUsed);

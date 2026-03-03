@@ -291,7 +291,10 @@ export function useWalletTokens(options?: Options) {
             try {
               const res = await fetch(`/api/solana/tokens?owner=${owner}`, {
                 cache: 'no-store',
-                headers: { 'x-cc-source': 'useWalletTokens' },
+                headers: {
+                  'x-cc-source': 'useWalletTokens',
+                  'x-cc-page': 'HomePage', // ✅ burada sabit başlayalım
+                },
               });
     
               if (res.ok) {
