@@ -165,6 +165,7 @@ export async function GET(req: Request) {
     const page = req.headers.get('x-cc-page') || 'unknown';
     const ua = req.headers.get('user-agent') || 'unknown';
     const ref = req.headers.get('referer') || 'none';
+    const isTrustedClient = src === 'useWalletTokens';
 
     console.log(
       `[api/solana/tokens] enter src=${src} page=${page} tag=${tag} ref=${ref} ua=${ua.slice(0, 80)}`
@@ -179,6 +180,30 @@ export async function GET(req: Request) {
       if (hot.rpcUsed) res.headers.set('x-rpc-used', hot.rpcUsed);
       res.headers.set('Cache-Control', CDN_CACHE_HEADER);
       return res;
+    }
+
+    if (!isTrustedClient && !force) {
+      // Unknown callers should not trigger repeated expensive work.
+      // If we already have an inflight request, join it.
+      const p = inflight.get(cacheKey);
+      if (p) {
+        console.log(`[api/solana/tokens] unknown caller joined inflight`);
+        const { body, rpcUsed } = await p;
+        const res = NextResponse.json(body);
+        res.headers.set('x-cache', 'INFLIGHT-UNKNOWN');
+        res.headers.set('x-rpc-used', rpcUsed);
+        res.headers.set('Cache-Control', CDN_CACHE_HEADER);
+        return res;
+      }
+    }
+
+    // Unknown callers: do not let them hit RPC aggressively.
+    // If no warm cache exists yet, allow current flow for now.
+    // In next step, we can hard-block or rate-limit them.
+    if (!isTrustedClient) {
+      console.log(
+        `[api/solana/tokens] unknown-caller src=${src} page=${page} ref=${ref} ua=${ua.slice(0, 80)}`
+      );
     }
 
     // 2) inflight dedupe
