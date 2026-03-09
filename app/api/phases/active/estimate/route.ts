@@ -1,4 +1,4 @@
-// app/api/phases/active/estimate/route.ts
+//app/api/phases/active/estimate/route.ts
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -10,90 +10,102 @@ function num(v: any, def = 0) {
   return Number.isFinite(n) ? n : def;
 }
 
-const WSOL_MINT = 'So11111111111111111111111111111111111111112';
-const ACTIVE_STATUSES = ['allocated', 'assigned'];
-
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const wallet = (searchParams.get('wallet') || '').trim();
 
     if (!wallet) {
-      return NextResponse.json({ success: false, error: 'MISSING_WALLET' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'MISSING_WALLET' },
+        { status: 400 }
+      );
     }
 
-    // 1) Active phase
+    // 1) Current active phase (authoritative lifecycle source)
     const ph = (await sql/* sql */`
       SELECT
         id,
         phase_no,
         name,
         COALESCE(pool_megy, megy_pool, 0)::numeric AS pool_megy,
-        COALESCE(rate_usd_per_megy, rate, 0)::numeric AS rate_usd_per_megy
+        COALESCE(rate_usd_per_megy, rate, 0)::numeric AS rate_usd_per_megy,
+        COALESCE(
+          target_usd,
+          usd_cap,
+          (COALESCE(pool_megy,0)::numeric * COALESCE(rate_usd_per_megy,0)::numeric),
+          (COALESCE(megy_pool,0)::numeric * COALESCE(rate,0)::numeric),
+          0
+        )::numeric AS target_usd
       FROM phases
-      WHERE LOWER(status) = 'active'
-      ORDER BY opened_at DESC NULLS LAST, id DESC
+      WHERE status = 'active'
+        AND snapshot_taken_at IS NULL
+      ORDER BY phase_no ASC, id ASC
       LIMIT 1
     `) as any[];
 
-    if (!ph?.length) {
-      return NextResponse.json({ success: true, active: null });
+    if (!ph?.[0]) {
+      return NextResponse.json({
+        success: true,
+        active: null,
+        totals: {
+          totalUsd: 0,
+          totalMegy: 0,
+          rows: 0,
+          wallets: 0,
+          fillPct: 0,
+        },
+        me: {
+          userUsd: 0,
+          userMegy: 0,
+          userRows: 0,
+          shareRatio: 0,
+          estimatedMegy: 0,
+        },
+      });
     }
 
     const phaseId = Number(ph[0].id);
     const poolMegy = num(ph[0].pool_megy, 0);
+    const rateUsdPerMegy = num(ph[0].rate_usd_per_megy, 0);
+    const targetUsd = num(ph[0].target_usd, 0);
 
-    // ✅ Which alloc_status values count as "in active phase"?
-    // We accept BOTH the old and the new universe:
-    // - new: allocated, pending, snapshotted
-    // - legacy: assigned
-    // IMPORTANT: exclude 'unassigned' queue rows (phase_id IS NULL anyway)
-
+    // 2) Active phase totals from phase_allocations (economic truth)
     const tot = (await sql/* sql */`
       SELECT
-        COALESCE(SUM(COALESCE(c.usd_value, 0)), 0)::numeric AS total_usd,
+        COALESCE(SUM(COALESCE(pa.usd_allocated, 0)::numeric), 0)::numeric AS total_usd,
+        COALESCE(SUM(COALESCE(pa.megy_allocated, 0)::numeric), 0)::numeric AS total_megy,
         COUNT(*)::int AS rows,
-        COUNT(DISTINCT c.wallet_address)::int AS wallets
-      FROM contributions c
-      LEFT JOIN token_registry tr ON tr.mint = c.token_contract
-      WHERE c.phase_id = ${phaseId}
-        AND COALESCE(c.alloc_status, 'allocated') = ANY(${ACTIVE_STATUSES}::text[])
-        AND COALESCE(c.network,'solana') = 'solana'
-        AND COALESCE(c.usd_value,0)::numeric > 0
-        AND (
-          c.token_contract IS NULL
-          OR c.token_contract = ${WSOL_MINT}
-          OR (tr.mint IS NOT NULL AND tr.status IN ('healthy','walking_dead'))
-        )
+        COUNT(DISTINCT pa.wallet_address)::int AS wallets
+      FROM phase_allocations pa
+      WHERE pa.phase_id = ${phaseId}
     `) as any[];
 
     const totalUsd = num(tot?.[0]?.total_usd, 0);
+    const totalMegy = num(tot?.[0]?.total_megy, 0);
+    const rows = Number(tot?.[0]?.rows ?? 0);
+    const wallets = Number(tot?.[0]?.wallets ?? 0);
 
-    // 3) user's usd in active phase
+    // 3) User totals from phase_allocations
     const me = (await sql/* sql */`
       SELECT
-        COALESCE(SUM(COALESCE(c.usd_value, 0)), 0)::numeric AS user_usd,
+        COALESCE(SUM(COALESCE(pa.usd_allocated, 0)::numeric), 0)::numeric AS user_usd,
+        COALESCE(SUM(COALESCE(pa.megy_allocated, 0)::numeric), 0)::numeric AS user_megy,
         COUNT(*)::int AS user_rows
-      FROM contributions c
-      LEFT JOIN token_registry tr ON tr.mint = c.token_contract
-      WHERE c.phase_id = ${phaseId}
-        AND c.wallet_address = ${wallet}
-        AND COALESCE(c.alloc_status, 'allocated') = ANY(${ACTIVE_STATUSES}::text[])
-        AND COALESCE(c.network,'solana') = 'solana'
-        AND COALESCE(c.usd_value,0)::numeric > 0
-        AND COALESCE(c.alloc_status,'') <> 'invalid'
-        AND (
-          c.token_contract IS NULL
-          OR c.token_contract = ${WSOL_MINT}
-          OR (tr.mint IS NOT NULL AND tr.status IN ('healthy','walking_dead'))
-        )
+      FROM phase_allocations pa
+      WHERE pa.phase_id = ${phaseId}
+        AND pa.wallet_address = ${wallet}
     `) as any[];
 
     const userUsd = num(me?.[0]?.user_usd, 0);
+    const userMegy = num(me?.[0]?.user_megy, 0);
+    const userRows = Number(me?.[0]?.user_rows ?? 0);
 
-    // 4) estimate
-    const shareRatio = totalUsd > 0 ? userUsd / totalUsd : 0;
-    const estimatedMegy = poolMegy > 0 ? poolMegy * shareRatio : 0;
+    // 4) Derived metrics
+    const shareRatio = totalMegy > 0 ? userMegy / totalMegy : 0;
+    const estimatedMegy = userMegy;
+
+    const fillPct = targetUsd > 0 ? Math.max(0, Math.min(1, totalUsd / targetUsd)) : 0;
 
     return NextResponse.json({
       success: true,
@@ -102,16 +114,20 @@ export async function GET(req: NextRequest) {
         phaseNo: Number(ph[0].phase_no),
         name: String(ph[0].name || ''),
         poolMegy,
-        rateUsdPerMegy: num(ph[0].rate_usd_per_megy, 0),
+        rateUsdPerMegy,
+        targetUsd,
       },
       totals: {
         totalUsd,
-        rows: Number(tot?.[0]?.rows ?? 0),
-        wallets: Number(tot?.[0]?.wallets ?? 0),
+        totalMegy,
+        rows,
+        wallets,
+        fillPct,
       },
       me: {
         userUsd,
-        userRows: Number(me?.[0]?.user_rows ?? 0),
+        userMegy,
+        userRows,
         shareRatio,
         estimatedMegy,
       },

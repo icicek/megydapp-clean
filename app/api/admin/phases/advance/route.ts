@@ -6,28 +6,33 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/api/_lib/jwt';
 import { httpErrorFrom } from '@/app/api/_lib/http';
 import { advancePhases } from '@/app/api/_lib/phases/advance';
-import { recomputeFromPhaseId } from '@/app/api/_lib/phases/recompute';
 
-console.log('[advance] start', new Date().toISOString());
+/*
+ADMIN PHASE ADVANCE ROUTE
+
+Purpose:
+- lifecycle orchestration only
+- does NOT rebuild allocations
+- does NOT run recompute automatically
+
+Modern architecture:
+- advance.ts   => phase lifecycle authority
+- allocator.ts => allocation authority
+- recompute.ts => repair/rebuild tool, should be used explicitly when needed
+*/
+
 export async function POST(req: NextRequest) {
   try {
     await requireAdmin(req as any);
 
-    // 1) Advance (reviewing/open planned, move queue)
     const adv = await advancePhases();
 
-    // 2) Recompute from earliest affected point
-    const fromId =
-      (adv.openedPhaseIds?.length ? adv.openedPhaseIds[0] : null) ??
-      (adv.activePhaseId ?? null);
-
-    const recompute = fromId ? await recomputeFromPhaseId(Number(fromId)) : null;
-
-    console.log('[advance] done', { adv, recompute: !!recompute });
     return NextResponse.json({
       success: true,
       phaseAdvance: adv,
-      recompute,
+      recompute: null,
+      message:
+        'Phase lifecycle advanced successfully. Allocation recompute is not triggered automatically in the modern phase architecture.',
     });
   } catch (err: unknown) {
     console.error('[advance] ERROR', err);

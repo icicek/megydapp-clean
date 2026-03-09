@@ -8,7 +8,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import { generateReferralCode } from '@/app/api/utils/generateReferralCode';
 import { advancePhases } from '@/app/api/_lib/phases/advance';
-import { recomputeFromPhaseId } from '@/app/api/_lib/phases/recompute';
 
 import {
   getStatusRow,
@@ -266,7 +265,6 @@ export async function POST(req: NextRequest) {
   await requireAppEnabled();
 
   let adv: Awaited<ReturnType<typeof advancePhases>> | null = null;
-  let recompute: Awaited<ReturnType<typeof recomputeFromPhaseId>> | null = null;
 
   try {
     const idemHeader = req.headers.get('Idempotency-Key') || null;
@@ -818,8 +816,9 @@ export async function POST(req: NextRequest) {
     
     try {
       adv = await advancePhases();
-    
-      // yeni phase açıldıysa mini allocator (debug için ayrı sonuç)
+
+      // If lifecycle advance opened a new phase,
+      // run allocator once more so remaining queue can flow into the new active phase.
       if (adv?.openedPhaseIds?.length) {
         try {
           allocator2 = await allocateQueueFIFO({ maxSteps: 10 });
@@ -828,14 +827,8 @@ export async function POST(req: NextRequest) {
           console.warn('⚠️ allocator2 failed:', allocator2Error, e);
         }
       }
-    
-      const fromId =
-        (adv?.openedPhaseIds?.length ? adv.openedPhaseIds[0] : null) ??
-        (adv?.activePhaseId ?? null);
-    
-      recompute = fromId ? await recomputeFromPhaseId(Number(fromId)) : null;
     } catch (e: any) {
-      console.warn('⚠️ advance/recompute failed:', e?.message || e);
+      console.warn('⚠️ advance failed:', e?.message || e);
     }
 
     // ——— CorePoint: USD + Deadcoin (corepoint_events tablosu) ———
@@ -957,7 +950,7 @@ export async function POST(req: NextRequest) {
       allocator2,
       allocatorError,
       allocator2Error,
-      recompute: recompute ?? null,
+      recompute: null,
       phaseAdvance: adv ?? null,
 
     });    

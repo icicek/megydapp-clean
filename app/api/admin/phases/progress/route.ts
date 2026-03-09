@@ -1,4 +1,3 @@
-// app/api/admin/phases/progress/route.ts
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -7,142 +6,104 @@ import { sql } from '@/app/api/_lib/db';
 import { requireAdmin } from '@/app/api/_lib/jwt';
 import { httpErrorFrom } from '@/app/api/_lib/http';
 
-async function hasColumn(table: string, col: string): Promise<boolean> {
-  const r = (await sql`
-    SELECT 1
-    FROM information_schema.columns
-    WHERE table_name = ${table}
-      AND column_name = ${col}
-    LIMIT 1;
-  `) as any[];
-  return (r?.length ?? 0) > 0;
-}
+const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
 export async function GET(req: NextRequest) {
   try {
     await requireAdmin(req as any);
 
-    // ---- phase_allocations column picking (safe) ----
-    const usdColCandidates = ['usd_sum', 'usd_value', 'usd_amount', 'usd'];
-    let usdCol: string | null = null;
-    for (const c of usdColCandidates) {
-      if (await hasColumn('phase_allocations', c)) {
-        usdCol = c;
-        break;
-      }
-    }
-
-    const walletColCandidates = ['wallet_address', 'wallet', 'address'];
-    let walletCol: string | null = null;
-    for (const c of walletColCandidates) {
-      if (await hasColumn('phase_allocations', c)) {
-        walletCol = c;
-        break;
-      }
-    }
-
-    // ---- Build alloc query in a safe branched way (no dynamic identifiers) ----
-    // If usd column doesn't exist, we still return rows with 0 allocs.
-    // used_* comes from contributions anyway.
-
-    const allocSelect =
-      usdCol === 'usd_sum'
-        ? sql`
-            COALESCE(SUM(a.usd_sum), 0) as alloc_usd_sum
-          `
-        : usdCol === 'usd_value'
-          ? sql`
-            COALESCE(SUM(a.usd_value), 0) as alloc_usd_sum
-          `
-          : usdCol === 'usd_amount'
-            ? sql`
-            COALESCE(SUM(a.usd_amount), 0) as alloc_usd_sum
-          `
-            : usdCol === 'usd'
-              ? sql`
-            COALESCE(SUM(a.usd), 0) as alloc_usd_sum
-          `
-              : sql`
-            0::numeric as alloc_usd_sum
-          `;
-
-    const allocWalletsSelect =
-      walletCol === 'wallet_address'
-        ? sql`COALESCE(COUNT(DISTINCT a.wallet_address), 0) as alloc_wallets`
-        : walletCol === 'wallet'
-          ? sql`COALESCE(COUNT(DISTINCT a.wallet), 0) as alloc_wallets`
-          : walletCol === 'address'
-            ? sql`COALESCE(COUNT(DISTINCT a.address), 0) as alloc_wallets`
-            : sql`0::int as alloc_wallets`;
-
-    const rows = (await sql`
+    const rows = (await sql/* sql */`
+      WITH phase_base AS (
+        SELECT
+          p.id AS phase_id,
+          p.phase_no,
+          p.name,
+          p.status,
+          p.opened_at,
+          p.closed_at,
+          p.snapshot_taken_at,
+          p.finalized_at,
+          COALESCE(
+            p.target_usd,
+            p.usd_cap,
+            (COALESCE(p.pool_megy,0)::numeric * COALESCE(p.rate_usd_per_megy,0)::numeric),
+            (COALESCE(p.megy_pool,0)::numeric * COALESCE(p.rate,0)::numeric),
+            0
+          )::numeric AS target_usd
+        FROM phases p
+      ),
+      alloc_totals AS (
+        SELECT
+          pa.phase_id,
+          COALESCE(SUM(COALESCE(pa.usd_allocated,0)::numeric),0)::numeric AS alloc_usd_sum,
+          COALESCE(SUM(COALESCE(pa.megy_allocated,0)::numeric),0)::numeric AS alloc_megy_sum,
+          COUNT(*)::int AS alloc_rows,
+          COUNT(DISTINCT pa.wallet_address)::int AS alloc_wallets
+        FROM phase_allocations pa
+        GROUP BY pa.phase_id
+      ),
+      queue_totals AS (
+        SELECT
+          COALESCE(SUM(COALESCE(c.usd_value,0)::numeric),0)::numeric AS queue_usd,
+          COUNT(*)::int AS queue_rows,
+          COUNT(DISTINCT c.wallet_address)::int AS queue_wallets
+        FROM contributions c
+        LEFT JOIN token_registry tr ON tr.mint = c.token_contract
+        WHERE c.phase_id IS NULL
+          AND COALESCE(c.alloc_status,'unassigned') IN ('unassigned','partial','pending')
+          AND COALESCE(c.network,'solana') = 'solana'
+          AND COALESCE(c.usd_value,0)::numeric > 0
+          AND (
+            c.token_contract IS NULL
+            OR c.token_contract = ${WSOL_MINT}
+            OR (tr.mint IS NOT NULL AND tr.status IN ('healthy','walking_dead'))
+          )
+      )
       SELECT
-        p.id as phase_id,
+        pb.phase_id,
+        pb.phase_no,
+        pb.name,
+        pb.status,
+        pb.opened_at,
+        pb.closed_at,
+        pb.snapshot_taken_at,
+        pb.finalized_at,
+        pb.target_usd,
 
-        -- snapshot allocations (post-snapshot)
-        ${allocSelect},
-        ${allocWalletsSelect},
+        COALESCE(at.alloc_usd_sum, 0)::numeric AS alloc_usd_sum,
+        COALESCE(at.alloc_megy_sum, 0)::numeric AS alloc_megy_sum,
+        COALESCE(at.alloc_rows, 0)::int AS alloc_rows,
+        COALESCE(at.alloc_wallets, 0)::int AS alloc_wallets,
 
-        -- live window (pre-snapshot assignments)
-        COALESCE((
-          SELECT SUM(COALESCE(c.usd_value, 0))
-          FROM contributions c
-          WHERE c.phase_id = p.id
-            AND COALESCE(c.alloc_status, '') IN ('pending','snapshotted')
-        ), 0) as used_usd,
+        -- modern progress truth
+        COALESCE(at.alloc_usd_sum, 0)::numeric AS used_usd,
+        COALESCE(at.alloc_rows, 0)::int AS used_rows,
+        COALESCE(at.alloc_wallets, 0)::int AS used_wallets,
 
-        COALESCE((
-          SELECT COUNT(*)
-          FROM contributions c
-          WHERE c.phase_id = p.id
-            AND COALESCE(c.alloc_status, '') IN ('pending','snapshotted')
-        ), 0) as used_rows,
+        -- forecast = current allocation truth (same source)
+        COALESCE(at.alloc_usd_sum, 0)::numeric AS used_usd_forecast,
+        COALESCE(at.alloc_rows, 0)::int AS alloc_rows_forecast,
+        COALESCE(at.alloc_wallets, 0)::int AS alloc_wallets_forecast,
 
-        COALESCE((
-          SELECT COUNT(DISTINCT c.wallet_address)
-          FROM contributions c
-          WHERE c.phase_id = p.id
-            AND COALESCE(c.alloc_status, '') IN ('pending','snapshotted')
-        ), 0) as used_wallets,
+        CASE
+          WHEN COALESCE(pb.target_usd,0)::numeric > 0
+          THEN (COALESCE(at.alloc_usd_sum,0)::numeric / COALESCE(pb.target_usd,0)::numeric)
+          ELSE 0
+        END AS fill_pct,
 
-        -- forecast (temporary = used)
-        COALESCE((
-          SELECT SUM(COALESCE(c.usd_value, 0))
-          FROM contributions c
-          WHERE c.phase_id = p.id
-            AND COALESCE(c.alloc_status, '') IN ('pending','snapshotted')
-        ), 0) as used_usd_forecast,
-
-        COALESCE((
-          SELECT COUNT(*)
-          FROM contributions c
-          WHERE c.phase_id = p.id
-            AND COALESCE(c.alloc_status, '') IN ('pending','snapshotted')
-        ), 0) as alloc_rows_forecast,
-
-        COALESCE((
-          SELECT COUNT(DISTINCT c.wallet_address)
-          FROM contributions c
-          WHERE c.phase_id = p.id
-            AND COALESCE(c.alloc_status, '') IN ('pending','snapshotted')
-        ), 0) as alloc_wallets_forecast,
-
-        -- global queue debug
-        COALESCE((
-          SELECT SUM(COALESCE(c2.usd_value, 0))
-          FROM contributions c2
-          WHERE c2.phase_id IS NULL
-            AND COALESCE(c2.alloc_status, 'unassigned') = 'unassigned'
-        ), 0) as queue_usd
-
-      FROM phases p
-      LEFT JOIN phase_allocations a
-        ON a.phase_id = p.id
-      GROUP BY p.id
-      ORDER BY p.id ASC;
+        qt.queue_usd,
+        qt.queue_rows,
+        qt.queue_wallets
+      FROM phase_base pb
+      LEFT JOIN alloc_totals at ON at.phase_id = pb.phase_id
+      CROSS JOIN queue_totals qt
+      ORDER BY pb.phase_no ASC, pb.phase_id ASC
     `) as any[];
 
-    return NextResponse.json({ success: true, rows });
+    return NextResponse.json({
+      success: true,
+      rows: rows ?? [],
+    });
   } catch (err: unknown) {
     const { status, body } = httpErrorFrom(err, 500);
     return NextResponse.json(body, { status });

@@ -225,34 +225,27 @@ async function allocateIntoPhaseSplitFIFO(phaseId: number, remainingPhaseUsd: nu
 
     const cLeft = Math.max(0, usdValue - usdAlloc);
     if (cLeft <= eps) {
-      // ✅ normalize status + alloc_phase_no (last touched phase)
+      // Contribution is already fully allocated.
+      // Keep helper fields aligned with the latest allocation state,
+      // but remember: the real economic truth is phase_allocations.
       await sql/* sql */`
-        UPDATE contributions
+        WITH last_phase AS (
+          SELECT
+            pa.phase_id,
+            p.phase_no
+          FROM phase_allocations pa
+          JOIN phases p ON p.id = pa.phase_id
+          WHERE pa.contribution_id = ${cId}
+          ORDER BY p.phase_no DESC, pa.created_at DESC
+          LIMIT 1
+        )
+        UPDATE contributions c
         SET
           alloc_status = 'allocated',
-          phase_id = COALESCE(
-            (
-              SELECT pa.phase_id
-              FROM phase_allocations pa
-              JOIN phases p ON p.id = pa.phase_id
-              WHERE pa.contribution_id = ${cId}
-              ORDER BY p.phase_no DESC, pa.created_at DESC
-              LIMIT 1
-            ),
-            phase_id
-          ),
-          alloc_phase_no = COALESCE(
-            (
-              SELECT MAX(p.phase_no)
-              FROM phase_allocations pa
-              JOIN phases p ON p.id = pa.phase_id
-              WHERE pa.contribution_id = ${cId}
-            ),
-            alloc_phase_no,
-            ${phaseNo}
-          ),
+          phase_id = COALESCE((SELECT phase_id FROM last_phase), c.phase_id),
+          alloc_phase_no = COALESCE((SELECT phase_no FROM last_phase), c.alloc_phase_no, ${phaseNo}),
           alloc_updated_at = NOW()
-        WHERE id = ${cId}
+        WHERE c.id = ${cId}
       `;
       continue;
     }
@@ -275,15 +268,18 @@ async function allocateIntoPhaseSplitFIFO(phaseId: number, remainingPhaseUsd: nu
     const newStatus = newRemaining <= eps ? 'allocated' : 'partial';
 
     await sql/* sql */`
-      UPDATE contributions
-      SET
-        phase_id = ${phaseId},
-        alloc_status = ${newStatus},
-        alloc_phase_no = GREATEST(COALESCE(alloc_phase_no, 0), ${phaseNo}),
-        alloc_updated_at = NOW()
-      WHERE id = ${cId}
-        AND COALESCE(alloc_status,'unassigned') IN ('unassigned','partial','pending')
-      `;
+    UPDATE contributions
+    SET
+      -- Helper fields only:
+      -- phase_id = latest touched phase in allocation flow
+      -- alloc_phase_no = highest phase_no touched by this contribution
+      phase_id = ${phaseId},
+      alloc_status = ${newStatus},
+      alloc_phase_no = GREATEST(COALESCE(alloc_phase_no, 0), ${phaseNo}),
+      alloc_updated_at = NOW()
+    WHERE id = ${cId}
+      AND COALESCE(alloc_status,'unassigned') IN ('unassigned','partial','pending')
+  `;
 
     if (phaseLeft !== null) phaseLeft -= take;
   }

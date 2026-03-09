@@ -7,6 +7,24 @@ import { sql } from '@/app/api/_lib/db';
 import { requireAdmin } from '@/app/api/_lib/jwt';
 import { httpErrorFrom } from '@/app/api/_lib/http';
 
+/*
+ADMIN ASSIGN-UNASSIGNED ROUTE
+
+LEGACY / MANUAL-RECOVERY ONLY
+
+Old behavior:
+- moved unassigned contributions directly into contributions.phase_id
+
+Modern phase architecture:
+- queue allocation must be handled by allocator.ts
+- economic truth must live in phase_allocations
+- direct phase assignment is no longer authoritative
+
+Therefore:
+- this route is intentionally disabled for automatic assignment
+- kept only for backward compatibility / admin UI stability
+*/
+
 type Ctx = { params: Promise<{ id: string }> };
 
 function toNum(v: unknown, def = 0): number {
@@ -20,85 +38,55 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     const { id } = await ctx.params;
     const phaseId = toNum(id, 0);
+
     if (!phaseId || phaseId <= 0) {
-      return NextResponse.json({ success: false, error: 'BAD_PHASE_ID' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'BAD_PHASE_ID' },
+        { status: 400 }
+      );
     }
 
-    // Capacity-aware: fazın target'ı doluysa taşımayı engelle
     const ph = (await sql/* sql */`
-      SELECT id, phase_no, COALESCE(target_usd, 0)::numeric AS target_usd
+      SELECT
+        id,
+        phase_no,
+        status,
+        snapshot_taken_at,
+        finalized_at,
+        COALESCE(
+          target_usd,
+          usd_cap,
+          (COALESCE(pool_megy,0)::numeric * COALESCE(rate_usd_per_megy,0)::numeric),
+          (COALESCE(megy_pool,0)::numeric * COALESCE(rate,0)::numeric),
+          0
+        )::numeric AS target_usd
       FROM phases
       WHERE id = ${phaseId}
       LIMIT 1
-      FOR UPDATE
     `) as any[];
 
-    if (!ph?.length) {
-      return NextResponse.json({ success: false, error: 'PHASE_NOT_FOUND' }, { status: 404 });
+    const phase = ph?.[0] ?? null;
+
+    if (!phase) {
+      return NextResponse.json(
+        { success: false, error: 'PHASE_NOT_FOUND' },
+        { status: 404 }
+      );
     }
-
-    const phaseNo = Number(ph[0].phase_no);
-    const targetUsd = Number(ph[0].target_usd ?? 0);
-
-    const used = (await sql/* sql */`
-      SELECT COALESCE(SUM(COALESCE(usd_value, 0)), 0)::numeric AS used_usd
-      FROM contributions
-      WHERE phase_id = ${phaseId}
-    `) as any[];
-
-    const usedUsd = Number(used?.[0]?.used_usd ?? 0);
-
-    const remaining = targetUsd > 0 ? Math.max(0, targetUsd - usedUsd) : null;
-    if (remaining !== null && remaining <= 0) {
-      return NextResponse.json({
-        success: true,
-        moved: 0,
-        reason: 'PHASE_FULL',
-        phaseId,
-        phaseNo,
-        targetUsd,
-        usedUsd,
-      });
-    }
-
-    // FIFO queue → bu faza taşı (window running sum ile kapasiteyi aşmadan)
-    const movedRows = (await sql/* sql */`
-      WITH queue AS (
-        SELECT
-          id,
-          COALESCE(usd_value, 0)::numeric AS usd_value,
-          SUM(COALESCE(usd_value, 0)::numeric) OVER (
-            ORDER BY timestamp ASC NULLS LAST, id ASC
-          ) AS run
-        FROM contributions
-        WHERE phase_id IS NULL
-          AND COALESCE(alloc_status, 'unassigned') = 'unassigned'
-          AND network = 'solana'
-      ),
-      pick AS (
-        SELECT id
-        FROM queue
-        WHERE ${remaining === null ? sql`TRUE` : sql`run <= ${remaining}`}
-      )
-      UPDATE contributions c
-      SET
-        phase_id         = ${phaseId},
-        alloc_phase_no   = ${phaseNo},
-        alloc_status     = 'pending',
-        alloc_updated_at = NOW()
-      WHERE c.id IN (SELECT id FROM pick)
-      RETURNING c.id
-    `) as any[];
 
     return NextResponse.json({
       success: true,
-      moved: movedRows?.length ?? 0,
-      reason: 'OK',
-      phaseId,
-      phaseNo,
-      targetUsd,
-      usedUsd,
-      remaining,
+      moved: 0,
+      reason: 'LEGACY_DISABLED_USE_ALLOCATOR',
+      phaseId: Number(phase.id),
+      phaseNo: Number(phase.phase_no ?? 0),
+      status: String(phase.status ?? ''),
+      targetUsd: Number(phase.target_usd ?? 0),
+      snapshotTakenAt: phase.snapshot_taken_at ?? null,
+      finalizedAt: phase.finalized_at ?? null,
+      message:
+        'Direct queue-to-phase assignment is disabled in the modern phase architecture. Queue allocation must be handled by allocator.',
+      legacy: true,
     });
   } catch (err: unknown) {
     const { status, body } = httpErrorFrom(err, 500);

@@ -159,16 +159,18 @@ async function fixMultipleActivesKeepFirst(): Promise<{ changed: boolean; note?:
   if (dropIds.length) {
     await sql/* sql */`
       UPDATE phases
-      SET status = 'reviewing',
-          closed_at = COALESCE(closed_at, NOW()),
-          updated_at = NOW()
+      SET
+        status = 'planned',
+        closed_at = NULL,
+        updated_at = NOW()
       WHERE id = ANY(${dropIds}::bigint[])
+        AND snapshot_taken_at IS NULL
     `;
   }
 
   return {
     changed: true,
-    note: `AUTO_FIXED_MULTIPLE_ACTIVE: kept=${keepId}, demoted=${dropIds.join(',')}`,
+    note: `AUTO_FIXED_MULTIPLE_ACTIVE: kept=${keepId}, demoted_to_planned=${dropIds.join(',')}`,
   };
 }
 
