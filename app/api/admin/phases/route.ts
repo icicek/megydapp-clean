@@ -25,6 +25,8 @@ function asNum(v: any): number | null {
 }
 
 export async function POST(req: NextRequest) {
+  let lockKey: string | null = null;
+
   try {
     await requireAdmin(req as any);
 
@@ -55,18 +57,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Global advisory lock for phase creation / numbering
+    lockKey = (BigInt(942010) * BigInt(1_000_000_000)).toString();
+    await sql`SELECT pg_advisory_lock(${lockKey}::bigint)`;
+
     await sql`BEGIN`;
 
-    // 1) Find current max phase_no
-    const maxRows = (await sql/* sql */`
-      SELECT COALESCE(MAX(phase_no), 0) AS max_no
-      FROM phases
-      FOR UPDATE
-    `) as any[];
-
-    const nextNo = Number(maxRows?.[0]?.max_no ?? 0) + 1;
-
-    // 2) Find previous phase (highest phase_no)
+    // 1) Find previous phase safely (no aggregate FOR UPDATE)
     const prevRows = (await sql/* sql */`
       SELECT
         id,
@@ -81,8 +78,9 @@ export async function POST(req: NextRequest) {
 
     const prev = prevRows?.[0] ?? null;
     const prevRate = prev ? Number(prev.prev_rate ?? 0) : null;
+    const nextNo = prev ? Number(prev.phase_no ?? 0) + 1 : 1;
 
-    // 3) Business rule:
+    // 2) Business rule:
     // new phase cannot be more advantageous than previous phase
     // therefore new rate must be >= previous rate
     if (
@@ -115,7 +113,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 4) Create planned phase
+    // 3) Create planned phase
     const rows = (await sql/* sql */`
       INSERT INTO phases (
         phase_no,
@@ -152,5 +150,11 @@ export async function POST(req: NextRequest) {
 
     const { status, body } = httpErrorFrom(err, 500);
     return NextResponse.json(body, { status });
+  } finally {
+    if (lockKey) {
+      try {
+        await sql`SELECT pg_advisory_unlock(${lockKey}::bigint)`;
+      } catch {}
+    }
   }
 }
