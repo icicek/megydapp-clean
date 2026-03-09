@@ -138,14 +138,60 @@ export async function POST(req: NextRequest, ctx: any) {
       `;
 
       // contributions -> snapshotted
+            // contributions -> helper status sync
+      // IMPORTANT:
+      // Do NOT mark the whole contribution as snapshotted
+      // if it still has unallocated remainder or unsnapshotted future allocations.
       await sql/* sql */`
+        WITH impacted AS (
+          SELECT DISTINCT pa.contribution_id
+          FROM phase_allocations pa
+          WHERE pa.phase_id = ${phaseId}
+        ),
+        alloc_totals AS (
+          SELECT
+            c.id AS contribution_id,
+            COALESCE(c.usd_value,0)::numeric AS usd_value,
+            COALESCE(SUM(COALESCE(pa.usd_allocated,0)::numeric),0)::numeric AS usd_alloc_total
+          FROM contributions c
+          LEFT JOIN phase_allocations pa
+            ON pa.contribution_id = c.id
+          WHERE c.id IN (SELECT contribution_id FROM impacted)
+          GROUP BY c.id, c.usd_value
+        ),
+        last_phase AS (
+          SELECT DISTINCT ON (pa.contribution_id)
+            pa.contribution_id,
+            pa.phase_id,
+            p.phase_no
+          FROM phase_allocations pa
+          JOIN phases p ON p.id = pa.phase_id
+          WHERE pa.contribution_id IN (SELECT contribution_id FROM impacted)
+          ORDER BY pa.contribution_id, p.phase_no DESC, pa.created_at DESC
+        ),
+        unsnapshotted_alloc AS (
+          SELECT DISTINCT pa.contribution_id
+          FROM phase_allocations pa
+          JOIN phases p ON p.id = pa.phase_id
+          WHERE pa.contribution_id IN (SELECT contribution_id FROM impacted)
+            AND p.snapshot_taken_at IS NULL
+        )
         UPDATE contributions c
         SET
-          alloc_status = 'snapshotted',
+          alloc_status = CASE
+            WHEN at.usd_alloc_total + 1e-9 < at.usd_value THEN 'partial'
+            WHEN ua.contribution_id IS NOT NULL THEN 'allocated'
+            ELSE 'snapshotted'
+          END,
+          phase_id = lp.phase_id,
+          alloc_phase_no = lp.phase_no,
           alloc_updated_at = NOW()
-        FROM phase_allocations pa
-        WHERE pa.phase_id = ${phaseId}
-          AND pa.contribution_id = c.id
+        FROM alloc_totals at
+        LEFT JOIN last_phase lp
+          ON lp.contribution_id = at.contribution_id
+        LEFT JOIN unsnapshotted_alloc ua
+          ON ua.contribution_id = at.contribution_id
+        WHERE c.id = at.contribution_id
       `;
 
       await sql`COMMIT`;

@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/app/api/_lib/db';
 import { requireAdmin } from '@/app/api/_lib/jwt';
 import { httpErrorFrom } from '@/app/api/_lib/http';
+import { allocateQueueFIFO } from '@/app/api/_lib/phases/allocator';
 
 /*
 ADMIN PHASE OPEN ROUTE
@@ -14,11 +15,8 @@ Purpose:
 Manually open a planned phase.
 
 IMPORTANT:
-This route ONLY changes phase lifecycle.
-It does NOT allocate contributions.
-
-Allocation is handled by:
-  /_lib/phases/allocator.ts
+This route changes phase lifecycle first,
+then triggers allocator so any queued remainder can flow into the new active phase.
 */
 
 function toId(params: any): number {
@@ -41,7 +39,6 @@ export async function POST(req: NextRequest, ctx: any) {
 
     await sql`BEGIN`;
 
-    // 1️⃣ Check if active phase already exists
     const activeRows = (await sql`
       SELECT id
       FROM phases
@@ -58,7 +55,6 @@ export async function POST(req: NextRequest, ctx: any) {
       );
     }
 
-    // 2️⃣ Check target phase
     const targetRows = (await sql`
       SELECT id, status, phase_no
       FROM phases
@@ -87,7 +83,6 @@ export async function POST(req: NextRequest, ctx: any) {
       );
     }
 
-    // 3️⃣ Ensure this is the next planned phase
     const nextRows = (await sql`
       SELECT id, phase_no
       FROM phases
@@ -120,7 +115,6 @@ export async function POST(req: NextRequest, ctx: any) {
       );
     }
 
-    // 4️⃣ Open phase
     const updated = (await sql`
       UPDATE phases
       SET status='active',
@@ -132,11 +126,23 @@ export async function POST(req: NextRequest, ctx: any) {
 
     await sql`COMMIT`;
 
+    let allocator: any = null;
+    let allocatorError: string | null = null;
+
+    try {
+      allocator = await allocateQueueFIFO({ maxSteps: 20 });
+    } catch (e: any) {
+      allocatorError = String(e?.message || e);
+      console.warn('⚠️ allocator after open failed:', allocatorError, e);
+    }
+
     return NextResponse.json({
       success: true,
       phase: updated?.[0] ?? null,
+      allocator,
+      allocatorError,
       message:
-        'Phase opened successfully. Queue allocation will be handled by allocator.'
+        'Phase opened successfully. Allocator was triggered for queued remainder.'
     });
 
   } catch (err: unknown) {
