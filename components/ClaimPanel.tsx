@@ -223,77 +223,118 @@ export default function ClaimPanel() {
       setActiveEstimate(null);
       return;
     }
-  
-    setEstimateLoading(true);
-  
-    fetch(`/api/phases/active/estimate?wallet=${encodeURIComponent(walletBase58)}`, {
-      cache: 'no-store',
-    })
-      .then(r => r.json())
-      .then(j => {
+
+    let alive = true;
+
+    const fetchEstimate = async () => {
+      try {
+        setEstimateLoading(true);
+
+        const r = await fetch(
+          `/api/phases/active/estimate?wallet=${encodeURIComponent(walletBase58)}`,
+          { cache: 'no-store' }
+        );
+
+        const j = await r.json().catch(() => ({}));
+
+        if (!alive) return;
+
         if (j?.success && j?.active) setActiveEstimate(j);
         else setActiveEstimate(null);
-      })
-      .catch(() => setActiveEstimate(null))
-      .finally(() => setEstimateLoading(false));
+      } catch {
+        if (!alive) return;
+        setActiveEstimate(null);
+      } finally {
+        if (!alive) return;
+        setEstimateLoading(false);
+      }
+    };
+
+    fetchEstimate();
+
+    const onFocus = () => fetchEstimate();
+    window.addEventListener('focus', onFocus);
+
+    const interval = window.setInterval(fetchEstimate, 10000);
+
+    return () => {
+      alive = false;
+      window.removeEventListener('focus', onFocus);
+      window.clearInterval(interval);
+    };
   }, [walletBase58]);
 
   useEffect(() => {
-    (async () => {
+    let alive = true;
+
+    const fetchCurrentPhase = async () => {
       try {
         setPhasesLoading(true);
-  
+
         const r = await fetch('/api/phases/list', { cache: 'no-store' });
         const j = await r.json().catch(() => ({}));
-  
+
+        if (!alive) return;
+
         const list = Array.isArray(j?.phases) ? j.phases : [];
         const activeId = Number(j?.current_active_phase_id ?? 0);
         const activeNo = Number(j?.current_active_phase_no ?? 0);
-  
+
         const norm = (s: any) => String(s ?? '').toLowerCase().trim();
-  
+
         // 1) AUTHORITATIVE: backend tells active phase id
         const byId =
           Number.isFinite(activeId) && activeId > 0
             ? list.find((p: any) => Number(p.phase_id) === activeId || Number(p.id) === activeId)
             : null;
-  
+
         if (byId) {
           setCurrentPhase(byId);
           return;
         }
-  
+
         // 2) Fallback: backend active phase no
         const byNo =
           Number.isFinite(activeNo) && activeNo > 0
             ? list.find((p: any) => Number(p.phase_no) === activeNo)
             : null;
-  
+
         if (byNo) {
           setCurrentPhase(byNo);
           return;
         }
-  
-        // 3) Last resort heuristic
+
+        // 3) Last resort heuristic: ONLY active phase is current
         const active = list.find((p: any) => norm(p.status) === 'active' && !p.snapshot_taken_at);
-        if (active) { setCurrentPhase(active); return; }
-  
-        const reviewing = list.find((p: any) => norm(p.status) === 'reviewing' && !p.snapshot_taken_at);
-        if (reviewing) { setCurrentPhase(reviewing); return; }
-  
-        const opened = list
-          .filter((p: any) => p.opened_at && !p.snapshot_taken_at)
-          .slice()
-          .sort((a: any, b: any) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime())[0];
-  
-        setCurrentPhase(opened ?? null);
+        if (active) {
+          setCurrentPhase(active);
+          return;
+        }
+
+        // No active phase => no current phase
+        setCurrentPhase(null);
       } catch (e) {
+        if (!alive) return;
         console.warn('phases list fetch failed:', e);
         setCurrentPhase(null);
       } finally {
+        if (!alive) return;
         setPhasesLoading(false);
       }
-    })();
+    };
+
+    fetchCurrentPhase();
+
+    const onFocus = () => fetchCurrentPhase();
+    window.addEventListener('focus', onFocus);
+
+    const interval = window.setInterval(fetchCurrentPhase, 10000);
+
+    return () => {
+      alive = false;
+      window.removeEventListener('focus', onFocus);
+      window.clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
@@ -837,15 +878,11 @@ export default function ClaimPanel() {
                   </p>
 
                   <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                    {currentPhase?.finalized_at ? (
-                      <span className="px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-200">
-                        ✅ finalized
-                      </span>
-                    ) : (
+                    {currentPhase ? (
                       <span className="px-2 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300">
-                        live
+                        active
                       </span>
-                    )}
+                    ) : null}
                     {currentPhase?.snapshot_taken_at && (
                       <span className="px-2 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-200">
                         snapshot taken
