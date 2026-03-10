@@ -260,6 +260,76 @@ async function waitForSolanaConfirm(
   return false;
 }
 
+async function settlePhaseFlow(maxRounds = 6) {
+  const rounds: Array<{
+    round: number;
+    allocator: any;
+    allocatorError: string | null;
+    phaseAdvance: any;
+    phaseAdvanceError: string | null;
+  }> = [];
+
+  let lastAllocator: any = null;
+  let lastAllocatorError: string | null = null;
+  let lastAdvance: any = null;
+  let lastAdvanceError: string | null = null;
+
+  for (let round = 1; round <= maxRounds; round++) {
+    let allocatorRes: any = null;
+    let allocatorErr: string | null = null;
+    let advanceRes: any = null;
+    let advanceErr: string | null = null;
+
+    try {
+      allocatorRes = await allocateQueueFIFO({ maxSteps: 20 });
+      lastAllocator = allocatorRes;
+      lastAllocatorError = null;
+    } catch (e: any) {
+      allocatorErr = String(e?.message || e);
+      lastAllocatorError = allocatorErr;
+      console.error(`❌ allocator failed in settlePhaseFlow round ${round}:`, allocatorErr, e);
+    }
+
+    try {
+      advanceRes = await advancePhases();
+      lastAdvance = advanceRes;
+      lastAdvanceError = null;
+    } catch (e: any) {
+      advanceErr = String(e?.message || e);
+      lastAdvanceError = advanceErr;
+      console.warn(`⚠️ advance failed in settlePhaseFlow round ${round}:`, advanceErr, e);
+    }
+
+    rounds.push({
+      round,
+      allocator: allocatorRes,
+      allocatorError: allocatorErr,
+      phaseAdvance: advanceRes,
+      phaseAdvanceError: advanceErr,
+    });
+
+    const movedTotal = Number(allocatorRes?.moved_total ?? 0);
+    const changed = !!advanceRes?.changed;
+    const opened = Array.isArray(advanceRes?.openedPhaseIds) ? advanceRes.openedPhaseIds.length : 0;
+
+    // Stop when the system is stable:
+    // - allocator moved nothing
+    // - lifecycle did not change
+    // - no new phase was opened
+    if (movedTotal <= 0 && !changed && opened <= 0) {
+      break;
+    }
+  }
+
+  return {
+    rounds,
+    allocator: lastAllocator,
+    allocatorError: lastAllocatorError,
+    phaseAdvance: lastAdvance,
+    phaseAdvanceError: lastAdvanceError,
+  };
+}
+
 export async function POST(req: NextRequest) {
   console.log('✅ /api/coincarnation/record called');
   await requireAppEnabled();
