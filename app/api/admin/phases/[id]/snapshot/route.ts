@@ -137,11 +137,10 @@ export async function POST(req: NextRequest, ctx: any) {
         GROUP BY pa.wallet_address
       `;
 
-      // contributions -> snapshotted
-            // contributions -> helper status sync
+      // contributions -> conservative helper status sync
       // IMPORTANT:
-      // Do NOT mark the whole contribution as snapshotted
-      // if it still has unallocated remainder or unsnapshotted future allocations.
+      // Snapshot must NOT aggressively rewrite contribution lifecycle
+      // when the same contribution spans multiple reviewing/future phases.
       await sql/* sql */`
         WITH impacted AS (
           SELECT DISTINCT pa.contribution_id
@@ -179,12 +178,19 @@ export async function POST(req: NextRequest, ctx: any) {
         UPDATE contributions c
         SET
           alloc_status = CASE
-            WHEN at.usd_alloc_total + 1e-9 < at.usd_value THEN 'partial'
-            WHEN ua.contribution_id IS NOT NULL THEN 'allocated'
+            -- still has real remainder -> keep current status (usually partial)
+            WHEN at.usd_alloc_total + 1e-9 < at.usd_value
+              THEN COALESCE(c.alloc_status, 'partial')
+
+            -- fully allocated, but some future allocations are still unsnapshotted
+            WHEN ua.contribution_id IS NOT NULL
+              THEN 'allocated'
+
+            -- everything allocated and all related allocations are snapshotted
             ELSE 'snapshotted'
           END,
-          phase_id = lp.phase_id,
-          alloc_phase_no = lp.phase_no,
+          phase_id = COALESCE(lp.phase_id, c.phase_id),
+          alloc_phase_no = COALESCE(lp.phase_no, c.alloc_phase_no),
           alloc_updated_at = NOW()
         FROM alloc_totals at
         LEFT JOIN last_phase lp
