@@ -20,6 +20,15 @@ function n(v: any, def = 0) {
 
 const EPS = 1e-9;
 
+/**
+ * Lifecycle invariant:
+ * - Only 'active' phases can receive new allocations.
+ * - 'reviewing' and 'completed' phases are closed/immutable from allocation perspective.
+ * - If a reviewing phase later loses usd because of invalidation/blacklist cleanup,
+ *   it must NOT be reopened or backfilled by lifecycle logic.
+ * - Such a phase may snapshot below target.
+ */
+
 // ---- helpers ----
 
 async function findOneActiveForUpdate() {
@@ -110,6 +119,10 @@ async function openNextPlannedAfterForUpdate(activePhaseNo: number) {
 }
 
 async function markReviewing(phaseId: number) {
+  // IMPORTANT:
+  // Transition to 'reviewing' is one-way for allocation flow.
+  // Even if later blacklist/invalidation reduces effective used_usd,
+  // this phase must not be reopened for new allocations.
   await sql/* sql */`
     UPDATE phases
     SET
@@ -203,6 +216,9 @@ export async function advancePhases(): Promise<AdvanceResult> {
     }
 
     // 3) if active is full -> move to reviewing and open next planned (chain)
+    // Note:
+    // reviewing phases are not reopened later, even if blacklist/invalidation
+    // causes their effective allocated usd to drop below target.
     for (let guard = 0; guard < 25; guard++) {
       active = await findOneActiveForUpdate();
       if (!active?.id) break;

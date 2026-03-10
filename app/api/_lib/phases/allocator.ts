@@ -21,6 +21,16 @@ type AllocateResult = {
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
+/**
+ * Allocation invariant:
+ * - Economic truth lives in phase_allocations.
+ * - New allocation is allowed only into phases with status = 'active'.
+ * - Phases in 'reviewing' or 'completed' are immutable allocation targets.
+ * - If a reviewing phase later loses some usd (e.g. due to blacklist invalidation),
+ *   allocator must NOT refill that gap retroactively.
+ * - Such gaps are accepted as final and the reviewing phase may snapshot below target.
+ */
+
 function num(v: unknown, def = 0): number {
   const n = typeof v === 'number' ? v : Number(v);
   return Number.isFinite(n) ? n : def;
@@ -38,6 +48,11 @@ async function releaseAllocatorLock(key: string) {
 }
 
 async function getActivePhaseForUpdate() {
+  // IMPORTANT:
+  // Only 'active' phases can receive new allocations.
+  // Reviewing/completed phases are intentionally excluded.
+  // Even if a reviewing phase later has free capacity (for example after blacklist cleanup),
+  // allocator must not backfill it.
   const rows = (await sql/* sql */`
     SELECT id, phase_no, status, COALESCE(target_usd, 0)::numeric AS target_usd
     FROM phases
@@ -133,6 +148,9 @@ async function hasWork(_activePhaseId: number | null) {
 }
 
 async function maybeMarkReviewing(phaseId: number) {
+  // Once a phase becomes 'reviewing', it is considered closed for allocation.
+  // Later invalidation events (such as blacklist cleanup) may reduce its effective usd,
+  // but allocator must not reopen or refill that phase.
   const rows = (await sql/* sql */`
     SELECT COALESCE(target_usd, 0)::numeric AS target_usd
     FROM phases
@@ -312,6 +330,8 @@ export async function allocateQueueFIFO(opts?: { maxSteps?: number }): Promise<A
 
     let cursorPhaseNo: number | null = null;
 
+    // Allocation loop only moves work forward into active phases.
+    // It never backfills reviewing/completed phases, even if they later show spare capacity.
     for (let step = 0; step < maxSteps; step++) {
       let active = await getActivePhaseForUpdate();
 

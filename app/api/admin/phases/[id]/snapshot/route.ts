@@ -78,20 +78,20 @@ export async function POST(req: NextRequest, ctx: any) {
       const megySum = num(tot?.[0]?.megy_sum, 0);
       const nAlloc = Number(tot?.[0]?.n ?? 0);
 
-      // ✅ Require full if target_usd > 0
+      // Snapshot rule:
+      // A phase must be in 'reviewing' to be snapshotted.
+      // It does NOT need to remain full at snapshot time.
+      // This is intentional because later invalidation / blacklist cleanup
+      // may reduce phase totals after the phase has already entered reviewing.
       const targetUsd = num(ph.target_usd, 0);
-      if (targetUsd > 0 && usdSum + 1e-9 < targetUsd) {
-        await sql`ROLLBACK`;
-        return NextResponse.json(
-          { success: false, error: 'PHASE_NOT_FULL', phaseId, usdSum, targetUsd },
-          { status: 409 }
-        );
-      }
 
+      // Minimum snapshot requirement:
+      // the reviewing phase must still contain real allocation truth.
+      // Underfilled reviewing phases are allowed, but empty ones are not.
       if (nAlloc <= 0 || megySum <= 0) {
         await sql`ROLLBACK`;
         return NextResponse.json(
-          { success: false, error: 'NO_ALLOCATIONS_TO_SNAPSHOT', phaseId, usdSum, megySum, nAlloc },
+          { success: false, error: 'NO_ALLOCATIONS_TO_SNAPSHOT', phaseId, usdSum, megySum, nAlloc, targetUsd },
           { status: 409 }
         );
       }
@@ -145,6 +145,11 @@ export async function POST(req: NextRequest, ctx: any) {
       // - mark THIS phase completed
       // - leave contribution helper fields untouched
       //
+      // Also important:
+      // a reviewing phase may snapshot below target_usd if later
+      // blacklist/invalidation cleanup reduced its allocation totals.
+      // Reviewing phases are immutable for allocation flow and are not backfilled.
+      //
       // Economic truth remains in:
       //   1) phase_allocations
       //   2) claim_snapshots
@@ -154,7 +159,7 @@ export async function POST(req: NextRequest, ctx: any) {
       return withDebugHeaders(
         NextResponse.json({
           success: true,
-          message: '✅ Snapshot complete (claims finalized for this phase).',
+          message: '✅ Snapshot complete (reviewing phase finalized with current allocation truth).',
           phaseId,
           phaseNo,
           snapshot_taken_at: snapshotAt,
