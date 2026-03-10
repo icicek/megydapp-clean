@@ -7,21 +7,85 @@ import { sql } from '@/app/api/_lib/db';
 import { requireAdmin } from '@/app/api/_lib/jwt';
 import { httpErrorFrom } from '@/app/api/_lib/http';
 import { allocateQueueFIFO } from '@/app/api/_lib/phases/allocator';
+import { advancePhases } from '@/app/api/_lib/phases/advance';
 
 /*
 ADMIN PHASE OPEN ROUTE
 
 Purpose:
-Manually open a planned phase.
-
-IMPORTANT:
-This route changes phase lifecycle first,
-then triggers allocator so any queued remainder can flow into the new active phase.
+Manually open a planned phase, then let allocator + lifecycle
+settle queued remainder across multiple phases if needed.
 */
 
 function toId(params: any): number {
   const id = Number(params?.id);
   return Number.isFinite(id) ? id : 0;
+}
+
+async function settlePhaseFlowAfterOpen(maxRounds = 6) {
+  const rounds: Array<{
+    round: number;
+    allocator: any;
+    allocatorError: string | null;
+    phaseAdvance: any;
+    phaseAdvanceError: string | null;
+  }> = [];
+
+  let lastAllocator: any = null;
+  let lastAllocatorError: string | null = null;
+  let lastAdvance: any = null;
+  let lastAdvanceError: string | null = null;
+
+  for (let round = 1; round <= maxRounds; round++) {
+    let allocatorRes: any = null;
+    let allocatorErr: string | null = null;
+    let advanceRes: any = null;
+    let advanceErr: string | null = null;
+
+    try {
+      allocatorRes = await allocateQueueFIFO({ maxSteps: 20 });
+      lastAllocator = allocatorRes;
+      lastAllocatorError = null;
+    } catch (e: any) {
+      allocatorErr = String(e?.message || e);
+      lastAllocatorError = allocatorErr;
+      console.error(`❌ allocator failed after open in round ${round}:`, allocatorErr, e);
+    }
+
+    try {
+      advanceRes = await advancePhases();
+      lastAdvance = advanceRes;
+      lastAdvanceError = null;
+    } catch (e: any) {
+      advanceErr = String(e?.message || e);
+      lastAdvanceError = advanceErr;
+      console.warn(`⚠️ advance failed after open in round ${round}:`, advanceErr, e);
+    }
+
+    rounds.push({
+      round,
+      allocator: allocatorRes,
+      allocatorError: allocatorErr,
+      phaseAdvance: advanceRes,
+      phaseAdvanceError: advanceErr,
+    });
+
+    const movedTotal = Number(allocatorRes?.moved_total ?? 0);
+    const changed = !!advanceRes?.changed;
+    const opened = Array.isArray(advanceRes?.openedPhaseIds) ? advanceRes.openedPhaseIds.length : 0;
+
+    if (movedTotal <= 0 && !changed && opened <= 0) {
+      break;
+    }
+  }
+
+  return {
+    rounds,
+    allocator: lastAllocator,
+    allocatorError: lastAllocatorError,
+    phaseAdvance: lastAdvance,
+    phaseAdvanceError: lastAdvanceError,
+  };
 }
 
 export async function POST(req: NextRequest, ctx: any) {
@@ -128,12 +192,20 @@ export async function POST(req: NextRequest, ctx: any) {
 
     let allocator: any = null;
     let allocatorError: string | null = null;
+    let phaseAdvance: any = null;
+    let phaseAdvanceError: string | null = null;
+    let phaseFlowRounds: any[] = [];
 
     try {
-      allocator = await allocateQueueFIFO({ maxSteps: 20 });
+      const flow = await settlePhaseFlowAfterOpen(6);
+      allocator = flow.allocator;
+      allocatorError = flow.allocatorError;
+      phaseAdvance = flow.phaseAdvance;
+      phaseAdvanceError = flow.phaseAdvanceError;
+      phaseFlowRounds = Array.isArray(flow.rounds) ? flow.rounds : [];
     } catch (e: any) {
       allocatorError = String(e?.message || e);
-      console.warn('⚠️ allocator after open failed:', allocatorError, e);
+      console.warn('⚠️ settlePhaseFlowAfterOpen failed:', allocatorError, e);
     }
 
     return NextResponse.json({
@@ -141,8 +213,11 @@ export async function POST(req: NextRequest, ctx: any) {
       phase: updated?.[0] ?? null,
       allocator,
       allocatorError,
+      phaseAdvance,
+      phaseAdvanceError,
+      phaseFlowRounds,
       message:
-        'Phase opened successfully. Allocator was triggered for queued remainder.'
+        'Phase opened successfully. Allocator and lifecycle settle loop completed.'
     });
 
   } catch (err: unknown) {

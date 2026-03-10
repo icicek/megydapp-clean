@@ -874,31 +874,23 @@ export async function POST(req: NextRequest) {
 
     let allocator: any = null;
     let allocatorError: string | null = null;
-    let allocator2: any = null;                 // ✅ eklendi
-    let allocator2Error: string | null = null;  // ✅ opsiyonel ama iyi
+    let allocator2: any = null;
+    let allocator2Error: string | null = null;
+    let phaseFlowRounds: any[] = [];
 
     try {
-      allocator = await allocateQueueFIFO({ maxSteps: 20 });
-    } catch (e: any) {
-      allocatorError = String(e?.message || e);
-      console.error('❌ allocator failed:', allocatorError, e);
-    }
-    
-    try {
-      adv = await advancePhases();
+      const flow = await settlePhaseFlow(6);
 
-      // If lifecycle advance opened a new phase,
-      // run allocator once more so remaining queue can flow into the new active phase.
-      if (adv?.openedPhaseIds?.length) {
-        try {
-          allocator2 = await allocateQueueFIFO({ maxSteps: 10 });
-        } catch (e: any) {
-          allocator2Error = String(e?.message || e);
-          console.warn('⚠️ allocator2 failed:', allocator2Error, e);
-        }
-      }
+      allocator = flow.allocator;
+      allocatorError = flow.allocatorError;
+
+      adv = flow.phaseAdvance;
+      allocator2 = null;
+      allocator2Error = flow.phaseAdvanceError;
+
+      phaseFlowRounds = Array.isArray(flow.rounds) ? flow.rounds : [];
     } catch (e: any) {
-      console.warn('⚠️ advance failed:', e?.message || e);
+      console.warn('⚠️ settlePhaseFlow failed:', e?.message || e);
     }
 
     // ——— CorePoint: USD + Deadcoin (corepoint_events tablosu) ———
@@ -1020,6 +1012,7 @@ export async function POST(req: NextRequest) {
       allocator2,
       allocatorError,
       allocator2Error,
+      phaseFlowRounds,
       recompute: null,
       phaseAdvance: adv ?? null,
 
