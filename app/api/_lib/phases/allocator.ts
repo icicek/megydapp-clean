@@ -124,7 +124,6 @@ async function hasWork(_activePhaseId: number | null) {
         c.token_contract = ${WSOL_MINT}
         OR COALESCE(tr.status,'healthy') IN ('healthy','walking_dead')
       )
-      AND c.phase_id IS NULL
       AND COALESCE(c.alloc_status,'unassigned') IN ('unassigned','partial','pending')
       AND COALESCE(c.usd_value,0)::numeric > COALESCE(a.usd_alloc,0)::numeric
     LIMIT 1
@@ -201,8 +200,7 @@ async function allocateIntoPhaseSplitFIFO(phaseId: number, remainingPhaseUsd: nu
       FROM contributions c
       LEFT JOIN alloc a ON a.contribution_id = c.id
       LEFT JOIN token_registry tr ON tr.mint = c.token_contract
-      WHERE c.phase_id IS NULL
-        AND COALESCE(c.alloc_status,'unassigned') IN ('unassigned','partial','pending')
+      WHERE COALESCE(c.alloc_status,'unassigned') IN ('unassigned','partial','pending')
         AND COALESCE(c.network,'solana') = 'solana'
         AND COALESCE(c.usd_value,0)::numeric > COALESCE(a.usd_alloc,0)::numeric
         AND COALESCE(c.usd_value,0)::numeric > 0
