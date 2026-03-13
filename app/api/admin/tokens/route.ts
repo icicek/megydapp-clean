@@ -6,6 +6,7 @@ import { setStatus as upsertTokenStatus, getStatus as readTokenStatus } from '@/
 import type { TokenStatus } from '@/app/api/_lib/types';
 import { verifyCsrf } from '@/app/api/_lib/csrf';
 import { httpErrorFrom } from '@/app/api/_lib/http';
+import { applyBlacklistInvalidation } from '@/app/api/_lib/blacklist/applyBlacklistInvalidation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -98,8 +99,24 @@ export async function POST(req: NextRequest) {
       meta
     });
 
+    let invalidation: any = null;
+
+    if ((status as TokenStatus) === 'blacklist') {
+      invalidation = await applyBlacklistInvalidation({
+        mint,
+        changedBy: wallet,
+        reason: reason || 'blacklist by admin',
+      });
+    }
+
     const after = await readTokenStatus(mint);
-    return NextResponse.json({ success: true, mint, status: after.status, statusAt: after.statusAt });
+    return NextResponse.json({
+      success: true,
+      mint,
+      status: after.status,
+      statusAt: after.statusAt,
+      invalidation,
+    });
   } catch (e: any) {
     const { status, body } = httpErrorFrom(e, 500);
     return NextResponse.json(body, { status });
