@@ -85,6 +85,12 @@ export async function POST(req: NextRequest) {
     verifyCsrf(req as any);
     const wallet = await requireAdmin(req as any); // JWT içinden admin
     const body = await req.json();
+    console.log('[admin/tokens] env/db check', {
+      hasNeonUrl: !!process.env.NEON_DATABASE_URL,
+      hasDbUrl: !!process.env.DATABASE_URL,
+      neonHost: process.env.NEON_DATABASE_URL?.split('@')[1]?.split('/')[0] ?? null,
+      dbHost: process.env.DATABASE_URL?.split('@')[1]?.split('/')[0] ?? null,
+    });
     const { mint, status, reason = null, meta = {} } = body || {};
 
     if (!mint || !status || !ALLOWED.includes(status)) {
