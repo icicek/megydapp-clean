@@ -87,6 +87,7 @@ export default function ClaimPanel() {
   const [cpHistory, setCpHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
   const [shareAnchor, setShareAnchor] = useState<string | undefined>(undefined);
+  const [refundingContributionId, setRefundingContributionId] = useState<number | null>(null);
   const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
   const [currentPhase, setCurrentPhase] = useState<any | null>(null);
   const [phasesLoading, setPhasesLoading] = useState<boolean>(true);
@@ -599,6 +600,54 @@ export default function ClaimPanel() {
     } finally {
       setIsClaiming(false);
     }    
+  };
+
+  const handleRequestRefund = async (tx: any) => {
+    if (!publicKey) {
+      setMessage('❌ Please connect your wallet.');
+      return;
+    }
+
+    const contributionId = Number(tx?.contribution_id ?? 0);
+    const mint = String(tx?.token_contract || '').trim();
+
+    if (!Number.isFinite(contributionId) || contributionId <= 0 || !mint) {
+      setMessage('❌ Refund request data is incomplete.');
+      return;
+    }
+
+    try {
+      setRefundingContributionId(contributionId);
+      setMessage(null);
+
+      const r = await fetch('/api/refunds/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wallet_address: publicKey.toBase58(),
+          contribution_id: contributionId,
+          mint,
+        }),
+      });
+
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok || !j?.success) {
+        throw new Error(String(j?.error || `REFUND_REQUEST_FAILED (${r.status})`));
+      }
+
+      setMessage('✅ Refund request recorded. Our team can now review and process it.');
+
+      const refreshed = await fetch(`/api/claim/${publicKey.toBase58()}`, { cache: 'no-store' });
+      const refreshedJson: any = await refreshed.json().catch(() => ({}));
+      if (refreshed.ok && refreshedJson?.success) {
+        setData(refreshedJson.data);
+      }
+    } catch (e: any) {
+      setMessage(`❌ ${userFriendlyError(String(e?.message ?? 'REFUND_REQUEST_FAILED'))}`);
+    } finally {
+      setRefundingContributionId(null);
+    }
   };
 
   const confirmAndPayFeeThenExecute = async () => {
@@ -1394,55 +1443,80 @@ export default function ClaimPanel() {
                         {tx.timestamp ? formatDate(tx.timestamp) : 'N/A'}
                       </td>
                       <td className="px-4 py-2 text-center">
-                      <button
-                        onClick={() => {
-                          const url = buildReferralUrl(data.referral_code ?? '');
+                        <div className="flex flex-col items-center gap-2">
+                          {tx.blacklisted && (
+                            <span className="inline-flex items-center rounded-full border border-fuchsia-500/40 bg-fuchsia-500/10 px-2 py-1 text-[11px] font-medium text-fuchsia-200">
+                              Blacklisted — Refund Available
+                            </span>
+                          )}
 
-                          const payload = buildPayload(
-                            'contribution',
-                            {
-                              url,
-                              token: tx.token_symbol,
-                              amount: tx.token_amount,
-                            },
-                            {
-                              ref: data.referral_code ?? undefined,
-                              src: 'app', // ctx otomatik 'contribution'
-                            },
-                          );
+                          <button
+                            onClick={() => {
+                              const url = buildReferralUrl(data.referral_code ?? '');
 
-                          setSharePayload(payload);
-                          setShareContext('contribution');
+                              const payload = buildPayload(
+                                'contribution',
+                                {
+                                  url,
+                                  token: tx.token_symbol,
+                                  amount: tx.token_amount,
+                                },
+                                {
+                                  ref: data.referral_code ?? undefined,
+                                  src: 'app',
+                                },
+                              );
 
-                          // 🔹 txId'yi MÜMKÜN OLAN TÜM ALANLARDAN türet:
-                          const rawTxId =
-                            (tx.tx_id && String(tx.tx_id)) ||
-                            (tx.txId && String(tx.txId)) ||
-                            (tx.transaction_signature && String(tx.transaction_signature)) ||
-                            (tx.tx_signature && String(tx.tx_signature)) ||
-                            (tx.tx_hash && String(tx.tx_hash)) ||
-                            undefined;
+                              setSharePayload(payload);
+                              setShareContext('contribution');
 
-                          // 🔹 Anchor: her işlem + cüzdan için tekil bir anahtar
-                          const wallet = data.wallet_address || publicKey?.toBase58() || 'unknown';
-                          const anchor =
-                            rawTxId
-                              ? `contribution:${wallet}:${rawTxId}`
-                              : `contribution:${wallet}:idx-${index}`;
+                              const rawTxId =
+                                (tx.tx_id && String(tx.tx_id)) ||
+                                (tx.txId && String(tx.txId)) ||
+                                (tx.transaction_signature && String(tx.transaction_signature)) ||
+                                (tx.tx_signature && String(tx.tx_signature)) ||
+                                (tx.tx_hash && String(tx.tx_hash)) ||
+                                undefined;
 
-                          // ✅ CP kuralı:
-                          //    - Aynı tx için X (twitter) ve Copy (copy) ayrı ayrı 1 kez CP alabilir.
-                          //    - İlk paylaşım CoincarnationResult ekranından yapılmış olsa bile,
-                          //      Contribution History'den Copy share için hala 1 kez CP hakkı vardır.
-                          setShareTxId(rawTxId);
-                          setShareAnchor(anchor);
+                              const wallet = data.wallet_address || publicKey?.toBase58() || 'unknown';
+                              const anchor =
+                                rawTxId
+                                  ? `contribution:${wallet}:${rawTxId}`
+                                  : `contribution:${wallet}:idx-${index}`;
 
-                          setShareOpen(true);
-                        }}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
-                      >
-                        Share
-                      </button>
+                              setShareTxId(rawTxId);
+                              setShareAnchor(anchor);
+                              setShareOpen(true);
+                            }}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
+                          >
+                            Share
+                          </button>
+
+                          {tx.blacklisted && tx.refund_status === 'available' && (
+                            <button
+                              onClick={() => handleRequestRefund(tx)}
+                              disabled={refundingContributionId === Number(tx.contribution_id)}
+                              className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-3 py-1 rounded-md text-xs transition-all disabled:opacity-50"
+                            >
+                              {refundingContributionId === Number(tx.contribution_id)
+                                ? 'Requesting...'
+                                : 'Request Refund'}
+                            </button>
+                          )}
+
+                          {tx.blacklisted && tx.refund_status === 'requested' && (
+                            <span className="text-[11px] text-yellow-300 font-medium">
+                              Refund requested
+                            </span>
+                          )}
+
+                          {tx.blacklisted && tx.refund_status === 'refunded' && (
+                            <span className="text-[11px] text-green-300 font-medium">
+                              Refunded
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1902,6 +1976,9 @@ function userFriendlyError(msg: string) {
   if (m === 'FEE_SIGNATURE_ALREADY_USED') return 'This fee transaction was already used. Please press Claim again.';
   if (m.startsWith('SESSION_START_FAILED')) return 'Could not open claim session. Please retry.';
   if (m.startsWith('CLAIM_EXECUTE_FAILED')) return 'Claim could not be executed. Please retry.';
+  if (m === 'REFUND_NOT_AVAILABLE') return 'Refund is not available for this contribution.';
+  if (m === 'ALREADY_REFUNDED') return 'This contribution was already refunded.';
+  if (m.startsWith('REFUND_REQUEST_FAILED')) return 'Refund request could not be recorded.';
 
   // default
   return m || 'Unexpected error. Please retry.';

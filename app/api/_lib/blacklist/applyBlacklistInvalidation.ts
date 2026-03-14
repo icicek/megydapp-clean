@@ -169,7 +169,7 @@ export async function applyBlacklistInvalidation(
           NOW(),
           NOW()
         )
-        ON CONFLICT (contribution_id, mint, COALESCE(phase_id, 0))
+        ON CONFLICT (contribution_id, mint, phase_id) WHERE phase_id IS NOT NULL
         DO UPDATE SET
           invalidated_usd = EXCLUDED.invalidated_usd,
           invalidated_megy = EXCLUDED.invalidated_megy,
@@ -226,7 +226,7 @@ export async function applyBlacklistInvalidation(
           NOW(),
           NOW()
         )
-        ON CONFLICT (contribution_id, mint, COALESCE(phase_id, 0))
+        ON CONFLICT (contribution_id, mint) WHERE phase_id IS NULL
         DO UPDATE SET
           invalidated_usd = EXCLUDED.invalidated_usd,
           invalidated_megy = EXCLUDED.invalidated_megy,

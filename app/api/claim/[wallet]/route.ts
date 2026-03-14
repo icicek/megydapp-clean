@@ -19,7 +19,7 @@ async function isDeadcoinForMegy(
     const reg = await getStatusRow(mint);
     const status = (reg?.status ?? null) as TokenStatus | null;
     cache.set(mint, status);
-    return status === 'deadcoin' || status === 'redlist' || status === 'blacklist';
+    return status === 'deadcoin';
   } catch (e) {
     console.warn('[claim] getStatusRow failed, treating as non-deadcoin:', (e as any)?.message || e);
     cache.set(mint, null);
@@ -59,6 +59,44 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'No participant data found' }, { status: 404 });
     }
     const participant = participantResult[0] as any;
+    // Blacklist invalidation ledger for this wallet
+    const invalidationRows = (await sql/* sql */`
+      SELECT
+        contribution_id,
+        COALESCE(SUM(invalidated_usd), 0)::float AS invalidated_usd,
+        COALESCE(SUM(invalidated_token_amount), 0)::float AS invalidated_token_amount,
+        BOOL_OR(refund_status = 'requested') AS refund_requested,
+        BOOL_OR(refund_status = 'refunded') AS refunded,
+        MAX(requested_at) AS requested_at,
+        MAX(refunded_at) AS refunded_at
+      FROM contribution_invalidations
+      WHERE wallet_address = ${wallet}
+      GROUP BY contribution_id
+    `) as any[];
+
+    const invalidationMap = new Map<number, {
+      invalidated_usd: number;
+      invalidated_token_amount: number;
+      refund_status: 'available' | 'requested' | 'refunded';
+      requested_at: string | null;
+      refunded_at: string | null;
+    }>();
+
+    for (const row of invalidationRows) {
+      const contributionId = Number(row.contribution_id);
+      if (!Number.isFinite(contributionId) || contributionId <= 0) continue;
+
+      const refunded = !!row.refunded;
+      const requested = !!row.refund_requested;
+
+      invalidationMap.set(contributionId, {
+        invalidated_usd: Number(row.invalidated_usd ?? 0),
+        invalidated_token_amount: Number(row.invalidated_token_amount ?? 0),
+        refund_status: refunded ? 'refunded' : requested ? 'requested' : 'available',
+        requested_at: row.requested_at ? String(row.requested_at) : null,
+        refunded_at: row.refunded_at ? String(row.refunded_at) : null,
+      });
+    }
 
     // 2) Referrals count
     const referralResult = await sql`
@@ -68,7 +106,7 @@ export async function GET(req: NextRequest) {
 
     // Referral USD contributions (exclude deadcoin for MEGY)
     const referralRows = (await sql/* sql */`
-      SELECT token_contract, usd_value
+      SELECT id, token_contract, usd_value
       FROM contributions
       WHERE referrer_wallet = ${wallet};
     `) as any[];
@@ -76,10 +114,14 @@ export async function GET(req: NextRequest) {
     const statusCacheRef = new Map<string, TokenStatus | null>();
     let referral_usd_contributions = 0;
     for (const row of referralRows) {
-      const usd = Number(row.usd_value ?? 0);
+      const contributionId = Number(row.id);
+      const inv = invalidationMap.get(contributionId);
+      const rawUsd = Number(row.usd_value ?? 0);
+      const effectiveUsd = Math.max(rawUsd - Number(inv?.invalidated_usd ?? 0), 0);
+
       const mint = row.token_contract as string | null;
-      const isDead = await isDeadcoinForMegy(mint, usd, statusCacheRef);
-      if (!isDead) referral_usd_contributions += usd;
+      const isDead = await isDeadcoinForMegy(mint, effectiveUsd, statusCacheRef);
+      if (!isDead) referral_usd_contributions += effectiveUsd;
     }
 
     // Referral deadcoin distinct count
@@ -102,7 +144,7 @@ export async function GET(req: NextRequest) {
 
     // Self contributions eligible USD (exclude deadcoin)
     const contribRows = (await sql/* sql */`
-      SELECT token_contract, usd_value
+      SELECT id, token_contract, usd_value
       FROM contributions
       WHERE wallet_address = ${wallet};
     `) as any[];
@@ -110,10 +152,14 @@ export async function GET(req: NextRequest) {
     const statusCacheSelf = new Map<string, TokenStatus | null>();
     let total_usd_contributed = 0;
     for (const row of contribRows) {
-      const usd = Number(row.usd_value ?? 0);
+      const contributionId = Number(row.id);
+      const inv = invalidationMap.get(contributionId);
+      const rawUsd = Number(row.usd_value ?? 0);
+      const effectiveUsd = Math.max(rawUsd - Number(inv?.invalidated_usd ?? 0), 0);
+
       const mint = row.token_contract as string | null;
-      const isDead = await isDeadcoinForMegy(mint, usd, statusCacheSelf);
-      if (!isDead) total_usd_contributed += usd;
+      const isDead = await isDeadcoinForMegy(mint, effectiveUsd, statusCacheSelf);
+      if (!isDead) total_usd_contributed += effectiveUsd;
     }
 
     const totalCoinsResult = await sql/* sql */`
@@ -158,12 +204,16 @@ export async function GET(req: NextRequest) {
     `;
 
     const transactions = (transactionsRaw as any[]).map((row) => {
+      const contributionId = Number(row.id);
+      const inv = invalidationMap.get(contributionId);
+
       const stableTxId =
         (row.transaction_signature && String(row.transaction_signature)) ||
         (row.tx_hash && String(row.tx_hash)) ||
         (row.id != null ? String(row.id) : null);
 
       return {
+        contribution_id: contributionId,
         token_symbol: row.token_symbol,
         token_amount: row.token_amount,
         usd_value: row.usd_value,
@@ -172,6 +222,14 @@ export async function GET(req: NextRequest) {
         transaction_signature: row.transaction_signature,
         tx_hash: row.tx_hash,
         tx_id: stableTxId,
+
+        blacklisted: !!inv,
+        blacklist_label: inv ? 'Blacklisted — Refund Available' : null,
+        refund_status: inv?.refund_status ?? null,
+        invalidated_usd: Number(inv?.invalidated_usd ?? 0),
+        invalidated_token_amount: Number(inv?.invalidated_token_amount ?? 0),
+        requested_at: inv?.requested_at ?? null,
+        refunded_at: inv?.refunded_at ?? null,
       };
     });
 
