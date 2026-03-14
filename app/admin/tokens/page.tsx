@@ -465,6 +465,28 @@ export default function AdminTokensPage() {
       push(`❌ ${msg}`, 'err');
     }
   }
+
+  async function repairHelpersForMint(m: string) {
+    try {
+      setError(null);
+      const res = await api<{ success: true; updated_count: number }>(
+        '/api/admin/contributions/resync-helpers',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mint: m }),
+        }
+      );
+
+      push(`🛠️ Helper fields repaired (${res.updated_count})`, 'ok');
+      await load();
+    } catch (e: any) {
+      const msg = e?.message || 'Repair error';
+      setError(msg);
+      push(`❌ ${msg}`, 'err');
+    }
+  }
+
   async function lookupOneMint(mint: string) {
     try {
       const meta = await fetchTokenMetadata(mint);
@@ -885,6 +907,14 @@ export default function AdminTokensPage() {
                         className="bg-indigo-700 hover:bg-indigo-600 rounded px-2 py-1"
                       >
                         history
+                      </button>
+
+                      <button
+                        onClick={() => repairHelpersForMint(it.mint)}
+                        className="bg-orange-700 hover:bg-orange-600 rounded px-2 py-1"
+                        title="Repair helper fields for this token"
+                      >
+                        repair
                       </button>
 
                       {/* 🔵 NEW: Info (volume breakdown) */}
