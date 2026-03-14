@@ -189,28 +189,38 @@ export async function GET(req: NextRequest) {
 
     // Transactions history
     const transactionsRaw = await sql`
-      SELECT
-        id,
-        token_symbol,
-        token_amount,
-        usd_value,
-        timestamp,
-        transaction_signature,
-        tx_hash,
-        token_contract
-      FROM contributions
-      WHERE wallet_address = ${wallet}
-      ORDER BY timestamp DESC;
-    `;
+    SELECT
+      c.id,
+      c.token_symbol,
+      c.token_amount,
+      c.usd_value,
+      c.timestamp,
+      c.transaction_signature,
+      c.tx_hash,
+      c.token_contract,
+      tr.status AS current_token_status
+    FROM contributions c
+    LEFT JOIN token_registry tr
+      ON tr.mint = c.token_contract
+    WHERE c.wallet_address = ${wallet}
+    ORDER BY c.timestamp DESC;
+  `;
 
     const transactions = (transactionsRaw as any[]).map((row) => {
       const contributionId = Number(row.id);
       const inv = invalidationMap.get(contributionId);
+      const currentTokenStatus = row.current_token_status ? String(row.current_token_status) : null;
 
       const stableTxId =
         (row.transaction_signature && String(row.transaction_signature)) ||
         (row.tx_hash && String(row.tx_hash)) ||
         (row.id != null ? String(row.id) : null);
+
+      const blacklistLabel = !inv
+        ? null
+        : currentTokenStatus === 'blacklist'
+          ? 'Blacklisted — Refund Available'
+          : 'Previously Blacklisted — Refund Available';
 
       return {
         contribution_id: contributionId,
@@ -224,7 +234,8 @@ export async function GET(req: NextRequest) {
         tx_id: stableTxId,
 
         blacklisted: !!inv,
-        blacklist_label: inv ? 'Blacklisted — Refund Available' : null,
+        current_token_status: currentTokenStatus,
+        blacklist_label: blacklistLabel,
         refund_status: inv?.refund_status ?? null,
         invalidated_usd: Number(inv?.invalidated_usd ?? 0),
         invalidated_token_amount: Number(inv?.invalidated_token_amount ?? 0),

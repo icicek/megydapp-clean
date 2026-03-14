@@ -1446,7 +1446,7 @@ export default function ClaimPanel() {
                         <div className="flex flex-col items-center gap-2">
                           {tx.blacklisted && (
                             <span className="inline-flex items-center rounded-full border border-fuchsia-500/40 bg-fuchsia-500/10 px-2 py-1 text-[11px] font-medium text-fuchsia-200">
-                              Blacklisted — Refund Available
+                              {tx.blacklist_label || 'Blacklisted — Refund Available'}
                             </span>
                           )}
 
