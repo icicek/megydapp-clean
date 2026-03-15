@@ -60,7 +60,7 @@ type CpConfig = {
 };
 
 export default function ClaimPanel() {
-  const { publicKey, sendTransaction } = useWallet();
+  const { publicKey, sendTransaction, signMessage } = useWallet();
   const { connection } = useConnection();
 
   const [cpConfig, setCpConfig] = useState<CpConfig | null>(null);
@@ -608,6 +608,11 @@ export default function ClaimPanel() {
       return;
     }
 
+    if (!signMessage) {
+      setMessage('❌ Your wallet does not support message signing.');
+      return;
+    }
+
     const contributionId = Number(tx?.contribution_id ?? 0);
     const mint = String(tx?.token_contract || '').trim();
 
@@ -620,7 +625,8 @@ export default function ClaimPanel() {
       setRefundingContributionId(contributionId);
       setMessage(null);
 
-      const r = await fetch('/api/refunds/request', {
+      // 1) prepare challenge
+      const prepRes = await fetch('/api/refunds/request/prepare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -630,13 +636,36 @@ export default function ClaimPanel() {
         }),
       });
 
+      const prepJson: any = await prepRes.json().catch(() => ({}));
+      if (!prepRes.ok || !prepJson?.success || !prepJson?.message || !prepJson?.nonce) {
+        throw new Error(String(prepJson?.error || `REFUND_PREPARE_FAILED (${prepRes.status})`));
+      }
+
+      // 2) sign challenge
+      const messageBytes = new TextEncoder().encode(String(prepJson.message));
+      const signatureBytes = await signMessage(messageBytes);
+      const signatureBase64 = Buffer.from(signatureBytes).toString('base64');
+
+      // 3) verify + request
+      const r = await fetch('/api/refunds/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wallet_address: publicKey.toBase58(),
+          contribution_id: contributionId,
+          mint,
+          nonce: prepJson.nonce,
+          signature_base64: signatureBase64,
+        }),
+      });
+
       const j = await r.json().catch(() => ({}));
 
       if (!r.ok || !j?.success) {
         throw new Error(String(j?.error || `REFUND_REQUEST_FAILED (${r.status})`));
       }
 
-      setMessage('✅ Refund request recorded. Our team can now review and process it.');
+      setMessage('✅ Refund request signed and recorded successfully.');
 
       const refreshed = await fetch(`/api/claim/${publicKey.toBase58()}`, { cache: 'no-store' });
       const refreshedJson: any = await refreshed.json().catch(() => ({}));
@@ -1979,6 +2008,11 @@ function userFriendlyError(msg: string) {
   if (m === 'REFUND_NOT_AVAILABLE') return 'Refund is not available for this contribution.';
   if (m === 'ALREADY_REFUNDED') return 'This contribution was already refunded.';
   if (m.startsWith('REFUND_REQUEST_FAILED')) return 'Refund request could not be recorded.';
+  if (m === 'REFUND_PREPARE_FAILED') return 'Refund signing challenge could not be prepared.';
+  if (m === 'CHALLENGE_NOT_FOUND') return 'Refund signing challenge was not found. Please try again.';
+  if (m === 'CHALLENGE_ALREADY_USED') return 'This refund signing challenge was already used. Please try again.';
+  if (m === 'CHALLENGE_EXPIRED') return 'Refund signing challenge expired. Please try again.';
+  if (m === 'INVALID_SIGNATURE') return 'Signature verification failed.';
 
   // default
   return m || 'Unexpected error. Please retry.';
