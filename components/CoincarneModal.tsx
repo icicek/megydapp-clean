@@ -96,7 +96,20 @@ type StatusApiDecision = {
 type StatusApiResponse = {
   status: TokenStatusApi | null;
   decision?: StatusApiDecision;
+  registry?: {
+    status?: TokenStatusApi | null;
+  } | null;
+  statusAt?: string | null;
 };
+
+function resolveLatestStatus(data: StatusApiResponse | null | undefined): TokenStatusApi | null {
+  if (!data) return null;
+
+  const registryStatus = data?.registry?.status ?? null;
+  const apiStatus = data?.status ?? null;
+
+  return registryStatus ?? apiStatus ?? null;
+}
 
 /* -------- Local types & consts -------- */
 
@@ -181,6 +194,23 @@ async function simulateTxOrThrow(connection: any, tx: any) {
       console.warn('⚠️ simulateTransaction incompatible (skipped):', e1, e2);
       return;
     }
+  }
+}
+
+async function fetchLatestTokenStatus(mint: string): Promise<StatusApiResponse | null> {
+  try {
+    const url = `/api/status?mint=${encodeURIComponent(mint)}&includeMetrics=1&_ts=${Date.now()}`;
+    const res = await fetch(url, { cache: 'no-store' });
+
+    if (!res.ok) {
+      throw new Error(`status ${res.status}`);
+    }
+
+    const data = (await res.json()) as StatusApiResponse;
+    return data;
+  } catch (e) {
+    console.warn('⚠️ latest token status fetch failed:', e);
+    return null;
   }
 }
 
@@ -294,21 +324,9 @@ export default function CoincarneModal({
     const mint = isSOLToken ? WSOL_MINT : token.mint;
 
     (async () => {
-      try {
-        const res = await fetch(
-          `/api/status?mint=${encodeURIComponent(mint)}`,
-          { cache: 'no-store' }
-        );
-        if (!res.ok) return;
-        const data = (await res.json()) as StatusApiResponse;
-        if (abort) return;
-        setStatusInfo(data);
-      } catch (e) {
-        if (!abort) {
-          console.warn('⚠️ status fetch failed in CoincarneModal:', e);
-          setStatusInfo(null);
-        }
-      }
+      const data = await fetchLatestTokenStatus(mint);
+      if (abort) return;
+      setStatusInfo(data);
     })();
 
     return () => {
@@ -497,36 +515,55 @@ export default function CoincarneModal({
   /* ------------------ SEND TX ------------------ */
   const handleSend = async () => {
     if (!publicKey || !amountInput) return;
-    const amountToSend = Number(String(amountInput).replace(',', '.'));
-    if (isNaN(amountToSend) || amountToSend <= 0) return;
 
-    if (isSOLToken && internalBalance) {
-      const feeReserve = 0.0002; // güvenli tampon
-      if (internalBalance.amount - amountToSend < feeReserve) {
-        throw new Error('LEAVE_SOL_FOR_FEES');
-      }
-    }
-
-    if (!destSol) {
-      alert('❌ Destination address missing. Please set NEXT_PUBLIC_DEST_SOL.');
-      return;
-    }
+    setLoading(true);
 
     try {
-      setLoading(true);
+      const mintForStatus = isSOLToken ? WSOL_MINT : token.mint;
+
+      // Final guard: always re-check latest token status before building/sending tx
+      const latestStatusData = await fetchLatestTokenStatus(mintForStatus);
+      const latestStatus = resolveLatestStatus(latestStatusData);
+
+      // keep parent state fresh as well
+      setStatusInfo(latestStatusData);
+
+      if (latestStatus === 'redlist' || latestStatus === 'blacklist') {
+        alert(
+          latestStatus === 'blacklist'
+            ? '⛔ This token is currently blacklisted. Coincarnation is blocked.'
+            : '⚠️ This token is currently redlisted. Coincarnation is blocked.'
+        );
+        return;
+      }
+
+      const amountToSend = Number(String(amountInput).replace(',', '.'));
+      if (isNaN(amountToSend) || amountToSend <= 0) return;
+
+      if (isSOLToken && internalBalance) {
+        const feeReserve = 0.0002; // safe buffer
+        if (internalBalance.amount - amountToSend < feeReserve) {
+          throw new Error('LEAVE_SOL_FOR_FEES');
+        }
+      }
+
+      if (!destSol) {
+        alert('❌ Destination address missing. Please set NEXT_PUBLIC_DEST_SOL.');
+        return;
+      }
+
       let signature: string;
 
       if (isSOLToken) {
         const lamports = solToLamports(amountInput);
-      
+
         const tx = new Transaction();
-      
-        // SOL için küçük priority yeterli
+
         tx.add(
           ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 2_000 }),
           ComputeBudgetProgram.setComputeUnitLimit({ units: 40_000 })
         );
-      
+
         tx.add(
           SystemProgram.transfer({
             fromPubkey: publicKey,
@@ -534,9 +571,9 @@ export default function CoincarneModal({
             lamports,
           })
         );
-      
+
         tx.feePayer = publicKey;
-      
+
         signature = await sendTransaction(tx, connection, {
           skipPreflight: false,
           preflightCommitment: 'confirmed',
@@ -545,9 +582,10 @@ export default function CoincarneModal({
       } else {
         const mint = new PublicKey(token.mint);
 
-        // 1) Mint hangi programda?
+        // 1) Which token program?
         const mintAcc = await connection.getAccountInfo(mint, 'confirmed');
         if (!mintAcc) throw new Error('mint-not-found');
+
         const is2022 = mintAcc.owner.equals(TOKEN_2022_PROGRAM_ID);
         const program = is2022 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
 
@@ -558,54 +596,62 @@ export default function CoincarneModal({
         const mintInfo = await getMint(connection, mint, 'confirmed', program);
         const decimals = mintInfo.decimals ?? 0;
 
-        // 3) ATA’lar (programa göre!)
+        // 3) ATA addresses
         const fromATA = getAssociatedTokenAddressSync(mint, publicKey, false, program);
-        const toATA   = getAssociatedTokenAddressSync(mint, destSol,   false, program);
-        // 🔹 Kullanıcının ATA’sı var mı?
+        const toATA = getAssociatedTokenAddressSync(mint, destSol, false, program);
+
         const fromAtaInfo = await connection.getAccountInfo(fromATA, 'confirmed');
         if (!fromAtaInfo) {
           throw new Error('SOURCE_ATA_MISSING');
         }
 
-        // 4) İxs
         const ixs: any[] = [];
 
-        // ATA var mı?
         const toAtaInfo = await connection.getAccountInfo(toATA, 'confirmed');
         console.log('🏦 toATA exists?:', !!toAtaInfo);
 
-        // ✅ SOL yeterlilik kontrolü (ATA gerekiyorsa daha yüksek şart)
-        const FEE_BUF_LAMPORTS = 120_000; // ~0.00012 SOL
+        const FEE_BUF_LAMPORTS = 120_000;
         const TOKEN_ACCOUNT_SIZE = 165;
 
-        const rentLamports = await connection.getMinimumBalanceForRentExemption(TOKEN_ACCOUNT_SIZE);
+        const rentLamports =
+          await connection.getMinimumBalanceForRentExemption(TOKEN_ACCOUNT_SIZE);
+
         const needIfAtaMissing = rentLamports + FEE_BUF_LAMPORTS;
         const needIfAtaExists = FEE_BUF_LAMPORTS;
 
         if (!toAtaInfo && solBal < needIfAtaMissing) {
           throw new Error('INSUFFICIENT_SOL_FOR_ATA_RENT');
         }
+
         if (toAtaInfo && solBal < needIfAtaExists) {
           throw new Error('INSUFFICIENT_SOL_FOR_TX_FEES');
         }
 
-        // ATA yoksa oluşturma ix’i ekle
         if (!toAtaInfo) {
           ixs.push(
             createAssociatedTokenAccountIdempotentInstruction(
-              publicKey, toATA, destSol, mint, program
+              publicKey,
+              toATA,
+              destSol,
+              mint,
+              program
             )
           );
         }
 
-        // Transfer ix
         const raw = BigInt(toU64(amountToSend, decimals));
         if (raw <= 0n) throw new Error('AMOUNT_TOO_SMALL');
 
         ixs.push(
           createTransferCheckedInstruction(
-            fromATA, mint, toATA, publicKey,
-            raw, decimals, [], program
+            fromATA,
+            mint,
+            toATA,
+            publicKey,
+            raw,
+            decimals,
+            [],
+            program
           )
         );
 
@@ -618,15 +664,15 @@ export default function CoincarneModal({
 
         tx.add(...ixs);
         tx.feePayer = publicKey;
-        // ✅ preflight + erken hata yakalama
+
         await simulateTxOrThrow(connection as any, tx);
 
-        // sonra gönder
         signature = await sendTransaction(tx, connection, {
           skipPreflight: false,
           preflightCommitment: 'processed',
           maxRetries: 5,
         });
+
         console.log('✅ sent signature:', signature);
         console.log('🔎 explorer:', explorerUrlForSig(signature));
       }
@@ -638,6 +684,13 @@ export default function CoincarneModal({
       await pollSigOrThrow(signature, 35_000);
 
       const referralFromUrl = getReferralFromUrl();
+
+      const finalTokenCategory: TokenCategory =
+        latestStatus === 'deadcoin'
+          ? 'deadcoin'
+          : latestStatus === 'healthy' || latestStatus === 'walking_dead'
+          ? 'healthy'
+          : tokenCategory ?? 'unknown';
 
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
@@ -651,15 +704,12 @@ export default function CoincarneModal({
           usd_value: priceView.usdValue,
           transaction_signature: signature,
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
-          token_category: tokenCategory ?? 'unknown',
-
-          // 🔹 YENİ: referral bilgisi
+          token_category: finalTokenCategory,
           referral_code: referralFromUrl,
-          ref: referralFromUrl, // backend ekstra bakıyorsa diye
+          ref: referralFromUrl,
         }),
       });
 
-      // ❗ HTTP seviyesinde hata ise başarı ekranı açma
       if (!res.ok) {
         const txt = await res.text();
         console.error('❌ record API HTTP error:', txt);
@@ -669,36 +719,35 @@ export default function CoincarneModal({
 
       const json = await res.json().catch(() => null);
 
-      // ❗ API success:false ise yine başarı ekranı açma
       if (!json || !json.success) {
         console.error('❌ record API logical error:', json);
         alert('❌ Coincarnation record failed. Please try again.');
         return;
       }
 
-      // Buraya geldiysek: DB kaydı GARANTİ
       const userNumber: number = json.number ?? 0;
       const referralCode: string | null = json.referral_code ?? null;
 
-      // 🔹 Tek bir “stable” txId üret: ÖNCELİK gerçek blockchain tx hash
       const stableTxId: string = String(
         json.transaction_signature ??
-        json.tx_hash ??
-        json.txId ??
-        json.tx_id ??
-        json.id ??
-        signature
+          json.tx_hash ??
+          json.txId ??
+          json.tx_id ??
+          json.id ??
+          signature
       );
+
+      const finalStatusInfo = latestStatusData ?? statusInfo;
+      const finalResolvedStatus = resolveLatestStatus(finalStatusInfo);
 
       setResultData({
         tokenFrom: displaySymbol,
         number: userNumber,
         referralCode,
         txId: stableTxId,
-        // 🔹 status API’den gelen bilgiyi success ekranına taşı
-        voteEligible: !!statusInfo?.decision?.voteEligible,
-        tokenStatus: statusInfo?.status ?? null,
-      });      
+        voteEligible: !!finalStatusInfo?.decision?.voteEligible,
+        tokenStatus: finalResolvedStatus,
+      });
 
       setConfirmModalOpen(false);
       refetchTokens?.();
@@ -707,12 +756,19 @@ export default function CoincarneModal({
         await fetch('/api/lv/apply', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mint: token.mint, category: tokenCategory }),
+          body: JSON.stringify({
+            mint: token.mint,
+            category: finalTokenCategory,
+          }),
         }).catch((err) => console.warn('⚠️ lv/apply error:', err));
-      } catch {}
+      } catch (err) {
+        console.warn('⚠️ lv/apply outer error:', err);
+      }
     } catch (err: any) {
       console.error('❌ Transaction error full:', err);
       alert(`❌ Transaction failed: ${humanizeTxError(err)}`);
+    } finally {
+      setLoading(false);
     }
   };
 

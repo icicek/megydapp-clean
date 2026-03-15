@@ -77,6 +77,7 @@ export default function ConfirmModal({
   const [listStatus, setListStatus] = useState<ListStatus | null>(null);
   const [statusAt, setStatusAt] = useState<string | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
+  const [statusCheckedOnce, setStatusCheckedOnce] = useState(false);
   const [internalBusy, setInternalBusy] = useState(false);
   const [votesYes, setVotesYes] = useState<number | null>(null);
   const [voteThreshold, setVoteThreshold] = useState<number | null>(null);
@@ -134,33 +135,52 @@ export default function ConfirmModal({
   // 🔎 Token list status & decision
   useEffect(() => {
     let abort = false;
+  
     async function load() {
-      if (!isOpen || !tokenMint) return;
+      if (!isOpen) return;
+  
+      // Modal açıldığında önce eski state temizlensin
+      setStatusCheckedOnce(false);
+      setStatusLoading(Boolean(tokenMint));
+      setListStatus(null);
+      setStatusAt(null);
+      setVotesYes(null);
+      setVoteThreshold(null);
+      setZone(null);
+      setHighLiq(false);
+      setVoteEligible(false);
+      setVoteMessage('');
+  
+      // Mint yoksa status fetch yapamayız; ama block da etmeyelim
+      if (!tokenMint) {
+        setStatusLoading(false);
+        setStatusCheckedOnce(true);
+        return;
+      }
+  
       try {
-        setStatusLoading(true);
-        const res = await fetch(
-          `/api/status?mint=${encodeURIComponent(tokenMint)}&includeMetrics=1`,
-          { cache: 'no-store' }
-        );
+        const url = `/api/status?mint=${encodeURIComponent(
+          tokenMint
+        )}&includeMetrics=1&_ts=${Date.now()}`;
+  
+        const res = await fetch(url, {
+          cache: 'no-store',
+        });
+  
         if (!res.ok) throw new Error(`status ${res.status}`);
+  
         const data = await res.json();
         if (abort) return;
-
-        // 🔹 DB → registry.status öncelikli
+  
         const registryStatus = (data?.registry?.status ?? null) as ListStatus | null;
         const effStatus = (data?.status ?? null) as ListStatus | null;
-
+  
         setListStatus(registryStatus ?? effStatus);
-        setStatusAt(data.statusAt ?? null);
-
-        setVotesYes(
-          typeof data.votesYes === 'number' ? data.votesYes : null
-        );
-        setVoteThreshold(
-          typeof data.threshold === 'number' ? data.threshold : null
-        );
-
-        // 🔹 decision.zone / highLiq / voteEligible
+        setStatusAt(data?.statusAt ?? null);
+  
+        setVotesYes(typeof data?.votesYes === 'number' ? data.votesYes : null);
+        setVoteThreshold(typeof data?.threshold === 'number' ? data.threshold : null);
+  
         setZone(data?.decision?.zone ?? null);
         setHighLiq(Boolean(data?.decision?.highLiq));
         setVoteEligible(Boolean(data?.decision?.voteEligible));
@@ -174,10 +194,15 @@ export default function ConfirmModal({
           setVoteEligible(false);
         }
       } finally {
-        if (!abort) setStatusLoading(false);
+        if (!abort) {
+          setStatusLoading(false);
+          setStatusCheckedOnce(true);
+        }
       }
     }
+  
     load();
+  
     return () => {
       abort = true;
     };
@@ -273,7 +298,12 @@ export default function ConfirmModal({
   }
 
   const confirmBtnDisabled =
-    busy || isHardBlocked || fetchStatus === 'loading' || fetchStatus === 'error';
+    busy ||
+    statusLoading ||
+    !statusCheckedOnce ||
+    isHardBlocked ||
+    fetchStatus === 'loading' ||
+    fetchStatus === 'error';
 
   const effectiveConfirmLabel =
     confirmLabel ??
@@ -373,6 +403,12 @@ export default function ConfirmModal({
         </div>
 
         <div className="space-y-3 text-sm text-white mt-4">
+          {statusLoading && (
+            <div className="bg-blue-700 text-white p-3 rounded font-medium">
+              🔄 Checking latest token status...
+            </div>
+          )}
+          
           {renderListBanner()}
 
           {/* 🔄 Fiyat yükleniyor */}
