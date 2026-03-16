@@ -374,6 +374,12 @@ export default function AdminControlPage() {
             >
               Phases
             </Link>
+            <Link
+              href="/admin/refunds"
+              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
+            >
+              Refunds
+            </Link>
           </div>
         </div>
 
