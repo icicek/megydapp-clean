@@ -16,7 +16,6 @@ import {
   PublicKey,
   Transaction,
   SystemProgram,
-  LAMPORTS_PER_SOL,
 } from '@solana/web3.js';
 
 const TREASURY_PUBKEY = new PublicKey(
@@ -672,7 +671,7 @@ export default function ClaimPanel() {
 
         const messageBytes = new TextEncoder().encode(String(prepJson.message));
         const signatureBytes = await signMessage(messageBytes);
-        const signatureBase64 = Buffer.from(signatureBytes).toString('base64');
+        const signatureBase64 = uint8ToBase64(signatureBytes);
 
         const r = await fetch('/api/refunds/request', {
           method: 'POST',
@@ -722,7 +721,10 @@ export default function ClaimPanel() {
   };
 
   const confirmRefundFeeThenRequest = async () => {
-    if (!pendingRefund || !publicKey || !signMessage) return;
+    if (!pendingRefund || !publicKey || !signMessage || !sendTransaction || !connection) {
+      setMessage('❌ Wallet connection is not ready. Please reconnect and try again.');
+      return;
+    }
 
     try {
       setRefundingContributionId(pendingRefund.contributionId);
@@ -808,7 +810,7 @@ export default function ClaimPanel() {
 
       const messageBytes = new TextEncoder().encode(String(prepJson.message));
       const signatureBytes = await signMessage(messageBytes);
-      const signatureBase64 = Buffer.from(signatureBytes).toString('base64');
+      const signatureBase64 = uint8ToBase64(signatureBytes);
 
       // 5) Submit refund request
       const r = await fetch('/api/refunds/request', {
@@ -2235,6 +2237,18 @@ function ContributionCard({
   );
 }
 
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000;
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return btoa(binary);
+}
+
 function userFriendlyError(msg: string) {
   const m = String(msg || '').trim();
 
@@ -2263,6 +2277,7 @@ function userFriendlyError(msg: string) {
   if (m === 'FEE_TX_WALLET_MISMATCH') return 'Refund fee transaction does not belong to the connected wallet.';
   if (m === 'REFUND_FEE_PAYMENT_NOT_VALID') return 'Refund fee payment could not be verified.';
   if (m.startsWith('REFUND_FEE_CONFIRM_FAILED')) return 'Refund fee payment could not be confirmed.';
+  if (m === 'REFUND_STATUS_NOT_REQUESTABLE') return 'This refund request is no longer in a requestable state.';
 
   // default
   return m || 'Unexpected error. Please retry.';
