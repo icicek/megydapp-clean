@@ -1,4 +1,5 @@
 //app/api/refunds/request/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import nacl from 'tweetnacl';
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest) {
     }
 
     const found = (await sql/* sql */`
-      SELECT id, refund_status
+      SELECT id, refund_status, refund_fee_paid, reason
       FROM contribution_invalidations
       WHERE contribution_id = ${contributionId}
         AND wallet_address = ${wallet}
@@ -116,6 +117,23 @@ export async function POST(req: NextRequest) {
     }
 
     const current = String(row.refund_status || '');
+    const refundFeePaid = Boolean(row.refund_fee_paid);
+    const reason = String(row.reason || '').trim().toLowerCase();
+
+    if (!reason.includes('blacklist')) {
+      return NextResponse.json(
+        { success: false, error: 'REFUND_ONLY_FOR_BLACKLIST' },
+        { status: 409 }
+      );
+    }
+
+    if (!refundFeePaid) {
+      return NextResponse.json(
+        { success: false, error: 'REFUND_FEE_REQUIRED' },
+        { status: 409 }
+      );
+    }
+
     if (current === 'refunded') {
       return NextResponse.json(
         { success: false, error: 'ALREADY_REFUNDED' },
@@ -124,17 +142,24 @@ export async function POST(req: NextRequest) {
     }
 
     if (current !== 'requested') {
-      await sql/* sql */`
-        UPDATE contribution_invalidations
-        SET
-          refund_status = 'requested',
-          requested_at = COALESCE(requested_at, NOW()),
-          updated_at = NOW()
-        WHERE contribution_id = ${contributionId}
-          AND wallet_address = ${wallet}
-          AND mint = ${mint}
-          AND refund_status = 'available'
-      `;
+        if (current !== 'available') {
+          return NextResponse.json(
+            { success: false, error: 'REFUND_STATUS_NOT_REQUESTABLE' },
+            { status: 409 }
+          );
+        }
+      
+        await sql/* sql */`
+          UPDATE contribution_invalidations
+          SET
+            refund_status = 'requested',
+            requested_at = COALESCE(requested_at, NOW()),
+            updated_at = NOW()
+          WHERE contribution_id = ${contributionId}
+            AND wallet_address = ${wallet}
+            AND mint = ${mint}
+            AND refund_status = 'available'
+        `;
     }
 
     await sql/* sql */`

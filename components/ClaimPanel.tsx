@@ -16,6 +16,7 @@ import {
   PublicKey,
   Transaction,
   SystemProgram,
+  LAMPORTS_PER_SOL,
 } from '@solana/web3.js';
 
 const TREASURY_PUBKEY = new PublicKey(
@@ -88,6 +89,15 @@ export default function ClaimPanel() {
   const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
   const [shareAnchor, setShareAnchor] = useState<string | undefined>(undefined);
   const [refundingContributionId, setRefundingContributionId] = useState<number | null>(null);
+  const [refundFeeConfirmOpen, setRefundFeeConfirmOpen] = useState(false);
+  const [pendingRefund, setPendingRefund] = useState<{
+    contributionId: number;
+    mint: string;
+    tokenSymbol?: string;
+    refundFeeLamports: number;
+    refundFeeSol: number;
+    treasuryWallet: string;
+  } | null>(null);
   const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
   const [currentPhase, setCurrentPhase] = useState<any | null>(null);
   const [phasesLoading, setPhasesLoading] = useState<boolean>(true);
@@ -615,6 +625,7 @@ export default function ClaimPanel() {
 
     const contributionId = Number(tx?.contribution_id ?? 0);
     const mint = String(tx?.token_contract || '').trim();
+    const tokenSymbol = String(tx?.token_symbol || '').trim();
 
     if (!Number.isFinite(contributionId) || contributionId <= 0 || !mint) {
       setMessage('❌ Refund request data is incomplete.');
@@ -625,8 +636,8 @@ export default function ClaimPanel() {
       setRefundingContributionId(contributionId);
       setMessage(null);
 
-      // 1) prepare challenge
-      const prepRes = await fetch('/api/refunds/request/prepare', {
+      // 1) Prepare refund fee info
+      const feePrepRes = await fetch('/api/refunds/fee/prepare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -636,24 +647,177 @@ export default function ClaimPanel() {
         }),
       });
 
+      const feePrepJson: any = await feePrepRes.json().catch(() => ({}));
+
+      if (!feePrepRes.ok || !feePrepJson?.success) {
+        throw new Error(String(feePrepJson?.error || `REFUND_FEE_PREPARE_FAILED (${feePrepRes.status})`));
+      }
+
+      // If fee already paid, proceed directly to signature flow
+      if (feePrepJson?.refund_fee_paid === true) {
+        const prepRes = await fetch('/api/refunds/request/prepare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            wallet_address: publicKey.toBase58(),
+            contribution_id: contributionId,
+            mint,
+          }),
+        });
+
+        const prepJson: any = await prepRes.json().catch(() => ({}));
+        if (!prepRes.ok || !prepJson?.success || !prepJson?.message || !prepJson?.nonce) {
+          throw new Error(String(prepJson?.error || `REFUND_PREPARE_FAILED (${prepRes.status})`));
+        }
+
+        const messageBytes = new TextEncoder().encode(String(prepJson.message));
+        const signatureBytes = await signMessage(messageBytes);
+        const signatureBase64 = Buffer.from(signatureBytes).toString('base64');
+
+        const r = await fetch('/api/refunds/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            wallet_address: publicKey.toBase58(),
+            contribution_id: contributionId,
+            mint,
+            nonce: prepJson.nonce,
+            signature_base64: signatureBase64,
+          }),
+        });
+
+        const j = await r.json().catch(() => ({}));
+
+        if (!r.ok || !j?.success) {
+          throw new Error(String(j?.error || `REFUND_REQUEST_FAILED (${r.status})`));
+        }
+
+        setMessage('✅ Refund request signed and recorded successfully.');
+
+        const refreshed = await fetch(`/api/claim/${publicKey.toBase58()}`, { cache: 'no-store' });
+        const refreshedJson: any = await refreshed.json().catch(() => ({}));
+        if (refreshed.ok && refreshedJson?.success) {
+          setData(refreshedJson.data);
+        }
+
+        return;
+      }
+
+      // 2) Open refund fee confirmation modal
+      setPendingRefund({
+        contributionId,
+        mint,
+        tokenSymbol: tokenSymbol || undefined,
+        refundFeeLamports: Number(feePrepJson.refund_fee_lamports ?? 0),
+        refundFeeSol: Number(feePrepJson.refund_fee_sol ?? 0),
+        treasuryWallet: String(feePrepJson.treasury_wallet || ''),
+      });
+
+      setRefundFeeConfirmOpen(true);
+    } catch (e: any) {
+      setMessage(`❌ ${userFriendlyError(String(e?.message ?? 'REFUND_REQUEST_FAILED'))}`);
+    } finally {
+      setRefundingContributionId(null);
+    }
+  };
+
+  const confirmRefundFeeThenRequest = async () => {
+    if (!pendingRefund || !publicKey || !signMessage) return;
+
+    try {
+      setRefundingContributionId(pendingRefund.contributionId);
+      setMessage(null);
+
+      const treasuryPubkey = new PublicKey(pendingRefund.treasuryWallet);
+
+      setMessage(
+        `💸 Paying refund processing fee (~${pendingRefund.refundFeeSol.toFixed(6)} SOL)... Please confirm in your wallet.`
+      );
+
+      // 1) Pay refund fee
+      const feeTx = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: treasuryPubkey,
+          lamports: pendingRefund.refundFeeLamports,
+        })
+      );
+
+      feeTx.feePayer = publicKey;
+
+      const latest = await connection.getLatestBlockhash('confirmed');
+      feeTx.recentBlockhash = latest.blockhash;
+
+      const feeSig = String(
+        await sendTransaction(feeTx, connection, {
+          skipPreflight: false,
+          preflightCommitment: 'confirmed',
+          maxRetries: 3,
+        } as any)
+      );
+
+      setMessage('⏳ Confirming refund fee payment on-chain...');
+
+      await connection.confirmTransaction(
+        {
+          signature: feeSig,
+          blockhash: latest.blockhash,
+          lastValidBlockHeight: latest.lastValidBlockHeight,
+        },
+        'confirmed'
+      );
+
+      // 2) Confirm fee with backend
+      const feeConfirmRes = await fetch('/api/refunds/fee/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wallet_address: publicKey.toBase58(),
+          contribution_id: pendingRefund.contributionId,
+          mint: pendingRefund.mint,
+          fee_tx_signature: feeSig,
+        }),
+      });
+
+      const feeConfirmJson: any = await feeConfirmRes.json().catch(() => ({}));
+
+      if (!feeConfirmRes.ok || !feeConfirmJson?.success) {
+        throw new Error(
+          String(feeConfirmJson?.error || `REFUND_FEE_CONFIRM_FAILED (${feeConfirmRes.status})`)
+        );
+      }
+
+      // 3) Prepare refund request challenge
+      const prepRes = await fetch('/api/refunds/request/prepare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wallet_address: publicKey.toBase58(),
+          contribution_id: pendingRefund.contributionId,
+          mint: pendingRefund.mint,
+        }),
+      });
+
       const prepJson: any = await prepRes.json().catch(() => ({}));
       if (!prepRes.ok || !prepJson?.success || !prepJson?.message || !prepJson?.nonce) {
         throw new Error(String(prepJson?.error || `REFUND_PREPARE_FAILED (${prepRes.status})`));
       }
 
-      // 2) sign challenge
+      // 4) Sign challenge
+      setMessage('✍️ Please sign the refund request message in your wallet.');
+
       const messageBytes = new TextEncoder().encode(String(prepJson.message));
       const signatureBytes = await signMessage(messageBytes);
       const signatureBase64 = Buffer.from(signatureBytes).toString('base64');
 
-      // 3) verify + request
+      // 5) Submit refund request
       const r = await fetch('/api/refunds/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           wallet_address: publicKey.toBase58(),
-          contribution_id: contributionId,
-          mint,
+          contribution_id: pendingRefund.contributionId,
+          mint: pendingRefund.mint,
           nonce: prepJson.nonce,
           signature_base64: signatureBase64,
         }),
@@ -666,6 +830,8 @@ export default function ClaimPanel() {
       }
 
       setMessage('✅ Refund request signed and recorded successfully.');
+      setRefundFeeConfirmOpen(false);
+      setPendingRefund(null);
 
       const refreshed = await fetch(`/api/claim/${publicKey.toBase58()}`, { cache: 'no-store' });
       const refreshedJson: any = await refreshed.json().catch(() => ({}));
@@ -1529,7 +1695,7 @@ export default function ClaimPanel() {
                               className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-3 py-1 rounded-md text-xs transition-all disabled:opacity-50"
                             >
                               {refundingContributionId === Number(tx.contribution_id)
-                                ? 'Requesting...'
+                                ? 'Processing...'
                                 : 'Request Refund'}
                             </button>
                           )}
@@ -1904,6 +2070,81 @@ export default function ClaimPanel() {
           </div>
         </div>
       )}
+
+      {/* ✅ Refund Fee Confirm Modal */}
+      {refundFeeConfirmOpen && pendingRefund && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/70"
+            onClick={() => {
+              if (refundingContributionId != null) return;
+              setRefundFeeConfirmOpen(false);
+              setPendingRefund(null);
+            }}
+          />
+          <div className="relative w-full max-w-lg bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl p-5">
+            <h4 className="text-white font-extrabold text-xl text-center">
+              Confirm Refund Request Fee
+            </h4>
+
+            <p className="text-gray-300 text-sm mt-3 text-center leading-relaxed">
+              Refund requests for blacklisted contributions require a small processing fee of{' '}
+              <span className="text-fuchsia-300 font-semibold">
+                ~{pendingRefund.refundFeeSol.toFixed(6)} SOL
+              </span>.
+            </p>
+
+            <div className="mt-4 bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-sm text-gray-300 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-gray-400">Asset</span>
+                <span className="font-semibold text-white">
+                  {pendingRefund.tokenSymbol || 'Token'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-gray-400">Contribution ID</span>
+                <span className="font-mono text-xs text-white">
+                  {pendingRefund.contributionId}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-gray-400">Fee</span>
+                <span className="font-semibold text-white">
+                  ~{pendingRefund.refundFeeSol.toFixed(6)} SOL
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-400 italic text-center mt-3">
+              This fee covers the network and processing cost of the refund flow.
+            </p>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                disabled={refundingContributionId != null}
+                onClick={() => {
+                  if (refundingContributionId != null) return;
+                  setRefundFeeConfirmOpen(false);
+                  setPendingRefund(null);
+                }}
+                className="bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 text-white font-semibold py-3 rounded-xl disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                disabled={refundingContributionId != null}
+                onClick={confirmRefundFeeThenRequest}
+                className="bg-gradient-to-r from-fuchsia-600 to-pink-500 hover:scale-[1.02] transition-all text-white font-extrabold py-3 rounded-xl disabled:opacity-50"
+              >
+                {refundingContributionId != null ? 'Paying…' : 'Continue'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2013,6 +2254,15 @@ function userFriendlyError(msg: string) {
   if (m === 'CHALLENGE_ALREADY_USED') return 'This refund signing challenge was already used. Please try again.';
   if (m === 'CHALLENGE_EXPIRED') return 'Refund signing challenge expired. Please try again.';
   if (m === 'INVALID_SIGNATURE') return 'Signature verification failed.';
+  if (m === 'REFUND_ONLY_FOR_BLACKLIST') return 'Refund requests are only available for blacklist-based invalidations.';
+  if (m === 'REFUND_FEE_REQUIRED') return 'Refund fee must be paid before submitting the request.';
+  if (m === 'REFUND_FEE_PREPARE_FAILED') return 'Refund fee information could not be prepared.';
+  if (m.startsWith('REFUND_FEE_PREPARE_FAILED')) return 'Refund fee information could not be prepared.';
+  if (m === 'TREASURY_WALLET_MISSING') return 'Refund treasury wallet is not configured.';
+  if (m === 'FEE_TX_NOT_FOUND') return 'Refund fee transaction could not be found yet. Please try again.';
+  if (m === 'FEE_TX_WALLET_MISMATCH') return 'Refund fee transaction does not belong to the connected wallet.';
+  if (m === 'REFUND_FEE_PAYMENT_NOT_VALID') return 'Refund fee payment could not be verified.';
+  if (m.startsWith('REFUND_FEE_CONFIRM_FAILED')) return 'Refund fee payment could not be confirmed.';
 
   // default
   return m || 'Unexpected error. Please retry.';
