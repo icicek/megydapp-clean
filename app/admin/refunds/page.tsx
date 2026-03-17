@@ -5,11 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import {
-  PublicKey,
-  SystemProgram,
-  Transaction,
-} from '@solana/web3.js';
+import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import {
   TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
@@ -58,7 +54,7 @@ type ExecutePrepareResponse = {
 const CARD =
   'rounded-2xl border border-white/10 bg-[#0b0f18] p-5 shadow-sm hover:shadow transition-shadow';
 
-function shorten(v: any) {
+function shorten(v: unknown) {
   const s = String(v ?? '').trim();
   if (!s) return '-';
   if (s.length <= 14) return s;
@@ -72,7 +68,7 @@ function formatDate(v: string | null | undefined) {
   return d.toLocaleString();
 }
 
-function formatLamports(v: any) {
+function formatLamports(v: unknown) {
   const n = Number(v ?? 0);
   if (!Number.isFinite(n) || n <= 0) return '-';
   return `${(n / 1e9).toFixed(6)} SOL`;
@@ -126,12 +122,16 @@ function uiToLamports(ui: string | number): number {
   const frac = (f + '0'.repeat(9)).slice(0, 9);
   const joined = (i + frac).replace(/^0+/, '') || '0';
   const n = Number(joined);
-  if (!Number.isSafeInteger(n) || n <= 0) throw new Error('INVALID_LAMPORTS');
+
+  if (!Number.isSafeInteger(n) || n <= 0) {
+    throw new Error('INVALID_LAMPORTS');
+  }
+
   return n;
 }
 
 export default function AdminRefundsPage() {
-  const { publicKey, sendTransaction } = useWallet();
+  const { publicKey, sendTransaction, connected } = useWallet();
   const { connection } = useConnection();
 
   const [rows, setRows] = useState<RefundRow[]>([]);
@@ -143,7 +143,6 @@ export default function AdminRefundsPage() {
   async function load() {
     try {
       setLoading(true);
-      setMsg(null);
 
       const r = await fetch('/api/admin/refunds/list', {
         credentials: 'include',
@@ -158,8 +157,8 @@ export default function AdminRefundsPage() {
 
       setRows(Array.isArray(j.refunds) ? j.refunds : []);
     } catch (e: any) {
-      setMsg(`❌ ${e?.message || 'Failed to load refunds'}`);
       setRows([]);
+      setMsg(`❌ ${humanizeRefundAdminError(String(e?.message || 'FAILED_TO_LOAD_REFUNDS'))}`);
     } finally {
       setLoading(false);
     }
@@ -181,23 +180,25 @@ export default function AdminRefundsPage() {
       available: 0,
       refunded: 0,
     };
+
     for (const r of rows) {
       const s = String(r.refund_status ?? '').toLowerCase();
       if (s === 'requested') out.requested++;
       else if (s === 'available') out.available++;
       else if (s === 'refunded') out.refunded++;
     }
+
     return out;
   }, [rows]);
 
   async function handleExecuteRefund(row: RefundRow) {
-    if (!publicKey || !sendTransaction || !connection) {
+    if (!connected || !publicKey || !sendTransaction || !connection) {
       setMsg('❌ Wallet connection is not ready.');
       return;
     }
 
     try {
-      setExecutingId(row.contribution_id);
+      setExecutingId(row.id);
       setMsg(null);
 
       const prepRes = await fetch('/api/admin/refunds/execute', {
@@ -227,6 +228,13 @@ export default function AdminRefundsPage() {
         throw new Error('TREASURY_WALLET_REQUIRED');
       }
 
+      let destinationWallet: PublicKey;
+      try {
+        destinationWallet = new PublicKey(refund.wallet_address);
+      } catch {
+        throw new Error('INVALID_DESTINATION_WALLET');
+      }
+
       let signature: string;
 
       if (refund.mint === 'SOL') {
@@ -235,7 +243,7 @@ export default function AdminRefundsPage() {
         const tx = new Transaction().add(
           SystemProgram.transfer({
             fromPubkey: publicKey,
-            toPubkey: new PublicKey(refund.wallet_address),
+            toPubkey: destinationWallet,
             lamports,
           })
         );
@@ -248,7 +256,12 @@ export default function AdminRefundsPage() {
           maxRetries: 3,
         });
       } else {
-        const mintPk = new PublicKey(refund.mint);
+        let mintPk: PublicKey;
+        try {
+          mintPk = new PublicKey(refund.mint);
+        } catch {
+          throw new Error('INVALID_MINT_ADDRESS');
+        }
 
         const mintAcc = await connection.getAccountInfo(mintPk, 'confirmed');
         if (!mintAcc) throw new Error('MINT_NOT_FOUND');
@@ -259,25 +272,25 @@ export default function AdminRefundsPage() {
         const mintInfo = await getMint(connection, mintPk, 'confirmed', program);
         const decimals = mintInfo.decimals ?? 0;
 
-        const fromATA = getAssociatedTokenAddressSync(
+        const fromAta = getAssociatedTokenAddressSync(
           mintPk,
           publicKey,
           false,
           program
         );
 
-        const toOwner = new PublicKey(refund.wallet_address);
-        const toATA = getAssociatedTokenAddressSync(
+        const toAta = getAssociatedTokenAddressSync(
           mintPk,
-          toOwner,
+          destinationWallet,
           false,
           program
         );
 
-        const fromAtaInfo = await connection.getAccountInfo(fromATA, 'confirmed');
+        const fromAtaInfo = await connection.getAccountInfo(fromAta, 'confirmed');
         if (!fromAtaInfo) throw new Error('TREASURY_TOKEN_ACCOUNT_MISSING');
 
-        const toAtaInfo = await connection.getAccountInfo(toATA, 'confirmed');
+        const toAtaInfo = await connection.getAccountInfo(toAta, 'confirmed');
+
         const raw = toRawAmount(refund.invalidated_token_amount ?? 0, decimals);
         if (raw <= 0n) throw new Error('INVALID_REFUND_AMOUNT');
 
@@ -287,8 +300,8 @@ export default function AdminRefundsPage() {
           tx.add(
             createAssociatedTokenAccountIdempotentInstruction(
               publicKey,
-              toATA,
-              toOwner,
+              toAta,
+              destinationWallet,
               mintPk,
               program
             )
@@ -297,9 +310,9 @@ export default function AdminRefundsPage() {
 
         tx.add(
           createTransferCheckedInstruction(
-            fromATA,
+            fromAta,
             mintPk,
-            toATA,
+            toAta,
             publicKey,
             raw,
             decimals,
@@ -317,15 +330,10 @@ export default function AdminRefundsPage() {
         });
       }
 
-      const latest = await connection.getLatestBlockhash('confirmed');
-      await connection.confirmTransaction(
-        {
-          signature,
-          blockhash: latest.blockhash,
-          lastValidBlockHeight: latest.lastValidBlockHeight,
-        },
-        'confirmed'
-      );
+      const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+      if (confirmation?.value?.err) {
+        throw new Error('REFUND_TX_FAILED');
+      }
 
       const finalizeRes = await fetch('/api/admin/refunds/finalize', {
         method: 'POST',
@@ -338,7 +346,7 @@ export default function AdminRefundsPage() {
         }),
       });
 
-      const finalizeJson: any = await finalizeRes.json().catch(() => ({}));
+      const finalizeJson = await finalizeRes.json().catch(() => ({} as any));
 
       if (!finalizeRes.ok || !finalizeJson?.success) {
         throw new Error(finalizeJson?.error || `REFUND_FINALIZE_FAILED (${finalizeRes.status})`);
@@ -380,8 +388,9 @@ export default function AdminRefundsPage() {
             <button
               onClick={load}
               className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm"
+              disabled={loading}
             >
-              Refresh
+              {loading ? 'Loading…' : 'Refresh'}
             </button>
           </div>
         </div>
@@ -452,9 +461,14 @@ export default function AdminRefundsPage() {
                 </thead>
                 <tbody>
                   {filtered.map((row) => {
+                    const reason = String(row.reason ?? '').toLowerCase();
+                    const network = String(row.network ?? '').toLowerCase();
+
                     const canExecute =
                       String(row.refund_status ?? '').toLowerCase() === 'requested' &&
-                      Boolean(row.refund_fee_paid);
+                      Boolean(row.refund_fee_paid) &&
+                      network === 'solana' &&
+                      reason.includes('blacklist');
 
                     return (
                       <tr key={row.id} className="border-t border-white/10 hover:bg-white/[0.03] align-top">
@@ -517,10 +531,10 @@ export default function AdminRefundsPage() {
                           {canExecute ? (
                             <button
                               onClick={() => handleExecuteRefund(row)}
-                              disabled={executingId === row.contribution_id}
+                              disabled={executingId === row.id}
                               className="px-3 py-2 rounded-lg bg-fuchsia-700 hover:bg-fuchsia-600 text-white text-xs disabled:opacity-50"
                             >
-                              {executingId === row.contribution_id ? 'Executing...' : 'Execute Refund'}
+                              {executingId === row.id ? 'Executing...' : 'Execute Refund'}
                             </button>
                           ) : (
                             <span className="text-[11px] text-white/40">—</span>
@@ -547,17 +561,30 @@ function humanizeRefundAdminError(msg: string) {
   if (m === 'REFUND_ONLY_FOR_BLACKLIST') return 'Only blacklist-based invalidations can be refunded.';
   if (m === 'REFUND_NOT_REQUESTED') return 'This refund is not in requested state.';
   if (m === 'REFUND_FEE_NOT_PAID') return 'Refund fee has not been paid by the user.';
-  if (m === 'TREASURY_WALLET_MISSING') return 'Treasury wallet is not configured.';
-  if (m === 'TREASURY_WALLET_REQUIRED') return 'Please connect the treasury wallet to execute this refund.';
+  if (m === 'TREASURY_WALLET_MISSING') return 'Refund treasury wallet is not configured.';
+  if (m === 'TREASURY_WALLET_REQUIRED') return 'Please connect the refund treasury wallet to execute this refund.';
   if (m === 'UNSUPPORTED_REFUND_NETWORK') return 'This refund network is not supported yet.';
   if (m === 'MINT_NOT_FOUND') return 'Token mint could not be found on this network.';
-  if (m === 'TREASURY_TOKEN_ACCOUNT_MISSING') return 'Treasury token account does not exist for this asset.';
+  if (m === 'TREASURY_TOKEN_ACCOUNT_MISSING') return 'Refund treasury token account does not exist for this asset.';
   if (m === 'INVALID_REFUND_AMOUNT') return 'Refund amount is invalid.';
+  if (m === 'INVALID_LAMPORTS') return 'Refund SOL amount is invalid.';
+  if (m === 'INVALID_DESTINATION_WALLET') return 'Destination wallet address is invalid.';
+  if (m === 'INVALID_MINT_ADDRESS') return 'Token mint address is invalid.';
   if (m === 'REFUND_TX_NOT_FOUND') return 'Refund transaction could not be found yet.';
-  if (m === 'REFUND_TX_EXECUTOR_MISMATCH') return 'Refund transaction signer does not match the connected treasury wallet.';
+  if (m === 'REFUND_TX_EXECUTOR_MISMATCH') return 'Refund transaction signer does not match the connected refund treasury wallet.';
+  if (m === 'REFUND_TX_TREASURY_MISMATCH') return 'Refund transaction source does not match the configured refund treasury wallet.';
   if (m === 'REFUND_TX_NOT_VALID') return 'Refund transaction could not be verified.';
+  if (m === 'REFUND_TX_FAILED') return 'Refund transaction failed on-chain.';
   if (m === 'ALREADY_REFUNDED') return 'This contribution has already been refunded.';
+  if (m === 'REFUND_FINALIZE_RACE_LOST') return 'This refund was already finalized by another process.';
+  if (m === 'FAILED_TO_LOAD_REFUNDS') return 'Refund records could not be loaded.';
   if (m.startsWith('EXECUTE_PREPARE_FAILED')) return 'Refund execution could not be prepared.';
   if (m.startsWith('REFUND_FINALIZE_FAILED')) return 'Refund could not be finalized.';
+  if (m.includes('User rejected') || m.includes('rejected the request')) {
+    return 'Transaction was cancelled in the wallet.';
+  }
+  if (m.includes('Network request failed')) {
+    return 'Network request failed. Please try again.';
+  }
   return m || 'Unexpected error.';
 }

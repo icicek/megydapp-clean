@@ -1,15 +1,18 @@
 //app/api/admin/refunds/list/route.ts
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { requireAdmin, HttpError } from '@/app/api/_lib/jwt';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    await requireAdmin(req);
+
     const rows = (await sql/* sql */`
       SELECT
         ci.id,
@@ -43,15 +46,24 @@ export async function GET() {
           ELSE 9
         END,
         ci.requested_at DESC NULLS LAST,
-        ci.created_at DESC
+        ci.created_at DESC,
+        ci.id DESC
     `) as any[];
 
     return NextResponse.json({
       success: true,
       refunds: rows ?? [],
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('admin refunds list failed:', err);
+
+    if (err instanceof HttpError) {
+      return NextResponse.json(
+        { success: false, error: err.code || 'AUTH_ERROR' },
+        { status: err.status }
+      );
+    }
+
     return NextResponse.json(
       { success: false, error: 'INTERNAL_ERROR' },
       { status: 500 }

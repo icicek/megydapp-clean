@@ -2,14 +2,26 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { PublicKey } from '@solana/web3.js';
+import { requireAdmin, HttpError } from '@/app/api/_lib/jwt';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+function getRefundTreasuryWallet() {
+  return (
+    process.env.REFUND_TREASURY_SOL ||
+    process.env.NEXT_PUBLIC_REFUND_TREASURY_SOL ||
+    ''
+  ).trim();
+}
+
 export async function POST(req: NextRequest) {
   try {
+    await requireAdmin(req);
+
     const body = await req.json().catch(() => ({}));
     const contributionId = Number(body?.contribution_id);
 
@@ -36,7 +48,7 @@ export async function POST(req: NextRequest) {
       LEFT JOIN contributions c
         ON c.id = ci.contribution_id
       WHERE ci.contribution_id = ${contributionId}
-      ORDER BY ci.created_at DESC
+      ORDER BY ci.created_at DESC, ci.id DESC
       LIMIT 1
     `) as any[];
 
@@ -88,12 +100,41 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const treasuryWallet = process.env.NEXT_PUBLIC_DEST_SOL || '';
+    const treasuryWallet = getRefundTreasuryWallet();
     if (!treasuryWallet) {
       return NextResponse.json(
         { success: false, error: 'TREASURY_WALLET_MISSING' },
         { status: 500 }
       );
+    }
+
+    try {
+      new PublicKey(treasuryWallet);
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'TREASURY_WALLET_INVALID' },
+        { status: 500 }
+      );
+    }
+
+    try {
+      new PublicKey(String(row.wallet_address));
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'INVALID_DESTINATION_WALLET' },
+        { status: 409 }
+      );
+    }
+
+    if (String(row.mint) !== 'SOL') {
+      try {
+        new PublicKey(String(row.mint));
+      } catch {
+        return NextResponse.json(
+          { success: false, error: 'INVALID_MINT_ADDRESS' },
+          { status: 409 }
+        );
+      }
     }
 
     return NextResponse.json({
@@ -108,8 +149,16 @@ export async function POST(req: NextRequest) {
         network: 'solana',
       },
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('admin refund execute prepare failed:', err);
+
+    if (err instanceof HttpError) {
+      return NextResponse.json(
+        { success: false, error: err.code || 'AUTH_ERROR' },
+        { status: err.status }
+      );
+    }
+
     return NextResponse.json(
       { success: false, error: 'INTERNAL_ERROR' },
       { status: 500 }

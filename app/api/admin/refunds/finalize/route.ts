@@ -9,6 +9,7 @@ import {
   getMint,
 } from '@solana/spl-token';
 import { neon } from '@neondatabase/serverless';
+import { requireAdmin, HttpError } from '@/app/api/_lib/jwt';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
@@ -17,11 +18,19 @@ export const dynamic = 'force-dynamic';
 
 function getConnection() {
   const rpc =
-    process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
     process.env.SOLANA_RPC_URL ||
+    process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
     'https://api.mainnet-beta.solana.com';
 
   return new Connection(rpc, 'confirmed');
+}
+
+function getRefundTreasuryWallet() {
+  return (
+    process.env.REFUND_TREASURY_SOL ||
+    process.env.NEXT_PUBLIC_REFUND_TREASURY_SOL ||
+    ''
+  ).trim();
 }
 
 function toRawAmount(ui: string | number, decimals: number): bigint {
@@ -32,10 +41,30 @@ function toRawAmount(ui: string | number, decimals: number): bigint {
   return BigInt(joined.length ? joined : '0');
 }
 
+function uiToLamportsBigInt(ui: string | number): bigint {
+  const s = String(ui ?? '0').trim();
+  const [i = '0', f = ''] = s.split('.');
+  const frac = (f + '0'.repeat(9)).slice(0, 9);
+  const joined = `${i}${frac}`.replace(/^0+/, '');
+  return BigInt(joined.length ? joined : '0');
+}
+
+function normalizePubkeyFromParsed(k: any): string {
+  if (typeof k === 'string') return k;
+  if (k?.pubkey?.toBase58) return k.pubkey.toBase58();
+  return String(k?.pubkey || '');
+}
+
+function isSignerKey(k: any): boolean {
+  if (typeof k === 'string') return false;
+  return Boolean(k?.signer);
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({}));
+    const adminWallet = await requireAdmin(req);
 
+    const body = await req.json().catch(() => ({}));
     const contributionId = Number(body?.contribution_id);
     const refundTxSignature = String(body?.refund_tx_signature || '').trim();
     const executedBy = String(body?.executed_by || '').trim();
@@ -44,6 +73,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'BAD_REQUEST' },
         { status: 400 }
+      );
+    }
+
+    if (adminWallet !== executedBy) {
+      return NextResponse.json(
+        { success: false, error: 'REFUND_TX_EXECUTOR_MISMATCH' },
+        { status: 409 }
+      );
+    }
+
+    const refundTreasury = getRefundTreasuryWallet();
+    if (!refundTreasury) {
+      return NextResponse.json(
+        { success: false, error: 'TREASURY_WALLET_MISSING' },
+        { status: 500 }
+      );
+    }
+
+    try {
+      new PublicKey(refundTreasury);
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'TREASURY_WALLET_INVALID' },
+        { status: 500 }
       );
     }
 
@@ -63,7 +116,7 @@ export async function POST(req: NextRequest) {
       LEFT JOIN contributions c
         ON c.id = ci.contribution_id
       WHERE ci.contribution_id = ${contributionId}
-      ORDER BY ci.created_at DESC
+      ORDER BY ci.created_at DESC, ci.id DESC
       LIMIT 1
     `) as any[];
 
@@ -116,6 +169,7 @@ export async function POST(req: NextRequest) {
     }
 
     const connection = getConnection();
+
     const parsed = await connection.getParsedTransaction(refundTxSignature, {
       maxSupportedTransactionVersion: 0,
       commitment: 'confirmed',
@@ -128,13 +182,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const accountKeys = parsed.transaction.message.accountKeys.map((k: any) =>
-      typeof k === 'string' ? k : k.pubkey?.toBase58?.() || String(k.pubkey)
-    );
+    if (parsed.meta?.err) {
+      return NextResponse.json(
+        { success: false, error: 'REFUND_TX_FAILED' },
+        { status: 409 }
+      );
+    }
 
-    if (!accountKeys.includes(executedBy)) {
+    const keys = parsed.transaction.message.accountKeys || [];
+
+    const signerMatch = keys.some((k: any) => {
+      return normalizePubkeyFromParsed(k) === executedBy && isSignerKey(k);
+    });
+
+    if (!signerMatch) {
       return NextResponse.json(
         { success: false, error: 'REFUND_TX_EXECUTOR_MISMATCH' },
+        { status: 409 }
+      );
+    }
+
+    if (executedBy !== refundTreasury) {
+      return NextResponse.json(
+        { success: false, error: 'REFUND_TX_TREASURY_MISMATCH' },
         { status: 409 }
       );
     }
@@ -145,9 +215,8 @@ export async function POST(req: NextRequest) {
 
     let transferOk = false;
 
-    // SOL refund special case
     if (mint === 'SOL') {
-      const lamportsExpected = Number(uiAmount ?? 0) * 1e9;
+      const lamportsExpected = uiToLamportsBigInt(uiAmount);
       const instructions = parsed.transaction.message.instructions || [];
 
       for (const ix of instructions as any[]) {
@@ -159,10 +228,10 @@ export async function POST(req: NextRequest) {
 
         const source = String(info.source || '');
         const destination = String(info.destination || '');
-        const lamports = Number(info.lamports || 0);
+        const lamports = BigInt(String(info.lamports || 0));
 
         if (
-          source === executedBy &&
+          source === refundTreasury &&
           destination === destinationWallet &&
           lamports >= lamportsExpected
         ) {
@@ -171,7 +240,21 @@ export async function POST(req: NextRequest) {
         }
       }
     } else {
-      const mintPk = new PublicKey(mint);
+      let mintPk: PublicKey;
+      let destinationPk: PublicKey;
+      let treasuryPk: PublicKey;
+
+      try {
+        mintPk = new PublicKey(mint);
+        destinationPk = new PublicKey(destinationWallet);
+        treasuryPk = new PublicKey(refundTreasury);
+      } catch {
+        return NextResponse.json(
+          { success: false, error: 'REFUND_TX_NOT_VALID' },
+          { status: 409 }
+        );
+      }
+
       const mintAcc = await connection.getAccountInfo(mintPk, 'confirmed');
       if (!mintAcc) {
         return NextResponse.json(
@@ -189,14 +272,14 @@ export async function POST(req: NextRequest) {
 
       const sourceAta = getAssociatedTokenAddressSync(
         mintPk,
-        new PublicKey(executedBy),
+        treasuryPk,
         false,
         program
       ).toBase58();
 
       const destAta = getAssociatedTokenAddressSync(
         mintPk,
-        new PublicKey(destinationWallet),
+        destinationPk,
         false,
         program
       ).toBase58();
@@ -227,7 +310,7 @@ export async function POST(req: NextRequest) {
         if (
           source === sourceAta &&
           destination === destAta &&
-          authority === executedBy &&
+          authority === refundTreasury &&
           rawAmount >= expectedRaw
         ) {
           transferOk = true;
@@ -243,7 +326,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await sql/* sql */`
+    const updated = (await sql/* sql */`
       UPDATE contribution_invalidations
       SET
         refund_status = 'refunded',
@@ -252,7 +335,17 @@ export async function POST(req: NextRequest) {
         executed_by = ${executedBy},
         updated_at = NOW()
       WHERE id = ${row.id}
-    `;
+        AND refund_status = 'requested'
+        AND refund_fee_paid = true
+      RETURNING id
+    `) as any[];
+
+    if (!updated?.length) {
+      return NextResponse.json(
+        { success: false, error: 'REFUND_FINALIZE_RACE_LOST' },
+        { status: 409 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -260,8 +353,16 @@ export async function POST(req: NextRequest) {
       refund_status: 'refunded',
       refund_tx_signature: refundTxSignature,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('admin refund finalize failed:', err);
+
+    if (err instanceof HttpError) {
+      return NextResponse.json(
+        { success: false, error: err.code || 'AUTH_ERROR' },
+        { status: err.status }
+      );
+    }
+
     return NextResponse.json(
       { success: false, error: 'INTERNAL_ERROR' },
       { status: 500 }

@@ -91,7 +91,11 @@ export async function requireAdmin(req: Request): Promise<string> {
   const wallet = verifyAdminTokenOrThrow(token);
 
   // İsteğe bağlı allowlist
-  const allowed = (process.env.ADMIN_WALLET || '')
+  const allowed = (
+    process.env.ADMIN_WALLETS ||
+    process.env.ADMIN_WALLET ||
+    ''
+  )
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
