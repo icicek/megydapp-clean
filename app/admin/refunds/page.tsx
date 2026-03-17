@@ -501,14 +501,29 @@ export default function AdminRefundsPage() {
                         <td className="px-4 py-3">
                           {canExecute ? (
                             <button
-                              onClick={() => handleExecuteRefund(row)}
-                              disabled={executingId === row.id}
-                              className="px-3 py-2 rounded-lg bg-fuchsia-700 hover:bg-fuchsia-600 text-white text-xs disabled:opacity-50"
+                                onClick={() => handleExecuteRefund(row)}
+                                disabled={executingId === row.id}
+                                className="px-3 py-2 rounded-lg bg-fuchsia-700 hover:bg-fuchsia-600 text-white text-xs disabled:opacity-50"
                             >
-                              {executingId === row.id ? 'Executing...' : 'Execute Refund'}
+                                {executingId === row.id ? 'Executing...' : 'Execute Refund'}
                             </button>
-                          ) : (
-                            <span className="text-[11px] text-white/40">—</span>
+                            ) : (
+                            <div className="text-[11px] text-white/50 space-y-1">
+                                {String(row.refund_status ?? '').toLowerCase() === 'available' && (
+                                <div>Waiting for user request</div>
+                                )}
+                                {String(row.refund_status ?? '').toLowerCase() === 'requested' && !row.refund_fee_paid && (
+                                <div>Waiting for fee payment</div>
+                                )}
+                                {String(row.refund_status ?? '').toLowerCase() === 'refunded' && (
+                                <div>Completed</div>
+                                )}
+                                {String(row.refund_status ?? '').toLowerCase() !== 'available' &&
+                                !(String(row.refund_status ?? '').toLowerCase() === 'requested' && !row.refund_fee_paid) &&
+                                String(row.refund_status ?? '').toLowerCase() !== 'refunded' && (
+                                    <div>—</div>
+                                )}
+                            </div>
                           )}
                         </td>
                       </tr>

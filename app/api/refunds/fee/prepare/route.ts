@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     const hasInvalidationId = Number.isFinite(invalidationId) && invalidationId > 0;
     const hasContributionId = Number.isFinite(contributionId) && contributionId > 0;
 
-    if ((!hasInvalidationId && (!wallet || !hasContributionId || !mint))) {
+    if (!hasInvalidationId && (!wallet || !hasContributionId || !mint)) {
       return NextResponse.json(
         { success: false, error: 'BAD_REQUEST' },
         { status: 400 }
@@ -105,9 +105,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (refundStatus !== 'requested') {
+    // IMPORTANT:
+    // fee flow can start from:
+    // - available   (normal new refund request)
+    // - requested   (legacy / incomplete flow rescue)
+    if (refundStatus !== 'available' && refundStatus !== 'requested') {
       return NextResponse.json(
-        { success: false, error: 'REFUND_NOT_REQUESTED' },
+        { success: false, error: 'REFUND_STATUS_NOT_REQUESTABLE' },
         { status: 409 }
       );
     }

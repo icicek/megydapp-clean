@@ -90,6 +90,7 @@ export default function ClaimPanel() {
   const [refundingContributionId, setRefundingContributionId] = useState<number | null>(null);
   const [refundFeeConfirmOpen, setRefundFeeConfirmOpen] = useState(false);
   const [pendingRefund, setPendingRefund] = useState<{
+    invalidationId?: number;
     contributionId: number;
     mint: string;
     tokenSymbol?: string;
@@ -658,6 +659,7 @@ export default function ClaimPanel() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            invalidation_id: tx?.invalidation_id ?? tx?.refund_id ?? undefined,
             wallet_address: publicKey.toBase58(),
             contribution_id: contributionId,
             mint,
@@ -704,6 +706,7 @@ export default function ClaimPanel() {
 
       // 2) Open refund fee confirmation modal
       setPendingRefund({
+        invalidationId: Number(feePrepJson.invalidation_id ?? tx?.invalidation_id ?? 0) || undefined,
         contributionId,
         mint,
         tokenSymbol: tokenSymbol || undefined,
@@ -774,6 +777,7 @@ export default function ClaimPanel() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          invalidation_id: (pendingRefund as any)?.invalidationId ?? undefined,
           wallet_address: publicKey.toBase58(),
           contribution_id: pendingRefund.contributionId,
           mint: pendingRefund.mint,
@@ -1690,19 +1694,23 @@ export default function ClaimPanel() {
                             Share
                           </button>
 
-                          {tx.blacklisted && tx.refund_status === 'available' && (
-                            <button
-                              onClick={() => handleRequestRefund(tx)}
-                              disabled={refundingContributionId === Number(tx.contribution_id)}
-                              className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-3 py-1 rounded-md text-xs transition-all disabled:opacity-50"
-                            >
-                              {refundingContributionId === Number(tx.contribution_id)
-                                ? 'Processing...'
-                                : 'Request Refund'}
-                            </button>
+                          {tx.blacklisted &&
+                            (
+                              tx.refund_status === 'available' ||
+                              (tx.refund_status === 'requested' && !tx.refund_fee_paid)
+                            ) && (
+                              <button
+                                onClick={() => handleRequestRefund(tx)}
+                                disabled={refundingContributionId === Number(tx.contribution_id)}
+                                className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-3 py-1 rounded-md text-xs transition-all disabled:opacity-50"
+                              >
+                                {refundingContributionId === Number(tx.contribution_id)
+                                  ? 'Processing...'
+                                  : (tx.refund_status === 'requested' ? 'Complete Refund Request' : 'Request Refund')}
+                              </button>
                           )}
 
-                          {tx.blacklisted && tx.refund_status === 'requested' && (
+                          {tx.blacklisted && tx.refund_status === 'requested' && tx.refund_fee_paid && (
                             <span className="text-[11px] text-yellow-300 font-medium">
                               Refund requested
                             </span>
@@ -2277,6 +2285,10 @@ function userFriendlyError(msg: string) {
   if (m === 'FEE_TX_WALLET_MISMATCH') return 'Refund fee transaction does not belong to the connected wallet.';
   if (m === 'REFUND_FEE_PAYMENT_NOT_VALID') return 'Refund fee payment could not be verified.';
   if (m.startsWith('REFUND_FEE_CONFIRM_FAILED')) return 'Refund fee payment could not be confirmed.';
+  if (m === 'BAD_REQUEST') return 'Request payload is invalid.';
+  if (m === 'REFUND_NOT_REQUESTED') return 'Refund is not yet in requested state.';
+  if (m === 'FEE_TX_SIGNATURE_ALREADY_USED') return 'This refund fee transaction was already used.';
+  if (m === 'INTERNAL_ERROR') return 'Internal server error.';
   if (m === 'REFUND_STATUS_NOT_REQUESTABLE') return 'This refund request is no longer in a requestable state.';
 
   // default

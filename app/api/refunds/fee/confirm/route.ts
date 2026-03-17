@@ -124,9 +124,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (refundStatus !== 'requested') {
+    // IMPORTANT:
+    // fee confirm can complete for:
+    // - available   (normal new flow)
+    // - requested   (legacy / incomplete rows)
+    if (refundStatus !== 'available' && refundStatus !== 'requested') {
       return NextResponse.json(
-        { success: false, error: 'REFUND_NOT_REQUESTED' },
+        { success: false, error: 'REFUND_STATUS_NOT_REQUESTABLE' },
         { status: 409 }
       );
     }
@@ -256,7 +260,7 @@ export async function POST(req: NextRequest) {
         updated_at = NOW()
       WHERE id = ${row.id}
         AND COALESCE(refund_fee_paid, false) = false
-        AND refund_status = 'requested'
+        AND refund_status IN ('available', 'requested')
       RETURNING id
     `) as any[];
 
