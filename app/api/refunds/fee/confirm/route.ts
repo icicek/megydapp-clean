@@ -1,7 +1,7 @@
 //app/api/refunds/fee/confirm/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Connection } from '@solana/web3.js';
+import { Connection, PublicKey } from '@solana/web3.js';
 import { neon } from '@neondatabase/serverless';
 import { getRefundFeeLamports } from '@/app/api/_lib/refund-config';
 
@@ -12,45 +12,90 @@ export const dynamic = 'force-dynamic';
 
 function getConnection() {
   const rpc =
-    process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
     process.env.SOLANA_RPC_URL ||
+    process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
     'https://api.mainnet-beta.solana.com';
 
   return new Connection(rpc, 'confirmed');
+}
+
+function getRefundFeeTreasuryWallet() {
+  return (
+    process.env.REFUND_TREASURY_SOL ||
+    process.env.NEXT_PUBLIC_REFUND_TREASURY_SOL ||
+    ''
+  ).trim();
+}
+
+function normalizePubkeyFromParsed(k: any): string {
+  if (typeof k === 'string') return k;
+  if (k?.pubkey?.toBase58) return k.pubkey.toBase58();
+  return String(k?.pubkey || '');
+}
+
+function isSignerKey(k: any): boolean {
+  if (typeof k === 'string') return false;
+  return Boolean(k?.signer);
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
 
+    const invalidationId = Number(body?.invalidation_id);
     const wallet = String(body?.wallet_address || '').trim();
     const contributionId = Number(body?.contribution_id);
     const mint = String(body?.mint || '').trim();
     const feeTxSignature = String(body?.fee_tx_signature || '').trim();
 
-    if (!wallet || !Number.isFinite(contributionId) || contributionId <= 0 || !mint || !feeTxSignature) {
+    const hasInvalidationId = Number.isFinite(invalidationId) && invalidationId > 0;
+    const hasContributionId = Number.isFinite(contributionId) && contributionId > 0;
+
+    if ((!hasInvalidationId && (!wallet || !hasContributionId || !mint)) || !feeTxSignature) {
       return NextResponse.json(
         { success: false, error: 'BAD_REQUEST' },
         { status: 400 }
       );
     }
 
-    const rows = (await sql/* sql */`
-      SELECT
-        contribution_id,
-        wallet_address,
-        mint,
-        reason,
-        refund_status,
-        refund_fee_paid,
-        refund_fee_tx_signature
-      FROM contribution_invalidations
-      WHERE contribution_id = ${contributionId}
-        AND wallet_address = ${wallet}
-        AND mint = ${mint}
-      ORDER BY created_at DESC
-      LIMIT 1
-    `) as any[];
+    let rows: any[] = [];
+
+    if (hasInvalidationId) {
+      rows = (await sql/* sql */`
+        SELECT
+          id,
+          contribution_id,
+          wallet_address,
+          mint,
+          reason,
+          refund_status,
+          refund_fee_paid,
+          refund_fee_lamports,
+          refund_fee_tx_signature
+        FROM contribution_invalidations
+        WHERE id = ${invalidationId}
+        LIMIT 1
+      `) as any[];
+    } else {
+      rows = (await sql/* sql */`
+        SELECT
+          id,
+          contribution_id,
+          wallet_address,
+          mint,
+          reason,
+          refund_status,
+          refund_fee_paid,
+          refund_fee_lamports,
+          refund_fee_tx_signature
+        FROM contribution_invalidations
+        WHERE contribution_id = ${contributionId}
+          AND wallet_address = ${wallet}
+          AND mint = ${mint}
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+      `) as any[];
+    }
 
     const row = rows?.[0];
     if (!row) {
@@ -60,18 +105,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const reason = String(row.reason || '');
+    const rowWallet = String(row.wallet_address || '').trim();
+    const rowMint = String(row.mint || '').trim();
+    const reason = String(row.reason || '').trim().toLowerCase();
+    const refundStatus = String(row.refund_status || '').trim().toLowerCase();
 
-    if (reason.toLowerCase() !== 'blacklist') {
+    if (!reason.includes('blacklist')) {
       return NextResponse.json(
         { success: false, error: 'REFUND_ONLY_FOR_BLACKLIST' },
         { status: 409 }
       );
     }
 
-    if (String(row.refund_status || '') === 'refunded') {
+    if (refundStatus === 'refunded') {
       return NextResponse.json(
         { success: false, error: 'ALREADY_REFUNDED' },
+        { status: 409 }
+      );
+    }
+
+    if (refundStatus !== 'requested') {
+      return NextResponse.json(
+        { success: false, error: 'REFUND_NOT_REQUESTED' },
+        { status: 409 }
+      );
+    }
+
+    if (rowMint.toUpperCase() === 'SOL') {
+      return NextResponse.json(
+        { success: false, error: 'SOL_REFUND_NOT_SUPPORTED' },
         { status: 409 }
       );
     }
@@ -79,18 +141,45 @@ export async function POST(req: NextRequest) {
     if (row.refund_fee_paid && row.refund_fee_tx_signature) {
       return NextResponse.json({
         success: true,
-        contribution_id: contributionId,
+        invalidation_id: Number(row.id),
+        contribution_id: Number(row.contribution_id),
         refund_fee_paid: true,
+        refund_fee_lamports: Number(row.refund_fee_lamports || 0),
         refund_fee_tx_signature: row.refund_fee_tx_signature,
       });
     }
 
+    const signatureReuse = (await sql/* sql */`
+      SELECT id, contribution_id
+      FROM contribution_invalidations
+      WHERE refund_fee_tx_signature = ${feeTxSignature}
+        AND id <> ${row.id}
+      LIMIT 1
+    `) as any[];
+
+    if (signatureReuse?.length) {
+      return NextResponse.json(
+        { success: false, error: 'FEE_TX_SIGNATURE_ALREADY_USED' },
+        { status: 409 }
+      );
+    }
+
     const refundFeeLamports = await getRefundFeeLamports();
-    const treasuryWallet = process.env.NEXT_PUBLIC_DEST_SOL || '';
+    const treasuryWallet = getRefundFeeTreasuryWallet();
 
     if (!treasuryWallet) {
       return NextResponse.json(
         { success: false, error: 'TREASURY_WALLET_MISSING' },
+        { status: 500 }
+      );
+    }
+
+    try {
+      new PublicKey(treasuryWallet);
+      new PublicKey(rowWallet);
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'TREASURY_WALLET_INVALID' },
         { status: 500 }
       );
     }
@@ -108,11 +197,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const accountKeys = parsed.transaction.message.accountKeys.map((k: any) =>
-      typeof k === 'string' ? k : k.pubkey?.toBase58?.() || String(k.pubkey)
-    );
+    if (parsed.meta?.err) {
+      return NextResponse.json(
+        { success: false, error: 'FEE_TX_FAILED' },
+        { status: 409 }
+      );
+    }
 
-    const signerMatches = accountKeys.includes(wallet);
+    const keys = parsed.transaction.message.accountKeys || [];
+    const signerMatches = keys.some((k: any) => {
+      return normalizePubkeyFromParsed(k) === rowWallet && isSignerKey(k);
+    });
+
     if (!signerMatches) {
       return NextResponse.json(
         { success: false, error: 'FEE_TX_WALLET_MISMATCH' },
@@ -135,7 +231,7 @@ export async function POST(req: NextRequest) {
       const lamports = Number(info.lamports || 0);
 
       if (
-        source === wallet &&
+        source === rowWallet &&
         destination === treasuryWallet &&
         lamports >= refundFeeLamports
       ) {
@@ -151,21 +247,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await sql/* sql */`
+    const updated = (await sql/* sql */`
       UPDATE contribution_invalidations
       SET
         refund_fee_paid = true,
         refund_fee_lamports = ${refundFeeLamports},
         refund_fee_tx_signature = ${feeTxSignature},
         updated_at = NOW()
-      WHERE contribution_id = ${contributionId}
-        AND wallet_address = ${wallet}
-        AND mint = ${mint}
-    `;
+      WHERE id = ${row.id}
+        AND COALESCE(refund_fee_paid, false) = false
+        AND refund_status = 'requested'
+      RETURNING id
+    `) as any[];
+
+    if (!updated?.length) {
+      return NextResponse.json({
+        success: true,
+        invalidation_id: Number(row.id),
+        contribution_id: Number(row.contribution_id),
+        refund_fee_paid: true,
+        refund_fee_lamports: refundFeeLamports,
+        refund_fee_tx_signature: feeTxSignature,
+      });
+    }
 
     return NextResponse.json({
       success: true,
-      contribution_id: contributionId,
+      invalidation_id: Number(row.id),
+      contribution_id: Number(row.contribution_id),
       refund_fee_paid: true,
       refund_fee_lamports: refundFeeLamports,
       refund_fee_tx_signature: feeTxSignature,

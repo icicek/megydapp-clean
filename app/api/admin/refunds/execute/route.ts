@@ -10,10 +10,11 @@ const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function getRefundTreasuryWallet() {
+function getCoincarnationTreasuryWallet() {
   return (
-    process.env.REFUND_TREASURY_SOL ||
-    process.env.NEXT_PUBLIC_REFUND_TREASURY_SOL ||
+    process.env.COINCARNE_TREASURY_SOL ||
+    process.env.DEST_SOLANA ||
+    process.env.NEXT_PUBLIC_DEST_SOL ||
     ''
   ).trim();
 }
@@ -23,34 +24,62 @@ export async function POST(req: NextRequest) {
     await requireAdmin(req);
 
     const body = await req.json().catch(() => ({}));
+
+    const invalidationId = Number(body?.invalidation_id);
     const contributionId = Number(body?.contribution_id);
 
-    if (!Number.isFinite(contributionId) || contributionId <= 0) {
+    const hasInvalidationId = Number.isFinite(invalidationId) && invalidationId > 0;
+    const hasContributionId = Number.isFinite(contributionId) && contributionId > 0;
+
+    if (!hasInvalidationId && !hasContributionId) {
       return NextResponse.json(
         { success: false, error: 'BAD_CONTRIBUTION_ID' },
         { status: 400 }
       );
     }
 
-    const rows = (await sql/* sql */`
-      SELECT
-        ci.id,
-        ci.contribution_id,
-        ci.wallet_address,
-        ci.mint,
-        ci.invalidated_token_amount,
-        ci.reason,
-        ci.refund_status,
-        ci.refund_fee_paid,
-        c.token_symbol,
-        c.network
-      FROM contribution_invalidations ci
-      LEFT JOIN contributions c
-        ON c.id = ci.contribution_id
-      WHERE ci.contribution_id = ${contributionId}
-      ORDER BY ci.created_at DESC, ci.id DESC
-      LIMIT 1
-    `) as any[];
+    let rows: any[] = [];
+
+    if (hasInvalidationId) {
+      rows = (await sql/* sql */`
+        SELECT
+          ci.id,
+          ci.contribution_id,
+          ci.wallet_address,
+          ci.mint,
+          ci.invalidated_token_amount,
+          ci.reason,
+          ci.refund_status,
+          ci.refund_fee_paid,
+          c.token_symbol,
+          c.network
+        FROM contribution_invalidations ci
+        LEFT JOIN contributions c
+          ON c.id = ci.contribution_id
+        WHERE ci.id = ${invalidationId}
+        LIMIT 1
+      `) as any[];
+    } else {
+      rows = (await sql/* sql */`
+        SELECT
+          ci.id,
+          ci.contribution_id,
+          ci.wallet_address,
+          ci.mint,
+          ci.invalidated_token_amount,
+          ci.reason,
+          ci.refund_status,
+          ci.refund_fee_paid,
+          c.token_symbol,
+          c.network
+        FROM contribution_invalidations ci
+        LEFT JOIN contributions c
+          ON c.id = ci.contribution_id
+        WHERE ci.contribution_id = ${contributionId}
+        ORDER BY ci.created_at DESC, ci.id DESC
+        LIMIT 1
+      `) as any[];
+    }
 
     const row = rows?.[0];
     if (!row) {
@@ -64,6 +93,7 @@ export async function POST(req: NextRequest) {
     const refundStatus = String(row.refund_status || '').trim().toLowerCase();
     const refundFeePaid = Boolean(row.refund_fee_paid);
     const network = String(row.network || '').trim().toLowerCase();
+    const mint = String(row.mint || '').trim();
 
     if (!reason.includes('blacklist')) {
       return NextResponse.json(
@@ -75,6 +105,13 @@ export async function POST(req: NextRequest) {
     if (network !== 'solana') {
       return NextResponse.json(
         { success: false, error: 'UNSUPPORTED_REFUND_NETWORK' },
+        { status: 409 }
+      );
+    }
+
+    if (mint.toUpperCase() === 'SOL') {
+      return NextResponse.json(
+        { success: false, error: 'SOL_REFUND_NOT_SUPPORTED' },
         { status: 409 }
       );
     }
@@ -100,7 +137,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const treasuryWallet = getRefundTreasuryWallet();
+    const treasuryWallet = getCoincarnationTreasuryWallet();
     if (!treasuryWallet) {
       return NextResponse.json(
         { success: false, error: 'TREASURY_WALLET_MISSING' },
@@ -126,23 +163,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (String(row.mint) !== 'SOL') {
-      try {
-        new PublicKey(String(row.mint));
-      } catch {
-        return NextResponse.json(
-          { success: false, error: 'INVALID_MINT_ADDRESS' },
-          { status: 409 }
-        );
-      }
+    try {
+      new PublicKey(mint);
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'INVALID_MINT_ADDRESS' },
+        { status: 409 }
+      );
     }
 
     return NextResponse.json({
       success: true,
       refund: {
+        invalidation_id: Number(row.id),
         contribution_id: Number(row.contribution_id),
         wallet_address: String(row.wallet_address),
-        mint: String(row.mint),
+        mint,
         token_symbol: row.token_symbol ? String(row.token_symbol) : null,
         invalidated_token_amount: row.invalidated_token_amount,
         treasury_wallet: treasuryWallet,

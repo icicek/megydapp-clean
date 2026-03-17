@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import { PublicKey, Transaction } from '@solana/web3.js';
 import {
   TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
@@ -116,20 +116,6 @@ function toRawAmount(ui: string | number, decimals: number): bigint {
   return BigInt(joined.length ? joined : '0');
 }
 
-function uiToLamports(ui: string | number): number {
-  const s = String(ui ?? '0').trim();
-  const [i = '0', f = ''] = s.split('.');
-  const frac = (f + '0'.repeat(9)).slice(0, 9);
-  const joined = (i + frac).replace(/^0+/, '') || '0';
-  const n = Number(joined);
-
-  if (!Number.isSafeInteger(n) || n <= 0) {
-    throw new Error('INVALID_LAMPORTS');
-  }
-
-  return n;
-}
-
 export default function AdminRefundsPage() {
   const { publicKey, sendTransaction, connected } = useWallet();
   const { connection } = useConnection();
@@ -206,6 +192,7 @@ export default function AdminRefundsPage() {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          invalidation_id: row.id,
           contribution_id: row.contribution_id,
         }),
       });
@@ -237,98 +224,78 @@ export default function AdminRefundsPage() {
 
       let signature: string;
 
-      if (refund.mint === 'SOL') {
-        const lamports = uiToLamports(refund.invalidated_token_amount ?? 0);
+      let mintPk: PublicKey;
+      try {
+        mintPk = new PublicKey(refund.mint);
+      } catch {
+        throw new Error('INVALID_MINT_ADDRESS');
+      }
 
-        const tx = new Transaction().add(
-          SystemProgram.transfer({
-            fromPubkey: publicKey,
-            toPubkey: destinationWallet,
-            lamports,
-          })
-        );
+      const mintAcc = await connection.getAccountInfo(mintPk, 'confirmed');
+      if (!mintAcc) throw new Error('MINT_NOT_FOUND');
 
-        tx.feePayer = publicKey;
+      const is2022 = mintAcc.owner.equals(TOKEN_2022_PROGRAM_ID);
+      const program = is2022 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
 
-        signature = await sendTransaction(tx, connection, {
-          skipPreflight: false,
-          preflightCommitment: 'confirmed',
-          maxRetries: 3,
-        });
-      } else {
-        let mintPk: PublicKey;
-        try {
-          mintPk = new PublicKey(refund.mint);
-        } catch {
-          throw new Error('INVALID_MINT_ADDRESS');
-        }
+      const mintInfo = await getMint(connection, mintPk, 'confirmed', program);
+      const decimals = mintInfo.decimals ?? 0;
 
-        const mintAcc = await connection.getAccountInfo(mintPk, 'confirmed');
-        if (!mintAcc) throw new Error('MINT_NOT_FOUND');
+      const fromAta = getAssociatedTokenAddressSync(
+        mintPk,
+        publicKey,
+        false,
+        program
+      );
 
-        const is2022 = mintAcc.owner.equals(TOKEN_2022_PROGRAM_ID);
-        const program = is2022 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
+      const toAta = getAssociatedTokenAddressSync(
+        mintPk,
+        destinationWallet,
+        false,
+        program
+      );
 
-        const mintInfo = await getMint(connection, mintPk, 'confirmed', program);
-        const decimals = mintInfo.decimals ?? 0;
+      const fromAtaInfo = await connection.getAccountInfo(fromAta, 'confirmed');
+      if (!fromAtaInfo) throw new Error('TREASURY_TOKEN_ACCOUNT_MISSING');
 
-        const fromAta = getAssociatedTokenAddressSync(
-          mintPk,
-          publicKey,
-          false,
-          program
-        );
+      const toAtaInfo = await connection.getAccountInfo(toAta, 'confirmed');
 
-        const toAta = getAssociatedTokenAddressSync(
-          mintPk,
-          destinationWallet,
-          false,
-          program
-        );
+      const raw = toRawAmount(refund.invalidated_token_amount ?? 0, decimals);
+      if (raw <= 0n) throw new Error('INVALID_REFUND_AMOUNT');
 
-        const fromAtaInfo = await connection.getAccountInfo(fromAta, 'confirmed');
-        if (!fromAtaInfo) throw new Error('TREASURY_TOKEN_ACCOUNT_MISSING');
+      const tx = new Transaction();
 
-        const toAtaInfo = await connection.getAccountInfo(toAta, 'confirmed');
-
-        const raw = toRawAmount(refund.invalidated_token_amount ?? 0, decimals);
-        if (raw <= 0n) throw new Error('INVALID_REFUND_AMOUNT');
-
-        const tx = new Transaction();
-
-        if (!toAtaInfo) {
-          tx.add(
-            createAssociatedTokenAccountIdempotentInstruction(
-              publicKey,
-              toAta,
-              destinationWallet,
-              mintPk,
-              program
-            )
-          );
-        }
-
+      if (!toAtaInfo) {
         tx.add(
-          createTransferCheckedInstruction(
-            fromAta,
-            mintPk,
-            toAta,
+          createAssociatedTokenAccountIdempotentInstruction(
             publicKey,
-            raw,
-            decimals,
-            [],
+            toAta,
+            destinationWallet,
+            mintPk,
             program
           )
         );
-
-        tx.feePayer = publicKey;
-
-        signature = await sendTransaction(tx, connection, {
-          skipPreflight: false,
-          preflightCommitment: 'confirmed',
-          maxRetries: 5,
-        });
       }
+
+      tx.add(
+        createTransferCheckedInstruction(
+          fromAta,
+          mintPk,
+          toAta,
+          publicKey,
+          raw,
+          decimals,
+          [],
+          program
+        )
+      );
+
+      tx.feePayer = publicKey;
+
+      signature = await sendTransaction(tx, connection, {
+        skipPreflight: false,
+        preflightCommitment: 'confirmed',
+        maxRetries: 5,
+      });
 
       const confirmation = await connection.confirmTransaction(signature, 'confirmed');
       if (confirmation?.value?.err) {
@@ -340,6 +307,7 @@ export default function AdminRefundsPage() {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          invalidation_id: row.id,
           contribution_id: row.contribution_id,
           refund_tx_signature: signature,
           executed_by: publicKey.toBase58(),
@@ -464,11 +432,14 @@ export default function AdminRefundsPage() {
                     const reason = String(row.reason ?? '').toLowerCase();
                     const network = String(row.network ?? '').toLowerCase();
 
+                    const mint = String(row.mint ?? '').trim();
+                    
                     const canExecute =
                       String(row.refund_status ?? '').toLowerCase() === 'requested' &&
                       Boolean(row.refund_fee_paid) &&
                       network === 'solana' &&
-                      reason.includes('blacklist');
+                      reason.includes('blacklist') &&
+                      mint !== 'SOL';
 
                     return (
                       <tr key={row.id} className="border-t border-white/10 hover:bg-white/[0.03] align-top">
@@ -561,18 +532,19 @@ function humanizeRefundAdminError(msg: string) {
   if (m === 'REFUND_ONLY_FOR_BLACKLIST') return 'Only blacklist-based invalidations can be refunded.';
   if (m === 'REFUND_NOT_REQUESTED') return 'This refund is not in requested state.';
   if (m === 'REFUND_FEE_NOT_PAID') return 'Refund fee has not been paid by the user.';
-  if (m === 'TREASURY_WALLET_MISSING') return 'Refund treasury wallet is not configured.';
-  if (m === 'TREASURY_WALLET_REQUIRED') return 'Please connect the refund treasury wallet to execute this refund.';
+  if (m === 'TREASURY_WALLET_MISSING') return 'Coincarnation treasury wallet is not configured.';
+  if (m === 'TREASURY_WALLET_INVALID') return 'Coincarnation treasury wallet is invalid.';
+  if (m === 'TREASURY_WALLET_REQUIRED') return 'Please connect the Coincarnation treasury wallet to execute this refund.';
+  if (m === 'TREASURY_TOKEN_ACCOUNT_MISSING') return 'Coincarnation treasury token account does not exist for this asset.';
+  if (m === 'SOL_REFUND_NOT_SUPPORTED') return 'Native SOL refunds are not supported in this blacklist refund flow.';
   if (m === 'UNSUPPORTED_REFUND_NETWORK') return 'This refund network is not supported yet.';
   if (m === 'MINT_NOT_FOUND') return 'Token mint could not be found on this network.';
-  if (m === 'TREASURY_TOKEN_ACCOUNT_MISSING') return 'Refund treasury token account does not exist for this asset.';
   if (m === 'INVALID_REFUND_AMOUNT') return 'Refund amount is invalid.';
-  if (m === 'INVALID_LAMPORTS') return 'Refund SOL amount is invalid.';
   if (m === 'INVALID_DESTINATION_WALLET') return 'Destination wallet address is invalid.';
   if (m === 'INVALID_MINT_ADDRESS') return 'Token mint address is invalid.';
   if (m === 'REFUND_TX_NOT_FOUND') return 'Refund transaction could not be found yet.';
-  if (m === 'REFUND_TX_EXECUTOR_MISMATCH') return 'Refund transaction signer does not match the connected refund treasury wallet.';
-  if (m === 'REFUND_TX_TREASURY_MISMATCH') return 'Refund transaction source does not match the configured refund treasury wallet.';
+  if (m === 'REFUND_TX_EXECUTOR_MISMATCH') return 'Refund transaction signer does not match the Coincarnation treasury wallet.';
+  if (m === 'REFUND_TX_TREASURY_MISMATCH') return 'Refund transaction source does not match the configured Coincarnation treasury wallet.';
   if (m === 'REFUND_TX_NOT_VALID') return 'Refund transaction could not be verified.';
   if (m === 'REFUND_TX_FAILED') return 'Refund transaction failed on-chain.';
   if (m === 'ALREADY_REFUNDED') return 'This contribution has already been refunded.';
@@ -580,11 +552,15 @@ function humanizeRefundAdminError(msg: string) {
   if (m === 'FAILED_TO_LOAD_REFUNDS') return 'Refund records could not be loaded.';
   if (m.startsWith('EXECUTE_PREPARE_FAILED')) return 'Refund execution could not be prepared.';
   if (m.startsWith('REFUND_FINALIZE_FAILED')) return 'Refund could not be finalized.';
+  if (m === 'BAD_REQUEST') return 'Request payload is invalid.';
+  if (m === 'REFUND_TX_SIGNATURE_ALREADY_USED') return 'This refund transaction signature is already linked to another refund.';
+  if (m === 'INTERNAL_ERROR') return 'Internal server error.';
   if (m.includes('User rejected') || m.includes('rejected the request')) {
     return 'Transaction was cancelled in the wallet.';
   }
   if (m.includes('Network request failed')) {
     return 'Network request failed. Please try again.';
   }
+
   return m || 'Unexpected error.';
 }
