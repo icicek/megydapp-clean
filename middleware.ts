@@ -7,8 +7,16 @@ const ADMIN_COOKIE = 'coincarnation_admin';
 const SECRET_RAW = process.env.ADMIN_JWT_SECRET || '';
 const SECRET = SECRET_RAW ? new TextEncoder().encode(SECRET_RAW) : null;
 
-function isPublicAdminRoute(pathname: string): boolean {
+function isPublicAdminPageRoute(pathname: string): boolean {
   return pathname === '/admin/login';
+}
+
+function isPublicAdminApiRoute(pathname: string): boolean {
+  return (
+    pathname === '/api/admin/is-allowed' ||
+    pathname === '/api/admin/auth/nonce' ||
+    pathname === '/api/admin/auth/verify'
+  );
 }
 
 function isEnvAdmin(wallet: string): boolean {
@@ -61,7 +69,13 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  if (!isApiPath(pathname) && isPublicAdminRoute(pathname)) {
+  // Public admin page
+  if (!isApiPath(pathname) && isPublicAdminPageRoute(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Public admin API routes (login/bootstrap/visibility)
+  if (isApiPath(pathname) && isPublicAdminApiRoute(pathname)) {
     return NextResponse.next();
   }
 
@@ -93,13 +107,12 @@ export async function middleware(req: NextRequest) {
       return buildAdminLoginRedirect(req, 'not-allowed');
     }
 
-    if (pathname.startsWith('/admin/control') || pathname.startsWith('/api/admin/control')) {
-      if (!isEnvAdmin(wallet)) {
-        if (isApiPath(pathname)) {
-          return buildApiAuthError('auth_forbidden', 403);
-        }
-        return buildAdminLoginRedirect(req, 'not-allowed');
+    // Admin allowlist check for all protected admin/docs paths
+    if (!isEnvAdmin(wallet)) {
+      if (isApiPath(pathname)) {
+        return buildApiAuthError('auth_forbidden', 403);
       }
+      return buildAdminLoginRedirect(req, 'not-allowed');
     }
 
     return NextResponse.next();
