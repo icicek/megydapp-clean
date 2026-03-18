@@ -29,6 +29,10 @@ async function fetchCorepointHistory(wallet: string | null): Promise<any[]> {
   try {
     const r = await fetch(`/api/corepoints/history?wallet=${wallet}`, { cache: 'no-store' });
     const j = await r.json().catch(() => ({}));
+    console.log('[REFUND] request submit response:', {
+      status: r.status,
+      body: j,
+    });
     if (!j?.success) return [];
     return Array.isArray(j.events) ? j.events : [];
   } catch (e) {
@@ -247,6 +251,10 @@ export default function ClaimPanel() {
         );
 
         const j = await r.json().catch(() => ({}));
+        console.log('[REFUND] request submit response:', {
+          status: r.status,
+          body: j,
+        });
 
         if (!alive) return;
 
@@ -284,6 +292,10 @@ export default function ClaimPanel() {
 
         const r = await fetch('/api/phases/list', { cache: 'no-store' });
         const j = await r.json().catch(() => ({}));
+        console.log('[REFUND] request submit response:', {
+          status: r.status,
+          body: j,
+        });
 
         if (!alive) return;
 
@@ -377,6 +389,10 @@ export default function ClaimPanel() {
       setPhaseLoading(true);
       const r = await fetch('/api/phases/finalized/latest', { cache: 'no-store' });
       const j = await r.json().catch(() => ({}));
+      console.log('[REFUND] request submit response:', {
+        status: r.status,
+        body: j,
+      });
 
       const pid = Number(j?.phase_id);
       if (r.ok && j?.success && Number.isFinite(pid) && pid > 0) {
@@ -645,11 +661,12 @@ export default function ClaimPanel() {
       ''
     ).trim();
   
-    const invalidationId = Number(
-      tx?.invalidation_id ??
-      tx?.refund_id ??
-      0
-    ) || undefined;
+    const invalidationId =
+      Number(
+        tx?.invalidation_id ??
+        tx?.refund_id ??
+        0
+      ) || undefined;
   
     if (!Number.isFinite(contributionId) || contributionId <= 0 || !mint) {
       console.error('[REFUND] incomplete tx data', {
@@ -660,53 +677,69 @@ export default function ClaimPanel() {
       setMessage('❌ Refund request data is incomplete.');
       return;
     }
-
+  
     try {
       setRefundingContributionId(contributionId);
-      setMessage(null);
-
+      setMessage(`⏳ Preparing refund fee request for contribution #${contributionId}...`);
+  
       // 1) Prepare refund fee info
       const feePrepRes = await fetch('/api/refunds/fee/prepare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
+          invalidation_id: invalidationId,
           wallet_address: publicKey.toBase58(),
           contribution_id: contributionId,
           mint,
         }),
       });
-
+  
       const feePrepJson: any = await feePrepRes.json().catch(() => ({}));
-
+  
+      console.log('[REFUND] fee prepare response:', {
+        status: feePrepRes.status,
+        body: feePrepJson,
+      });
+  
       if (!feePrepRes.ok || !feePrepJson?.success) {
         throw new Error(String(feePrepJson?.error || `REFUND_FEE_PREPARE_FAILED (${feePrepRes.status})`));
       }
-
+  
       // If fee already paid, proceed directly to signature flow
       if (feePrepJson?.refund_fee_paid === true) {
+        setMessage('⏳ Refund fee already paid. Preparing signature challenge...');
+  
         const prepRes = await fetch('/api/refunds/request/prepare', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
-            invalidation_id: invalidationId,
             wallet_address: publicKey.toBase58(),
             contribution_id: contributionId,
             mint,
           }),
         });
-
+  
         const prepJson: any = await prepRes.json().catch(() => ({}));
+  
+        console.log('[REFUND] request prepare response:', {
+          status: prepRes.status,
+          body: prepJson,
+        });
+  
         if (!prepRes.ok || !prepJson?.success || !prepJson?.message || !prepJson?.nonce) {
           throw new Error(String(prepJson?.error || `REFUND_PREPARE_FAILED (${prepRes.status})`));
         }
-
+  
         const messageBytes = new TextEncoder().encode(String(prepJson.message));
         const signatureBytes = await signMessage(messageBytes);
         const signatureBase64 = uint8ToBase64(signatureBytes);
-
+  
         const r = await fetch('/api/refunds/request', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             wallet_address: publicKey.toBase58(),
             contribution_id: contributionId,
@@ -715,24 +748,32 @@ export default function ClaimPanel() {
             signature_base64: signatureBase64,
           }),
         });
-
+  
         const j = await r.json().catch(() => ({}));
-
+  
+        console.log('[REFUND] request submit response:', {
+          status: r.status,
+          body: j,
+        });
+  
         if (!r.ok || !j?.success) {
           throw new Error(String(j?.error || `REFUND_REQUEST_FAILED (${r.status})`));
         }
-
+  
         setMessage('✅ Refund request signed and recorded successfully.');
-
-        const refreshed = await fetch(`/api/claim/${publicKey.toBase58()}`, { cache: 'no-store' });
+  
+        const refreshed = await fetch(`/api/claim/${publicKey.toBase58()}`, {
+          cache: 'no-store',
+          credentials: 'include',
+        });
         const refreshedJson: any = await refreshed.json().catch(() => ({}));
         if (refreshed.ok && refreshedJson?.success) {
           setData(refreshedJson.data);
         }
-
+  
         return;
       }
-
+  
       // 2) Open refund fee confirmation modal
       setPendingRefund({
         invalidationId:
@@ -748,9 +789,11 @@ export default function ClaimPanel() {
         refundFeeSol: Number(feePrepJson.refund_fee_sol ?? 0),
         treasuryWallet: String(feePrepJson.treasury_wallet || ''),
       });
-
+  
       setRefundFeeConfirmOpen(true);
+      setMessage(null);
     } catch (e: any) {
+      console.error('[REFUND] handleRequestRefund failed:', e);
       setMessage(`❌ ${userFriendlyError(String(e?.message ?? 'REFUND_REQUEST_FAILED'))}`);
     } finally {
       setRefundingContributionId(null);
@@ -820,6 +863,10 @@ export default function ClaimPanel() {
       });
 
       const feeConfirmJson: any = await feeConfirmRes.json().catch(() => ({}));
+      console.log('[REFUND] fee confirm response:', {
+        status: feeConfirmRes.status,
+        body: feeConfirmJson,
+      });
 
       if (!feeConfirmRes.ok || !feeConfirmJson?.success) {
         throw new Error(
@@ -839,6 +886,10 @@ export default function ClaimPanel() {
       });
 
       const prepJson: any = await prepRes.json().catch(() => ({}));
+      console.log('[REFUND] request prepare response:', {
+        status: prepRes.status,
+        body: prepJson,
+      });
       if (!prepRes.ok || !prepJson?.success || !prepJson?.message || !prepJson?.nonce) {
         throw new Error(String(prepJson?.error || `REFUND_PREPARE_FAILED (${prepRes.status})`));
       }
@@ -864,6 +915,10 @@ export default function ClaimPanel() {
       });
 
       const j = await r.json().catch(() => ({}));
+      console.log('[REFUND] request submit response:', {
+        status: r.status,
+        body: j,
+      });
 
       if (!r.ok || !j?.success) {
         throw new Error(String(j?.error || `REFUND_REQUEST_FAILED (${r.status})`));
@@ -2331,6 +2386,8 @@ function userFriendlyError(msg: string) {
   if (m === 'FEE_TX_SIGNATURE_ALREADY_USED') return 'This refund fee transaction was already used.';
   if (m === 'INTERNAL_ERROR') return 'Internal server error.';
   if (m === 'REFUND_STATUS_NOT_REQUESTABLE') return 'This refund request is no longer in a requestable state.';
+  if (m === 'BAD_REQUEST') return 'Request payload is invalid.';
+  if (m === 'REFUND_FEE_NOT_PAID') return 'Refund fee has not been paid yet.';
 
   // default
   return m || 'Unexpected error. Please retry.';
