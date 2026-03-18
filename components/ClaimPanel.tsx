@@ -617,17 +617,46 @@ export default function ClaimPanel() {
       setMessage('❌ Please connect your wallet.');
       return;
     }
-
+  
     if (!signMessage) {
       setMessage('❌ Your wallet does not support message signing.');
       return;
     }
-
-    const contributionId = Number(tx?.contribution_id ?? 0);
-    const mint = String(tx?.token_contract || '').trim();
-    const tokenSymbol = String(tx?.token_symbol || '').trim();
-
+  
+    console.log('[REFUND] clicked tx:', tx);
+  
+    const contributionId = Number(
+      tx?.contribution_id ??
+      tx?.contributionId ??
+      tx?.id ??
+      0
+    );
+  
+    const mint = String(
+      tx?.token_contract ??
+      tx?.mint ??
+      tx?.token_mint ??
+      ''
+    ).trim();
+  
+    const tokenSymbol = String(
+      tx?.token_symbol ??
+      tx?.symbol ??
+      ''
+    ).trim();
+  
+    const invalidationId = Number(
+      tx?.invalidation_id ??
+      tx?.refund_id ??
+      0
+    ) || undefined;
+  
     if (!Number.isFinite(contributionId) || contributionId <= 0 || !mint) {
+      console.error('[REFUND] incomplete tx data', {
+        contributionId,
+        mint,
+        tx,
+      });
       setMessage('❌ Refund request data is incomplete.');
       return;
     }
@@ -659,7 +688,7 @@ export default function ClaimPanel() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            invalidation_id: tx?.invalidation_id ?? tx?.refund_id ?? undefined,
+            invalidation_id: invalidationId,
             wallet_address: publicKey.toBase58(),
             contribution_id: contributionId,
             mint,
@@ -706,7 +735,12 @@ export default function ClaimPanel() {
 
       // 2) Open refund fee confirmation modal
       setPendingRefund({
-        invalidationId: Number(feePrepJson.invalidation_id ?? tx?.invalidation_id ?? 0) || undefined,
+        invalidationId:
+          Number(
+            feePrepJson.invalidation_id ??
+            invalidationId ??
+            0
+          ) || undefined,
         contributionId,
         mint,
         tokenSymbol: tokenSymbol || undefined,
@@ -1652,6 +1686,7 @@ export default function ClaimPanel() {
                           )}
 
                           <button
+                            type="button"
                             onClick={() => {
                               const url = buildReferralUrl(data.referral_code ?? '');
 
@@ -1700,8 +1735,13 @@ export default function ClaimPanel() {
                               (tx.refund_status === 'requested' && !tx.refund_fee_paid)
                             ) && (
                               <button
+                                type="button"
                                 onClick={() => handleRequestRefund(tx)}
-                                disabled={refundingContributionId === Number(tx.contribution_id)}
+                                disabled={
+                                  refundingContributionId === Number(
+                                    tx.contribution_id ?? tx.contributionId ?? tx.id
+                                  )
+                                }
                                 className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-3 py-1 rounded-md text-xs transition-all disabled:opacity-50"
                               >
                                 {refundingContributionId === Number(tx.contribution_id)
@@ -2145,6 +2185,7 @@ export default function ClaimPanel() {
               </button>
 
               <button
+                type="button"
                 disabled={refundingContributionId != null}
                 onClick={confirmRefundFeeThenRequest}
                 className="bg-gradient-to-r from-fuchsia-600 to-pink-500 hover:scale-[1.02] transition-all text-white font-extrabold py-3 rounded-xl disabled:opacity-50"
