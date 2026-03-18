@@ -10,6 +10,7 @@ import {
 } from '@solana/spl-token';
 import { neon } from '@neondatabase/serverless';
 import { requireAdmin, HttpError } from '@/app/api/_lib/jwt';
+import { isBlacklistRefundReason } from '@/app/api/_lib/refund-reason';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
@@ -149,9 +150,13 @@ export async function POST(req: NextRequest) {
     const network = String(row.network || '').trim().toLowerCase();
     const mint = String(row.mint || '').trim();
 
-    if (!reason.includes('blacklist')) {
+    if (!isBlacklistRefundReason(reason)) {
       return NextResponse.json(
-        { success: false, error: 'REFUND_ONLY_FOR_BLACKLIST' },
+        {
+            success: false,
+            error: 'REFUND_ONLY_FOR_BLACKLIST',
+            debug_reason: reason || null,
+        },
         { status: 409 }
       );
     }

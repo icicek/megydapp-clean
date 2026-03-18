@@ -2388,6 +2388,9 @@ function userFriendlyError(msg: string) {
   if (m === 'REFUND_STATUS_NOT_REQUESTABLE') return 'This refund request is no longer in a requestable state.';
   if (m === 'BAD_REQUEST') return 'Request payload is invalid.';
   if (m === 'REFUND_FEE_NOT_PAID') return 'Refund fee has not been paid yet.';
+  if (m === 'REFUND_ONLY_FOR_BLACKLIST') {
+    return 'This contribution is not recognized as a blacklist-based refund candidate by the backend.';
+  }
 
   // default
   return m || 'Unexpected error. Please retry.';

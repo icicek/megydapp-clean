@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { neon } from '@neondatabase/serverless';
 import { getRefundFeeLamports } from '@/app/api/_lib/refund-config';
+import { isBlacklistRefundReason } from '@/app/api/_lib/refund-reason';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
@@ -110,9 +111,13 @@ export async function POST(req: NextRequest) {
     const reason = String(row.reason || '').trim().toLowerCase();
     const refundStatus = String(row.refund_status || '').trim().toLowerCase();
 
-    if (!reason.includes('blacklist')) {
+    if (!isBlacklistRefundReason(reason)) {
       return NextResponse.json(
-        { success: false, error: 'REFUND_ONLY_FOR_BLACKLIST' },
+        { 
+            success: false,
+            error: 'REFUND_ONLY_FOR_BLACKLIST',
+            debug_reason: reason || null,
+        },
         { status: 409 }
       );
     }
