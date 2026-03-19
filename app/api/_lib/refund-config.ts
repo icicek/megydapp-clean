@@ -27,9 +27,9 @@ export async function getRefundFeeLamports(): Promise<number> {
       return Math.floor(n as number);
     }
 
-    return 1_000_000; // 0.001 SOL fallback
+    return 2_000_000; // 0.002 SOL fallback
   } catch (err) {
     console.warn('refund fee config read failed, using default:', err);
-    return 1_000_000;
+    return 2_000_000;
   }
 }

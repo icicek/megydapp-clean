@@ -82,7 +82,6 @@ export default function ClaimPanel() {
   const [feeSigForSupport, setFeeSigForSupport] = useState<string | null>(null);
 
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
-  const [distributionPool, setDistributionPool] = useState(0);
   const [copied, setCopied] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
@@ -92,6 +91,9 @@ export default function ClaimPanel() {
   const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
   const [shareAnchor, setShareAnchor] = useState<string | undefined>(undefined);
   const [refundingContributionId, setRefundingContributionId] = useState<number | null>(null);
+  const [refundFeeStep, setRefundFeeStep] = useState<
+    'idle' | 'paying' | 'confirming' | 'signing' | 'submitting' | 'paid'
+  >('idle');
   const [refundFeeConfirmOpen, setRefundFeeConfirmOpen] = useState(false);
   const [pendingRefund, setPendingRefund] = useState<{
     invalidationId?: number;
@@ -128,18 +130,16 @@ export default function ClaimPanel() {
       if (!publicKey) return;
       setLoading(true);
       try {
-        const [claimStatusRes, userRes, globalRes, poolRes] = await Promise.all([
+        const [claimStatusRes, userRes, globalRes] = await Promise.all([
           fetch('/api/admin/config/claim_open'),
           fetch(`/api/claim/${publicKey.toBase58()}`),
           fetch('/api/coincarnation/stats'),
-          fetch('/api/admin/config/distribution_pool'),
         ]);
   
-        const [claimStatus, userData, globalData, poolData] = await Promise.all([
+        const [claimStatus, userData, globalData] = await Promise.all([
           claimStatusRes.json().catch(() => ({})),
           userRes.json().catch(() => ({})),
           globalRes.json().catch(() => ({})),
-          poolRes.json().catch(() => ({})),
         ]);
   
         if (!alive) return;
@@ -186,9 +186,6 @@ export default function ClaimPanel() {
           });
         }
   
-        if (poolData?.success) {
-          setDistributionPool(toNum(poolData.value, 0));
-        }
       } catch (err) {
         if (!alive) return;
         console.error('Claim fetch error:', err);
@@ -440,12 +437,10 @@ export default function ClaimPanel() {
   const shareRatio =
     globalStats.totalUsd > 0 ? Number(data.total_usd_contributed || 0) / globalStats.totalUsd : 0;
 
-  const claimableMegyEstimate = Math.floor(shareRatio * distributionPool);
-
   const claimableMegy =
     claimableFromFinalized != null
       ? Math.floor(claimableFromFinalized)
-      : claimableMegyEstimate;
+      : 0;
 
   const finalizedTotal = Number(finalizedClaim?.finalized_megy_total ?? 0);
   const claimedTotal = Number(finalizedClaim?.claimed_megy_total ?? 0);
@@ -807,6 +802,7 @@ export default function ClaimPanel() {
     }
 
     try {
+      setRefundFeeStep('paying');
       setRefundingContributionId(pendingRefund.contributionId);
       setMessage(null);
 
@@ -838,6 +834,7 @@ export default function ClaimPanel() {
         } as any)
       );
 
+      setRefundFeeStep('confirming');
       setMessage('⏳ Confirming refund fee payment on-chain...');
 
       await connection.confirmTransaction(
@@ -873,6 +870,8 @@ export default function ClaimPanel() {
           String(feeConfirmJson?.error || `REFUND_FEE_CONFIRM_FAILED (${feeConfirmRes.status})`)
         );
       }
+      setRefundFeeStep('paid');
+      setMessage('✅ Refund fee received. Preparing your refund request...');
 
       // 3) Prepare refund request challenge
       const prepRes = await fetch('/api/refunds/request/prepare', {
@@ -895,11 +894,15 @@ export default function ClaimPanel() {
       }
 
       // 4) Sign challenge
-      setMessage('✍️ Please sign the refund request message in your wallet.');
+      setRefundFeeStep('signing');
+      setMessage('✍️ Refund fee received. Please sign the refund request message in your wallet.');
 
       const messageBytes = new TextEncoder().encode(String(prepJson.message));
       const signatureBytes = await signMessage(messageBytes);
       const signatureBase64 = uint8ToBase64(signatureBytes);
+
+      setRefundFeeStep('submitting');
+      setMessage('📨 Submitting your refund request...');
 
       // 5) Submit refund request
       const r = await fetch('/api/refunds/request', {
@@ -924,16 +927,21 @@ export default function ClaimPanel() {
         throw new Error(String(j?.error || `REFUND_REQUEST_FAILED (${r.status})`));
       }
 
+      setRefundFeeStep('idle');
       setMessage('✅ Refund request signed and recorded successfully.');
       setRefundFeeConfirmOpen(false);
       setPendingRefund(null);
 
-      const refreshed = await fetch(`/api/claim/${publicKey.toBase58()}`, { cache: 'no-store' });
+      const refreshed = await fetch(`/api/claim/${publicKey.toBase58()}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
       const refreshedJson: any = await refreshed.json().catch(() => ({}));
       if (refreshed.ok && refreshedJson?.success) {
         setData(refreshedJson.data);
       }
     } catch (e: any) {
+      setRefundFeeStep('idle');
       setMessage(`❌ ${userFriendlyError(String(e?.message ?? 'REFUND_REQUEST_FAILED'))}`);
     } finally {
       setRefundingContributionId(null);
@@ -2185,6 +2193,7 @@ export default function ClaimPanel() {
               if (refundingContributionId != null) return;
               setRefundFeeConfirmOpen(false);
               setPendingRefund(null);
+              setRefundFeeStep('idle');
             }}
           />
           <div className="relative w-full max-w-lg bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl p-5">
@@ -2228,11 +2237,17 @@ export default function ClaimPanel() {
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <button
-                disabled={refundingContributionId != null}
+                disabled={
+                  refundFeeStep === 'paying' ||
+                  refundFeeStep === 'confirming' ||
+                  refundFeeStep === 'signing' ||
+                  refundFeeStep === 'submitting'
+                }
                 onClick={() => {
                   if (refundingContributionId != null) return;
                   setRefundFeeConfirmOpen(false);
                   setPendingRefund(null);
+                  setRefundFeeStep('idle');
                 }}
                 className="bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 text-white font-semibold py-3 rounded-xl disabled:opacity-50"
               >
@@ -2245,7 +2260,19 @@ export default function ClaimPanel() {
                 onClick={confirmRefundFeeThenRequest}
                 className="bg-gradient-to-r from-fuchsia-600 to-pink-500 hover:scale-[1.02] transition-all text-white font-extrabold py-3 rounded-xl disabled:opacity-50"
               >
-                {refundingContributionId != null ? 'Paying…' : 'Continue'}
+                {
+                  refundFeeStep === 'paying'
+                    ? 'Paying...'
+                    : refundFeeStep === 'confirming'
+                    ? 'Confirming...'
+                    : refundFeeStep === 'signing'
+                    ? 'Waiting for signature...'
+                    : refundFeeStep === 'submitting'
+                    ? 'Submitting...'
+                    : refundFeeStep === 'paid'
+                    ? 'Fee Paid'
+                    : 'Continue'
+                }
               </button>
             </div>
           </div>

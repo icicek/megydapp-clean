@@ -16,8 +16,7 @@ function isPublicAdminApiRoute(pathname: string): boolean {
     pathname === '/api/admin/is-allowed' ||
     pathname === '/api/admin/auth/nonce' ||
     pathname === '/api/admin/auth/verify' ||
-    pathname === '/api/admin/config/claim_open' ||
-    pathname === '/api/admin/config/distribution_pool'
+    pathname === '/api/admin/config/claim_open'
   );
 }
 
