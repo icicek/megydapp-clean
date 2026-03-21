@@ -155,6 +155,7 @@ export async function POST(req: NextRequest) {
         refund_fee_paid: true,
         refund_fee_lamports: Number(row.refund_fee_lamports || 0),
         refund_fee_tx_signature: row.refund_fee_tx_signature,
+        refund_status: String(row.refund_status || ''),
       });
     }
 
@@ -287,6 +288,9 @@ export async function POST(req: NextRequest) {
       refund_fee_paid: true,
       refund_fee_lamports: refundFeeLamports,
       refund_fee_tx_signature: feeTxSignature,
+      debug_refund_status_before: refundStatus,
+      debug_row_wallet: rowWallet,
+      debug_row_mint: rowMint,
     });
   } catch (err) {
     console.error('refund fee confirm failed:', err);

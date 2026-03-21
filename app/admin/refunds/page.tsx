@@ -428,18 +428,22 @@ export default function AdminRefundsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((row) => {
-                    const reason = String(row.reason ?? '').toLowerCase();
-                    const network = String(row.network ?? '').toLowerCase();
-
+                {filtered.map((row) => {
+                    const refundStatus = String(row.refund_status ?? '').toLowerCase().trim();
+                    const normalizedReason = String(row.reason ?? '').toLowerCase().trim();
+                    const network = String(row.network ?? '').toLowerCase().trim();
                     const mint = String(row.mint ?? '').trim();
-                    
+
+                    const isBlacklistRefund =
+                        normalizedReason === 'invalidated:blacklist' ||
+                        normalizedReason.startsWith('invalidated:blacklist:');
+
                     const canExecute =
-                      String(row.refund_status ?? '').toLowerCase() === 'requested' &&
-                      Boolean(row.refund_fee_paid) &&
-                      network === 'solana' &&
-                      reason.includes('blacklist') &&
-                      mint !== 'SOL';
+                        refundStatus === 'requested' &&
+                        row.refund_fee_paid === true &&
+                        network === 'solana' &&
+                        isBlacklistRefund &&
+                        mint !== 'SOL';
 
                     return (
                       <tr key={row.id} className="border-t border-white/10 hover:bg-white/[0.03] align-top">
@@ -474,7 +478,9 @@ export default function AdminRefundsPage() {
                         </td>
 
                         <td className="px-4 py-3">
-                          <div>{row.refund_fee_paid ? 'paid' : 'not paid'}</div>
+                        <div className={row.refund_fee_paid ? 'text-emerald-300' : 'text-yellow-200'}>
+                          {row.refund_fee_paid ? 'Paid' : 'Not paid'}
+                        </div>
                           <div className="text-[11px] text-white/50 mt-1">
                             {formatLamports(row.refund_fee_lamports)}
                           </div>
@@ -509,19 +515,19 @@ export default function AdminRefundsPage() {
                             </button>
                             ) : (
                             <div className="text-[11px] text-white/50 space-y-1">
-                                {String(row.refund_status ?? '').toLowerCase() === 'available' && (
-                                <div>Waiting for user request</div>
+                                {refundStatus === 'available' && (
+                                  <div>Waiting for user request</div>
                                 )}
-                                {String(row.refund_status ?? '').toLowerCase() === 'requested' && !row.refund_fee_paid && (
-                                <div>Waiting for fee payment</div>
+                                {refundStatus === 'requested' && !row.refund_fee_paid && (
+                                  <div>Waiting for fee payment</div>
                                 )}
-                                {String(row.refund_status ?? '').toLowerCase() === 'refunded' && (
-                                <div>Completed</div>
+                                {refundStatus === 'refunded' && (
+                                  <div>Completed</div>
                                 )}
-                                {String(row.refund_status ?? '').toLowerCase() !== 'available' &&
-                                !(String(row.refund_status ?? '').toLowerCase() === 'requested' && !row.refund_fee_paid) &&
-                                String(row.refund_status ?? '').toLowerCase() !== 'refunded' && (
-                                    <div>—</div>
+                                {refundStatus !== 'available' &&
+                                 !(refundStatus === 'requested' && !row.refund_fee_paid) &&
+                                 refundStatus !== 'refunded' && (
+                                  <div>—</div>
                                 )}
                             </div>
                           )}

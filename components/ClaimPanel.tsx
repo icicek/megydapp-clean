@@ -92,7 +92,7 @@ export default function ClaimPanel() {
   const [shareAnchor, setShareAnchor] = useState<string | undefined>(undefined);
   const [refundingContributionId, setRefundingContributionId] = useState<number | null>(null);
   const [refundFeeStep, setRefundFeeStep] = useState<
-    'idle' | 'paying' | 'confirming' | 'signing' | 'submitting' | 'paid'
+    'idle' | 'paying' | 'confirming' | 'paid' | 'signing' | 'submitting' | 'submitted'
   >('idle');
   const [refundFeeConfirmOpen, setRefundFeeConfirmOpen] = useState(false);
   const [pendingRefund, setPendingRefund] = useState<{
@@ -849,6 +849,7 @@ export default function ClaimPanel() {
       // 2) Confirm fee with backend
       const feeConfirmRes = await fetch('/api/refunds/fee/confirm', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           invalidation_id: (pendingRefund as any)?.invalidationId ?? undefined,
@@ -876,8 +877,10 @@ export default function ClaimPanel() {
       // 3) Prepare refund request challenge
       const prepRes = await fetch('/api/refunds/request/prepare', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          invalidation_id: (pendingRefund as any)?.invalidationId ?? undefined,
           wallet_address: publicKey.toBase58(),
           contribution_id: pendingRefund.contributionId,
           mint: pendingRefund.mint,
@@ -907,8 +910,10 @@ export default function ClaimPanel() {
       // 5) Submit refund request
       const r = await fetch('/api/refunds/request', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          invalidation_id: (pendingRefund as any)?.invalidationId ?? undefined,
           wallet_address: publicKey.toBase58(),
           contribution_id: pendingRefund.contributionId,
           mint: pendingRefund.mint,
@@ -926,8 +931,8 @@ export default function ClaimPanel() {
       if (!r.ok || !j?.success) {
         throw new Error(String(j?.error || `REFUND_REQUEST_FAILED (${r.status})`));
       }
-
-      setRefundFeeStep('idle');
+      
+      setRefundFeeStep('submitted');
       setMessage('✅ Refund request signed and recorded successfully.');
       setRefundFeeConfirmOpen(false);
       setPendingRefund(null);

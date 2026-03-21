@@ -4,60 +4,60 @@ import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
+import { isBlacklistRefundReason } from '@/app/api/_lib/refund-reason';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function verifySolanaMessageSignature(args: {
-  wallet: string;
-  message: string;
-  signatureBase64?: string;
-  signatureBase58?: string;
-}) {
-  const { wallet, message, signatureBase64, signatureBase58 } = args;
-
-  const publicKeyBytes = bs58.decode(wallet);
-  const messageBytes = new TextEncoder().encode(message);
-
-  let signatureBytes: Uint8Array;
-  if (signatureBase64) {
-    signatureBytes = Uint8Array.from(Buffer.from(signatureBase64, 'base64'));
-  } else if (signatureBase58) {
-    signatureBytes = bs58.decode(signatureBase58);
-  } else {
+function verifySignature(message: string, walletAddress: string, signatureBase64: string) {
+  try {
+    const publicKey = bs58.decode(walletAddress);
+    const signature = Buffer.from(signatureBase64, 'base64');
+    const messageBytes = new TextEncoder().encode(message);
+    return nacl.sign.detached.verify(messageBytes, signature, publicKey);
+  } catch {
     return false;
   }
-
-  return nacl.sign.detached.verify(messageBytes, signatureBytes, publicKeyBytes);
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
+
+    const invalidationId = Number(body?.invalidation_id);
     const wallet = String(body?.wallet_address || '').trim();
     const contributionId = Number(body?.contribution_id);
     const mint = String(body?.mint || '').trim();
     const nonce = String(body?.nonce || '').trim();
-    const signatureBase64 = body?.signature_base64 ? String(body.signature_base64) : undefined;
-    const signatureBase58 = body?.signature_base58 ? String(body.signature_base58) : undefined;
+    const signatureBase64 = String(body?.signature_base64 || '').trim();
 
-    if (!wallet || !Number.isFinite(contributionId) || contributionId <= 0 || !mint || !nonce) {
+    const hasInvalidationId = Number.isFinite(invalidationId) && invalidationId > 0;
+    const hasContributionId = Number.isFinite(contributionId) && contributionId > 0;
+
+    if (
+      ((!hasInvalidationId && (!wallet || !hasContributionId || !mint)) || !nonce || !signatureBase64)
+    ) {
       return NextResponse.json(
         { success: false, error: 'BAD_REQUEST' },
         { status: 400 }
       );
     }
 
+    // Challenge lookup
     const challengeRows = (await sql/* sql */`
-      SELECT id, message, expires_at, used_at
+      SELECT
+        id,
+        message,
+        expires_at,
+        used_at
       FROM refund_request_challenges
       WHERE wallet_address = ${wallet}
         AND contribution_id = ${contributionId}
         AND mint = ${mint}
         AND nonce = ${nonce}
-      ORDER BY created_at DESC
+      ORDER BY created_at DESC, id DESC
       LIMIT 1
     `) as any[];
 
@@ -84,29 +84,48 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const ok = verifySolanaMessageSignature({
-      wallet,
-      message: String(challenge.message),
-      signatureBase64,
-      signatureBase58,
-    });
-
-    if (!ok) {
+    const signatureOk = verifySignature(String(challenge.message || ''), wallet, signatureBase64);
+    if (!signatureOk) {
       return NextResponse.json(
         { success: false, error: 'INVALID_SIGNATURE' },
         { status: 401 }
       );
     }
 
-    const found = (await sql/* sql */`
-      SELECT id, refund_status, refund_fee_paid, reason
-      FROM contribution_invalidations
-      WHERE contribution_id = ${contributionId}
-        AND wallet_address = ${wallet}
-        AND mint = ${mint}
-      ORDER BY created_at DESC
-      LIMIT 1
-    `) as any[];
+    let found: any[] = [];
+
+    if (hasInvalidationId) {
+      found = (await sql/* sql */`
+        SELECT
+          id,
+          refund_status,
+          refund_fee_paid,
+          reason,
+          wallet_address,
+          contribution_id,
+          mint
+        FROM contribution_invalidations
+        WHERE id = ${invalidationId}
+        LIMIT 1
+      `) as any[];
+    } else {
+      found = (await sql/* sql */`
+        SELECT
+          id,
+          refund_status,
+          refund_fee_paid,
+          reason,
+          wallet_address,
+          contribution_id,
+          mint
+        FROM contribution_invalidations
+        WHERE contribution_id = ${contributionId}
+          AND wallet_address = ${wallet}
+          AND mint = ${mint}
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+      `) as any[];
+    }
 
     const row = found?.[0];
     if (!row) {
@@ -116,20 +135,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const current = String(row.refund_status || '');
-    const refundFeePaid = Boolean(row.refund_fee_paid);
+    const rowId = Number(row.id);
+    const rowWallet = String(row.wallet_address || '').trim();
+    const rowContributionId = Number(row.contribution_id);
+    const rowMint = String(row.mint || '').trim();
+    const current = String(row.refund_status || '').trim().toLowerCase();
     const reason = String(row.reason || '').trim().toLowerCase();
 
-    if (!reason.includes('blacklist')) {
+    if (wallet && wallet !== rowWallet) {
       return NextResponse.json(
-        { success: false, error: 'REFUND_ONLY_FOR_BLACKLIST' },
+        { success: false, error: 'WALLET_MISMATCH' },
         { status: 409 }
       );
     }
 
-    if (!refundFeePaid) {
+    if (mint && mint !== rowMint) {
       return NextResponse.json(
-        { success: false, error: 'REFUND_FEE_REQUIRED' },
+        { success: false, error: 'MINT_MISMATCH' },
+        { status: 409 }
+      );
+    }
+
+    if (!isBlacklistRefundReason(reason)) {
+      return NextResponse.json(
+        { success: false, error: 'REFUND_ONLY_FOR_BLACKLIST' },
         { status: 409 }
       );
     }
@@ -141,38 +170,43 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (current !== 'requested') {
-        if (current !== 'available') {
-          return NextResponse.json(
-            { success: false, error: 'REFUND_STATUS_NOT_REQUESTABLE' },
-            { status: 409 }
-          );
-        }
-      
-        await sql/* sql */`
-          UPDATE contribution_invalidations
-          SET
-            refund_status = 'requested',
-            requested_at = COALESCE(requested_at, NOW()),
-            updated_at = NOW()
-          WHERE contribution_id = ${contributionId}
-            AND wallet_address = ${wallet}
-            AND mint = ${mint}
-            AND refund_status = 'available'
-        `;
+    if (!row.refund_fee_paid) {
+      return NextResponse.json(
+        { success: false, error: 'REFUND_FEE_NOT_PAID' },
+        { status: 409 }
+      );
+    }
+
+    if (current !== 'available' && current !== 'requested') {
+      return NextResponse.json(
+        { success: false, error: 'REFUND_STATUS_NOT_REQUESTABLE' },
+        { status: 409 }
+      );
+    }
+
+    if (current === 'available') {
+      await sql/* sql */`
+        UPDATE contribution_invalidations
+        SET
+          refund_status = 'requested',
+          requested_at = COALESCE(requested_at, NOW()),
+          updated_at = NOW()
+        WHERE id = ${rowId}
+          AND refund_status = 'available'
+      `;
     }
 
     await sql/* sql */`
       UPDATE refund_request_challenges
-      SET
-        used_at = NOW()
+      SET used_at = NOW()
       WHERE id = ${challenge.id}
         AND used_at IS NULL
     `;
 
     return NextResponse.json({
       success: true,
-      contribution_id: contributionId,
+      invalidation_id: rowId,
+      contribution_id: rowContributionId,
       refund_status: 'requested',
     });
   } catch (err) {
