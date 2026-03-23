@@ -961,8 +961,10 @@ export default function ClaimPanel() {
         setData(refreshedJson.data);
       }
     } catch (e: any) {
+      const raw = String(e?.message ?? 'REFUND_REQUEST_FAILED');
+      console.error('[REFUND] confirmRefundFeeThenRequest failed:', raw, e);
       setRefundFeeStep('idle');
-      setMessage(`❌ ${userFriendlyError(String(e?.message ?? 'REFUND_REQUEST_FAILED'))}`);
+      setMessage(`❌ ${userFriendlyError(raw)} [${raw}]`);
     } finally {
       setRefundingContributionId(null);
     }

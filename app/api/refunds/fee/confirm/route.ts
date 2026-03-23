@@ -1,3 +1,5 @@
+//app/api/refunds/fee/confirm/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { neon } from '@neondatabase/serverless';
@@ -35,6 +37,32 @@ function normalizePubkeyFromParsed(k: any): string {
 function isSignerKey(k: any): boolean {
   if (typeof k === 'string') return false;
   return Boolean(k?.signer);
+}
+
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function getParsedTransactionWithRetry(
+  connection: Connection,
+  signature: string,
+  attempts = 6,
+  delayMs = 1500
+) {
+  for (let i = 0; i < attempts; i++) {
+    const parsed = await connection.getParsedTransaction(signature, {
+      maxSupportedTransactionVersion: 0,
+      commitment: 'confirmed',
+    });
+
+    if (parsed) return parsed;
+
+    if (i < attempts - 1) {
+      await sleep(delayMs);
+    }
+  }
+
+  return null;
 }
 
 export async function POST(req: NextRequest) {
@@ -231,16 +259,18 @@ export async function POST(req: NextRequest) {
     }
 
     const connection = getConnection();
-    const parsed = await connection.getParsedTransaction(feeTxSignature, {
-      maxSupportedTransactionVersion: 0,
-      commitment: 'confirmed',
-    });
+    const parsed = await getParsedTransactionWithRetry(connection, feeTxSignature, 6, 1500);
 
     if (!parsed) {
-      return NextResponse.json(
-        { success: false, error: 'FEE_TX_NOT_FOUND' },
-        { status: 404 }
-      );
+        return NextResponse.json(
+            {
+            success: false,
+            error: 'FEE_TX_NOT_FOUND',
+            debug_row_id: rowId,
+            debug_fee_tx_signature: feeTxSignature,
+            },
+            { status: 404 }
+        );
     }
 
     if (parsed.meta?.err) {
