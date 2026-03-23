@@ -659,7 +659,10 @@ export default function ClaimPanel() {
     const invalidationId =
       Number(
         tx?.invalidation_id ??
+        tx?.invalidationId ??
         tx?.refund_id ??
+        tx?.refundId ??
+        tx?.refund_invalidation_id ??
         0
       ) || undefined;
   
@@ -710,6 +713,12 @@ export default function ClaimPanel() {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
+            invalidation_id:
+              Number(
+                feePrepJson?.invalidation_id ??
+                invalidationId ??
+                0
+              ) || undefined,
             wallet_address: publicKey.toBase58(),
             contribution_id: contributionId,
             mint,
@@ -736,6 +745,12 @@ export default function ClaimPanel() {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
+            invalidation_id:
+              Number(
+                feePrepJson?.invalidation_id ??
+                invalidationId ??
+                0
+              ) || undefined,
             wallet_address: publicKey.toBase58(),
             contribution_id: contributionId,
             mint,
@@ -2246,7 +2261,8 @@ export default function ClaimPanel() {
                   refundFeeStep === 'paying' ||
                   refundFeeStep === 'confirming' ||
                   refundFeeStep === 'signing' ||
-                  refundFeeStep === 'submitting'
+                  refundFeeStep === 'submitting' ||
+                  refundFeeStep === 'submitted'
                 }
                 onClick={() => {
                   if (refundingContributionId != null) return;
@@ -2276,6 +2292,8 @@ export default function ClaimPanel() {
                     ? 'Submitting...'
                     : refundFeeStep === 'paid'
                     ? 'Fee Paid'
+                    : refundFeeStep === 'submitted'
+                    ? 'Submitted'
                     : 'Continue'
                 }
               </button>

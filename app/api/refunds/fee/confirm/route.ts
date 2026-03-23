@@ -1,5 +1,3 @@
-//app/api/refunds/fee/confirm/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { neon } from '@neondatabase/serverless';
@@ -106,6 +104,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const rowId = Number(row.id);
+    const rowContributionId = Number(row.contribution_id);
     const rowWallet = String(row.wallet_address || '').trim();
     const rowMint = String(row.mint || '').trim();
     const reason = String(row.reason || '').trim().toLowerCase();
@@ -113,10 +113,10 @@ export async function POST(req: NextRequest) {
 
     if (!isBlacklistRefundReason(reason)) {
       return NextResponse.json(
-        { 
-            success: false,
-            error: 'REFUND_ONLY_FOR_BLACKLIST',
-            debug_reason: reason || null,
+        {
+          success: false,
+          error: 'REFUND_ONLY_FOR_BLACKLIST',
+          debug_reason: reason || null,
         },
         { status: 409 }
       );
@@ -129,10 +129,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // IMPORTANT:
     // fee confirm can complete for:
-    // - available   (normal new flow)
-    // - requested   (legacy / incomplete rows)
+    // - available
+    // - requested
     if (refundStatus !== 'available' && refundStatus !== 'requested') {
       return NextResponse.json(
         { success: false, error: 'REFUND_STATUS_NOT_REQUESTABLE' },
@@ -150,8 +149,8 @@ export async function POST(req: NextRequest) {
     if (row.refund_fee_paid && row.refund_fee_tx_signature) {
       return NextResponse.json({
         success: true,
-        invalidation_id: Number(row.id),
-        contribution_id: Number(row.contribution_id),
+        invalidation_id: rowId,
+        contribution_id: rowContributionId,
         refund_fee_paid: true,
         refund_fee_lamports: Number(row.refund_fee_lamports || 0),
         refund_fee_tx_signature: row.refund_fee_tx_signature,
@@ -163,7 +162,7 @@ export async function POST(req: NextRequest) {
       SELECT id, contribution_id
       FROM contribution_invalidations
       WHERE refund_fee_tx_signature = ${feeTxSignature}
-        AND id <> ${row.id}
+        AND id <> ${rowId}
       LIMIT 1
     `) as any[];
 
@@ -264,34 +263,76 @@ export async function POST(req: NextRequest) {
         refund_fee_lamports = ${refundFeeLamports},
         refund_fee_tx_signature = ${feeTxSignature},
         updated_at = NOW()
-      WHERE id = ${row.id}
+      WHERE id = ${rowId}
         AND COALESCE(refund_fee_paid, false) = false
         AND refund_status IN ('available', 'requested')
-      RETURNING id
+      RETURNING
+        id,
+        contribution_id,
+        refund_fee_paid,
+        refund_fee_lamports,
+        refund_fee_tx_signature,
+        refund_status
     `) as any[];
 
-    if (!updated?.length) {
+    if (updated?.length) {
+      const saved = updated[0];
       return NextResponse.json({
         success: true,
-        invalidation_id: Number(row.id),
-        contribution_id: Number(row.contribution_id),
-        refund_fee_paid: true,
-        refund_fee_lamports: refundFeeLamports,
-        refund_fee_tx_signature: feeTxSignature,
+        invalidation_id: Number(saved.id),
+        contribution_id: Number(saved.contribution_id),
+        refund_fee_paid: Boolean(saved.refund_fee_paid),
+        refund_fee_lamports: Number(saved.refund_fee_lamports || 0),
+        refund_fee_tx_signature: String(saved.refund_fee_tx_signature || ''),
+        refund_status: String(saved.refund_status || ''),
+        debug_refund_status_before: refundStatus,
+        debug_row_wallet: rowWallet,
+        debug_row_mint: rowMint,
       });
     }
 
-    return NextResponse.json({
-      success: true,
-      invalidation_id: Number(row.id),
-      contribution_id: Number(row.contribution_id),
-      refund_fee_paid: true,
-      refund_fee_lamports: refundFeeLamports,
-      refund_fee_tx_signature: feeTxSignature,
-      debug_refund_status_before: refundStatus,
-      debug_row_wallet: rowWallet,
-      debug_row_mint: rowMint,
-    });
+    // Re-read the row instead of blindly returning success.
+    const reread = (await sql/* sql */`
+      SELECT
+        id,
+        contribution_id,
+        refund_fee_paid,
+        refund_fee_lamports,
+        refund_fee_tx_signature,
+        refund_status
+      FROM contribution_invalidations
+      WHERE id = ${rowId}
+      LIMIT 1
+    `) as any[];
+
+    const after = reread?.[0];
+
+    if (after?.refund_fee_paid && after?.refund_fee_tx_signature) {
+      return NextResponse.json({
+        success: true,
+        invalidation_id: Number(after.id),
+        contribution_id: Number(after.contribution_id),
+        refund_fee_paid: true,
+        refund_fee_lamports: Number(after.refund_fee_lamports || 0),
+        refund_fee_tx_signature: String(after.refund_fee_tx_signature || ''),
+        refund_status: String(after.refund_status || ''),
+        debug_refund_status_before: refundStatus,
+        debug_row_wallet: rowWallet,
+        debug_row_mint: rowMint,
+      });
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'REFUND_FEE_DB_UPDATE_FAILED',
+        debug_refund_status_before: refundStatus,
+        debug_row_id: rowId,
+        debug_row_wallet: rowWallet,
+        debug_row_mint: rowMint,
+      },
+      { status: 409 }
+    );
   } catch (err) {
     console.error('refund fee confirm failed:', err);
     return NextResponse.json(
