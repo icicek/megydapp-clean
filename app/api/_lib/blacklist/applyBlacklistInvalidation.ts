@@ -128,18 +128,59 @@ export async function applyBlacklistInvalidation(
     );
 
     /**
-     * 3) Upsert invalidation ledger for open allocations
+     * 3) Aggregate invalidation into ONE row per contribution_id
      */
+    const aggregated = new Map<
+      number,
+      {
+        contributionId: number;
+        walletAddress: string;
+        invalidatedUsd: number;
+        invalidatedMegy: number;
+        invalidatedTokenAmount: number;
+      }
+    >();
+
+    const addAggregate = (row: any) => {
+      const contributionId = Number(row.contribution_id);
+      if (!Number.isFinite(contributionId) || contributionId <= 0) return;
+
+      const totalUsd = num(row.total_usd, 0);
+      const invalidatedUsd = num(row.invalidated_usd, 0);
+      const invalidatedMegy = num(row.invalidated_megy, 0);
+      const tokenAmount = num(row.token_amount, 0);
+
+      const invalidatedTokenAmount =
+        totalUsd > EPS ? (tokenAmount * invalidatedUsd) / totalUsd : 0;
+
+      const prev = aggregated.get(contributionId);
+
+      if (!prev) {
+        aggregated.set(contributionId, {
+          contributionId,
+          walletAddress: String(row.wallet_address || '').trim(),
+          invalidatedUsd,
+          invalidatedMegy,
+          invalidatedTokenAmount,
+        });
+        return;
+      }
+
+      prev.invalidatedUsd += invalidatedUsd;
+      prev.invalidatedMegy += invalidatedMegy;
+      prev.invalidatedTokenAmount += invalidatedTokenAmount;
+
+      if (!prev.walletAddress && row.wallet_address) {
+        prev.walletAddress = String(row.wallet_address || '').trim();
+      }
+    };
+
+    for (const row of openAllocRows) addAggregate(row);
+    for (const row of pendingRows) addAggregate(row);
+
     let invalidationRowsUpserted = 0;
 
-    for (const row of openAllocRows) {
-      const totalUsd = num(row.total_usd, 0);
-      const invalidatedUsd = num(row.invalidated_usd, 0);
-      const tokenAmount = num(row.token_amount, 0);
-
-      const invalidatedTokenAmount =
-        totalUsd > EPS ? (tokenAmount * invalidatedUsd) / totalUsd : 0;
-
+    for (const item of aggregated.values()) {
       await sql/* sql */`
         INSERT INTO contribution_invalidations (
           contribution_id,
@@ -156,78 +197,24 @@ export async function applyBlacklistInvalidation(
           updated_at
         )
         VALUES (
-          ${row.contribution_id}::bigint,
+          ${item.contributionId}::bigint,
           ${mint}::text,
-          ${row.wallet_address}::text,
-          ${row.phase_id}::bigint,
-          ${invalidatedUsd}::numeric,
-          ${num(row.invalidated_megy, 0)}::numeric,
-          ${invalidatedTokenAmount}::numeric,
-          ${reason}::text,
-          'available'::text,
-          ${changedBy}::text,
-          NOW(),
-          NOW()
-        )
-        ON CONFLICT (contribution_id, mint, phase_id) WHERE phase_id IS NOT NULL
-        DO UPDATE SET
-          invalidated_usd = EXCLUDED.invalidated_usd,
-          invalidated_megy = EXCLUDED.invalidated_megy,
-          invalidated_token_amount = EXCLUDED.invalidated_token_amount,
-          reason = EXCLUDED.reason,
-          refund_status = CASE
-            WHEN contribution_invalidations.refund_status IN ('requested', 'refunded')
-              THEN contribution_invalidations.refund_status
-            ELSE 'available'
-          END,
-          changed_by = EXCLUDED.changed_by,
-          updated_at = NOW()
-      `;
-      invalidationRowsUpserted += 1;
-    }
-
-    /**
-     * 4) Upsert invalidation ledger for pending remainder
-     */
-    for (const row of pendingRows) {
-      const totalUsd = num(row.total_usd, 0);
-      const invalidatedUsd = num(row.invalidated_usd, 0);
-      const tokenAmount = num(row.token_amount, 0);
-
-      const invalidatedTokenAmount =
-        totalUsd > EPS ? (tokenAmount * invalidatedUsd) / totalUsd : 0;
-
-      await sql/* sql */`
-        INSERT INTO contribution_invalidations (
-          contribution_id,
-          mint,
-          wallet_address,
-          phase_id,
-          invalidated_usd,
-          invalidated_megy,
-          invalidated_token_amount,
-          reason,
-          refund_status,
-          changed_by,
-          created_at,
-          updated_at
-        )
-        VALUES (
-          ${row.contribution_id}::bigint,
-          ${mint}::text,
-          ${row.wallet_address}::text,
+          ${item.walletAddress}::text,
           NULL,
-          ${invalidatedUsd}::numeric,
-          0::numeric,
-          ${invalidatedTokenAmount}::numeric,
+          ${item.invalidatedUsd}::numeric,
+          ${item.invalidatedMegy}::numeric,
+          ${item.invalidatedTokenAmount}::numeric,
           ${reason}::text,
           'available'::text,
           ${changedBy}::text,
           NOW(),
           NOW()
         )
-        ON CONFLICT (contribution_id, mint) WHERE phase_id IS NULL
+        ON CONFLICT (contribution_id)
         DO UPDATE SET
+          mint = EXCLUDED.mint,
+          wallet_address = EXCLUDED.wallet_address,
+          phase_id = NULL,
           invalidated_usd = EXCLUDED.invalidated_usd,
           invalidated_megy = EXCLUDED.invalidated_megy,
           invalidated_token_amount = EXCLUDED.invalidated_token_amount,
@@ -244,7 +231,7 @@ export async function applyBlacklistInvalidation(
     }
 
     /**
-     * 5) Delete only non-completed phase allocations
+     * 4) Delete only non-completed phase allocations
      */
     const del = (await sql/* sql */`
       DELETE FROM phase_allocations pa
@@ -256,7 +243,7 @@ export async function applyBlacklistInvalidation(
     `) as any[];
 
     /**
-     * 6) Recompute helper fields from remaining allocation truth.
+     * 5) Recompute helper fields from remaining allocation truth.
      *    Important: a contribution may still have completed allocations left.
      *    In that case, do NOT mark the whole contribution invalidated.
      */
@@ -307,7 +294,7 @@ export async function applyBlacklistInvalidation(
     `;
 
     /**
-     * 7) Touch affected open phases for freshness
+     * 6) Touch affected open phases for freshness
      */
     if (touchedPhaseIds.length > 0) {
       await sql/* sql */`
