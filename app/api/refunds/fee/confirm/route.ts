@@ -97,6 +97,20 @@ export async function POST(req: NextRequest) {
     }
 
     const row = rows?.[0];
+    console.log('[REFUND_FEE_CONFIRM] selected row:', {
+        rowId: row?.id,
+        contributionId: row?.contribution_id,
+        wallet: row?.wallet_address,
+        mint: row?.mint,
+        refundStatus: row?.refund_status,
+        refundFeePaid: row?.refund_fee_paid,
+        refundFeeTxSignature: row?.refund_fee_tx_signature,
+        hasInvalidationId,
+        bodyInvalidationId: invalidationId,
+        bodyContributionId: contributionId,
+        bodyWallet: wallet,
+        bodyMint: mint,
+    });
     if (!row) {
       return NextResponse.json(
         { success: false, error: 'REFUND_NOT_AVAILABLE' },
@@ -110,6 +124,29 @@ export async function POST(req: NextRequest) {
     const rowMint = String(row.mint || '').trim();
     const reason = String(row.reason || '').trim().toLowerCase();
     const refundStatus = String(row.refund_status || '').trim().toLowerCase();
+    if (wallet && wallet !== rowWallet) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'WALLET_MISMATCH',
+            debug_row_wallet: rowWallet,
+            debug_body_wallet: wallet,
+          },
+          { status: 409 }
+        );
+    }
+      
+      if (mint && mint !== rowMint) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'MINT_MISMATCH',
+            debug_row_mint: rowMint,
+            debug_body_mint: mint,
+          },
+          { status: 409 }
+        );
+    }
 
     if (!isBlacklistRefundReason(reason)) {
       return NextResponse.json(
@@ -274,6 +311,11 @@ export async function POST(req: NextRequest) {
         refund_fee_tx_signature,
         refund_status
     `) as any[];
+    console.log('[REFUND_FEE_CONFIRM] update result:', {
+        rowId,
+        updatedCount: updated?.length || 0,
+        updated,
+    });
 
     if (updated?.length) {
       const saved = updated[0];
@@ -306,6 +348,7 @@ export async function POST(req: NextRequest) {
     `) as any[];
 
     const after = reread?.[0];
+    console.log('[REFUND_FEE_CONFIRM] reread row:', after);
 
     if (after?.refund_fee_paid && after?.refund_fee_tx_signature) {
       return NextResponse.json({

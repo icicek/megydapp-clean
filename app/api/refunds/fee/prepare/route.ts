@@ -92,6 +92,22 @@ export async function POST(req: NextRequest) {
     const reason = String(row.reason || '').trim().toLowerCase();
     const dbMint = String(row.mint || '').trim();
 
+    const dbWallet = String(row.wallet_address || '').trim();
+
+    if (wallet && wallet !== dbWallet) {
+    return NextResponse.json(
+        { success: false, error: 'WALLET_MISMATCH' },
+        { status: 409 }
+    );
+    }
+
+    if (mint && mint !== dbMint) {
+    return NextResponse.json(
+        { success: false, error: 'MINT_MISMATCH' },
+        { status: 409 }
+    );
+    }
+
     if (refundStatus === 'refunded') {
       return NextResponse.json(
         { success: false, error: 'ALREADY_REFUNDED' },
