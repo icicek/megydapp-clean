@@ -10,53 +10,68 @@ type Props = { className?: string };
 export default function AdminLink({ className }: Props) {
   const { publicKey, connected } = useWallet();
   const wallet = useMemo(() => publicKey?.toBase58() ?? '', [publicKey]);
-  const [allowed, setAllowed] = useState(false);
 
-  const checkAllowed = useCallback(async () => {
+  const [isAllowedWallet, setIsAllowedWallet] = useState(false);
+  const [hasAdminSession, setHasAdminSession] = useState(false);
+
+  const checkState = useCallback(async () => {
     try {
+      // 1) Wallet allowlist check
       if (!wallet) {
-        setAllowed(false);
-        return;
+        setIsAllowedWallet(false);
+      } else {
+        const allowRes = await fetch(
+          `/api/admin/is-allowed?wallet=${encodeURIComponent(wallet)}`,
+          {
+            cache: 'no-store',
+            credentials: 'include',
+          }
+        );
+        const allowData = await allowRes.json().catch(() => ({}));
+        setIsAllowedWallet(Boolean(allowData?.allowed));
       }
 
-      const res = await fetch(`/api/admin/is-allowed?wallet=${encodeURIComponent(wallet)}`, {
+      // 2) Active admin session check
+      const whoamiRes = await fetch('/api/admin/whoami?strict=0', {
         cache: 'no-store',
         credentials: 'include',
       });
-
-      const data = await res.json().catch(() => ({}));
-      setAllowed(Boolean(data?.allowed));
+      const whoamiData = await whoamiRes.json().catch(() => ({}));
+      setHasAdminSession(Boolean(whoamiData?.ok));
     } catch {
-      setAllowed(false);
+      setIsAllowedWallet(false);
+      setHasAdminSession(false);
     }
   }, [wallet]);
 
   useEffect(() => {
-    checkAllowed();
-  }, [checkAllowed, wallet, connected]);
+    checkState();
+  }, [checkState, wallet, connected]);
 
   useEffect(() => {
     const onVisibility = () => {
       if (document.visibilityState === 'visible') {
-        checkAllowed();
+        checkState();
       }
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [checkAllowed]);
+  }, [checkState]);
 
-  if (!allowed) return null;
+  const showAdminLink = connected && (isAllowedWallet || hasAdminSession);
+
+  if (!showAdminLink) return null;
 
   return (
     <div className={className ?? ''}>
       <div className="w-full flex justify-center">
         <Link
-          href="/admin"
+          href="/admin/login"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10
                      bg-white/5 hover:bg-white/10 transition-colors text-sm"
         >
           <span>🛠️</span>
-          <span>Go to Admin Panel</span>
+          <span>{hasAdminSession ? 'Go to Admin Panel' : 'Admin Login'}</span>
         </Link>
       </div>
     </div>
