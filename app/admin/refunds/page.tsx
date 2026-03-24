@@ -310,12 +310,54 @@ export default function AdminRefundsPage() {
         preflightCommitment: 'confirmed',
         maxRetries: 5,
       });
-
-      const confirmation = await connection.confirmTransaction(signature, 'confirmed');
-      if (confirmation?.value?.err) {
-        throw new Error('REFUND_TX_FAILED');
+      
+      let shouldFinalize = false;
+      
+      try {
+        const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+      
+        if (confirmation?.value?.err) {
+          throw new Error('REFUND_TX_FAILED');
+        }
+      
+        shouldFinalize = true;
+      } catch (e: any) {
+        const msg = String(e?.message || '');
+      
+        // Timeout / ambiguous confirmation case:
+        // transaction may already be on-chain even if confirmTransaction did not resolve cleanly.
+        const statusRes = await connection.getSignatureStatuses([signature]);
+        const status = statusRes?.value?.[0];
+      
+        if (status?.err) {
+          throw new Error('REFUND_TX_FAILED');
+        }
+      
+        if (status && (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized')) {
+          shouldFinalize = true;
+        } else {
+          const txInfo = await connection.getTransaction(signature, {
+            commitment: 'confirmed',
+            maxSupportedTransactionVersion: 0,
+          });
+      
+          if (txInfo?.meta && !txInfo.meta.err) {
+            shouldFinalize = true;
+          } else if (
+            msg.includes('was not confirmed') ||
+            msg.includes('unknown if it succeeded or failed')
+          ) {
+            throw new Error(`REFUND_TX_NOT_FOUND`);
+          } else {
+            throw e;
+          }
+        }
       }
-
+      
+      if (!shouldFinalize) {
+        throw new Error('REFUND_TX_NOT_VALID');
+      }
+      
       const finalizeRes = await fetch('/api/admin/refunds/finalize', {
         method: 'POST',
         credentials: 'include',
@@ -327,9 +369,9 @@ export default function AdminRefundsPage() {
           executed_by: publicKey.toBase58(),
         }),
       });
-
+      
       const finalizeJson = await finalizeRes.json().catch(() => ({} as any));
-
+      
       if (!finalizeRes.ok || !finalizeJson?.success) {
         throw new Error(finalizeJson?.error || `REFUND_FINALIZE_FAILED (${finalizeRes.status})`);
       }
