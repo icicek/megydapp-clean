@@ -1,39 +1,38 @@
 // components/admin/AdminLink.tsx
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useWallet } from '@solana/wallet-adapter-react';
 
 type Props = { className?: string };
 
 export default function AdminLink({ className }: Props) {
-  const { publicKey, connected } = useWallet();
-  const wallet = useMemo(() => publicKey?.toBase58() ?? '', [publicKey]);
   const [allowed, setAllowed] = useState(false);
 
   const checkAllowed = useCallback(async () => {
     try {
-      const qs = wallet ? `?wallet=${encodeURIComponent(wallet)}` : '';
-      const res = await fetch(`/api/admin/is-allowed${qs}`, {
+      const res = await fetch('/api/admin/whoami?strict=0', {
         cache: 'no-store',
-        credentials: 'include', // HttpOnly admin cookie’yi gönderebilmek için şart
+        credentials: 'include',
       });
+
       const data = await res.json().catch(() => ({}));
-      setAllowed(Boolean(data?.allowed));
+      setAllowed(Boolean(data?.ok));
     } catch {
       setAllowed(false);
     }
-  }, [wallet]);
+  }, []);
 
   useEffect(() => {
     checkAllowed();
-  }, [checkAllowed, wallet, connected]);
+  }, [checkAllowed]);
 
   useEffect(() => {
-    const onFocus = () => checkAllowed();
-    document.addEventListener('visibilitychange', onFocus);
-    return () => document.removeEventListener('visibilitychange', onFocus);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') checkAllowed();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [checkAllowed]);
 
   if (!allowed) return null;

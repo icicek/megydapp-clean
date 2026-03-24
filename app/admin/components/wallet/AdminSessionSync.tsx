@@ -1,3 +1,5 @@
+//app/admin/components/wallet/AdminSessionSync
+
 'use client';
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';

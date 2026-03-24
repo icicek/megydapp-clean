@@ -19,6 +19,29 @@ function LoginCard() {
 
   const walletBase58 = useMemo(() => publicKey?.toBase58() ?? '', [publicKey]);
 
+  useEffect(() => {
+    let cancelled = false;
+  
+    (async () => {
+      try {
+        const res = await fetch('/api/admin/whoami?strict=0', {
+          method: 'GET',
+          credentials: 'include',
+          cache: 'no-store',
+        });
+  
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && data?.ok) {
+          router.replace('/admin/tokens');
+        }
+      } catch {}
+    })();
+  
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
   // URL'deki ?e=... parametresini SSR'siz şekilde oku (Suspense gerekmez)
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -26,7 +49,7 @@ function LoginCard() {
     if (!e) return;
     if (e === 'missing') setInitialMsg('Please connect your admin wallet and sign in.');
     else if (e === 'session') setInitialMsg('Session missing/expired. Please sign in again.');
-    else if (e === 'wallet-changed') setInitialMsg('Wallet changed. Please re-authenticate.');
+    else if (e === 'wallet-changed') setInitialMsg('Admin session check changed. Please sign in again if needed.');
     else if (e === 'error') setInitialMsg('Unexpected error during session check. Please sign in again.');
   }, []);
 
