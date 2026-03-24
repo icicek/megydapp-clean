@@ -74,6 +74,10 @@ function formatLamports(v: unknown) {
   return `${(n / 1e9).toFixed(6)} SOL`;
 }
 
+function isSameWallet(a: string | null | undefined, b: string | null | undefined) {
+  return String(a || '').trim() !== '' && String(a || '').trim() === String(b || '').trim();
+}
+
 function statusBadge(status: string | null | undefined) {
   const s = String(status ?? '').toLowerCase();
 
@@ -211,8 +215,18 @@ export default function AdminRefundsPage() {
         throw new Error('TREASURY_WALLET_MISSING');
       }
 
-      if (connectedWallet !== treasuryWallet) {
-        throw new Error('TREASURY_WALLET_REQUIRED');
+      if (!isSameWallet(connectedWallet, treasuryWallet)) {
+        setMsg(
+          [
+            '⚠️ Refund execution requires the Coincarnation treasury wallet as signer.',
+            `Connected wallet: ${connectedWallet}`,
+            `Required treasury wallet: ${treasuryWallet}`,
+            '',
+            'Your admin session is still valid.',
+            'Switch the connected wallet to the Coincarnation treasury wallet, then try again.',
+          ].join('\n')
+        );
+        return;
       }
 
       let destinationWallet: PublicKey;
@@ -438,6 +452,13 @@ export default function AdminRefundsPage() {
                         normalizedReason === 'invalidated:blacklist' ||
                         normalizedReason.startsWith('invalidated:blacklist:');
 
+                    const treasurySignerNeeded =
+                        refundStatus === 'requested' &&
+                        row.refund_fee_paid === true &&
+                        network === 'solana' &&
+                        isBlacklistRefund &&
+                        mint !== 'SOL';
+
                     const canExecute =
                         refundStatus === 'requested' &&
                         row.refund_fee_paid === true &&
@@ -518,16 +539,24 @@ export default function AdminRefundsPage() {
                                 {refundStatus === 'available' && (
                                   <div>Waiting for user request</div>
                                 )}
+                              
                                 {refundStatus === 'requested' && !row.refund_fee_paid && (
                                   <div>Waiting for fee payment</div>
                                 )}
+                              
+                                {refundStatus === 'requested' && row.refund_fee_paid && treasurySignerNeeded && (
+                                  <div>Ready for treasury signer</div>
+                                )}
+                              
                                 {refundStatus === 'refunded' && (
                                   <div>Completed</div>
                                 )}
+                              
                                 {refundStatus !== 'available' &&
-                                 !(refundStatus === 'requested' && !row.refund_fee_paid) &&
-                                 refundStatus !== 'refunded' && (
-                                  <div>—</div>
+                                  !(refundStatus === 'requested' && !row.refund_fee_paid) &&
+                                  !(refundStatus === 'requested' && row.refund_fee_paid && treasurySignerNeeded) &&
+                                  refundStatus !== 'refunded' && (
+                                    <div>—</div>
                                 )}
                             </div>
                           )}

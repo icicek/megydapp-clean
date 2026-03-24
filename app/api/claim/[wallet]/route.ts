@@ -67,6 +67,7 @@ export async function GET(req: NextRequest) {
         COALESCE(SUM(invalidated_token_amount), 0)::float AS invalidated_token_amount,
         BOOL_OR(refund_status = 'requested') AS refund_requested,
         BOOL_OR(refund_status = 'refunded') AS refunded,
+        BOOL_OR(COALESCE(refund_fee_paid, false)) AS refund_fee_paid,
         MAX(requested_at) AS requested_at,
         MAX(refunded_at) AS refunded_at
       FROM contribution_invalidations
@@ -78,6 +79,7 @@ export async function GET(req: NextRequest) {
       invalidated_usd: number;
       invalidated_token_amount: number;
       refund_status: 'available' | 'requested' | 'refunded';
+      refund_fee_paid: boolean;
       requested_at: string | null;
       refunded_at: string | null;
     }>();
@@ -93,6 +95,7 @@ export async function GET(req: NextRequest) {
         invalidated_usd: Number(row.invalidated_usd ?? 0),
         invalidated_token_amount: Number(row.invalidated_token_amount ?? 0),
         refund_status: refunded ? 'refunded' : requested ? 'requested' : 'available',
+        refund_fee_paid: Boolean(row.refund_fee_paid),
         requested_at: row.requested_at ? String(row.requested_at) : null,
         refunded_at: row.refunded_at ? String(row.refunded_at) : null,
       });
@@ -216,11 +219,25 @@ export async function GET(req: NextRequest) {
         (row.tx_hash && String(row.tx_hash)) ||
         (row.id != null ? String(row.id) : null);
 
-      const blacklistLabel = !inv
-        ? null
-        : currentTokenStatus === 'blacklist'
-          ? 'Blacklisted — Refund Available'
-          : 'Previously Blacklisted — Refund Available';
+      const refundStatus = inv?.refund_status ?? null;
+      const refundFeePaid = Boolean(inv?.refund_fee_paid ?? false);
+
+      let blacklistLabel: string | null = null;
+
+      if (inv) {
+        if (refundStatus === 'refunded') {
+          blacklistLabel = 'Refunded';
+        } else if (refundStatus === 'requested' && refundFeePaid) {
+          blacklistLabel = 'Refund Requested';
+        } else if (refundStatus === 'requested' && !refundFeePaid) {
+          blacklistLabel = 'Complete Refund Request';
+        } else if (refundStatus === 'available') {
+          blacklistLabel =
+            currentTokenStatus === 'blacklist'
+              ? 'Blacklisted — Refund Available'
+              : 'Previously Blacklisted — Refund Available';
+        }
+      }
 
       return {
         contribution_id: contributionId,
@@ -236,7 +253,8 @@ export async function GET(req: NextRequest) {
         blacklisted: !!inv,
         current_token_status: currentTokenStatus,
         blacklist_label: blacklistLabel,
-        refund_status: inv?.refund_status ?? null,
+        refund_status: refundStatus,
+        refund_fee_paid: refundFeePaid,
         invalidated_usd: Number(inv?.invalidated_usd ?? 0),
         invalidated_token_amount: Number(inv?.invalidated_token_amount ?? 0),
         requested_at: inv?.requested_at ?? null,

@@ -29,10 +29,6 @@ async function fetchCorepointHistory(wallet: string | null): Promise<any[]> {
   try {
     const r = await fetch(`/api/corepoints/history?wallet=${wallet}`, { cache: 'no-store' });
     const j = await r.json().catch(() => ({}));
-    console.log('[REFUND] request submit response:', {
-      status: r.status,
-      body: j,
-    });
     if (!j?.success) return [];
     return Array.isArray(j.events) ? j.events : [];
   } catch (e) {
@@ -50,6 +46,50 @@ const asBool = (v: unknown): boolean => {
   }
   return false;
 };
+
+function getRefundUiState(tx: any): {
+  badge: string | null;
+  showRefundButton: boolean;
+  buttonLabel: string;
+} {
+  if (!tx?.blacklisted) {
+    return {
+      badge: null,
+      showRefundButton: false,
+      buttonLabel: 'Request Refund',
+    };
+  }
+
+  if (tx.refund_status === 'refunded') {
+    return {
+      badge: 'Refunded',
+      showRefundButton: false,
+      buttonLabel: 'Refunded',
+    };
+  }
+
+  if (tx.refund_status === 'requested' && tx.refund_fee_paid) {
+    return {
+      badge: 'Refund Requested',
+      showRefundButton: false,
+      buttonLabel: 'Refund Requested',
+    };
+  }
+
+  if (tx.refund_status === 'requested' && !tx.refund_fee_paid) {
+    return {
+      badge: 'Complete Refund Request',
+      showRefundButton: true,
+      buttonLabel: 'Complete Refund Request',
+    };
+  }
+
+  return {
+    badge: 'Refund Available',
+    showRefundButton: true,
+    buttonLabel: 'Request Refund',
+  };
+}
 
 type CpConfig = {
   usdPer1: number;
@@ -249,10 +289,6 @@ export default function ClaimPanel() {
         );
 
         const j = await r.json().catch(() => ({}));
-        console.log('[REFUND] request submit response:', {
-          status: r.status,
-          body: j,
-        });
 
         if (!alive) return;
 
@@ -290,10 +326,6 @@ export default function ClaimPanel() {
 
         const r = await fetch('/api/phases/list', { cache: 'no-store' });
         const j = await r.json().catch(() => ({}));
-        console.log('[REFUND] request submit response:', {
-          status: r.status,
-          body: j,
-        });
 
         if (!alive) return;
 
@@ -387,10 +419,6 @@ export default function ClaimPanel() {
       setPhaseLoading(true);
       const r = await fetch('/api/phases/finalized/latest', { cache: 'no-store' });
       const j = await r.json().catch(() => ({}));
-      console.log('[REFUND] request submit response:', {
-        status: r.status,
-        body: j,
-      });
 
       const pid = Number(j?.phase_id);
       if (r.ok && j?.success && Number.isFinite(pid) && pid > 0) {
@@ -1845,11 +1873,25 @@ export default function ClaimPanel() {
                             Share
                           </button>
 
-                          {tx.blacklisted &&
-                            (
-                              tx.refund_status === 'available' ||
-                              (tx.refund_status === 'requested' && !tx.refund_fee_paid)
-                            ) && (
+                          <div className="flex flex-col gap-2">
+                            {getRefundUiState(tx).badge && (
+                              <span
+                                className={[
+                                  'text-[11px] font-medium',
+                                  getRefundUiState(tx).badge === 'Refunded'
+                                    ? 'text-green-300'
+                                    : getRefundUiState(tx).badge === 'Refund Requested'
+                                    ? 'text-yellow-300'
+                                    : getRefundUiState(tx).badge === 'Complete Refund Request'
+                                    ? 'text-orange-300'
+                                    : 'text-blue-300',
+                                ].join(' ')}
+                              >
+                                {getRefundUiState(tx).badge}
+                              </span>
+                            )}
+
+                            {getRefundUiState(tx).showRefundButton && (
                               <button
                                 type="button"
                                 onClick={() => handleRequestRefund(tx)}
@@ -1860,23 +1902,12 @@ export default function ClaimPanel() {
                                 }
                                 className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-3 py-1 rounded-md text-xs transition-all disabled:opacity-50"
                               >
-                                {refundingContributionId === Number(tx.contribution_id)
+                                {refundingContributionId === Number(tx.contribution_id ?? tx.contributionId ?? tx.id)
                                   ? 'Processing...'
-                                  : (tx.refund_status === 'requested' ? 'Complete Refund Request' : 'Request Refund')}
+                                  : getRefundUiState(tx).buttonLabel}
                               </button>
-                          )}
-
-                          {tx.blacklisted && tx.refund_status === 'requested' && tx.refund_fee_paid && (
-                            <span className="text-[11px] text-yellow-300 font-medium">
-                              Refund requested
-                            </span>
-                          )}
-
-                          {tx.blacklisted && tx.refund_status === 'refunded' && (
-                            <span className="text-[11px] text-green-300 font-medium">
-                              Refunded
-                            </span>
-                          )}
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>
