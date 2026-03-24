@@ -1,4 +1,5 @@
 // app/api/admin/is-allowed/route.ts
+// app/api/admin/is-allowed/route.ts
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
