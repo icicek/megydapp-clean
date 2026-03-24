@@ -274,10 +274,18 @@ export async function POST(req: NextRequest) {
     }
 
     if (parsed.meta?.err) {
-      return NextResponse.json(
-        { success: false, error: 'FEE_TX_FAILED' },
-        { status: 409 }
-      );
+        return NextResponse.json(
+            {
+            success: false,
+            error: 'FEE_TX_FAILED',
+            debug_fee_tx_signature: feeTxSignature,
+            debug_meta_err: parsed.meta.err,
+            debug_row_id: rowId,
+            debug_row_wallet: rowWallet,
+            debug_row_mint: rowMint,
+            },
+            { status: 409 }
+        );
     }
 
     const keys = parsed.transaction.message.accountKeys || [];

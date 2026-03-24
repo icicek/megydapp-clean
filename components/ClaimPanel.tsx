@@ -850,6 +850,7 @@ export default function ClaimPanel() {
           maxRetries: 3,
         } as any)
       );
+      setFeeSigForSupport(feeSig);
   
       setRefundFeeStep('confirming');
       setMessage('⏳ Verifying refund fee payment...');
