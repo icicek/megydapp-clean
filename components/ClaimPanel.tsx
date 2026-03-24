@@ -852,16 +852,7 @@ export default function ClaimPanel() {
       );
   
       setRefundFeeStep('confirming');
-      setMessage('⏳ Confirming refund fee payment on-chain...');
-  
-      await connection.confirmTransaction(
-        {
-          signature: feeSig,
-          blockhash: latest.blockhash,
-          lastValidBlockHeight: latest.lastValidBlockHeight,
-        },
-        'confirmed'
-      );
+      setMessage('⏳ Verifying refund fee payment...');
   
       // 2) Confirm fee with backend
       const feeConfirmRes = await fetch('/api/refunds/fee/confirm', {

@@ -259,7 +259,7 @@ export async function POST(req: NextRequest) {
     }
 
     const connection = getConnection();
-    const parsed = await getParsedTransactionWithRetry(connection, feeTxSignature, 6, 1500);
+    const parsed = await getParsedTransactionWithRetry(connection, feeTxSignature, 10, 2000);
 
     if (!parsed) {
         return NextResponse.json(
