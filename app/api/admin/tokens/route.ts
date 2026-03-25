@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
       invalidation = await applyBlacklistInvalidation({
         mint,
         changedBy: wallet,
-        reason: reason || 'blacklist by admin',
+        reason: 'invalidated:blacklist',
       });
     }
 
