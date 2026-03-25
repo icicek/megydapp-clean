@@ -94,18 +94,28 @@ export async function POST(req: NextRequest) {
 
     const dbWallet = String(row.wallet_address || '').trim();
 
-    if (wallet && wallet !== dbWallet) {
-    return NextResponse.json(
-        { success: false, error: 'WALLET_MISMATCH' },
-        { status: 409 }
-    );
+    if (!hasInvalidationId && wallet && wallet !== dbWallet) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'WALLET_MISMATCH',
+            debug_sent_wallet: wallet,
+            debug_db_wallet: dbWallet,
+          },
+          { status: 409 }
+        );
     }
-
-    if (mint && mint !== dbMint) {
-    return NextResponse.json(
-        { success: false, error: 'MINT_MISMATCH' },
-        { status: 409 }
-    );
+      
+    if (!hasInvalidationId && mint && mint !== dbMint) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'MINT_MISMATCH',
+            debug_sent_mint: mint,
+            debug_db_mint: dbMint,
+          },
+          { status: 409 }
+        );
     }
 
     if (refundStatus === 'refunded') {
