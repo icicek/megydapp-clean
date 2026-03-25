@@ -63,6 +63,7 @@ export async function GET(req: NextRequest) {
     const invalidationRows = (await sql/* sql */`
       SELECT
         contribution_id,
+        MAX(id)::int AS invalidation_id,
         COALESCE(SUM(invalidated_usd), 0)::float AS invalidated_usd,
         COALESCE(SUM(invalidated_token_amount), 0)::float AS invalidated_token_amount,
         BOOL_OR(refund_status = 'requested') AS refund_requested,
@@ -76,6 +77,7 @@ export async function GET(req: NextRequest) {
     `) as any[];
 
     const invalidationMap = new Map<number, {
+      invalidation_id: number | null;
       invalidated_usd: number;
       invalidated_token_amount: number;
       refund_status: 'available' | 'requested' | 'refunded';
@@ -92,6 +94,9 @@ export async function GET(req: NextRequest) {
       const requested = !!row.refund_requested;
 
       invalidationMap.set(contributionId, {
+        invalidation_id: Number.isFinite(Number(row.invalidation_id))
+          ? Number(row.invalidation_id)
+          : null,
         invalidated_usd: Number(row.invalidated_usd ?? 0),
         invalidated_token_amount: Number(row.invalidated_token_amount ?? 0),
         refund_status: refunded ? 'refunded' : requested ? 'requested' : 'available',
@@ -241,6 +246,7 @@ export async function GET(req: NextRequest) {
 
       return {
         contribution_id: contributionId,
+        invalidation_id: inv?.invalidation_id ?? null,
         token_symbol: row.token_symbol,
         token_amount: row.token_amount,
         usd_value: row.usd_value,
