@@ -271,10 +271,33 @@ export async function GET(req: NextRequest) {
     // 3) CorePoint totals (from corepoint_events)
     const cpRows = await sql/* sql */`
       SELECT
-        COALESCE(SUM(points) FILTER (WHERE type = 'usd'), 0)::float              AS cp_usd,
-        COALESCE(SUM(points) FILTER (WHERE type = 'referral_signup'), 0)::float  AS cp_ref,
-        COALESCE(SUM(points) FILTER (WHERE type = 'deadcoin_first'), 0)::float   AS cp_dead,
-        COALESCE(SUM(points) FILTER (WHERE type = 'share'), 0)::float            AS cp_share
+        COALESCE(
+          SUM(points) FILTER (
+            WHERE type IN ('usd', 'usd_blacklist_reversal')
+          ),
+          0
+        )::float AS cp_usd,
+
+        COALESCE(
+          SUM(points) FILTER (
+            WHERE type = 'referral_signup'
+          ),
+          0
+        )::float AS cp_ref,
+
+        COALESCE(
+          SUM(points) FILTER (
+            WHERE type IN ('deadcoin_first', 'deadcoin_blacklist_reversal')
+          ),
+          0
+        )::float AS cp_dead,
+
+        COALESCE(
+          SUM(points) FILTER (
+            WHERE type = 'share'
+          ),
+          0
+        )::float AS cp_share
       FROM corepoint_events
       WHERE wallet_address = ${wallet};
     `;

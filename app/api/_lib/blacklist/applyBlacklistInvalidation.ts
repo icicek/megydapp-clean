@@ -1,4 +1,6 @@
+//app/api/_lib/blacklist/applyBlacklistInvalidation.ts
 import { sql } from '@/app/api/_lib/db';
+import { reverseContributionCorepoints } from '@/app/api/_lib/corepoints';
 
 type ApplyBlacklistInvalidationArgs = {
   mint: string;
@@ -46,6 +48,8 @@ export async function applyBlacklistInvalidation(
         pa.contribution_id,
         pa.phase_id,
         c.wallet_address,
+        c.transaction_signature,
+        c.tx_hash,
         COALESCE(c.token_amount, 0)::numeric AS token_amount,
         COALESCE(c.usd_value, 0)::numeric AS total_usd,
         COALESCE(pa.usd_allocated, 0)::numeric AS invalidated_usd,
@@ -78,6 +82,8 @@ export async function applyBlacklistInvalidation(
         c.id AS contribution_id,
         NULL::bigint AS phase_id,
         c.wallet_address,
+        c.transaction_signature,
+        c.tx_hash,
         COALESCE(c.token_amount, 0)::numeric AS token_amount,
         COALESCE(c.usd_value, 0)::numeric AS total_usd,
         GREATEST(
@@ -135,6 +141,7 @@ export async function applyBlacklistInvalidation(
       {
         contributionId: number;
         walletAddress: string;
+        txId: string;
         invalidatedUsd: number;
         invalidatedMegy: number;
         invalidatedTokenAmount: number;
@@ -153,12 +160,18 @@ export async function applyBlacklistInvalidation(
       const invalidatedTokenAmount =
         totalUsd > EPS ? (tokenAmount * invalidatedUsd) / totalUsd : 0;
 
+      const txId =
+        String(row.transaction_signature || '').trim() ||
+        String(row.tx_hash || '').trim() ||
+        String(contributionId);
+
       const prev = aggregated.get(contributionId);
 
       if (!prev) {
         aggregated.set(contributionId, {
           contributionId,
           walletAddress: String(row.wallet_address || '').trim(),
+          txId,
           invalidatedUsd,
           invalidatedMegy,
           invalidatedTokenAmount,
@@ -173,6 +186,9 @@ export async function applyBlacklistInvalidation(
       if (!prev.walletAddress && row.wallet_address) {
         prev.walletAddress = String(row.wallet_address || '').trim();
       }
+      if (!prev.txId && txId) {
+        prev.txId = txId;
+      }
     };
 
     for (const row of openAllocRows) addAggregate(row);
@@ -181,7 +197,7 @@ export async function applyBlacklistInvalidation(
     let invalidationRowsUpserted = 0;
 
     for (const item of aggregated.values()) {
-      await sql/* sql */`
+      const upserted = await sql/* sql */`
         INSERT INTO contribution_invalidations (
           contribution_id,
           mint,
@@ -226,8 +242,21 @@ export async function applyBlacklistInvalidation(
           END,
           changed_by = EXCLUDED.changed_by,
           updated_at = NOW()
-      `;
+        RETURNING id
+      ` as any[];
+
       invalidationRowsUpserted += 1;
+
+      const invalidationId = Number(upserted?.[0]?.id ?? 0);
+
+      if (invalidationId > 0 && item.walletAddress && item.txId) {
+        await reverseContributionCorepoints({
+          wallet: item.walletAddress,
+          txId: item.txId,
+          tokenContract: mint,
+          invalidationId,
+        });
+      }
     }
 
     /**
