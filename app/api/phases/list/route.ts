@@ -104,36 +104,53 @@ export async function GET(_req: NextRequest) {
     `;
     const an = (activeNow as any[])?.[0] ?? null;
 
-    const phases = (rows as AnyRow[]).map((r) => {
-      const phaseId = asNumber(r.id) ?? 0;
+    const phases = (rows as AnyRow[])
+      .filter((r) => {
+        const status = String(r.status ?? '').trim().toLowerCase();
+        const snapshotTakenAt = r.snapshot_taken_at ?? null;
+        const allocRows = asNumber(r.alloc_rows) ?? 0;
+        const allocWallets = asNumber(r.alloc_wallets) ?? 0;
+        const usedUsd = asNumber(r.used_usd) ?? 0;
 
-      const rateRaw = r.rate_usd_per_megy ?? r.rate ?? null;
-      const rateNum = rateRaw === '' ? null : asNumber(rateRaw);
+        const isEmptyReviewingPhase =
+          status === 'reviewing' &&
+          !snapshotTakenAt &&
+          allocRows === 0 &&
+          allocWallets === 0 &&
+          usedUsd <= 0;
 
-      return {
-        phase_id: phaseId,
-        phase_no: asNumber(r.phase_no) ?? phaseId,
-        name: String(r.name ?? ''),
-        status: String(r.status ?? ''),
+        return !isEmptyReviewingPhase;
+      })
+      .map((r) => {
+        const phaseId = asNumber(r.id) ?? 0;
 
-        pool_megy: r.pool_megy ?? r.megy_pool ?? null,
-        rate_usd_per_megy: rateNum,
-        target_usd: r.target_usd ?? r.usd_cap ?? null,
+        const rateRaw = r.rate_usd_per_megy ?? r.rate ?? null;
+        const rateNum = rateRaw === '' ? null : asNumber(rateRaw);
 
-        // primary truth
-        used_usd: r.used_usd ?? 0,
-        fill_pct: r.fill_pct ?? 0,
-        alloc_wallets: r.alloc_wallets ?? 0,
-        alloc_rows: r.alloc_rows ?? 0,
+        return {
+          phase_id: phaseId,
+          phase_no: asNumber(r.phase_no) ?? phaseId,
+          name: String(r.name ?? ''),
+          status: String(r.status ?? ''),
 
-        // timestamps
-        opened_at: r.opened_at ?? null,
-        closed_at: r.closed_at ?? null,
-        snapshot_taken_at: r.snapshot_taken_at ?? null,
-        finalized_at: r.finalized_at ?? null,
-        created_at: r.created_at ?? null,
-        updated_at: r.updated_at ?? null,
-      };
+          pool_megy: r.pool_megy ?? r.megy_pool ?? null,
+          rate_usd_per_megy: rateNum,
+          target_usd: r.target_usd ?? r.usd_cap ?? null,
+
+          // primary truth
+          used_usd: r.used_usd ?? 0,
+          fill_pct: r.fill_pct ?? 0,
+          alloc_wallets: r.alloc_wallets ?? 0,
+          alloc_rows: r.alloc_rows ?? 0,
+
+          // timestamps
+          opened_at: r.opened_at ?? null,
+          closed_at: r.closed_at ?? null,
+          snapshot_taken_at: r.snapshot_taken_at ?? null,
+          finalized_at: r.finalized_at ?? null,
+          created_at: r.created_at ?? null,
+          updated_at: r.updated_at ?? null,
+        };
     });
 
     return NextResponse.json({
