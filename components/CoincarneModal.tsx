@@ -419,10 +419,24 @@ export default function CoincarneModal({
       const qs = new URLSearchParams({ mint, amount: String(amountToSend) });
   
       const res = await fetch(`/api/proxy/price?${qs.toString()}`, { cache: 'no-store' });
-      const json = await res.json();
-  
+      const parsed = await readJsonSafe(res);
+
+      console.log('🧪 /api/proxy/price response:', {
+        status: parsed.status,
+        contentType: parsed.contentType,
+        data: parsed.data,
+        rawPreview: parsed.raw.slice(0, 300),
+      });
+
+      if (!parsed.ok || !parsed.data) {
+        throw new Error(
+          `PRICE_API_NON_JSON_OR_HTTP_${parsed.status}: ${parsed.raw.slice(0, 120)}`
+        );
+      }
+
+      const json = parsed.data;
       const ok = !!json?.ok || !!json?.success;
-  
+
       if (!ok) {
         setPriceView({
           fetchStatus: json?.status === 'not_found' ? 'not_found' : 'error',
@@ -433,7 +447,7 @@ export default function CoincarneModal({
         setConfirmModalOpen(true);
         return;
       }
-  
+
       const unit = Number(json?.priceUsd ?? 0);
       const summed = Number(json?.usdValue ?? 0);
       const total = summed > 0 ? summed : unit * amountToSend;
@@ -453,10 +467,11 @@ export default function CoincarneModal({
   
       setTokenCategory('healthy');
       setConfirmModalOpen(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('❌ Error preparing confirmation:', err);
+      alert(`❌ Prepare confirm failed: ${String(err?.message || err)}`);
       setPriceView({ fetchStatus: 'error', usdValue: 0, priceSources: [] });
-      setTokenCategory('unknown'); // optional
+      setTokenCategory('unknown');
       setConfirmModalOpen(true);
     } finally {
       setLoading(false);
@@ -510,6 +525,26 @@ export default function CoincarneModal({
       return 'Transaction was sent but not confirmed in time. Please check it on Explorer and try again if needed.';
     if (msg.includes('mint-not-found')) return 'Token mint not found on this network.';
     return msg;
+  }
+
+  async function readJsonSafe(res: Response) {
+    const contentType = res.headers.get('content-type') || '';
+    const raw = await res.text();
+  
+    let data: any = null;
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      data = null;
+    }
+  
+    return {
+      ok: res.ok,
+      status: res.status,
+      contentType,
+      data,
+      raw,
+    };
   }
 
   /* ------------------ SEND TX ------------------ */
