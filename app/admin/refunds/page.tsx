@@ -129,6 +129,13 @@ export default function AdminRefundsPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'requested' | 'available' | 'refunded'>('requested');
   const [executingId, setExecutingId] = useState<number | null>(null);
+  const {
+    loading: adminGuardLoading,
+    adminSessionActive,
+    guardMessage,
+    connectedWallet,
+    sessionWallet,
+  } = useAdminWalletGuard();
 
   function ensureAdminSession(): boolean {
     if (adminGuardLoading) {
@@ -146,7 +153,6 @@ export default function AdminRefundsPage() {
   
   async function load() {
     if (!ensureAdminSession()) {
-        setLoading(false);
         return;
     }
     try {
@@ -173,16 +179,11 @@ export default function AdminRefundsPage() {
   }
 
   useEffect(() => {
+    if (adminGuardLoading) return;
+    if (!adminSessionActive) return;
+  
     load();
-  }, []);
-
-  const {
-    loading: adminGuardLoading,
-    adminSessionActive,
-    guardMessage,
-    connectedWallet,
-    sessionWallet,
-  } = useAdminWalletGuard();
+  }, [adminGuardLoading, adminSessionActive]);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return rows;
