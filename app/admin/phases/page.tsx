@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import useAdminWalletGuard from '@/hooks/useAdminWalletGuard';
 
 type PhaseStatus = 'planned' | 'active' | 'reviewing' | 'completed';
 
@@ -169,6 +169,15 @@ export default function AdminPhasesPage() {
   const [editRate, setEditRate] = useState('1');
   const [editDefaults, setEditDefaults] = useState<{ name: string; pool: string; rate: string } | null>(null);
 
+  const {
+    loading: adminGuardLoading,
+    canRunCriticalAdminAction,
+    guardMessage,
+    walletMatches,
+    sessionWallet,
+    connectedWallet,
+  } = useAdminWalletGuard();
+
   const computedEditTarget = useMemo(() => {
     const p = Number(editPool);
     const r = Number(editRate);
@@ -238,11 +247,27 @@ export default function AdminPhasesPage() {
     }
   }
 
+  function ensureCriticalAdminAccess(): boolean {
+    if (adminGuardLoading) {
+      setMsg('⏳ Checking admin wallet...');
+      return false;
+    }
+  
+    if (!canRunCriticalAdminAction) {
+      setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`);
+      return false;
+    }
+  
+    return true;
+  }
+
   useEffect(() => {
     refresh();
   }, []);
 
   async function createPhase() {
+    if (!ensureCriticalAdminAccess()) return;
+
     setSaving(true);
     setMsg(null);
     try {
@@ -276,6 +301,8 @@ export default function AdminPhasesPage() {
   }
 
   async function openPhase(id: number) {
+    if (!ensureCriticalAdminAccess()) return;
+
     setMsg(null);
     setBusyId(id);
 
@@ -320,6 +347,8 @@ export default function AdminPhasesPage() {
   }
 
   async function saveEdit() {
+    if (!ensureCriticalAdminAccess()) return;
+
     if (editId == null) return;
 
     const id = editId;
@@ -362,6 +391,8 @@ export default function AdminPhasesPage() {
   }
 
   async function snapshotPhase(id: number) {
+    if (!ensureCriticalAdminAccess()) return;
+
     setMsg(null);
     setBusyId(id);
 
@@ -402,6 +433,8 @@ export default function AdminPhasesPage() {
   }
 
   async function finalizePhase(id: number) {
+    if (!ensureCriticalAdminAccess()) return;
+
     setMsg(null);
     setBusyId(id);
 
@@ -432,6 +465,8 @@ export default function AdminPhasesPage() {
   }
 
   async function deletePhase(id: number) {
+    if (!ensureCriticalAdminAccess()) return;
+
     setMsg(null);
     setBusyId(id);
     try {
@@ -449,6 +484,8 @@ export default function AdminPhasesPage() {
   }
 
   async function movePhase(id: number, dir: 'up' | 'down') {
+    if (!ensureCriticalAdminAccess()) return;
+
     setMsg(null);
     setBusyId(id);
     try {
@@ -464,6 +501,8 @@ export default function AdminPhasesPage() {
   }
 
   async function advanceLifecycle() {
+    if (!ensureCriticalAdminAccess()) return;
+
     setMsg(null);
     setAdvancing(true);
 
@@ -509,12 +548,6 @@ export default function AdminPhasesPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Link
-              href="/admin/control"
-              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
-            >
-              Control
-            </Link>
             <button
               onClick={advanceLifecycle}
               disabled={advancing}
@@ -532,6 +565,14 @@ export default function AdminPhasesPage() {
           </div>
         </div>
 
+        {!adminGuardLoading && !walletMatches && (
+          <div className={`${CARD} text-sm text-yellow-200 border-yellow-500/20 bg-yellow-500/10`}>
+            ⚠️ Critical actions require your connected wallet to match the active admin session wallet.
+            {sessionWallet ? ` Session: ${sessionWallet}` : ''}
+            {connectedWallet ? ` • Connected: ${connectedWallet}` : ''}
+          </div>
+        )}
+        
         {msg && <div className={`${CARD} text-sm`}>{msg}</div>}
         {loading && <div className={`${CARD} text-sm text-white/70`}>Loading…</div>}
 

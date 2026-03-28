@@ -12,7 +12,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <AdminTopNav />
 
       <div className="px-4 sm:px-6 md:px-12 lg:px-20 pt-4 pb-6">
-        <div className="max-w-6xl w-full mx-auto space-y-4">
+        <div className="w-full space-y-4">
           <AppWalletBar showAdminStatus />
           <AdminSectionNav />
         </div>
