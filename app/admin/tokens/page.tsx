@@ -202,20 +202,54 @@ function VotesBadge({ yes, threshold }: { yes: number; threshold: number }) {
   );
 }
 
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const m = document.cookie.match(
+    new RegExp('(?:^|; )' + name.replace(/[$()*+./?[\\\]^{|}-]/g, '\\$&') + '=([^;]*)')
+  );
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function getCsrfToken(): string | null {
+  if (typeof document === 'undefined') return null;
+  const meta = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null;
+  return meta?.content || getCookie('csrf') || null;
+}
+
 /* ────────────────────────────────────────────────────────── */
 /* Fetch helper (cookie only)                                 */
 /* ────────────────────────────────────────────────────────── */
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(path, { cache: 'no-store', credentials: 'include', ...init });
+  const token = getCsrfToken();
+
+  const headers = new Headers(init.headers || {});
+  headers.set('X-Requested-With', 'fetch');
+
+  if (token) {
+    headers.set('x-csrf-token', token);
+  }
+
+  const res = await fetch(path, {
+    cache: 'no-store',
+    credentials: 'include',
+    ...init,
+    headers,
+  });
+
   if (!res.ok) {
-    if (res.status === 401 && typeof window !== 'undefined') window.location.assign('/admin/login');
+    if (res.status === 401 && typeof window !== 'undefined') {
+      window.location.assign('/admin/login');
+    }
+
     let msg = `HTTP ${res.status}`;
     try {
       const j = await res.json();
       msg = j?.error || msg;
     } catch {}
+
     throw new Error(msg);
   }
+
   return res.json() as Promise<T>;
 }
 
@@ -558,9 +592,8 @@ export default function AdminTokensPage() {
     try {
       setSettingsMsg(null);
       setSavingThreshold(true);
-      const r = await fetch('/api/admin/settings', {
+      const d = await api<any>('/api/admin/settings', {
         method: 'PUT',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           voteThreshold,
@@ -572,7 +605,7 @@ export default function AdminTokensPage() {
           changedBy: 'admin_ui',
         }),
       });
-      const d = await r.json();
+      
       if (d?.success) {
         setVoteThreshold(d.voteThreshold ?? voteThreshold);
         setIncludeCEX(!!d.includeCEX);
@@ -580,10 +613,10 @@ export default function AdminTokensPage() {
         if (typeof d.healthyMinLiqUSD === 'number') setHealthyMinLiqUSD(d.healthyMinLiqUSD);
         if (typeof d.walkingDeadMinVolUSD === 'number') setWalkingDeadMinVolUSD(d.walkingDeadMinVolUSD);
         if (typeof d.walkingDeadMinLiqUSD === 'number') setWalkingDeadMinLiqUSD(d.walkingDeadMinLiqUSD);
-  
+      
         setSettingsMsg('✅ Saved');
         push('Settings saved', 'ok');
-        await load(); // tabloyu tazele (opsiyonel)
+        await load();
       } else {
         setSettingsMsg(`❌ ${d?.error || 'Save failed'}`);
         push('Save failed', 'err');
@@ -629,7 +662,7 @@ export default function AdminTokensPage() {
           placeholder="Search by mint"
           className="bg-gray-900 border border-gray-700 rounded px-3 py-2 min-w-[120px]"
           onKeyDown={(e) => {
-            if (e.key === 'Enter') load();
+            if (e.key === 'Enter' && !adminGuardLoading) load();
           }}
         />
         <select
