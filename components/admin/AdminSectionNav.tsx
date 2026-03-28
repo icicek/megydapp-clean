@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const items = [
+  { href: '/', label: 'Home' },
   { href: '/admin', label: 'Tokens' },
   { href: '/admin/control', label: 'Control' },
   { href: '/admin/phases', label: 'Phases' },
@@ -12,8 +13,9 @@ const items = [
 ];
 
 function isActive(pathname: string, href: string) {
-  if (href === '/admin') return pathname === '/admin';
-  return pathname === href || pathname.startsWith(`${href}/`);
+    if (href === '/') return pathname === '/';
+    if (href === '/admin') return pathname === '/admin';
+    return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export default function AdminSectionNav() {

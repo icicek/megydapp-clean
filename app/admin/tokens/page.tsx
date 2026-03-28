@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useWallet } from '@solana/wallet-adapter-react';
+import useAdminWalletGuard from '@/hooks/useAdminWalletGuard';
 
 import ExportCsvButton from '@/components/admin/ExportCsvButton';
 import BulkUpdateDialog from '../components/BulkUpdateDialog';
@@ -227,7 +227,14 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 /* ────────────────────────────────────────────────────────── */
 export default function AdminTokensPage() {
   const router = useRouter();
-  const { publicKey } = useWallet(); // sadece header gösterimi; auth başka yerde
+  const {
+  loading: adminGuardLoading,
+  canRunCriticalAdminAction,
+  guardMessage,
+  walletMatches,
+  sessionWallet,
+  connectedWallet,
+} = useAdminWalletGuard();
   const { toasts, push } = useToasts();
 
   // list state
@@ -327,6 +334,20 @@ export default function AdminTokensPage() {
       setLoading(false);
     }
   }, [params, push]);
+
+  function ensureCriticalAdminAccess(): boolean {
+    if (adminGuardLoading) {
+      setError('Checking admin wallet...');
+      return false;
+    }
+  
+    if (!canRunCriticalAdminAction) {
+      setError(guardMessage || 'Admin wallet verification failed.');
+      return false;
+    }
+  
+    return true;
+  }
 
   const loadStats = useCallback(async () => {
     try {
@@ -436,6 +457,7 @@ export default function AdminTokensPage() {
 
   /* ── actions ───────────────────────────────────────────── */
   async function setStatusFor(m: string, s: TokenStatus) {
+    if (!ensureCriticalAdminAccess()) return;
     try {
       setError(null);
       await api('/api/admin/tokens', {
@@ -453,6 +475,7 @@ export default function AdminTokensPage() {
     }
   }
   async function resetHealthy(m: string) {
+    if (!ensureCriticalAdminAccess()) return;
     try {
       setError(null);
       await api(`/api/admin/tokens?mint=${encodeURIComponent(m)}`, { method: 'DELETE' });
@@ -467,6 +490,7 @@ export default function AdminTokensPage() {
   }
 
   async function repairHelpersForMint(m: string) {
+    if (!ensureCriticalAdminAccess()) return;
     try {
       setError(null);
       const res = await api<{ success: true; updated_count: number }>(
@@ -541,6 +565,7 @@ export default function AdminTokensPage() {
     }
   }
   async function saveSettings() {
+    if (!ensureCriticalAdminAccess()) return;
     try {
       setSettingsMsg(null);
       setSavingThreshold(true);
@@ -597,11 +622,6 @@ export default function AdminTokensPage() {
             <span>Audit Log</span>
           </Link>
 
-          <Link href="/admin/control" className={TB} title="Control">
-            <span>🧩</span>
-            <span>Control</span>
-          </Link>
-
           <DevNotesButton />
 
           <button onClick={() => router.push('/')} className={TB} title="Back to site">
@@ -615,6 +635,19 @@ export default function AdminTokensPage() {
           </button>
         </div>
       </div>
+
+      {!adminGuardLoading && !walletMatches && (
+        <div className="mb-4 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
+          <div className="font-medium">Admin wallet verification required</div>
+          <div className="mt-1 text-xs text-yellow-200/80">
+            Critical actions on this page require the connected wallet to match the active admin session wallet.
+          </div>
+          <div className="mt-2 text-xs text-yellow-200/80 space-y-1">
+            {sessionWallet ? <div>Session wallet: {sessionWallet}</div> : null}
+            {connectedWallet ? <div>Connected wallet: {connectedWallet}</div> : null}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
@@ -938,11 +971,15 @@ export default function AdminTokensPage() {
       {histOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
           <div className="bg-gray-900 border border-gray-700 rounded-xl w-[92vw] max-w-2xl max-h-[80vh] overflow-hidden">
-            <div className="min-h-screen bg-black text-white p-6 tabular-nums">
+            <div className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
               <div className="font-semibold">
                 History — <span className="font-mono">{histMint}</span>
               </div>
-              <button onClick={() => setHistOpen(false)} className="text-gray-300 hover:text-white" aria-label="Close">
+              <button
+                onClick={() => setHistOpen(false)}
+                className="text-gray-300 hover:text-white"
+                aria-label="Close"
+              >
                 ✕
               </button>
             </div>
