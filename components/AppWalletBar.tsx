@@ -30,6 +30,7 @@ export default function AppWalletBar({
   const [adminActive, setAdminActive] = useState(false);
   const [adminWallet, setAdminWallet] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const walletAddress = useMemo(() => publicKey?.toBase58() ?? null, [publicKey]);
 
@@ -81,6 +82,18 @@ export default function AppWalletBar({
     }
   }, [connected]);
 
+  async function copyAddress(addr?: string | null) {
+    if (!addr) return;
+  
+    try {
+      await navigator.clipboard.writeText(addr);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch (e) {
+      console.error('Copy failed', e);
+    }
+  }
+
   const walletLabel = wallet?.adapter?.name ?? 'Wallet';
 
   return (
@@ -97,7 +110,18 @@ export default function AppWalletBar({
             <div className="min-w-0">
               {connected && walletAddress ? (
                 <div className="truncate text-sm font-medium text-white">
-                  {walletLabel} · {shortenAddress(walletAddress)}
+                  <div className="flex items-center gap-2">
+                    <span className="truncate">
+                        {walletLabel} · {shortenAddress(walletAddress)}
+                    </span>
+
+                    <button
+                        onClick={() => copyAddress(walletAddress)}
+                        className="text-white/50 hover:text-white text-xs"
+                    >
+                        {copied ? '✓' : '⧉'}
+                    </button>
+                    </div>
                 </div>
               ) : (
                 <div className="truncate text-sm text-white/70">
@@ -201,9 +225,18 @@ export default function AppWalletBar({
                   Connected
                 </span>
 
-                <span className="font-medium">
-                  {walletLabel} · {shortenAddress(walletAddress)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">
+                    {walletLabel} · {shortenAddress(walletAddress)}
+                  </span>
+
+                  <button
+                    onClick={() => copyAddress(walletAddress)}
+                    className="text-white/50 hover:text-white text-xs"
+                  >
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="text-sm text-white/70">No wallet connected</div>
