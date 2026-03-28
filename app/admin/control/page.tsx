@@ -113,13 +113,8 @@ export default function AdminControlPage() {
   const [savingClaim, setSavingClaim] = useState(false);
   const [savingApp, setSavingApp] = useState(false);
   const [savingCron, setSavingCron] = useState(false);
-  const [savingPool, setSavingPool] = useState(false);
   const [savingAdmins, setSavingAdmins] = useState(false);
   const [savingRate, setSavingRate] = useState(false);
-
-  // distribution pool
-  const [pool, setPool] = useState<string>(''); // text input
-  const poolNumber = useMemo(() => Number(pool), [pool]);
 
   // coincarnation rate (USD per 1 MEGY)
   const [rate, setRate] = useState<string>(''); // text input
@@ -181,16 +176,6 @@ export default function AdminControlPage() {
         } catch {
           setHasCronCfg(false);
           setCronEnabled(null);
-        }
-
-        // distribution_pool
-        try {
-          const dp = await getJSON<{ success: boolean; value: number }>(
-            '/api/admin/config/distribution_pool'
-          );
-          setPool(String(dp?.value ?? ''));
-        } catch {
-          setPool('');
         }
 
         // coincarnation_rate (USD per 1 MEGY)
@@ -285,30 +270,6 @@ export default function AdminControlPage() {
     }
   }
 
-  async function savePool() {
-    if (!ensureCriticalAdminAccess()) return;
-    setMsg(null);
-    setSavingPool(true);
-    if (pool.trim() === '') {
-      setMsg('❌ Enter a value');
-      setSavingPool(false);
-      return;
-    }
-    if (!Number.isFinite(poolNumber) || poolNumber < 0) {
-      setMsg('❌ Enter a valid non-negative number');
-      setSavingPool(false);
-      return;
-    }
-    try {
-      await sendJSON('/api/admin/config/distribution_pool', 'PUT', { value: poolNumber });
-      setMsg('✅ Distribution pool saved');
-    } catch (e: any) {
-      setMsg(`❌ ${e?.message || 'Pool save failed'}`);
-    } finally {
-      setSavingPool(false);
-    }
-  }
-
   async function saveRate() {
     if (!ensureCriticalAdminAccess()) return;
     setMsg(null);
@@ -372,8 +333,6 @@ export default function AdminControlPage() {
   } = useAdminWalletGuard();
   
   /* -------- derived -------- */
-  const poolDisabled =
-    savingPool || pool.trim() === '' || !Number.isFinite(poolNumber) || poolNumber < 0;
   const rateDisabled =
     savingRate || rate.trim() === '' || !Number.isFinite(rateNumber) || rateNumber <= 0;
 
@@ -426,7 +385,7 @@ export default function AdminControlPage() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm min-w-[64px] text-right">
-                  {savingClaim ? 'Saving…' : claimOpen ? 'Açık' : 'Kapalı'}
+                  {savingClaim ? 'Saving…' : claimOpen ? 'On' : 'Off'}
                 </span>
                 <Toggle
                   checked={!!claimOpen}
@@ -447,7 +406,7 @@ export default function AdminControlPage() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm min-w-[64px] text-right">
-                  {savingApp ? 'Saving…' : appEnabled ? 'Açık' : 'Kapalı'}
+                  {savingApp ? 'Saving…' : appEnabled ? 'On' : 'Off'}
                 </span>
                 <Toggle
                   checked={!!appEnabled}
@@ -474,7 +433,7 @@ export default function AdminControlPage() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm min-w-[64px] text-right">
-                  {savingCron ? 'Saving…' : cronEnabled ? 'Açık' : 'Kapalı'}
+                  {savingCron ? 'Saving…' : cronEnabled ? 'On' : 'Off'}
                 </span>
                 <Toggle
                   checked={!!cronEnabled}
@@ -483,31 +442,6 @@ export default function AdminControlPage() {
                   color="amber"
                   title={!hasCronCfg ? 'Endpoint not available' : undefined}
                 />
-              </div>
-            </div>
-          </section>
-
-          {/* Distribution pool */}
-          <section className={`${CARD} md:col-span-2`}>
-            <div className="font-semibold mb-3">Distribution Pool</div>
-            <div className="flex flex-wrap items-center gap-3">
-              <input
-                inputMode="decimal"
-                value={pool}
-                onChange={(e) => setPool(e.target.value)}
-                className="w-48 rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
-                placeholder="0"
-                disabled={savingPool}
-              />
-              <button
-                onClick={savePool}
-                disabled={poolDisabled}
-                className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-              >
-                {savingPool ? 'Saving…' : 'Save'}
-              </button>
-              <div className="text-[11px] text-white/60">
-                Total MEGY amount to be distributed for the current snapshot (pool-mode).
               </div>
             </div>
           </section>

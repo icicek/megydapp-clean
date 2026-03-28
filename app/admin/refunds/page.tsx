@@ -152,23 +152,20 @@ export default function AdminRefundsPage() {
   }
   
   async function load() {
-    if (!ensureAdminSession()) {
-        return;
-    }
     try {
       setLoading(true);
-
+  
       const r = await fetch('/api/admin/refunds/list', {
         credentials: 'include',
         cache: 'no-store',
       });
-
+  
       const j = await r.json().catch(() => ({}));
-
+  
       if (!r.ok || !j?.success) {
         throw new Error(j?.error || `HTTP ${r.status}`);
       }
-
+  
       setRows(Array.isArray(j.refunds) ? j.refunds : []);
     } catch (e: any) {
       setRows([]);
@@ -180,10 +177,16 @@ export default function AdminRefundsPage() {
 
   useEffect(() => {
     if (adminGuardLoading) return;
-    if (!adminSessionActive) return;
+  
+    if (!adminSessionActive) {
+      setRows([]);
+      setLoading(false);
+      setMsg(`⚠️ ${guardMessage || 'No active admin session.'}`);
+      return;
+    }
   
     load();
-  }, [adminGuardLoading, adminSessionActive]);
+  }, [adminGuardLoading, adminSessionActive, guardMessage]);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return rows;
