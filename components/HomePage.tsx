@@ -5,11 +5,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useRouter } from 'next/navigation';
 import CountUp from 'react-countup';
+import AppWalletBar from '@/components/AppWalletBar';
 
 import CoincarneModal from '@/components/CoincarneModal';
 import TrustPledge from '@/components/TrustPledge';
 import Skeleton from '@/components/ui/Skeleton';
-import ConnectBar from '@/components/wallet/ConnectBar';
 
 import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
 import { useChain } from '@/app/providers/ChainProvider';
@@ -24,7 +24,6 @@ export default function HomePage() {
   const { publicKey, connected } = useWallet();
   const pubkeyBase58 = useMemo(() => publicKey?.toBase58() ?? null, [publicKey]);
 
-  // -------- SOLANA TOKENLERİ --------
   const {
     tokens,
     loading: tokensLoading,
@@ -34,7 +33,7 @@ export default function HomePage() {
   } = useWalletTokens({
     autoRefetchOnFocus: true,
     autoRefetchOnAccountChange: true,
-    pollMs: POLL_MS, // prod: 0, dev: 20s
+    pollMs: POLL_MS,
   });
 
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
@@ -47,7 +46,6 @@ export default function HomePage() {
     setShowSolModal(Boolean(token));
   };
 
-  /** ---------------- GLOBAL STATS ---------------- */
   const [globalStats, setGlobalStats] = useState({
     totalUsd: 0,
     totalParticipants: 0,
@@ -88,16 +86,12 @@ export default function HomePage() {
     return () => ac.abort();
   }, [pubkeyBase58, connected]);
 
-  /** ---------------- UI DERIVED ---------------- */
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
   const sharePercentage = Math.max(0, Math.min(100, shareRatio * 100)).toFixed(2);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center px-6 pt-4 pb-6 space-y-8">
-      {/* ÜST BAR (yalnız Solana, masaüstü) */}
-      <div className="w-full hidden md:flex justify-end mt-2 mb-2 gap-3">
-        <ConnectBar />
-      </div>
+      <AppWalletBar className="w-full max-w-5xl" />
 
       {/* Hero */}
       <section className="text-center pt-2 pb-2 w-full">
@@ -110,13 +104,6 @@ export default function HomePage() {
         <p className="text-sm text-gray-300 max-w-xl mx-auto">
           Burning wealth inequality. One deadcoin at a time.
         </p>
-
-        {/* Mobil: başlıkların ALTINDA, sağa sabit */}
-        <div className="md:hidden relative w-full h-11 mt-2">
-          <div className="absolute right-0 top-0 translate-y-5">
-            <ConnectBar size="sm" />
-          </div>
-        </div>
       </section>
 
       <div className="w-full max-w-5xl bg-gradient-to-br from-gray-900 via-zinc-800 to-gray-900 p-8 rounded-2xl border border-purple-700 shadow-2xl">
