@@ -1,7 +1,7 @@
 // app/admin/control/page.tsx
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import useAdminWalletGuard from '@/hooks/useAdminWalletGuard';
 
 /* ---------------- CSRF helpers ---------------- */
@@ -379,10 +379,10 @@ export default function AdminControlPage() {
               <div>
                 <div className="font-semibold">Cron Enabled</div>
                 <div className="text-xs text-white/60">
-                  Reclassify / snapshot gibi zamanlanmış işleri aç/kapat
+                  Enable or disable scheduled jobs such as reclassification and snapshot tasks.
                 </div>
                 <div className="text-[11px] text-white/50 mt-1">
-                  Not: <code>CRON_ENABLED</code> ENV set edilmişse bu toggle’ı override eder.
+                  Note: if <code>CRON_ENABLED</code> is set in ENV, it overrides this toggle.
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -412,6 +412,8 @@ export default function AdminControlPage() {
                 presets={[50, 100, 150, 200]}
                 canSave={canRunCriticalAdminAction}
                 onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
+                onSaved={(message) => setMsg(`✅ ${message}`)}
+                onError={(message) => setMsg(`❌ ${message}`)}
               />
               {/* Deadcoin first */}
               <NumberConfig
@@ -421,6 +423,8 @@ export default function AdminControlPage() {
                 presets={[50, 100, 150, 200]}
                 canSave={canRunCriticalAdminAction}
                 onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
+                onSaved={(message) => setMsg(`✅ ${message}`)}
+                onError={(message) => setMsg(`❌ ${message}`)}
               />
               {/* Share twitter / other */}
               <NumberConfig
@@ -429,6 +433,8 @@ export default function AdminControlPage() {
                 presets={[10, 20, 30, 50]}
                 canSave={canRunCriticalAdminAction}
                 onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
+                onSaved={(message) => setMsg(`✅ ${message}`)}
+                onError={(message) => setMsg(`❌ ${message}`)}
               />
               <NumberConfig
                 label="Share: Others (Telegram/WA/IG/TikTok/Email/Copy)"
@@ -436,6 +442,8 @@ export default function AdminControlPage() {
                 presets={[5, 10, 15, 20]}
                 canSave={canRunCriticalAdminAction}
                 onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
+                onSaved={(message) => setMsg(`✅ ${message}`)}
+                onError={(message) => setMsg(`❌ ${message}`)}
               />
               {/* Referral */}
               <NumberConfig
@@ -445,6 +453,8 @@ export default function AdminControlPage() {
                 presets={[50, 100, 150]}
                 canSave={canRunCriticalAdminAction}
                 onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
+                onSaved={(message) => setMsg(`✅ ${message}`)}
+                onError={(message) => setMsg(`❌ ${message}`)}
               />
             </div>
 
@@ -457,6 +467,8 @@ export default function AdminControlPage() {
                 step={0.1}
                 canSave={canRunCriticalAdminAction}
                 onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
+                onSaved={(message) => setMsg(`✅ ${message}`)}
+                onError={(message) => setMsg(`❌ ${message}`)}
               />
 
               <NumberConfig
@@ -466,6 +478,8 @@ export default function AdminControlPage() {
                 step={0.1}
                 canSave={canRunCriticalAdminAction}
                 onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
+                onSaved={(message) => setMsg(`✅ ${message}`)}
+                onError={(message) => setMsg(`❌ ${message}`)}
               />
 
               <NumberConfig
@@ -475,6 +489,8 @@ export default function AdminControlPage() {
                 step={0.1}
                 canSave={canRunCriticalAdminAction}
                 onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
+                onSaved={(message) => setMsg(`✅ ${message}`)}
+                onError={(message) => setMsg(`❌ ${message}`)}
               />
 
               <NumberConfig
@@ -484,6 +500,8 @@ export default function AdminControlPage() {
                 step={0.1}
                 canSave={canRunCriticalAdminAction}
                 onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
+                onSaved={(message) => setMsg(`✅ ${message}`)}
+                onError={(message) => setMsg(`❌ ${message}`)}
               />
             </div>
           </section>
@@ -561,6 +579,8 @@ function NumberConfig({
   step = 1,
   canSave = true,
   onBlocked,
+  onSaved,
+  onError,
 }: {
   label: string;
   keyName: string;
@@ -569,6 +589,8 @@ function NumberConfig({
   step?: number;
   canSave?: boolean;
   onBlocked?: () => void;
+  onSaved?: (message: string) => void;
+  onError?: (message: string) => void;
 }) {
   const [val, setVal] = useState<string>('');
   const [saving, setSaving] = useState(false);
@@ -591,15 +613,20 @@ function NumberConfig({
       return;
     }
   
+    const num = Number(val);
+  
+    if (val.trim() === '' || !Number.isFinite(num)) {
+      onError?.(`Invalid value for ${label}.`);
+      return;
+    }
+  
     setSaving(true);
+  
     try {
-      const num = Number(val);
-      await fetch(`/api/admin/config/${keyName}`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: num }),
-      });
+      await sendJSON(`/api/admin/config/${keyName}`, 'PUT', { value: num });
+      onSaved?.(`${label} saved.`);
+    } catch (e: any) {
+      onError?.(e?.message || `Failed to save ${label}.`);
     } finally {
       setSaving(false);
     }
@@ -619,7 +646,7 @@ function NumberConfig({
         />
         <button
           onClick={save}
-          disabled={saving || val.trim() === ''}
+          disabled={saving || val.trim() === '' || !Number.isFinite(Number(val))}
           className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-sm"
         >
           {saving ? 'Saving…' : 'Save'}

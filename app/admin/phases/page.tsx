@@ -4,6 +4,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import useAdminWalletGuard from '@/hooks/useAdminWalletGuard';
 
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const m = document.cookie.match(
+    new RegExp('(?:^|; )' + name.replace(/[$()*+./?[\\\]^{|}-]/g, '\\$&') + '=([^;]*)')
+  );
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function getCsrfToken(): string | null {
+  if (typeof document === 'undefined') return null;
+  const meta = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null;
+  return meta?.content || getCookie('csrf') || null;
+}
+
 type PhaseStatus = 'planned' | 'active' | 'reviewing' | 'completed';
 
 type PhaseRow = {
@@ -44,19 +58,34 @@ const CARD =
   'rounded-2xl border border-white/10 bg-[#0b0f18] p-5 shadow-sm hover:shadow transition-shadow';
 
 async function getJSON<T>(url: string): Promise<T> {
-  const r = await fetch(url, { credentials: 'include', cache: 'no-store' });
+  const r = await fetch(url, {
+    credentials: 'include',
+    cache: 'no-store',
+    headers: { 'X-Requested-With': 'fetch' },
+  });
+
   const j = await r.json().catch(() => ({} as any));
   if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
   return j;
 }
 
-async function sendJSON<T>(url: string, method: string, body?: any): Promise<T> {
+async function sendJSON<T>(url: string, method: 'POST' | 'PATCH' | 'DELETE', body?: any): Promise<T> {
+  const token = getCsrfToken();
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Requested-With': 'fetch',
+  };
+
+  if (token) headers['x-csrf-token'] = token;
+
   const r = await fetch(url, {
     method,
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+
   const j = await r.json().catch(() => ({} as any));
   if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
   return j;
@@ -98,6 +127,20 @@ function fmtDate(v: any): string {
   } catch {
     return String(v);
   }
+}
+
+function normalizeName(value: string): string {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+function isValidPhaseName(value: string): boolean {
+  const v = normalizeName(value);
+  return v.length >= 1 && v.length <= 80;
+}
+
+function isValidPositiveNumber(value: string | number): boolean {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0;
 }
 
 type SnapshotResponse = {
@@ -157,9 +200,7 @@ export default function AdminPhasesPage() {
   }, [pool, rate]);
 
   const canCreate = useMemo(() => {
-    const p = Number(pool);
-    const r = Number(rate);
-    return name.trim() !== '' && Number.isFinite(p) && p > 0 && Number.isFinite(r) && r > 0;
+    return isValidPhaseName(name) && isValidPositiveNumber(pool) && isValidPositiveNumber(rate);
   }, [name, pool, rate]);
 
   const [openEdit, setOpenEdit] = useState(false);
@@ -186,9 +227,12 @@ export default function AdminPhasesPage() {
   }, [editPool, editRate]);
 
   const canSaveEdit = useMemo(() => {
-    const p = Number(editPool);
-    const r = Number(editRate);
-    return editId != null && editName.trim() !== '' && Number.isFinite(p) && p > 0 && Number.isFinite(r) && r > 0;
+    return (
+      editId != null &&
+      isValidPhaseName(editName) &&
+      isValidPositiveNumber(editPool) &&
+      isValidPositiveNumber(editRate)
+    );
   }, [editId, editName, editPool, editRate]);
 
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -262,8 +306,9 @@ export default function AdminPhasesPage() {
   }
 
   useEffect(() => {
+    if (adminGuardLoading) return;
     refresh();
-  }, []);
+  }, [adminGuardLoading]);
 
   async function createPhase() {
     if (!ensureCriticalAdminAccess()) return;
@@ -272,7 +317,7 @@ export default function AdminPhasesPage() {
     setMsg(null);
     try {
       const body = {
-        name: name.trim(),
+        name: normalizeName(name),
         pool_megy: Number(pool),
         rate_usd_per_megy: Number(rate),
       };
@@ -357,7 +402,7 @@ export default function AdminPhasesPage() {
 
     try {
       const body = {
-        name: editName.trim(),
+        name: normalizeName(editName),
         pool_megy: Number(editPool),
         rate_usd_per_megy: Number(editRate),
       };
@@ -558,7 +603,8 @@ export default function AdminPhasesPage() {
             </button>
             <button
               onClick={() => setOpenCreate(true)}
-              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm"
+              disabled={saving || advancing}
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm disabled:opacity-50"
             >
               + Add Phase
             </button>
@@ -566,13 +612,18 @@ export default function AdminPhasesPage() {
         </div>
 
         {!adminGuardLoading && !walletMatches && (
-          <div className={`${CARD} text-sm text-yellow-200 border-yellow-500/20 bg-yellow-500/10`}>
-            ⚠️ Critical actions require your connected wallet to match the active admin session wallet.
-            {sessionWallet ? ` Session: ${sessionWallet}` : ''}
-            {connectedWallet ? ` • Connected: ${connectedWallet}` : ''}
+          <div className={`${CARD} text-sm text-yellow-100 border-yellow-500/20 bg-yellow-500/10`}>
+            <div className="font-medium">Admin wallet verification required</div>
+            <div className="mt-1 text-xs text-yellow-200/80">
+              Critical actions on this page require the connected wallet to match the active admin session wallet.
+            </div>
+            <div className="mt-2 text-xs text-yellow-200/80 space-y-1">
+              {sessionWallet ? <div>Session wallet: {sessionWallet}</div> : null}
+              {connectedWallet ? <div>Connected wallet: {connectedWallet}</div> : null}
+            </div>
           </div>
         )}
-        
+
         {msg && <div className={`${CARD} text-sm`}>{msg}</div>}
         {loading && <div className={`${CARD} text-sm text-white/70`}>Loading…</div>}
 
@@ -912,7 +963,8 @@ export default function AdminPhasesPage() {
                 <div className="font-semibold">Create Phase</div>
                 <button
                   onClick={() => setOpenCreate(false)}
-                  className="px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-sm"
+                  disabled={saving}
+                  className="px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-sm disabled:opacity-50"
                 >
                   ✕
                 </button>
@@ -976,6 +1028,11 @@ export default function AdminPhasesPage() {
                 </div>
 
                 <div className="text-[11px] text-white/55">
+                {!isValidPhaseName(name) && name.trim() !== '' && (
+                  <div className="text-[11px] text-yellow-300">
+                    Phase name must be between 1 and 80 characters.
+                  </div>
+                )}
                   Rule: new planned phase rate cannot be lower than the previous phase rate.
                 </div>
 
