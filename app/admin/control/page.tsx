@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import useAdminWalletGuard from '@/hooks/useAdminWalletGuard';
 
 /* ---------------- CSRF helpers ---------------- */
 function getCookie(name: string): string | null {
@@ -222,8 +222,23 @@ export default function AdminControlPage() {
     })();
   }, []);
 
+  function ensureCriticalAdminAccess(): boolean {
+    if (adminGuardLoading) {
+      setMsg('⏳ Checking admin wallet...');
+      return false;
+    }
+  
+    if (!canRunCriticalAdminAction) {
+      setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`);
+      return false;
+    }
+  
+    return true;
+  }
+
   /* -------- actions -------- */
   async function toggleClaim(next: boolean) {
+    if (!ensureCriticalAdminAccess()) return;
     setMsg(null);
     setSavingClaim(true);
     try {
@@ -241,6 +256,7 @@ export default function AdminControlPage() {
   }
 
   async function toggleApp(next: boolean) {
+    if (!ensureCriticalAdminAccess()) return;
     setMsg(null);
     setSavingApp(true);
     try {
@@ -255,6 +271,7 @@ export default function AdminControlPage() {
   }
 
   async function toggleCron(next: boolean) {
+    if (!ensureCriticalAdminAccess()) return;
     setMsg(null);
     setSavingCron(true);
     try {
@@ -269,6 +286,7 @@ export default function AdminControlPage() {
   }
 
   async function savePool() {
+    if (!ensureCriticalAdminAccess()) return;
     setMsg(null);
     setSavingPool(true);
     if (pool.trim() === '') {
@@ -292,6 +310,7 @@ export default function AdminControlPage() {
   }
 
   async function saveRate() {
+    if (!ensureCriticalAdminAccess()) return;
     setMsg(null);
     setSavingRate(true);
     if (rate.trim() === '') {
@@ -315,6 +334,7 @@ export default function AdminControlPage() {
   }
 
   async function saveAdmins(next: string[]) {
+    if (!ensureCriticalAdminAccess()) return;
     setMsg(null);
     setSavingAdmins(true);
     try {
@@ -342,6 +362,15 @@ export default function AdminControlPage() {
     saveAdmins(admins.filter((x) => x !== w));
   }
 
+  const {
+    loading: adminGuardLoading,
+    canRunCriticalAdminAction,
+    guardMessage,
+    walletMatches,
+    sessionWallet,
+    connectedWallet,
+  } = useAdminWalletGuard();
+  
   /* -------- derived -------- */
   const poolDisabled =
     savingPool || pool.trim() === '' || !Number.isFinite(poolNumber) || poolNumber < 0;
@@ -362,24 +391,6 @@ export default function AdminControlPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Link
-              href="/admin/tokens"
-              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
-            >
-              Tokens
-            </Link>
-            <Link
-              href="/admin/phases"
-              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
-            >
-              Phases
-            </Link>
-            <Link
-              href="/admin/refunds"
-              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
-            >
-              Refunds
-            </Link>
           </div>
         </div>
 
@@ -388,6 +399,19 @@ export default function AdminControlPage() {
         {loading && (
           <div className={`${CARD} text-sm text-white/70`}>
             Loading…
+          </div>
+        )}
+
+        {!adminGuardLoading && !walletMatches && (
+          <div className={`${CARD} text-sm text-yellow-100 border-yellow-500/20 bg-yellow-500/10`}>
+            <div className="font-medium">Admin wallet verification required</div>
+            <div className="mt-1 text-xs text-yellow-200/80">
+              Critical actions on this page require the connected wallet to match the active admin session wallet.
+            </div>
+            <div className="mt-2 text-xs text-yellow-200/80 space-y-1">
+              {sessionWallet ? <div>Session wallet: {sessionWallet}</div> : null}
+              {connectedWallet ? <div>Connected wallet: {connectedWallet}</div> : null}
+            </div>
           </div>
         )}
 
@@ -498,6 +522,8 @@ export default function AdminControlPage() {
                 keyName="cp_usd_per_1"
                 help="Example: 100 → 1 USD = 100 pts"
                 presets={[50, 100, 150, 200]}
+                canSave={canRunCriticalAdminAction}
+                onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
               />
               {/* Deadcoin first */}
               <NumberConfig
@@ -505,17 +531,23 @@ export default function AdminControlPage() {
                 keyName="cp_deadcoin_first"
                 help="Awarded once per wallet+contract"
                 presets={[50, 100, 150, 200]}
+                canSave={canRunCriticalAdminAction}
+                onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
               />
               {/* Share twitter / other */}
               <NumberConfig
                 label="Share: X (Twitter)"
                 keyName="cp_share_twitter"
                 presets={[10, 20, 30, 50]}
+                canSave={canRunCriticalAdminAction}
+                onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
               />
               <NumberConfig
                 label="Share: Others (Telegram/WA/IG/TikTok/Email/Copy)"
                 keyName="cp_share_other"
                 presets={[5, 10, 15, 20]}
+                canSave={canRunCriticalAdminAction}
+                onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
               />
               {/* Referral */}
               <NumberConfig
@@ -523,15 +555,48 @@ export default function AdminControlPage() {
                 keyName="cp_referral_signup"
                 help="Award referrer when a referee joins for the first time"
                 presets={[50, 100, 150]}
+                canSave={canRunCriticalAdminAction}
+                onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
               />
             </div>
 
             <div className="font-semibold mt-6 mb-2">Multipliers</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <NumberConfig label="Share multiplier"   keyName="cp_mult_share"   presets={[1.0, 0.8, 0.6, 0.5]} step={0.1} />
-              <NumberConfig label="USD multiplier"     keyName="cp_mult_usd"     presets={[1.0, 0.9, 0.75, 0.5]} step={0.1} />
-              <NumberConfig label="Deadcoin multiplier"keyName="cp_mult_deadcoin"presets={[1.0, 0.8, 0.6, 0.5]} step={0.1} />
-              <NumberConfig label="Referral multiplier"keyName="cp_mult_referral"presets={[1.0, 0.9, 0.75, 0.5]} step={0.1} />
+              <NumberConfig
+                label="Share multiplier"
+                keyName="cp_mult_share"
+                presets={[1.0, 0.8, 0.6, 0.5]}
+                step={0.1}
+                canSave={canRunCriticalAdminAction}
+                onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
+              />
+
+              <NumberConfig
+                label="USD multiplier"
+                keyName="cp_mult_usd"
+                presets={[1.0, 0.9, 0.75, 0.5]}
+                step={0.1}
+                canSave={canRunCriticalAdminAction}
+                onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
+              />
+
+              <NumberConfig
+                label="Deadcoin multiplier"
+                keyName="cp_mult_deadcoin"
+                presets={[1.0, 0.8, 0.6, 0.5]}
+                step={0.1}
+                canSave={canRunCriticalAdminAction}
+                onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
+              />
+
+              <NumberConfig
+                label="Referral multiplier"
+                keyName="cp_mult_referral"
+                presets={[1.0, 0.9, 0.75, 0.5]}
+                step={0.1}
+                canSave={canRunCriticalAdminAction}
+                onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
+              />
             </div>
           </section>
 
@@ -650,12 +715,16 @@ function NumberConfig({
   help,
   presets = [],
   step = 1,
+  canSave = true,
+  onBlocked,
 }: {
   label: string;
   keyName: string;
   help?: string;
   presets?: (number | string)[];
   step?: number;
+  canSave?: boolean;
+  onBlocked?: () => void;
 }) {
   const [val, setVal] = useState<string>('');
   const [saving, setSaving] = useState(false);
@@ -673,6 +742,11 @@ function NumberConfig({
   }, [keyName]);
 
   async function save() {
+    if (!canSave) {
+      onBlocked?.();
+      return;
+    }
+  
     setSaving(true);
     try {
       const num = Number(val);
