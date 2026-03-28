@@ -1,7 +1,7 @@
 //components/AppWalletBar.tsx
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 
@@ -32,6 +32,7 @@ export default function AppWalletBar({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const mobileMenuRef = useRef<HTMLDivElement | null>(null);
   const walletAddress = useMemo(() => publicKey?.toBase58() ?? null, [publicKey]);
 
   useEffect(() => {
@@ -82,6 +83,23 @@ export default function AppWalletBar({
     }
   }, [connected]);
 
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (!mobileOpen) return;
+      if (!mobileMenuRef.current) return;
+  
+      const target = event.target as Node | null;
+      if (target && !mobileMenuRef.current.contains(target)) {
+        setMobileOpen(false);
+      }
+    }
+  
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [mobileOpen]);
+
   async function copyAddress(addr?: string | null) {
     if (!addr) return;
   
@@ -99,7 +117,7 @@ export default function AppWalletBar({
   return (
     <div className={`w-full ${className}`}>
       {/* Mobile premium compact */}
-      <div className="md:hidden">
+      <div className="md:hidden relative" ref={mobileMenuRef}>
         <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md px-3 py-2.5">
           <div className="min-w-0 flex items-center gap-2">
             <span
@@ -158,8 +176,21 @@ export default function AppWalletBar({
 
             <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
               <div className="text-xs text-white/50">Connected wallet</div>
-              <div className="mt-1 text-sm font-medium text-white break-all">
-                {walletLabel} · {walletAddress}
+
+              <div className="mt-1 flex items-start justify-between gap-3">
+                <div className="min-w-0 text-sm font-medium text-white break-all">
+                  {walletLabel} · {walletAddress}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => copyAddress(walletAddress)}
+                  className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 hover:bg-white/10 hover:text-white transition"
+                  aria-label="Copy wallet address"
+                  title="Copy wallet address"
+                >
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
               </div>
             </div>
 
