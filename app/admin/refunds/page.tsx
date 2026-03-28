@@ -3,7 +3,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import useAdminWalletGuard from '@/hooks/useAdminWalletGuard';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey, Transaction } from '@solana/web3.js';
 import {
@@ -130,7 +130,25 @@ export default function AdminRefundsPage() {
   const [filter, setFilter] = useState<'all' | 'requested' | 'available' | 'refunded'>('requested');
   const [executingId, setExecutingId] = useState<number | null>(null);
 
+  function ensureAdminSession(): boolean {
+    if (adminGuardLoading) {
+      setMsg('⏳ Checking admin session...');
+      return false;
+    }
+  
+    if (!adminSessionActive) {
+      setMsg(`⚠️ ${guardMessage || 'No active admin session.'}`);
+      return false;
+    }
+  
+    return true;
+  }
+  
   async function load() {
+    if (!ensureAdminSession()) {
+        setLoading(false);
+        return;
+    }
     try {
       setLoading(true);
 
@@ -158,6 +176,14 @@ export default function AdminRefundsPage() {
     load();
   }, []);
 
+  const {
+    loading: adminGuardLoading,
+    adminSessionActive,
+    guardMessage,
+    connectedWallet,
+    sessionWallet,
+  } = useAdminWalletGuard();
+
   const filtered = useMemo(() => {
     if (filter === 'all') return rows;
     return rows.filter((r) => String(r.refund_status ?? '').toLowerCase() === filter);
@@ -182,6 +208,7 @@ export default function AdminRefundsPage() {
   }, [rows]);
 
   async function handleExecuteRefund(row: RefundRow) {
+    if (!ensureAdminSession()) return;
     if (!connected || !publicKey || !sendTransaction || !connection) {
       setMsg('❌ Wallet connection is not ready.');
       return;
@@ -397,29 +424,29 @@ export default function AdminRefundsPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Link
-              href="/admin/control"
-              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
-            >
-              Control
-            </Link>
-            <Link
-              href="/admin/tokens"
-              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
-            >
-              Tokens
-            </Link>
             <button
-              onClick={load}
-              className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm"
-              disabled={loading}
+                onClick={load}
+                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm"
+                disabled={loading}
             >
-              {loading ? 'Loading…' : 'Refresh'}
+                {loading ? 'Loading…' : 'Refresh'}
             </button>
           </div>
         </div>
 
         {msg && <div className={`${CARD} text-sm whitespace-pre-line`}>{msg}</div>}
+
+        {!adminGuardLoading && adminSessionActive && (
+            <div className={`${CARD} text-sm text-white/80`}>
+                <div className="font-medium text-white mb-2">Refund execution model</div>
+                <div className="space-y-1 text-xs text-white/65">
+                    <div>• Admin session is required to access refund operations.</div>
+                    <div>• Execute Refund requires the connected wallet to be the Coincarnation treasury wallet.</div>
+                    {sessionWallet ? <div>• Admin session wallet: {sessionWallet}</div> : null}
+                    {connectedWallet ? <div>• Connected wallet: {connectedWallet}</div> : null}
+                </div>
+            </div>
+        )}
 
         <section className={CARD}>
           <div className="flex flex-wrap items-center gap-2">
