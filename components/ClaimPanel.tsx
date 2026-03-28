@@ -457,7 +457,19 @@ export default function ClaimPanel() {
   }
   
   if (loading || data === null) {
-    return <p className="text-center text-blue-400">⏳ Loading your claim data...</p>;
+    return (
+      <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
+        <div className="max-w-6xl w-full mx-auto space-y-6">
+          <AppWalletBar />
+  
+          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 shadow-lg">
+            <p className="text-center text-blue-400 font-medium">
+              ⏳ Loading your claim data...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // ✅ Crash fix: tx listesi yoksa dizi kullan
@@ -2198,7 +2210,6 @@ export default function ClaimPanel() {
           <Leaderboard referralCode={data.referral_code ?? undefined} />
         </motion.section>
       </motion.div>
-    </div>
       {shareOpen && sharePayload && (
         <ShareCenter
           open={shareOpen}
@@ -2380,7 +2391,8 @@ export default function ClaimPanel() {
         </div>
       )}
     </div>
-  );
+  </div>
+);
 }
 
 function Info({ label, value }: { label: string; value: string }) {
