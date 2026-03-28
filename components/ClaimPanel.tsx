@@ -4,6 +4,7 @@
 
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { useEffect, useRef, useState } from 'react';
+import AppWalletBar from '@/components/AppWalletBar';
 import { motion } from 'framer-motion';
 import CorePointChart from './CorePointChart';
 import Leaderboard from './Leaderboard';
@@ -441,8 +442,16 @@ export default function ClaimPanel() {
   // ⛑️ İlk kare guard’ları (render içinde setState YOK!)
   if (!publicKey) {
     return (
-      <div className="bg-zinc-950 min-h-screen py-10 px-4 text-white">
-        <p className="text-center text-yellow-300 font-medium">❌ Please connect your wallet.</p>
+      <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
+        <div className="max-w-6xl w-full mx-auto space-y-6">
+          <AppWalletBar />
+  
+          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 shadow-lg">
+            <p className="text-center text-yellow-300 font-medium">
+              ❌ Please connect your wallet.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1185,12 +1194,16 @@ export default function ClaimPanel() {
 
   return (
     <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="bg-zinc-900 text-white p-6 rounded-2xl max-w-6xl w-full mx-auto border border-zinc-700 shadow-lg space-y-10"
-      >
+      <div className="max-w-6xl w-full mx-auto space-y-6">
+
+        <AppWalletBar />
+
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          className="bg-zinc-900 text-white p-6 rounded-2xl w-full border border-zinc-700 shadow-lg space-y-10"
+        >
         <h2 className="text-3xl font-extrabold text-center tracking-tight mb-2">🎁 Claim Panel</h2>
 
         {/* 👤 Personal Info */}
@@ -2185,6 +2198,7 @@ export default function ClaimPanel() {
           <Leaderboard referralCode={data.referral_code ?? undefined} />
         </motion.section>
       </motion.div>
+    </div>
       {shareOpen && sharePayload && (
         <ShareCenter
           open={shareOpen}
