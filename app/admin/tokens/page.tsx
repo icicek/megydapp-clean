@@ -2,13 +2,10 @@
 'use client';
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import useAdminWalletGuard from '@/hooks/useAdminWalletGuard';
 
 import ExportCsvButton from '@/components/admin/ExportCsvButton';
 import BulkUpdateDialog from '../components/BulkUpdateDialog';
-import DevNotesButton from '@/components/admin/DevNotesButton';
 import { fetchSolanaTokenList } from '@/lib/utils';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 import TokenInfoModal, { type VolumeResp } from '@/components/admin/TokenInfoModal';
@@ -226,7 +223,6 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 /* Sayfa                                                      */
 /* ────────────────────────────────────────────────────────── */
 export default function AdminTokensPage() {
-  const router = useRouter();
   const {
   loading: adminGuardLoading,
   canRunCriticalAdminAction,
@@ -557,13 +553,6 @@ export default function AdminTokensPage() {
       setHistLoadingMore(false);
     }
   }
-  async function logout() {
-    try {
-      await fetch('/api/admin/auth/logout', { method: 'POST', credentials: 'include' });
-    } finally {
-      router.replace('/admin/login');
-    }
-  }
   async function saveSettings() {
     if (!ensureCriticalAdminAccess()) return;
     try {
@@ -616,23 +605,6 @@ export default function AdminTokensPage() {
       <div className="mb-4">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-bold mr-auto">🛡️ Token Management</h1>
-
-          <Link href="/admin/audit" className={TB} title="View Admin Audit Log">
-            <span>📜</span>
-            <span>Audit Log</span>
-          </Link>
-
-          <DevNotesButton />
-
-          <button onClick={() => router.push('/')} className={TB} title="Back to site">
-            <span>↩︎</span>
-            <span>Back to site</span>
-          </button>
-
-          <button onClick={logout} className={TB} title="Logout">
-            <span>🚪</span>
-            <span>Logout</span>
-          </button>
         </div>
       </div>
 
