@@ -114,11 +114,6 @@ export default function AdminControlPage() {
   const [savingApp, setSavingApp] = useState(false);
   const [savingCron, setSavingCron] = useState(false);
   const [savingAdmins, setSavingAdmins] = useState(false);
-  const [savingRate, setSavingRate] = useState(false);
-
-  // coincarnation rate (USD per 1 MEGY)
-  const [rate, setRate] = useState<string>(''); // text input
-  const rateNumber = useMemo(() => Number(rate), [rate]);
 
   // admins
   const [admins, setAdmins] = useState<string[]>([]);
@@ -131,7 +126,6 @@ export default function AdminControlPage() {
   // optional endpoints guard
   const [hasAppEnabled, setHasAppEnabled] = useState(false);
   const [hasAdminsCfg, setHasAdminsCfg] = useState(false);
-  const [hasRateCfg, setHasRateCfg] = useState(false);
   const [hasCronCfg, setHasCronCfg] = useState(false);
 
   /* -------- initial load -------- */
@@ -176,18 +170,6 @@ export default function AdminControlPage() {
         } catch {
           setHasCronCfg(false);
           setCronEnabled(null);
-        }
-
-        // coincarnation_rate (USD per 1 MEGY)
-        try {
-          const cr = await getJSON<{ success: boolean; value: number }>(
-            '/api/admin/config/coincarnation_rate'
-          );
-          setRate(String(cr?.value ?? ''));
-          setHasRateCfg(true);
-        } catch {
-          setHasRateCfg(false);
-          setRate('');
         }
 
         // admins (optional)
@@ -270,30 +252,6 @@ export default function AdminControlPage() {
     }
   }
 
-  async function saveRate() {
-    if (!ensureCriticalAdminAccess()) return;
-    setMsg(null);
-    setSavingRate(true);
-    if (rate.trim() === '') {
-      setMsg('❌ Enter a value');
-      setSavingRate(false);
-      return;
-    }
-    if (!Number.isFinite(rateNumber) || rateNumber <= 0) {
-      setMsg('❌ Enter a valid positive number (USD per 1 MEGY)');
-      setSavingRate(false);
-      return;
-    }
-    try {
-      await sendJSON('/api/admin/config/coincarnation_rate', 'PUT', { value: rateNumber });
-      setMsg('✅ Coincarnation rate saved');
-    } catch (e: any) {
-      setMsg(`❌ ${e?.message || 'Rate save failed'}`);
-    } finally {
-      setSavingRate(false);
-    }
-  }
-
   async function saveAdmins(next: string[]) {
     if (!ensureCriticalAdminAccess()) return;
     setMsg(null);
@@ -331,10 +289,6 @@ export default function AdminControlPage() {
     sessionWallet,
     connectedWallet,
   } = useAdminWalletGuard();
-  
-  /* -------- derived -------- */
-  const rateDisabled =
-    savingRate || rate.trim() === '' || !Number.isFinite(rateNumber) || rateNumber <= 0;
 
   /* -------- UI -------- */
   return (
@@ -531,50 +485,6 @@ export default function AdminControlPage() {
                 canSave={canRunCriticalAdminAction}
                 onBlocked={() => setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`)}
               />
-            </div>
-          </section>
-
-          {/* Coincarnation Rate (USD per 1 MEGY) */}
-          <section className={CARD}>
-            <div className="font-semibold">Coincarnation Rate</div>
-            <div className="text-xs text-white/60 mb-3">
-              USD price per 1 MEGY. Example: 1 → 1 USD/MEGY; 2 → 0.5 MEGY per USD; 3 → 0.33 MEGY per USD.
-            </div>
-            <div className="flex items-center gap-3">
-              <input
-                inputMode="decimal"
-                value={rate}
-                onChange={(e) => setRate(e.target.value)}
-                className="w-40 rounded-lg bg-[#0a0f19] border border-white/10 px-3 py-2"
-                placeholder="1"
-                disabled={savingRate || !hasRateCfg}
-                title={!hasRateCfg ? 'Endpoint not available' : undefined}
-              />
-              <button
-                onClick={saveRate}
-                disabled={rateDisabled || !hasRateCfg}
-                className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {savingRate ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-
-            {/* Quick presets */}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {[1, 2, 3, 5, 8, 13].map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setRate(String(v))}
-                  disabled={savingRate || !hasRateCfg}
-                  className="px-2.5 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-sm disabled:opacity-50"
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-
-            <div className="text-[11px] text-white/60 mt-3">
-              Tip: Start with 1 USD/MEGY for Phase 1 (e.g., distribute ~500k MEGY), then raise to 2, 3, 5, 8…
             </div>
           </section>
 

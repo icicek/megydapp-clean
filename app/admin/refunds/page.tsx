@@ -3,7 +3,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import useAdminWalletGuard from '@/hooks/useAdminWalletGuard';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey, Transaction } from '@solana/web3.js';
 import {
@@ -129,22 +128,44 @@ export default function AdminRefundsPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'requested' | 'available' | 'refunded'>('requested');
   const [executingId, setExecutingId] = useState<number | null>(null);
-  const {
-    loading: adminGuardLoading,
-    adminSessionActive,
-    guardMessage,
-    connectedWallet,
-    sessionWallet,
-  } = useAdminWalletGuard();
+  const [adminSessionLoading, setAdminSessionLoading] = useState(true);
+  const [adminSessionActive, setAdminSessionActive] = useState(false);
+  const [sessionWallet, setSessionWallet] = useState<string | null>(null);
+
+  async function loadAdminSession() {
+    try {
+      setAdminSessionLoading(true);
+  
+      const res = await fetch('/api/admin/whoami?strict=0', {
+        credentials: 'include',
+        cache: 'no-store',
+      });
+  
+      const data = await res.json().catch(() => ({}));
+  
+      if (res.ok && data?.ok) {
+        setAdminSessionActive(true);
+        setSessionWallet(data.wallet ?? null);
+      } else {
+        setAdminSessionActive(false);
+        setSessionWallet(null);
+      }
+    } catch {
+      setAdminSessionActive(false);
+      setSessionWallet(null);
+    } finally {
+      setAdminSessionLoading(false);
+    }
+  }
 
   function ensureAdminSession(): boolean {
-    if (adminGuardLoading) {
+    if (adminSessionLoading) {
       setMsg('⏳ Checking admin session...');
       return false;
     }
   
     if (!adminSessionActive) {
-      setMsg(`⚠️ ${guardMessage || 'No active admin session.'}`);
+      setMsg('⚠️ No active admin session.');
       return false;
     }
   
@@ -176,17 +197,21 @@ export default function AdminRefundsPage() {
   }
 
   useEffect(() => {
-    if (adminGuardLoading) return;
+    if (adminSessionLoading) return;
   
     if (!adminSessionActive) {
       setRows([]);
       setLoading(false);
-      setMsg(`⚠️ ${guardMessage || 'No active admin session.'}`);
+      setMsg('⚠️ No active admin session.');
       return;
     }
   
     load();
-  }, [adminGuardLoading, adminSessionActive, guardMessage]);
+  }, [adminSessionLoading, adminSessionActive]);
+
+  useEffect(() => {
+    loadAdminSession();
+  }, []);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return rows;
@@ -440,14 +465,14 @@ export default function AdminRefundsPage() {
 
         {msg && <div className={`${CARD} text-sm whitespace-pre-line`}>{msg}</div>}
 
-        {!adminGuardLoading && adminSessionActive && (
+        {!adminSessionLoading && adminSessionActive && (
             <div className={`${CARD} text-sm text-white/80`}>
                 <div className="font-medium text-white mb-2">Refund execution model</div>
                 <div className="space-y-1 text-xs text-white/65">
                     <div>• Admin session is required to access refund operations.</div>
                     <div>• Execute Refund requires the connected wallet to be the Coincarnation treasury wallet.</div>
                     {sessionWallet ? <div>• Admin session wallet: {sessionWallet}</div> : null}
-                    {connectedWallet ? <div>• Connected wallet: {connectedWallet}</div> : null}
+                    {publicKey ? <div>• Connected wallet: {publicKey.toBase58()}</div> : null}
                 </div>
             </div>
         )}
