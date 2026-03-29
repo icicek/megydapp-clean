@@ -20,9 +20,23 @@ function getCsrfToken(): string | null {
 
 /* ---------------- fetch helpers ---------------- */
 async function getJSON<T>(url: string): Promise<T> {
-  const r = await fetch(url, { credentials: 'include', cache: 'no-store' });
-  if (!r.ok) throw new Error(`${r.status}`);
-  return r.json();
+  const token = getCsrfToken();
+
+  const headers: Record<string, string> = {
+    'X-Requested-With': 'fetch',
+  };
+
+  if (token) headers['x-csrf-token'] = token;
+
+  const r = await fetch(url, {
+    credentials: 'include',
+    cache: 'no-store',
+    headers,
+  });
+
+  const data = await r.json().catch(() => ({} as any));
+  if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data;
 }
 async function sendJSON<T>(url: string, method: 'POST' | 'PUT', body: any): Promise<T> {
   const token = getCsrfToken();
@@ -210,7 +224,6 @@ export default function AdminControlPage() {
     setSavingClaim(true);
     try {
       await sendJSON('/api/admin/config/claim_open', 'POST', {
-        wallet: whoami,
         value: String(next),
       });
       setClaimOpen(next);
@@ -270,11 +283,20 @@ export default function AdminControlPage() {
 
   function addAdmin() {
     const v = newAdmin.trim();
+  
     if (!v) return;
-    if (admins.includes(v)) {
-      setNewAdmin('');
+  
+    if (v.length < 32 || v.length > 60) {
+      setMsg('⚠️ Please enter a valid base58 wallet address.');
       return;
     }
+  
+    if (admins.includes(v)) {
+      setNewAdmin('');
+      setMsg('ℹ️ This wallet is already in the admin list.');
+      return;
+    }
+  
     saveAdmins([...admins, v]);
   }
   function removeAdmin(w: string) {
@@ -598,9 +620,8 @@ function NumberConfig({
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch(`/api/admin/config/${keyName}`, { credentials: 'include', cache: 'no-store' });
-        if (!r.ok) return;
-        const j = await r.json().catch(() => null);
+        const j = await getJSON<{ value?: unknown }>(`/api/admin/config/${keyName}`).catch(() => null);
+        if (!j) return;
         const v = j?.value ?? '';
         setVal(String(v));
       } catch {}

@@ -57,6 +57,11 @@ type CreatePhaseResponse =
 const CARD =
   'rounded-2xl border border-white/10 bg-[#0b0f18] p-5 shadow-sm hover:shadow transition-shadow';
 
+function confirmAction(message: string): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.confirm(message);
+}
+
 async function getJSON<T>(url: string): Promise<T> {
   const r = await fetch(url, {
     credentials: 'include',
@@ -272,6 +277,10 @@ export default function AdminPhasesPage() {
     try {
       const j1 = await getJSON<{ success: boolean; phases: PhaseRow[]; queue?: any }>('/api/phases/list');
 
+      if (!j1?.success) {
+        throw new Error('PHASES_LIST_FAILED');
+      }
+      
       const phases = Array.isArray(j1?.phases) ? j1.phases : [];
       const normalized = phases.map((p) => ({
         ...p,
@@ -307,7 +316,7 @@ export default function AdminPhasesPage() {
 
   useEffect(() => {
     if (adminGuardLoading) return;
-    refresh();
+    void refresh();
   }, [adminGuardLoading]);
 
   async function createPhase() {
@@ -327,6 +336,8 @@ export default function AdminPhasesPage() {
 
       setOpenCreate(false);
       setName('');
+      setPool('500000');
+      setRate('1');
 
       await refresh();
       setMsg('✅ Phase created');
@@ -442,7 +453,7 @@ export default function AdminPhasesPage() {
     setBusyId(id);
 
     try {
-      const ok = window.confirm(
+      const ok = confirmAction(
         'Take snapshot for this reviewing phase?\n\nThis will finalize claim data for this phase and mark it as completed. It does NOT open the next phase.'
       );
       if (!ok) return;
@@ -484,7 +495,7 @@ export default function AdminPhasesPage() {
     setBusyId(id);
 
     try {
-      const ok = window.confirm(
+      const ok = confirmAction(
         'Finalize this completed phase?\n\nThis will approve the snapshot after consistency checks.'
       );
       if (!ok) return;
@@ -515,7 +526,7 @@ export default function AdminPhasesPage() {
     setMsg(null);
     setBusyId(id);
     try {
-      const ok = window.confirm('Delete this planned phase?\n\nThis cannot be undone.');
+      const ok = confirmAction('Delete this planned phase?\n\nThis cannot be undone.');
       if (!ok) return;
 
       await sendJSON(`/api/admin/phases/${id}`, 'DELETE');

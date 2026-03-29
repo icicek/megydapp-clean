@@ -53,6 +53,62 @@ type ExecutePrepareResponse = {
 const CARD =
   'rounded-2xl border border-white/10 bg-[#0b0f18] p-5 shadow-sm hover:shadow transition-shadow';
 
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const m = document.cookie.match(
+    new RegExp('(?:^|; )' + name.replace(/[$()*+./?[\\\]^{|}-]/g, '\\$&') + '=([^;]*)')
+  );
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function getCsrfToken(): string | null {
+  if (typeof document === 'undefined') return null;
+  const meta = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null;
+  return meta?.content || getCookie('csrf') || null;
+}
+
+async function adminGetJSON<T>(url: string): Promise<T> {
+  const token = getCsrfToken();
+
+  const headers: Record<string, string> = {
+    'X-Requested-With': 'fetch',
+  };
+
+  if (token) headers['x-csrf-token'] = token;
+
+  const r = await fetch(url, {
+    credentials: 'include',
+    cache: 'no-store',
+    headers,
+  });
+
+  const data = await r.json().catch(() => ({} as any));
+  if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data;
+}
+
+async function adminSendJSON<T>(url: string, method: 'POST', body?: any): Promise<T> {
+  const token = getCsrfToken();
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Requested-With': 'fetch',
+  };
+
+  if (token) headers['x-csrf-token'] = token;
+
+  const r = await fetch(url, {
+    method,
+    credentials: 'include',
+    cache: 'no-store',
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+
+  const data = await r.json().catch(() => ({} as any));
+  if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data;
+}
 function shorten(v: unknown) {
   const s = String(v ?? '').trim();
   if (!s) return '-';
@@ -136,14 +192,11 @@ export default function AdminRefundsPage() {
     try {
       setAdminSessionLoading(true);
   
-      const res = await fetch('/api/admin/whoami?strict=0', {
-        credentials: 'include',
-        cache: 'no-store',
-      });
+      const data = await adminGetJSON<{ ok?: boolean; wallet?: string | null }>(
+        '/api/admin/whoami?strict=0'
+      );
   
-      const data = await res.json().catch(() => ({}));
-  
-      if (res.ok && data?.ok) {
+      if (data?.ok) {
         setAdminSessionActive(true);
         setSessionWallet(data.wallet ?? null);
       } else {
@@ -176,15 +229,12 @@ export default function AdminRefundsPage() {
     try {
       setLoading(true);
   
-      const r = await fetch('/api/admin/refunds/list', {
-        credentials: 'include',
-        cache: 'no-store',
-      });
+      const j = await adminGetJSON<{ success?: boolean; refunds?: RefundRow[] }>(
+        '/api/admin/refunds/list'
+      );
   
-      const j = await r.json().catch(() => ({}));
-  
-      if (!r.ok || !j?.success) {
-        throw new Error(j?.error || `HTTP ${r.status}`);
+      if (!j?.success) {
+        throw new Error('FAILED_TO_LOAD_REFUNDS');
       }
   
       setRows(Array.isArray(j.refunds) ? j.refunds : []);
@@ -247,20 +297,17 @@ export default function AdminRefundsPage() {
       setExecutingId(row.id);
       setMsg(null);
 
-      const prepRes = await fetch('/api/admin/refunds/execute', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const prepJson = await adminSendJSON<ExecutePrepareResponse>(
+        '/api/admin/refunds/execute',
+        'POST',
+        {
           invalidation_id: row.id,
           contribution_id: row.contribution_id,
-        }),
-      });
-
-      const prepJson = (await prepRes.json().catch(() => ({}))) as ExecutePrepareResponse;
-
-      if (!prepRes.ok || !prepJson?.success || !prepJson?.refund) {
-        throw new Error(prepJson?.error || `EXECUTE_PREPARE_FAILED (${prepRes.status})`);
+        }
+      );
+      
+      if (!prepJson?.success || !prepJson?.refund) {
+        throw new Error(prepJson?.error || 'EXECUTE_PREPARE_FAILED');
       }
 
       const refund = prepJson.refund;
@@ -414,22 +461,19 @@ export default function AdminRefundsPage() {
         throw new Error('REFUND_TX_NOT_VALID');
       }
       
-      const finalizeRes = await fetch('/api/admin/refunds/finalize', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const finalizeJson = await adminSendJSON<{ success?: boolean; error?: string }>(
+        '/api/admin/refunds/finalize',
+        'POST',
+        {
           invalidation_id: row.id,
           contribution_id: row.contribution_id,
           refund_tx_signature: signature,
           executed_by: publicKey.toBase58(),
-        }),
-      });
+        }
+      );
       
-      const finalizeJson = await finalizeRes.json().catch(() => ({} as any));
-      
-      if (!finalizeRes.ok || !finalizeJson?.success) {
-        throw new Error(finalizeJson?.error || `REFUND_FINALIZE_FAILED (${finalizeRes.status})`);
+      if (!finalizeJson?.success) {
+        throw new Error(finalizeJson?.error || 'REFUND_FINALIZE_FAILED');
       }
 
       setMsg(`✅ Refund executed successfully. Tx: ${signature}`);
@@ -454,7 +498,7 @@ export default function AdminRefundsPage() {
 
           <div className="flex items-center gap-2">
             <button
-                onClick={load}
+                onClick={() => void load()}
                 className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm"
                 disabled={loading}
             >
@@ -630,7 +674,7 @@ export default function AdminRefundsPage() {
                                 disabled={executingId === row.id}
                                 className="px-3 py-2 rounded-lg bg-fuchsia-700 hover:bg-fuchsia-600 text-white text-xs disabled:opacity-50"
                             >
-                                {executingId === row.id ? 'Executing...' : 'Execute Refund'}
+                                {executingId === row.id ? 'Executing…' : 'Execute Refund'}
                             </button>
                             ) : (
                             <div className="text-[11px] text-white/50 space-y-1">
