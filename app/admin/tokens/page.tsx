@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import useAdminWalletGuard from '@/hooks/useAdminWalletGuard';
 
 import ExportCsvButton from '@/components/admin/ExportCsvButton';
-import BulkUpdateDialog from '../components/BulkUpdateDialog';
 import { fetchSolanaTokenList } from '@/lib/utils';
 import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 import TokenInfoModal, { type VolumeResp } from '@/components/admin/TokenInfoModal';
@@ -78,49 +77,6 @@ function ToastViewport({ toasts }: { toasts: Toast[] }) {
 function shortenWallet(w?: string | null) {
   if (!w) return 'Admin';
   return w.length > 10 ? `${w.slice(0, 4)}…${w.slice(-4)}` : w;
-}
-function clamp(n: number, min: number, max: number) {
-  return Math.min(Math.max(n, min), max);
-}
-
-function MetricCard({
-  label,
-  value,
-  foot,
-}: {
-  label: string;
-  value: React.ReactNode;
-  foot?: React.ReactNode;
-}) {
-  return (
-    <div
-      className="
-        bg-gray-950 border border-gray-800 rounded-xl
-        p-3 sm:p-4
-        h-28 sm:h-32
-        overflow-hidden
-        flex flex-col justify-between
-        shadow-sm
-      "
-    >
-      <div className="text-[11px] sm:text-xs text-gray-400 truncate">{label}</div>
-      <div
-        className="
-          text-base sm:text-lg font-semibold
-          tabular-nums
-          leading-tight select-text
-          break-words
-        "
-      >
-        {value}
-      </div>
-      {foot ? (
-        <div className="text-[10px] sm:text-[11px] text-gray-500 mt-1 truncate">{foot}</div>
-      ) : (
-        <div className="h-[12px]" />
-      )}
-    </div>
-  );
 }
 
 async function copyToClipboard(text: string) {
@@ -283,6 +239,12 @@ export default function AdminTokensPage() {
   const [limit, setLimit] = useState(20);
   const [page, setPage] = useState(0);
 
+  // bulk update
+  const [selectedMints, setSelectedMints] = useState<string[]>([]);
+  const [bulkStatus, setBulkStatus] = useState<TokenStatus>('healthy');
+  const [bulkReason, setBulkReason] = useState('bulk admin update');
+  const [bulkSaving, setBulkSaving] = useState(false);
+
   // history modal
   const [histOpen, setHistOpen] = useState(false);
   const [histMint, setHistMint] = useState<string | null>(null);
@@ -381,10 +343,18 @@ export default function AdminTokensPage() {
 
   const loadStats = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/registry/stats', { credentials: 'include', cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const j = await res.json();
-      if (j?.success) setStats(j);
+      const j = await api<{
+        success?: boolean;
+        total: number;
+        byStatus: Record<string, number>;
+        lastUpdatedAt: string | null;
+      }>('/api/admin/registry/stats');
+  
+      if (j?.success) {
+        setStats(j);
+      } else {
+        throw new Error('STATS_LOAD_FAILED');
+      }
     } catch {
       push('Stats load error', 'err');
     }
@@ -394,27 +364,23 @@ export default function AdminTokensPage() {
 
   const loadSettings = useCallback(async () => {
     try {
-      const r = await fetch('/api/admin/settings', { credentials: 'include', cache: 'no-store' });
-      if (!r.ok) {
-        setSettingsLoaded(true);
-        return;
-      }
-      const d = await r.json();
+      const d = await api<any>('/api/admin/settings');
+  
       if (d?.success) {
         setVoteThreshold(d.voteThreshold ?? 3);
         setIncludeCEX(!!d.includeCEX);
+  
         if (typeof d.healthyMinVolUSD === 'number') setHealthyMinVolUSD(d.healthyMinVolUSD);
         if (typeof d.healthyMinLiqUSD === 'number') setHealthyMinLiqUSD(d.healthyMinLiqUSD);
         if (typeof d.walkingDeadMinVolUSD === 'number') setWalkingDeadMinVolUSD(d.walkingDeadMinVolUSD);
         if (typeof d.walkingDeadMinLiqUSD === 'number') setWalkingDeadMinLiqUSD(d.walkingDeadMinLiqUSD);
       }
     } catch {
-      // sessiz geç
+      // silent on first load
     } finally {
       setSettingsLoaded(true);
     }
   }, []);
-
 
   // mount: stats + settings
   useEffect(() => {
@@ -432,6 +398,10 @@ export default function AdminTokensPage() {
   useEffect(() => {
     setPage(0);
   }, [q, status, limit]);
+
+  useEffect(() => {
+    setSelectedMints((prev) => prev.filter((mint) => items.some((it) => it.mint === mint)));
+  }, [items]);
 
   // tokenlist index
   useEffect(() => {
@@ -485,16 +455,25 @@ export default function AdminTokensPage() {
     saveNameCache(nameMap);
   }, [nameMap]);
 
+  async function postStatusUpdate(mint: string, nextStatus: TokenStatus, reason: string) {
+    return api('/api/admin/tokens', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mint,
+        status: nextStatus,
+        reason,
+      }),
+    });
+  }
+  
   /* ── actions ───────────────────────────────────────────── */
   async function setStatusFor(m: string, s: TokenStatus) {
     if (!ensureCriticalAdminAccess()) return;
+
     try {
       setError(null);
-      await api('/api/admin/tokens', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mint: m, status: s, reason: 'admin panel' }),
-      });
+      await postStatusUpdate(m, s, 'admin panel');
       push(`✅ ${m} → ${s}`, 'ok');
       await load();
       await loadStats();
@@ -516,6 +495,55 @@ export default function AdminTokensPage() {
       const msg = e?.message || 'Reset error';
       setError(msg);
       push(`❌ ${msg}`, 'err');
+    }
+  }
+  async function applyBulkStatus() {
+    if (!ensureCriticalAdminAccess()) return;
+
+    if (selectedMints.length === 0) {
+      push('No tokens selected', 'info');
+      return;
+    }
+
+    const reason = bulkReason.trim() || 'bulk admin update';
+
+    const ok = window.confirm(
+      `Apply "${bulkStatus}" to ${selectedMints.length} token(s)?\n\nReason: ${reason}`
+    );
+    if (!ok) return;
+
+    try {
+      setBulkSaving(true);
+      setError(null);
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const mint of selectedMints) {
+        try {
+          await postStatusUpdate(mint, bulkStatus, reason);
+          successCount++;
+        } catch {
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        push(`✅ Bulk updated: ${successCount}`, 'ok');
+      }
+      if (failCount > 0) {
+        push(`⚠️ Failed updates: ${failCount}`, 'info');
+      }
+
+      await load();
+      await loadStats();
+      clearSelectedMints();
+    } catch (e: any) {
+      const msg = e?.message || 'Bulk update error';
+      setError(msg);
+      push(`❌ ${msg}`, 'err');
+    } finally {
+      setBulkSaving(false);
     }
   }
 
@@ -554,6 +582,34 @@ export default function AdminTokensPage() {
       push('Lookup failed', 'err');
     }
   }
+  const visibleMints = useMemo(() => items.map((it) => String(it.mint)), [items]);
+
+  const allVisibleSelected =
+    visibleMints.length > 0 && visibleMints.every((mint) => selectedMints.includes(mint));
+
+  function toggleSelectedMint(mint: string) {
+    setSelectedMints((prev) =>
+      prev.includes(mint) ? prev.filter((x) => x !== mint) : [...prev, mint]
+    );
+  }
+
+  function toggleSelectAllVisible() {
+    setSelectedMints((prev) => {
+      if (visibleMints.length === 0) return prev;
+
+      const allSelected = visibleMints.every((mint) => prev.includes(mint));
+      if (allSelected) {
+        return prev.filter((mint) => !visibleMints.includes(mint));
+      }
+
+      const merged = new Set([...prev, ...visibleMints]);
+      return Array.from(merged);
+    });
+  }
+
+  function clearSelectedMints() {
+    setSelectedMints([]);
+  }
   const fetchHistory = useCallback(async (mintVal: string, offset = 0) => {
     const url = `/api/admin/audit?mint=${encodeURIComponent(mintVal)}&limit=${HIST_LIMIT}&offset=${offset}`;
     const data = await api<{ success: true; items: AuditRow[] }>(url);
@@ -587,11 +643,34 @@ export default function AdminTokensPage() {
       setHistLoadingMore(false);
     }
   }
+  function isValidNonNegativeNumber(v: unknown): boolean {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0;
+  }
   async function saveSettings() {
     if (!ensureCriticalAdminAccess()) return;
+
+    if (!Number.isFinite(voteThreshold) || voteThreshold < 1 || voteThreshold > 50) {
+      setSettingsMsg('❌ Vote threshold must be between 1 and 50.');
+      push('Invalid vote threshold', 'err');
+      return;
+    }
+
+    if (
+      !isValidNonNegativeNumber(healthyMinVolUSD) ||
+      !isValidNonNegativeNumber(healthyMinLiqUSD) ||
+      !isValidNonNegativeNumber(walkingDeadMinVolUSD) ||
+      !isValidNonNegativeNumber(walkingDeadMinLiqUSD)
+    ) {
+      setSettingsMsg('❌ Threshold values must be valid non-negative numbers.');
+      push('Invalid threshold values', 'err');
+      return;
+    }
+
     try {
       setSettingsMsg(null);
       setSavingThreshold(true);
+
       const d = await api<any>('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -605,15 +684,16 @@ export default function AdminTokensPage() {
           changedBy: 'admin_ui',
         }),
       });
-      
+
       if (d?.success) {
         setVoteThreshold(d.voteThreshold ?? voteThreshold);
         setIncludeCEX(!!d.includeCEX);
+
         if (typeof d.healthyMinVolUSD === 'number') setHealthyMinVolUSD(d.healthyMinVolUSD);
         if (typeof d.healthyMinLiqUSD === 'number') setHealthyMinLiqUSD(d.healthyMinLiqUSD);
         if (typeof d.walkingDeadMinVolUSD === 'number') setWalkingDeadMinVolUSD(d.walkingDeadMinVolUSD);
         if (typeof d.walkingDeadMinLiqUSD === 'number') setWalkingDeadMinLiqUSD(d.walkingDeadMinLiqUSD);
-      
+
         setSettingsMsg('✅ Saved');
         push('Settings saved', 'ok');
         await load();
@@ -627,11 +707,11 @@ export default function AdminTokensPage() {
     } finally {
       setSavingThreshold(false);
     }
-  }  
+  }
 
   /* ──────────────────────────────────────────────────────── */
   return (
-    <div className="min-h-screen bg-black text-white p-6">
+    <div className="min-h-screen bg-[#090d15] text-white p-6">
       <ToastViewport toasts={toasts} />
 
       {/* TOP BAR */}
@@ -662,7 +742,7 @@ export default function AdminTokensPage() {
           placeholder="Search by mint"
           className="bg-gray-900 border border-gray-700 rounded px-3 py-2 min-w-[120px]"
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !adminGuardLoading) load();
+            if (e.key === 'Enter' && !adminGuardLoading) void load();
           }}
         />
         <select
@@ -690,7 +770,7 @@ export default function AdminTokensPage() {
               </option>
             ))}
           </select>
-          <button onClick={load} disabled={loading} className={`${TB} ${loading ? 'opacity-70' : ''}`}>
+          <button onClick={() => void load()} disabled={loading} className={`${TB} ${loading ? 'opacity-70' : ''}`}>
             {loading ? 'Loading…' : 'Refresh'}
           </button>
 
@@ -700,6 +780,51 @@ export default function AdminTokensPage() {
           </div>
         </div>
       </div>
+
+      {selectedMints.length > 0 && (
+        <div className="mb-4 rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="text-sm text-blue-100 min-w-[180px]">
+              {selectedMints.length} token selected
+            </div>
+
+            <select
+              value={bulkStatus}
+              onChange={(e) => setBulkStatus(e.target.value as TokenStatus)}
+              className="bg-gray-900 border border-gray-700 rounded px-3 py-2 min-w-[180px]"
+            >
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+
+            <input
+              value={bulkReason}
+              onChange={(e) => setBulkReason(e.target.value)}
+              placeholder="Reason"
+              className="bg-gray-900 border border-gray-700 rounded px-3 py-2 flex-1 min-w-[220px]"
+            />
+
+            <button
+              onClick={applyBulkStatus}
+              disabled={bulkSaving}
+              className="px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+            >
+              {bulkSaving ? 'Applying…' : 'Apply bulk update'}
+            </button>
+
+            <button
+              onClick={clearSelectedMints}
+              disabled={bulkSaving}
+              className="px-3 py-2 rounded border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-50"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Settings + Stats (mobilde dikey, >=md yatay sütun) */}
       <div className="grid gap-4 md:grid-cols-2 items-stretch mb-6">
@@ -835,6 +960,15 @@ export default function AdminTokensPage() {
         <table className="min-w-full text-sm">
           <thead className="bg-gray-800">
             <tr>
+              <th className="text-left p-2 w-[52px]">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={toggleSelectAllVisible}
+                  aria-label="Select all visible"
+                  title="Select all visible"
+                />
+              </th>
               <th className="text-left p-2 w-[460px]">Mint</th>
               <th className="text-left p-2">Status</th>
               <th className="text-left p-2 w-[120px]">Votes</th>
@@ -846,7 +980,7 @@ export default function AdminTokensPage() {
           <tbody>
             {items.length === 0 && (
               <tr>
-                <td className="p-3 text-gray-400" colSpan={6}>
+                <td className="p-3 text-gray-400" colSpan={7}>
                   No records
                 </td>
               </tr>
@@ -855,6 +989,15 @@ export default function AdminTokensPage() {
               const yesCount = typeof it.yes_count === 'number' ? it.yes_count : 0;
               return (
                 <tr key={it.mint} className="border-b border-gray-800">
+                  <td className="p-2 align-top">
+                    <input
+                      type="checkbox"
+                      checked={selectedMints.includes(it.mint)}
+                      onChange={() => toggleSelectedMint(it.mint)}
+                      aria-label={`Select ${it.mint}`}
+                      title="Select token"
+                    />
+                  </td>
                   {/* Mint + Copy */}
                   <td className="p-2 w-[460px]">
                     <div className="grid gap-1 sm:grid-cols-[1fr_auto] items-start">
