@@ -5,16 +5,27 @@ import { neon } from '@neondatabase/serverless';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const sql = neon(process.env.NEON_DATABASE_URL!);
+function getSql() {
+  const url = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error('Missing database connection string');
+  }
+  return neon(url);
+}
 
 export async function POST(req: NextRequest) {
   const secret = req.headers.get('x-cron-secret');
 
   if (secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    return NextResponse.json(
+      { ok: false, error: 'unauthorized' },
+      { status: 401 }
+    );
   }
 
   try {
+    const sql = getSql();
+
     const res = await sql`
       DELETE FROM cron_runs
       WHERE ran_at < NOW() - INTERVAL '30 days'
@@ -25,11 +36,13 @@ export async function POST(req: NextRequest) {
       ok: true,
       deleted: res.length,
     });
-
   } catch (e: any) {
-    return NextResponse.json({
-      ok: false,
-      error: e.message,
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: e?.message || 'cleanup_failed',
+      },
+      { status: 500 }
+    );
   }
 }
