@@ -37,7 +37,7 @@ export default function useAdminWalletGuard() {
         if (ignore) return;
 
         if (res.ok && data.ok) {
-          setAdminSessionActive(Boolean(data.isAdmin));
+          setAdminSessionActive(true);
           setSessionWallet(data.wallet ?? null);
         } else {
           setAdminSessionActive(false);
