@@ -75,7 +75,7 @@ export default function AppWalletBar({
     return () => {
       ignore = true;
     };
-  }, [showAdminStatus]);
+  }, [showAdminStatus, walletAddress, connected]);
 
   useEffect(() => {
     if (!connected) {
