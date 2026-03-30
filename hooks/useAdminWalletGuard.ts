@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 
 type AdminWhoAmIResponse =
-  | { ok: true; isAdmin: boolean; wallet?: string | null }
-  | { ok: false; error?: string };
+  | { ok: true; wallet?: string | null }
+  | { ok: false; error?: string; wallet?: null };
 
 function normalize(value?: string | null) {
   return String(value || '').trim();

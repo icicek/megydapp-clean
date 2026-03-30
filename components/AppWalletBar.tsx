@@ -11,8 +11,8 @@ type AppWalletBarProps = {
 };
 
 type AdminWhoAmIResponse =
-  | { ok: true; isAdmin: boolean; wallet?: string | null }
-  | { ok: false; error?: string };
+  | { ok: true; wallet?: string | null }
+  | { ok: false; error?: string; wallet?: null };
 
 function shortenAddress(address?: string | null) {
   if (!address) return '';
@@ -54,7 +54,7 @@ export default function AppWalletBar({
         if (ignore) return;
 
         if (res.ok && data.ok) {
-          setAdminActive(Boolean(data.isAdmin));
+          setAdminActive(true);
           setAdminWallet(data.wallet ?? null);
         } else {
           setAdminActive(false);
