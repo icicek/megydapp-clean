@@ -139,12 +139,14 @@ export default function AppWalletBar({
                     </span>
 
                     <button
-                        onClick={() => copyAddress(walletAddress)}
-                        className="text-white/50 hover:text-white text-xs"
+                      onClick={() => copyAddress(walletAddress)}
+                      className="rounded-md px-1.5 py-1 text-white/50 hover:bg-white/5 hover:text-white text-xs transition"
+                      aria-label="Copy wallet address"
+                      title={copied ? 'Copied' : 'Copy wallet address'}
                     >
-                        {copied ? '✓' : '⧉'}
+                      {copied ? '✓' : '⧉'}
                     </button>
-                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="truncate text-sm text-white/70">
@@ -192,9 +194,9 @@ export default function AppWalletBar({
                   onClick={() => copyAddress(walletAddress)}
                   className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 hover:bg-white/10 hover:text-white transition"
                   aria-label="Copy wallet address"
-                  title="Copy wallet address"
+                  title={copied ? 'Copied' : 'Copy wallet address'}
                 >
-                  {copied ? 'Copied' : 'Copy'}
+                  {copied ? '✓' : '⧉'}
                 </button>
               </div>
             </div>
@@ -288,9 +290,9 @@ export default function AppWalletBar({
                     onClick={() => copyAddress(walletAddress)}
                     className="rounded-md px-2 py-1 text-xs text-white/50 hover:bg-white/5 hover:text-white transition"
                     aria-label="Copy wallet address"
-                    title="Copy wallet address"
+                    title={copied ? 'Copied' : 'Copy wallet address'}
                   >
-                    {copied ? 'Copied' : 'Copy'}
+                    {copied ? '✓' : '⧉'}
                   </button>
                 </div>
               </div>
@@ -358,8 +360,7 @@ export default function AppWalletBar({
                 <button
                   type="button"
                   onClick={() => disconnect()}
-                  className="rounded-xl border border-red-500/15 bg-red-500/8 text-red-300 px-4 py-2 text-sm font-medium hover:bg-red-500/15 transition"
-                >
+                  className="rounded-xl border border-red-500/15 bg-red-500/10 text-red-300 px-4 py-2 text-sm font-medium hover:bg-red-500/15 transition"                >
                   Disconnect
                 </button>
               </>
