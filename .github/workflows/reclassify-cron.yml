@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: "Cooldown bypass (1 = yes) — manual only"
+        description: "Cooldown bypass (1 = yes)"
         required: false
         default: "0"
 
@@ -20,15 +20,15 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: Resolve envs (prefer secrets, fallback to vars)
+      - name: Resolve envs
         id: prep
         env:
-          CRON_URL_SECRET: ${{ secrets.CRON_URL }}   # https://<site>/api/admin/reclassify
+          CRON_URL_SECRET: ${{ secrets.CRON_URL }}
           CRON_URL_VAR:    ${{ vars.CRON_URL }}
           CRON_SECRET_S:   ${{ secrets.CRON_SECRET }}
           CRON_SECRET_V:   ${{ vars.CRON_SECRET }}
 
-          CRON_ENABLED_URL_SECRET: ${{ secrets.CRON_ENABLED_URL }}  # https://<site>/api/admin/config/cron_enabled
+          CRON_ENABLED_URL_SECRET: ${{ secrets.CRON_ENABLED_URL }}
           CRON_ENABLED_URL_VAR:    ${{ vars.CRON_ENABLED_URL }}
         run: |
           set -euo pipefail
@@ -37,53 +37,36 @@ jobs:
           CRON_SECRET="${CRON_SECRET_S:-${CRON_SECRET_V:-}}"
           CRON_ENABLED_URL="${CRON_ENABLED_URL_SECRET:-${CRON_ENABLED_URL_VAR:-}}"
 
-          if [ -z "${CRON_URL:-}" ]; then
-            echo "CRON_URL missing"; exit 1;
-          fi
-          if [ -z "${CRON_SECRET:-}" ]; then
-            echo "CRON_SECRET missing"; exit 1;
-          fi
-          if [ -z "${CRON_ENABLED_URL:-}" ]; then
-            echo "CRON_ENABLED_URL missing"; exit 1;
-          fi
+          if [ -z "${CRON_URL:-}" ]; then echo "CRON_URL missing"; exit 1; fi
+          if [ -z "${CRON_SECRET:-}" ]; then echo "CRON_SECRET missing"; exit 1; fi
+          if [ -z "${CRON_ENABLED_URL:-}" ]; then echo "CRON_ENABLED_URL missing"; exit 1; fi
 
           echo "cron_url=$CRON_URL" >> "$GITHUB_OUTPUT"
           echo "cron_enabled_url=$CRON_ENABLED_URL" >> "$GITHUB_OUTPUT"
 
-      - name: Precheck cron_enabled (skip only for schedule)
+      - name: Precheck cron_enabled
         if: ${{ github.event_name == 'schedule' }}
         env:
           CRON_ENABLED_URL: ${{ steps.prep.outputs.cron_enabled_url }}
         run: |
           set -euo pipefail
-          BODY=$(curl -sS -L --retry 2 --retry-delay 2 "$CRON_ENABLED_URL?v=$(date +%s)" || true)
+
+          BODY=$(curl -sS -L --retry 3 --retry-delay 3 "$CRON_ENABLED_URL?v=$(date +%s)")
           echo "cron_enabled response: $BODY"
 
-          # Your endpoint returns: { success: true, value: "true"|"false" }
-          ENABLED=$(echo "$BODY" | jq -r '.value // "true"' 2>/dev/null || echo "true")
+          ENABLED=$(echo "$BODY" | jq -r '.value // empty')
+
+          if [ -z "$ENABLED" ]; then
+            echo "❌ cron_enabled invalid response"
+            exit 1
+          fi
+
           ENABLED=$(echo "$ENABLED" | tr '[:upper:]' '[:lower:]')
 
           if [ "$ENABLED" != "true" ] && [ "$ENABLED" != "1" ] && [ "$ENABLED" != "yes" ] && [ "$ENABLED" != "on" ]; then
-            echo "Cron disabled in admin panel — skipping scheduled run."
+            echo "Cron disabled — skipping"
             exit 0
           fi
-
-      - name: HEAD (sanity check)
-        env:
-          CRON_URL: ${{ steps.prep.outputs.cron_url }}
-        run: |
-          set -euo pipefail
-          CODE=$(curl -sS -I -L \
-            --retry 2 --retry-delay 2 \
-            -o /dev/null -w "%{http_code}" \
-            "$CRON_URL?v=$(date +%s)")
-          echo "HEAD status: $CODE"
-
-          case "$CODE" in
-            200|204|405|308) true ;;
-            404) echo "Not found (bad path)"; exit 1 ;;
-            *) true ;;
-          esac
 
       - name: POST (trigger endpoint)
         env:
@@ -92,37 +75,47 @@ jobs:
           CRON_SECRET_V: ${{ vars.CRON_SECRET }}
         run: |
           set -euo pipefail
-          CRON_SECRET="${CRON_SECRET_S:-${CRON_SECRET_V:-}}"
 
+          CRON_SECRET="${CRON_SECRET_S:-${CRON_SECRET_V:-}}"
           URL="$CRON_URL?v=$(date +%s)"
-          # Only manual dispatch can add force=1
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.force }}" = "1" ]; then
             URL="${URL}&force=1"
           fi
 
+          echo "Calling: $URL"
+          echo "Time: $(date)"
+
           STATUS=$(curl -sS -L -X POST "$URL" \
             -H "X-CRON-SECRET: $CRON_SECRET" \
-            --retry 2 --retry-delay 2 \
+            --retry 3 --retry-delay 3 \
             -o /tmp/body.json -w "%{http_code}")
 
           echo "HTTP $STATUS"
           cat /tmp/body.json || true
 
-          # Treat CRON_DISABLED as skipped (no failure)
-          if [ "$STATUS" = "503" ]; then
-            ERR=$(jq -r '.error // empty' /tmp/body.json 2>/dev/null || true)
-            if [ "$ERR" = "CRON_DISABLED" ]; then
-              echo "Cron disabled — skipping without failure."
-              exit 0
-            fi
+          if [ ! -s /tmp/body.json ]; then
+            echo "❌ Empty response"
+            exit 1
           fi
+
+          OK=$(jq -r '.ok // empty' /tmp/body.json)
+          STAGE=$(jq -r '.stage // empty' /tmp/body.json)
+          PROCESSED=$(jq -r '.processed // 0' /tmp/body.json)
 
           if [ "$STATUS" -ge 400 ]; then
+            echo "❌ HTTP error"
             exit 1
           fi
 
-          OK=$(jq -r '.ok // empty' /tmp/body.json 2>/dev/null || true)
           if [ "$OK" != "true" ]; then
-            echo "Endpoint ok:false or invalid JSON"
+            echo "❌ ok != true"
             exit 1
           fi
+
+          if [ "$STAGE" != "after_reclassify" ]; then
+            echo "❌ invalid stage: $STAGE"
+            exit 1
+          fi
+
+          echo "✅ Success — processed: $PROCESSED"
