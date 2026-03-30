@@ -1,0 +1,38 @@
+name: DB Cleanup (cron)
+
+on:
+  schedule:
+    - cron: "0 3 * * *"   # every day 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run cleanup
+        env:
+          CLEANUP_URL: ${{ secrets.CLEANUP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          STATUS=$(curl -sS -L -X POST "$CLEANUP_URL" \
+            -H "X-CRON-SECRET: $CRON_SECRET" \
+            -o /tmp/body.json -w "%{http_code}")
+
+          echo "HTTP $STATUS"
+          cat /tmp/body.json || true
+
+          if [ "$STATUS" -ge 400 ]; then
+            exit 1
+          fi
+
+          OK=$(jq -r '.ok // empty' /tmp/body.json)
+
+          if [ "$OK" != "true" ]; then
+            echo "Cleanup failed"
+            exit 1
+          fi
+
+          echo "✅ Cleanup success"
