@@ -35,6 +35,11 @@ export default function AppWalletBar({
   const mobileMenuRef = useRef<HTMLDivElement | null>(null);
   const walletAddress = useMemo(() => publicKey?.toBase58() ?? null, [publicKey]);
 
+  const walletMatchesAdmin =
+    !!walletAddress &&
+    !!adminWallet &&
+    walletAddress.trim() === adminWallet.trim();
+
   useEffect(() => {
     let ignore = false;
 
@@ -201,11 +206,29 @@ export default function AppWalletBar({
                 {loadingAdmin ? (
                   <div className="text-sm text-white/60">Checking...</div>
                 ) : adminActive ? (
-                  <div className="space-y-1">
-                    <div className="text-sm text-cyan-300">Active</div>
+                  <div className="space-y-2">
+                    <div
+                      className={[
+                        'inline-flex items-center rounded-full px-2.5 py-1 text-xs',
+                        walletMatchesAdmin
+                          ? 'border border-cyan-400/20 bg-cyan-400/10 text-cyan-300'
+                          : 'border border-amber-400/20 bg-amber-400/10 text-amber-300',
+                      ].join(' ')}
+                    >
+                      {walletMatchesAdmin
+                        ? 'Admin Session Active'
+                        : 'Admin Session Active · Different Wallet'}
+                    </div>
+
                     {adminWallet ? (
-                      <div className="text-xs text-white/50 break-all">
-                        Session wallet: {adminWallet}
+                      <div className="text-xs text-white/40 break-all">
+                        Admin session: {adminWallet}
+                      </div>
+                    ) : null}
+
+                    {walletAddress && adminWallet && !walletMatchesAdmin ? (
+                      <div className="text-xs text-amber-300/80">
+                        Connected wallet differs from session wallet
                       </div>
                     ) : null}
                   </div>
@@ -263,7 +286,9 @@ export default function AppWalletBar({
 
                   <button
                     onClick={() => copyAddress(walletAddress)}
-                    className="text-white/50 hover:text-white text-xs"
+                    className="rounded-md px-2 py-1 text-xs text-white/50 hover:bg-white/5 hover:text-white transition"
+                    aria-label="Copy wallet address"
+                    title="Copy wallet address"
                   >
                     {copied ? 'Copied' : 'Copy'}
                   </button>
@@ -279,12 +304,28 @@ export default function AppWalletBar({
                   <span className="text-white/50">Checking admin session...</span>
                 ) : adminActive ? (
                   <>
-                    <span className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-cyan-300">
-                      Admin Session Active
+                    <span
+                      className={[
+                        'inline-flex items-center rounded-full px-2.5 py-1',
+                        walletMatchesAdmin
+                          ? 'border border-cyan-400/20 bg-cyan-400/10 text-cyan-300'
+                          : 'border border-amber-400/20 bg-amber-400/10 text-amber-300',
+                      ].join(' ')}
+                    >
+                      {walletMatchesAdmin
+                        ? 'Admin Session Active'
+                        : 'Admin Session Active · Different Wallet'}
                     </span>
+
                     {adminWallet ? (
-                      <span className="text-white/50">
-                        Session wallet: {shortenAddress(adminWallet)}
+                      <span className="text-white/40">
+                        Admin session: {shortenAddress(adminWallet)}
+                      </span>
+                    ) : null}
+
+                    {walletAddress && adminWallet && !walletMatchesAdmin ? (
+                      <span className="text-amber-300/80">
+                        Connected wallet differs from session wallet
                       </span>
                     ) : null}
                   </>
@@ -317,7 +358,7 @@ export default function AppWalletBar({
                 <button
                   type="button"
                   onClick={() => disconnect()}
-                  className="rounded-xl border border-red-500/20 bg-red-500/10 text-red-300 px-4 py-2 text-sm font-medium hover:bg-red-500/20 transition"
+                  className="rounded-xl border border-red-500/15 bg-red-500/8 text-red-300 px-4 py-2 text-sm font-medium hover:bg-red-500/15 transition"
                 >
                   Disconnect
                 </button>
