@@ -197,19 +197,42 @@ async function simulateTxOrThrow(connection: any, tx: any) {
 }
 
 async function fetchLatestTokenStatus(mint: string): Promise<StatusApiResponse | null> {
-  try {
-    const url = `/api/status?mint=${encodeURIComponent(mint)}&includeMetrics=1&_ts=${Date.now()}`;
-    const res = await fetch(url, { cache: 'no-store' });
+  const url = `/api/status?mint=${encodeURIComponent(mint)}&includeMetrics=1&_ts=${Date.now()}`;
 
-    if (!res.ok) {
-      throw new Error(`status ${res.status}`);
+  async function readJsonSafeLocal(res: Response) {
+    const contentType = res.headers.get('content-type') || '';
+    const raw = await res.text();
+
+    let data: any = null;
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      data = null;
     }
 
-    const data = (await res.json()) as StatusApiResponse;
-    return data;
+    return {
+      ok: res.ok,
+      status: res.status,
+      contentType,
+      data,
+      raw,
+    };
+  }
+
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    const parsed = await readJsonSafeLocal(res);
+
+    if (!parsed.ok || !parsed.data) {
+      throw new Error(
+        `STATUS_ENDPOINT_NON_JSON_OR_HTTP_${parsed.status}: ${url} :: ${parsed.raw.slice(0, 160)}`
+      );
+    }
+
+    return parsed.data as StatusApiResponse;
   } catch (e) {
-    console.warn('⚠️ latest token status fetch failed:', e);
-    return null;
+    console.warn('⚠️ latest token status fetch failed:', (e as any)?.message || e);
+    throw e;
   }
 }
 
@@ -518,6 +541,12 @@ export default function CoincarneModal({
     if (msg.includes('STATUS_NON_JSON_OR_HTTP_')) {
       return 'Token status endpoint returned invalid JSON/HTML. Please retry and check server response.';
     }
+    if (msg.includes('STATUS_ENDPOINT_NON_JSON_OR_HTTP_')) {
+      return 'The /api/status endpoint returned HTML instead of JSON.';
+    }
+    if (msg.includes('PRICE_API_NON_JSON_OR_HTTP_')) {
+      return 'The /api/proxy/price endpoint returned HTML instead of JSON.';
+    }
     if (msg.includes('LEAVE_SOL_FOR_FEES')) return 'Please leave a little SOL for network fees.';
     if (msg.includes('Invalid Arguments'))
       return 'Wallet/RPC rejected the request (invalid arguments). Please retry. If it continues, reconnect wallet.';
@@ -815,6 +844,11 @@ export default function CoincarneModal({
       const rawMsg = String(err?.message || err || 'UNKNOWN_ERROR');
       console.error('❌ Transaction error full:', err);
       console.error('❌ Transaction raw message:', rawMsg);
+    
+      if (rawMsg.includes('STATUS_ENDPOINT_NON_JSON_OR_HTTP_')) {
+        console.error('❌ Failing endpoint appears to be /api/status');
+      }
+    
       alert(`❌ Transaction failed: ${humanizeTxError(rawMsg)}`);
     } finally {
       setLoading(false);
