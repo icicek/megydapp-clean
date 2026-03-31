@@ -1,5 +1,4 @@
 // app/api/coincarnation/stats/route.ts
-
 import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import {
@@ -7,10 +6,17 @@ import {
   type TokenStatus,
 } from '@/app/api/_lib/registry';
 
-const sql = neon(process.env.DATABASE_URL!);
-export const revalidate = 0;
+export const revalidate = 30;
+export const runtime = 'nodejs';
 
-// Ortak helper
+function getSql() {
+  const url = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error('Missing database connection string');
+  }
+  return neon(url);
+}
+
 async function isDeadcoinForMegy(
   mint: string | null | undefined,
   usd: number,
@@ -41,18 +47,43 @@ async function isDeadcoinForMegy(
 
 export async function GET() {
   try {
-    // Katılımcı sayısı: katkı yapan tüm cüzdanlar (deadcoin dahil)
-    const participantResult = await sql`
-      SELECT COUNT(DISTINCT wallet_address) AS count FROM contributions;
-    `;
+    const sql = getSql();
 
-    // Global MEGY-eligible USD:
-    const contribRows = await sql/* sql */`
-      SELECT token_contract, usd_value
+    const participantResult = await sql`
+      SELECT COUNT(DISTINCT wallet_address) AS count
       FROM contributions;
     ` as any[];
 
+    const contribRows = await sql`
+      SELECT token_contract, usd_value
+      FROM contributions
+    ` as any[];
+
+    const distinctMintRows = await sql`
+      SELECT DISTINCT token_contract
+      FROM contributions
+      WHERE token_contract IS NOT NULL
+    ` as any[];
+
     const statusCache = new Map<string, TokenStatus | null>();
+
+    await Promise.all(
+      distinctMintRows.map(async (row) => {
+        const mint = row.token_contract as string | null;
+        if (!mint || statusCache.has(mint)) return;
+        try {
+          const reg = await getStatusRow(mint);
+          statusCache.set(mint, (reg?.status ?? null) as TokenStatus | null);
+        } catch (e) {
+          console.warn(
+            '[stats] preload getStatusRow failed:',
+            (e as any)?.message || e,
+          );
+          statusCache.set(mint, null);
+        }
+      })
+    );
+
     let totalUsdEligible = 0;
     for (const row of contribRows) {
       const usd = Number(row.usd_value ?? 0);
@@ -61,37 +92,28 @@ export async function GET() {
       if (!isDead) totalUsdEligible += usd;
     }
 
-    // Deadcoin sayısı: fiyat 0 veya statü deadcoin (display için)
-    const deadcoinRows = await sql/* sql */`
-      SELECT DISTINCT token_contract, usd_value
+    const popularRows = await sql`
+      SELECT token_symbol, token_contract, COUNT(*) AS cnt
       FROM contributions
-      WHERE token_contract IS NOT NULL;
+      WHERE token_contract IS NOT NULL
+      GROUP BY token_symbol, token_contract
     ` as any[];
 
     const deadcoinSet = new Set<string>();
-    for (const row of deadcoinRows) {
-      const usd = Number(row.usd_value ?? 0);
+    for (const row of distinctMintRows) {
       const mint = row.token_contract as string | null;
       if (!mint) continue;
-
-      const isDead = await isDeadcoinForMegy(mint, usd, statusCache);
-      if (isDead) deadcoinSet.add(mint);
+      const status = statusCache.get(mint);
+      if (status === 'deadcoin') deadcoinSet.add(mint);
     }
+
     const uniqueDeadcoins = deadcoinSet.size;
 
-    // En popüler deadcoin (sadece display; rough hesap)
-    // Basitçe: deadcoinSet'teki mint'ler için contributions'ı sayalım
     let mostPopularDeadcoin = 'No deadcoin yet';
     if (deadcoinSet.size > 0) {
-      const popularRows = await sql/* sql */`
-        SELECT token_symbol, token_contract, COUNT(*) AS cnt
-        FROM contributions
-        WHERE token_contract IS NOT NULL
-        GROUP BY token_symbol, token_contract
-      ` as any[];
-
       let bestSymbol = 'No deadcoin yet';
       let bestCount = 0;
+
       for (const row of popularRows) {
         const mint = row.token_contract as string | null;
         if (!mint || !deadcoinSet.has(mint)) continue;
@@ -99,35 +121,52 @@ export async function GET() {
         const cnt = Number(row.cnt || 0);
         if (cnt > bestCount && row.token_symbol) {
           bestCount = cnt;
-          bestSymbol = row.token_symbol as string;
+          bestSymbol = String(row.token_symbol);
         }
       }
+
       mostPopularDeadcoin = bestSymbol;
     }
 
+    const totalParticipants = Number(participantResult[0]?.count ?? 0);
+    const totalUsd = totalUsdEligible;
+
     const res = NextResponse.json({
       success: true,
-      totalParticipants: Number(participantResult[0]?.count ?? 0),
-      totalUsd: totalUsdEligible,
+
+      // canonical fields
+      totalParticipants,
+      totalUsd,
       uniqueDeadcoins,
       mostPopularDeadcoin,
+
+      // backward-compatible aliases
+      participantCount: totalParticipants,
+      totalUsdValue: totalUsd,
     });
-    res.headers.set('Cache-Control', 's-maxage=30, stale-while-revalidate=300');
+
+    res.headers.set('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
     return res;
   } catch (error) {
     console.error('[STATS API ERROR]', error);
+
     const res = NextResponse.json(
       {
-        success: true, // degrade: UI kırılmasın
+        success: true,
         degraded: true,
+
         totalParticipants: 0,
         totalUsd: 0,
         uniqueDeadcoins: 0,
         mostPopularDeadcoin: 'No deadcoin yet',
+
+        participantCount: 0,
+        totalUsdValue: 0,
       },
-      { status: 200 },
+      { status: 200 }
     );
-    res.headers.set('Cache-Control', 's-maxage=30, stale-while-revalidate=300');
+
+    res.headers.set('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
     return res;
   }
 }
