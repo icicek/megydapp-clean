@@ -555,9 +555,6 @@ export default function CoincarneModal({
   function humanizeTxError(e: any) {
     const msg = String(e?.message || e);
   
-    if (msg.includes('Unexpected token') && msg.includes('<')) {
-      return 'A backend endpoint returned HTML instead of JSON. Check the failing /api request in Network tab.';
-    }
     if (msg.includes('STATUS_NON_JSON_OR_HTTP_')) {
       return 'Token status endpoint returned invalid JSON/HTML. Please retry and check server response.';
     }
@@ -592,7 +589,12 @@ export default function CoincarneModal({
       const mintForStatus = isSOLToken ? WSOL_MINT : token.mint;
 
       // Final guard: always re-check latest token status before building/sending tx
-      const latestStatusData = await fetchLatestTokenStatus(mintForStatus);
+      let latestStatusData: StatusApiResponse | null = null;
+      try {
+        latestStatusData = await fetchLatestTokenStatus(mintForStatus);
+      } catch (e: any) {
+        throw new Error(`[status-preflight] ${String(e?.message || e)}`);
+      }
       const latestStatus = resolveLatestStatus(latestStatusData);
 
       // keep parent state fresh as well
@@ -647,11 +649,15 @@ export default function CoincarneModal({
         const latest = await connection.getLatestBlockhash('confirmed');
         tx.recentBlockhash = latest.blockhash;
 
-        signature = await sendTransaction(tx, connection, {
-          skipPreflight: false,
-          preflightCommitment: 'confirmed',
-          maxRetries: 3,
-        });
+        try {
+          signature = await sendTransaction(tx, connection, {
+            skipPreflight: false,
+            preflightCommitment: 'confirmed',
+            maxRetries: 3,
+          });
+        } catch (e: any) {
+          throw new Error(`[wallet-send-sol] ${String(e?.message || e)}`);
+        }
       } else {
         const mint = new PublicKey(token.mint);
 
@@ -743,11 +749,15 @@ export default function CoincarneModal({
         
         await simulateTxOrThrow(connection as any, tx);
 
-        signature = await sendTransaction(tx, connection, {
-          skipPreflight: false,
-          preflightCommitment: 'processed',
-          maxRetries: 5,
-        });
+        try {
+          signature = await sendTransaction(tx, connection, {
+            skipPreflight: false,
+            preflightCommitment: 'processed',
+            maxRetries: 5,
+          });
+        } catch (e: any) {
+          throw new Error(`[wallet-send-spl] ${String(e?.message || e)}`);
+        }
 
         console.log('✅ sent signature:', signature);
         console.log('🔎 explorer:', explorerUrlForSig(signature));
@@ -757,7 +767,11 @@ export default function CoincarneModal({
       console.log('✅ sent signature:', signature);
       console.log('🔎 explorer:', explorerUrlForSig(signature));
 
-      await pollSigOrThrow(signature, 35_000);
+      try {
+        await pollSigOrThrow(signature, 35_000);
+      } catch (e: any) {
+        throw new Error(`[tx-confirm] ${String(e?.message || e)}`);
+      }
 
       const referralFromUrl = getReferralFromUrl();
 
@@ -786,19 +800,20 @@ export default function CoincarneModal({
         }),
       });
 
-      if (!res.ok) {
-        const txt = await res.text();
-        console.error('❌ record API HTTP error:', txt);
-        alert('❌ Coincarnation record failed. Please try again.');
-        return;
+      const parsedRecord = await readJsonSafe(res);
+
+      if (!parsedRecord.ok || !parsedRecord.data) {
+        throw new Error(
+          `[record-post] RECORD_NON_JSON_OR_HTTP_${parsedRecord.status}: ${parsedRecord.raw.slice(0, 160)}`
+        );
       }
 
-      const json = await res.json().catch(() => null);
+      const json = parsedRecord.data;
 
       if (!json || !json.success) {
-        console.error('❌ record API logical error:', json);
-        alert('❌ Coincarnation record failed. Please try again.');
-        return;
+        throw new Error(
+          `[record-post] RECORD_LOGICAL_ERROR: ${JSON.stringify(json).slice(0, 160)}`
+        );
       }
 
       const userNumber: number = json.number ?? 0;
@@ -849,7 +864,7 @@ export default function CoincarneModal({
         console.error('❌ Failing endpoint appears to be /api/status');
       }
     
-      alert(`❌ Transaction failed: ${humanizeTxError(rawMsg)}`);
+      alert(`❌ Transaction failed: ${rawMsg}`);
     } finally {
       setLoading(false);
     }
