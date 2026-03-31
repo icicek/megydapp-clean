@@ -26,15 +26,23 @@ export async function POST(req: NextRequest) {
   try {
     const sql = getSql();
 
-    const res = await sql`
+    const deletedCronRuns = await sql`
       DELETE FROM cron_runs
       WHERE ran_at < NOW() - INTERVAL '30 days'
       RETURNING id
     `;
 
+    const deletedTokenAudit = await sql`
+      DELETE FROM token_audit
+      WHERE ran_at < NOW() - INTERVAL '90 days'
+      RETURNING id
+    `;
+
     return NextResponse.json({
       ok: true,
-      deleted: res.length,
+      deleted_cron_runs: deletedCronRuns.length,
+      deleted_token_audit: deletedTokenAudit.length,
+      deleted_total: deletedCronRuns.length + deletedTokenAudit.length,
     });
   } catch (e: any) {
     return NextResponse.json(
