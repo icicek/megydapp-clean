@@ -24,6 +24,9 @@ const TREASURY_PUBKEY = new PublicKey(
     'D7iqkQmY3ryNFtc9qseUv6kPeVjxsSD98hKN5q3rkYTd'
 );
 
+const ESTIMATE_POLL_MS = 30_000;
+const PHASE_POLL_MS = 60_000;
+
 // 🔽 CorePoint geçmişini çeken küçük helper
 async function fetchCorepointHistory(wallet: string | null): Promise<any[]> {
   if (!wallet) return [];
@@ -277,22 +280,24 @@ export default function ClaimPanel() {
       setActiveEstimate(null);
       return;
     }
-
+  
     let alive = true;
-
+  
     const fetchEstimate = async () => {
+      if (document.visibilityState !== 'visible') return;
+  
       try {
         setEstimateLoading(true);
-
+  
         const r = await fetch(
           `/api/phases/active/estimate?wallet=${encodeURIComponent(walletBase58)}`,
           { cache: 'no-store' }
         );
-
+  
         const j = await r.json().catch(() => ({}));
-
+  
         if (!alive) return;
-
+  
         if (j?.success && j?.active) setActiveEstimate(j);
         else setActiveEstimate(null);
       } catch {
@@ -303,69 +308,75 @@ export default function ClaimPanel() {
         setEstimateLoading(false);
       }
     };
-
+  
     fetchEstimate();
-
+  
     const onFocus = () => fetchEstimate();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchEstimate();
+      }
+    };
+  
     window.addEventListener('focus', onFocus);
-
-    const interval = window.setInterval(fetchEstimate, 10000);
-
+    document.addEventListener('visibilitychange', onVisibilityChange);
+  
+    const interval = window.setInterval(fetchEstimate, ESTIMATE_POLL_MS);
+  
     return () => {
       alive = false;
       window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       window.clearInterval(interval);
     };
   }, [walletBase58]);
 
   useEffect(() => {
     let alive = true;
-
+  
     const fetchCurrentPhase = async () => {
+      if (document.visibilityState !== 'visible') return;
+  
       try {
         setPhasesLoading(true);
-
+  
         const r = await fetch('/api/phases/list', { cache: 'no-store' });
         const j = await r.json().catch(() => ({}));
-
+  
         if (!alive) return;
-
+  
         const list = Array.isArray(j?.phases) ? j.phases : [];
         const activeId = Number(j?.current_active_phase_id ?? 0);
         const activeNo = Number(j?.current_active_phase_no ?? 0);
-
+  
         const norm = (s: any) => String(s ?? '').toLowerCase().trim();
-
-        // 1) AUTHORITATIVE: backend tells active phase id
+  
         const byId =
           Number.isFinite(activeId) && activeId > 0
             ? list.find((p: any) => Number(p.phase_id) === activeId || Number(p.id) === activeId)
             : null;
-
+  
         if (byId) {
           setCurrentPhase(byId);
           return;
         }
-
-        // 2) Fallback: backend active phase no
+  
         const byNo =
           Number.isFinite(activeNo) && activeNo > 0
             ? list.find((p: any) => Number(p.phase_no) === activeNo)
             : null;
-
+  
         if (byNo) {
           setCurrentPhase(byNo);
           return;
         }
-
-        // 3) Last resort heuristic: ONLY active phase is current
+  
         const active = list.find((p: any) => norm(p.status) === 'active' && !p.snapshot_taken_at);
         if (active) {
           setCurrentPhase(active);
           return;
         }
-
-        // No active phase => no current phase
+  
         setCurrentPhase(null);
       } catch (e) {
         if (!alive) return;
@@ -376,17 +387,25 @@ export default function ClaimPanel() {
         setPhasesLoading(false);
       }
     };
-
+  
     fetchCurrentPhase();
-
+  
     const onFocus = () => fetchCurrentPhase();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchCurrentPhase();
+      }
+    };
+  
     window.addEventListener('focus', onFocus);
-
-    const interval = window.setInterval(fetchCurrentPhase, 10000);
-
+    document.addEventListener('visibilitychange', onVisibilityChange);
+  
+    const interval = window.setInterval(fetchCurrentPhase, PHASE_POLL_MS);
+  
     return () => {
       alive = false;
       window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       window.clearInterval(interval);
     };
   }, []);
