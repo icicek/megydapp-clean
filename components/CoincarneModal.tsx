@@ -1,6 +1,5 @@
 // components/CoincarneModal.tsx
 'use client';
-import ShareCenter from '@/components/share/ShareCenter';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
@@ -23,8 +22,6 @@ import { PublicKey, Transaction, SystemProgram, ComputeBudgetProgram } from '@so
 import { useInternalBalance, quantize } from '@/hooks/useInternalBalance';
 import { getDestAddress, __dest_debug__ } from '@/lib/chain/env';
 import { getTokenMeta } from '@/lib/solana/tokenMeta';
-import type { SharePayload } from '@/components/share/intent';
-
 
 type TokenStatusApi =
   | 'healthy'
@@ -264,24 +261,6 @@ export default function CoincarneModal({
 }: CoincarneModalProps) {
   const { publicKey, sendTransaction, signTransaction, wallet } = useWallet();
   const { connection } = useConnection();
-
-  const [shareOpen, setShareOpen] = useState(false);
-  const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
-  const [shareContext, setShareContext] = useState<
-    'success' | 'contribution' | 'profile' | 'leaderboard'
-  >('success');
-  const [shareTxId, setShareTxId] = useState<string | null>(null);
-
-  const handleShare = (payload: SharePayload, txId?: string) => {
-    if (!payload) {
-      console.warn('⚠️ handleShare called without payload');
-      return;
-    }
-    setSharePayload(payload);
-    setShareContext('success');
-    setShareTxId(txId ?? null);
-    setShareOpen(true);
-  };
 
   /* ------------------ DEST DEBUG + DEST ADDRESS ------------------ */
   const [destSol, setDestSol] = useState<PublicKey | null>(null);
@@ -1140,18 +1119,6 @@ export default function CoincarneModal({
           )}
         </DialogContent>
       </Dialog>
-
-      {/* 🔹 ShareCenter'ı Dialog'un DIŞINA aldık */}
-      {sharePayload && (
-        <ShareCenter
-          open={shareOpen && !!sharePayload}
-          onOpenChange={setShareOpen}
-          payload={sharePayload}
-          context={shareContext}
-          txId={shareTxId ?? undefined}
-          walletBase58={publicKey?.toBase58() ?? null}
-        />
-      )}
     </>
   );
 }
