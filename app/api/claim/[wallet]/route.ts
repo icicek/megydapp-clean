@@ -42,6 +42,41 @@ function parsePhaseId(req: NextRequest): number | null {
   return n;
 }
 
+function emptyClaimData(wallet: string) {
+  return {
+    success: true,
+    phase_id: null,
+    data: {
+      id: '-',
+      wallet_address: wallet,
+      referral_code: null,
+      claimed: false,
+      referral_count: 0,
+      referral_usd_contributions: 0,
+      referral_deadcoin_count: 0,
+      total_usd_contributed: 0,
+      total_coins_contributed: 0,
+      deadcoins_revived: 0,
+      transactions: [],
+      core_point: 0,
+      total_core_point: 0,
+      pvc_share: 0,
+      core_point_breakdown: {
+        coincarnations: 0,
+        referrals: 0,
+        deadcoins: 0,
+        shares: 0,
+      },
+      claim: {
+        finalized_megy_total: 0,
+        claimed_megy_total: 0,
+        claimable_megy_total: 0,
+        finalized_by_phase: [],
+      },
+    },
+  };
+}
+
 export async function GET(req: NextRequest) {
   try {
     const wallet = extractWalletFromPath(req);
@@ -56,7 +91,7 @@ export async function GET(req: NextRequest) {
       SELECT * FROM participants WHERE wallet_address = ${wallet} LIMIT 1;
     `;
     if (participantResult.length === 0) {
-      return NextResponse.json({ success: false, error: 'No participant data found' }, { status: 404 });
+      return NextResponse.json(emptyClaimData(wallet), { status: 200 });
     }
     const participant = participantResult[0] as any;
     // Blacklist invalidation ledger for this wallet
