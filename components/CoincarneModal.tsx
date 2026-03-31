@@ -626,9 +626,12 @@ export default function CoincarneModal({
       hasBackpackSignAndSend: !!backpackProvider?.signAndSendTransaction,
     });
   
-    // 1) Backpack-specific direct provider path
+    const errors: string[] = [];
+  
+    // 1) Backpack direct provider path
     if (walletName.includes('backpack') && backpackProvider?.signAndSendTransaction) {
       try {
+        console.log('[submitTx] trying backpack provider path');
         const out = await backpackProvider.signAndSendTransaction(tx);
         const sig = extractSignature(out);
   
@@ -636,23 +639,30 @@ export default function CoincarneModal({
           throw new Error('BACKPACK_NO_SIGNATURE');
         }
   
+        console.log('[submitTx] backpack provider path success:', sig);
+  
         return {
           signature: sig,
           blockhash: latest.blockhash,
           lastValidBlockHeight: latest.lastValidBlockHeight,
         };
       } catch (e: any) {
-        throw new Error(`[backpack-provider] ${String(e?.message || e)}`);
+        const msg = `[backpack-provider] ${String(e?.message || e)}`;
+        console.error(msg, e);
+        errors.push(msg);
       }
     }
   
     // 2) Generic adapter sendTransaction
     try {
+      console.log('[submitTx] trying adapter sendTransaction path');
       const sig = await sendTransaction(tx, connection, {
         skipPreflight: false,
         preflightCommitment: commitment,
         maxRetries,
       });
+  
+      console.log('[submitTx] adapter sendTransaction success:', sig);
   
       return {
         signature: sig,
@@ -660,22 +670,22 @@ export default function CoincarneModal({
         lastValidBlockHeight: latest.lastValidBlockHeight,
       };
     } catch (e: any) {
-      // Backpack'te bu zaten patlıyorsa signTransaction'a düşme
-      if (walletName.includes('backpack')) {
-        throw new Error(`[wallet-send] ${String(e?.message || e)}`);
-      }
-  
-      console.warn('[submitTx][adapter-send] failed:', e?.message || e);
+      const msg = `[wallet-send] ${String(e?.message || e)}`;
+      console.error(msg, e);
+      errors.push(msg);
     }
   
-    // 3) Non-Backpack fallback: sign + raw send
+    // 3) signTransaction + raw send fallback
     if (signTransaction) {
       try {
+        console.log('[submitTx] trying signTransaction + sendRawTransaction path');
         const signed = await signTransaction(tx);
         const sig = await connection.sendRawTransaction(signed.serialize(), {
           skipPreflight: false,
           maxRetries,
         });
+  
+        console.log('[submitTx] signTransaction + raw send success:', sig);
   
         return {
           signature: sig,
@@ -683,11 +693,13 @@ export default function CoincarneModal({
           lastValidBlockHeight: latest.lastValidBlockHeight,
         };
       } catch (e: any) {
-        throw new Error(`[wallet-sign-raw] ${String(e?.message || e)}`);
+        const msg = `[wallet-sign-raw] ${String(e?.message || e)}`;
+        console.error(msg, e);
+        errors.push(msg);
       }
     }
   
-    throw new Error('NO_SUPPORTED_TX_PATH');
+    throw new Error(errors.join(' | ') || 'NO_SUPPORTED_TX_PATH');
   }
 
   /* ------------------ SEND TX ------------------ */
