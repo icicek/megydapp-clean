@@ -196,6 +196,26 @@ async function simulateTxOrThrow(connection: any, tx: any) {
   }
 }
 
+async function readJsonSafe(res: Response) {
+  const contentType = res.headers.get('content-type') || '';
+  const raw = await res.text();
+
+  let data: any = null;
+  try {
+    data = raw ? JSON.parse(raw) : {};
+  } catch {
+    data = null;
+  }
+
+  return {
+    ok: res.ok,
+    status: res.status,
+    contentType,
+    data,
+    raw,
+  };
+}
+
 async function fetchLatestTokenStatus(mint: string): Promise<StatusApiResponse | null> {
   const url = `/api/status?mint=${encodeURIComponent(mint)}&includeMetrics=1&_ts=${Date.now()}`;
 
@@ -560,26 +580,6 @@ export default function CoincarneModal({
       return 'Transaction was sent but not confirmed in time. Please check it on Explorer and try again if needed.';
     if (msg.includes('mint-not-found')) return 'Token mint not found on this network.';
     return msg;
-  }
-
-  async function readJsonSafe(res: Response) {
-    const contentType = res.headers.get('content-type') || '';
-    const raw = await res.text();
-  
-    let data: any = null;
-    try {
-      data = raw ? JSON.parse(raw) : {};
-    } catch {
-      data = null;
-    }
-  
-    return {
-      ok: res.ok,
-      status: res.status,
-      contentType,
-      data,
-      raw,
-    };
   }
 
   /* ------------------ SEND TX ------------------ */
