@@ -10,7 +10,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import dynamic from 'next/dynamic';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import {
   TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
@@ -20,7 +20,6 @@ import {
   getMint,
 } from '@solana/spl-token';
 import { PublicKey, Transaction, SystemProgram, ComputeBudgetProgram } from '@solana/web3.js';
-import { connection } from '@/lib/solanaConnection';
 import { useInternalBalance, quantize } from '@/hooks/useInternalBalance';
 import { getDestAddress, __dest_debug__ } from '@/lib/chain/env';
 import { getTokenMeta } from '@/lib/solana/tokenMeta';
@@ -221,6 +220,7 @@ export default function CoincarneModal({
   onGoToProfileRequest,
 }: CoincarneModalProps) {
   const { publicKey, sendTransaction } = useWallet();
+  const { connection } = useConnection();
 
   const [shareOpen, setShareOpen] = useState(false);
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
@@ -609,6 +609,9 @@ export default function CoincarneModal({
 
         tx.feePayer = publicKey;
 
+        const latest = await connection.getLatestBlockhash('confirmed');
+        tx.recentBlockhash = latest.blockhash;
+
         signature = await sendTransaction(tx, connection, {
           skipPreflight: false,
           preflightCommitment: 'confirmed',
@@ -700,6 +703,9 @@ export default function CoincarneModal({
         tx.add(...ixs);
         tx.feePayer = publicKey;
 
+        const latest = await connection.getLatestBlockhash('confirmed');
+        tx.recentBlockhash = latest.blockhash;
+        
         await simulateTxOrThrow(connection as any, tx);
 
         signature = await sendTransaction(tx, connection, {
