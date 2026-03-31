@@ -512,7 +512,7 @@ export default function CoincarneModal({
       setConfirmModalOpen(true);
     } catch (err: any) {
       console.error('❌ Error preparing confirmation:', err);
-      alert(`❌ Prepare confirm failed: ${String(err?.message || err)}`);
+      alert(`❌ Prepare confirm failed: ${humanizeTxError(err)}`);
       setPriceView({ fetchStatus: 'error', usdValue: 0, priceSources: [] });
       setTokenCategory('unknown');
       setConfirmModalOpen(true);
@@ -530,58 +530,6 @@ export default function CoincarneModal({
     if (isDevnet) return `https://solscan.io/tx/${sig}?cluster=devnet`;
     if (isTestnet) return `https://solscan.io/tx/${sig}?cluster=testnet`;
     return `https://solscan.io/tx/${sig}`;
-  }
-
-  async function submitTx(tx: Transaction, commitment: 'processed' | 'confirmed' = 'confirmed', maxRetries = 5) {
-    if (!publicKey) throw new Error('WALLET_NOT_CONNECTED');
-  
-    tx.feePayer = publicKey;
-  
-    const latest = await connection.getLatestBlockhash(commitment);
-    tx.recentBlockhash = latest.blockhash;
-  
-    // Preferred path: sign locally, send via our RPC
-    if (signTransaction) {
-      let signedTx: Transaction;
-  
-      try {
-        signedTx = await signTransaction(tx);
-      } catch (e: any) {
-        throw new Error(`[wallet-sign] ${String(e?.message || e)}`);
-      }
-  
-      try {
-        const sig = await connection.sendRawTransaction(signedTx.serialize(), {
-          skipPreflight: false,
-          maxRetries,
-        });
-  
-        return {
-          signature: sig,
-          blockhash: latest.blockhash,
-          lastValidBlockHeight: latest.lastValidBlockHeight,
-        };
-      } catch (e: any) {
-        throw new Error(`[rpc-send-raw] ${String(e?.message || e)}`);
-      }
-    }
-  
-    // Fallback path: adapter sendTransaction
-    try {
-      const sig = await sendTransaction(tx, connection, {
-        skipPreflight: false,
-        preflightCommitment: commitment,
-        maxRetries,
-      });
-  
-      return {
-        signature: sig,
-        blockhash: latest.blockhash,
-        lastValidBlockHeight: latest.lastValidBlockHeight,
-      };
-    } catch (e: any) {
-      throw new Error(`[wallet-send] ${String(e?.message || e)}`);
-    }
   }
   
   async function pollSigOrThrow(sig: string, timeoutMs = 35_000, intervalMs = 900) {
@@ -616,6 +564,21 @@ export default function CoincarneModal({
     if (msg.includes('PRICE_API_NON_JSON_OR_HTTP_')) {
       return 'The /api/proxy/price endpoint returned HTML instead of JSON.';
     }
+    if (msg.includes('BACKPACK_NO_SIGNATURE')) {
+      return 'Backpack signed the transaction but no signature was returned.';
+    }
+    if (msg.includes('[backpack-provider]')) {
+      return 'Backpack provider failed while signing/sending the transaction. Please reconnect Backpack and try again.';
+    }
+    if (msg.includes('NO_SUPPORTED_TX_PATH')) {
+      return 'No supported wallet transaction path was available. Please reconnect your wallet and try again.';
+    }
+    if (msg.includes('[wallet-send]')) {
+      return 'Wallet failed while sending the transaction. Please retry. If it continues, reconnect the wallet.';
+    }
+    if (msg.includes('[wallet-sign-raw]')) {
+      return 'Wallet signed, but raw transaction send failed. Please retry.';
+    }
     if (msg.includes('LEAVE_SOL_FOR_FEES')) return 'Please leave a little SOL for network fees.';
     if (msg.includes('Invalid Arguments'))
       return 'Wallet/RPC rejected the request (invalid arguments). Please retry. If it continues, reconnect wallet.';
@@ -629,6 +592,123 @@ export default function CoincarneModal({
       return 'Transaction was sent but not confirmed in time. Please check it on Explorer and try again if needed.';
     if (msg.includes('mint-not-found')) return 'Token mint not found on this network.';
     return msg;
+  }
+
+  function getWalletName() {
+    return String(wallet?.adapter?.name || '').toLowerCase();
+  }
+  
+  function getInjectedBackpackProvider(): any {
+    if (typeof window === 'undefined') return null;
+  
+    const w = window as any;
+  
+    return (
+      w?.backpack?.solana ||
+      w?.backpack ||
+      (wallet as any)?.adapter?._wallet?.provider ||
+      (wallet as any)?.adapter?._wallet ||
+      (wallet as any)?.adapter?.provider ||
+      (wallet as any)?.adapter?._provider ||
+      null
+    );
+  }
+  
+  function extractSignature(out: any): string | null {
+    if (!out) return null;
+    if (typeof out === 'string') return out;
+    if (typeof out?.signature === 'string') return out.signature;
+    if (typeof out?.txid === 'string') return out.txid;
+    if (typeof out?.hash === 'string') return out.hash;
+    return null;
+  }
+  
+  async function submitTx(
+    tx: Transaction,
+    commitment: 'processed' | 'confirmed' = 'confirmed',
+    maxRetries = 5
+  ) {
+    if (!publicKey) throw new Error('WALLET_NOT_CONNECTED');
+  
+    tx.feePayer = publicKey;
+  
+    const latest = await connection.getLatestBlockhash(commitment);
+    tx.recentBlockhash = latest.blockhash;
+  
+    const walletName = getWalletName();
+    const backpackProvider = getInjectedBackpackProvider();
+  
+    console.log('[submitTx]', {
+      walletName,
+      rpcEndpoint: (connection as any)?.rpcEndpoint,
+      hasSendTransaction: !!sendTransaction,
+      hasSignTransaction: !!signTransaction,
+      hasBackpackProvider: !!backpackProvider,
+      hasBackpackSignAndSend: !!backpackProvider?.signAndSendTransaction,
+    });
+  
+    // 1) Backpack-specific direct provider path
+    if (walletName.includes('backpack') && backpackProvider?.signAndSendTransaction) {
+      try {
+        const out = await backpackProvider.signAndSendTransaction(tx);
+        const sig = extractSignature(out);
+  
+        if (!sig) {
+          throw new Error('BACKPACK_NO_SIGNATURE');
+        }
+  
+        return {
+          signature: sig,
+          blockhash: latest.blockhash,
+          lastValidBlockHeight: latest.lastValidBlockHeight,
+        };
+      } catch (e: any) {
+        throw new Error(`[backpack-provider] ${String(e?.message || e)}`);
+      }
+    }
+  
+    // 2) Generic adapter sendTransaction
+    try {
+      const sig = await sendTransaction(tx, connection, {
+        skipPreflight: false,
+        preflightCommitment: commitment,
+        maxRetries,
+      });
+  
+      return {
+        signature: sig,
+        blockhash: latest.blockhash,
+        lastValidBlockHeight: latest.lastValidBlockHeight,
+      };
+    } catch (e: any) {
+      // Backpack'te bu zaten patlıyorsa signTransaction'a düşme
+      if (walletName.includes('backpack')) {
+        throw new Error(`[wallet-send] ${String(e?.message || e)}`);
+      }
+  
+      console.warn('[submitTx][adapter-send] failed:', e?.message || e);
+    }
+  
+    // 3) Non-Backpack fallback: sign + raw send
+    if (signTransaction) {
+      try {
+        const signed = await signTransaction(tx);
+        const sig = await connection.sendRawTransaction(signed.serialize(), {
+          skipPreflight: false,
+          maxRetries,
+        });
+  
+        return {
+          signature: sig,
+          blockhash: latest.blockhash,
+          lastValidBlockHeight: latest.lastValidBlockHeight,
+        };
+      } catch (e: any) {
+        throw new Error(`[wallet-sign-raw] ${String(e?.message || e)}`);
+      }
+    }
+  
+    throw new Error('NO_SUPPORTED_TX_PATH');
   }
 
   /* ------------------ SEND TX ------------------ */
@@ -701,7 +781,6 @@ export default function CoincarneModal({
 
         tx.feePayer = publicKey;
 
-        let sendMeta;
         try {
           sendMeta = await submitTx(tx, 'confirmed', 3);
           signature = sendMeta.signature;
@@ -796,7 +875,6 @@ export default function CoincarneModal({
 
         await simulateTxOrThrow(connection as any, tx);
 
-        let sendMeta;
         try {
           sendMeta = await submitTx(tx, 'processed', 5);
           signature = sendMeta.signature;
@@ -920,7 +998,7 @@ export default function CoincarneModal({
         console.error('❌ Failing endpoint appears to be /api/status');
       }
     
-      alert(`❌ Transaction failed: ${rawMsg}`);
+      alert(`❌ Transaction failed: ${humanizeTxError(err)}`);
     } finally {
       setLoading(false);
     }
