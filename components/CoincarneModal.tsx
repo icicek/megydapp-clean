@@ -515,7 +515,7 @@ export default function CoincarneModal({
     const started = Date.now();
     while (Date.now() - started < timeoutMs) {
       const st = await connection.getSignatureStatuses([sig], {
-        searchTransactionHistory: false, // ✅ daha hızlı
+        searchTransactionHistory: true,
       });
       const s = st?.value?.[0];
   
@@ -570,6 +570,9 @@ export default function CoincarneModal({
     if (msg.includes('TX_NOT_CONFIRMED_TIMEOUT'))
       return 'Transaction was sent but not confirmed in time. Please check it on Explorer and try again if needed.';
     if (msg.includes('mint-not-found')) return 'Token mint not found on this network.';
+    if (msg.includes('block height exceeded')) {
+      return 'The transaction appears to have been sent, but confirmation took too long. Please check the wallet and Explorer before retrying.';
+    }
     return msg;
   }
 
@@ -882,18 +885,7 @@ export default function CoincarneModal({
       console.log('🔎 explorer:', explorerUrlForSig(signature));
 
       try {
-        if (typeof sendMeta?.blockhash === 'string' && typeof sendMeta?.lastValidBlockHeight === 'number') {
-          await connection.confirmTransaction(
-            {
-              signature,
-              blockhash: sendMeta.blockhash,
-              lastValidBlockHeight: sendMeta.lastValidBlockHeight,
-            },
-            'confirmed'
-          );
-        } else {
-          await pollSigOrThrow(signature, 35_000);
-        }
+        await pollSigOrThrow(signature, 45_000);
       } catch (e: any) {
         throw new Error(`[tx-confirm] ${String(e?.message || e)}`);
       }
