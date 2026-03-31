@@ -145,7 +145,7 @@ export async function GET() {
       totalUsdValue: totalUsd,
     });
 
-    res.headers.set('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+    res.headers.set('Cache-Control', 's-maxage=15, stale-while-revalidate=60');
     return res;
   } catch (error) {
     console.error('[STATS API ERROR]', error);
@@ -166,7 +166,7 @@ export async function GET() {
       { status: 200 }
     );
 
-    res.headers.set('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+    res.headers.set('Cache-Control', 's-maxage=15, stale-while-revalidate=60');
     return res;
   }
 }

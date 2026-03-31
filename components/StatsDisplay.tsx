@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 
-const STATS_POLL_MS = 60_000;
+const STATS_POLL_MS = 15_000;
 
 export default function StatsDisplay() {
   const [participantCount, setParticipantCount] = useState<number | null>(null);
@@ -16,13 +16,14 @@ export default function StatsDisplay() {
       if (document.visibilityState !== 'visible') return;
 
       try {
-        const res = await fetch('/api/coincarnation/stats', { cache: 'no-store' });
+        const bucket = Math.floor(Date.now() / 15000);
+        const res = await fetch(`/api/coincarnation/stats?v=${bucket}`, { cache: 'no-store' });
         const data = await res.json().catch(() => ({}));
 
         if (!alive) return;
 
-        setParticipantCount(Number(data?.participantCount ?? 0));
-        setTotalUsdValue(Number(data?.totalUsdValue ?? 0));
+        setParticipantCount(Number(data?.participantCount ?? data?.totalParticipants ?? 0));
+        setTotalUsdValue(Number(data?.totalUsdValue ?? data?.totalUsd ?? 0));
       } catch (err) {
         if (!alive) return;
         console.error('Failed to fetch stats:', err);
@@ -33,21 +34,19 @@ export default function StatsDisplay() {
 
     const onFocus = () => fetchStats();
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchStats();
-      }
+      if (document.visibilityState === 'visible') fetchStats();
     };
 
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibilityChange);
 
-    const interval = window.setInterval(fetchStats, STATS_POLL_MS);
+    const interval = setInterval(fetchStats, STATS_POLL_MS);
 
     return () => {
       alive = false;
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.clearInterval(interval);
+      clearInterval(interval);
     };
   }, []);
 
@@ -58,12 +57,8 @@ export default function StatsDisplay() {
   return (
     <div className="text-center mt-4">
       <h2 className="text-xl font-bold">🌍 Global Coincarnation Stats</h2>
-      <p className="text-lg mt-2">
-        🧑‍🚀 Participants: <strong>{participantCount}</strong>
-      </p>
-      <p className="text-lg">
-        💰 Total Revived Value: <strong>${totalUsdValue.toLocaleString()}</strong>
-      </p>
+      <p className="text-lg mt-2">🧑‍🚀 Participants: <strong>{participantCount}</strong></p>
+      <p className="text-lg">💰 Total Revived Value: <strong>${totalUsdValue.toLocaleString()}</strong></p>
     </div>
   );
 }
