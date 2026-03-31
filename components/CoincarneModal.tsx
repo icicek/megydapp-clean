@@ -512,6 +512,12 @@ export default function CoincarneModal({
   function humanizeTxError(e: any) {
     const msg = String(e?.message || e);
   
+    if (msg.includes('Unexpected token') && msg.includes('<')) {
+      return 'A backend endpoint returned HTML instead of JSON. Check the failing /api request in Network tab.';
+    }
+    if (msg.includes('STATUS_NON_JSON_OR_HTTP_')) {
+      return 'Token status endpoint returned invalid JSON/HTML. Please retry and check server response.';
+    }
     if (msg.includes('LEAVE_SOL_FOR_FEES')) return 'Please leave a little SOL for network fees.';
     if (msg.includes('Invalid Arguments'))
       return 'Wallet/RPC rejected the request (invalid arguments). Please retry. If it continues, reconnect wallet.';
@@ -806,8 +812,10 @@ export default function CoincarneModal({
         console.warn('⚠️ lv/apply outer error:', err);
       }
     } catch (err: any) {
+      const rawMsg = String(err?.message || err || 'UNKNOWN_ERROR');
       console.error('❌ Transaction error full:', err);
-      alert(`❌ Transaction failed: ${humanizeTxError(err)}`);
+      console.error('❌ Transaction raw message:', rawMsg);
+      alert(`❌ Transaction failed: ${humanizeTxError(rawMsg)}`);
     } finally {
       setLoading(false);
     }

@@ -11,6 +11,24 @@ import {
 } from '@/components/ui/dialog';
 import dynamic from 'next/dynamic';
 
+async function readJsonSafe(res: Response) {
+  const raw = await res.text();
+
+  let data: any = null;
+  try {
+    data = raw ? JSON.parse(raw) : {};
+  } catch {
+    data = null;
+  }
+
+  return {
+    ok: res.ok,
+    status: res.status,
+    data,
+    raw,
+  };
+}
+
 type DeadcoinVoteButtonProps = {
   mint: string;
   onVoted?: (res: { applied?: boolean; votesYes?: number; threshold?: number }) => void;
@@ -166,10 +184,16 @@ export default function ConfirmModal({
         const res = await fetch(url, {
           cache: 'no-store',
         });
-  
-        if (!res.ok) throw new Error(`status ${res.status}`);
-  
-        const data = await res.json();
+        
+        const parsed = await readJsonSafe(res);
+        
+        if (!parsed.ok || !parsed.data) {
+          throw new Error(
+            `STATUS_NON_JSON_OR_HTTP_${parsed.status}: ${parsed.raw.slice(0, 120)}`
+          );
+        }
+        
+        const data = parsed.data;
         if (abort) return;
   
         const registryStatus = (data?.registry?.status ?? null) as ListStatus | null;
@@ -186,7 +210,10 @@ export default function ConfirmModal({
         setVoteEligible(Boolean(data?.decision?.voteEligible));
       } catch (e) {
         if (!abort) {
-          console.warn('⚠️ /api/status failed in ConfirmModal:', e);
+          console.warn(
+            '⚠️ /api/status failed in ConfirmModal:',
+            (e as any)?.message || e
+          );
           setListStatus(null);
           setStatusAt(null);
           setZone(null);
