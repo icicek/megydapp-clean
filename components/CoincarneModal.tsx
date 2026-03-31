@@ -262,7 +262,7 @@ export default function CoincarneModal({
   refetchTokens,
   onGoToProfileRequest,
 }: CoincarneModalProps) {
-  const { publicKey, sendTransaction } = useWallet();
+  const { publicKey, sendTransaction, signTransaction, wallet } = useWallet();
   const { connection } = useConnection();
 
   const [shareOpen, setShareOpen] = useState(false);
@@ -531,6 +531,58 @@ export default function CoincarneModal({
     if (isTestnet) return `https://solscan.io/tx/${sig}?cluster=testnet`;
     return `https://solscan.io/tx/${sig}`;
   }
+
+  async function submitTx(tx: Transaction, commitment: 'processed' | 'confirmed' = 'confirmed', maxRetries = 5) {
+    if (!publicKey) throw new Error('WALLET_NOT_CONNECTED');
+  
+    tx.feePayer = publicKey;
+  
+    const latest = await connection.getLatestBlockhash(commitment);
+    tx.recentBlockhash = latest.blockhash;
+  
+    // Preferred path: sign locally, send via our RPC
+    if (signTransaction) {
+      let signedTx: Transaction;
+  
+      try {
+        signedTx = await signTransaction(tx);
+      } catch (e: any) {
+        throw new Error(`[wallet-sign] ${String(e?.message || e)}`);
+      }
+  
+      try {
+        const sig = await connection.sendRawTransaction(signedTx.serialize(), {
+          skipPreflight: false,
+          maxRetries,
+        });
+  
+        return {
+          signature: sig,
+          blockhash: latest.blockhash,
+          lastValidBlockHeight: latest.lastValidBlockHeight,
+        };
+      } catch (e: any) {
+        throw new Error(`[rpc-send-raw] ${String(e?.message || e)}`);
+      }
+    }
+  
+    // Fallback path: adapter sendTransaction
+    try {
+      const sig = await sendTransaction(tx, connection, {
+        skipPreflight: false,
+        preflightCommitment: commitment,
+        maxRetries,
+      });
+  
+      return {
+        signature: sig,
+        blockhash: latest.blockhash,
+        lastValidBlockHeight: latest.lastValidBlockHeight,
+      };
+    } catch (e: any) {
+      throw new Error(`[wallet-send] ${String(e?.message || e)}`);
+    }
+  }
   
   async function pollSigOrThrow(sig: string, timeoutMs = 35_000, intervalMs = 900) {
     const started = Date.now();
@@ -625,6 +677,9 @@ export default function CoincarneModal({
       }
 
       let signature: string;
+      let sendMeta:
+        | { signature: string; blockhash: string; lastValidBlockHeight: number }
+        | undefined;
 
       if (isSOLToken) {
         const lamports = solToLamports(amountInput);
@@ -646,15 +701,10 @@ export default function CoincarneModal({
 
         tx.feePayer = publicKey;
 
-        const latest = await connection.getLatestBlockhash('confirmed');
-        tx.recentBlockhash = latest.blockhash;
-
+        let sendMeta;
         try {
-          signature = await sendTransaction(tx, connection, {
-            skipPreflight: false,
-            preflightCommitment: 'confirmed',
-            maxRetries: 3,
-          });
+          sendMeta = await submitTx(tx, 'confirmed', 3);
+          signature = sendMeta.signature;
         } catch (e: any) {
           throw new Error(`[wallet-send-sol] ${String(e?.message || e)}`);
         }
@@ -744,17 +794,12 @@ export default function CoincarneModal({
         tx.add(...ixs);
         tx.feePayer = publicKey;
 
-        const latest = await connection.getLatestBlockhash('confirmed');
-        tx.recentBlockhash = latest.blockhash;
-        
         await simulateTxOrThrow(connection as any, tx);
 
+        let sendMeta;
         try {
-          signature = await sendTransaction(tx, connection, {
-            skipPreflight: false,
-            preflightCommitment: 'processed',
-            maxRetries: 5,
-          });
+          sendMeta = await submitTx(tx, 'processed', 5);
+          signature = sendMeta.signature;
         } catch (e: any) {
           throw new Error(`[wallet-send-spl] ${String(e?.message || e)}`);
         }
@@ -768,7 +813,18 @@ export default function CoincarneModal({
       console.log('🔎 explorer:', explorerUrlForSig(signature));
 
       try {
-        await pollSigOrThrow(signature, 35_000);
+        if (typeof sendMeta?.blockhash === 'string' && typeof sendMeta?.lastValidBlockHeight === 'number') {
+          await connection.confirmTransaction(
+            {
+              signature,
+              blockhash: sendMeta.blockhash,
+              lastValidBlockHeight: sendMeta.lastValidBlockHeight,
+            },
+            'confirmed'
+          );
+        } else {
+          await pollSigOrThrow(signature, 35_000);
+        }
       } catch (e: any) {
         throw new Error(`[tx-confirm] ${String(e?.message || e)}`);
       }
