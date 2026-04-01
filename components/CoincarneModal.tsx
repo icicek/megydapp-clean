@@ -600,22 +600,18 @@ export default function CoincarneModal({
     if (msg.includes('[wallet-send]') && msg.includes('[wallet-sign-raw]')) {
       return 'Wallet adapter send failed, and raw transaction fallback also failed. Please reconnect your wallet and try again.';
     }
-    if (msg.includes('[wallet-send]')) {
-      return 'Wallet failed while sending the transaction. Please retry. If it continues, reconnect the wallet.';
+    if (msg.includes('BACKPACK_SIGN_TRANSACTION_UNAVAILABLE')) {
+      return 'Backpack does not expose signTransaction in this session. Please reconnect Backpack and try again.';
+    }
+    if (msg.includes('[backpack-sign-raw]')) {
+      return 'Backpack failed while signing or broadcasting the transaction. Please reopen Backpack and try again.';
     }
     if (msg.includes('[wallet-sign-raw]')) {
       return 'Wallet signed, but raw transaction send failed. Please retry.';
     }
-    if (msg.includes('BACKPACK_NO_SIGNATURE')) {
-      return 'Backpack signed the transaction but no signature was returned.';
-    }
-    if (msg.includes('[backpack-provider]')) {
-      return 'Backpack fallback provider also failed. Please reconnect Backpack and try again.';
-    }
     if (msg.includes('NO_SUPPORTED_TX_PATH')) {
       return 'No supported wallet transaction path was available. Please reconnect your wallet and try again.';
     }
-  
     if (msg.includes('LEAVE_SOL_FOR_FEES')) return 'Please leave a little SOL for network fees.';
     if (msg.includes('Invalid Arguments'))
       return 'Wallet/RPC rejected the request (invalid arguments). Please retry. If it continues, reconnect wallet.';
@@ -677,29 +673,52 @@ export default function CoincarneModal({
     tx.recentBlockhash = latest.blockhash;
   
     const walletName = getWalletName();
-    const backpackProvider = getInjectedBackpackProvider();
+    const isBackpack = walletName.includes('backpack');
   
     console.log('[submitTx]', {
       walletName,
+      isBackpack,
       rpcEndpoint: (connection as any)?.rpcEndpoint,
       hasSendTransaction: !!sendTransaction,
       hasSignTransaction: !!signTransaction,
-      hasBackpackProvider: !!backpackProvider,
-      hasBackpackSignAndSend: !!backpackProvider?.signAndSendTransaction,
     });
   
-    const errors: string[] = [];
+    // -----------------------------
+    // Backpack: use ONE stable path
+    // -----------------------------
+    if (isBackpack) {
+      if (!signTransaction) {
+        throw new Error('BACKPACK_SIGN_TRANSACTION_UNAVAILABLE');
+      }
   
-    // 1) Generic adapter path FIRST (most stable)
+      try {
+        console.log('[submitTx] Backpack -> signTransaction + sendRawTransaction');
+        const signed = await signTransaction(tx);
+        const sig = await connection.sendRawTransaction(signed.serialize(), {
+          skipPreflight: false,
+          maxRetries,
+        });
+  
+        return {
+          signature: sig,
+          blockhash: latest.blockhash,
+          lastValidBlockHeight: latest.lastValidBlockHeight,
+        };
+      } catch (e: any) {
+        throw new Error(`[backpack-sign-raw] ${String(e?.message || e)}`);
+      }
+    }
+  
+    // ---------------------------------
+    // Others: adapter first, then raw send
+    // ---------------------------------
     try {
-      console.log('[submitTx] trying adapter sendTransaction path');
+      console.log('[submitTx] Non-Backpack -> adapter sendTransaction');
       const sig = await sendTransaction(tx, connection, {
         skipPreflight: false,
         preflightCommitment: commitment,
         maxRetries,
       });
-  
-      console.log('[submitTx] adapter sendTransaction success:', sig);
   
       return {
         signature: sig,
@@ -707,61 +726,29 @@ export default function CoincarneModal({
         lastValidBlockHeight: latest.lastValidBlockHeight,
       };
     } catch (e: any) {
-      const msg = `[wallet-send] ${String(e?.message || e)}`;
-      console.error(msg, e);
-      errors.push(msg);
+      console.warn('[submitTx] adapter sendTransaction failed:', e);
     }
   
-    // 2) signTransaction + raw send fallback
     if (signTransaction) {
       try {
-        console.log('[submitTx] trying signTransaction + sendRawTransaction path');
+        console.log('[submitTx] Non-Backpack -> signTransaction + sendRawTransaction');
         const signed = await signTransaction(tx);
         const sig = await connection.sendRawTransaction(signed.serialize(), {
           skipPreflight: false,
           maxRetries,
         });
   
-        console.log('[submitTx] signTransaction + raw send success:', sig);
-  
         return {
           signature: sig,
           blockhash: latest.blockhash,
           lastValidBlockHeight: latest.lastValidBlockHeight,
         };
       } catch (e: any) {
-        const msg = `[wallet-sign-raw] ${String(e?.message || e)}`;
-        console.error(msg, e);
-        errors.push(msg);
+        throw new Error(`[wallet-sign-raw] ${String(e?.message || e)}`);
       }
     }
   
-    // 3) Backpack injected provider LAST RESORT only
-    if (walletName.includes('backpack') && backpackProvider?.signAndSendTransaction) {
-      try {
-        console.log('[submitTx] trying backpack provider LAST-RESORT path');
-        const out = await backpackProvider.signAndSendTransaction(tx);
-        const sig = extractSignature(out);
-  
-        if (!sig) {
-          throw new Error('BACKPACK_NO_SIGNATURE');
-        }
-  
-        console.log('[submitTx] backpack provider fallback success:', sig);
-  
-        return {
-          signature: sig,
-          blockhash: latest.blockhash,
-          lastValidBlockHeight: latest.lastValidBlockHeight,
-        };
-      } catch (e: any) {
-        const msg = `[backpack-provider] ${String(e?.message || e)}`;
-        console.error(msg, e);
-        errors.push(msg);
-      }
-    }
-  
-    throw new Error(errors.join(' | ') || 'NO_SUPPORTED_TX_PATH');
+    throw new Error('NO_SUPPORTED_TX_PATH');
   }
 
   /* ------------------ SEND TX ------------------ */
