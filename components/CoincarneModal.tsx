@@ -601,8 +601,10 @@ export default function CoincarneModal({
     switch (stage) {
       case 'preparing':
         return 'Preparing transaction...';
-      case 'awaiting_wallet':
-        return 'Waiting for wallet approval...';
+        case 'awaiting_wallet':
+          return getWalletName().includes('backpack')
+            ? 'Waiting for Backpack approval... Please keep the Backpack popup open.'
+            : 'Waiting for wallet approval...';
       case 'broadcasting':
         return 'Broadcasting transaction...';
       case 'confirming':
@@ -643,6 +645,13 @@ export default function CoincarneModal({
     }
     if (msg.includes('[backpack-sign-raw]')) {
       return 'Backpack failed while signing or broadcasting the transaction. Please reopen Backpack and try again.';
+    }
+    if (msg.includes('[backpack-send-retry]') && msg.includes('Plugin Closed')) {
+      return 'Backpack closed the signing popup twice. Please reopen Backpack and try again.';
+    }
+    
+    if (msg.includes('[backpack-send]') && msg.includes('Plugin Closed')) {
+      return 'Backpack closed the signing popup before the transaction completed. Please reopen Backpack and try again.';
     }
     if (msg.includes('[wallet-sign-raw]')) {
       return 'Wallet signed, but raw transaction send failed. Please retry.';
@@ -697,6 +706,10 @@ export default function CoincarneModal({
     if (typeof out?.hash === 'string') return out.hash;
     return null;
   }
+
+  function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
   
   async function submitTx(
     tx: Transaction,
@@ -705,44 +718,15 @@ export default function CoincarneModal({
   ) {
     if (!publicKey) throw new Error('WALLET_NOT_CONNECTED');
   
-    tx.feePayer = publicKey;
-  
-    // Blockhash'i wallet approval'a mümkün olduğunca yakın al
-    const latest = await connection.getLatestBlockhash(commitment);
-    tx.recentBlockhash = latest.blockhash;
-  
     const walletName = getWalletName();
     const isBackpack = walletName.includes('backpack');
   
-    console.log('[submitTx]', {
-      walletName,
-      isBackpack,
-      commitment,
-    });
+    const sendOnce = async () => {
+      tx.feePayer = publicKey;
   
-    // Backpack -> tek yol: adapter sendTransaction
-    if (isBackpack) {
-      try {
-        console.log('[submitTx] Backpack -> sendTransaction ONLY');
+      const latest = await connection.getLatestBlockhash(commitment);
+      tx.recentBlockhash = latest.blockhash;
   
-        const sig = await sendTransaction(tx, connection, {
-          skipPreflight: false,
-          preflightCommitment: commitment,
-          maxRetries,
-        });
-  
-        return {
-          signature: sig,
-          blockhash: latest.blockhash,
-          lastValidBlockHeight: latest.lastValidBlockHeight,
-        };
-      } catch (e: any) {
-        throw new Error(`[backpack-send] ${String(e?.message || e)}`);
-      }
-    }
-  
-    // Diğer wallet'lar: önce adapter path
-    try {
       const sig = await sendTransaction(tx, connection, {
         skipPreflight: false,
         preflightCommitment: commitment,
@@ -754,16 +738,52 @@ export default function CoincarneModal({
         blockhash: latest.blockhash,
         lastValidBlockHeight: latest.lastValidBlockHeight,
       };
+    };
+  
+    console.log('[submitTx]', {
+      walletName,
+      isBackpack,
+      commitment,
+    });
+  
+    if (isBackpack) {
+      try {
+        console.log('[submitTx] Backpack -> sendTransaction attempt #1');
+        return await sendOnce();
+      } catch (e: any) {
+        const msg = String(e?.message || e);
+        console.warn('[submitTx] Backpack attempt #1 failed:', msg);
+  
+        // Sadece Plugin Closed için tek kontrollü retry
+        if (msg.toLowerCase().includes('plugin closed')) {
+          await sleep(450);
+  
+          try {
+            console.log('[submitTx] Backpack -> sendTransaction attempt #2 after Plugin Closed');
+            return await sendOnce();
+          } catch (e2: any) {
+            throw new Error(`[backpack-send-retry] ${String(e2?.message || e2)}`);
+          }
+        }
+  
+        throw new Error(`[backpack-send] ${msg}`);
+      }
+    }
+  
+    // Other wallets: adapter path first
+    try {
+      return await sendOnce();
     } catch (e: any) {
       console.warn('[submitTx] adapter failed:', e);
     }
   
-    // Fallback: signTransaction + raw send
+    // Fallback for non-Backpack wallets only
     if (signTransaction) {
       try {
+        tx.feePayer = publicKey;
+  
         const latest2 = await connection.getLatestBlockhash(commitment);
         tx.recentBlockhash = latest2.blockhash;
-        tx.feePayer = publicKey;
   
         const signed = await signTransaction(tx);
         const sig = await connection.sendRawTransaction(signed.serialize(), {
