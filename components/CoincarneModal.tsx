@@ -38,6 +38,9 @@ type CoincarnationResultProps = {
   referral?: string;
   voteEligible?: boolean;
   tokenStatus?: TokenStatusApi | null;
+  amount?: number;
+  usdValue?: number;
+  explorerUrl?: string;
   onRecoincarnate: () => void;
   onGoToProfile: () => void;
 };
@@ -262,6 +265,12 @@ export default function CoincarneModal({
   const { publicKey, sendTransaction, signTransaction, wallet } = useWallet();
   const { connection } = useConnection();
 
+  const [txStage, setTxStage] = useState<
+    'idle' | 'preparing' | 'awaiting_wallet' | 'broadcasting' | 'confirming' | 'recording' | 'success' | 'error'
+  >('idle');
+
+  const [txError, setTxError] = useState<string | null>(null);
+
   /* ------------------ DEST DEBUG + DEST ADDRESS ------------------ */
   const [destSol, setDestSol] = useState<PublicKey | null>(null);
   const [destErr, setDestErr] = useState<string | null>(null);
@@ -285,6 +294,9 @@ export default function CoincarneModal({
     referralCode?: string | null;
     voteEligible?: boolean;
     tokenStatus?: TokenStatusApi | null;
+    amount?: number;
+    usdValue?: number;
+    explorerUrl?: string;
   } | null>(null);
   
   const [statusInfo, setStatusInfo] = useState<StatusApiResponse | null>(null);  
@@ -371,75 +383,85 @@ export default function CoincarneModal({
   /* ------------------ CONFIRM PREPARE (PRICING) ------------------ */
   const handlePrepareConfirm = async () => {
     if (!publicKey || !amountInput) return;
-  
+
     setPrecheckMsg(null);
-  
+    setTxError(null);
+    setTxStage('preparing');
+
     const amountToSend = Number(String(amountInput).replace(',', '.'));
-    if (!Number.isFinite(amountToSend) || amountToSend <= 0) return;
-  
+    if (!Number.isFinite(amountToSend) || amountToSend <= 0) {
+      setTxStage('idle');
+      return;
+    }
+
     try {
       // --- Precheck: SOL sufficiency (fees / ATA rent) ---
       const solLamports = await connection.getBalance(publicKey, 'processed');
-  
+
       const FEE_BUF_LAMPORTS = 120_000; // ~0.00012 SOL
       const TOKEN_ACCOUNT_SIZE = 165;
-  
+
       if (isSOLToken) {
         // For SOL transfer, user pays fee from SOL too
         const sendLamports = solToLamports(amountInput);
-  
+
         if (solLamports < sendLamports + FEE_BUF_LAMPORTS) {
           setPrecheckMsg(
             'Not enough SOL to cover the transfer + network fee. Please add a little SOL (e.g., 0.0002 SOL).'
           );
+          setTxStage('idle');
           return;
         }
       } else {
         // SPL: may need ATA creation on destination
         if (!destSol) {
           setPrecheckMsg('Destination address is missing. Please set NEXT_PUBLIC_DEST_SOL.');
+          setTxStage('idle');
           return;
         }
-  
+
         const mint = new PublicKey(token.mint);
-  
+
         // which program? (Token2022 vs classic)
         const mintAcc = await connection.getAccountInfo(mint, 'confirmed');
         if (!mintAcc) {
           setPrecheckMsg('Token mint not found on this network.');
+          setTxStage('idle');
           return;
         }
         const is2022 = mintAcc.owner.equals(TOKEN_2022_PROGRAM_ID);
         const program = is2022 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
-  
+
         const toATA = getAssociatedTokenAddressSync(mint, destSol, false, program);
         const toAtaInfo = await connection.getAccountInfo(toATA, 'confirmed');
-  
+
         if (!toAtaInfo) {
           const rentLamports = await connection.getMinimumBalanceForRentExemption(TOKEN_ACCOUNT_SIZE);
           const need = rentLamports + FEE_BUF_LAMPORTS;
-  
+
           if (solLamports < need) {
             setPrecheckMsg(
               `Not enough SOL to create the destination token account (ATA). Please add ~${(need / 1e9).toFixed(4)} SOL.`
             );
+            setTxStage('idle');
             return;
           }
         } else {
           if (solLamports < FEE_BUF_LAMPORTS) {
             setPrecheckMsg('Not enough SOL to pay transaction fees. Please add a little SOL.');
+            setTxStage('idle');
             return;
           }
         }
       }
-  
+
       // --- Pricing fetch (only if precheck passes) ---
       setLoading(true);
       setPriceView({ fetchStatus: 'loading', usdValue: 0, priceSources: [] });
-  
+
       const mint = isSOLToken ? WSOL_MINT : token.mint;
       const qs = new URLSearchParams({ mint, amount: String(amountToSend) });
-  
+
       const res = await fetch(`/api/proxy/price?${qs.toString()}`, { cache: 'no-store' });
       const parsed = await readJsonSafe(res);
 
@@ -467,30 +489,34 @@ export default function CoincarneModal({
         });
         setTokenCategory('deadcoin');
         setConfirmModalOpen(true);
+        setTxStage('idle');
         return;
       }
 
       const unit = Number(json?.priceUsd ?? 0);
       const summed = Number(json?.usdValue ?? 0);
       const total = summed > 0 ? summed : unit * amountToSend;
-  
+
       const sources: { price: number; source: string }[] =
         Array.isArray(json?.sources) && json.sources.length
           ? json.sources
           : unit > 0 && json?.source
           ? [{ source: String(json.source), price: unit }]
           : [];
-  
+
       setPriceView({
         fetchStatus: 'found',
         usdValue: Number.isFinite(total) ? total : 0,
         priceSources: sources,
       });
-  
+
       setTokenCategory('healthy');
       setConfirmModalOpen(true);
+      setTxStage('idle');
     } catch (err: any) {
       console.error('❌ Error preparing confirmation:', err);
+      setTxStage('error');
+      setTxError(humanizeTxError(err));
       alert(`❌ Prepare confirm failed: ${humanizeTxError(err)}`);
       setPriceView({ fetchStatus: 'error', usdValue: 0, priceSources: [] });
       setTokenCategory('unknown');
@@ -529,6 +555,29 @@ export default function CoincarneModal({
       await new Promise((r) => setTimeout(r, intervalMs));
     }
     throw new Error('TX_NOT_CONFIRMED_TIMEOUT');
+  }
+
+  function getTxStageLabel(
+    stage: 'idle' | 'preparing' | 'awaiting_wallet' | 'broadcasting' | 'confirming' | 'recording' | 'success' | 'error'
+  ) {
+    switch (stage) {
+      case 'preparing':
+        return 'Preparing transaction...';
+      case 'awaiting_wallet':
+        return 'Waiting for wallet approval...';
+      case 'broadcasting':
+        return 'Broadcasting transaction...';
+      case 'confirming':
+        return 'Confirming on blockchain...';
+      case 'recording':
+        return 'Recording your Coincarnation...';
+      case 'success':
+        return 'Coincarnation completed.';
+      case 'error':
+        return 'Something went wrong.';
+      default:
+        return '';
+    }
   }
 
   function humanizeTxError(e: any) {
@@ -707,9 +756,13 @@ export default function CoincarneModal({
 
   /* ------------------ SEND TX ------------------ */
   const handleSend = async () => {
+    if (loading || txStage !== 'idle') return;
     if (!publicKey || !amountInput) return;
+    if (loading) return;
 
     setLoading(true);
+    setTxError(null);
+    setTxStage('awaiting_wallet');
 
     try {
       const mintForStatus = isSOLToken ? WSOL_MINT : token.mint;
@@ -732,11 +785,15 @@ export default function CoincarneModal({
             ? '⛔ This token is currently blacklisted. Coincarnation is blocked.'
             : '⚠️ This token is currently redlisted. Coincarnation is blocked.'
         );
+        setTxStage('idle');
         return;
       }
 
       const amountToSend = Number(String(amountInput).replace(',', '.'));
-      if (isNaN(amountToSend) || amountToSend <= 0) return;
+      if (isNaN(amountToSend) || amountToSend <= 0) {
+        setTxStage('idle');
+        return;
+      }
 
       if (isSOLToken && internalBalance) {
         const feeReserve = 0.0002; // safe buffer
@@ -747,10 +804,12 @@ export default function CoincarneModal({
 
       if (!destSol) {
         alert('❌ Destination address missing. Please set NEXT_PUBLIC_DEST_SOL.');
+        setTxStage('idle');
         return;
       }
 
       let signature: string;
+      let explorerUrl = '';
       let sendMeta:
         | { signature: string; blockhash: string; lastValidBlockHeight: number }
         | undefined;
@@ -776,8 +835,11 @@ export default function CoincarneModal({
         tx.feePayer = publicKey;
 
         try {
+          setTxStage('awaiting_wallet');
           sendMeta = await submitTx(tx, 'confirmed', 3);
           signature = sendMeta.signature;
+          explorerUrl = explorerUrlForSig(signature);
+          setTxStage('broadcasting');
         } catch (e: any) {
           throw new Error(`[wallet-send-sol] ${String(e?.message || e)}`);
         }
@@ -870,22 +932,26 @@ export default function CoincarneModal({
         await simulateTxOrThrow(connection as any, tx);
 
         try {
+          setTxStage('awaiting_wallet');
           sendMeta = await submitTx(tx, 'processed', 5);
           signature = sendMeta.signature;
+          explorerUrl = explorerUrlForSig(signature);
+          setTxStage('broadcasting');
         } catch (e: any) {
           throw new Error(`[wallet-send-spl] ${String(e?.message || e)}`);
         }
 
         console.log('✅ sent signature:', signature);
-        console.log('🔎 explorer:', explorerUrlForSig(signature));
+        console.log('🔎 explorer:', explorerUrl);
       }
 
       console.log('🌐 rpc endpoint:', (connection as any)?.rpcEndpoint);
       console.log('✅ sent signature:', signature);
-      console.log('🔎 explorer:', explorerUrlForSig(signature));
+      console.log('🔎 explorer:', explorerUrl);
 
       try {
-        await pollSigOrThrow(signature, 45_000);
+        setTxStage('confirming');
+        await pollSigOrThrow(signature, 25_000);
       } catch (e: any) {
         throw new Error(`[tx-confirm] ${String(e?.message || e)}`);
       }
@@ -898,6 +964,8 @@ export default function CoincarneModal({
           : latestStatus === 'healthy' || latestStatus === 'walking_dead'
           ? 'healthy'
           : tokenCategory ?? 'unknown';
+
+      setTxStage('recording');
 
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
@@ -955,9 +1023,13 @@ export default function CoincarneModal({
         txId: stableTxId,
         voteEligible: !!finalStatusInfo?.decision?.voteEligible,
         tokenStatus: finalResolvedStatus,
+        amount: amountToSend,
+        usdValue: priceView.usdValue,
+        explorerUrl,
       });
 
       setConfirmModalOpen(false);
+      setTxStage('success');
       refetchTokens?.();
 
       try {
@@ -981,7 +1053,14 @@ export default function CoincarneModal({
         console.error('❌ Failing endpoint appears to be /api/status');
       }
     
-      alert(`❌ Transaction failed: ${humanizeTxError(err)}`);
+      setTxStage('error');
+      setTxError(humanizeTxError(err));
+    
+      if (rawMsg.includes('[record-post]')) {
+        alert('Transaction confirmed, but recording failed. Please contact support with your Tx ID.');
+      } else {
+        alert(`❌ Transaction failed: ${humanizeTxError(err)}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -1022,11 +1101,18 @@ export default function CoincarneModal({
           tokenMint={isSOLToken ? WSOL_MINT : token.mint}
           currentWallet={publicKey?.toBase58() ?? null}
           onDeadcoinVote={() => {}}
+          confirmBusy={loading}
+          confirmLabel={getTxStageLabel(txStage) || 'Confirm Coincarnation'}
         />
       )}
 
       {/* 🔹 Ana Coincarne dialog */}
-      <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog
+        open
+        onOpenChange={(open) => {
+          if (!open && !loading && txStage === 'idle') onClose();
+        }}
+      >
         <DialogOverlay />
         <DialogContent className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center">
           <DialogTitle className="sr-only">
@@ -1038,18 +1124,21 @@ export default function CoincarneModal({
 
           {resultData ? (
             <CoincarnationResult
-              tokenFrom={resultData.tokenFrom}
-              number={resultData.number}
-              txId={resultData.txId}
-              referral={resultData.referralCode ?? undefined}
-              voteEligible={resultData.voteEligible}
-              tokenStatus={resultData.tokenStatus ?? undefined}
-              onRecoincarnate={() => setResultData(null)}
-              onGoToProfile={() => {
-                onClose();
-                onGoToProfileRequest?.();
-              }}
-            />
+            tokenFrom={resultData.tokenFrom}
+            number={resultData.number}
+            txId={resultData.txId}
+            referral={resultData.referralCode ?? undefined}
+            voteEligible={resultData.voteEligible}
+            tokenStatus={resultData.tokenStatus ?? undefined}
+            amount={resultData.amount}
+            usdValue={resultData.usdValue}
+            explorerUrl={resultData.explorerUrl}
+            onRecoincarnate={() => setResultData(null)}
+            onGoToProfile={() => {
+              onClose();
+              onGoToProfileRequest?.();
+            }}
+          />
           ) : (
             <>
               <h2 className="text-2xl font-bold text-center mb-3">
@@ -1101,10 +1190,26 @@ export default function CoincarneModal({
               <button
                 onClick={handlePrepareConfirm}
                 disabled={loading || !amountInput || !!destErr}
-                className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 text-black font-extrabold py-3 rounded-xl"
+                className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 text-black font-extrabold py-3 rounded-xl transition hover:scale-105 active:scale-95"
               >
-                {loading ? '🔥 Coincarnating...' : `🚀 Coincarnate ${displaySymbol} Now`}
+                {loading
+                  ? getTxStageLabel(txStage) || 'Processing...'
+                  : `🚀 Coincarnate ${displaySymbol} Now`}
               </button>
+
+              {txStage !== 'idle' && (
+                <div className="mt-3 rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-3 text-center">
+                  <p className="text-sm text-zinc-200">{getTxStageLabel(txStage)}</p>
+                  {txStage !== 'success' && txStage !== 'error' && (
+                    <p className="mt-1 text-xs text-zinc-400">
+                      Please keep this window open until the process finishes.
+                    </p>
+                  )}
+                  {txError && (
+                    <p className="mt-2 text-xs text-red-400">{txError}</p>
+                  )}
+                </div>
+              )}
 
               {precheckMsg && (
                 <p className="mt-2 text-xs text-amber-300 text-center">

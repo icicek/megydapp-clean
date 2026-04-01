@@ -20,6 +20,11 @@ type Props = {
     | 'blacklist'
     | 'unknown'
     | null;
+
+  amount?: number;
+  usdValue?: number;
+  explorerUrl?: string;
+
   onRecoincarnate: () => void;
   onGoToProfile: () => void;
 };
@@ -30,7 +35,10 @@ export default function CoincarnationResult({
   txId,
   referral,
   voteEligible,
-  tokenStatus, // şimdilik sadece debug / future use
+  tokenStatus,
+  amount,
+  usdValue,
+  explorerUrl,
   onRecoincarnate,
   onGoToProfile,
 }: Props) {
@@ -87,7 +95,7 @@ export default function CoincarnationResult({
 
   return (
     <div className="p-6 text-center">
-      <h2 className="mb-4 text-2xl font-bold text-white">
+      <h2 className="mb-4 text-2xl font-bold text-white drop-shadow-[0_0_10px_rgba(168,85,247,0.7)]">
         🎉 Success! Welcome, Coincarnator #{number}!
       </h2>
 
@@ -102,6 +110,60 @@ export default function CoincarnationResult({
           <span className="font-mono text-purple-300">{referral}</span>
         </p>
       )}
+
+      <div className="mb-6 rounded-xl border border-zinc-700 bg-zinc-900/70 px-4 py-4 text-left">
+        <div className="mb-2 text-sm font-semibold text-white">Transaction Summary</div>
+        <div className="space-y-1 text-sm text-zinc-300">
+          {typeof amount === 'number' && (
+            <div>
+              Amount:{' '}
+              <span className="font-semibold text-white">
+                {amount} ${tokenFrom}
+              </span>
+            </div>
+          )}
+          {typeof usdValue === 'number' && (
+            <div>
+              Estimated Value:{' '}
+              <span className="font-semibold text-white">
+                ${usdValue.toFixed(2)}
+              </span>
+            </div>
+          )}
+          <div>
+            Tx ID:{' '}
+            <span
+              className="font-mono text-xs text-zinc-200 cursor-pointer hover:text-white"
+              onClick={() => {
+                navigator.clipboard.writeText(txId);
+              }}
+              title="Click to copy full transaction ID"
+            >
+              {txId.slice(0, 8)}...{txId.slice(-8)}
+            </span>
+          </div>
+        </div>
+
+        {explorerUrl && (
+          <a
+            href={explorerUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center rounded-lg border border-cyan-400 px-3 py-1 text-xs font-semibold text-cyan-300 transition hover:bg-cyan-400/10"
+          >
+            🔎 View on Explorer
+          </a>
+        )}
+      </div>
+
+      <div className="mb-6 rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm text-purple-100 text-left">
+        <div className="font-semibold mb-1">What happens next?</div>
+        <ul className="text-xs opacity-90 space-y-1">
+          <li>• Your contribution is recorded in the Fair Future Fund</li>
+          <li>• Your MEGY allocation will be finalized at snapshot</li>
+          <li>• Share your Coincarnation to boost your CorePoint</li>
+        </ul>
+      </div>
 
       {voteEligible && (
         <div className="mb-6 mt-2 rounded-xl border border-amber-500/60 bg-amber-500/10 px-4 py-3 text-sm text-amber-50 text-left">

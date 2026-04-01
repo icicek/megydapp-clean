@@ -348,7 +348,12 @@ export default function ConfirmModal({
       : 'Confirm Coincarnation';
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onCancel(); }}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open && !confirmBusy) onCancel();
+      }}
+    >
       <DialogOverlay />
       <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-50 shadow-lg">
         <DialogTitle className="text-white">{titleText}</DialogTitle>
