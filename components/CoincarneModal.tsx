@@ -678,24 +678,16 @@ export default function CoincarneModal({
     console.log('[submitTx]', {
       walletName,
       isBackpack,
-      rpcEndpoint: (connection as any)?.rpcEndpoint,
-      hasSendTransaction: !!sendTransaction,
-      hasSignTransaction: !!signTransaction,
     });
   
-    // -----------------------------
-    // Backpack: use ONE stable path
-    // -----------------------------
+    // 🔥 Backpack → ONLY adapter path
     if (isBackpack) {
-      if (!signTransaction) {
-        throw new Error('BACKPACK_SIGN_TRANSACTION_UNAVAILABLE');
-      }
-  
       try {
-        console.log('[submitTx] Backpack -> signTransaction + sendRawTransaction');
-        const signed = await signTransaction(tx);
-        const sig = await connection.sendRawTransaction(signed.serialize(), {
+        console.log('[submitTx] Backpack -> sendTransaction ONLY');
+  
+        const sig = await sendTransaction(tx, connection, {
           skipPreflight: false,
+          preflightCommitment: commitment,
           maxRetries,
         });
   
@@ -705,15 +697,12 @@ export default function CoincarneModal({
           lastValidBlockHeight: latest.lastValidBlockHeight,
         };
       } catch (e: any) {
-        throw new Error(`[backpack-sign-raw] ${String(e?.message || e)}`);
+        throw new Error(`[backpack-send] ${String(e?.message || e)}`);
       }
     }
   
-    // ---------------------------------
-    // Others: adapter first, then raw send
-    // ---------------------------------
+    // 🔄 Other wallets
     try {
-      console.log('[submitTx] Non-Backpack -> adapter sendTransaction');
       const sig = await sendTransaction(tx, connection, {
         skipPreflight: false,
         preflightCommitment: commitment,
@@ -726,12 +715,11 @@ export default function CoincarneModal({
         lastValidBlockHeight: latest.lastValidBlockHeight,
       };
     } catch (e: any) {
-      console.warn('[submitTx] adapter sendTransaction failed:', e);
+      console.warn('[submitTx] adapter failed:', e);
     }
   
     if (signTransaction) {
       try {
-        console.log('[submitTx] Non-Backpack -> signTransaction + sendRawTransaction');
         const signed = await signTransaction(tx);
         const sig = await connection.sendRawTransaction(signed.serialize(), {
           skipPreflight: false,
@@ -815,11 +803,6 @@ export default function CoincarneModal({
         const lamports = solToLamports(amountInput);
 
         const tx = new Transaction();
-
-        tx.add(
-          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 2_000 }),
-          ComputeBudgetProgram.setComputeUnitLimit({ units: 40_000 })
-        );
 
         tx.add(
           SystemProgram.transfer({
@@ -925,8 +908,6 @@ export default function CoincarneModal({
 
         tx.add(...ixs);
         tx.feePayer = publicKey;
-
-        await simulateTxOrThrow(connection as any, tx);
 
         try {
           setTxStage('awaiting_wallet');
