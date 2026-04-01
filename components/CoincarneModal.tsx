@@ -608,7 +608,7 @@ export default function CoincarneModal({
       case 'broadcasting':
         return 'Broadcasting transaction...';
       case 'confirming':
-        return 'Confirming on blockchain...';
+        return 'Transaction sent. Waiting for blockchain confirmation...';
       case 'recording':
         return 'Recording your Coincarnation...';
       case 'success':
@@ -632,7 +632,6 @@ export default function CoincarneModal({
     if (msg.includes('PRICE_API_NON_JSON_OR_HTTP_')) {
       return 'The /api/proxy/price endpoint returned HTML instead of JSON.';
     }
-  
     // Most specific combined/fallback cases first
     if (msg.includes('[wallet-send]') && msg.includes('[wallet-sign-raw]') && msg.includes('[backpack-provider]')) {
       return 'All wallet transaction paths failed. Please reconnect Backpack, reopen the wallet, and try again.';
@@ -643,13 +642,18 @@ export default function CoincarneModal({
     if (msg.includes('BACKPACK_SIGN_TRANSACTION_UNAVAILABLE')) {
       return 'Backpack does not expose signTransaction in this session. Please reconnect Backpack and try again.';
     }
+    if (msg.includes('[backpack-send-retry]') && (msg.includes('Window closed') || msg.includes('Popup closed'))) {
+      return 'Backpack popup was closed twice before the transaction completed. Please reopen Backpack and try again.';
+    }
+    if (msg.includes('[backpack-send]') && (msg.includes('Window closed') || msg.includes('Popup closed'))) {
+      return 'Backpack popup was closed before the transaction completed. Please reopen Backpack and try again.';
+    }
     if (msg.includes('[backpack-sign-raw]')) {
       return 'Backpack failed while signing or broadcasting the transaction. Please reopen Backpack and try again.';
     }
     if (msg.includes('[backpack-send-retry]') && msg.includes('Plugin Closed')) {
       return 'Backpack closed the signing popup twice. Please reopen Backpack and try again.';
     }
-    
     if (msg.includes('[backpack-send]') && msg.includes('Plugin Closed')) {
       return 'Backpack closed the signing popup before the transaction completed. Please reopen Backpack and try again.';
     }
@@ -712,7 +716,7 @@ export default function CoincarneModal({
   }
   
   async function submitTx(
-    tx: Transaction,
+    buildTx: () => Transaction,
     commitment: 'processed' | 'confirmed' = 'processed',
     maxRetries = 5
   ) {
@@ -722,6 +726,8 @@ export default function CoincarneModal({
     const isBackpack = walletName.includes('backpack');
   
     const sendOnce = async () => {
+      const tx = buildTx(); // ✅ her denemede fresh tx
+  
       tx.feePayer = publicKey;
   
       const latest = await connection.getLatestBlockhash(commitment);
@@ -752,14 +758,18 @@ export default function CoincarneModal({
         return await sendOnce();
       } catch (e: any) {
         const msg = String(e?.message || e);
+        const lowerMsg = msg.toLowerCase();
         console.warn('[submitTx] Backpack attempt #1 failed:', msg);
   
-        // Sadece Plugin Closed için tek kontrollü retry
-        if (msg.toLowerCase().includes('plugin closed')) {
-          await sleep(450);
+        if (
+          lowerMsg.includes('plugin closed') ||
+          lowerMsg.includes('window closed') ||
+          lowerMsg.includes('popup closed')
+        ) {
+          await sleep(700);
   
           try {
-            console.log('[submitTx] Backpack -> sendTransaction attempt #2 after Plugin Closed');
+            console.log('[submitTx] Backpack -> sendTransaction attempt #2 after close/interruption');
             return await sendOnce();
           } catch (e2: any) {
             throw new Error(`[backpack-send-retry] ${String(e2?.message || e2)}`);
@@ -780,6 +790,7 @@ export default function CoincarneModal({
     // Fallback for non-Backpack wallets only
     if (signTransaction) {
       try {
+        const tx = buildTx(); // ✅ fallback'te de fresh tx
         tx.feePayer = publicKey;
   
         const latest2 = await connection.getLatestBlockhash(commitment);
@@ -883,21 +894,23 @@ export default function CoincarneModal({
       if (isSOLToken) {
         const lamports = solToLamports(amountInput);
 
-        const tx = new Transaction();
-
-        tx.add(
-          SystemProgram.transfer({
-            fromPubkey: publicKey,
-            toPubkey: destSol,
-            lamports,
-          })
-        );
-
-        tx.feePayer = publicKey;
-
+        const buildSolTx = () => {
+          const tx = new Transaction();
+        
+          tx.add(
+            SystemProgram.transfer({
+              fromPubkey: publicKey,
+              toPubkey: destSol,
+              lamports,
+            })
+          );
+        
+          return tx;
+        };
+        
         try {
           setTxStage('awaiting_wallet');
-          sendMeta = await submitTx(tx, 'processed', 5); // ✅
+          sendMeta = await submitTx(buildSolTx, 'processed', 5);
           signature = sendMeta.signature;
           explorerUrl = explorerUrlForSig(signature);
           setTxStage('broadcasting');
@@ -980,19 +993,22 @@ export default function CoincarneModal({
           )
         );
 
-        const tx = new Transaction();
-
-        tx.add(
-          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 15_000 }),
-          ComputeBudgetProgram.setComputeUnitLimit({ units: 120_000 })
-        );
-
-        tx.add(...ixs);
-        tx.feePayer = publicKey;
-
+        const buildSplTx = () => {
+          const tx = new Transaction();
+        
+          tx.add(
+            ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 15_000 }),
+            ComputeBudgetProgram.setComputeUnitLimit({ units: 120_000 })
+          );
+        
+          tx.add(...ixs);
+        
+          return tx;
+        };
+        
         try {
           setTxStage('awaiting_wallet');
-          sendMeta = await submitTx(tx, 'processed', 5);
+          sendMeta = await submitTx(buildSplTx, 'processed', 5);
           signature = sendMeta.signature;
           explorerUrl = explorerUrlForSig(signature);
           setTxStage('broadcasting');
