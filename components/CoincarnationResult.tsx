@@ -1,7 +1,7 @@
 // components/CoincarnationResult.tsx
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { APP_URL } from '@/app/lib/origin';
 import { buildPayload, buildTwitterIntent } from '@/components/share/intent';
@@ -43,53 +43,54 @@ export default function CoincarnationResult({
   onGoToProfile,
 }: Props) {
   const { publicKey } = useWallet();
+  const [copied, setCopied] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
 
   const handleShareOnX = async () => {
-    const wallet = publicKey?.toBase58() ?? null;
-
-    // 1) Merkezi share payload (intent.ts)
-    const payload = buildPayload(
-      'success',
-      {
-        url: APP_URL,        // canonical base
-        token: tokenFrom,    // örn. "QUANT"
-      },
-      {
-        ref: referral || undefined, // referral varsa shortUrl: /share/success/[ref]?src=app
-        src: 'app',
-        // ctx: 'success' // gerek yok, default ctx zaten 'success'
-      }
-    );
-
-    // 2) CorePoint / share event (eskisi gibi)
+    if (shareBusy) return;
+    setShareBusy(true);
+  
     try {
-      const body: any = {
-        channel: 'twitter',
-        context: 'success',
-        txId,
-      };
-      if (wallet) {
-        body.wallet = wallet;
+      const wallet = publicKey?.toBase58() ?? null;
+  
+      const payload = buildPayload(
+        'success',
+        {
+          url: APP_URL,
+          token: tokenFrom,
+        },
+        {
+          ref: referral || undefined,
+          src: 'app',
+        }
+      );
+  
+      try {
+        const body: any = {
+          channel: 'twitter',
+          context: 'success',
+          txId,
+        };
+        if (wallet) body.wallet = wallet;
+        if (referral) body.anchor = referral;
+  
+        await fetch('/api/share/record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          keepalive: true,
+        });
+      } catch (e) {
+        console.warn('⚠️ share/record failed on success screen:', e);
       }
-      if (referral) {
-        body.anchor = referral;
+  
+      const xUrl = buildTwitterIntent(payload);
+  
+      if (typeof window !== 'undefined') {
+        window.open(xUrl, '_blank', 'noopener,noreferrer');
       }
-
-      await fetch('/api/share/record', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        keepalive: true,
-      });
-    } catch (e) {
-      console.warn('⚠️ share/record failed on success screen:', e);
-    }
-
-    // 3) X intent URL (metin + link + #Coincarnation #Web3 via @levershare)
-    const xUrl = buildTwitterIntent(payload);
-
-    if (typeof window !== 'undefined') {
-      window.open(xUrl, '_blank', 'noopener,noreferrer');
+    } finally {
+      window.setTimeout(() => setShareBusy(false), 800);
     }
   };
 
@@ -122,25 +123,48 @@ export default function CoincarnationResult({
               </span>
             </div>
           )}
-          {typeof usdValue === 'number' && (
+          {typeof amount === 'number' && (
             <div>
-              Estimated Value:{' '}
+              Amount:{' '}
               <span className="font-semibold text-white">
-                ${usdValue.toFixed(2)}
+                {amount.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${tokenFrom}
               </span>
             </div>
           )}
           <div>
             Tx ID:{' '}
-            <span
+            <button
+              type="button"
               className="font-mono text-xs text-zinc-200 cursor-pointer hover:text-white"
-              onClick={() => {
-                navigator.clipboard.writeText(txId);
+              onClick={async () => {
+                try {
+                  if (navigator?.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(txId);
+                  } else {
+                    const ta = document.createElement('textarea');
+                    ta.value = txId;
+                    ta.setAttribute('readonly', '');
+                    ta.style.position = 'absolute';
+                    ta.style.left = '-9999px';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                  }
+
+                  setCopied(true);
+                  window.setTimeout(() => setCopied(false), 1400);
+                } catch (e) {
+                  console.warn('Clipboard copy failed:', e);
+                }
               }}
               title="Click to copy full transaction ID"
             >
               {txId.slice(0, 8)}...{txId.slice(-8)}
-            </span>
+            </button>
+            {copied && (
+              <span className="ml-2 text-[11px] text-emerald-300">Copied</span>
+            )}
           </div>
         </div>
 
@@ -165,7 +189,7 @@ export default function CoincarnationResult({
         </ul>
       </div>
 
-      {voteEligible && (
+      {voteEligible && tokenStatus === 'walking_dead' && (
         <div className="mb-6 mt-2 rounded-xl border border-amber-500/60 bg-amber-500/10 px-4 py-3 text-sm text-amber-50 text-left">
           <div className="mb-1 font-semibold">
             This token is under community review.
@@ -193,9 +217,10 @@ export default function CoincarnationResult({
       <button
         type="button"
         onClick={handleShareOnX}
-        className="mb-6 block w-full max-w-xs mx-auto rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-6 py-3 font-semibold text-white shadow-lg transition hover:scale-105"
+        disabled={shareBusy}
+        className="mb-6 block w-full max-w-xs mx-auto rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-6 py-3 font-semibold text-white shadow-lg transition hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        🐦 Share on X
+        {shareBusy ? 'Opening X...' : '🐦 Share on X'}
       </button>
 
       <div className="mt-4 flex justify-center gap-4">

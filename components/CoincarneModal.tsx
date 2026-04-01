@@ -62,6 +62,7 @@ type ConfirmModalProps = {
   fetchStatus: 'loading' | 'found' | 'not_found' | 'error';
   tokenMint?: string;
   currentWallet?: string | null;
+  errorMessage?: string | null;
   onDeadcoinVote: (vote: 'yes' | 'no') => void;
   tokenContract?: string;
   networkLabel?: string;
@@ -270,6 +271,10 @@ export default function CoincarneModal({
   >('idle');
 
   const [txError, setTxError] = useState<string | null>(null);
+  const [uiNotice, setUiNotice] = useState<{
+    type: 'error' | 'warning' | 'info';
+    message: string;
+  } | null>(null);
 
   /* ------------------ DEST DEBUG + DEST ADDRESS ------------------ */
   const [destSol, setDestSol] = useState<PublicKey | null>(null);
@@ -514,10 +519,16 @@ export default function CoincarneModal({
       setConfirmModalOpen(true);
       setTxStage('idle');
     } catch (err: any) {
+      const friendly = humanizeTxError(err);
       console.error('❌ Error preparing confirmation:', err);
+    
       setTxStage('error');
-      setTxError(humanizeTxError(err));
-      alert(`❌ Prepare confirm failed: ${humanizeTxError(err)}`);
+      setTxError(friendly);
+      setUiNotice({
+        type: 'error',
+        message: friendly,
+      });
+    
       setPriceView({ fetchStatus: 'error', usdValue: 0, priceSources: [] });
       setTokenCategory('unknown');
       setConfirmModalOpen(true);
@@ -555,6 +566,33 @@ export default function CoincarneModal({
       await new Promise((r) => setTimeout(r, intervalMs));
     }
     throw new Error('TX_NOT_CONFIRMED_TIMEOUT');
+  }
+
+  async function confirmSignatureOrThrow(params: {
+    signature: string;
+    blockhash?: string;
+    lastValidBlockHeight?: number;
+  }) {
+    const { signature, blockhash, lastValidBlockHeight } = params;
+  
+    try {
+      if (blockhash && typeof lastValidBlockHeight === 'number') {
+        await connection.confirmTransaction(
+          {
+            signature,
+            blockhash,
+            lastValidBlockHeight,
+          },
+          'confirmed'
+        );
+        return true;
+      }
+    } catch (e) {
+      console.warn('[confirmSignatureOrThrow] confirmTransaction failed, falling back to polling:', e);
+    }
+  
+    await pollSigOrThrow(signature, 25_000);
+    return true;
   }
 
   function getTxStageLabel(
@@ -662,13 +700,14 @@ export default function CoincarneModal({
   
   async function submitTx(
     tx: Transaction,
-    commitment: 'processed' | 'confirmed' = 'confirmed',
+    commitment: 'processed' | 'confirmed' = 'processed',
     maxRetries = 5
   ) {
     if (!publicKey) throw new Error('WALLET_NOT_CONNECTED');
   
     tx.feePayer = publicKey;
   
+    // Blockhash'i wallet approval'a mümkün olduğunca yakın al
     const latest = await connection.getLatestBlockhash(commitment);
     tx.recentBlockhash = latest.blockhash;
   
@@ -678,9 +717,10 @@ export default function CoincarneModal({
     console.log('[submitTx]', {
       walletName,
       isBackpack,
+      commitment,
     });
   
-    // 🔥 Backpack → ONLY adapter path
+    // Backpack -> tek yol: adapter sendTransaction
     if (isBackpack) {
       try {
         console.log('[submitTx] Backpack -> sendTransaction ONLY');
@@ -701,7 +741,7 @@ export default function CoincarneModal({
       }
     }
   
-    // 🔄 Other wallets
+    // Diğer wallet'lar: önce adapter path
     try {
       const sig = await sendTransaction(tx, connection, {
         skipPreflight: false,
@@ -718,8 +758,13 @@ export default function CoincarneModal({
       console.warn('[submitTx] adapter failed:', e);
     }
   
+    // Fallback: signTransaction + raw send
     if (signTransaction) {
       try {
+        const latest2 = await connection.getLatestBlockhash(commitment);
+        tx.recentBlockhash = latest2.blockhash;
+        tx.feePayer = publicKey;
+  
         const signed = await signTransaction(tx);
         const sig = await connection.sendRawTransaction(signed.serialize(), {
           skipPreflight: false,
@@ -728,8 +773,8 @@ export default function CoincarneModal({
   
         return {
           signature: sig,
-          blockhash: latest.blockhash,
-          lastValidBlockHeight: latest.lastValidBlockHeight,
+          blockhash: latest2.blockhash,
+          lastValidBlockHeight: latest2.lastValidBlockHeight,
         };
       } catch (e: any) {
         throw new Error(`[wallet-sign-raw] ${String(e?.message || e)}`);
@@ -743,10 +788,10 @@ export default function CoincarneModal({
   const handleSend = async () => {
     if (loading || txStage !== 'idle') return;
     if (!publicKey || !amountInput) return;
-    if (loading) return;
 
     setLoading(true);
     setTxError(null);
+    setUiNotice(null);
     setTxStage('awaiting_wallet');
 
     try {
@@ -757,7 +802,18 @@ export default function CoincarneModal({
       try {
         latestStatusData = await fetchLatestTokenStatus(mintForStatus);
       } catch (e: any) {
-        throw new Error(`[status-preflight] ${String(e?.message || e)}`);
+        const friendly = humanizeTxError(e);
+      
+        console.error('❌ Latest token status fetch failed:', e);
+      
+        setTxStage('error');
+        setTxError(friendly);
+        setUiNotice({
+          type: 'error',
+          message: friendly,
+        });
+      
+        return;
       }
       const latestStatus = resolveLatestStatus(latestStatusData);
 
@@ -765,11 +821,13 @@ export default function CoincarneModal({
       setStatusInfo(latestStatusData);
 
       if (latestStatus === 'redlist' || latestStatus === 'blacklist') {
-        alert(
-          latestStatus === 'blacklist'
-            ? '⛔ This token is currently blacklisted. Coincarnation is blocked.'
-            : '⚠️ This token is currently redlisted. Coincarnation is blocked.'
-        );
+        setUiNotice({
+          type: latestStatus === 'blacklist' ? 'error' : 'warning',
+          message:
+            latestStatus === 'blacklist'
+              ? 'This token is currently blacklisted. Coincarnation is blocked.'
+              : 'This token is currently redlisted. Coincarnation is blocked.',
+        });
         setTxStage('idle');
         return;
       }
@@ -788,7 +846,10 @@ export default function CoincarneModal({
       }
 
       if (!destSol) {
-        alert('❌ Destination address missing. Please set NEXT_PUBLIC_DEST_SOL.');
+        setUiNotice({
+          type: 'error',
+          message: 'Destination address missing. Please set NEXT_PUBLIC_DEST_SOL.',
+        });
         setTxStage('idle');
         return;
       }
@@ -816,7 +877,7 @@ export default function CoincarneModal({
 
         try {
           setTxStage('awaiting_wallet');
-          sendMeta = await submitTx(tx, 'confirmed', 3);
+          sendMeta = await submitTx(tx, 'processed', 5); // ✅
           signature = sendMeta.signature;
           explorerUrl = explorerUrlForSig(signature);
           setTxStage('broadcasting');
@@ -929,7 +990,12 @@ export default function CoincarneModal({
 
       try {
         setTxStage('confirming');
-        await pollSigOrThrow(signature, 25_000);
+      
+        await confirmSignatureOrThrow({
+          signature,
+          blockhash: sendMeta?.blockhash,
+          lastValidBlockHeight: sendMeta?.lastValidBlockHeight,
+        });
       } catch (e: any) {
         throw new Error(`[tx-confirm] ${String(e?.message || e)}`);
       }
@@ -1035,9 +1101,16 @@ export default function CoincarneModal({
       setTxError(humanizeTxError(err));
     
       if (rawMsg.includes('[record-post]')) {
-        alert('Transaction confirmed, but recording failed. Please contact support with your Tx ID.');
+        setUiNotice({
+          type: 'warning',
+          message:
+            'Blockchain transaction may have succeeded, but backend recording failed. Please check Explorer before retrying.',
+        });
       } else {
-        alert(`❌ Transaction failed: ${humanizeTxError(err)}`);
+        setUiNotice({
+          type: 'error',
+          message: humanizeTxError(err),
+        });
       }
     } finally {
       setLoading(false);
@@ -1065,6 +1138,28 @@ export default function CoincarneModal({
 
   return (
     <>
+      {uiNotice && (
+        <div
+          className={[
+            'mb-4 rounded-xl border px-4 py-3 text-sm',
+            uiNotice.type === 'error'
+              ? 'border-red-500/40 bg-red-500/10 text-red-100'
+              : uiNotice.type === 'warning'
+              ? 'border-amber-500/40 bg-amber-500/10 text-amber-100'
+              : 'border-cyan-500/40 bg-cyan-500/10 text-cyan-100',
+          ].join(' ')}
+        >
+          <div className="font-semibold mb-1">
+            {uiNotice.type === 'error'
+              ? 'Transaction issue'
+              : uiNotice.type === 'warning'
+              ? 'Please review'
+              : 'Notice'}
+          </div>
+          <div className="text-xs opacity-90">{uiNotice.message}</div>
+        </div>
+      )}
+
       {confirmModalOpen && (
         <ConfirmModal
           isOpen={confirmModalOpen}
@@ -1072,14 +1167,15 @@ export default function CoincarneModal({
           onConfirm={handleSend}
           usdValue={priceView.usdValue}
           tokenSymbol={displaySymbol}
-          amount={parseFloat(amountInput)}
+          amount={Number(amountInput) || 0}
           tokenCategory={tokenCategory ?? 'unknown'}
           priceSources={priceView.priceSources}
           fetchStatus={priceView.fetchStatus}
           tokenMint={isSOLToken ? WSOL_MINT : token.mint}
           currentWallet={publicKey?.toBase58() ?? null}
           onDeadcoinVote={() => {}}
-          confirmBusy={loading}
+          confirmBusy={loading || txStage !== 'idle'}
+          errorMessage={txError}
           confirmLabel={getTxStageLabel(txStage) || 'Confirm Coincarnation'}
         />
       )}

@@ -46,6 +46,7 @@ type TokenCategory = 'healthy' | 'deadcoin' | 'unknown';
 
 interface ConfirmModalProps {
   tokenSymbol: string;
+  errorMessage?: string | null;
   usdValue: number; // total USD (if you already computed), can be 0
   amount: number;   // token units (human)
   tokenCategory: TokenCategory | null;
@@ -90,6 +91,7 @@ export default function ConfirmModal({
   networkLabel,
   confirmBusy = false,
   confirmLabel,
+  errorMessage = null,
 }: ConfirmModalProps) {
   const [voteMessage, setVoteMessage] = useState('');
   const [listStatus, setListStatus] = useState<ListStatus | null>(null);
@@ -330,7 +332,8 @@ export default function ConfirmModal({
     !statusCheckedOnce ||
     isHardBlocked ||
     fetchStatus === 'loading' ||
-    fetchStatus === 'error';
+    fetchStatus === 'error' ||
+    !!errorMessage;
 
   const effectiveConfirmLabel =
     confirmLabel ??
@@ -351,12 +354,18 @@ export default function ConfirmModal({
     <Dialog
       open={isOpen}
       onOpenChange={(open) => {
-        if (!open && !confirmBusy) onCancel();
+        if (!open && !busy) onCancel();
       }}
     >
       <DialogOverlay />
       <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-50 shadow-lg">
         <DialogTitle className="text-white">{titleText}</DialogTitle>
+        {errorMessage && (
+          <div className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-100">
+            <div className="font-semibold mb-1">Could not continue</div>
+            <div className="text-xs opacity-90">{errorMessage}</div>
+          </div>
+        )}
         <DialogDescription className="sr-only">
           Review value, status and confirm to proceed with coincarnation.
         </DialogDescription>
