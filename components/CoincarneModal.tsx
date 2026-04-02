@@ -730,6 +730,10 @@ export default function CoincarneModal({
   function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
+
+  function msSince(start: number) {
+    return `${Date.now() - start}ms`;
+  }
   
   function closeConfirmModal() {
     setConfirmModalOpen(false);
@@ -843,7 +847,22 @@ export default function CoincarneModal({
   const handleSend = async () => {
     if (loading || txStage !== 'idle') return;
     if (!publicKey || !amountInput) return;
-
+  
+    const t0 = Date.now();
+    let tWalletStart = 0;
+    let tSigReceived = 0;
+    let tConfirmStart = 0;
+    let tConfirmDone = 0;
+    let tRecordStart = 0;
+    let tRecordDone = 0;
+  
+    console.log('[TXTIMING] handleSend:start', {
+      wallet: getWalletName(),
+      token: token.mint,
+      symbol: displaySymbol,
+      startedAt: new Date(t0).toISOString(),
+    });
+  
     setLoading(true);
     setTxError(null);
     setUiNotice(null);
@@ -934,9 +953,20 @@ export default function CoincarneModal({
         
         try {
           setTxStage('awaiting_wallet');
+          tWalletStart = Date.now();
+        
           sendMeta = await submitTx(buildSolTx, 'processed', 5);
+        
+          tSigReceived = Date.now();
           signature = sendMeta.signature;
           explorerUrl = explorerUrlForSig(signature);
+        
+          console.log('[TXTIMING] wallet->signature:sol', {
+            elapsedFromStart: msSince(t0),
+            walletToSignature: `${tSigReceived - tWalletStart}ms`,
+            signature,
+          });
+        
           setTxStage('broadcasting');
         } catch (e: any) {
           throw new Error(`[wallet-send-sol] ${String(e?.message || e)}`);
@@ -1032,9 +1062,20 @@ export default function CoincarneModal({
         
         try {
           setTxStage('awaiting_wallet');
+          tWalletStart = Date.now();
+        
           sendMeta = await submitTx(buildSplTx, 'processed', 5);
+        
+          tSigReceived = Date.now();
           signature = sendMeta.signature;
           explorerUrl = explorerUrlForSig(signature);
+        
+          console.log('[TXTIMING] wallet->signature:spl', {
+            elapsedFromStart: msSince(t0),
+            walletToSignature: `${tSigReceived - tWalletStart}ms`,
+            signature,
+          });
+        
           setTxStage('broadcasting');
         } catch (e: any) {
           throw new Error(`[wallet-send-spl] ${String(e?.message || e)}`);
@@ -1050,11 +1091,22 @@ export default function CoincarneModal({
 
       try {
         setTxStage('confirming');
+        tConfirmStart = Date.now();
       
         await confirmSignatureOrThrow({
           signature,
           blockhash: sendMeta?.blockhash,
           lastValidBlockHeight: sendMeta?.lastValidBlockHeight,
+        });
+      
+        tConfirmDone = Date.now();
+      
+        console.log('[TXTIMING] confirmation:done', {
+          elapsedFromStart: msSince(t0),
+          confirmDuration: `${tConfirmDone - tConfirmStart}ms`,
+          afterSignatureToConfirmDone:
+            tSigReceived > 0 ? `${tConfirmDone - tSigReceived}ms` : null,
+          signature,
         });
       } catch (e: any) {
         throw new Error(`[tx-confirm] ${String(e?.message || e)}`);
@@ -1070,7 +1122,8 @@ export default function CoincarneModal({
           : tokenCategory ?? 'unknown';
 
       setTxStage('recording');
-
+      tRecordStart = Date.now();
+          
       const res = await fetch('/api/coincarnation/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1096,6 +1149,16 @@ export default function CoincarneModal({
           `[record-post] RECORD_NON_JSON_OR_HTTP_${parsedRecord.status}: ${parsedRecord.raw.slice(0, 160)}`
         );
       }
+
+      tRecordDone = Date.now();
+
+      console.log('[TXTIMING] record:done', {
+        elapsedFromStart: msSince(t0),
+        recordDuration: `${tRecordDone - tRecordStart}ms`,
+        confirmToRecordDone:
+          tConfirmDone > 0 ? `${tRecordDone - tConfirmDone}ms` : null,
+        httpStatus: parsedRecord.status,
+      });
 
       const json = parsedRecord.data;
 
@@ -1132,6 +1195,23 @@ export default function CoincarneModal({
         explorerUrl,
       });
 
+      console.log('[TXTIMING] total:success', {
+        totalElapsed: msSince(t0),
+        walletToSignature:
+          tWalletStart > 0 && tSigReceived > 0
+            ? `${tSigReceived - tWalletStart}ms`
+            : null,
+        confirmation:
+          tConfirmStart > 0 && tConfirmDone > 0
+            ? `${tConfirmDone - tConfirmStart}ms`
+            : null,
+        record:
+          tRecordStart > 0 && tRecordDone > 0
+            ? `${tRecordDone - tRecordStart}ms`
+            : null,
+        signature,
+      });
+
       setConfirmModalOpen(false);
       setTxStage('success');
       refetchTokens?.();
@@ -1149,6 +1229,22 @@ export default function CoincarneModal({
         console.warn('⚠️ lv/apply outer error:', err);
       }
     } catch (err: any) {
+      console.log('[TXTIMING] total:error', {
+        totalElapsed: msSince(t0),
+        walletToSignature:
+          tWalletStart > 0 && tSigReceived > 0
+            ? `${tSigReceived - tWalletStart}ms`
+            : null,
+        confirmation:
+          tConfirmStart > 0 && tConfirmDone > 0
+            ? `${tConfirmDone - tConfirmStart}ms`
+            : null,
+        record:
+          tRecordStart > 0 && tRecordDone > 0
+            ? `${tRecordDone - tRecordStart}ms`
+            : null,
+        rawError: String(err?.message || err || 'UNKNOWN_ERROR'),
+      });
       const rawMsg = String(err?.message || err || 'UNKNOWN_ERROR');
       console.error('❌ Transaction error full:', err);
       console.error('❌ Transaction raw message:', rawMsg);

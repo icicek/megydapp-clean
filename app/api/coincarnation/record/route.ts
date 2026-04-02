@@ -333,6 +333,7 @@ async function settlePhaseFlow(maxRounds = 6) {
 }
 
 export async function POST(req: NextRequest) {
+  const t0 = Date.now();
   console.log('✅ /api/coincarnation/record called');
   await requireAppEnabled();
 
@@ -517,6 +518,10 @@ export async function POST(req: NextRequest) {
         );
       }
       console.log('✅ Tx confirmed on-chain:', transaction_signature);
+      console.log('[RECORDTIMING] confirm:done', {
+        elapsed: `${Date.now() - t0}ms`,
+        signature: transaction_signature,
+      });
     }
 
     // ✅ On-chain transfer verification (dest’e gerçekten gitti mi?)
@@ -548,6 +553,10 @@ export async function POST(req: NextRequest) {
           { status: 409 },
         );
       }
+      console.log('[RECORDTIMING] verify:done', {
+        elapsed: `${Date.now() - t0}ms`,
+        signature: transaction_signature,
+      });
     }
 
     // ✅ SOL için registry yok: SOL'u DB'de WSOL_MINT ile temsil ediyoruz
@@ -863,6 +872,10 @@ export async function POST(req: NextRequest) {
       }
 
       console.log('📝 contribution inserted id:', insertedId);
+      console.log('[RECORDTIMING] insert:done', {
+        elapsed: `${Date.now() - t0}ms`,
+        insertedId,
+      });
     } catch (e: any) {
       console.error('❌ contribution insert failed:', e?.message || e);
       return NextResponse.json(
@@ -892,6 +905,10 @@ export async function POST(req: NextRequest) {
       allocator2Error = flow.phaseAdvanceError;
 
       phaseFlowRounds = Array.isArray(flow.rounds) ? flow.rounds : [];
+      console.log('[RECORDTIMING] settlePhaseFlow:done', {
+        elapsed: `${Date.now() - t0}ms`,
+        rounds: Array.isArray(phaseFlowRounds) ? phaseFlowRounds.length : 0,
+      });
     } catch (e: any) {
       console.warn('⚠️ settlePhaseFlow failed:', e?.message || e);
     }
@@ -1000,6 +1017,12 @@ export async function POST(req: NextRequest) {
       number = result[0]?.id ?? 0;
     } catch {}
 
+    console.log('[RECORDTIMING] total:success', {
+      elapsed: `${Date.now() - t0}ms`,
+      insertedId,
+      tx: txHashOrSig,
+    });
+
     return NextResponse.json({
       success: true,
       id: insertedId,
@@ -1022,6 +1045,10 @@ export async function POST(req: NextRequest) {
     });    
   } catch (error: any) {
     console.error('❌ Record API Error:', error?.message || error);
+    console.log('[RECORDTIMING] total:error', {
+      elapsed: `${Date.now() - t0}ms`,
+      error: String(error?.message || error),
+    });
     const status = Number(error?.status) || 500;
     return NextResponse.json(
       {
