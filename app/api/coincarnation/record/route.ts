@@ -37,6 +37,10 @@ if (!process.env.NEON_DATABASE_URL && !process.env.DATABASE_URL) {
 }
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
+const ACTIVE_DB_URL =
+  process.env.NEON_DATABASE_URL || process.env.DATABASE_URL || '';
+
+console.log('[DBDEBUG] using database url prefix:', ACTIVE_DB_URL.slice(0, 45));
 
 // RPC URL (öncelik)
 const SOLANA_RPC_URL =
@@ -334,6 +338,7 @@ async function settlePhaseFlow(maxRounds = 6) {
 
 export async function POST(req: NextRequest) {
   const t0 = Date.now();
+  console.log('[DBDEBUG] env source:', process.env.NEON_DATABASE_URL ? 'NEON_DATABASE_URL' : process.env.DATABASE_URL ? 'DATABASE_URL' : 'NONE');
   console.log('✅ /api/coincarnation/record called');
   await requireAppEnabled();
 
@@ -807,7 +812,7 @@ export async function POST(req: NextRequest) {
             ${contribReferralCode}, ${contribReferrerWallet}, ${assetKindFinal},
             ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW()
           )
-          ON CONFLICT (network, tx_hash) DO NOTHING
+          ON CONFLICT ON CONSTRAINT contributions_network_txhash_key DO NOTHING
           RETURNING id;
         `;
       } else if (sig) {
@@ -827,7 +832,7 @@ export async function POST(req: NextRequest) {
             ${contribReferralCode}, ${contribReferrerWallet}, ${assetKindFinal},
             ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW()
           )
-          ON CONFLICT (network, transaction_signature) DO NOTHING
+          ON CONFLICT ON CONSTRAINT contributions_network_signature_key DO NOTHING
           RETURNING id;
         `;
       } else {

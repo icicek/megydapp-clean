@@ -580,33 +580,17 @@ export default function CoincarneModal({
     blockhash?: string;
     lastValidBlockHeight?: number;
   }) {
-    const { signature, blockhash, lastValidBlockHeight } = params;
+    const { signature } = params;
     const walletName = getWalletName();
     const isBackpack = walletName.includes('backpack');
   
-    // Backpack için daha konservatif confirmation
+    // Backpack: skip confirmTransaction, use direct polling
     if (isBackpack) {
-      try {
-        if (blockhash && typeof lastValidBlockHeight === 'number') {
-          await connection.confirmTransaction(
-            {
-              signature,
-              blockhash,
-              lastValidBlockHeight,
-            },
-            'confirmed'
-          );
-          return true;
-        }
-      } catch (e) {
-        console.warn('[confirmSignatureOrThrow] Backpack confirmTransaction failed, falling back to polling:', e);
-      }
-  
       await pollSigOrThrow(signature, 20_000, 800);
       return true;
     }
   
-    // Phantom / Solflare / others için daha hızlı yol
+    // Phantom / Solflare / others: keep fast path unchanged
     await pollSigOrThrow(signature, 8_000, 500);
     return true;
   }
