@@ -32,6 +32,9 @@ const COINCARNE_DEST_WALLET =
   process.env.COINCARNE_DEST_WALLET ||
   process.env.NEXT_PUBLIC_COINCARNE_DEST_WALLET ||
   '';
+if (!process.env.NEON_DATABASE_URL && !process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL_MISSING');
+}
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
@@ -148,15 +151,14 @@ async function verifySolanaTransferOrThrow(p: {
     );
 
   // fromWallet gerçekten signer mı?
-  const signerHit =
-    (message?.accountKeys || []).some((k: any) => {
-      const pk = typeof k === 'string' ? k : String(k?.pubkey);
-      const signer = typeof k === 'string' ? false : !!k?.signer;
-      return signer && pk === fromWallet;
-    }) || accountKeys.includes(fromWallet);
-
+  const signerHit = (message?.accountKeys || []).some((k: any) => {
+    const pk = typeof k === 'string' ? k : String(k?.pubkey);
+    const signer = typeof k === 'string' ? false : !!k?.signer;
+    return signer && pk === fromWallet;
+  });
+  
   if (!signerHit) {
-    throw new Error('FROM_WALLET_NOT_IN_TX');
+    throw new Error('FROM_WALLET_NOT_SIGNER');
   }
 
   // Dest wallet tx’de geçiyor mu? (çoğu durumda geçer; SOL transferde kesin geçer)
@@ -241,8 +243,8 @@ async function isSolanaTxConfirmedOnce(signature: string): Promise<boolean> {
 /* ----------  Polling ile confirmation bekleme  ---------- */
 async function waitForSolanaConfirm(
   signature: string,
-  maxMs = 15000,
-  intervalMs = 1200,
+  maxMs = 25000,
+  intervalMs = 1000,
 ): Promise<boolean> {
   const started = Date.now();
   while (Date.now() - started < maxMs) {
@@ -608,7 +610,8 @@ export async function POST(req: NextRequest) {
       if (idemKey) {
         const dup2 = await sql`
           SELECT id FROM contributions
-          WHERE idempotency_key = ${idemKey}
+          WHERE network = ${networkNorm}
+            AND idempotency_key = ${idemKey}{idemKey}
           LIMIT 1
         `;
         if (dup2.length > 0) {
