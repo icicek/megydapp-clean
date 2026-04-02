@@ -537,6 +537,13 @@ export default function CoincarneModal({
     }
   };
 
+  const isTxInFlight =
+    txStage === 'preparing' ||
+    txStage === 'awaiting_wallet' ||
+    txStage === 'broadcasting' ||
+    txStage === 'confirming' ||
+    txStage === 'recording';
+
   function explorerUrlForSig(sig: string) {
     const ep = (connection as any)?.rpcEndpoint || '';
     const isDevnet = ep.includes('devnet');
@@ -713,6 +720,14 @@ export default function CoincarneModal({
 
   function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+  
+  function closeConfirmModal() {
+    setConfirmModalOpen(false);
+    setTxStage('idle');
+    setTxError(null);
+    setUiNotice(null);
+    setLoading(false);
   }
   
   async function submitTx(
@@ -1199,7 +1214,7 @@ export default function CoincarneModal({
       {confirmModalOpen && (
         <ConfirmModal
           isOpen={confirmModalOpen}
-          onCancel={() => setConfirmModalOpen(false)}
+          onCancel={closeConfirmModal}
           onConfirm={handleSend}
           usdValue={priceView.usdValue}
           tokenSymbol={displaySymbol}
@@ -1210,7 +1225,7 @@ export default function CoincarneModal({
           tokenMint={isSOLToken ? WSOL_MINT : token.mint}
           currentWallet={publicKey?.toBase58() ?? null}
           onDeadcoinVote={() => {}}
-          confirmBusy={loading || txStage !== 'idle'}
+          confirmBusy={isTxInFlight}
           errorMessage={txError}
           confirmLabel={getTxStageLabel(txStage) || 'Confirm Coincarnation'}
         />
@@ -1220,7 +1235,7 @@ export default function CoincarneModal({
       <Dialog
         open
         onOpenChange={(open) => {
-          if (!open && !loading && txStage === 'idle') onClose();
+          if (!open && !isTxInFlight) onClose();
         }}
       >
         <DialogOverlay />
