@@ -611,7 +611,7 @@ export async function POST(req: NextRequest) {
         const dup2 = await sql`
           SELECT id FROM contributions
           WHERE network = ${networkNorm}
-            AND idempotency_key = ${idemKey}{idemKey}
+            AND idempotency_key = ${idemKey}
           LIMIT 1
         `;
         if (dup2.length > 0) {
