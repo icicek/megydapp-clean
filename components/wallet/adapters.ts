@@ -2,13 +2,18 @@
 'use client';
 
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
-
-// WalletConnect adapter (çakışma yaratmaz)
+import {
+  PhantomWalletAdapter,
+  SolflareWalletAdapter,
+} from '@solana/wallet-adapter-wallets';
 import { WalletConnectWalletAdapter } from '@solana/wallet-adapter-walletconnect';
 
-const adapters: any[] = [];
+const adapters: any[] = [
+  new PhantomWalletAdapter(),
+  new SolflareWalletAdapter({ network: WalletAdapterNetwork.Mainnet }),
+];
 
-// .env: NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID = <your_project_id>
+// WalletConnect (opsiyonel)
 if (process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID) {
   adapters.push(
     new WalletConnectWalletAdapter({
