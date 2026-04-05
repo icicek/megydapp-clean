@@ -40,13 +40,47 @@ function isAndroid() {
 
 function isWalletInAppBrowser() {
   if (typeof window === 'undefined') return false;
+
   const ua = navigator.userAgent || '';
-  return /Phantom|Backpack|Solflare/i.test(ua);
+  const w = window as any;
+
+  // UA hints
+  if (/Phantom|Backpack|Solflare/i.test(ua)) return true;
+
+  // Injected/provider hints
+  if (w?.phantom?.solana) return true;
+  if (w?.backpack?.solana || w?.backpack) return true;
+  if (w?.solflare || w?.solflare?.isSolflare) return true;
+
+  if (w?.solana?.isPhantom) return true;
+  if (w?.solana?.isBackpack) return true;
+  if (w?.solana?.isSolflare) return true;
+
+  return false;
 }
 
 function getDirectConnectRedirectLink() {
   if (typeof window === 'undefined') return '';
-  return `${window.location.origin}/`;
+  const url = new URL(window.location.origin + '/');
+  url.searchParams.set('wallet_return', '1');
+  return url.toString();
+}
+
+function hasRecentWalletReturn() {
+  if (typeof window === 'undefined') return false;
+
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('wallet_return') === '1') return true;
+
+    const ts = sessionStorage.getItem('dc:wallet:return:ts');
+    if (!ts) return false;
+
+    const age = Date.now() - Number(ts);
+    return Number.isFinite(age) && age >= 0 && age < 15000;
+  } catch {
+    return false;
+  }
 }
 
 export default function AppWalletBar({
@@ -65,6 +99,7 @@ export default function AppWalletBar({
   const [showMobileWalletPicker, setShowMobileWalletPicker] = useState(false);
   const [directConnectBusy, setDirectConnectBusy] = useState<DirectProvider | null>(null);
   const [directConnectError, setDirectConnectError] = useState<string | null>(null);
+  const [suppressMobilePickerOnce, setSuppressMobilePickerOnce] = useState(false);
 
   const mobileMenuRef = useRef<HTMLDivElement | null>(null);
   const walletAddress = useMemo(() => publicKey?.toBase58() ?? null, [publicKey]);
@@ -119,15 +154,17 @@ export default function AppWalletBar({
   useEffect(() => {
     if (!connected) {
       setMobileOpen(false);
+      return;
     }
-  }, [connected]);
-
-  useEffect(() => {
-    if (connected) {
-      setShowMobileWalletPicker(false);
-      setDirectConnectError(null);
-      setDirectConnectBusy(null);
-    }
+  
+    setShowMobileWalletPicker(false);
+    setDirectConnectError(null);
+    setDirectConnectBusy(null);
+    setSuppressMobilePickerOnce(false);
+  
+    try {
+      sessionStorage.removeItem('dc:wallet:return:ts');
+    } catch {}
   }, [connected]);
 
   useEffect(() => {
@@ -150,6 +187,27 @@ export default function AppWalletBar({
     };
   }, [mobileOpen, showMobileWalletPicker]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const url = new URL(window.location.href);
+
+      if (url.searchParams.get('wallet_return') === '1') {
+        sessionStorage.setItem('dc:wallet:return:ts', String(Date.now()));
+        setSuppressMobilePickerOnce(true);
+
+        url.searchParams.delete('wallet_return');
+        window.history.replaceState({}, '', url.toString());
+        return;
+      }
+
+      if (hasRecentWalletReturn()) {
+        setSuppressMobilePickerOnce(true);
+      }
+    } catch {}
+  }, []);
+
   async function copyAddress(addr?: string | null) {
     if (!addr) return;
   
@@ -165,6 +223,13 @@ export default function AppWalletBar({
   function handleConnectClick() {
     setDirectConnectError(null);
 
+    // If we just came back from a wallet app, do not reopen the custom picker.
+    if (suppressMobilePickerOnce) {
+      setShowMobileWalletPicker(false);
+      setVisible(true);
+      return;
+    }
+
     // Mobile external browser -> show our custom wallet picker
     if (isMobileDevice() && !isWalletInAppBrowser()) {
       setShowMobileWalletPicker(true);
@@ -179,6 +244,9 @@ export default function AppWalletBar({
     try {
       setDirectConnectError(null);
       setDirectConnectBusy(provider);
+
+      sessionStorage.setItem('dc:wallet:return:ts', String(Date.now()));
+      setSuppressMobilePickerOnce(true);
 
       await openDirectConnect(provider, {
         appUrl: window.location.origin,
