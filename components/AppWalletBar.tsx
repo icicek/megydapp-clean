@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { openDirectConnect, type Provider as DirectProvider } from '@/lib/wallet/direct/direct';
 
 type AppWalletBarProps = {
   showAdminStatus?: boolean;
@@ -19,6 +20,35 @@ function shortenAddress(address?: string | null) {
   return `${address.slice(0, 4)}...${address.slice(-4)}`;
 }
 
+function isMobileDevice() {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+}
+
+function isIOS() {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /iPhone|iPad|iPod/i.test(ua);
+}
+
+function isAndroid() {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /Android/i.test(ua);
+}
+
+function isWalletInAppBrowser() {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /Phantom|Backpack|Solflare/i.test(ua);
+}
+
+function getDirectConnectRedirectLink() {
+  if (typeof window === 'undefined') return '';
+  return `${window.location.origin}/`;
+}
+
 export default function AppWalletBar({
   showAdminStatus = false,
   className = '',
@@ -31,6 +61,10 @@ export default function AppWalletBar({
   const [adminWallet, setAdminWallet] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const [showMobileWalletPicker, setShowMobileWalletPicker] = useState(false);
+  const [directConnectBusy, setDirectConnectBusy] = useState<DirectProvider | null>(null);
+  const [directConnectError, setDirectConnectError] = useState<string | null>(null);
 
   const mobileMenuRef = useRef<HTMLDivElement | null>(null);
   const walletAddress = useMemo(() => publicKey?.toBase58() ?? null, [publicKey]);
@@ -117,6 +151,36 @@ export default function AppWalletBar({
     }
   }
 
+  function handleConnectClick() {
+    setDirectConnectError(null);
+
+    // Mobile external browser -> show our custom wallet picker
+    if (isMobileDevice() && !isWalletInAppBrowser()) {
+      setShowMobileWalletPicker(true);
+      return;
+    }
+
+    // Desktop or wallet in-app browser -> keep standard modal
+    setVisible(true);
+  }
+
+  async function handleDirectConnect(provider: DirectProvider) {
+    try {
+      setDirectConnectError(null);
+      setDirectConnectBusy(provider);
+
+      await openDirectConnect(provider, {
+        appUrl: window.location.origin,
+        redirectLink: getDirectConnectRedirectLink(),
+        cluster: 'mainnet-beta',
+      });
+    } catch (e: any) {
+      setDirectConnectError(String(e?.message || e || 'Failed to open wallet.'));
+    } finally {
+      setDirectConnectBusy(null);
+    }
+  }
+
   const walletLabel = wallet?.adapter?.name ?? 'Wallet';
 
   return (
@@ -159,7 +223,7 @@ export default function AppWalletBar({
           {!connected ? (
             <button
               type="button"
-              onClick={() => setVisible(true)}
+              onClick={handleConnectClick}
               className="ml-3 shrink-0 rounded-xl border border-white/10 bg-white text-black px-3 py-2 text-xs font-semibold hover:opacity-90 transition"
             >
               Connect
@@ -174,6 +238,18 @@ export default function AppWalletBar({
             </button>
           )}
         </div>
+
+        {showMobileWalletPicker && !connected && (
+          <div className="mt-2 rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-3 text-sm text-cyan-100">
+            Mobile wallet picker is ready.
+          </div>
+        )}
+
+        {directConnectError && (
+          <div className="mt-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-200">
+            {directConnectError}
+          </div>
+        )}
 
         {connected && mobileOpen && (
           <div className="mt-2 rounded-2xl border border-white/10 bg-black/60 backdrop-blur-md p-3 space-y-3">
@@ -342,7 +418,7 @@ export default function AppWalletBar({
             {!connected ? (
               <button
                 type="button"
-                onClick={() => setVisible(true)}
+                onClick={handleConnectClick}
                 className="rounded-xl border border-white/10 bg-white text-black px-4 py-2 text-sm font-medium hover:opacity-90 transition"
               >
                 Connect Wallet

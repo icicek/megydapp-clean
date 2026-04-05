@@ -357,7 +357,42 @@ export default function CoincarneModal({
     isSOL: isSolFromHook,
   } = useInternalBalance(token.mint, { isSOL: isSOLToken });
 
-  // ------------------ STATUS / VOTE INFO ------------------
+  const tokenAmountFallback = Number.isFinite(token.amount) ? Number(token.amount) : 0;
+
+  const effectiveBalance = useMemo(() => {
+    if (internalBalance && Number.isFinite(internalBalance.amount)) {
+      return internalBalance;
+    }
+
+    return {
+      amount: tokenAmountFallback,
+      decimals: isSOLToken ? 9 : 6,
+      symbol: displaySymbol,
+    };
+  }, [internalBalance, tokenAmountFallback, isSOLToken, displaySymbol]);
+
+  useEffect(() => {
+    setAmountInput('');
+    setTxError(null);
+    setPrecheckMsg(null);
+    setUiNotice(null);
+  }, [token.mint]);
+
+  const hasUsableBalance =
+    Number.isFinite(effectiveBalance?.amount) && effectiveBalance.amount > 0;
+
+  const balanceNotice = balError && tokenAmountFallback > 0
+    ? 'Live balance check failed. Using cached wallet balance.'
+    : null;
+
+  useEffect(() => {
+    setAmountInput('');
+    setTxError(null);
+    setPrecheckMsg(null);
+    setUiNotice(null);
+  }, [token.mint]);
+  
+    // ------------------ STATUS / VOTE INFO ------------------
   useEffect(() => {
     let abort = false;
     const mint = isSOLToken ? WSOL_MINT : token.mint;
@@ -896,9 +931,9 @@ export default function CoincarneModal({
         return;
       }
 
-      if (isSOLToken && internalBalance) {
-        const feeReserve = 0.0002; // safe buffer
-        if (internalBalance.amount - amountToSend < feeReserve) {
+      if (isSOLToken) {
+        const feeReserve = 0.0002;
+        if (effectiveBalance.amount - amountToSend < feeReserve) {
           throw new Error('LEAVE_SOL_FOR_FEES');
         }
       }
@@ -1259,14 +1294,15 @@ export default function CoincarneModal({
 
   /* ------------------ PERCENT BUTTONS ------------------ */
   const handlePercentage = (percent: number) => {
-    if (!internalBalance) return;
-    let calculated = (internalBalance.amount * percent) / 100;
-
-    if (isSolFromHook && percent === 100 && calculated > 0.001) {
+    if (!hasUsableBalance) return;
+  
+    let calculated = (effectiveBalance.amount * percent) / 100;
+  
+    if (isSOLToken && percent === 100 && calculated > 0.001) {
       calculated -= 0.001;
     }
-
-    calculated = quantize(calculated, internalBalance.decimals);
+  
+    calculated = quantize(calculated, effectiveBalance.decimals ?? (isSOLToken ? 9 : 6));
     setAmountInput(String(calculated));
   };
 
@@ -1360,14 +1396,16 @@ export default function CoincarneModal({
               </h2>
 
               <p className="text-sm text-gray-400 text-center mb-2">
-                {balLoading
+                {balLoading && !hasUsableBalance
                   ? 'Fetching balance…'
-                  : balError
-                  ? `Balance error: ${balError}`
-                  : internalBalance
-                  ? `Balance: ${internalBalance.amount.toFixed(4)} ${displaySymbol}`
-                  : `Balance: ${token.amount.toFixed(4)} ${displaySymbol}`}
+                  : `Balance: ${effectiveBalance.amount.toFixed(4)} ${displaySymbol}`}
               </p>
+
+              {balanceNotice && (
+                <p className="text-xs text-amber-400 text-center mb-2">
+                  {balanceNotice}
+                </p>
+              )}
 
               {destErr && (
                 <p className="text-xs text-amber-400 text-center mb-2">
@@ -1381,7 +1419,7 @@ export default function CoincarneModal({
                     key={p}
                     className="bg-gradient-to-br from-purple-600 to-pink-500 hover:opacity-90 text-white font-semibold py-2 rounded-lg shadow"
                     onClick={() => handlePercentage(p)}
-                    disabled={loading || balLoading || !internalBalance}
+                    disabled={loading || (balLoading && !hasUsableBalance) || !hasUsableBalance}
                   >
                     {p}%
                   </button>

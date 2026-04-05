@@ -16,7 +16,7 @@ import { useChain } from '@/app/providers/ChainProvider';
 import AdminLink from '@/components/admin/AdminLink';
 
 // PROD'da 60s, DEV'de 20s polling
-const POLL_MS = process.env.NODE_ENV === 'production' ? 0 : 20000;
+const POLL_MS = process.env.NODE_ENV === 'production' ? 15000 : 20000;
 
 export default function HomePage() {
   const router = useRouter();
@@ -39,9 +39,18 @@ export default function HomePage() {
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showSolModal, setShowSolModal] = useState(false);
 
-  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleSelectChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const mint = e.target.value;
-    const token = tokens.find((t) => t.mint === mint) || null;
+  
+    let token = tokens.find((t) => t.mint === mint) || null;
+  
+    if (!token || (!Number.isFinite(token.amount) && !token.uiAmountString)) {
+      try {
+        await refetchTokens?.();
+      } catch {}
+      token = tokens.find((t) => t.mint === mint) || token;
+    }
+  
     setSelectedToken(token);
     setShowSolModal(Boolean(token));
   };
@@ -85,6 +94,23 @@ export default function HomePage() {
     })();
     return () => ac.abort();
   }, [pubkeyBase58, connected]);
+
+  useEffect(() => {
+    if (!connected || !pubkeyBase58) return;
+  
+    const t1 = setTimeout(() => {
+      refetchTokens?.();
+    }, 350);
+  
+    const t2 = setTimeout(() => {
+      refetchTokens?.();
+    }, 1800);
+  
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [connected, pubkeyBase58, refetchTokens]);
 
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
   const sharePercentage = Math.max(0, Math.min(100, shareRatio * 100)).toFixed(2);
