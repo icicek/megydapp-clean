@@ -266,8 +266,8 @@ export default function AppWalletBar({
                 <div className="text-sm font-semibold text-white">
                   Open in your wallet
                 </div>
-                <div className="text-xs text-white/60 mt-1">
-                  For the most reliable mobile experience, continue inside your wallet app browser.
+                <div className="text-xs text-white/60 mt-1 leading-relaxed">
+                  For the most reliable mobile experience, continue in your wallet app browser.
                 </div>
               </div>
 
@@ -323,8 +323,8 @@ export default function AppWalletBar({
               >
                 More options
               </button>
-              <div className="mt-2 text-[11px] text-white/45 text-center">
-                Use this only if opening the wallet app does not work on your device.
+              <div className="mt-2 text-[11px] text-white/45 text-center leading-relaxed">
+                If opening the wallet app does not work, use More options to try Mobile Wallet Adapter or WalletConnect.
               </div>
             </div>
 

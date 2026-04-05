@@ -2,18 +2,12 @@
 'use client';
 
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
-import {
-  PhantomWalletAdapter,
-  SolflareWalletAdapter,
-} from '@solana/wallet-adapter-wallets';
 import { WalletConnectWalletAdapter } from '@solana/wallet-adapter-walletconnect';
 
-const adapters: any[] = [
-  new PhantomWalletAdapter(),
-  new SolflareWalletAdapter({ network: WalletAdapterNetwork.Mainnet }),
-];
+const adapters: any[] = [];
 
-// WalletConnect (opsiyonel)
+// Keep only WalletConnect in the standard modal.
+// Phantom / Solflare / Backpack are handled by our custom mobile picker flow.
 if (process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID) {
   adapters.push(
     new WalletConnectWalletAdapter({
