@@ -223,13 +223,6 @@ export default function AppWalletBar({
   function handleConnectClick() {
     setDirectConnectError(null);
 
-    // If we just came back from a wallet app, do not reopen the custom picker.
-    if (suppressMobilePickerOnce) {
-      setShowMobileWalletPicker(false);
-      setVisible(true);
-      return;
-    }
-
     // Mobile external browser -> show our custom wallet picker
     if (isMobileDevice() && !isWalletInAppBrowser()) {
       setShowMobileWalletPicker(true);
@@ -245,16 +238,17 @@ export default function AppWalletBar({
       setDirectConnectError(null);
       setDirectConnectBusy(provider);
 
-      sessionStorage.setItem('dc:wallet:return:ts', String(Date.now()));
-      setSuppressMobilePickerOnce(true);
+      const appUrl = encodeURIComponent(window.location.origin);
 
-      await openDirectConnect(provider, {
-        appUrl: window.location.origin,
-        redirectLink: getDirectConnectRedirectLink(),
-        cluster: 'mainnet-beta',
-      });
+      const urls: Record<DirectProvider, string> = {
+        phantom: `https://phantom.app/ul/browse/${appUrl}?ref=${encodeURIComponent(window.location.origin)}`,
+        solflare: `https://solflare.com/ul/v1/browse/${appUrl}?ref=${encodeURIComponent(window.location.origin)}`,
+        backpack: `https://backpack.app/ul/browse/${appUrl}?ref=${encodeURIComponent(window.location.origin)}`,
+      };
+
+      window.location.href = urls[provider];
     } catch (e: any) {
-      setDirectConnectError(String(e?.message || e || 'Failed to open wallet.'));
+      setDirectConnectError(String(e?.message || e || 'Failed to open wallet browser.'));
     } finally {
       setDirectConnectBusy(null);
     }
