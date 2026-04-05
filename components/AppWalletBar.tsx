@@ -123,21 +123,32 @@ export default function AppWalletBar({
   }, [connected]);
 
   useEffect(() => {
+    if (connected) {
+      setShowMobileWalletPicker(false);
+      setDirectConnectError(null);
+      setDirectConnectBusy(null);
+    }
+  }, [connected]);
+
+  useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
-      if (!mobileOpen) return;
       if (!mobileMenuRef.current) return;
-  
+
       const target = event.target as Node | null;
       if (target && !mobileMenuRef.current.contains(target)) {
-        setMobileOpen(false);
+        if (mobileOpen) setMobileOpen(false);
+        if (showMobileWalletPicker) {
+          setShowMobileWalletPicker(false);
+          setDirectConnectError(null);
+        }
       }
     }
-  
+
     document.addEventListener('mousedown', handleOutsideClick);
     return () => {
       document.removeEventListener('mousedown', handleOutsideClick);
     };
-  }, [mobileOpen]);
+  }, [mobileOpen, showMobileWalletPicker]);
 
   async function copyAddress(addr?: string | null) {
     if (!addr) return;
@@ -240,14 +251,79 @@ export default function AppWalletBar({
         </div>
 
         {showMobileWalletPicker && !connected && (
-          <div className="mt-2 rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-3 text-sm text-cyan-100">
-            Mobile wallet picker is ready.
-          </div>
-        )}
+          <div className="mt-2 rounded-2xl border border-white/10 bg-black/70 backdrop-blur-md p-3 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-white">
+                  Open in your wallet
+                </div>
+                <div className="text-xs text-white/60 mt-1">
+                  For the most reliable mobile experience, continue inside your wallet app browser.
+                </div>
+              </div>
 
-        {directConnectError && (
-          <div className="mt-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-200">
-            {directConnectError}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMobileWalletPicker(false);
+                  setDirectConnectError(null);
+                }}
+                className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 hover:bg-white/10 hover:text-white transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              <button
+                type="button"
+                onClick={() => handleDirectConnect('phantom')}
+                disabled={!!directConnectBusy}
+                className="rounded-xl border border-white/10 bg-white/5 text-white px-4 py-3 text-sm font-medium hover:bg-white/10 transition disabled:opacity-60 disabled:cursor-not-allowed text-left"
+              >
+                {directConnectBusy === 'phantom' ? 'Opening Phantom…' : 'Open in Phantom'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDirectConnect('backpack')}
+                disabled={!!directConnectBusy}
+                className="rounded-xl border border-white/10 bg-white/5 text-white px-4 py-3 text-sm font-medium hover:bg-white/10 transition disabled:opacity-60 disabled:cursor-not-allowed text-left"
+              >
+                {directConnectBusy === 'backpack' ? 'Opening Backpack…' : 'Open in Backpack'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDirectConnect('solflare')}
+                disabled={!!directConnectBusy}
+                className="rounded-xl border border-white/10 bg-white/5 text-white px-4 py-3 text-sm font-medium hover:bg-white/10 transition disabled:opacity-60 disabled:cursor-not-allowed text-left"
+              >
+                {directConnectBusy === 'solflare' ? 'Opening Solflare…' : 'Open in Solflare'}
+              </button>
+            </div>
+
+            <div className="pt-1 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMobileWalletPicker(false);
+                  setVisible(true);
+                }}
+                className="w-full rounded-xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-200 px-4 py-3 text-sm font-medium hover:bg-cyan-500/15 transition"
+              >
+                More options
+              </button>
+              <div className="mt-2 text-[11px] text-white/45 text-center">
+                Use this only if opening the wallet app does not work on your device.
+              </div>
+            </div>
+
+            {directConnectError && (
+              <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-200">
+                {directConnectError}
+              </div>
+            )}
           </div>
         )}
 
