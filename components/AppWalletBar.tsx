@@ -4,8 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
-import { openDirectConnect, type Provider as DirectProvider } from '@/lib/wallet/direct/direct';
-
+import type { Provider as DirectProvider } from '@/lib/wallet/direct/direct';
 type AppWalletBarProps = {
   showAdminStatus?: boolean;
   className?: string;
@@ -59,30 +58,6 @@ function isWalletInAppBrowser() {
   return false;
 }
 
-function getDirectConnectRedirectLink() {
-  if (typeof window === 'undefined') return '';
-  const url = new URL(window.location.origin + '/');
-  url.searchParams.set('wallet_return', '1');
-  return url.toString();
-}
-
-function hasRecentWalletReturn() {
-  if (typeof window === 'undefined') return false;
-
-  try {
-    const url = new URL(window.location.href);
-    if (url.searchParams.get('wallet_return') === '1') return true;
-
-    const ts = sessionStorage.getItem('dc:wallet:return:ts');
-    if (!ts) return false;
-
-    const age = Date.now() - Number(ts);
-    return Number.isFinite(age) && age >= 0 && age < 15000;
-  } catch {
-    return false;
-  }
-}
-
 export default function AppWalletBar({
   showAdminStatus = false,
   className = '',
@@ -99,7 +74,6 @@ export default function AppWalletBar({
   const [showMobileWalletPicker, setShowMobileWalletPicker] = useState(false);
   const [directConnectBusy, setDirectConnectBusy] = useState<DirectProvider | null>(null);
   const [directConnectError, setDirectConnectError] = useState<string | null>(null);
-  const [suppressMobilePickerOnce, setSuppressMobilePickerOnce] = useState(false);
 
   const mobileMenuRef = useRef<HTMLDivElement | null>(null);
   const walletAddress = useMemo(() => publicKey?.toBase58() ?? null, [publicKey]);
@@ -160,11 +134,6 @@ export default function AppWalletBar({
     setShowMobileWalletPicker(false);
     setDirectConnectError(null);
     setDirectConnectBusy(null);
-    setSuppressMobilePickerOnce(false);
-  
-    try {
-      sessionStorage.removeItem('dc:wallet:return:ts');
-    } catch {}
   }, [connected]);
 
   useEffect(() => {
@@ -187,27 +156,6 @@ export default function AppWalletBar({
     };
   }, [mobileOpen, showMobileWalletPicker]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    try {
-      const url = new URL(window.location.href);
-
-      if (url.searchParams.get('wallet_return') === '1') {
-        sessionStorage.setItem('dc:wallet:return:ts', String(Date.now()));
-        setSuppressMobilePickerOnce(true);
-
-        url.searchParams.delete('wallet_return');
-        window.history.replaceState({}, '', url.toString());
-        return;
-      }
-
-      if (hasRecentWalletReturn()) {
-        setSuppressMobilePickerOnce(true);
-      }
-    } catch {}
-  }, []);
-
   async function copyAddress(addr?: string | null) {
     if (!addr) return;
   
@@ -222,14 +170,12 @@ export default function AppWalletBar({
 
   function handleConnectClick() {
     setDirectConnectError(null);
-
-    // Mobile external browser -> show our custom wallet picker
+  
     if (isMobileDevice() && !isWalletInAppBrowser()) {
       setShowMobileWalletPicker(true);
       return;
     }
-
-    // Desktop or wallet in-app browser -> keep standard modal
+  
     setVisible(true);
   }
 
@@ -237,15 +183,16 @@ export default function AppWalletBar({
     try {
       setDirectConnectError(null);
       setDirectConnectBusy(provider);
-
+  
       const appUrl = encodeURIComponent(window.location.origin);
-
+      const ref = encodeURIComponent(window.location.origin);
+  
       const urls: Record<DirectProvider, string> = {
-        phantom: `https://phantom.app/ul/browse/${appUrl}?ref=${encodeURIComponent(window.location.origin)}`,
-        solflare: `https://solflare.com/ul/v1/browse/${appUrl}?ref=${encodeURIComponent(window.location.origin)}`,
-        backpack: `https://backpack.app/ul/browse/${appUrl}?ref=${encodeURIComponent(window.location.origin)}`,
+        phantom: `https://phantom.app/ul/browse/${appUrl}?ref=${ref}`,
+        solflare: `https://solflare.com/ul/v1/browse/${appUrl}?ref=${ref}`,
+        backpack: `https://backpack.app/ul/browse/${appUrl}?ref=${ref}`,
       };
-
+  
       window.location.href = urls[provider];
     } catch (e: any) {
       setDirectConnectError(String(e?.message || e || 'Failed to open wallet browser.'));
