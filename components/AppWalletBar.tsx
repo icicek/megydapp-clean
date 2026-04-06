@@ -438,11 +438,11 @@ export default function AppWalletBar({
                       <div className={`absolute inset-0 opacity-100 bg-gradient-to-r ${meta.accent}`} />
                       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_35%)]" />
 
-                      <span className="absolute right-4 top-3 inline-flex max-w-[96px] shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] leading-none text-white/75 whitespace-nowrap">
+                      <span className="absolute right-4 top-3 inline-flex max-w-[96px] shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/30 px-2 py-[3px] text-[10px] leading-none text-white/75 whitespace-nowrap">
                         {meta.badge}
                       </span>
 
-                      <div className="relative flex items-center gap-3 pr-20">
+                      <div className="relative flex items-center gap-3 pr-[110px]">
                         <div
                           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 overflow-hidden ${meta.logoBg}`}
                         >
@@ -461,7 +461,7 @@ export default function AppWalletBar({
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-[15px] font-semibold text-white pr-24">
+                          <div className="truncate text-[15px] font-semibold text-white">
                             {busy ? `Opening ${meta.title}…` : `Open in ${meta.title}`}
                           </div>
 
@@ -470,7 +470,7 @@ export default function AppWalletBar({
                           </div>
                         </div>
 
-                        <div className="absolute right-4 bottom-3 text-white/35 transition group-hover:text-white/70 text-lg">
+                        <div className="absolute right-4 bottom-2 text-white/35 transition group-hover:text-white/70 text-lg">
                           ↗
                         </div>
                       </div>
