@@ -444,13 +444,13 @@ export default function AppWalletBar({
 
                       <div className="relative flex items-center gap-3 pr-[92px]">
                         <div
-                          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 overflow-hidden ${meta.logoBg}`}
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl overflow-hidden"
                         >
                           {meta.icon ? (
                             <img
                               src={meta.icon}
                               alt={`${meta.title} logo`}
-                              className="h-9 w-9 object-contain"
+                              className="h-full w-full object-cover scale-[1.05]"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
                               }}
