@@ -61,6 +61,74 @@ function walletCardMeta(provider: DirectProvider) {
   }
 }
 
+function getProviderLinks(provider: DirectProvider) {
+  const origin =
+    typeof window !== 'undefined' ? window.location.origin : 'https://coincarnation.com';
+
+  const appUrl = encodeURIComponent(origin);
+  const ref = encodeURIComponent(origin);
+
+  switch (provider) {
+    case 'phantom':
+      return {
+        browseUrl: `https://phantom.app/ul/browse/${appUrl}?ref=${ref}`,
+        installUrl: 'https://phantom.app/download',
+      };
+
+    case 'solflare':
+      return {
+        browseUrl: `https://solflare.com/ul/v1/browse/${appUrl}?ref=${ref}`,
+        installUrl: 'https://solflare.com/download',
+      };
+
+    case 'backpack':
+      return {
+        browseUrl: `https://backpack.app/ul/browse/${appUrl}?ref=${ref}`,
+        installUrl: 'https://backpack.app/download',
+      };
+
+    default:
+      return {
+        browseUrl: origin,
+        installUrl: origin,
+      };
+  }
+}
+
+function isProviderInstalled(provider: DirectProvider) {
+  if (typeof window === 'undefined') return false;
+
+  const w = window as any;
+
+  switch (provider) {
+    case 'phantom':
+      return !!(
+        w?.phantom?.solana?.isPhantom ||
+        w?.solana?.isPhantom
+      );
+
+    case 'solflare':
+      return !!(
+        w?.solflare?.isSolflare ||
+        w?.solana?.isSolflare
+      );
+
+    case 'backpack':
+      return !!(
+        w?.backpack?.isBackpack ||
+        w?.backpack?.solana ||
+        w?.solana?.isBackpack
+      );
+
+    default:
+      return false;
+  }
+}
+
+function openUrl(url: string) {
+  window.location.href = url;
+}
+
 function isMobileDevice() {
   if (typeof window === 'undefined') return false;
   const ua = navigator.userAgent || '';
@@ -272,20 +340,58 @@ export default function AppWalletBar({
       setDirectConnectError(null);
       setDirectConnectBusy(provider);
   
-      const appUrl = encodeURIComponent(window.location.origin);
-      const ref = encodeURIComponent(window.location.origin);
+      const { browseUrl, installUrl } = getProviderLinks(provider);
+      const installed = isProviderInstalled(provider);
   
-      const urls: Record<DirectProvider, string> = {
-        phantom: `https://phantom.app/ul/browse/${appUrl}?ref=${ref}`,
-        solflare: `https://solflare.com/ul/v1/browse/${appUrl}?ref=${ref}`,
-        backpack: `https://backpack.app/ul/browse/${appUrl}?ref=${ref}`,
+      // If the page is already opened inside a wallet browser,
+      // prefer normal wallet modal instead of forcing another deep link.
+      if (env.isWalletBrowser) {
+        setShowMobileWalletPicker(false);
+        setVisible(true);
+        return;
+      }
+  
+      // If wallet looks installed/injected, try opening it directly.
+      // If not, still attempt deep link once on mobile because some wallets
+      // do not inject until opened through their own app/browser.
+      const shouldTryBrowse = env.isMobile;
+  
+      if (!shouldTryBrowse) {
+        openUrl(installUrl);
+        return;
+      }
+  
+      let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+      let pageHidden = false;
+  
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'hidden') {
+          pageHidden = true;
+          if (fallbackTimer) {
+            clearTimeout(fallbackTimer);
+            fallbackTimer = null;
+          }
+        }
       };
   
-      window.location.href = urls[provider];
+      document.addEventListener('visibilitychange', handleVisibilityChange, { once: false });
+  
+      fallbackTimer = setTimeout(() => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+  
+        // If app switch did not happen, go to install/download page.
+        if (!pageHidden) {
+          openUrl(installUrl);
+        }
+      }, installed ? 900 : 1200);
+  
+      openUrl(browseUrl);
     } catch (e: any) {
       setDirectConnectError(String(e?.message || e || 'Failed to open wallet browser.'));
     } finally {
-      setDirectConnectBusy(null);
+      setTimeout(() => {
+        setDirectConnectBusy(null);
+      }, 300);
     }
   }
 
