@@ -37,7 +37,7 @@ function walletCardMeta(provider: DirectProvider) {
         icon: '/wallets/backpack.png',
         subtitle: 'Fast and reliable',
         badge: 'Popular',
-        accent: 'from-[#F6E65B]/22 to-cyan-500/10',
+        accent: 'from-white/18 to-orange-500/10',
         logoBg: 'bg-white',
       };
     case 'solflare':
@@ -46,7 +46,7 @@ function walletCardMeta(provider: DirectProvider) {
         icon: '/wallets/solflare.png',
         subtitle: 'Great Solana wallet',
         badge: 'Secure',
-        accent: 'from-white/18 to-orange-500/10',
+        accent: 'from-[#F6E65B]/22 to-cyan-500/10',
         logoBg: 'bg-[#F6E65B]',
       };
     default:
@@ -380,7 +380,7 @@ export default function AppWalletBar({
                 animate={{ y: 0, opacity: 1, scale: 1 }}
                 exit={{ y: 24, opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.25, ease: 'easeOut' }}
-                className="w-full max-w-md max-h-[calc(100dvh-20px)] rounded-[28px] border border-white/10 bg-[#090909]/95 shadow-[0_24px_90px_rgba(0,0,0,0.55)] overflow-hidden flex flex-col"
+                className="w-full max-w-md max-h-[calc(100dvh-20px)] rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(24,24,27,0.96)_0%,rgba(8,8,10,0.98)_100%)] shadow-[0_24px_90px_rgba(0,0,0,0.55)] overflow-hidden flex flex-col"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="shrink-0 px-4 pt-3 pb-3 border-b border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent">
@@ -438,11 +438,11 @@ export default function AppWalletBar({
                       <div className={`absolute inset-0 opacity-100 bg-gradient-to-r ${meta.accent}`} />
                       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_35%)]" />
 
-                      <span className="absolute right-4 top-3 inline-flex max-w-[92px] shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/30 px-2 py-[3px] text-[10px] leading-none text-white/75 whitespace-nowrap">
+                      <span className="absolute right-3 top-3 inline-flex max-w-[92px] shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/30 px-2 py-[3px] text-[10px] leading-none text-white/75 whitespace-nowrap">
                         {meta.badge}
                       </span>
 
-                      <div className="relative flex items-center gap-3 pr-[104px]">
+                      <div className="relative flex items-center gap-3 pr-[96px]">
                         <div
                           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] overflow-hidden ${meta.logoBg}`}
                         >
@@ -465,12 +465,12 @@ export default function AppWalletBar({
                             {busy ? `Opening ${meta.title}…` : `Open in ${meta.title}`}
                           </div>
 
-                          <div className="mt-1 text-[13px] leading-[1.2] text-white/58 overflow-hidden whitespace-nowrap text-ellipsis">
+                          <div className="mt-1 text-[13px] leading-[1.2] text-white/60 overflow-hidden whitespace-nowrap text-ellipsis">
                             {meta.subtitle}
                           </div>
                         </div>
 
-                        <div className="absolute right-4 bottom-2.5 text-white/35 transition group-hover:text-white/70 text-[20px] leading-none">
+                        <div className="absolute right-3 bottom-1 text-white/35 transition group-hover:text-white/70 text-[20px] leading-none">
                           ↗
                         </div>
                       </div>
@@ -578,7 +578,10 @@ export default function AppWalletBar({
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={handleDisconnect}
+                onClick={() => {
+                  setMobileOpen(false);
+                  setVisible(true);
+                }}
                 className="rounded-xl border border-white/10 bg-white/5 text-white px-4 py-3 text-sm font-medium hover:bg-white/10 transition"
               >
                 Switch Wallet
@@ -586,10 +589,7 @@ export default function AppWalletBar({
 
               <button
                 type="button"
-                onClick={() => {
-                  setMobileOpen(false);
-                  disconnect();
-                }}
+                onClick={handleDisconnect}
                 className="rounded-xl border border-red-500/20 bg-red-500/10 text-red-300 px-4 py-3 text-sm font-medium hover:bg-red-500/20 transition"
               >
                 Disconnect
