@@ -28,8 +28,8 @@ function walletCardMeta(provider: DirectProvider) {
         icon: '/wallets/phantom.png',
         subtitle: 'Best for most users',
         badge: 'Recommended',
-        accent: 'from-[#A78BFA]/30 to-fuchsia-500/10',
-        logoBg: 'bg-[#A78BFA]',
+        accent: 'from-[#B794F6]/30 to-fuchsia-500/10',
+        logoBg: 'bg-[#B794F6]',
       };
     case 'backpack':
       return {
@@ -37,7 +37,7 @@ function walletCardMeta(provider: DirectProvider) {
         icon: '/wallets/backpack.png',
         subtitle: 'Fast and reliable',
         badge: 'Popular',
-        accent: 'from-white/20 to-orange-500/10',
+        accent: 'from-[#F6E65B]/22 to-cyan-500/10',
         logoBg: 'bg-white',
       };
     case 'solflare':
@@ -46,8 +46,8 @@ function walletCardMeta(provider: DirectProvider) {
         icon: '/wallets/solflare.png',
         subtitle: 'Great Solana wallet',
         badge: 'Secure',
-        accent: 'from-[#FDE047]/25 to-cyan-500/10',
-        logoBg: 'bg-[#FDE047]',
+        accent: 'from-white/18 to-orange-500/10',
+        logoBg: 'bg-[#F6E65B]',
       };
     default:
       return {
@@ -442,9 +442,9 @@ export default function AppWalletBar({
                         {meta.badge}
                       </span>
 
-                      <div className="relative flex items-center gap-3 pr-[92px]">
+                      <div className="relative flex items-center gap-3 pr-[104px]">
                         <div
-                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 shadow-inner overflow-hidden ${meta.logoBg}`}
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] overflow-hidden ${meta.logoBg}`}
                         >
                           {meta.icon ? (
                             <img
@@ -465,19 +465,12 @@ export default function AppWalletBar({
                             {busy ? `Opening ${meta.title}…` : `Open in ${meta.title}`}
                           </div>
 
-                          <div
-                            className="mt-1 text-[13px] leading-[1.2] text-white/58 overflow-hidden"
-                            style={{
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                            }}
-                          >
+                          <div className="mt-1 text-[13px] leading-[1.2] text-white/58 overflow-hidden whitespace-nowrap text-ellipsis">
                             {meta.subtitle}
                           </div>
                         </div>
 
-                        <div className="absolute right-4 bottom-1 text-white/35 transition group-hover:text-white/70 text-lg">
+                        <div className="absolute right-4 bottom-2.5 text-white/35 transition group-hover:text-white/70 text-[20px] leading-none">
                           ↗
                         </div>
                       </div>
