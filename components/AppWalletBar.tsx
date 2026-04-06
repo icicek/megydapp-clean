@@ -125,7 +125,12 @@ function isProviderInstalled(provider: DirectProvider) {
   }
 }
 
-function openUrl(url: string) {
+function openUrl(url: string, newTab = false) {
+  if (newTab) {
+    const opened = window.open(url, '_blank', 'noopener,noreferrer');
+    if (opened) return;
+  }
+
   window.location.href = url;
 }
 
@@ -385,7 +390,7 @@ export default function AppWalletBar({
       const shouldTryBrowse = env.isMobile;
   
       if (!shouldTryBrowse) {
-        openUrl(installUrl);
+        openUrl(installUrl, true);
         return;
       }
   
@@ -409,11 +414,11 @@ export default function AppWalletBar({
   
         // If app switch did not happen, go to install/download page.
         if (!pageHidden) {
-          openUrl(installUrl);
+          openUrl(installUrl, true);
         }
       }, installed ? 900 : 1200);
   
-      openUrl(browseUrl);
+      openUrl(browseUrl, true);
     } catch (e: any) {
       setDirectConnectError(normalizeWalletError(e));
     } finally {
