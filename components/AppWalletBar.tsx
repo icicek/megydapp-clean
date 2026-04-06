@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
-import type { Provider as DirectProvider } from '@/lib/wallet/direct/direct';
+type DirectProvider = 'phantom' | 'solflare' | 'backpack';
 type AppWalletBarProps = {
   showAdminStatus?: boolean;
   className?: string;
