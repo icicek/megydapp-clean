@@ -28,7 +28,7 @@ function walletCardMeta(provider: DirectProvider) {
         icon: '/wallets/phantom.png',
         subtitle: 'Best for most users',
         badge: 'Recommended',
-        accent: 'from-violet-500/20 to-fuchsia-500/10',
+        accent: 'from-[#A78BFA]/30 to-fuchsia-500/10',
         logoBg: 'bg-[#A78BFA]',
       };
     case 'backpack':
@@ -37,7 +37,7 @@ function walletCardMeta(provider: DirectProvider) {
         icon: '/wallets/backpack.png',
         subtitle: 'Fast and reliable',
         badge: 'Popular',
-        accent: 'from-amber-500/20 to-orange-500/10',
+        accent: 'from-white/20 to-orange-500/10',
         logoBg: 'bg-white',
       };
     case 'solflare':
@@ -46,7 +46,7 @@ function walletCardMeta(provider: DirectProvider) {
         icon: '/wallets/solflare.png',
         subtitle: 'Great Solana wallet',
         badge: 'Secure',
-        accent: 'from-sky-500/20 to-cyan-500/10',
+        accent: 'from-[#FDE047]/25 to-cyan-500/10',
         logoBg: 'bg-[#FDE047]',
       };
     default:
@@ -438,13 +438,13 @@ export default function AppWalletBar({
                       <div className={`absolute inset-0 opacity-100 bg-gradient-to-r ${meta.accent}`} />
                       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_35%)]" />
 
-                      <span className="absolute right-4 top-3 inline-flex max-w-[96px] shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/30 px-2 py-[3px] text-[10px] leading-none text-white/75 whitespace-nowrap">
+                      <span className="absolute right-4 top-3 inline-flex max-w-[92px] shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/30 px-2 py-[3px] text-[10px] leading-none text-white/75 whitespace-nowrap">
                         {meta.badge}
                       </span>
 
-                      <div className="relative flex items-center gap-3 pr-[110px]">
+                      <div className="relative flex items-center gap-3 pr-[92px]">
                         <div
-                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 overflow-hidden ${meta.logoBg}`}
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 shadow-inner overflow-hidden ${meta.logoBg}`}
                         >
                           {meta.icon ? (
                             <img
@@ -461,16 +461,23 @@ export default function AppWalletBar({
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-[15px] font-semibold text-white">
+                          <div className="block overflow-hidden text-ellipsis whitespace-nowrap text-[15px] font-semibold text-white">
                             {busy ? `Opening ${meta.title}…` : `Open in ${meta.title}`}
                           </div>
 
-                          <div className="mt-1 text-[13px] leading-snug text-white/58">
+                          <div
+                            className="mt-1 text-[13px] leading-[1.2] text-white/58 overflow-hidden"
+                            style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                            }}
+                          >
                             {meta.subtitle}
                           </div>
                         </div>
 
-                        <div className="absolute right-4 bottom-2 text-white/35 transition group-hover:text-white/70 text-lg">
+                        <div className="absolute right-4 bottom-1 text-white/35 transition group-hover:text-white/70 text-lg">
                           ↗
                         </div>
                       </div>
