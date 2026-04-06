@@ -8,39 +8,45 @@ import { clusterApiUrl } from '@solana/web3.js';
 import adapters from '@/components/wallet/adapters';
 
 export default function WalletConnectionProvider({ children }: { children: React.ReactNode }) {
-  // RPC endpoint: sizin ortam değişkenlerinizle uyumlu geniş fallback
   const endpoint = useMemo(
     () =>
       process.env.NEXT_PUBLIC_SOLANA_RPC?.trim() ||
       process.env.NEXT_PUBLIC_SOLANA_RPC_URL?.trim() ||
-      process.env.SOLANA_RPC?.trim() ||
-      process.env.ALCHEMY_SOLANA_RPC?.trim() ||
       clusterApiUrl('mainnet-beta'),
     []
   );
 
-  // Wallet adapter'ları tek kez sabitle (yeniden yaratma → disconnect tetikler)
   const wallets = useMemo(() => adapters, []);
 
   useEffect(() => {
-    // debug log (isteğe bağlı)
+    if (process.env.NODE_ENV !== 'development') return;
+
     try {
-      // adapters hem class hem instance olabilir; name varsa göster
-      const names = Array.isArray(wallets) ? wallets.map((a: any) => a?.name || 'wallet') : [];
+      const names = Array.isArray(wallets)
+        ? wallets.map((a: any) => a?.name || 'wallet')
+        : [];
       console.info('[WalletProvider mount]', names);
+      console.info('[WalletProvider endpoint]', endpoint);
     } catch {}
-    return () => console.info('[WalletProvider UNMOUNT]');
-  }, [wallets]);
+
+    return () => {
+      console.info('[WalletProvider UNMOUNT]');
+    };
+  }, [wallets, endpoint]);
 
   return (
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider
         wallets={wallets}
-        autoConnect={true}                   // 🔑 sayfa yenile/route değişiminde geri bağlanır
-        localStorageKey="coincarnation.wallet" // 🔑 seçili cüzdan kalıcı
-        onError={(e) => console.error('[wallet]', e)}
+        autoConnect={true}
+        localStorageKey="coincarnation.wallet"
+        onError={(e) => {
+          console.error('[wallet-error]', {
+            name: e?.name,
+            message: e?.message,
+          });
+        }}
       >
-        {/* Modal & WalletMultiButton için gerekli */}
         <WalletModalProvider>{children}</WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
