@@ -95,36 +95,6 @@ function getProviderLinks(provider: DirectProvider) {
   }
 }
 
-function isProviderInstalled(provider: DirectProvider) {
-  if (typeof window === 'undefined') return false;
-
-  const w = window as any;
-
-  switch (provider) {
-    case 'phantom':
-      return !!(
-        w?.phantom?.solana?.isPhantom ||
-        w?.solana?.isPhantom
-      );
-
-    case 'solflare':
-      return !!(
-        w?.solflare?.isSolflare ||
-        w?.solana?.isSolflare
-      );
-
-    case 'backpack':
-      return !!(
-        w?.backpack?.isBackpack ||
-        w?.backpack?.solana ||
-        w?.solana?.isBackpack
-      );
-
-    default:
-      return false;
-  }
-}
-
 function openUrl(url: string, newTab = false) {
   if (newTab) {
     const opened = window.open(url, '_blank', 'noopener,noreferrer');
@@ -383,7 +353,6 @@ export default function AppWalletBar({
         return;
       }
   
-      // If wallet looks installed/injected, try opening it directly.
       // If not, still attempt deep link once on mobile because some wallets
       // do not inject until opened through their own app/browser.
       const shouldTryBrowse = env.isMobile;
