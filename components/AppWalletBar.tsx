@@ -29,6 +29,7 @@ function walletCardMeta(provider: DirectProvider) {
         subtitle: 'Best for most users',
         badge: 'Recommended',
         accent: 'from-violet-500/20 to-fuchsia-500/10',
+        logoBg: 'bg-[#8F7AE5]',
       };
     case 'backpack':
       return {
@@ -37,6 +38,7 @@ function walletCardMeta(provider: DirectProvider) {
         subtitle: 'Fast and reliable',
         badge: 'Popular',
         accent: 'from-amber-500/20 to-orange-500/10',
+        logoBg: 'bg-white',
       };
     case 'solflare':
       return {
@@ -45,6 +47,7 @@ function walletCardMeta(provider: DirectProvider) {
         subtitle: 'Great Solana wallet',
         badge: 'Secure',
         accent: 'from-sky-500/20 to-cyan-500/10',
+        logoBg: 'bg-[#F5E14B]',
       };
     default:
       return {
@@ -53,6 +56,7 @@ function walletCardMeta(provider: DirectProvider) {
         subtitle: '',
         badge: '',
         accent: 'from-white/10 to-white/5',
+        logoBg: 'bg-white/10',
       };
   }
 }
@@ -424,7 +428,7 @@ export default function AppWalletBar({
                       onClick={() => handleDirectConnect(provider)}
                       disabled={!!directConnectBusy}
                       className={[
-                        'group relative w-full overflow-hidden rounded-[26px] border px-4 py-3 text-left transition-all duration-200',
+                        'group relative w-full overflow-hidden rounded-[24px] border px-4 py-3 text-left transition-all duration-200',
                         'bg-white/[0.03] border-white/10 hover:border-white/20',
                         'hover:bg-white/[0.06] active:scale-[0.985]',
                         'disabled:opacity-60 disabled:cursor-not-allowed',
@@ -432,46 +436,42 @@ export default function AppWalletBar({
                       ].join(' ')}
                     >
                       <div className={`absolute inset-0 opacity-100 bg-gradient-to-r ${meta.accent}`} />
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%)]" />
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_35%)]" />
 
-                      <div className="relative flex items-center gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/35 shadow-inner overflow-hidden p-1.5">
+                      <span className="absolute right-12 top-3 inline-flex max-w-[96px] shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] leading-none text-white/75 whitespace-nowrap">
+                        {meta.badge}
+                      </span>
+
+                      <div className="relative flex items-center gap-3 pr-8">
+                        <div
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 overflow-hidden ${meta.logoBg}`}
+                        >
                           {meta.icon ? (
                             <img
                               src={meta.icon}
                               alt={`${meta.title} logo`}
-                              className="h-full w-full object-contain"
+                              className="h-7 w-7 object-contain"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
                               }}
                             />
                           ) : (
-                            <span className="text-lg">👛</span>
+                            <span className="text-base">👛</span>
                           )}
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <div className="truncate text-[15px] font-semibold text-white">
-                                  {busy ? `Opening ${meta.title}…` : `Open in ${meta.title}`}
-                                </div>
-
-                                <span className="inline-flex shrink-0 items-center rounded-full border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] text-white/75">
-                                  {meta.badge}
-                                </span>
-                              </div>
-
-                              <div className="mt-1 text-[13px] text-white/58">
-                                {meta.subtitle}
-                              </div>
-                            </div>
-
-                            <div className="shrink-0 text-white/35 transition group-hover:text-white/70 text-lg">
-                              ↗
-                            </div>
+                          <div className="truncate text-[15px] font-semibold text-white pr-20">
+                            {busy ? `Opening ${meta.title}…` : `Open in ${meta.title}`}
                           </div>
+
+                          <div className="mt-1 text-[13px] leading-snug text-white/58">
+                            {meta.subtitle}
+                          </div>
+                        </div>
+
+                        <div className="shrink-0 text-white/35 transition group-hover:text-white/70 text-lg">
+                          ↗
                         </div>
                       </div>
                     </button>
