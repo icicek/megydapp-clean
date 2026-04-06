@@ -1,7 +1,7 @@
 //components/AppWalletBar.tsx
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 type DirectProvider = 'phantom' | 'solflare' | 'backpack';
@@ -91,6 +91,22 @@ function isWalletInAppBrowser() {
   return false;
 }
 
+type RuntimeEnv = {
+  isMobile: boolean;
+  isIOS: boolean;
+  isAndroid: boolean;
+  isWalletBrowser: boolean;
+};
+
+function getRuntimeEnv(): RuntimeEnv {
+  return {
+    isMobile: isMobileDevice(),
+    isIOS: isIOS(),
+    isAndroid: isAndroid(),
+    isWalletBrowser: isWalletInAppBrowser(),
+  };
+}
+
 export default function AppWalletBar({
   showAdminStatus = false,
   className = '',
@@ -109,7 +125,10 @@ export default function AppWalletBar({
   const [directConnectError, setDirectConnectError] = useState<string | null>(null);
 
   const mobileMenuRef = useRef<HTMLDivElement | null>(null);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const walletAddress = useMemo(() => publicKey?.toBase58() ?? null, [publicKey]);
+  const env = useMemo(() => getRuntimeEnv(), []);
 
   const walletMatchesAdmin =
     !!walletAddress &&
@@ -156,7 +175,7 @@ export default function AppWalletBar({
     return () => {
       ignore = true;
     };
-  }, [showAdminStatus, walletAddress, connected]);
+  }, [showAdminStatus]);
 
   useEffect(() => {
     if (!connected) {
@@ -170,7 +189,7 @@ export default function AppWalletBar({
   }, [connected]);
 
   useEffect(() => {
-    function handleOutsideClick(event: MouseEvent) {
+    function handleOutsideClick(event: PointerEvent) {
       if (!mobileMenuRef.current) return;
 
       const target = event.target as Node | null;
@@ -183,32 +202,48 @@ export default function AppWalletBar({
       }
     }
 
-    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('pointerdown', handleOutsideClick);
     return () => {
-      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('pointerdown', handleOutsideClick);
     };
   }, [mobileOpen, showMobileWalletPicker]);
 
-  async function copyAddress(addr?: string | null) {
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) {
+        clearTimeout(copiedTimerRef.current);
+      }
+    };
+  }, []);
+
+  const copyAddress = useCallback(async (addr?: string | null) => {
     if (!addr) return;
-  
+
     try {
       await navigator.clipboard.writeText(addr);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
+
+      if (copiedTimerRef.current) {
+        clearTimeout(copiedTimerRef.current);
+      }
+
+      copiedTimerRef.current = setTimeout(() => {
+        setCopied(false);
+        copiedTimerRef.current = null;
+      }, 1200);
     } catch (e) {
       console.error('Copy failed', e);
     }
-  }
+  }, []);
 
   function handleConnectClick() {
     setDirectConnectError(null);
-  
-    if (isMobileDevice() && !isWalletInAppBrowser()) {
+
+    if (env.isMobile && !env.isWalletBrowser) {
       setShowMobileWalletPicker(true);
       return;
     }
-  
+
     setVisible(true);
   }
 
@@ -234,13 +269,22 @@ export default function AppWalletBar({
     }
   }
 
+  const handleDisconnect = useCallback(async () => {
+    try {
+      setMobileOpen(false);
+      await disconnect();
+    } catch (e) {
+      console.error('Disconnect failed', e);
+    }
+  }, [disconnect]);
+
   const walletLabel = wallet?.adapter?.name ?? 'Wallet';
 
-  const mobileHelpText = isIOS()
-  ? 'On iPhone, opening Coincarnation inside your wallet app browser gives the smoothest experience.'
-  : isAndroid()
-  ? 'On Android, opening Coincarnation inside your wallet app browser is usually the most reliable option.'
-  : 'For the most reliable mobile experience, continue in your wallet app browser.';
+  const mobileHelpText = env.isIOS
+    ? 'On iPhone, opening Coincarnation inside your wallet app browser gives the smoothest experience.'
+    : env.isAndroid
+    ? 'On Android, opening Coincarnation inside your wallet app browser is usually the most reliable option.'
+    : 'For the most reliable mobile experience, continue in your wallet app browser.';
 
   return (
     <div className={`w-full ${className}`}>
@@ -480,10 +524,7 @@ export default function AppWalletBar({
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  setMobileOpen(false);
-                  setVisible(true);
-                }}
+                onClick={handleDisconnect}
                 className="rounded-xl border border-white/10 bg-white/5 text-white px-4 py-3 text-sm font-medium hover:bg-white/10 transition"
               >
                 Switch Wallet
@@ -596,7 +637,7 @@ export default function AppWalletBar({
 
                 <button
                   type="button"
-                  onClick={() => disconnect()}
+                  onClick={handleDisconnect}
                   className="rounded-xl border border-red-500/15 bg-red-500/10 text-red-300 px-4 py-2 text-sm font-medium hover:bg-red-500/15 transition"                >
                   Disconnect
                 </button>
