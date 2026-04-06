@@ -374,7 +374,6 @@ export default function AppWalletBar({
       setDirectConnectBusy(provider);
   
       const { browseUrl, installUrl } = getProviderLinks(provider);
-      const installed = isProviderInstalled(provider);
   
       // If the page is already opened inside a wallet browser,
       // prefer normal wallet modal instead of forcing another deep link.
@@ -393,30 +392,6 @@ export default function AppWalletBar({
         openUrl(installUrl, true);
         return;
       }
-  
-      let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
-      let pageHidden = false;
-  
-      const handleVisibilityChange = () => {
-        if (document.visibilityState === 'hidden') {
-          pageHidden = true;
-          if (fallbackTimer) {
-            clearTimeout(fallbackTimer);
-            fallbackTimer = null;
-          }
-        }
-      };
-  
-      document.addEventListener('visibilitychange', handleVisibilityChange, { once: false });
-  
-      fallbackTimer = setTimeout(() => {
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-  
-        // If app switch did not happen, go to install/download page.
-        if (!pageHidden) {
-          openUrl(installUrl, true);
-        }
-      }, installed ? 900 : 1200);
   
       openUrl(browseUrl, true);
     } catch (e: any) {
