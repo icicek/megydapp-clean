@@ -365,7 +365,7 @@ export default function AppWalletBar({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-md flex items-end justify-center px-3 pb-3 pt-16"
+              className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-md flex items-end justify-center px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-6"
               onClick={() => {
                 setShowMobileWalletPicker(false);
                 setDirectConnectError(null);
@@ -376,10 +376,10 @@ export default function AppWalletBar({
                 animate={{ y: 0, opacity: 1, scale: 1 }}
                 exit={{ y: 24, opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.25, ease: 'easeOut' }}
-                className="w-full max-w-md rounded-3xl border border-white/10 bg-neutral-950/95 shadow-[0_20px_80px_rgba(0,0,0,0.45)] overflow-hidden"
+                className="w-full max-w-md max-h-[88dvh] rounded-3xl border border-white/10 bg-neutral-950/95 shadow-[0_20px_80px_rgba(0,0,0,0.45)] overflow-hidden flex flex-col"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="px-4 pt-4 pb-3 border-b border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent">
+                <div className="shrink-0 px-4 pt-4 pb-3 border-b border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent">
                   <div className="flex items-start justify-between gap-3">
                     <div className="pr-2">
                       <div className="text-lg font-semibold text-white">
@@ -411,7 +411,7 @@ export default function AppWalletBar({
                   </div>
                 </div>
 
-                <div className="p-4 space-y-3">
+                <div className="p-4 space-y-3 overflow-y-auto min-h-0">
                   {(['phantom', 'backpack', 'solflare'] as DirectProvider[]).map((provider) => {
                     const meta = walletCardMeta(provider);
                     const busy = directConnectBusy === provider;
@@ -435,12 +435,14 @@ export default function AppWalletBar({
 
                         <div className="relative flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/30 shadow-inner overflow-hidden">
-                              {meta.icon ? (
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/30 shadow-inner overflow-hidden">                              {meta.icon ? (
                                 <img
                                   src={meta.icon}
                                   alt={`${meta.title} logo`}
-                                  className="h-8 w-8 object-contain"
+                                  className="h-7 w-7 object-contain"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
                                 />
                               ) : (
                                 <span className="text-xl">👛</span>
@@ -449,7 +451,7 @@ export default function AppWalletBar({
 
                             <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
-                                <div className="text-base font-semibold text-white">
+                                <div className="text-[15px] font-semibold text-white">
                                   {busy ? `Opening ${meta.title}…` : `Open in ${meta.title}`}
                                 </div>
 
@@ -458,7 +460,7 @@ export default function AppWalletBar({
                                 </span>
                               </div>
 
-                              <div className="mt-1 text-sm text-white/60">
+                              <div className="mt-1 text-[13px] text-white/60">
                                 {meta.subtitle}
                               </div>
                             </div>
