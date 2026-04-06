@@ -365,7 +365,7 @@ export default function AppWalletBar({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-md flex items-end justify-center px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-6"
+              className="fixed inset-0 z-[9999] bg-black/78 backdrop-blur-xl flex items-start justify-center px-3 pt-[max(10px,env(safe-area-inset-top))] pb-[max(10px,env(safe-area-inset-bottom))] overflow-hidden"
               onClick={() => {
                 setShowMobileWalletPicker(false);
                 setDirectConnectError(null);
@@ -376,18 +376,19 @@ export default function AppWalletBar({
                 animate={{ y: 0, opacity: 1, scale: 1 }}
                 exit={{ y: 24, opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.25, ease: 'easeOut' }}
-                className="w-full max-w-md max-h-[88dvh] rounded-3xl border border-white/10 bg-neutral-950/95 shadow-[0_20px_80px_rgba(0,0,0,0.45)] overflow-hidden flex flex-col"
+                className="w-full max-w-md max-h-[calc(100dvh-20px)] rounded-[28px] border border-white/10 bg-[#090909]/95 shadow-[0_24px_90px_rgba(0,0,0,0.55)] overflow-hidden flex flex-col"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="shrink-0 px-4 pt-4 pb-3 border-b border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent">
+                <div className="shrink-0 px-4 pt-3 pb-3 border-b border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent">
+                  <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-white/12" />
                   <div className="flex items-start justify-between gap-3">
                     <div className="pr-2">
-                      <div className="text-lg font-semibold text-white">
-                        Connect Wallet
-                      </div>
-                      <div className="text-sm text-white/55 mt-1 leading-relaxed">
-                        Choose how you want to continue.
-                      </div>
+                    <div className="text-[22px] font-semibold tracking-[-0.02em] text-white">
+                      Connect Wallet
+                    </div>
+                    <div className="text-[13px] text-white/50 mt-1 leading-relaxed">
+                      Choose how you want to continue.
+                    </div>
                     </div>
 
                     <button
@@ -402,7 +403,7 @@ export default function AppWalletBar({
                     </button>
                   </div>
 
-                  <div className="mt-3 inline-flex items-center rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-medium text-emerald-300">
+                  <div className="mt-3 inline-flex items-center rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-medium text-emerald-300">
                     Best experience on mobile
                   </div>
 
@@ -411,70 +412,73 @@ export default function AppWalletBar({
                   </div>
                 </div>
 
-                <div className="p-4 space-y-3 overflow-y-auto min-h-0">
-                  {(['phantom', 'backpack', 'solflare'] as DirectProvider[]).map((provider) => {
-                    const meta = walletCardMeta(provider);
-                    const busy = directConnectBusy === provider;
+                <div className="flex-1 min-h-0 overflow-y-auto p-4 pt-3 space-y-3">
+                {(['phantom', 'backpack', 'solflare'] as DirectProvider[]).map((provider) => {
+                  const meta = walletCardMeta(provider);
+                  const busy = directConnectBusy === provider;
 
-                    return (
-                      <button
-                        key={provider}
-                        type="button"
-                        onClick={() => handleDirectConnect(provider)}
-                        disabled={!!directConnectBusy}
-                        className={[
-                          'group relative w-full overflow-hidden rounded-3xl border px-4 py-4 text-left transition-all duration-200',
-                          'bg-white/[0.03] border-white/10 hover:border-white/20',
-                          'hover:bg-white/[0.06] active:scale-[0.98]',
-                          'disabled:opacity-60 disabled:cursor-not-allowed',
-                          'shadow-[0_0_0_1px_rgba(255,255,255,0.02)]',
-                        ].join(' ')}
-                      >
-                        <div className={`absolute inset-0 opacity-100 bg-gradient-to-r ${meta.accent}`} />
-                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%)]" />
+                  return (
+                    <button
+                      key={provider}
+                      type="button"
+                      onClick={() => handleDirectConnect(provider)}
+                      disabled={!!directConnectBusy}
+                      className={[
+                        'group relative w-full overflow-hidden rounded-[26px] border px-4 py-3 text-left transition-all duration-200',
+                        'bg-white/[0.03] border-white/10 hover:border-white/20',
+                        'hover:bg-white/[0.06] active:scale-[0.985]',
+                        'disabled:opacity-60 disabled:cursor-not-allowed',
+                        'shadow-[0_0_0_1px_rgba(255,255,255,0.02)]',
+                      ].join(' ')}
+                    >
+                      <div className={`absolute inset-0 opacity-100 bg-gradient-to-r ${meta.accent}`} />
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%)]" />
 
-                        <div className="relative flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/30 shadow-inner overflow-hidden">                              {meta.icon ? (
-                                <img
-                                  src={meta.icon}
-                                  alt={`${meta.title} logo`}
-                                  className="h-7 w-7 object-contain"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                  }}
-                                />
-                              ) : (
-                                <span className="text-xl">👛</span>
-                              )}
-                            </div>
+                      <div className="relative flex items-center gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/35 shadow-inner overflow-hidden p-1.5">
+                          {meta.icon ? (
+                            <img
+                              src={meta.icon}
+                              alt={`${meta.title} logo`}
+                              className="h-full w-full object-contain"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          ) : (
+                            <span className="text-lg">👛</span>
+                          )}
+                        </div>
 
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
-                                <div className="text-[15px] font-semibold text-white">
+                                <div className="truncate text-[15px] font-semibold text-white">
                                   {busy ? `Opening ${meta.title}…` : `Open in ${meta.title}`}
                                 </div>
 
-                                <span className="inline-flex items-center rounded-full border border-white/10 bg-black/30 px-2.5 py-0.5 text-[10px] text-white/75">
+                                <span className="inline-flex shrink-0 items-center rounded-full border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] text-white/75">
                                   {meta.badge}
                                 </span>
                               </div>
 
-                              <div className="mt-1 text-[13px] text-white/60">
+                              <div className="mt-1 text-[13px] text-white/58">
                                 {meta.subtitle}
                               </div>
                             </div>
-                          </div>
 
-                          <div className="shrink-0 text-white/35 transition group-hover:text-white/70 text-xl">
-                            ↗
+                            <div className="shrink-0 text-white/35 transition group-hover:text-white/70 text-lg">
+                              ↗
+                            </div>
                           </div>
                         </div>
-                      </button>
-                    );
-                  })}
+                      </div>
+                    </button>
+                  );
+                })}
 
-                  <div className="pt-4 mt-1 border-t border-white/10">
+                  <div className="pt-3 mt-1 border-t border-white/10">
                     <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-white/35">
                       Need another way?
                     </div>
@@ -485,7 +489,7 @@ export default function AppWalletBar({
                         setShowMobileWalletPicker(false);
                         setVisible(true);
                       }}
-                      className="w-full rounded-2xl border border-cyan-400/20 bg-gradient-to-r from-cyan-500/15 to-blue-500/15 text-cyan-100 px-4 py-3.5 text-sm font-semibold hover:from-cyan-500/20 hover:to-blue-500/20 transition shadow-[0_0_30px_rgba(34,211,238,0.08)]"
+                      className="w-full rounded-2xl border border-cyan-400/20 bg-gradient-to-r from-cyan-500/15 to-blue-500/15 text-cyan-100 px-4 py-3 text-sm font-semibold hover:from-cyan-500/20 hover:to-blue-500/20 transition shadow-[0_0_30px_rgba(34,211,238,0.08)]"
                     >
                       More options
                     </button>
