@@ -200,6 +200,7 @@ export default function AppWalletBar({
   const [showMobileWalletPicker, setShowMobileWalletPicker] = useState(false);
   const [directConnectBusy, setDirectConnectBusy] = useState<DirectProvider | null>(null);
   const [directConnectError, setDirectConnectError] = useState<string | null>(null);
+  const [connectUiBusy, setConnectUiBusy] = useState(false);
 
   const mobileMenuRef = useRef<HTMLDivElement | null>(null);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -324,15 +325,42 @@ export default function AppWalletBar({
     }
   }, []);
 
-  function handleConnectClick() {
-    setDirectConnectError(null);
-
-    if (env.isMobile && !env.isWalletBrowser) {
-      setShowMobileWalletPicker(true);
-      return;
+  function normalizeWalletError(err: any) {
+    const msg = String(err?.message || err || '').toLowerCase();
+  
+    if (msg.includes('rejected') || msg.includes('cancelled') || msg.includes('canceled')) {
+      return 'Connection request was canceled.';
     }
+  
+    if (msg.includes('not found') || msg.includes('not installed') || msg.includes('unavailable')) {
+      return 'This wallet is not available on this device.';
+    }
+  
+    if (msg.includes('timeout') || msg.includes('open wallet')) {
+      return 'Could not open the wallet app.';
+    }
+  
+    return 'Could not start the wallet connection.';
+  }
 
-    setVisible(true);
+  function handleConnectClick() {
+    if (connectUiBusy || directConnectBusy) return;
+  
+    setConnectUiBusy(true);
+    setDirectConnectError(null);
+  
+    try {
+      if (env.isMobile && !env.isWalletBrowser) {
+        setShowMobileWalletPicker(true);
+        return;
+      }
+  
+      setVisible(true);
+    } finally {
+      setTimeout(() => {
+        setConnectUiBusy(false);
+      }, 250);
+    }
   }
 
   async function handleDirectConnect(provider: DirectProvider) {
@@ -387,10 +415,11 @@ export default function AppWalletBar({
   
       openUrl(browseUrl);
     } catch (e: any) {
-      setDirectConnectError(String(e?.message || e || 'Failed to open wallet browser.'));
+      setDirectConnectError(normalizeWalletError(e));
     } finally {
       setTimeout(() => {
         setDirectConnectBusy(null);
+        setConnectUiBusy(false);
       }, 300);
     }
   }
@@ -398,6 +427,11 @@ export default function AppWalletBar({
   const handleDisconnect = useCallback(async () => {
     try {
       setMobileOpen(false);
+      setShowMobileWalletPicker(false);
+      setDirectConnectError(null);
+      setDirectConnectBusy(null);
+      setConnectUiBusy(false);
+      setCopied(false);
       await disconnect();
     } catch (e) {
       console.error('Disconnect failed', e);
@@ -453,9 +487,10 @@ export default function AppWalletBar({
             <button
               type="button"
               onClick={handleConnectClick}
-              className="ml-3 shrink-0 rounded-xl border border-white/10 bg-white text-black px-3 py-2 text-xs font-semibold hover:opacity-90 transition"
+              disabled={connectUiBusy || !!directConnectBusy}
+              className="ml-3 shrink-0 rounded-xl border border-white/10 bg-white text-black px-3 py-2 text-xs font-semibold hover:opacity-90 transition disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Connect
+              {connectUiBusy ? 'Opening...' : 'Connect'}
             </button>
           ) : (
             <button
@@ -780,9 +815,10 @@ export default function AppWalletBar({
               <button
                 type="button"
                 onClick={handleConnectClick}
-                className="rounded-xl border border-white/10 bg-white text-black px-4 py-2 text-sm font-medium hover:opacity-90 transition"
+                disabled={connectUiBusy || !!directConnectBusy}
+                className="rounded-xl border border-white/10 bg-white text-black px-4 py-2 text-sm font-medium hover:opacity-90 transition disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Connect Wallet
+                {connectUiBusy ? 'Opening...' : 'Connect Wallet'}
               </button>
             ) : (
               <>
