@@ -29,7 +29,7 @@ function walletCardMeta(provider: DirectProvider) {
         subtitle: 'Best for most users',
         badge: 'Recommended',
         accent: 'from-[#A98CF5]/28 to-fuchsia-500/10',
-        logoBg: 'bg-[#A98CF5]',
+        logoBg: 'bg-[##A591EF]',
       };
     case 'backpack':
       return {
@@ -47,7 +47,7 @@ function walletCardMeta(provider: DirectProvider) {
         subtitle: 'Great Solana wallet',
         badge: 'Secure',
         accent: 'from-[#F3E34F]/20 to-cyan-500/10',
-        logoBg: 'bg-[#F3E34F]',
+        logoBg: 'bg-[##FFEC4E]',
       };
     default:
       return {
