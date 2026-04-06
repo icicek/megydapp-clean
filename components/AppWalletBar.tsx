@@ -28,8 +28,8 @@ function walletCardMeta(provider: DirectProvider) {
         icon: '/wallets/phantom.png',
         subtitle: 'Best for most users',
         badge: 'Recommended',
-        accent: 'from-[#B794F6]/30 to-fuchsia-500/10',
-        logoBg: 'bg-[#B794F6]',
+        accent: 'from-[#A98CF5]/28 to-fuchsia-500/10',
+        logoBg: 'bg-[#A98CF5]',
       };
     case 'backpack':
       return {
@@ -46,8 +46,8 @@ function walletCardMeta(provider: DirectProvider) {
         icon: '/wallets/solflare.png',
         subtitle: 'Great Solana wallet',
         badge: 'Secure',
-        accent: 'from-[#F6E65B]/22 to-cyan-500/10',
-        logoBg: 'bg-[#F6E65B]',
+        accent: 'from-[#F3E34F]/20 to-cyan-500/10',
+        logoBg: 'bg-[#F3E34F]',
       };
     default:
       return {
@@ -442,9 +442,9 @@ export default function AppWalletBar({
                         {meta.badge}
                       </span>
 
-                      <div className="relative flex items-center gap-3 pr-[96px]">
+                      <div className="relative flex items-center gap-3 pr-[92px]">
                         <div
-                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] overflow-hidden ${meta.logoBg}`}
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.10)] overflow-hidden ${meta.logoBg}`}
                         >
                           {meta.icon ? (
                             <img
@@ -470,8 +470,7 @@ export default function AppWalletBar({
                           </div>
                         </div>
 
-                        <div className="absolute right-3 bottom-1 text-white/35 transition group-hover:text-white/70 text-[20px] leading-none">
-                          ↗
+                        <div className="absolute right-3 bottom-0 text-white/35 transition group-hover:text-white/70 text-[20px] leading-none">                          ↗
                         </div>
                       </div>
                     </button>
