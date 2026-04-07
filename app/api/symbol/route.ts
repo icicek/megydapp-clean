@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 
+// helpers
 const tidy = (x: any) => {
   if (!x) return null;
   const s = String(x).replace(/\0/g, '').trim();
@@ -16,7 +17,10 @@ const sanitizeSym = (s: string | null) => {
   return z || null;
 };
 
-async function fetchJSON<T>(url: string, ms = 8000): Promise<{ ok: boolean; data?: T; err?: string }> {
+async function fetchJSON<T>(
+  url: string,
+  ms = 8000
+): Promise<{ ok: boolean; data?: T; err?: string }> {
   const ctrl = new AbortController();
   const id = setTimeout(() => ctrl.abort(), ms);
 
@@ -31,6 +35,7 @@ async function fetchJSON<T>(url: string, ms = 8000): Promise<{ ok: boolean; data
     });
 
     if (!r.ok) return { ok: false, err: `HTTP ${r.status}` };
+
     const j = (await r.json()) as T;
     return { ok: true, data: j };
   } catch (e: any) {
@@ -51,11 +56,12 @@ function jsonWithCache(body: any, status = 200) {
 
 export async function GET(req: NextRequest) {
   const mint = tidy(req.nextUrl.searchParams.get('mint'));
+
   if (!mint) {
     return jsonWithCache({ ok: false, error: 'missing_mint' }, 400);
   }
 
-  // 1) Token list
+  // 1) token list
   try {
     const tokenlistRes = await fetch(`${req.nextUrl.origin}/api/tokenlist`, {
       cache: 'no-store',
@@ -80,7 +86,10 @@ export async function GET(req: NextRequest) {
   try {
     type DexResp = {
       pairs?: Array<{
-        baseToken?: { symbol?: string; name?: string };
+        baseToken?: {
+          symbol?: string;
+          name?: string;
+        };
       }>;
     };
 
@@ -102,7 +111,7 @@ export async function GET(req: NextRequest) {
     }
   } catch {}
 
-  // 3) On-chain
+  // 3) on-chain
   try {
     const metaRes = await fetch(
       `${req.nextUrl.origin}/api/tokenmeta?mint=${encodeURIComponent(mint)}`,
