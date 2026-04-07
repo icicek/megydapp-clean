@@ -19,6 +19,7 @@ const sanitizeSym = (s: string | null) => {
 
 async function fetchJSON<T>(
   url: string,
+  init?: RequestInit,
   ms = 8000
 ): Promise<{ ok: boolean; data?: T; err?: string }> {
   const ctrl = new AbortController();
@@ -31,7 +32,9 @@ async function fetchJSON<T>(
       headers: {
         'user-agent': 'coincarnation-symbol/1.0',
         accept: 'application/json',
+        ...(init?.headers || {}),
       },
+      ...init,
     });
 
     if (!r.ok) return { ok: false, err: `HTTP ${r.status}` };
@@ -82,7 +85,46 @@ export async function GET(req: NextRequest) {
     }
   } catch {}
 
-  // 2) DexScreener
+  // 2) CoinGecko onchain token info (Solana)
+  try {
+    type GeckoResp = {
+      data?: {
+        attributes?: {
+          symbol?: string;
+          name?: string;
+        };
+      };
+    };
+
+    const geckoUrl = `https://api.coingecko.com/api/v3/onchain/networks/solana/tokens/${encodeURIComponent(mint)}/info`;
+
+    const geckoHeaders: Record<string, string> = {};
+    if (process.env.COINGECKO_API_KEY) {
+      geckoHeaders['x-cg-pro-api-key'] = process.env.COINGECKO_API_KEY;
+    } else if (process.env.COINGECKO_DEMO_API_KEY) {
+      geckoHeaders['x-cg-demo-api-key'] = process.env.COINGECKO_DEMO_API_KEY;
+    }
+
+    const cg = await fetchJSON<GeckoResp>(
+      geckoUrl,
+      { headers: geckoHeaders },
+      8000
+    );
+
+    const symCg = sanitizeSym(tidy(cg.data?.data?.attributes?.symbol));
+    const nameCg = tidy(cg.data?.data?.attributes?.name);
+
+    if (symCg || nameCg) {
+      return jsonWithCache({
+        ok: true,
+        symbol: symCg,
+        name: nameCg,
+        source: 'coingecko',
+      });
+    }
+  } catch {}
+
+  // 3) DexScreener
   try {
     type DexResp = {
       pairs?: Array<{
@@ -111,7 +153,7 @@ export async function GET(req: NextRequest) {
     }
   } catch {}
 
-  // 3) on-chain
+  // 4) on-chain metadata route
   try {
     const metaRes = await fetch(
       `${req.nextUrl.origin}/api/tokenmeta?mint=${encodeURIComponent(mint)}`,
