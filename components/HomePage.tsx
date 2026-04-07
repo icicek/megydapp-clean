@@ -16,7 +16,7 @@ import { useChain } from '@/app/providers/ChainProvider';
 import AdminLink from '@/components/admin/AdminLink';
 
 // PROD'da 15s, DEV'de 20s polling
-const POLL_MS = process.env.NODE_ENV === 'production' ? 15000 : 20000;
+const POLL_MS = 0;
 
 export default function HomePage() {
   const router = useRouter();
@@ -208,7 +208,7 @@ export default function HomePage() {
                   })}
                 </select>
 
-                {!tokensLoading && tokens.length === 0 && !tokensError && (
+                {!tokensLoading && tokens.length === 0 && (
                   <p className="text-xs text-gray-400 mb-2">
                     No supported tokens were found in this wallet yet.
                   </p>
