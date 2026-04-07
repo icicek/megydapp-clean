@@ -15,7 +15,7 @@ import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
 import { useChain } from '@/app/providers/ChainProvider';
 import AdminLink from '@/components/admin/AdminLink';
 
-// PROD'da 60s, DEV'de 20s polling
+// PROD'da 15s, DEV'de 20s polling
 const POLL_MS = process.env.NODE_ENV === 'production' ? 15000 : 20000;
 
 export default function HomePage() {
@@ -39,20 +39,48 @@ export default function HomePage() {
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showSolModal, setShowSolModal] = useState(false);
 
+  function formatTokenAmount(token: TokenInfo) {
+    if (typeof token.uiAmountString === 'string' && token.uiAmountString.trim()) {
+      return token.uiAmountString;
+    }
+  
+    if (typeof token.amount === 'number' && Number.isFinite(token.amount)) {
+      return token.amount.toFixed(4);
+    }
+  
+    return '0';
+  }
+
   const handleSelectChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const mint = e.target.value;
   
     let token = tokens.find((t) => t.mint === mint) || null;
   
-    if (!token || (!Number.isFinite(token.amount) && !token.uiAmountString)) {
+    if (!token) {
       try {
         await refetchTokens?.();
       } catch {}
-      token = tokens.find((t) => t.mint === mint) || token;
+      token = tokens.find((t) => t.mint === mint) || null;
+    }
+  
+    if (!token) {
+      setSelectedToken(null);
+      setShowSolModal(false);
+      return;
+    }
+  
+    const hasValidAmount =
+      (typeof token.amount === 'number' && Number.isFinite(token.amount)) ||
+      (typeof token.uiAmountString === 'string' && token.uiAmountString.trim().length > 0);
+  
+    if (!hasValidAmount) {
+      setSelectedToken(null);
+      setShowSolModal(false);
+      return;
     }
   
     setSelectedToken(token);
-    setShowSolModal(Boolean(token));
+    setShowSolModal(true);
   };
 
   const [globalStats, setGlobalStats] = useState({
@@ -171,7 +199,7 @@ export default function HomePage() {
                   </option>
                   {tokens.map((token) => {
                     const sym = (token.symbol ?? token.mint.slice(0, 4)).toUpperCase();
-                    const amt = token.uiAmountString ?? token.amount.toFixed(4);
+                    const amt = formatTokenAmount(token);
                     return (
                       <option key={token.mint} value={token.mint}>
                         {sym} — {amt}
@@ -180,9 +208,15 @@ export default function HomePage() {
                   })}
                 </select>
 
-                {!tokensLoading && tokens.length === 0 && tokensError && (
+                {!tokensLoading && tokens.length === 0 && !tokensError && (
+                  <p className="text-xs text-gray-400 mb-2">
+                    No supported tokens were found in this wallet yet.
+                  </p>
+                )}
+
+                {tokensError && (
                   <p className="text-xs text-red-400 mb-2">
-                    Token fetch error: {String(tokensError)}
+                    Could not fully sync wallet tokens. Please try again.
                   </p>
                 )}
               </>

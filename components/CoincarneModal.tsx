@@ -119,6 +119,8 @@ type TokenCategory = 'healthy' | 'deadcoin' | 'unknown';
 interface TokenInfo {
   mint: string;
   amount: number;
+  uiAmountString?: string;
+  decimals?: number;
   symbol?: string;
   logoURI?: string;
 }
@@ -153,6 +155,13 @@ function solToLamports(ui: string | number): number {
   const n = Number(joined);
   if (!Number.isSafeInteger(n) || n <= 0) throw new Error('INVALID_LAMPORTS');
   return n;
+}
+
+function formatDisplayAmount(value: number, decimals = 6) {
+  if (!Number.isFinite(value) || value <= 0) return '0';
+  if (value >= 1000) return value.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  if (value >= 1) return value.toLocaleString('en-US', { maximumFractionDigits: 4 });
+  return value.toLocaleString('en-US', { maximumFractionDigits: Math.min(decimals, 6) });
 }
 
 async function simulateTxOrThrow(connection: any, tx: any) {
@@ -317,7 +326,7 @@ export default function CoincarneModal({
 
   /* ------------------ SYMBOL RESOLUTION ------------------ */
   const [displaySymbol, setDisplaySymbol] = useState<string>(
-    (token.symbol || token.mint.slice(0, 4)).toLocaleUpperCase('en-US')
+    (token.symbol || token.mint.slice(0, 6)).toLocaleUpperCase('en-US')
   );
 
   // Nihai çözüm: önce /api/symbol (Jupiter→DexScreener→On-chain), yoksa tokenMeta
@@ -354,7 +363,6 @@ export default function CoincarneModal({
     balance: internalBalance,
     loading: balLoading,
     error: balError,
-    isSOL: isSolFromHook,
   } = useInternalBalance(token.mint, { isSOL: isSOLToken });
 
   const tokenAmountFallback = Number.isFinite(token.amount) ? Number(token.amount) : 0;
@@ -366,7 +374,7 @@ export default function CoincarneModal({
 
     return {
       amount: tokenAmountFallback,
-      decimals: isSOLToken ? 9 : 6,
+      decimals: token.decimals ?? (isSOLToken ? 9 : 6),
       symbol: displaySymbol,
     };
   }, [internalBalance, tokenAmountFallback, isSOLToken, displaySymbol]);
@@ -384,13 +392,6 @@ export default function CoincarneModal({
   const balanceNotice = balError && tokenAmountFallback > 0
     ? 'Live balance check failed. Using cached wallet balance.'
     : null;
-
-  useEffect(() => {
-    setAmountInput('');
-    setTxError(null);
-    setPrecheckMsg(null);
-    setUiNotice(null);
-  }, [token.mint]);
   
     // ------------------ STATUS / VOTE INFO ------------------
   useEffect(() => {
@@ -398,9 +399,14 @@ export default function CoincarneModal({
     const mint = isSOLToken ? WSOL_MINT : token.mint;
 
     (async () => {
-      const data = await fetchLatestTokenStatus(mint);
-      if (abort) return;
-      setStatusInfo(data);
+      try {
+        const data = await fetchLatestTokenStatus(mint);
+        if (abort) return;
+        setStatusInfo(data);
+      } catch {
+        if (abort) return;
+        setStatusInfo(null);
+      }
     })();
 
     return () => {
@@ -1303,7 +1309,11 @@ export default function CoincarneModal({
     }
   
     calculated = quantize(calculated, effectiveBalance.decimals ?? (isSOLToken ? 9 : 6));
-    setAmountInput(String(calculated));
+    setAmountInput(
+      String(
+        quantize(calculated, effectiveBalance.decimals ?? (isSOLToken ? 9 : 6))
+      )
+    );
   };
 
   useEffect(() => {
@@ -1398,7 +1408,10 @@ export default function CoincarneModal({
               <p className="text-sm text-gray-400 text-center mb-2">
                 {balLoading && !hasUsableBalance
                   ? 'Fetching balance…'
-                  : `Balance: ${effectiveBalance.amount.toFixed(4)} ${displaySymbol}`}
+                  : `Balance: ${formatDisplayAmount(
+                      effectiveBalance.amount,
+                      effectiveBalance.decimals ?? 6
+                    )} ${displaySymbol}`}
               </p>
 
               {balanceNotice && (

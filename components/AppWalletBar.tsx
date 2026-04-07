@@ -95,6 +95,8 @@ function getProviderLinks(provider: DirectProvider) {
   }
 }
 
+// Opens the target URL in a new tab when possible.
+// Falls back to same-tab navigation if the browser blocks the new tab.
 function openUrl(url: string, newTab = false) {
   if (newTab) {
     const opened = window.open(url, '_blank', 'noopener,noreferrer');
@@ -239,6 +241,7 @@ export default function AppWalletBar({
     setShowMobileWalletPicker(false);
     setDirectConnectError(null);
     setDirectConnectBusy(null);
+    setConnectUiBusy(false);
   }, [connected]);
 
   useEffect(() => {
@@ -345,16 +348,13 @@ export default function AppWalletBar({
   
       const { browseUrl, installUrl } = getProviderLinks(provider);
   
-      // If the page is already opened inside a wallet browser,
-      // prefer normal wallet modal instead of forcing another deep link.
+      // If already inside a wallet browser, use the standard wallet modal.
       if (env.isWalletBrowser) {
         setShowMobileWalletPicker(false);
         setVisible(true);
         return;
       }
   
-      // If not, still attempt deep link once on mobile because some wallets
-      // do not inject until opened through their own app/browser.
       const shouldTryBrowse = env.isMobile;
   
       if (!shouldTryBrowse) {

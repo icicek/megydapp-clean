@@ -25,8 +25,10 @@ type Options = {
 };
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
-const DEBUG_TOKENS = true;
-const dbg = (...args: any[]) => { if (DEBUG_TOKENS) console.log('[TOKENS]', ...args); };
+const DEBUG_TOKENS = process.env.NODE_ENV !== 'production';
+const dbg = (...args: any[]) => {
+  if (DEBUG_TOKENS) console.log('[TOKENS]', ...args);
+};
 
 /* -------------------------- Helpers & cache -------------------------- */
 
@@ -151,6 +153,12 @@ function rawToUiString(raw: string, decimals: number): string {
   return frac ? `${int}.${frac}` : int;
 }
 
+function fallbackSymbolFromMint(mint: string): string {
+  if (!mint) return 'TOKEN';
+  if (mint === WSOL_MINT || mint === 'SOL') return 'SOL';
+  return mint.slice(0, 6).toUpperCase();
+}
+
 export function useWalletTokens(options?: Options) {
   const { publicKey, connected } = useWallet();
   const { connection: providerConnection } = useConnection();
@@ -164,6 +172,10 @@ export function useWalletTokens(options?: Options) {
 
   const inflightRef = useRef(false);
   const reqIdRef = useRef(0);
+
+  const autoRefetchOnFocus = options?.autoRefetchOnFocus ?? true;
+  const autoRefetchOnAccountChange = options?.autoRefetchOnAccountChange ?? true;
+  const pollMs = options?.pollMs;
 
   // ---- Client RPC helper (server route başarısızsa) ----
   const mapParsed = (accs: any[]) => {
@@ -244,6 +256,12 @@ export function useWalletTokens(options?: Options) {
     }
   }, [connection]);
 
+  function clearOwnerTokenCache(ownerBase58: string) {
+    const key = getOwnerKey(ownerBase58);
+    TOKENS_MEMO.delete(key);
+    TOKENS_INFLIGHT.delete(key);
+  }
+  
   const doFetch = useCallback(async (silent: boolean) => {
     if (!publicKey || !connected) {
       setTokens([]);
@@ -289,9 +307,6 @@ export function useWalletTokens(options?: Options) {
           const p = (async (): Promise<TokenInfo[]> => {
             // 2) FIRST: SERVER ROUTE
             try {
-              const page =
-                typeof window !== 'undefined' ? window.location.pathname : 'client';
-
                 const res = await fetch(`/api/solana/tokens?owner=${owner}&tag=home`, {
                   cache: 'no-store',
                   headers: {
@@ -348,7 +363,7 @@ export function useWalletTokens(options?: Options) {
             const isSol = t.mint === 'SOL' || t.mint === WSOL_MINT;
             return isSol
               ? { ...t, mint: WSOL_MINT, symbol: 'SOL' } // mint’i de normalize etmek iyi olur
-              : { ...t, symbol: t.symbol || t.mint.slice(0, 4) };
+              : { ...t, symbol: t.symbol || fallbackSymbolFromMint(t.mint) };
           })
         );
         setHasLoadedOnce(true);
@@ -368,12 +383,16 @@ export function useWalletTokens(options?: Options) {
     
       // (eski) utils token list’i sadece logo için son çare olarak dene
       let legacyMap: Map<string, any> | null = null;
-      try {
-        const list = await fetchSolanaTokenList().catch(() => []);
-        legacyMap = new Map(
-          (list || []).map((m: any) => [String(m.address || '').toLowerCase(), m])
-        );
-      } catch {}
+      const needsLegacyLogo = tokenListRaw.some((t) => t.mint !== 'SOL' && t.mint !== WSOL_MINT && !t.logoURI);
+
+      if (needsLegacyLogo) {
+        try {
+          const list = await fetchSolanaTokenList().catch(() => []);
+          legacyMap = new Map(
+            (list || []).map((m: any) => [String(m.address || '').toLowerCase(), m])
+          );
+        } catch {}
+      }
     
       const enriched = await Promise.all(
         tokenListRaw.map(async (token) => {
@@ -381,7 +400,7 @@ export function useWalletTokens(options?: Options) {
           if (isSol) return { ...token, mint: WSOL_MINT, symbol: 'SOL' };
     
           const resolved = symMap.get(token.mint) || { symbol: null, name: null };
-          const symbol = resolved.symbol || token.symbol || token.mint.slice(0, 4);
+          const symbol = resolved.symbol || token.symbol || fallbackSymbolFromMint(token.mint);
     
           // legacy logo (varsa)
           let logoURI: string | undefined = token.logoURI;
@@ -397,7 +416,9 @@ export function useWalletTokens(options?: Options) {
       if (reqIdRef.current !== myReq) return;
       setTokens(enriched);
     } catch (e: any) {
-      if (!silent || !hasLoadedOnce) setError(e?.message || 'Failed to fetch tokens');
+      if (!silent || !hasLoadedOnce) {
+        setError('Could not fetch wallet tokens');
+      }
     } finally {
       if (reqIdRef.current === myReq) {
         setLoading(false);
@@ -408,8 +429,11 @@ export function useWalletTokens(options?: Options) {
   }, [publicKey, connected, hasLoadedOnce, clientRpcFetch]);
 
   const refetchTokens = useCallback(async () => {
+    if (publicKey) {
+      clearOwnerTokenCache(publicKey.toBase58());
+    }
     await doFetch(false);
-  }, [doFetch]);
+  }, [doFetch, publicKey]);
 
   // İlk yükleme / cüzdan değişimi
   useEffect(() => {
@@ -428,7 +452,6 @@ export function useWalletTokens(options?: Options) {
   // Arka plan senkron
   useEffect(() => {
     if (!connected) return;
-    const { autoRefetchOnFocus = true, autoRefetchOnAccountChange = true, pollMs } = options || {};
 
     let debounceTimer: any = null;
     const debouncedFetch = () => {
@@ -471,7 +494,7 @@ export function useWalletTokens(options?: Options) {
       if (t) clearTimeout(t);
       if (debounceTimer) clearTimeout(debounceTimer);
     };
-  }, [connected, doFetch, options]);
+  }, [connected, doFetch, autoRefetchOnFocus, autoRefetchOnAccountChange, pollMs]);
 
   return {
     tokens,
