@@ -4,7 +4,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
-import { getAccount, getAssociatedTokenAddress, getMint } from '@solana/spl-token';
+import {
+  getAccount,
+  getAssociatedTokenAddress,
+  getMint,
+  TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
+} from '@solana/spl-token';
 import { connection as fallbackConnection } from '@/lib/solanaConnection';
 
 export type InternalBalance = { amount: number; decimals: number } | null;
@@ -66,13 +72,23 @@ export function useInternalBalance(
       }
 
       const mintPk = new PublicKey(tokenMint);
+
+      const mintAccInfo = await connection.getAccountInfo(mintPk, 'confirmed');
+      if (!mintAccInfo) {
+        throw new Error('Mint account not found');
+      }
+
+      const tokenProgram = mintAccInfo.owner.equals(TOKEN_2022_PROGRAM_ID)
+        ? TOKEN_2022_PROGRAM_ID
+        : TOKEN_PROGRAM_ID;
+
       const [mintInfo, ata] = await Promise.all([
-        getMint(connection, mintPk, 'confirmed'),
-        getAssociatedTokenAddress(mintPk, publicKey),
+        getMint(connection, mintPk, 'confirmed', tokenProgram),
+        getAssociatedTokenAddress(mintPk, publicKey, false, tokenProgram),
       ]);
 
       try {
-        const acc = await getAccount(connection, ata, 'confirmed');
+        const acc = await getAccount(connection, ata, 'confirmed', tokenProgram);
         const raw = acc.amount.toString();
         const ui = Number(rawToUiString(raw, mintInfo.decimals));
 
