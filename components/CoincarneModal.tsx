@@ -122,6 +122,7 @@ interface TokenInfo {
   uiAmountString?: string;
   decimals?: number;
   symbol?: string;
+  name?: string;
   logoURI?: string;
 }
 
@@ -326,7 +327,7 @@ export default function CoincarneModal({
 
   /* ------------------ SYMBOL RESOLUTION ------------------ */
   const [displaySymbol, setDisplaySymbol] = useState<string>(
-    (token.symbol || token.mint.slice(0, 6)).toLocaleUpperCase('en-US')
+    (token.symbol || token.name || token.mint.slice(0, 6)).toLocaleUpperCase('en-US')
   );
 
   // Nihai çözüm: önce /api/symbol (Jupiter→DexScreener→On-chain), yoksa tokenMeta
@@ -338,8 +339,10 @@ export default function CoincarneModal({
         if (r.ok) {
           const j = await r.json();
           const sym = (j?.symbol || '').toString().trim();
-          if (!off && sym) {
-            setDisplaySymbol(sym);
+          const nm = (j?.name || '').toString().trim();
+        
+          if (!off && (sym || nm)) {
+            setDisplaySymbol(sym || nm);
             return;
           }
         }
@@ -347,7 +350,12 @@ export default function CoincarneModal({
       // Fallback: eski meta
       try {
         const meta = await getTokenMeta(token.mint, token.symbol);
-        if (!off && meta?.symbol) setDisplaySymbol(meta.symbol);
+        const metaSymbol = (meta as any)?.symbol;
+        const metaName = (meta as any)?.name;
+      
+        if (!off && (metaSymbol || metaName)) {
+          setDisplaySymbol(String(metaSymbol || metaName));
+        }
       } catch {}
     })();
     return () => { off = true; };

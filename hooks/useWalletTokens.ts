@@ -11,10 +11,11 @@ import { fetchTokenMetadataClient as fetchTokenMetadata } from '@/lib/client/fet
 
 export interface TokenInfo {
   mint: string;
-  amount: number;             // UI için sayı (liste sıralama vb.)
-  uiAmountString?: string;    // Güvenli gösterim (string)
-  decimals?: number;          // Gerekirse işlemde kullanılır
+  amount: number;
+  uiAmountString?: string;
+  decimals?: number;
   symbol?: string;
+  name?: string;
   logoURI?: string;
 }
 
@@ -362,8 +363,11 @@ export function useWalletTokens(options?: Options) {
           tokenListRaw.map((t) => {
             const isSol = t.mint === 'SOL' || t.mint === WSOL_MINT;
             return isSol
-              ? { ...t, mint: WSOL_MINT, symbol: 'SOL' } // mint’i de normalize etmek iyi olur
-              : { ...t, symbol: t.symbol || fallbackSymbolFromMint(t.mint) };
+              ? { ...t, mint: WSOL_MINT, symbol: 'SOL', name: 'Solana' }
+              : {
+                  ...t,
+                  symbol: t.symbol || t.name || fallbackSymbolFromMint(t.mint),
+                };
           })
         );
         setHasLoadedOnce(true);
@@ -400,7 +404,12 @@ export function useWalletTokens(options?: Options) {
           if (isSol) return { ...token, mint: WSOL_MINT, symbol: 'SOL' };
     
           const resolved = symMap.get(token.mint) || { symbol: null, name: null };
-          const symbol = resolved.symbol || token.symbol || fallbackSymbolFromMint(token.mint);
+          const symbol =
+            resolved.symbol ||
+            resolved.name ||
+            token.symbol ||
+            token.name ||
+            fallbackSymbolFromMint(token.mint);
     
           // legacy logo (varsa)
           let logoURI: string | undefined = token.logoURI;
@@ -409,7 +418,12 @@ export function useWalletTokens(options?: Options) {
             if (meta?.logoURI) logoURI = meta.logoURI;
           }
     
-          return { ...token, symbol, logoURI };
+          return {
+            ...token,
+            symbol,
+            name: resolved.name || token.name,
+            logoURI,
+          };
         })
       );
     
