@@ -270,35 +270,6 @@ async function resolveFromOnChain(origin: string, mint: string) {
   }
 }
 
-async function resolveFromLegacy(origin: string, mint: string) {
-  try {
-    const r = await fetch(
-      `${origin}/api/tokenmeta?mint=${encodeURIComponent(mint)}&legacy=1`,
-      { cache: 'no-store' }
-    );
-
-    if (!r.ok) return null;
-
-    const oc = await r.json();
-
-    const symbol = sanitizeSym(tidy(oc?.symbol));
-    const name = tidy(oc?.name);
-    const logo_uri = tidy(oc?.image || oc?.logoURI);
-
-    if (!symbol && !name && !logo_uri) return null;
-
-    return {
-      symbol,
-      name,
-      logo_uri,
-      source: 'legacy',
-    };
-  } catch (e) {
-    console.error('[api/symbol] legacy failed', { mint, error: String(e) });
-    return null;
-  }
-}
-
 export async function GET(req: NextRequest) {
   const mint = tidy(req.nextUrl.searchParams.get('mint'));
   const force = req.nextUrl.searchParams.get('force') === '1';
@@ -404,27 +375,6 @@ export async function GET(req: NextRequest) {
         name: onchain.name,
         logoURI: onchain.logo_uri,
         source: onchain.source,
-        cached: false,
-      });
-    }
-
-    // 5) legacy fallback
-    const legacy = await resolveFromLegacy(origin, mint);
-    if (legacy) {
-      await upsertMetadata({
-        mint,
-        symbol: legacy.symbol,
-        name: legacy.name,
-        logo_uri: legacy.logo_uri,
-        source: legacy.source,
-      });
-
-      return jsonWithCache({
-        ok: true,
-        symbol: legacy.symbol,
-        name: legacy.name,
-        logoURI: legacy.logo_uri,
-        source: legacy.source,
         cached: false,
       });
     }
