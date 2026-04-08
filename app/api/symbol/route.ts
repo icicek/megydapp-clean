@@ -79,8 +79,15 @@ async function getCachedMetadata(mint: string): Promise<CacheRow | null> {
       LIMIT 1
     `;
 
-    return (result[0] as CacheRow) || null;
+    const row = (result[0] as CacheRow) || null;
 
+    console.log('[api/symbol] cache read', {
+      mint,
+      hit: Boolean(row),
+      row,
+    });
+
+    return row;
   } catch (e) {
     console.error('[api/symbol] cache read failed', { mint, error: String(e) });
     return null;
@@ -100,6 +107,14 @@ async function upsertMetadata(params: {
     console.log('[api/symbol] skip cache write: empty payload', { mint, source });
     return;
   }
+
+  console.log('[api/symbol] trying upsert', {
+    mint,
+    symbol,
+    name,
+    source,
+    hasLogo: Boolean(logo_uri),
+  });
 
   try {
     await sql`
