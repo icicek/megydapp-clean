@@ -6,8 +6,6 @@ import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 import { connection as fallbackConnection } from '@/lib/solanaConnection';
 // (eski kaynaklar: en sona, son çare olarak bırakıyoruz)
-import { fetchSolanaTokenList } from '@/lib/utils';
-import { fetchTokenMetadataClient as fetchTokenMetadata } from '@/lib/client/fetchTokenMetadataClient';
 
 export interface TokenInfo {
   mint: string;
@@ -59,83 +57,75 @@ const sanitizeSym = (s: string | null) => {
   return z || null;
 };
 
-type SymCacheRow = { symbol: string | null; name: string | null; at: number; source?: string };
+type SymCacheRow = {
+  symbol: string | null;
+  name: string | null;
+  logoURI?: string | null;
+  at: number;
+  source?: string;
+};
 const SYM_MEMO = new Map<string, SymCacheRow>();
 const SYM_TTL_MS = 5 * 60 * 1000; // 5 dk
 
-// tokenlist map’i de hafifçe önbellekle
-let TOKENLIST_MEMO: { at: number; map: Record<string, any> } | null = null;
-const TOKENLIST_TTL_MS = 60 * 1000; // 60 sn
-
-async function getTokenlistMap(): Promise<Record<string, any>> {
-  const now = Date.now();
-  if (TOKENLIST_MEMO && now - TOKENLIST_MEMO.at < TOKENLIST_TTL_MS) return TOKENLIST_MEMO.map;
-  try {
-    const r = await fetch('/api/tokenlist', { cache: 'force-cache' });
-    const j = await r.json();
-    const m = (j?.data as Record<string, any>) || {};
-    TOKENLIST_MEMO = { at: now, map: m };
-    return m;
-  } catch {
-    return {};
-  }
-}
-
 // Bir mint için sembol çöz: tokenlist → /api/symbol → (son çare) fetchTokenMetadata
-async function resolveSymbolForMint(mint: string): Promise<{ symbol: string | null; name: string | null; source?: string }> {
+async function resolveSymbolForMint(
+  mint: string
+): Promise<{ symbol: string | null; name: string | null; logoURI?: string | null; source?: string }> {
   const now = Date.now();
   const c = SYM_MEMO.get(mint);
-  if (c && now - c.at < SYM_TTL_MS) return { symbol: c.symbol, name: c.name, source: c.source };
 
-  // 1) tokenlist
-  try {
-    const map = await getTokenlistMap();
-    const row = map?.[mint];
-    const sym1 = sanitizeSym(tidy(row?.symbol));
-    const nm1 = tidy(row?.name);
-    if (sym1 || nm1) {
-      const out = { symbol: sym1, name: nm1, source: 'tokenlist' as const };
-      SYM_MEMO.set(mint, { ...out, at: now });
-      return out;
-    }
-  } catch {}
+  if (c && now - c.at < SYM_TTL_MS) {
+    return {
+      symbol: c.symbol,
+      name: c.name,
+      logoURI: c.logoURI,
+      source: c.source,
+    };
+  }
 
-  // 2) /api/symbol (DexScreener → On-chain)
   try {
-    const r = await fetch(`/api/symbol?mint=${encodeURIComponent(mint)}`, { cache: 'no-store' });
+    const r = await fetch(`/api/symbol?mint=${encodeURIComponent(mint)}`, {
+      cache: 'no-store',
+    });
+
     if (r.ok) {
       const j = await r.json();
-      const sym2 = sanitizeSym(tidy(j?.symbol));
-      const nm2 = tidy(j?.name);
-      const out = { symbol: sym2, name: nm2, source: tidy(j?.source) || 'symbol' };
+      const out = {
+        symbol: sanitizeSym(tidy(j?.symbol)),
+        name: tidy(j?.name),
+        logoURI: tidy(j?.logoURI),
+        source: tidy(j?.source) || 'symbol',
+      };
+
       SYM_MEMO.set(mint, { ...out, at: now });
       return out;
     }
   } catch {}
 
-  // 3) son çare: eski client metası
-  try {
-    const fb = await fetchTokenMetadata(mint);
-    const sym3 = sanitizeSym(tidy(fb?.symbol));
-    const nm3 = tidy(fb?.name);
-    const out = { symbol: sym3, name: nm3, source: 'legacy' as const };
-    SYM_MEMO.set(mint, { ...out, at: now });
-    return out;
-  } catch {}
+  const out = {
+    symbol: null,
+    name: null,
+    logoURI: null,
+    source: 'none' as const,
+  };
 
-  const out = { symbol: null, name: null, source: 'none' as const };
   SYM_MEMO.set(mint, { ...out, at: now });
   return out;
 }
 
 // Concurrency limiter (basit batching)
-async function resolveManySymbols(mints: string[], batchSize = 4) {
-  const results = new Map<string, { symbol: string | null; name: string | null; source?: string }>();
+async function resolveManySymbols(mints: string[], batchSize = 8) {
+  const results = new Map<
+    string,
+    { symbol: string | null; name: string | null; logoURI?: string | null; source?: string }
+  >();
+
   for (let i = 0; i < mints.length; i += batchSize) {
     const batch = mints.slice(i, i + batchSize);
     const rows = await Promise.all(batch.map((m) => resolveSymbolForMint(m)));
     rows.forEach((r, idx) => results.set(batch[idx], r));
   }
+
   return results;
 }
 
@@ -366,7 +356,8 @@ export function useWalletTokens(options?: Options) {
               ? { ...t, mint: WSOL_MINT, symbol: 'SOL', name: 'Solana' }
               : {
                   ...t,
-                  symbol: t.symbol || t.name || fallbackSymbolFromMint(t.mint),
+                  symbol: t.symbol || undefined,
+                  name: t.name || undefined,
                 };
           })
         );
@@ -383,46 +374,31 @@ export function useWalletTokens(options?: Options) {
         .filter((t) => t.mint !== 'SOL' && t.mint !== WSOL_MINT)
         .map((t) => t.mint);
     
-      const symMap = await resolveManySymbols(nonSolMints, 4); // concurrency=4
-    
-      // (eski) utils token list’i sadece logo için son çare olarak dene
-      let legacyMap: Map<string, any> | null = null;
-      const needsLegacyLogo = tokenListRaw.some((t) => t.mint !== 'SOL' && t.mint !== WSOL_MINT && !t.logoURI);
-
-      if (needsLegacyLogo) {
-        try {
-          const list = await fetchSolanaTokenList().catch(() => []);
-          legacyMap = new Map(
-            (list || []).map((m: any) => [String(m.address || '').toLowerCase(), m])
-          );
-        } catch {}
-      }
+      const symMap = await resolveManySymbols(nonSolMints, 8); // concurrency=8
     
       const enriched = await Promise.all(
         tokenListRaw.map(async (token) => {
           const isSol = token.mint === 'SOL' || token.mint === WSOL_MINT;
-          if (isSol) return { ...token, mint: WSOL_MINT, symbol: 'SOL' };
-    
-          const resolved = symMap.get(token.mint) || { symbol: null, name: null };
+          if (isSol) return { ...token, mint: WSOL_MINT, symbol: 'SOL', name: 'Solana' };
+      
+          const resolved = symMap.get(token.mint) || {
+            symbol: null,
+            name: null,
+            logoURI: null,
+          };
+      
           const symbol =
             resolved.symbol ||
             resolved.name ||
             token.symbol ||
             token.name ||
             fallbackSymbolFromMint(token.mint);
-    
-          // legacy logo (varsa)
-          let logoURI: string | undefined = token.logoURI;
-          if (!logoURI && legacyMap) {
-            const meta = legacyMap.get(token.mint.toLowerCase());
-            if (meta?.logoURI) logoURI = meta.logoURI;
-          }
-    
+      
           return {
             ...token,
             symbol,
             name: resolved.name || token.name,
-            logoURI,
+            logoURI: resolved.logoURI || token.logoURI,
           };
         })
       );

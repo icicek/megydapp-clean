@@ -1,11 +1,22 @@
-//app/api/symbol/route.ts
+// app/api/symbol/route.ts
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { sql } from '@/app/api/_lib/db';
 
-// helpers
-const tidy = (x: any) => {
+type CacheRow = {
+  mint: string;
+  symbol: string | null;
+  name: string | null;
+  logo_uri: string | null;
+  source: string | null;
+  updated_at?: string | Date | null;
+};
+
+const CACHE_HEADER = 'public, s-maxage=300, stale-while-revalidate=600';
+
+const tidy = (x: unknown) => {
   if (!x) return null;
   const s = String(x).replace(/\0/g, '').trim();
   return s || null;
@@ -17,10 +28,16 @@ const sanitizeSym = (s: string | null) => {
   return z || null;
 };
 
+function jsonWithCache(body: any, status = 200) {
+  const res = NextResponse.json(body, { status });
+  res.headers.set('Cache-Control', CACHE_HEADER);
+  return res;
+}
+
 async function fetchJSON<T>(
   url: string,
   init?: RequestInit,
-  ms = 8000
+  ms = 7000
 ): Promise<{ ok: boolean; data?: T; err?: string }> {
   const ctrl = new AbortController();
   const id = setTimeout(() => ctrl.abort(), ms);
@@ -30,14 +47,16 @@ async function fetchJSON<T>(
       cache: 'no-store',
       signal: ctrl.signal,
       headers: {
-        'user-agent': 'coincarnation-symbol/1.0',
+        'user-agent': 'coincarnation-symbol/2.0',
         accept: 'application/json',
         ...(init?.headers || {}),
       },
       ...init,
     });
 
-    if (!r.ok) return { ok: false, err: `HTTP ${r.status}` };
+    if (!r.ok) {
+      return { ok: false, err: `HTTP ${r.status}` };
+    }
 
     const j = (await r.json()) as T;
     return { ok: true, data: j };
@@ -51,52 +70,145 @@ async function fetchJSON<T>(
   }
 }
 
-function jsonWithCache(body: any, status = 200) {
-  const res = NextResponse.json(body, { status });
-  res.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
-  return res;
+async function getCachedMetadata(mint: string): Promise<CacheRow | null> {
+  try {
+    const result = await sql`
+      SELECT mint, symbol, name, logo_uri, source, updated_at
+      FROM token_metadata_cache
+      WHERE mint = ${mint}
+      LIMIT 1
+    `;
+
+    return (result[0] as CacheRow) || null;
+
+  } catch (e) {
+    console.error('[api/symbol] cache read failed', { mint, error: String(e) });
+    return null;
+  }
 }
 
-export async function GET(req: NextRequest) {
-  const mint = tidy(req.nextUrl.searchParams.get('mint'));
+async function upsertMetadata(params: {
+  mint: string;
+  symbol: string | null;
+  name: string | null;
+  logo_uri?: string | null;
+  source: string;
+}) {
+  const { mint, symbol, name, logo_uri = null, source } = params;
 
-  if (!mint) {
-    return jsonWithCache({ ok: false, error: 'missing_mint' }, 400);
-  }
+  // cache'e anlamsız veri yazmayalım
+  if (!symbol && !name && !logo_uri) return;
 
-  // 1) token list
   try {
-    const tokenlistRes = await fetch(`${req.nextUrl.origin}/api/tokenlist`, {
-      cache: 'no-store',
-    });
-    const j = await tokenlistRes.json();
+    await sql`
+      INSERT INTO token_metadata_cache (
+        mint,
+        symbol,
+        name,
+        logo_uri,
+        source,
+        updated_at
+      )
+      VALUES (
+        ${mint},
+        ${symbol},
+        ${name},
+        ${logo_uri},
+        ${source},
+        NOW()
+      )
+      ON CONFLICT (mint)
+      DO UPDATE SET
+        symbol = EXCLUDED.symbol,
+        name = EXCLUDED.name,
+        logo_uri = COALESCE(EXCLUDED.logo_uri, token_metadata_cache.logo_uri),
+        source = EXCLUDED.source,
+        updated_at = NOW()
+    `;
+  } catch (e) {
+    console.error('[api/symbol] cache upsert failed', { mint, source, error: String(e) });
+  }
+}
+
+async function resolveFromTokenlist(origin: string, mint: string) {
+  try {
+    const r = await fetch(`${origin}/api/tokenlist`, { cache: 'force-cache' });
+    if (!r.ok) return null;
+
+    const j = await r.json();
     const row = j?.data?.[mint];
 
-    const sym1 = sanitizeSym(tidy(row?.symbol));
-    const name1 = tidy(row?.name);
+    const symbol = sanitizeSym(tidy(row?.symbol));
+    const name = tidy(row?.name);
+    const logo_uri = tidy(row?.logoURI);
 
-    if (sym1 || name1) {
-      return jsonWithCache({
-        ok: true,
-        symbol: sym1,
-        name: name1,
-        source: 'tokenlist',
-      });
-    }
-  } catch {}
+    if (!symbol && !name && !logo_uri) return null;
 
-  // 2) CoinGecko onchain token info (Solana)
+    return {
+      symbol,
+      name,
+      logo_uri,
+      source: 'tokenlist',
+    };
+  } catch (e) {
+    console.error('[api/symbol] tokenlist failed', { mint, error: String(e) });
+    return null;
+  }
+}
+
+async function resolveFromDexScreener(mint: string) {
+  try {
+    type DexResp = {
+      pairs?: Array<{
+        baseToken?: {
+          symbol?: string;
+          name?: string;
+        };
+        info?: {
+          imageUrl?: string;
+        };
+      }>;
+    };
+
+    const dx = await fetchJSON<DexResp>(
+      `https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(mint)}`,
+      undefined,
+      3500
+    );
+
+    const pair = dx.ok ? (dx.data?.pairs?.[0] ?? null) : null;
+    const symbol = sanitizeSym(tidy(pair?.baseToken?.symbol));
+    const name = tidy(pair?.baseToken?.name);
+    const logo_uri = tidy(pair?.info?.imageUrl);
+
+    if (!symbol && !name && !logo_uri) return null;
+
+    return {
+      symbol,
+      name,
+      logo_uri,
+      source: 'dexscreener',
+    };
+  } catch (e) {
+    console.error('[api/symbol] dexscreener failed', { mint, error: String(e) });
+    return null;
+  }
+}
+
+async function resolveFromCoinGecko(mint: string) {
   try {
     type GeckoResp = {
       data?: {
         attributes?: {
           symbol?: string;
           name?: string;
+          image_url?: string;
         };
       };
     };
 
-    const geckoUrl = `https://api.coingecko.com/api/v3/onchain/networks/solana/tokens/${encodeURIComponent(mint)}/info`;
+    const geckoUrl =
+      `https://api.coingecko.com/api/v3/onchain/networks/solana/tokens/${encodeURIComponent(mint)}/info`;
 
     const geckoHeaders: Record<string, string> = {};
     if (process.env.COINGECKO_API_KEY) {
@@ -108,76 +220,233 @@ export async function GET(req: NextRequest) {
     const cg = await fetchJSON<GeckoResp>(
       geckoUrl,
       { headers: geckoHeaders },
-      8000
+      4000
     );
 
-    const symCg = sanitizeSym(tidy(cg.data?.data?.attributes?.symbol));
-    const nameCg = tidy(cg.data?.data?.attributes?.name);
+    const symbol = sanitizeSym(tidy(cg.data?.data?.attributes?.symbol));
+    const name = tidy(cg.data?.data?.attributes?.name);
+    const logo_uri = tidy(cg.data?.data?.attributes?.image_url);
 
-    if (symCg || nameCg) {
-      return jsonWithCache({
-        ok: true,
-        symbol: symCg,
-        name: nameCg,
-        source: 'coingecko',
-      });
-    }
-  } catch {}
+    if (!symbol && !name && !logo_uri) return null;
 
-  // 3) DexScreener
-  try {
-    type DexResp = {
-      pairs?: Array<{
-        baseToken?: {
-          symbol?: string;
-          name?: string;
-        };
-      }>;
+    return {
+      symbol,
+      name,
+      logo_uri,
+      source: 'coingecko',
     };
+  } catch (e) {
+    console.error('[api/symbol] coingecko failed', { mint, error: String(e) });
+    return null;
+  }
+}
 
-    const dx = await fetchJSON<DexResp>(
-      `https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(mint)}`
-    );
-
-    const pair = dx.ok ? (dx.data?.pairs?.[0] ?? null) : null;
-    const sym2 = sanitizeSym(tidy(pair?.baseToken?.symbol));
-    const name2 = tidy(pair?.baseToken?.name);
-
-    if (sym2 || name2) {
-      return jsonWithCache({
-        ok: true,
-        symbol: sym2,
-        name: name2,
-        source: 'dexscreener',
-      });
-    }
-  } catch {}
-
-  // 4) on-chain metadata route
+async function resolveFromOnChain(origin: string, mint: string) {
   try {
-    const metaRes = await fetch(
-      `${req.nextUrl.origin}/api/tokenmeta?mint=${encodeURIComponent(mint)}`,
+    const r = await fetch(
+      `${origin}/api/tokenmeta?mint=${encodeURIComponent(mint)}`,
       { cache: 'no-store' }
     );
-    const oc = await metaRes.json();
 
-    const sym3 = sanitizeSym(tidy(oc?.symbol));
-    const name3 = tidy(oc?.name);
+    if (!r.ok) return null;
 
-    if (sym3 || name3) {
+    const oc = await r.json();
+
+    const symbol = sanitizeSym(tidy(oc?.symbol));
+    const name = tidy(oc?.name);
+    const logo_uri = tidy(oc?.image || oc?.logoURI);
+
+    if (!symbol && !name && !logo_uri) return null;
+
+    return {
+      symbol,
+      name,
+      logo_uri,
+      source: 'onchain',
+    };
+  } catch (e) {
+    console.error('[api/symbol] onchain failed', { mint, error: String(e) });
+    return null;
+  }
+}
+
+async function resolveFromLegacy(origin: string, mint: string) {
+  try {
+    const r = await fetch(
+      `${origin}/api/tokenmeta?mint=${encodeURIComponent(mint)}&legacy=1`,
+      { cache: 'no-store' }
+    );
+
+    if (!r.ok) return null;
+
+    const oc = await r.json();
+
+    const symbol = sanitizeSym(tidy(oc?.symbol));
+    const name = tidy(oc?.name);
+    const logo_uri = tidy(oc?.image || oc?.logoURI);
+
+    if (!symbol && !name && !logo_uri) return null;
+
+    return {
+      symbol,
+      name,
+      logo_uri,
+      source: 'legacy',
+    };
+  } catch (e) {
+    console.error('[api/symbol] legacy failed', { mint, error: String(e) });
+    return null;
+  }
+}
+
+export async function GET(req: NextRequest) {
+  const mint = tidy(req.nextUrl.searchParams.get('mint'));
+  const force = req.nextUrl.searchParams.get('force') === '1';
+  const origin = req.nextUrl.origin;
+
+  if (!mint) {
+    return jsonWithCache({ ok: false, error: 'missing_mint' }, 400);
+  }
+
+  try {
+    // 0) cache-first
+    if (!force) {
+      const cached = await getCachedMetadata(mint);
+      if (cached && (cached.symbol || cached.name || cached.logo_uri)) {
+        return jsonWithCache({
+          ok: true,
+          symbol: sanitizeSym(tidy(cached.symbol)),
+          name: tidy(cached.name),
+          logoURI: tidy(cached.logo_uri),
+          source: cached.source || 'db_cache',
+          cached: true,
+        });
+      }
+    }
+
+    // 1) tokenlist
+    const tokenlist = await resolveFromTokenlist(origin, mint);
+    if (tokenlist) {
+      await upsertMetadata({
+        mint,
+        symbol: tokenlist.symbol,
+        name: tokenlist.name,
+        logo_uri: tokenlist.logo_uri,
+        source: tokenlist.source,
+      });
+
       return jsonWithCache({
         ok: true,
-        symbol: sym3,
-        name: name3,
-        source: 'onchain',
+        symbol: tokenlist.symbol,
+        name: tokenlist.name,
+        logoURI: tokenlist.logo_uri,
+        source: tokenlist.source,
+        cached: false,
       });
     }
-  } catch {}
 
-  return jsonWithCache({
-    ok: true,
-    symbol: null,
-    name: null,
-    source: 'none',
-  });
+    // 2) DexScreener
+    const dex = await resolveFromDexScreener(mint);
+    if (dex) {
+      await upsertMetadata({
+        mint,
+        symbol: dex.symbol,
+        name: dex.name,
+        logo_uri: dex.logo_uri,
+        source: dex.source,
+      });
+
+      return jsonWithCache({
+        ok: true,
+        symbol: dex.symbol,
+        name: dex.name,
+        logoURI: dex.logo_uri,
+        source: dex.source,
+        cached: false,
+      });
+    }
+
+    // 3) CoinGecko
+    const cg = await resolveFromCoinGecko(mint);
+    if (cg) {
+      await upsertMetadata({
+        mint,
+        symbol: cg.symbol,
+        name: cg.name,
+        logo_uri: cg.logo_uri,
+        source: cg.source,
+      });
+
+      return jsonWithCache({
+        ok: true,
+        symbol: cg.symbol,
+        name: cg.name,
+        logoURI: cg.logo_uri,
+        source: cg.source,
+        cached: false,
+      });
+    }
+
+    // 4) on-chain metadata
+    const onchain = await resolveFromOnChain(origin, mint);
+    if (onchain) {
+      await upsertMetadata({
+        mint,
+        symbol: onchain.symbol,
+        name: onchain.name,
+        logo_uri: onchain.logo_uri,
+        source: onchain.source,
+      });
+
+      return jsonWithCache({
+        ok: true,
+        symbol: onchain.symbol,
+        name: onchain.name,
+        logoURI: onchain.logo_uri,
+        source: onchain.source,
+        cached: false,
+      });
+    }
+
+    // 5) legacy fallback
+    const legacy = await resolveFromLegacy(origin, mint);
+    if (legacy) {
+      await upsertMetadata({
+        mint,
+        symbol: legacy.symbol,
+        name: legacy.name,
+        logo_uri: legacy.logo_uri,
+        source: legacy.source,
+      });
+
+      return jsonWithCache({
+        ok: true,
+        symbol: legacy.symbol,
+        name: legacy.name,
+        logoURI: legacy.logo_uri,
+        source: legacy.source,
+        cached: false,
+      });
+    }
+
+    return jsonWithCache({
+      ok: true,
+      symbol: null,
+      name: null,
+      logoURI: null,
+      source: 'none',
+      cached: false,
+    });
+  } catch (e: any) {
+    console.error('[api/symbol] fatal', { mint, error: String(e?.message || e) });
+
+    return jsonWithCache({
+      ok: true,
+      symbol: null,
+      name: null,
+      logoURI: null,
+      source: 'error',
+      cached: false,
+    });
+  }
 }
