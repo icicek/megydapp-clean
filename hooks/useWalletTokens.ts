@@ -67,7 +67,7 @@ type SymCacheRow = {
 const SYM_MEMO = new Map<string, SymCacheRow>();
 const SYM_TTL_MS = 5 * 60 * 1000; // 5 dk
 
-// Bir mint için sembol çöz: tokenlist → /api/symbol → (son çare) fetchTokenMetadata
+// Bir mint için sembol çöz: /api/symbol (cache-first, multi-source)
 async function resolveSymbolForMint(
   mint: string
 ): Promise<{ symbol: string | null; name: string | null; logoURI?: string | null; source?: string }> {
@@ -347,7 +347,7 @@ export function useWalletTokens(options?: Options) {
         }
       }
     
-      // ------------------ 2) İlk anda ham/erken göster (mint kısaltması ile) ------------------
+      // ------------------ 2) İlk anda ham/erken göster (fallback kullanmadan) ------------------
       if (reqIdRef.current === myReq) {
         setTokens(
           tokenListRaw.map((t) => {

@@ -96,8 +96,10 @@ async function upsertMetadata(params: {
 }) {
   const { mint, symbol, name, logo_uri = null, source } = params;
 
-  // cache'e anlamsız veri yazmayalım
-  if (!symbol && !name && !logo_uri) return;
+  if (!symbol && !name && !logo_uri) {
+    console.log('[api/symbol] skip cache write: empty payload', { mint, source });
+    return;
+  }
 
   try {
     await sql`
@@ -125,8 +127,20 @@ async function upsertMetadata(params: {
         source = EXCLUDED.source,
         updated_at = NOW()
     `;
+
+    console.log('[api/symbol] cache upsert ok', {
+      mint,
+      symbol,
+      name,
+      source,
+      hasLogo: Boolean(logo_uri),
+    });
   } catch (e) {
-    console.error('[api/symbol] cache upsert failed', { mint, source, error: String(e) });
+    console.error('[api/symbol] cache upsert failed', {
+      mint,
+      source,
+      error: String(e),
+    });
   }
 }
 
