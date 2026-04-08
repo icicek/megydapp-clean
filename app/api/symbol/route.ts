@@ -340,6 +340,13 @@ export async function GET(req: NextRequest) {
     // 2) DexScreener
     const dex = await resolveFromDexScreener(mint);
     if (dex) {
+      console.log('[api/symbol] source hit', {
+        mint,
+        source: 'dexscreener',
+        symbol: dex.symbol,
+        name: dex.name,
+        hasLogo: Boolean(dex.logo_uri),
+      });
       await upsertMetadata({
         mint,
         symbol: dex.symbol,
@@ -361,6 +368,13 @@ export async function GET(req: NextRequest) {
     // 3) CoinGecko
     const cg = await resolveFromCoinGecko(mint);
     if (cg) {
+      console.log('[api/symbol] source hit', {
+        mint,
+        source: 'coingecko',
+        symbol: cg.symbol,
+        name: cg.name,
+        hasLogo: Boolean(cg.logo_uri),
+      });
       await upsertMetadata({
         mint,
         symbol: cg.symbol,
@@ -382,6 +396,13 @@ export async function GET(req: NextRequest) {
     // 4) on-chain metadata
     const onchain = await resolveFromOnChain(origin, mint);
     if (onchain) {
+      console.log('[api/symbol] source hit', {
+        mint,
+        source: 'onchain',
+        symbol: onchain.symbol,
+        name: onchain.name,
+        hasLogo: Boolean(onchain.logo_uri),
+      });
       await upsertMetadata({
         mint,
         symbol: onchain.symbol,
