@@ -312,6 +312,13 @@ export async function GET(req: NextRequest) {
     // 1) tokenlist
     const tokenlist = await resolveFromTokenlist(origin, mint);
     if (tokenlist) {
+      console.log('[api/symbol] source hit', {
+        mint,
+        source: 'tokenlist',
+        symbol: tokenlist.symbol,
+        name: tokenlist.name,
+        hasLogo: Boolean(tokenlist.logo_uri),
+      });
       await upsertMetadata({
         mint,
         symbol: tokenlist.symbol,

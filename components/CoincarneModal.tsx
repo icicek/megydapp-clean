@@ -327,7 +327,7 @@ export default function CoincarneModal({
 
   /* ------------------ SYMBOL RESOLUTION ------------------ */
   const [displaySymbol, setDisplaySymbol] = useState<string>(
-    (token.symbol || token.name || token.mint.slice(0, 6)).toLocaleUpperCase('en-US')
+    String(token.symbol || token.name || token.mint.slice(0, 6))
   );
 
   // Nihai çözüm: önce /api/symbol (Jupiter→DexScreener→On-chain), yoksa tokenMeta
