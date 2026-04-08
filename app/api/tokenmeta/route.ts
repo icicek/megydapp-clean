@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const METAPLEX_PROGRAM_ID = new PublicKey(
-  'metaqbxxUerdq28cj1RbAWkQm3ybzjb6a8bt518x1s'
+  'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'
 );
 
 const RPC_CANDIDATES = [
