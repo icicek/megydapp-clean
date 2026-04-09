@@ -324,6 +324,15 @@ export default function CoincarneModal({
   });
   const [tokenCategory, setTokenCategory] = useState<TokenCategory>('unknown');
 
+  useEffect(() => {
+    const fallback = String(token.symbol || token.name || token.mint.slice(0, 6));
+    setResolvedMeta({
+      symbol: fallback,
+      name: String(token.name || token.symbol || token.mint.slice(0, 6)),
+      logoURI: token.logoURI || null,
+      source: 'token-prop',
+    });
+  }, [token.mint, token.symbol, token.name, token.logoURI]);
 
   /* ------------------ SYMBOL RESOLUTION ------------------ */
   const [resolvedMeta, setResolvedMeta] = useState<{
