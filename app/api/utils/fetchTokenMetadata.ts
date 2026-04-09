@@ -1,66 +1,52 @@
 // app/api/utils/fetchTokenMetadata.ts
-import { Metaplex } from '@metaplex-foundation/js';
-import { connection } from '@/lib/solanaConnection';
-import { PublicKey } from '@solana/web3.js';
-import { fetchSolanaTokenList } from '@/lib/utils';
-
-const metaplex = Metaplex.make(connection);
-
-// Token listesi basit cache (process içinde)
-let cachedTokenList: { address: string; symbol?: string; name?: string }[] | null = null;
-
-async function getCachedTokenList() {
-  if (!cachedTokenList) {
-    try {
-      cachedTokenList = await fetchSolanaTokenList();
-    } catch (e) {
-      console.error('❌ Failed to fetch token list:', e);
-      cachedTokenList = [];
-    }
-  }
-  return cachedTokenList!;
-}
-
-/** Verilen mint için (önce liste, sonra Metaplex) symbol/name döndürür */
 export async function fetchTokenMetadata(
   mintAddress: string
-): Promise<{ symbol: string; name: string } | null> {
+): Promise<{ symbol: string; name: string; logoURI?: string | null } | null> {
   try {
-    const list = await getCachedTokenList();
-    // ⚠️ case-insensitive karşılaştırma
-    const mLower = mintAddress.toLowerCase();
-    const token = list.find((t: any) => String(t.address).toLowerCase() === mLower);
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
 
-    if (token) {
+    const r = await fetch(
+      `${baseUrl}/api/symbol?mint=${encodeURIComponent(mintAddress)}`,
+      {
+        cache: 'no-store',
+        headers: { accept: 'application/json' },
+      }
+    );
+
+    if (!r.ok) {
       return {
-        symbol: token.symbol || mintAddress.slice(0, 4),
-        name: token.name || token.symbol || mintAddress.slice(0, 4),
+        symbol: mintAddress.slice(0, 6).toUpperCase(),
+        name: mintAddress.slice(0, 6).toUpperCase(),
+        logoURI: null,
       };
     }
 
-    // Fallback: Metaplex NFT/metaplex metadata
-    try {
-      const mintPk = new PublicKey(mintAddress);
-      const nft = await metaplex.nfts().findByMint({ mintAddress: mintPk });
-      if (nft) {
-        return {
-          symbol: nft.symbol || mintAddress.slice(0, 4),
-          name: nft.name || nft.symbol || mintAddress.slice(0, 4),
-        };
-      }
-    } catch {
-      // no-op
-    }
+    const j = await r.json();
 
+    const symbol =
+      typeof j?.symbol === 'string' && j.symbol.trim()
+        ? j.symbol.trim()
+        : mintAddress.slice(0, 6).toUpperCase();
+
+    const name =
+      typeof j?.name === 'string' && j.name.trim()
+        ? j.name.trim()
+        : symbol;
+
+    const logoURI =
+      typeof j?.logoURI === 'string' && j.logoURI.trim()
+        ? j.logoURI.trim()
+        : null;
+
+    return { symbol, name, logoURI };
+  } catch {
     return {
-      symbol: mintAddress.slice(0, 4),
-      name: mintAddress.slice(0, 4),
-    };
-  } catch (error) {
-    console.error('❌ Failed to fetch token metadata:', error);
-    return {
-      symbol: mintAddress.slice(0, 4),
-      name: mintAddress.slice(0, 4),
+      symbol: mintAddress.slice(0, 6).toUpperCase(),
+      name: mintAddress.slice(0, 6).toUpperCase(),
+      logoURI: null,
     };
   }
 }

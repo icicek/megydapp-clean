@@ -64,7 +64,14 @@ type SymCacheRow = {
   at: number;
   source?: string;
 };
+
 const SYM_MEMO = new Map<string, SymCacheRow>();
+
+const SYM_INFLIGHT = new Map<
+  string,
+  Promise<{ symbol: string | null; name: string | null; logoURI?: string | null; source?: string }>
+>();
+
 const SYM_TTL_MS = 5 * 60 * 1000; // 5 dk
 
 // Bir mint için sembol çöz: /api/symbol (cache-first, multi-source)
@@ -83,34 +90,50 @@ async function resolveSymbolForMint(
     };
   }
 
+  const existing = SYM_INFLIGHT.get(mint);
+  if (existing) return existing;
+
+  const p = (async () => {
+    try {
+      const r = await fetch(`/api/symbol?mint=${encodeURIComponent(mint)}`, {
+        cache: 'no-store',
+        headers: { accept: 'application/json' },
+      });
+
+      if (r.ok) {
+        const j = await r.json();
+        const out = {
+          symbol: sanitizeSym(tidy(j?.symbol)),
+          name: tidy(j?.name),
+          logoURI: tidy(j?.logoURI),
+          source: tidy(j?.source) || 'symbol',
+        };
+
+        SYM_MEMO.set(mint, { ...out, at: Date.now() });
+        return out;
+      }
+    } catch {}
+
+    const out = {
+      symbol: null,
+      name: null,
+      logoURI: null,
+      source: 'none' as const,
+    };
+
+    // failed/null result can still be memoized briefly if you want,
+    // but keeping it is optional
+    SYM_MEMO.set(mint, { ...out, at: Date.now() });
+    return out;
+  })();
+
+  SYM_INFLIGHT.set(mint, p);
+
   try {
-    const r = await fetch(`/api/symbol?mint=${encodeURIComponent(mint)}`, {
-      cache: 'no-store',
-    });
-
-    if (r.ok) {
-      const j = await r.json();
-      const out = {
-        symbol: sanitizeSym(tidy(j?.symbol)),
-        name: tidy(j?.name),
-        logoURI: tidy(j?.logoURI),
-        source: tidy(j?.source) || 'symbol',
-      };
-
-      SYM_MEMO.set(mint, { ...out, at: now });
-      return out;
-    }
-  } catch {}
-
-  const out = {
-    symbol: null,
-    name: null,
-    logoURI: null,
-    source: 'none' as const,
-  };
-
-  SYM_MEMO.set(mint, { ...out, at: now });
-  return out;
+    return await p;
+  } finally {
+    SYM_INFLIGHT.delete(mint);
+  }
 }
 
 // Concurrency limiter (basit batching)
@@ -389,15 +412,18 @@ export function useWalletTokens(options?: Options) {
       
           const symbol =
             resolved.symbol ||
-            resolved.name ||
             token.symbol ||
-            token.name ||
             fallbackSymbolFromMint(token.mint);
-      
+
+          const name =
+            resolved.name ||
+            token.name ||
+            symbol;
+
           return {
             ...token,
             symbol,
-            name: resolved.name || token.name,
+            name,
             logoURI: resolved.logoURI || token.logoURI,
           };
         })

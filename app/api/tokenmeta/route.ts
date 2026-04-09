@@ -32,10 +32,16 @@ function getMetadataPda(mint: PublicKey): PublicKey {
   return pda;
 }
 
-function tidy(x: string | null | undefined) {
+function tidy(x: unknown) {
   if (!x) return null;
   const s = String(x).replace(/\0/g, '').trim();
   return s || null;
+}
+
+function sanitizeSym(s: string | null) {
+  if (!s) return null;
+  const z = s.toUpperCase().replace(/[^A-Z0-9.$_/-]/g, '').slice(0, 16);
+  return z || null;
 }
 
 function isRateLimitedOrForbidden(err: unknown) {
@@ -51,55 +57,112 @@ function isRateLimitedOrForbidden(err: unknown) {
   );
 }
 
+async function withTimeout<T>(promise: Promise<T>, ms = 5000): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`timeout:${ms}ms`)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function fetchMetaFromConn(conn: Connection, mint: PublicKey) {
   let name: string | null = null;
   let symbol: string | null = null;
+  let image: string | null = null;
   let source: 'token-2022' | 'metaplex' | 'none' = 'none';
 
   try {
     const mod: any = await import('@solana/spl-token-metadata').catch(() => null);
+
     if (mod?.getTokenMetadata) {
-      const ext = await mod.getTokenMetadata(conn, mint).catch(() => null);
-      if (ext) {
-        name = tidy(ext.name) ?? name;
-        symbol = tidy(ext.symbol) ?? symbol;
-        if (name || symbol) source = 'token-2022';
+      const ext = await withTimeout(
+        mod.getTokenMetadata(conn, mint).catch(() => null),
+        4000
+      );
+
+      if (ext && typeof ext === 'object') {
+        const extObj = ext as Record<string, unknown>;
+      
+        const extName =
+          typeof extObj.name === 'string' ? tidy(extObj.name) : null;
+      
+        const extSymbol =
+          typeof extObj.symbol === 'string'
+            ? sanitizeSym(tidy(extObj.symbol))
+            : null;
+      
+        if (extName) name = extName;
+        if (extSymbol) symbol = extSymbol;
+      
+        if (name || symbol) {
+          source = 'token-2022';
+        }
       }
     }
-  } catch {}
+  } catch {
+    // ignore
+  }
 
-  if (!name || !symbol) {
+  if (!name || !symbol || !image) {
     try {
       const pda = getMetadataPda(mint);
-      const acc = await conn.getAccountInfo(pda, 'confirmed');
+      const acc = await withTimeout(conn.getAccountInfo(pda, 'confirmed'), 4000);
+
       if (acc?.data) {
         const mdMod: any = await import('@metaplex-foundation/mpl-token-metadata').catch(() => null);
+
         if (mdMod?.Metadata?.deserialize) {
           const [md] = mdMod.Metadata.deserialize(acc.data);
+
           const n = tidy(md?.data?.name);
-          const s = tidy(md?.data?.symbol);
+          const s = sanitizeSym(tidy(md?.data?.symbol));
+
           if (n) name = n;
           if (s) symbol = s;
-          if (name || symbol) source = 'metaplex';
-        } else {
-          const first = acc.data.subarray(0, 1024).toString('utf8');
-          const guessSymbol = tidy((first.match(/[A-Z0-9]{2,10}/)?.[0]) || null);
-          if (guessSymbol && !symbol) {
-            symbol = guessSymbol;
+
+          const uri = tidy(md?.data?.uri);
+          if (uri) {
+            try {
+              const metaRes = await withTimeout(
+                fetch(uri, { cache: 'no-store' }),
+                4000
+              );
+
+              if (metaRes.ok) {
+                const metaJson = await metaRes.json();
+                image = tidy(metaJson?.image) || tidy(metaJson?.logoURI) || null;
+              }
+            } catch {
+              // ignore
+            }
+          }
+
+          if (name || symbol || image) {
             source = 'metaplex';
           }
         }
       }
-    } catch {}
+    } catch {
+      // ignore
+    }
   }
 
   name = tidy(name);
-  symbol = tidy(symbol);
+  symbol = sanitizeSym(tidy(symbol));
+  image = tidy(image);
 
   return {
-    ok: Boolean(name || symbol),
+    ok: Boolean(name || symbol || image),
     name,
     symbol,
+    image,
     source,
   };
 }
@@ -113,44 +176,67 @@ export async function GET(req: Request) {
       | 'devnet';
 
     if (!mintStr) {
-      return NextResponse.json({ ok: false, error: 'Missing ?mint=' }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: 'Missing ?mint=' },
+        { status: 400 }
+      );
     }
 
-    const mint = new PublicKey(mintStr);
+    let mint: PublicKey;
+    try {
+      mint = new PublicKey(mintStr);
+    } catch {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid mint' },
+        { status: 400 }
+      );
+    }
 
     const endpoints =
       cluster === 'devnet'
         ? ['https://api.devnet.solana.com']
         : [...RPC_CANDIDATES, fallbackRpc(cluster)];
 
-    let lastErr: any = null;
+    let lastErr: unknown = null;
     let lastRpc = '';
+    let lastEmptyRpc = '';
 
     for (const ep of endpoints) {
       try {
         const conn = new Connection(ep, 'confirmed');
         const result = await fetchMetaFromConn(conn, mint);
 
-        return NextResponse.json({
-          ...result,
-          cluster,
-          mint: mintStr,
-          rpc: ep,
-        });
+        if (result.ok) {
+          return NextResponse.json({
+            ...result,
+            cluster,
+            mint: mintStr,
+            rpc: ep,
+          });
+        }
+
+        lastEmptyRpc = ep;
       } catch (e) {
         lastErr = e;
         lastRpc = ep;
-        if (isRateLimitedOrForbidden(e)) continue;
+
+        if (isRateLimitedOrForbidden(e)) {
+          continue;
+        }
       }
     }
 
-    return NextResponse.json(
-      {
-        ok: false,
-        error: `All RPCs failed. lastRpc=${lastRpc} detail=${String(lastErr ?? '')}`,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      ok: false,
+      name: null,
+      symbol: null,
+      image: null,
+      source: 'none',
+      cluster,
+      mint: mintStr,
+      rpc: lastEmptyRpc || lastRpc || null,
+      error: lastErr ? String(lastErr) : null,
+    });
   } catch (e: any) {
     return NextResponse.json(
       { ok: false, error: e?.message || String(e) },

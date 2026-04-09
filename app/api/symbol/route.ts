@@ -136,10 +136,10 @@ async function upsertMetadata(params: {
       )
       ON CONFLICT (mint)
       DO UPDATE SET
-        symbol = EXCLUDED.symbol,
-        name = EXCLUDED.name,
+        symbol = COALESCE(EXCLUDED.symbol, token_metadata_cache.symbol),
+        name = COALESCE(EXCLUDED.name, token_metadata_cache.name),
         logo_uri = COALESCE(EXCLUDED.logo_uri, token_metadata_cache.logo_uri),
-        source = EXCLUDED.source,
+        source = COALESCE(EXCLUDED.source, token_metadata_cache.source),
         updated_at = NOW()
     `;
 
