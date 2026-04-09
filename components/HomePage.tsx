@@ -41,27 +41,28 @@ export default function HomePage() {
 
   function formatTokenAmount(token: TokenInfo) {
     if (typeof token.uiAmountString === 'string' && token.uiAmountString.trim()) {
+      const n = Number(token.uiAmountString);
+      if (Number.isFinite(n)) {
+        if (n >= 1000) return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+        if (n >= 1) return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
+        return n.toLocaleString('en-US', { maximumFractionDigits: 6 });
+      }
       return token.uiAmountString;
     }
   
     if (typeof token.amount === 'number' && Number.isFinite(token.amount)) {
-      return token.amount.toFixed(4);
+      if (token.amount >= 1000) return token.amount.toLocaleString('en-US', { maximumFractionDigits: 2 });
+      if (token.amount >= 1) return token.amount.toLocaleString('en-US', { maximumFractionDigits: 4 });
+      return token.amount.toLocaleString('en-US', { maximumFractionDigits: 6 });
     }
   
     return '0';
   }
 
-  const handleSelectChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const mint = e.target.value;
   
-    let token = tokens.find((t) => t.mint === mint) || null;
-  
-    if (!token) {
-      try {
-        await refetchTokens?.();
-      } catch {}
-      token = tokens.find((t) => t.mint === mint) || null;
-    }
+    const token = tokens.find((t) => t.mint === mint) || null;
   
     if (!token) {
       setSelectedToken(null);
@@ -140,6 +141,24 @@ export default function HomePage() {
     };
   }, [connected, pubkeyBase58, refetchTokens]);
 
+  useEffect(() => {
+    if (!selectedToken) return;
+  
+    const fresh = tokens.find((t) => t.mint === selectedToken.mint);
+    if (!fresh) return;
+  
+    const changed =
+      fresh.symbol !== selectedToken.symbol ||
+      fresh.name !== selectedToken.name ||
+      fresh.logoURI !== selectedToken.logoURI ||
+      fresh.amount !== selectedToken.amount ||
+      fresh.uiAmountString !== selectedToken.uiAmountString;
+  
+    if (changed) {
+      setSelectedToken(fresh);
+    }
+  }, [tokens, selectedToken]);
+
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
   const sharePercentage = Math.max(0, Math.min(100, shareRatio * 100)).toFixed(2);
 
@@ -198,11 +217,17 @@ export default function HomePage() {
                     👉 Select a token to Coincarnate
                   </option>
                   {tokens.map((token) => {
-                    const sym = (token.symbol ?? token.mint.slice(0, 4)).toUpperCase();
+                    const sym = (token.symbol ?? token.mint.slice(0, 6)).toUpperCase();
+                    const name = token.name?.trim();
                     const amt = formatTokenAmount(token);
+
+                    const label = name && name.toUpperCase() !== sym
+                      ? `${sym} — ${name} — ${amt}`
+                      : `${sym} — ${amt}`;
+
                     return (
                       <option key={token.mint} value={token.mint}>
-                        {sym} — {amt}
+                        {label}
                       </option>
                     );
                   })}

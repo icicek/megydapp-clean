@@ -326,46 +326,65 @@ export default function CoincarneModal({
 
 
   /* ------------------ SYMBOL RESOLUTION ------------------ */
-  const [displaySymbol, setDisplaySymbol] = useState<string>(
-    String(token.symbol || token.name || token.mint.slice(0, 6))
-  );
+  const [resolvedMeta, setResolvedMeta] = useState<{
+    symbol: string;
+    name: string;
+    logoURI?: string | null;
+    source?: string;
+  }>(() => {
+    const fallback = String(token.symbol || token.name || token.mint.slice(0, 6));
+    return {
+      symbol: fallback,
+      name: String(token.name || token.symbol || token.mint.slice(0, 6)),
+      logoURI: token.logoURI || null,
+      source: 'initial',
+    };
+  });
 
   // Nihai çözüm: önce /api/symbol (Jupiter→DexScreener→On-chain), yoksa tokenMeta
   useEffect(() => {
-    let off = false;
+    let cancelled = false;
+  
     (async () => {
       try {
-        const r = await fetch(`/api/symbol?mint=${encodeURIComponent(token.mint)}`, { cache: 'no-store' });
-        if (r.ok) {
-          const j = await r.json();
-          const sym = (j?.symbol || '').toString().trim();
-          const nm = (j?.name || '').toString().trim();
-        
-          if (!off && (sym || nm)) {
-            setDisplaySymbol(sym || nm);
-            return;
-          }
-        }
-      } catch {}
-      // Fallback: eski meta
-      try {
         const meta = await getTokenMeta(token.mint, token.symbol);
-        const metaSymbol = (meta as any)?.symbol;
-        const metaName = (meta as any)?.name;
-      
-        if (!off && (metaSymbol || metaName)) {
-          setDisplaySymbol(String(metaSymbol || metaName));
-        }
-      } catch {}
+  
+        if (cancelled) return;
+  
+        const fallback = String(token.symbol || token.name || token.mint.slice(0, 6));
+  
+        setResolvedMeta({
+          symbol: String(meta?.symbol || token.symbol || fallback),
+          name: String(meta?.name || token.name || meta?.symbol || token.symbol || fallback),
+          logoURI: meta?.logoURI || token.logoURI || null,
+          source: meta?.source || 'tokenMeta',
+        });
+      } catch {
+        if (cancelled) return;
+  
+        const fallback = String(token.symbol || token.name || token.mint.slice(0, 6));
+  
+        setResolvedMeta({
+          symbol: String(token.symbol || fallback),
+          name: String(token.name || token.symbol || fallback),
+          logoURI: token.logoURI || null,
+          source: 'fallback',
+        });
+      }
     })();
-    return () => { off = true; };
-  }, [token.mint, token.symbol]);
+  
+    return () => {
+      cancelled = true;
+    };
+  }, [token.mint, token.symbol, token.name, token.logoURI]);
+
+  const displaySymbol = resolvedMeta.symbol;
+  const displayName = resolvedMeta.name;
 
   /* ------------------ SOL CHECK & BALANCE ------------------ */
-  const isSOLToken = useMemo(
-    () => token.mint === 'SOL' || displaySymbol.toUpperCase() === 'SOL',
-    [token.mint, displaySymbol]
-  );
+  const isSOLToken = useMemo(() => {
+    return token.mint === 'SOL' || token.mint === WSOL_MINT;
+  }, [token.mint]);
 
   const {
     balance: internalBalance,

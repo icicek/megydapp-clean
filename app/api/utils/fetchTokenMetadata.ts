@@ -1,7 +1,15 @@
 // app/api/utils/fetchTokenMetadata.ts
+function sanitizeSym(s: string | null | undefined) {
+  if (!s) return null;
+  const z = s.toUpperCase().replace(/[^A-Z0-9.$_/-]/g, '').slice(0, 16);
+  return z || null;
+}
+
 export async function fetchTokenMetadata(
   mintAddress: string
 ): Promise<{ symbol: string; name: string; logoURI?: string | null } | null> {
+  const fallback = mintAddress.slice(0, 6).toUpperCase();
+
   try {
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
@@ -18,8 +26,8 @@ export async function fetchTokenMetadata(
 
     if (!r.ok) {
       return {
-        symbol: mintAddress.slice(0, 6).toUpperCase(),
-        name: mintAddress.slice(0, 6).toUpperCase(),
+        symbol: fallback,
+        name: fallback,
         logoURI: null,
       };
     }
@@ -28,8 +36,8 @@ export async function fetchTokenMetadata(
 
     const symbol =
       typeof j?.symbol === 'string' && j.symbol.trim()
-        ? j.symbol.trim()
-        : mintAddress.slice(0, 6).toUpperCase();
+        ? sanitizeSym(j.symbol.trim()) || fallback
+        : fallback;
 
     const name =
       typeof j?.name === 'string' && j.name.trim()
@@ -44,8 +52,8 @@ export async function fetchTokenMetadata(
     return { symbol, name, logoURI };
   } catch {
     return {
-      symbol: mintAddress.slice(0, 6).toUpperCase(),
-      name: mintAddress.slice(0, 6).toUpperCase(),
+      symbol: fallback,
+      name: fallback,
       logoURI: null,
     };
   }
