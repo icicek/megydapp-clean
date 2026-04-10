@@ -615,6 +615,47 @@ export default function AdminTokensPage() {
       inFlightMetaRef.current.delete(mint);
     }
   }
+
+  async function refreshMetaForMint(mint: string) {
+    if (inFlightMetaRef.current.has(mint)) {
+      push('Metadata request already in progress', 'info');
+      return;
+    }
+  
+    try {
+      inFlightMetaRef.current.add(mint);
+  
+      const res = await fetch(`/api/symbol?mint=${encodeURIComponent(mint)}&force=1`, {
+        cache: 'no-store',
+      });
+  
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+  
+      const j = await res.json();
+  
+      if (j?.symbol || j?.name) {
+        setNameMap((prev) => ({
+          ...prev,
+          [mint]: {
+            symbol: j.symbol || undefined,
+            name: j.name || undefined,
+          },
+        }));
+  
+        push(`Metadata refreshed (${j?.source || 'resolved'})`, 'ok');
+        await load();
+      } else {
+        push('No metadata found on refresh', 'info');
+        await load();
+      }
+    } catch (e: any) {
+      push(e?.message || 'Refresh failed', 'err');
+    } finally {
+      inFlightMetaRef.current.delete(mint);
+    }
+  }
   const visibleMints = useMemo(() => items.map((it) => String(it.mint)), [items]);
 
   const allVisibleSelected =
@@ -1132,6 +1173,14 @@ export default function AdminTokensPage() {
                         title="Repair helper fields for this token"
                       >
                         repair
+                      </button>
+
+                      <button
+                        onClick={() => refreshMetaForMint(it.mint)}
+                        className="bg-cyan-700 hover:bg-cyan-600 rounded px-2 py-1"
+                        title="Force refresh metadata"
+                      >
+                        refresh meta
                       </button>
 
                       {/* 🔵 NEW: Info (volume breakdown) */}
