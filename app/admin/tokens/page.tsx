@@ -805,124 +805,6 @@ export default function AdminTokensPage() {
     <div className="min-h-screen bg-[#090d15] text-white p-6">
       <ToastViewport toasts={toasts} />
 
-      {/* TOP BAR */}
-      <div className="mb-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-bold mr-auto">🛡️ Token Management</h1>
-          <BulkUpdateDialog
-            onDone={() => {
-              void load();
-              void loadStats();
-            }}
-          />
-        </div>
-      </div>
-
-      {!adminGuardLoading && !walletMatches && (
-        <div className="mb-4 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
-          <div className="font-medium">Admin wallet verification required</div>
-          <div className="mt-1 text-xs text-yellow-200/80">
-            Critical actions on this page require the connected wallet to match the active admin session wallet.
-          </div>
-          <div className="mt-2 text-xs text-yellow-200/80 space-y-1">
-            {sessionWallet ? <div>Session wallet: {sessionWallet}</div> : null}
-            {connectedWallet ? <div>Connected wallet: {connectedWallet}</div> : null}
-          </div>
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="grid gap-3 sm:grid-cols-3 mb-4">
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by mint, symbol, or name"
-          className="bg-gray-900 border border-gray-700 rounded px-3 py-2 min-w-[120px]"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !adminGuardLoading) void load();
-          }}
-        />
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as any)}
-          className="bg-gray-900 border border-gray-700 rounded px-3 py-2 min-w-[120px]"
-        >
-          <option value="">(all)</option>
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-        <div className="flex gap-2">
-          <select
-            value={limit}
-            onChange={(e) => setLimit(parseInt(e.target.value, 10))}
-            className="bg-gray-900 border border-gray-700 rounded px-3 py-2 min-w-[120px]"
-            title="Rows per page"
-          >
-            {[10, 20, 50, 100].map((n) => (
-              <option key={n} value={n}>
-                {n}/page
-              </option>
-            ))}
-          </select>
-          <button onClick={() => void load()} disabled={loading} className={`${TB} ${loading ? 'opacity-70' : ''}`}>
-            {loading ? 'Loading…' : 'Refresh'}
-          </button>
-
-          {/* Export CSV */}
-          <div className="shrink-0">
-            <ExportCsvButton q={q} status={status || ''} />
-          </div>
-        </div>
-      </div>
-
-      {selectedMints.length > 0 && (
-        <div className="mb-4 rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-            <div className="text-sm text-blue-100 min-w-[180px]">
-              {selectedMints.length} token selected
-            </div>
-
-            <select
-              value={bulkStatus}
-              onChange={(e) => setBulkStatus(e.target.value as TokenStatus)}
-              className="bg-gray-900 border border-gray-700 rounded px-3 py-2 min-w-[180px]"
-            >
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-
-            <input
-              value={bulkReason}
-              onChange={(e) => setBulkReason(e.target.value)}
-              placeholder="Reason"
-              className="bg-gray-900 border border-gray-700 rounded px-3 py-2 flex-1 min-w-[220px]"
-            />
-
-            <button
-              onClick={applyBulkStatus}
-              disabled={bulkSaving}
-              className="px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-            >
-              {bulkSaving ? 'Applying…' : 'Apply bulk update'}
-            </button>
-
-            <button
-              onClick={clearSelectedMints}
-              disabled={bulkSaving}
-              className="px-3 py-2 rounded border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-50"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Settings + Stats (mobilde dikey, >=md yatay sütun) */}
       <div className="grid gap-4 md:grid-cols-2 items-stretch mb-6">
         {/* ── Admin Settings (stretch) ─────────────────────────── */}
@@ -1049,6 +931,139 @@ export default function AdminTokensPage() {
           </div>
         )}
       </div>
+      
+      {/* TOP BAR */}
+      <div className="mb-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-bold mr-auto">🛡️ Token Management</h1>
+        </div>
+      </div>
+
+      {!adminGuardLoading && !walletMatches && (
+        <div className="mb-4 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
+          <div className="font-medium">Admin wallet verification required</div>
+          <div className="mt-1 text-xs text-yellow-200/80">
+            Critical actions on this page require the connected wallet to match the active admin session wallet.
+          </div>
+          <div className="mt-2 text-xs text-yellow-200/80 space-y-1">
+            {sessionWallet ? <div>Session wallet: {sessionWallet}</div> : null}
+            {connectedWallet ? <div>Connected wallet: {connectedWallet}</div> : null}
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="grid gap-3 sm:grid-cols-3 mb-4">
+        <div className="relative">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search by mint, symbol, or name"
+            className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 pr-10 min-w-[120px]"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !adminGuardLoading) void load();
+            }}
+          />
+          {q && (
+            <button
+              type="button"
+              onClick={() => setQ('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-white"
+              aria-label="Clear search"
+              title="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        <select
+          value={status}
+          onChange={(e) => setStatus(e.target.value as any)}
+          className="bg-gray-900 border border-gray-700 rounded px-3 py-2 min-w-[120px]"
+        >
+          <option value="">(all)</option>
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        <div className="flex gap-2">
+          <select
+            value={limit}
+            onChange={(e) => setLimit(parseInt(e.target.value, 10))}
+            className="bg-gray-900 border border-gray-700 rounded px-3 py-2 min-w-[120px]"
+            title="Rows per page"
+          >
+            {[10, 20, 50, 100].map((n) => (
+              <option key={n} value={n}>
+                {n}/page
+              </option>
+            ))}
+          </select>
+          <button onClick={() => void load()} disabled={loading} className={`${TB} ${loading ? 'opacity-70' : ''}`}>
+            {loading ? 'Loading…' : 'Refresh'}
+          </button>
+
+          {/* Export CSV */}
+          <div className="shrink-0">
+            <ExportCsvButton q={q} status={status || ''} />
+          </div>
+          <div className="shrink-0">
+            <BulkUpdateDialog
+              onDone={() => {
+                void load();
+                void loadStats();
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {selectedMints.length > 0 && (
+        <div className="mb-4 rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="text-sm text-blue-100 min-w-[180px]">
+              {selectedMints.length} token selected
+            </div>
+
+            <select
+              value={bulkStatus}
+              onChange={(e) => setBulkStatus(e.target.value as TokenStatus)}
+              className="bg-gray-900 border border-gray-700 rounded px-3 py-2 min-w-[180px]"
+            >
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+
+            <input
+              value={bulkReason}
+              onChange={(e) => setBulkReason(e.target.value)}
+              placeholder="Reason"
+              className="bg-gray-900 border border-gray-700 rounded px-3 py-2 flex-1 min-w-[220px]"
+            />
+
+            <button
+              onClick={applyBulkStatus}
+              disabled={bulkSaving}
+              className="px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+            >
+              {bulkSaving ? 'Applying…' : 'Apply bulk update'}
+            </button>
+
+            <button
+              onClick={clearSelectedMints}
+              disabled={bulkSaving}
+              className="px-3 py-2 rounded border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-50"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && <div className="text-red-400 mb-4">❌ {error}</div>}
 

@@ -224,6 +224,15 @@ export default function BulkUpdateDialog({ onDone }: { onDone?: () => void }) {
                         </div>
                       </div>
                     )}
+                    <div className="flex justify-end pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setOpen(false)}
+                        className="bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm"
+                      >
+                        Close dialog
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
