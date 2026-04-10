@@ -29,7 +29,8 @@ export async function GET(req: NextRequest) {
       ? (rawStatus as TokenStatus)
       : null;
 
-    const q = searchParams.get('q');
+    const qRaw = searchParams.get('q');
+    const q = qRaw?.trim() || null;
     const limit = Math.min(Math.max(toInt(searchParams.get('limit'), 20), 1), 100);
     const offset = Math.max(toInt(searchParams.get('offset'), 0), 0);
 
@@ -47,7 +48,17 @@ export async function GET(req: NextRequest) {
         r.meta,
         r.created_at,
         r.updated_at,
-        vc.yes_count
+        vc.yes_count,
+        CASE
+          WHEN ${q ?? null}::text IS NULL THEN 100
+          WHEN LOWER(r.mint) = LOWER(${q}) THEN 1
+          WHEN LOWER(COALESCE(mc.symbol, '')) = LOWER(${q}) THEN 2
+          WHEN LOWER(COALESCE(mc.name, '')) = LOWER(${q}) THEN 3
+          WHEN r.mint ILIKE ${pattern} THEN 4
+          WHEN COALESCE(mc.symbol, '') ILIKE ${pattern} THEN 5
+          WHEN COALESCE(mc.name, '') ILIKE ${pattern} THEN 6
+          ELSE 100
+        END AS match_rank
       FROM token_registry r
       LEFT JOIN token_metadata_cache mc
         ON mc.mint = r.mint
@@ -64,7 +75,18 @@ export async function GET(req: NextRequest) {
           OR COALESCE(mc.symbol, '') ILIKE ${pattern}
           OR COALESCE(mc.name, '') ILIKE ${pattern}
         )
-      ORDER BY r.updated_at DESC
+      ORDER BY
+        CASE
+          WHEN ${q ?? null}::text IS NULL THEN 100
+          WHEN LOWER(r.mint) = LOWER(${q}) THEN 1
+          WHEN LOWER(COALESCE(mc.symbol, '')) = LOWER(${q}) THEN 2
+          WHEN LOWER(COALESCE(mc.name, '')) = LOWER(${q}) THEN 3
+          WHEN r.mint ILIKE ${pattern} THEN 4
+          WHEN COALESCE(mc.symbol, '') ILIKE ${pattern} THEN 5
+          WHEN COALESCE(mc.name, '') ILIKE ${pattern} THEN 6
+          ELSE 100
+        END ASC,
+        r.updated_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `) as unknown as {
       mint: string;
@@ -75,7 +97,8 @@ export async function GET(req: NextRequest) {
       meta: any;
       created_at: string;
       updated_at: string;
-      yes_count: number;           // ✅ yeni alan
+      yes_count: number;
+      match_rank: number;
     }[];
 
     return NextResponse.json({ success: true, items: rows });
