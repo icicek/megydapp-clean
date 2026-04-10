@@ -49,6 +49,8 @@ export async function GET(req: NextRequest) {
         r.updated_at,
         vc.yes_count
       FROM token_registry r
+      LEFT JOIN token_metadata_cache mc
+        ON mc.mint = r.mint
       LEFT JOIN LATERAL (
         SELECT COUNT(*)::int AS yes_count
         FROM deadcoin_votes v
@@ -56,7 +58,12 @@ export async function GET(req: NextRequest) {
       ) vc ON TRUE
       WHERE
         (${status ?? null}::text IS NULL OR r.status::text = ${status})
-        AND (${pattern ?? null}::text IS NULL OR r.mint ILIKE ${pattern})
+        AND (
+          (${pattern ?? null}::text IS NULL)
+          OR r.mint ILIKE ${pattern}
+          OR COALESCE(mc.symbol, '') ILIKE ${pattern}
+          OR COALESCE(mc.name, '') ILIKE ${pattern}
+        )
       ORDER BY r.updated_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `) as unknown as {

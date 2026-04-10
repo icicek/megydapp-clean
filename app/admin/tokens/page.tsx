@@ -746,7 +746,7 @@ export default function AdminTokensPage() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by mint"
+          placeholder="Search by mint, symbol, or name"
           className="bg-gray-900 border border-gray-700 rounded px-3 py-2 min-w-[120px]"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !adminGuardLoading) void load();
