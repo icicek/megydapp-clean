@@ -7,6 +7,7 @@ import type { TokenStatus } from '@/app/api/_lib/types';
 import { verifyCsrf } from '@/app/api/_lib/csrf';
 import { httpErrorFrom } from '@/app/api/_lib/http';
 import { applyBlacklistInvalidation } from '@/app/api/_lib/blacklist/applyBlacklistInvalidation';
+import { validateMintAddress } from '@/app/api/_lib/solana/validateMint';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -129,6 +130,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'mint and valid status required' }, { status: 400 });
     }
 
+    const validation = await validateMintAddress(mint);
+    if (!validation.ok) {
+      return NextResponse.json(
+        { success: false, error: validation.error || 'invalid mint' },
+        { status: 400 }
+      );
+    }
+
     await upsertTokenStatus({
       mint,
       newStatus: status as TokenStatus,
@@ -171,6 +180,14 @@ export async function DELETE(req: NextRequest) {
     const mint = searchParams.get('mint');
     if (!mint) {
       return NextResponse.json({ success: false, error: 'mint required' }, { status: 400 });
+    }
+
+    const validation = await validateMintAddress(mint);
+    if (!validation.ok) {
+      return NextResponse.json(
+        { success: false, error: validation.error || 'invalid mint' },
+        { status: 400 }
+      );
     }
 
     await upsertTokenStatus({

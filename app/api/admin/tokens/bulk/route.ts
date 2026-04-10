@@ -7,6 +7,7 @@ import { verifyCsrf } from '@/app/api/_lib/csrf';
 import { httpErrorFrom } from '@/app/api/_lib/http';
 import { logAdminAudit } from '@/app/api/admin/_lib/audit';
 import { applyBlacklistInvalidation } from '@/app/api/_lib/blacklist/applyBlacklistInvalidation';
+import { validateMintAddress } from '@/app/api/_lib/solana/validateMint';
 
 type TokenStatus = 'healthy' | 'walking_dead' | 'deadcoin' | 'redlist' | 'blacklist';
 const ALLOWED: TokenStatus[] = ['healthy', 'walking_dead', 'deadcoin', 'redlist', 'blacklist'];
@@ -99,6 +100,15 @@ export async function POST(req: Request) {
 
     for (const mint of uniq) {
       try {
+        const validation = await validateMintAddress(mint);
+        if (!validation.ok) {
+          fail.push({
+            mint,
+            error: validation.error || 'Invalid mint',
+          });
+          continue;
+        }
+    
         await sql`BEGIN`;
 
         const prev = (await sql`
