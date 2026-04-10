@@ -1,7 +1,7 @@
 // app/admin/tokens/page.tsx
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import useAdminWalletGuard from '@/hooks/useAdminWalletGuard';
 
 import ExportCsvButton from '@/components/admin/ExportCsvButton';
@@ -223,6 +223,7 @@ export default function AdminTokensPage() {
 
   // metadata cache state
   const [nameMap, setNameMap] = useState<Record<string, NameEntry>>({});
+  const inFlightMetaRef = useRef<Set<string>>(new Set());
 
   // pagination
   const [limit, setLimit] = useState(20);
@@ -398,30 +399,46 @@ export default function AdminTokensPage() {
     let cancelled = false;
   
     (async () => {
-      const missing = items
-        .map((it) => it.mint)
-        .filter((mint) => !nameMap[mint]);
+      const visibleMints = items.map((it) => String(it.mint));
+  
+      const missing = visibleMints.filter(
+        (mint) => !nameMap[mint] && !inFlightMetaRef.current.has(mint)
+      );
   
       if (missing.length === 0) return;
   
-      const updates: Record<string, NameEntry> = {};
+      missing.forEach((mint) => inFlightMetaRef.current.add(mint));
   
-      for (const mint of missing) {
-        const meta = await fetchSymbolMeta(mint);
-        if (meta) {
-          updates[mint] = meta;
+      try {
+        const results = await Promise.all(
+          missing.map(async (mint) => {
+            const meta = await fetchSymbolMeta(mint);
+            return { mint, meta };
+          })
+        );
+  
+        if (cancelled) return;
+  
+        const updates: Record<string, NameEntry> = {};
+  
+        for (const row of results) {
+          if (row.meta) {
+            updates[row.mint] = row.meta;
+          }
         }
-      }
   
-      if (!cancelled && Object.keys(updates).length > 0) {
-        setNameMap((prev) => ({ ...prev, ...updates }));
+        if (Object.keys(updates).length > 0) {
+          setNameMap((prev) => ({ ...prev, ...updates }));
+        }
+      } finally {
+        missing.forEach((mint) => inFlightMetaRef.current.delete(mint));
       }
     })();
   
     return () => {
       cancelled = true;
     };
-  }, [items]);
+  }, [items, nameMap]);
 
   async function postStatusUpdate(mint: string, nextStatus: TokenStatus, reason: string) {
     return api('/api/admin/tokens', {
@@ -538,7 +555,14 @@ export default function AdminTokensPage() {
   }
 
   async function lookupOneMint(mint: string) {
+    if (inFlightMetaRef.current.has(mint)) {
+      push('Metadata request already in progress', 'info');
+      return;
+    }
+  
     try {
+      inFlightMetaRef.current.add(mint);
+  
       const meta = await fetchSymbolMeta(mint);
   
       if (meta?.symbol || meta?.name) {
@@ -549,6 +573,8 @@ export default function AdminTokensPage() {
       }
     } catch {
       push('Lookup failed', 'err');
+    } finally {
+      inFlightMetaRef.current.delete(mint);
     }
   }
   const visibleMints = useMemo(() => items.map((it) => String(it.mint)), [items]);
