@@ -5,8 +5,6 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import useAdminWalletGuard from '@/hooks/useAdminWalletGuard';
 
 import ExportCsvButton from '@/components/admin/ExportCsvButton';
-import { fetchSolanaTokenList } from '@/lib/utils';
-import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 import TokenInfoModal, { type VolumeResp } from '@/components/admin/TokenInfoModal';
 
 /* ────────────────────────────────────────────────────────── */
@@ -38,6 +36,11 @@ type AuditRow = {
   meta: any;
   updated_by: string | null;
   changed_at: string;
+};
+
+type NameEntry = {
+  symbol?: string;
+  name?: string;
 };
 
 /* ────────────────────────────────────────────────────────── */
@@ -96,39 +99,6 @@ async function copyToClipboard(text: string) {
       return false;
     }
   }
-}
-
-/* ────────────────────────────────────────────────────────── */
-/* localStorage name cache                                    */
-/* ────────────────────────────────────────────────────────── */
-type NameEntry = { symbol?: string; name?: string };
-const LS_KEY = 'cc_admin_nameMap_v1';
-const LS_MAX = 1000;
-
-function loadNameCache(): Record<string, NameEntry> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object') return parsed as Record<string, NameEntry>;
-  } catch {}
-  return {};
-}
-function saveNameCache(map: Record<string, NameEntry>) {
-  if (typeof window === 'undefined') return;
-  try {
-    const pruned = pruneMap(map, LS_MAX);
-    localStorage.setItem(LS_KEY, JSON.stringify(pruned));
-  } catch {}
-}
-function pruneMap(map: Record<string, NameEntry>, max: number) {
-  const keys = Object.keys(map);
-  if (keys.length <= max) return map;
-  const keep = keys.slice(-max);
-  const out: Record<string, NameEntry> = {};
-  for (const k of keep) out[k] = map[k];
-  return out;
 }
 
 /* ────────────────────────────────────────────────────────── */
@@ -209,6 +179,27 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function fetchSymbolMeta(mint: string): Promise<NameEntry | null> {
+  try {
+    const res = await fetch(`/api/symbol?mint=${encodeURIComponent(mint)}`, {
+      cache: 'no-store',
+    });
+
+    if (!res.ok) return null;
+
+    const j = await res.json();
+
+    if (!j?.symbol && !j?.name) return null;
+
+    return {
+      symbol: j.symbol || undefined,
+      name: j.name || undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /* ────────────────────────────────────────────────────────── */
 /* Sayfa                                                      */
 /* ────────────────────────────────────────────────────────── */
@@ -232,8 +223,6 @@ export default function AdminTokensPage() {
 
   // metadata cache state
   const [nameMap, setNameMap] = useState<Record<string, NameEntry>>({});
-  const [tokenListIndex, setTokenListIndex] = useState<Map<string, NameEntry>>();
-  const [listReady, setListReady] = useState(false);
 
   // pagination
   const [limit, setLimit] = useState(20);
@@ -403,57 +392,36 @@ export default function AdminTokensPage() {
     setSelectedMints((prev) => prev.filter((mint) => items.some((it) => it.mint === mint)));
   }, [items]);
 
-  // tokenlist index
   useEffect(() => {
-    let stop = false;
+    if (items.length === 0) return;
+  
+    let cancelled = false;
+  
     (async () => {
-      try {
-        const list = await fetchSolanaTokenList();
-        if (stop || !Array.isArray(list)) return;
-        const m = new Map<string, NameEntry>();
-        for (const t of list) {
-          if (t?.address) m.set(t.address, { symbol: t.symbol, name: t.name });
+      const missing = items
+        .map((it) => it.mint)
+        .filter((mint) => !nameMap[mint]);
+  
+      if (missing.length === 0) return;
+  
+      const updates: Record<string, NameEntry> = {};
+  
+      for (const mint of missing) {
+        const meta = await fetchSymbolMeta(mint);
+        if (meta) {
+          updates[mint] = meta;
         }
-        setTokenListIndex(m);
-      } finally {
-        setListReady(true);
+      }
+  
+      if (!cancelled && Object.keys(updates).length > 0) {
+        setNameMap((prev) => ({ ...prev, ...updates }));
       }
     })();
+  
     return () => {
-      stop = true;
+      cancelled = true;
     };
-  }, []);
-
-  // enrich names from tokenlist for visible rows
-  useEffect(() => {
-    if (!listReady || !tokenListIndex || items.length === 0) return;
-    setNameMap((prev) => {
-      let changed = false;
-      const next = { ...prev };
-      for (const it of items) {
-        if (!next[it.mint]) {
-          const hit = tokenListIndex.get(it.mint);
-          if (hit) {
-            next[it.mint] = hit;
-            changed = true;
-          }
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [listReady, tokenListIndex, items]);
-
-  // mount: load name cache → save on change
-  useEffect(() => {
-    const cached = loadNameCache();
-    if (cached && Object.keys(cached).length) {
-      setNameMap((prev) => ({ ...cached, ...prev }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  useEffect(() => {
-    saveNameCache(nameMap);
-  }, [nameMap]);
+  }, [items]);
 
   async function postStatusUpdate(mint: string, nextStatus: TokenStatus, reason: string) {
     return api('/api/admin/tokens', {
@@ -571,9 +539,10 @@ export default function AdminTokensPage() {
 
   async function lookupOneMint(mint: string) {
     try {
-      const meta = await fetchTokenMetadata(mint);
+      const meta = await fetchSymbolMeta(mint);
+  
       if (meta?.symbol || meta?.name) {
-        setNameMap((prev) => ({ ...prev, [mint]: { symbol: meta.symbol, name: meta.name } }));
+        setNameMap((prev) => ({ ...prev, [mint]: meta }));
         push('Metadata fetched', 'ok');
       } else {
         push('No metadata found', 'info');
