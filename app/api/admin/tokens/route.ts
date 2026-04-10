@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
         r.meta,
         r.created_at,
         r.updated_at,
+        COALESCE(mc.source, null) AS meta_source,
         vc.yes_count,
         CASE
           WHEN ${q ?? null}::text IS NULL THEN 100
@@ -97,6 +98,7 @@ export async function GET(req: NextRequest) {
       meta: any;
       created_at: string;
       updated_at: string;
+      meta_source: string | null;
       yes_count: number;
       match_rank: number;
     }[];

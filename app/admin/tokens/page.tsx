@@ -52,6 +52,7 @@ type AdminTokenRow = {
   meta: any;
   created_at: string;
   updated_at: string;
+  meta_source: string | null;
   yes_count: number;
 };
 
@@ -136,6 +137,31 @@ function VotesBadge({ yes, threshold }: { yes: number; threshold: number }) {
       title={`YES ${yes}/${threshold}`}
     >
       {`YES ${yes}/${threshold}`}
+    </span>
+  );
+}
+
+function MetaSourceBadge({ source }: { source: string | null | undefined }) {
+  if (!source) return null;
+
+  const label = source.toLowerCase();
+
+  const cls =
+    label === 'tokenlist'
+      ? 'bg-emerald-900/40 text-emerald-200 border border-emerald-700/60'
+      : label === 'coingecko'
+      ? 'bg-lime-900/40 text-lime-200 border border-lime-700/60'
+      : label === 'dexscreener'
+      ? 'bg-sky-900/40 text-sky-200 border border-sky-700/60'
+      : label === 'onchain'
+      ? 'bg-violet-900/40 text-violet-200 border border-violet-700/60'
+      : label === 'db_cache'
+      ? 'bg-zinc-800 text-zinc-200 border border-zinc-700'
+      : 'bg-gray-800 text-gray-200 border border-gray-700';
+
+  return (
+    <span className={['inline-flex rounded px-1.5 py-0.5 text-[10px]', cls].join(' ')}>
+      {label}
     </span>
   );
 }
@@ -1018,11 +1044,14 @@ export default function AdminTokensPage() {
                       >
                         {it.mint}
                       </a>
-                        <div className="text-[11px] text-gray-400">
+                        <div className="text-[11px] text-gray-400 space-y-1">
                           {nameMap[it.mint]?.symbol || nameMap[it.mint]?.name ? (
                             <>
-                              {nameMap[it.mint]?.symbol ?? ''}
-                              {nameMap[it.mint]?.name ? ` — ${nameMap[it.mint]?.name}` : ''}
+                              <div>
+                                {nameMap[it.mint]?.symbol ?? ''}
+                                {nameMap[it.mint]?.name ? ` — ${nameMap[it.mint]?.name}` : ''}
+                              </div>
+                              <MetaSourceBadge source={it.meta_source} />
                             </>
                           ) : (
                             <button
