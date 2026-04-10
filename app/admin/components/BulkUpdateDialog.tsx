@@ -29,6 +29,10 @@ export default function BulkUpdateDialog({ onDone }: { onDone?: () => void }) {
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [okMessage, setOkMessage] = React.useState<string | null>(null);
+  const [okItems, setOkItems] = React.useState<
+    Array<{ mint: string; status: TokenStatus; statusAt: string; invalidation?: any }>
+  >([]);
+  const [failItems, setFailItems] = React.useState<Array<{ mint: string; error: string }>>([]);
 
   const mintCount = React.useMemo(
     () => mintsRaw.split(/[\s,;]+/g).map(s => s.trim()).filter(Boolean).length,
@@ -38,6 +42,8 @@ export default function BulkUpdateDialog({ onDone }: { onDone?: () => void }) {
   async function handleSubmit() {
     setError(null);
     setOkMessage(null);
+    setOkItems([]);
+    setFailItems([]);
 
     // Meta JSON doğrula (opsiyonel ama faydalı)
     let metaObj: any = {};
@@ -72,10 +78,18 @@ export default function BulkUpdateDialog({ onDone }: { onDone?: () => void }) {
         }),
       });
       const data = await res.json();
+
       if (!res.ok || !data?.success) {
         throw new Error(data?.error || `HTTP ${res.status}`);
       }
-      setOkMessage(`Updated ${data.okCount} item(s). ${data.failCount ? `${data.failCount} failed.` : ''}`);
+
+      setOkItems(Array.isArray(data?.ok) ? data.ok : []);
+      setFailItems(Array.isArray(data?.fail) ? data.fail : []);
+
+      setOkMessage(
+        `Updated ${data.okCount} item(s). ${data.failCount ? `${data.failCount} failed.` : ''}`
+      );
+
       onDone?.();
     } catch (e: any) {
       setError(e?.message || 'Request failed');
@@ -168,7 +182,50 @@ export default function BulkUpdateDialog({ onDone }: { onDone?: () => void }) {
                 </div>
 
                 {error && <div className="text-sm text-red-400">❌ {error}</div>}
-                {okMessage && <div className="text-sm text-green-400">✅ {okMessage}</div>}
+
+                {okMessage && (
+                  <div className="space-y-3">
+                    <div className="text-sm text-green-400">✅ {okMessage}</div>
+
+                    {okItems.length > 0 && (
+                      <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-green-300 mb-2">
+                          Successful updates
+                        </div>
+                        <div className="max-h-40 overflow-auto space-y-1">
+                          {okItems.map((item) => (
+                            <div
+                              key={`${item.mint}-${item.statusAt}`}
+                              className="flex items-start justify-between gap-3 text-xs"
+                            >
+                              <span className="font-mono text-green-200 break-all">{item.mint}</span>
+                              <span className="shrink-0 text-green-300">{item.status}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {failItems.length > 0 && (
+                      <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-red-300 mb-2">
+                          Failed updates
+                        </div>
+                        <div className="max-h-48 overflow-auto space-y-2">
+                          {failItems.map((item, idx) => (
+                            <div
+                              key={`${item.mint}-${idx}`}
+                              className="rounded border border-red-500/10 bg-black/20 px-2 py-2"
+                            >
+                              <div className="font-mono text-xs text-red-200 break-all">{item.mint}</div>
+                              <div className="mt-1 text-xs text-red-300/90">{item.error}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Footer */}
