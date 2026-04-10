@@ -43,6 +43,18 @@ type NameEntry = {
   name?: string;
 };
 
+type AdminTokenRow = {
+  mint: string;
+  status: TokenStatus;
+  status_at: string | null;
+  updated_by: string | null;
+  reason: string | null;
+  meta: any;
+  created_at: string;
+  updated_at: string;
+  yes_count: number;
+};
+
 /* ────────────────────────────────────────────────────────── */
 /* Mini Toast                                                 */
 /* ────────────────────────────────────────────────────────── */
@@ -215,7 +227,7 @@ export default function AdminTokensPage() {
   const { toasts, push } = useToasts();
 
   // list state
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<AdminTokenRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<TokenStatus | ''>('');
@@ -306,7 +318,7 @@ export default function AdminTokensPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await api<{ success: true; items: any[] }>(`/api/admin/tokens?${params}`);
+      const data = await api<{ success: true; items: AdminTokenRow[] }>(`/api/admin/tokens?${params}`);
       setItems(data.items || []);
     } catch (e: any) {
       const msg = e?.message || 'Load error';
@@ -981,7 +993,7 @@ export default function AdminTokensPage() {
               </tr>
             )}
             {items.map((it) => {
-              const yesCount = typeof it.yes_count === 'number' ? it.yes_count : 0;
+              const yesCount = it.yes_count ?? 0;
               return (
                 <tr key={it.mint} className="border-b border-gray-800">
                   <td className="p-2 align-top">
