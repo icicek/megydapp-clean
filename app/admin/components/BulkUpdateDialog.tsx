@@ -1,9 +1,24 @@
+//app/admin/components/BulkUpdateDialog.tsx
 'use client';
 
 import * as React from 'react';
 
 type TokenStatus = 'healthy' | 'walking_dead' | 'deadcoin' | 'redlist' | 'blacklist';
 const STATUSES: TokenStatus[] = ['healthy', 'walking_dead', 'deadcoin', 'redlist', 'blacklist'];
+
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const m = document.cookie.match(
+    new RegExp('(?:^|; )' + name.replace(/[$()*+./?[\\\]^{|}-]/g, '\\$&') + '=([^;]*)')
+  );
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function getCsrfToken(): string | null {
+  if (typeof document === 'undefined') return null;
+  const meta = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null;
+  return meta?.content || getCookie('csrf') || null;
+}
 
 export default function BulkUpdateDialog({ onDone }: { onDone?: () => void }) {
   const [open, setOpen] = React.useState(false);
@@ -40,12 +55,17 @@ export default function BulkUpdateDialog({ onDone }: { onDone?: () => void }) {
 
     setSubmitting(true);
     try {
+      const csrf = getCsrfToken();
+      const headers = new Headers({ 'Content-Type': 'application/json' });
+      headers.set('X-Requested-With', 'fetch');
+      if (csrf) headers.set('x-csrf-token', csrf);
+
       const res = await fetch('/api/admin/tokens/bulk', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
-          mints: mintsRaw, // server zaten parse ediyor (string/array)
+          mints: mintsRaw,
           status,
           reason: reason || null,
           meta: metaObj,

@@ -7,6 +7,8 @@ import useAdminWalletGuard from '@/hooks/useAdminWalletGuard';
 import ExportCsvButton from '@/components/admin/ExportCsvButton';
 import TokenInfoModal, { type VolumeResp } from '@/components/admin/TokenInfoModal';
 
+import BulkUpdateDialog from '@/app/admin/components/BulkUpdateDialog';
+
 /* ────────────────────────────────────────────────────────── */
 /* UI: Tek tip toolbar butonu                                 */
 /* ────────────────────────────────────────────────────────── */
@@ -522,42 +524,57 @@ export default function AdminTokensPage() {
   }
   async function applyBulkStatus() {
     if (!ensureCriticalAdminAccess()) return;
-
+  
     if (selectedMints.length === 0) {
       push('No tokens selected', 'info');
       return;
     }
-
+  
     const reason = bulkReason.trim() || 'bulk admin update';
-
+  
     const ok = window.confirm(
       `Apply "${bulkStatus}" to ${selectedMints.length} token(s)?\n\nReason: ${reason}`
     );
     if (!ok) return;
-
+  
     try {
       setBulkSaving(true);
       setError(null);
-
-      let successCount = 0;
-      let failCount = 0;
-
-      for (const mint of selectedMints) {
-        try {
-          await postStatusUpdate(mint, bulkStatus, reason);
-          successCount++;
-        } catch {
-          failCount++;
-        }
+  
+      const payload = {
+        mints: selectedMints,
+        status: bulkStatus,
+        reason,
+        meta: { source: 'admin_bulk_selected' },
+      };
+  
+      const res = await api<{
+        success: true;
+        okCount: number;
+        failCount: number;
+        ok: Array<{
+          mint: string;
+          status: TokenStatus;
+          statusAt: string;
+          invalidation?: any;
+        }>;
+        fail: Array<{
+          mint: string;
+          error: string;
+        }>;
+      }>('/api/admin/tokens/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+  
+      if (res.okCount > 0) {
+        push(`✅ Bulk updated: ${res.okCount}`, 'ok');
       }
-
-      if (successCount > 0) {
-        push(`✅ Bulk updated: ${successCount}`, 'ok');
+      if (res.failCount > 0) {
+        push(`⚠️ Failed updates: ${res.failCount}`, 'info');
       }
-      if (failCount > 0) {
-        push(`⚠️ Failed updates: ${failCount}`, 'info');
-      }
-
+  
       await load();
       await loadStats();
       clearSelectedMints();
@@ -792,6 +809,12 @@ export default function AdminTokensPage() {
       <div className="mb-4">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-bold mr-auto">🛡️ Token Management</h1>
+          <BulkUpdateDialog
+            onDone={() => {
+              void load();
+              void loadStats();
+            }}
+          />
         </div>
       </div>
 
