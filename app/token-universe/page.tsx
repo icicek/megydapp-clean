@@ -40,6 +40,25 @@ function shortenMint(mint: string) {
   return `${mint.slice(0, 6)}…${mint.slice(-6)}`;
 }
 
+async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
 function getCoincarnateButtonClass(status: TokenStatus, disabled: boolean) {
   if (disabled) {
     if (status === 'redlist') {
@@ -267,14 +286,22 @@ export default function TokenUniversePage() {
                             {it.symbol || 'Unknown Symbol'}
                             {it.name ? ` — ${it.name}` : ''}
                           </div>
-                          <div className="mt-1 font-mono text-xs text-gray-400" title={it.mint}>
-                            {shortenMint(it.mint)}
-                          </div>
-                          {it.reason ? (
-                            <div className="mt-1 text-xs text-gray-500">
-                              Reason: {it.reason}
+                          <div className="mt-1 flex items-center gap-2">
+                            <div className="font-mono text-xs text-gray-400" title={it.mint}>
+                                {shortenMint(it.mint)}
                             </div>
-                          ) : null}
+
+                            <button
+                                onClick={async () => {
+                                  await copyToClipboard(it.mint);
+                                }}
+                                className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-300 hover:bg-white/10 hover:text-white"
+                                title="Copy mint"
+                                aria-label="Copy mint"
+                            >
+                                copy
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </td>
