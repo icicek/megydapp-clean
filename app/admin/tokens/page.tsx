@@ -244,6 +244,36 @@ async function fetchSymbolMeta(mint: string): Promise<NameEntry | null> {
   }
 }
 
+async function fetchSymbolMetaPreview(
+  mint: string
+): Promise<{ symbol?: string; name?: string; source?: string | null } | null> {
+  try {
+    const res = await fetch(`/api/symbol?mint=${encodeURIComponent(mint)}`, {
+      cache: 'no-store',
+    });
+
+    if (!res.ok) return null;
+
+    const j = await res.json();
+
+    if (!j?.symbol && !j?.name) {
+      return {
+        symbol: undefined,
+        name: undefined,
+        source: j?.source || null,
+      };
+    }
+
+    return {
+      symbol: j.symbol || undefined,
+      name: j.name || undefined,
+      source: j?.source || null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /* ────────────────────────────────────────────────────────── */
 /* Sayfa                                                      */
 /* ────────────────────────────────────────────────────────── */
@@ -269,6 +299,11 @@ export default function AdminTokensPage() {
   const [addStatus, setAddStatus] = useState<TokenStatus>('healthy');
   const [addReason, setAddReason] = useState('manual admin add');
   const [addSaving, setAddSaving] = useState(false);
+
+  const [addPreviewLoading, setAddPreviewLoading] = useState(false);
+  const [addPreview, setAddPreview] = useState<NameEntry | null>(null);
+  const [addPreviewSource, setAddPreviewSource] = useState<string | null>(null);
+  const [addPreviewState, setAddPreviewState] = useState<'idle' | 'found' | 'not_found'>('idle');
 
   // metadata cache state
   const [nameMap, setNameMap] = useState<Record<string, NameEntry>>({});
@@ -489,6 +524,47 @@ export default function AdminTokensPage() {
     };
   }, [items, nameMap]);
 
+  useEffect(() => {
+    const mint = normalizeMintInput(addMint);
+  
+    if (!mint) {
+      setAddPreview(null);
+      setAddPreviewSource(null);
+      setAddPreviewState('idle');
+      setAddPreviewLoading(false);
+      return;
+    }
+  
+    const id = setTimeout(async () => {
+      try {
+        setAddPreviewLoading(true);
+  
+        const meta = await fetchSymbolMetaPreview(mint);
+  
+        if (meta && (meta.symbol || meta.name)) {
+          setAddPreview({
+            symbol: meta.symbol,
+            name: meta.name,
+          });
+          setAddPreviewSource(meta.source || null);
+          setAddPreviewState('found');
+        } else {
+          setAddPreview(null);
+          setAddPreviewSource(meta?.source || null);
+          setAddPreviewState('not_found');
+        }
+      } catch {
+        setAddPreview(null);
+        setAddPreviewSource(null);
+        setAddPreviewState('not_found');
+      } finally {
+        setAddPreviewLoading(false);
+      }
+    }, 450);
+  
+    return () => clearTimeout(id);
+  }, [addMint]);
+
   async function postStatusUpdate(mint: string, nextStatus: TokenStatus, reason: string) {
     return api('/api/admin/tokens', {
       method: 'POST',
@@ -529,6 +605,9 @@ export default function AdminTokensPage() {
   
       setAddMint('');
       setAddReason('manual admin add');
+      setAddPreview(null);
+      setAddPreviewSource(null);
+      setAddPreviewState('idle');
     } catch (e: any) {
       const msg = e?.message || 'Add token error';
       setError(msg);
@@ -1009,7 +1088,7 @@ export default function AdminTokensPage() {
         <div className="grid gap-3 lg:grid-cols-[1.8fr_180px_1fr_auto]">
           <input
             value={addMint}
-            onChange={(e) => setAddMint(e.target.value)}
+            onChange={(e) => setAddMint(normalizeMintInput(e.target.value))}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !addSaving) {
                 void addTokenByMint();
@@ -1050,6 +1129,42 @@ export default function AdminTokensPage() {
           >
             {addSaving ? 'Adding…' : 'Add Token'}
           </button>
+        </div>
+        <div className="mt-3 rounded-lg border border-white/10 bg-black/20 px-3 py-3">
+          {!addMint.trim() ? (
+            <div className="text-xs text-gray-500">
+              Paste a mint address to preview token metadata.
+            </div>
+          ) : addPreviewLoading ? (
+            <div className="text-xs text-gray-400">
+              Loading token metadata...
+            </div>
+          ) : addPreviewState === 'found' ? (
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <div>
+                <span className="text-gray-400">Symbol:</span>{' '}
+                <span className="font-semibold text-white">
+                  {addPreview?.symbol || '—'}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-400">Name:</span>{' '}
+                <span className="font-semibold text-white">
+                  {addPreview?.name || '—'}
+                </span>
+              </div>
+              {addPreviewSource ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400">Source:</span>
+                  <MetaSourceBadge source={addPreviewSource} />
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="text-xs text-amber-300">
+              No metadata found yet. You can still try adding the token if the mint is valid.
+            </div>
+          )}
         </div>
       </div>
 
