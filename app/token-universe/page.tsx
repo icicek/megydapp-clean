@@ -31,10 +31,37 @@ const STATUS_STYLES: Record<TokenStatus, string> = {
 
 function StatusBadge({ status }: { status: TokenStatus }) {
     return (
-        <span className={['rounded px-2 py-0.5 text-xs', STATUS_STYLES[status]].join(' ')}>
+        <span
+            className={[
+                'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap',
+                STATUS_STYLES[status],
+            ].join(' ')}
+        >
             {status}
         </span>
     );
+}
+
+function ClassificationBadge({ label }: { label: string }) {
+    return (
+        <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-gray-200 whitespace-nowrap">
+            {label}
+        </span>
+    );
+}
+
+function formatUpdatedShort(value: string | null) {
+    if (!value) return '—';
+
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '—';
+
+    return d.toLocaleString(undefined, {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }
 
 function shortenMint(mint: string) {
@@ -65,19 +92,19 @@ function getCoincarnateButtonClass(status: TokenStatus, disabled: boolean) {
         'border border-white/10 bg-white/[0.04] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm';
 
     if (disabled) {
-        return `${base} opacity-45 cursor-not-allowed text-gray-500 hover:bg-white/[0.04] hover:text-gray-500`;
+        return `${base} opacity-45 cursor-not-allowed text-gray-500`;
     }
 
     if (status === 'healthy') {
-        return `${base} hover:border-emerald-400/40 hover:bg-emerald-500/12 hover:text-emerald-200 hover:shadow-[0_0_24px_rgba(16,185,129,0.18)]`;
+        return `${base} hover:border-emerald-400/40 hover:bg-emerald-500/12 hover:text-emerald-200 hover:shadow-[0_0_20px_rgba(16,185,129,0.16)]`;
     }
 
     if (status === 'walking_dead') {
-        return `${base} hover:border-amber-400/40 hover:bg-amber-500/12 hover:text-amber-200 hover:shadow-[0_0_24px_rgba(245,158,11,0.18)]`;
+        return `${base} hover:border-amber-400/40 hover:bg-amber-500/12 hover:text-amber-200 hover:shadow-[0_0_20px_rgba(245,158,11,0.16)]`;
     }
 
     if (status === 'deadcoin') {
-        return `${base} hover:border-zinc-300/20 hover:bg-zinc-500/10 hover:text-zinc-100 hover:shadow-[0_0_24px_rgba(113,113,122,0.18)]`;
+        return `${base} hover:border-zinc-300/20 hover:bg-zinc-500/10 hover:text-zinc-100 hover:shadow-[0_0_20px_rgba(113,113,122,0.16)]`;
     }
 
     return `${base} hover:border-white/20 hover:bg-white/[0.08]`;
@@ -246,17 +273,16 @@ export default function TokenUniversePage() {
                     <table className="min-w-full text-sm">
                         <thead className="bg-white/5">
                             <tr>
-                                <th className="p-3 text-left">Token</th>
-                                <th className="p-3 text-left">Status</th>
-                                <th className="p-3 text-left">Classification</th>
-                                <th className="p-3 text-left">Updated</th>
-                                <th className="p-3 text-left">Action</th>
+                                <th className="p-3 text-left text-sm">Token</th>
+                                <th className="p-3 text-left text-sm">Signal</th>
+                                <th className="hidden md:table-cell p-3 text-left text-sm">Updated</th>
+                                <th className="p-3 text-left text-sm">Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             {items.length === 0 && !loading && (
                                 <tr>
-                                    <td colSpan={5} className="p-4 text-gray-400">
+                                    <td colSpan={4} className="p-4 text-gray-400">
                                         No records found.
                                     </td>
                                 </tr>
@@ -267,27 +293,28 @@ export default function TokenUniversePage() {
                                 const tokenLabel = it.symbol ? `$${it.symbol}` : 'this token';
 
                                 return (
-                                    <tr key={it.mint} className="border-t border-white/5">
-                                        <td className="p-3">
-                                            <div className="flex items-start gap-3">
+
+                                    <tr key={it.mint} className="border-t border-white/5 align-top">
+                                        <td className="p-3 md:p-4">
+                                            <div className="flex items-start gap-3 min-w-0">
                                                 {it.logo_uri ? (
                                                     <img
                                                         src={it.logo_uri}
                                                         alt={it.symbol || it.name || it.mint}
-                                                        className="mt-0.5 h-10 w-10 rounded-full border border-white/10 object-cover"
+                                                        className="mt-0.5 h-9 w-9 rounded-full border border-white/10 object-cover shrink-0"
                                                     />
                                                 ) : (
-                                                    <div className="mt-0.5 h-10 w-10 rounded-full border border-white/10 bg-white/5" />
+                                                    <div className="mt-0.5 h-9 w-9 rounded-full border border-white/10 bg-white/5 shrink-0" />
                                                 )}
 
                                                 <div className="min-w-0">
-                                                    <div className="font-semibold">
+                                                    <div className="truncate text-[14px] md:text-[15px] font-semibold leading-5">
                                                         {it.symbol || 'Unknown Symbol'}
                                                         {it.name ? ` — ${it.name}` : ''}
                                                     </div>
 
-                                                    <div className="mt-1 flex items-center gap-2">
-                                                        <div className="font-mono text-xs text-gray-400" title={it.mint}>
+                                                    <div className="mt-1 flex items-center gap-2 min-w-0">
+                                                        <div className="truncate font-mono text-[11px] text-gray-400" title={it.mint}>
                                                             {shortenMint(it.mint)}
                                                         </div>
 
@@ -295,7 +322,7 @@ export default function TokenUniversePage() {
                                                             onClick={async () => {
                                                                 await copyToClipboard(it.mint);
                                                             }}
-                                                            className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] text-gray-300 transition-colors hover:bg-white/[0.08] hover:text-white"
+                                                            className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] text-gray-300 transition-colors hover:bg-white/[0.08] hover:text-white"
                                                             title="Copy mint"
                                                             aria-label="Copy mint"
                                                         >
@@ -306,26 +333,26 @@ export default function TokenUniversePage() {
                                             </div>
                                         </td>
 
-                                        <td className="p-3">
-                                            <StatusBadge status={it.status} />
+                                        <td className="p-3 md:p-4">
+                                            <div className="flex flex-col items-start gap-1.5">
+                                                <StatusBadge status={it.status} />
+                                                <ClassificationBadge label={it.classification_label} />
+                                                <div className="md:hidden text-[11px] text-gray-500 whitespace-nowrap">
+                                                    {formatUpdatedShort(it.updated_at)}
+                                                </div>
+                                            </div>
                                         </td>
 
-                                        <td className="p-3">
-                                            <span className="inline-flex rounded px-2 py-1 text-xs border border-white/10 bg-white/5 text-gray-200">
-                                                {it.classification_label}
-                                            </span>
-                                        </td>
-
-                                        <td className="p-3 whitespace-nowrap text-gray-300">
+                                        <td className="hidden md:table-cell p-3 md:p-4 whitespace-nowrap text-[13px] text-gray-300">
                                             {it.updated_at ? new Date(it.updated_at).toLocaleString() : '—'}
                                         </td>
 
-                                        <td className="p-3">
+                                        <td className="p-3 md:p-4">
                                             <button
                                                 disabled={isDisabled}
                                                 onClick={() => handleCoincarnateClick(it.mint, it.status)}
                                                 className={[
-                                                    'w-[210px] rounded-full px-4 py-3 text-[15px] font-semibold tracking-[0.01em] transition-all duration-200 text-center',
+                                                    'w-[150px] md:w-[165px] rounded-xl px-3 py-2 text-[13px] font-semibold tracking-[0.01em] transition-all duration-200 text-center whitespace-nowrap overflow-hidden text-ellipsis',
                                                     getCoincarnateButtonClass(it.status, isDisabled),
                                                 ].join(' ')}
                                                 title={
