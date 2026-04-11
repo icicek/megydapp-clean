@@ -48,10 +48,19 @@ export async function GET(req: NextRequest) {
         r.reason,
         r.created_at,
         r.updated_at,
+
         COALESCE(mc.symbol, null) AS symbol,
         COALESCE(mc.name, null) AS name,
         COALESCE(mc.logo_uri, null) AS logo_uri,
-        COALESCE(mc.source, null) AS metadata_source,
+
+        CASE
+          WHEN r.status::text IN ('redlist', 'blacklist') THEN 'Policy Override'
+          WHEN LOWER(COALESCE(r.reason, '')) LIKE '%metrics_reclassification%' THEN 'Auto Metrics'
+          WHEN LOWER(COALESCE(r.reason, '')) LIKE '%reclass%' THEN 'Auto Metrics'
+          WHEN LOWER(COALESCE(r.reason, '')) LIKE '%bulk%' THEN 'Admin Bulk'
+          ELSE 'Admin Manual'
+        END AS classification_label,
+
         CASE
           WHEN ${q ?? null}::text IS NULL THEN 100
           WHEN LOWER(r.mint) = LOWER(${q}) THEN 1
@@ -97,7 +106,7 @@ export async function GET(req: NextRequest) {
       symbol: string | null;
       name: string | null;
       logo_uri: string | null;
-      metadata_source: string | null;
+      classification_label: string;
       match_rank: number;
     }>;
 
