@@ -116,6 +116,10 @@ async function copyToClipboard(text: string) {
   }
 }
 
+function normalizeMintInput(v: string) {
+  return String(v || '').trim();
+}
+
 /* ────────────────────────────────────────────────────────── */
 /* UI parçaları                                               */
 /* ────────────────────────────────────────────────────────── */
@@ -260,6 +264,11 @@ export default function AdminTokensPage() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<TokenStatus | ''>('');
   const [error, setError] = useState<string | null>(null);
+
+  const [addMint, setAddMint] = useState('');
+  const [addStatus, setAddStatus] = useState<TokenStatus>('healthy');
+  const [addReason, setAddReason] = useState('manual admin add');
+  const [addSaving, setAddSaving] = useState(false);
 
   // metadata cache state
   const [nameMap, setNameMap] = useState<Record<string, NameEntry>>({});
@@ -490,6 +499,43 @@ export default function AdminTokensPage() {
         reason,
       }),
     });
+  }
+
+  async function addTokenByMint() {
+    if (!ensureCriticalAdminAccess()) return;
+  
+    const mint = normalizeMintInput(addMint);
+    const reason = addReason.trim() || 'manual admin add';
+  
+    if (!mint) {
+      push('Mint is required', 'err');
+      return;
+    }
+  
+    try {
+      setAddSaving(true);
+      setError(null);
+  
+      await postStatusUpdate(mint, addStatus, reason);
+  
+      push(`✅ Token added: ${mint} → ${addStatus}`, 'ok');
+  
+      setQ(mint);
+      setStatus('');
+      setPage(0);
+  
+      await load();
+      await loadStats();
+  
+      setAddMint('');
+      setAddReason('manual admin add');
+    } catch (e: any) {
+      const msg = e?.message || 'Add token error';
+      setError(msg);
+      push(`❌ ${msg}`, 'err');
+    } finally {
+      setAddSaving(false);
+    }
   }
   
   /* ── actions ───────────────────────────────────────────── */
@@ -951,6 +997,61 @@ export default function AdminTokensPage() {
           </div>
         </div>
       )}
+
+      <div className="mb-4 rounded-xl border border-white/10 bg-white/5 p-4">
+        <div className="mb-3">
+          <h2 className="text-base font-semibold">Add Token by Mint</h2>
+          <p className="mt-1 text-xs text-gray-400">
+            Add a token directly to the registry even if it does not appear in the current list yet.
+          </p>
+        </div>
+
+        <div className="grid gap-3 lg:grid-cols-[1.8fr_180px_1fr_auto]">
+          <input
+            value={addMint}
+            onChange={(e) => setAddMint(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !addSaving) {
+                void addTokenByMint();
+              }
+            }}
+            placeholder="Mint address"
+            className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2"
+          />
+
+          <select
+            value={addStatus}
+            onChange={(e) => setAddStatus(e.target.value as TokenStatus)}
+            className="bg-gray-900 border border-gray-700 rounded px-3 py-2"
+          >
+            {STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+
+          <input
+            value={addReason}
+            onChange={(e) => setAddReason(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !addSaving) {
+                void addTokenByMint();
+              }
+            }}
+            placeholder="Reason"
+            className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2"
+          />
+
+          <button
+            onClick={() => void addTokenByMint()}
+            disabled={addSaving}
+            className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+          >
+            {addSaving ? 'Adding…' : 'Add Token'}
+          </button>
+        </div>
+      </div>
 
       {/* Filters */}
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
