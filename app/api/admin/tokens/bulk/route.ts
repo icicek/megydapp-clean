@@ -8,6 +8,7 @@ import { httpErrorFrom } from '@/app/api/_lib/http';
 import { logAdminAudit } from '@/app/api/admin/_lib/audit';
 import { applyBlacklistInvalidation } from '@/app/api/_lib/blacklist/applyBlacklistInvalidation';
 import { validateMintAddress } from '@/app/api/_lib/solana/validateMint';
+import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 
 type TokenStatus = 'healthy' | 'walking_dead' | 'deadcoin' | 'redlist' | 'blacklist';
 const ALLOWED: TokenStatus[] = ['healthy', 'walking_dead', 'deadcoin', 'redlist', 'blacklist'];
@@ -175,6 +176,11 @@ export async function POST(req: Request) {
         });
 
         await sql`COMMIT`;
+
+        // 🔥 Metadata prefill (best-effort)
+        try {
+          fetchTokenMetadata(mint).catch(() => {});
+        } catch {}
 
         cache.del(statusKey(mint));
 

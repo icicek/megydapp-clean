@@ -8,6 +8,7 @@ import { verifyCsrf } from '@/app/api/_lib/csrf';
 import { httpErrorFrom } from '@/app/api/_lib/http';
 import { applyBlacklistInvalidation } from '@/app/api/_lib/blacklist/applyBlacklistInvalidation';
 import { validateMintAddress } from '@/app/api/_lib/solana/validateMint';
+import { fetchTokenMetadata } from '@/app/api/utils/fetchTokenMetadata';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -145,6 +146,11 @@ export async function POST(req: NextRequest) {
       reason,
       meta
     });
+
+    // 🔥 Metadata prefill (best-effort, non-blocking)
+    try {
+      fetchTokenMetadata(mint).catch(() => {});
+    } catch {}
 
     let invalidation: any = null;
 
