@@ -343,7 +343,7 @@ export default function TokenUniversePage() {
                                             <div className="flex flex-col items-start gap-1.5 min-w-0">
                                                 <ClassificationBadge label={it.classification_label} />
                                                 <div className="text-[11px] text-gray-500 whitespace-nowrap">
-                                                    {it.updated_at ? new Date(it.updated_at).toLocaleString() : '—'}
+                                                    {formatUpdatedShort(it.updated_at)}
                                                 </div>
                                             </div>
                                         </td>
