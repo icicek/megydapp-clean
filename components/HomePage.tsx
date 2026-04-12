@@ -38,6 +38,7 @@ export default function HomePage() {
 
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showSolModal, setShowSolModal] = useState(false);
+  const [autoOpenHandledMint, setAutoOpenHandledMint] = useState<string | null>(null);
 
   function formatTokenAmount(token: TokenInfo) {
     if (typeof token.uiAmountString === 'string' && token.uiAmountString.trim()) {
@@ -57,6 +58,25 @@ export default function HomePage() {
     }
   
     return '0';
+  }
+
+  function safeReadPendingCoincarnateMint(): string | null {
+    if (typeof window === 'undefined') return null;
+  
+    try {
+      const mint = sessionStorage.getItem('coincarnate_target_mint');
+      return mint && mint.trim() ? mint.trim() : null;
+    } catch {
+      return null;
+    }
+  }
+  
+  function clearPendingCoincarnateMint() {
+    if (typeof window === 'undefined') return;
+  
+    try {
+      sessionStorage.removeItem('coincarnate_target_mint');
+    } catch {}
   }
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -158,6 +178,44 @@ export default function HomePage() {
       setSelectedToken(fresh);
     }
   }, [tokens, selectedToken]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (tokensLoading) return;
+    if (!tokens || tokens.length === 0) return;
+  
+    const pendingMint = safeReadPendingCoincarnateMint();
+    if (!pendingMint) return;
+  
+    if (autoOpenHandledMint === pendingMint) return;
+  
+    const matchedToken = tokens.find(
+      (t) => String(t.mint).toLowerCase() === pendingMint.toLowerCase()
+    );
+  
+    if (!matchedToken) {
+      // Token was requested from Coinographia, but it is not currently present
+      // in the connected wallet token list. Clear the pending state to avoid loops.
+      clearPendingCoincarnateMint();
+      setAutoOpenHandledMint(pendingMint);
+      return;
+    }
+  
+    const hasValidAmount =
+      (typeof matchedToken.amount === 'number' && Number.isFinite(matchedToken.amount)) ||
+      (typeof matchedToken.uiAmountString === 'string' && matchedToken.uiAmountString.trim().length > 0);
+  
+    if (!hasValidAmount) {
+      clearPendingCoincarnateMint();
+      setAutoOpenHandledMint(pendingMint);
+      return;
+    }
+  
+    setSelectedToken(matchedToken);
+    setShowSolModal(true);
+    clearPendingCoincarnateMint();
+    setAutoOpenHandledMint(pendingMint);
+  }, [tokens, tokensLoading, autoOpenHandledMint]);
 
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
   const sharePercentage = Math.max(0, Math.min(100, shareRatio * 100)).toFixed(2);

@@ -206,10 +206,10 @@ export default function TokenUniversePage() {
         <AppWalletBar className="mb-6 w-full" />
 
         <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-6">
-          <h1 className="text-3xl font-bold">Token Universe</h1>
+          <h1 className="text-3xl font-bold">Coinographia</h1>
           <p className="mt-3 max-w-3xl text-sm text-gray-300">
-            Explore the tokens tracked by Coincarnation. Review their current status,
-            search by mint or symbol, and decide what deserves a second life.
+            Explore Coinographia — the living map of tokens tracked by Coincarnation.
+            Review their current status, understand their classification, and decide what deserves a second life.
           </p>
         </div>
 
@@ -218,10 +218,10 @@ export default function TokenUniversePage() {
             <div className="max-w-4xl">
               <h2 className="text-lg font-semibold text-white">How classification works</h2>
               <p className="mt-2 text-sm text-gray-300">
-                Tokens are classified using Coincarnation’s current status logic. Healthy tokens meet stronger
-                activity expectations, walking dead tokens show weakening conditions, and deadcoins fall below
-                survivability thresholds. Redlist and blacklist statuses are policy overrides and Coincarnation
-                is disabled for them.
+                Tokens are classified through Coincarnation’s status system using activity, liquidity,
+                survivability, and policy controls. Healthy tokens remain active enough to sustain market life,
+                walking dead tokens show weakening conditions, and deadcoins fall below survival thresholds.
+                Redlist and blacklist statuses are policy overrides, and Coincarnation is disabled for them.
               </p>
             </div>
 
@@ -375,10 +375,10 @@ export default function TokenUniversePage() {
           <table className="min-w-full text-sm">
             <thead className="bg-white/5">
               <tr>
-                <th className="p-3 text-left text-sm">Token</th>
-                <th className="p-3 text-center text-sm">Status</th>
-                <th className="p-3 text-center text-sm">Details</th>
-                <th className="p-3 text-center text-sm">Action</th>
+              <th className="w-[44%] p-3 text-left text-sm">Token</th>
+              <th className="w-[14%] p-3 text-center text-sm">Status</th>
+              <th className="w-[18%] p-3 text-center text-sm">Details</th>
+              <th className="w-[24%] p-3 text-center text-sm">Action</th>
               </tr>
             </thead>
             <tbody>
