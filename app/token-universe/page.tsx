@@ -274,8 +274,8 @@ export default function TokenUniversePage() {
                         <thead className="bg-white/5">
                             <tr>
                                 <th className="p-3 text-left text-sm">Token</th>
-                                <th className="p-3 text-left text-sm">Signal</th>
-                                <th className="hidden md:table-cell p-3 text-left text-sm">Updated</th>
+                                <th className="p-3 text-left text-sm">Status</th>
+                                <th className="p-3 text-left text-sm">Details</th>
                                 <th className="p-3 text-left text-sm">Action</th>
                             </tr>
                         </thead>
@@ -333,18 +333,19 @@ export default function TokenUniversePage() {
                                             </div>
                                         </td>
 
-                                        <td className="p-3 md:p-4">
-                                            <div className="flex flex-col items-start gap-1.5">
+                                        <td className="p-3 md:p-4 align-top">
+                                            <div className="flex items-start">
                                                 <StatusBadge status={it.status} />
-                                                <ClassificationBadge label={it.classification_label} />
-                                                <div className="md:hidden text-[11px] text-gray-500 whitespace-nowrap">
-                                                    {formatUpdatedShort(it.updated_at)}
-                                                </div>
                                             </div>
                                         </td>
 
-                                        <td className="hidden md:table-cell p-3 md:p-4 whitespace-nowrap text-[13px] text-gray-300">
-                                            {it.updated_at ? new Date(it.updated_at).toLocaleString() : '—'}
+                                        <td className="p-3 md:p-4 align-top">
+                                            <div className="flex flex-col items-start gap-1.5 min-w-0">
+                                                <ClassificationBadge label={it.classification_label} />
+                                                <div className="text-[11px] text-gray-500 whitespace-nowrap">
+                                                    {it.updated_at ? new Date(it.updated_at).toLocaleString() : '—'}
+                                                </div>
+                                            </div>
                                         </td>
 
                                         <td className="p-3 md:p-4">
