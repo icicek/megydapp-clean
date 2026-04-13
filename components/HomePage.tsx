@@ -95,6 +95,27 @@ export default function HomePage() {
     return `${diffDay}d ago`;
   }
 
+  function getTimeGlow(timestamp: string) {
+    const diff = Date.now() - new Date(timestamp).getTime();
+  
+    const sec = diff / 1000;
+    const min = sec / 60;
+  
+    if (sec < 120) {
+      return 'shadow-[0_0_40px_rgba(16,185,129,0.35)]';
+    }
+  
+    if (min < 10) {
+      return 'shadow-[0_0_25px_rgba(16,185,129,0.25)]';
+    }
+  
+    if (min < 60) {
+      return 'shadow-[0_0_15px_rgba(34,211,238,0.18)]';
+    }
+  
+    return '';
+  }
+
   function getActivityDisplayLimit() {
     return 9;
   }
@@ -495,7 +516,10 @@ export default function HomePage() {
             </h2>
             <div className="mt-1 max-w-2xl">
               <p className="text-xs text-green-400">
-                🔥 {liveActivity.length}/{liveActivityTotal} Coincarnations recently triggered
+                🔥 {liveActivity.length}/{liveActivityTotal} Coincarnations  
+                <span className="text-emerald-400 ml-1">
+                  ({liveActivity.filter(i => Date.now() - new Date(i.timestamp).getTime() < 10 * 60 * 1000).length} in last 10 min)
+                </span>
               </p>
               <p className="mt-1 text-sm text-gray-400">
                 A live glimpse into the latest Coincarnation activity across the ecosystem.
@@ -549,13 +573,23 @@ export default function HomePage() {
                   key={`${item.tokenContract}-${item.timestamp}-${index}`}
                   href="/token-universe"
                   className={[
-                    'relative block w-full max-w-[380px] rounded-2xl border bg-white/[0.03] p-3 sm:p-4 transition-all duration-200 hover:bg-white/[0.06] hover:scale-[1.02] hover:-translate-y-1',
+                    'relative block w-full max-w-[380px] rounded-2xl border bg-white/[0.03] p-3 sm:p-4 transition-all duration-200 hover:bg-white/[0.06] hover:scale-[1.02] hover:-translate-y-1 hover:shadow-[0_0_40px_rgba(16,185,129,0.25)]',
+                  
                     index === 0
-                      ? 'border-emerald-400/30 shadow-[0_0_24px_rgba(16,185,129,0.12)]'
-                      : index < 3
-                      ? 'border-white/15'
-                      : 'border-white/10',
-                  ].join(' ')}
+                      ? 'border-emerald-400/40 shadow-[0_0_30px_rgba(16,185,129,0.18)] bg-emerald-500/[0.03]'
+                  
+                      : index === 1 || index === 2
+                      ? 'border-emerald-400/20 hover:border-emerald-300/30'
+                  
+                      : index === 3 || index === 4
+                      ? 'border-cyan-400/20 hover:border-cyan-300/30'
+                  
+                      : index === 5 || index === 6
+                      ? 'border-blue-400/20 hover:border-blue-300/30'
+                  
+                      : 'border-amber-400/20 hover:border-amber-300/30',
+                  
+                  ].join(' ') + ' ' + getTimeGlow(item.timestamp)}
                 >
                   <div className="flex items-start gap-2.5 sm:gap-3">
                     <button
@@ -600,10 +634,20 @@ export default function HomePage() {
                       </div>
 
                       <div className="mt-2.5 flex items-center gap-2 text-[11px] sm:text-xs">
+
+                        {/* 🔥 HOT */}
+                        {Date.now() - new Date(item.timestamp).getTime() < 5 * 60 * 1000 && (
+                          <span className="rounded-full bg-orange-500/15 border border-orange-400/30 px-2 py-0.5 text-[10px] text-orange-300 animate-pulse whitespace-nowrap">
+                            Hot
+                          </span>
+                        )}
+
+                        {/* ✅ Coincarnated */}
                         <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 sm:px-2.5 sm:py-1 text-emerald-200 animate-pulse shadow-[0_0_14px_rgba(16,185,129,0.28)] whitespace-nowrap">
                           Coincarnated
                         </span>
 
+                        {/* ⏱ time */}
                         <span className="text-gray-400 font-medium whitespace-nowrap">
                           {formatRelativeTimeEnhanced(item.timestamp)}
                         </span>
