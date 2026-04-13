@@ -505,7 +505,7 @@ export default function HomePage() {
 
           <a
             href="/token-universe"
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white transition-colors hover:bg-white/[0.08]"
+            className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-gradient-to-r from-slate-800/90 via-indigo-900/70 to-slate-800/90 px-4 py-2 text-sm font-medium text-white shadow-[0_0_20px_rgba(34,211,238,0.08)] transition-all duration-200 hover:border-cyan-300/30 hover:from-slate-700/90 hover:via-indigo-800/80 hover:to-slate-700/90 hover:shadow-[0_0_28px_rgba(34,211,238,0.14)]"
           >
             <span className="sm:hidden">↗</span>
             <span>Explore Coinographia</span>
@@ -549,7 +549,7 @@ export default function HomePage() {
                   key={`${item.tokenContract}-${item.timestamp}-${index}`}
                   href="/token-universe"
                   className={[
-                    'relative block w-full max-w-[380px] rounded-2xl border bg-white/[0.03] p-4 transition-all duration-200 hover:bg-white/[0.06] hover:scale-[1.02] hover:-translate-y-1',
+                    'relative block w-full max-w-[380px] rounded-2xl border bg-white/[0.03] p-3 sm:p-4 transition-all duration-200 hover:bg-white/[0.06] hover:scale-[1.02] hover:-translate-y-1',
                     index === 0
                       ? 'border-emerald-400/30 shadow-[0_0_24px_rgba(16,185,129,0.12)]'
                       : index < 3
@@ -557,7 +557,7 @@ export default function HomePage() {
                       : 'border-white/10',
                   ].join(' ')}
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-2.5 sm:gap-3">
                     <button
                       onClick={(e) => {
                         e.preventDefault();
@@ -566,7 +566,7 @@ export default function HomePage() {
                         sessionStorage.setItem('coincarnate_target_mint', item.tokenContract);
                         window.location.href = '/';
                       }}
-                      className="absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
+                      className="absolute top-3 right-3 z-10 flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
                       title="Coincarnate this token"
                     >
                       ↗
@@ -577,7 +577,7 @@ export default function HomePage() {
                         <img
                           src={item.logoURI}
                           alt={title}
-                          className="h-10 w-10 rounded-full border border-white/10 object-cover"
+                          className="h-9 w-9 sm:h-10 sm:w-10 rounded-full border border-white/10 object-cover"
                         />
                       ) : (
                         <div className="h-10 w-10 rounded-full border border-white/10 bg-white/5" />
@@ -591,16 +591,16 @@ export default function HomePage() {
                     </div>
 
                     <div className="min-w-0 flex-1 pr-14">
-                      <div className="truncate max-w-full text-[15px] font-semibold leading-5 text-white">
+                      <div className="truncate max-w-full text-[14px] sm:text-[15px] font-semibold leading-5 text-white">
                         {title}
                       </div>
 
-                      <div className="mt-1 truncate text-[12px] text-gray-400">
+                      <div className="mt-0.5 truncate text-[11px] sm:text-[12px] text-gray-400">
                         {item.shortMint}
                       </div>
 
-                      <div className="mt-3 flex items-center gap-2 text-xs">
-                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2.5 py-1 text-emerald-200 animate-pulse shadow-[0_0_14px_rgba(16,185,129,0.28)] whitespace-nowrap">
+                      <div className="mt-2.5 flex items-center gap-2 text-[11px] sm:text-xs">
+                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 sm:px-2.5 sm:py-1 text-emerald-200 animate-pulse shadow-[0_0_14px_rgba(16,185,129,0.28)] whitespace-nowrap">
                           Coincarnated
                         </span>
 
@@ -609,11 +609,11 @@ export default function HomePage() {
                         </span>
                       </div>
 
-                      <div className="mt-3 truncate whitespace-nowrap text-xs text-gray-400">
+                      <div className="mt-2.5 truncate whitespace-nowrap text-[11px] sm:text-xs text-gray-400">
                         Coincarnator: <span className="font-mono text-gray-300">{item.shortWallet}</span>
                       </div>
 
-                      <div className="mt-1 text-xs text-gray-400">
+                      <div className="mt-0.5 text-[11px] sm:text-xs text-gray-400">
                         Value: <span className="font-medium text-white">${item.usdValue.toFixed(2)}</span>
                       </div>
                     </div>
