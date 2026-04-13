@@ -8,7 +8,6 @@ import CountUp from 'react-countup';
 import AppWalletBar from '@/components/AppWalletBar';
 
 import CoincarneModal from '@/components/CoincarneModal';
-import TrustPledge from '@/components/TrustPledge';
 import Skeleton from '@/components/ui/Skeleton';
 
 import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
@@ -17,6 +16,18 @@ import AdminLink from '@/components/admin/AdminLink';
 
 // PROD'da 15s, DEV'de 20s polling
 const POLL_MS = 0;
+
+type LiveActivityItem = {
+  tokenSymbol: string | null;
+  tokenName: string | null;
+  tokenContract: string;
+  shortMint: string;
+  walletAddress: string;
+  shortWallet: string;
+  usdValue: number;
+  timestamp: string;
+  logoURI: string | null;
+};
 
 export default function HomePage() {
   const router = useRouter();
@@ -39,6 +50,9 @@ export default function HomePage() {
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showSolModal, setShowSolModal] = useState(false);
   const [autoOpenHandledMint, setAutoOpenHandledMint] = useState<string | null>(null);
+  const [liveActivity, setLiveActivity] = useState<LiveActivityItem[]>([]);
+  const [liveActivityLoading, setLiveActivityLoading] = useState(false);
+  const [liveActivityError, setLiveActivityError] = useState<string | null>(null);
 
   function formatTokenAmount(token: TokenInfo) {
     if (typeof token.uiAmountString === 'string' && token.uiAmountString.trim()) {
@@ -58,6 +72,26 @@ export default function HomePage() {
     }
   
     return '0';
+  }
+
+  function formatRelativeTime(value: string) {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return 'Recently';
+  
+    const diffMs = Date.now() - d.getTime();
+    const diffSec = Math.max(0, Math.floor(diffMs / 1000));
+  
+    if (diffSec < 15) return 'Just now';
+    if (diffSec < 60) return `${diffSec}s ago`;
+  
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin} min ago`;
+  
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffHour < 24) return `${diffHour}h ago`;
+  
+    const diffDay = Math.floor(diffHour / 24);
+    return `${diffDay}d ago`;
   }
 
   function safeReadPendingCoincarnateMint(): string | null {
@@ -111,6 +145,36 @@ export default function HomePage() {
     mostPopularDeadcoin: '',
   });
   const [userContribution, setUserContribution] = useState(0);
+
+  useEffect(() => {
+    const ac = new AbortController();
+  
+    (async () => {
+      try {
+        setLiveActivityLoading(true);
+        setLiveActivityError(null);
+  
+        const res = await fetch('/api/live-activity', {
+          cache: 'no-store',
+          signal: ac.signal,
+        });
+  
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+  
+        const data = await res.json();
+        setLiveActivity(Array.isArray(data?.items) ? data.items : []);
+      } catch (e: any) {
+        if (e?.name === 'AbortError') return;
+        setLiveActivityError(e?.message || 'Could not load live activity.');
+      } finally {
+        setLiveActivityLoading(false);
+      }
+    })();
+  
+    return () => ac.abort();
+  }, []);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -394,8 +458,108 @@ export default function HomePage() {
         </div>
       )}
 
-      <div className="w-full max-w-5xl">
-        <TrustPledge compact />
+      <div className="w-full max-w-5xl rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-xl md:text-2xl font-semibold text-white">
+              Recently Coincarnated
+            </h2>
+            <p className="mt-1 text-sm text-gray-400 max-w-2xl">
+              A live glimpse into the latest Coincarnation activity across the ecosystem.
+            </p>
+          </div>
+
+          <a
+            href="/token-universe"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white transition-colors hover:bg-white/[0.08]"
+          >
+            <span>Explore Coinographia</span>
+            <span>↗</span>
+          </a>
+        </div>
+
+        {liveActivityError && (
+          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            {liveActivityError}
+          </div>
+        )}
+
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {liveActivityLoading && liveActivity.length === 0 ? (
+            [...Array(6)].map((_, i) => (
+              <div
+                key={i}
+                className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 animate-pulse"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-white/10" />
+                  <div className="min-w-0 flex-1">
+                    <div className="h-4 w-28 rounded bg-white/10" />
+                    <div className="mt-2 h-3 w-20 rounded bg-white/10" />
+                  </div>
+                </div>
+                <div className="mt-4 h-3 w-3/4 rounded bg-white/10" />
+                <div className="mt-2 h-3 w-1/2 rounded bg-white/10" />
+              </div>
+            ))
+          ) : liveActivity.length > 0 ? (
+            liveActivity.map((item, index) => {
+              const title =
+                item.tokenSymbol
+                  ? `$${item.tokenSymbol}${item.tokenName ? ` — ${item.tokenName}` : ''}`
+                  : item.tokenName || item.shortMint;
+
+              return (
+                <a
+                  key={`${item.tokenContract}-${item.timestamp}-${index}`}
+                  href="/token-universe"
+                  className="block rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06]"
+                >
+                  <div className="flex items-start gap-3">
+                    {item.logoURI ? (
+                      <img
+                        src={item.logoURI}
+                        alt={title}
+                        className="h-11 w-11 rounded-full border border-white/10 object-cover shrink-0"
+                      />
+                    ) : (
+                      <div className="h-11 w-11 rounded-full border border-white/10 bg-white/5 shrink-0" />
+                    )}
+
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold text-white">
+                        {title}
+                      </div>
+
+                      <div className="mt-1 text-xs text-gray-400">
+                        {item.shortMint}
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                        <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-emerald-200">
+                          Coincarnated
+                        </span>
+                        <span className="text-gray-500">{formatRelativeTime(item.timestamp)}</span>
+                      </div>
+
+                      <div className="mt-3 text-xs text-gray-400">
+                        Wallet: <span className="font-mono text-gray-300">{item.shortWallet}</span>
+                      </div>
+
+                      <div className="mt-1 text-xs text-gray-400">
+                        Value: <span className="text-white font-medium">${item.usdValue.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </a>
+              );
+            })
+          ) : (
+            <div className="md:col-span-2 xl:col-span-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-gray-400">
+              No Coincarnation activity has been recorded yet.
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="w-full max-w-5xl mt-2 text-center">
