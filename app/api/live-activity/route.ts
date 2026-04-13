@@ -1,5 +1,5 @@
 //app/api/live-activity/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/app/api/_lib/db';
 import { httpErrorFrom } from '@/app/api/_lib/http';
 
@@ -11,8 +11,13 @@ function shortenMint(mint: string) {
   return `${mint.slice(0, 6)}…${mint.slice(-6)}`;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const rawLimit = Number(req.nextUrl.searchParams.get('limit') || 8);
+    const limit = Number.isFinite(rawLimit)
+      ? Math.max(1, Math.min(rawLimit, 12))
+      : 8;
+
     const rows = (await sql`
       SELECT
         c.token_symbol,
@@ -27,7 +32,7 @@ export async function GET() {
         ON mc.mint = c.token_contract
       WHERE c.network = 'solana'
       ORDER BY c.timestamp DESC
-      LIMIT 8
+      LIMIT ${limit}
     `) as Array<{
       token_symbol: string | null;
       token_contract: string;

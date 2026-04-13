@@ -74,24 +74,34 @@ export default function HomePage() {
     return '0';
   }
 
-  function formatRelativeTime(value: string) {
+  function formatRelativeTimeEnhanced(value: string) {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return 'Recently';
   
-    const diffMs = Date.now() - d.getTime();
-    const diffSec = Math.max(0, Math.floor(diffMs / 1000));
+    const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
   
-    if (diffSec < 15) return 'Just now';
-    if (diffSec < 60) return `${diffSec}s ago`;
-  
+    if (diffSec < 3) return '🔥 HOT';
+    if (diffSec < 60) return '⚡ NOW';
+    if (diffSec < 300) return '🟢 RECENT';
+    
     const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin} min ago`;
+    if (diffMin < 60) return `${diffMin}m ago`;
   
     const diffHour = Math.floor(diffMin / 60);
     if (diffHour < 24) return `${diffHour}h ago`;
   
-    const diffDay = Math.floor(diffHour / 24);
-    return `${diffDay}d ago`;
+    return `${Math.floor(diffHour / 24)}d ago`;
+  }
+
+  function getActivityLimit() {
+    if (typeof window === 'undefined') return 8;
+  
+    const w = window.innerWidth;
+  
+    if (w >= 1536) return 12; // very wide desktop, 4 columns
+    if (w >= 1280) return 9;  // desktop, 3 columns
+    if (w >= 640) return 8;   // tablet / small desktop, 2 columns
+    return 8;                 // mobile
   }
 
   function safeReadPendingCoincarnateMint(): string | null {
@@ -154,7 +164,9 @@ export default function HomePage() {
         setLiveActivityLoading(true);
         setLiveActivityError(null);
   
-        const res = await fetch('/api/live-activity', {
+        const limit = getActivityLimit();
+  
+        const res = await fetch(`/api/live-activity?limit=${limit}`, {
           cache: 'no-store',
           signal: ac.signal,
         });
@@ -164,7 +176,23 @@ export default function HomePage() {
         }
   
         const data = await res.json();
-        setLiveActivity(Array.isArray(data?.items) ? data.items : []);
+        const incoming = Array.isArray(data?.items) ? data.items : [];
+
+        const uniqueLimited: LiveActivityItem[] = [];
+        const seen = new Map<string, number>();
+
+        for (const item of incoming) {
+          const count = seen.get(item.tokenContract) || 0;
+
+          if (count < 2) {
+            uniqueLimited.push(item);
+            seen.set(item.tokenContract, count + 1);
+          }
+
+          if (uniqueLimited.length >= limit) break;
+        }
+
+        setLiveActivity(uniqueLimited);
       } catch (e: any) {
         if (e?.name === 'AbortError') return;
         setLiveActivityError(e?.message || 'Could not load live activity.');
@@ -484,7 +512,7 @@ export default function HomePage() {
           </div>
         )}
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-5 grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 justify-items-center">
           {liveActivityLoading && liveActivity.length === 0 ? (
             [...Array(6)].map((_, i) => (
               <div
@@ -513,7 +541,7 @@ export default function HomePage() {
                 <a
                   key={`${item.tokenContract}-${item.timestamp}-${index}`}
                   href="/token-universe"
-                  className="block rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06]"
+                  className="block w-full max-w-[420px] rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] hover:scale-[1.02] hover:-translate-y-1"
                 >
                   <div className="flex items-start gap-3">
                     {item.logoURI ? (
@@ -536,14 +564,17 @@ export default function HomePage() {
                       </div>
 
                       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                        <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-emerald-200">
+                        <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-emerald-200 animate-pulse">
                           Coincarnated
                         </span>
-                        <span className="text-gray-500">{formatRelativeTime(item.timestamp)}</span>
+
+                        <span className="text-gray-500">
+                          {formatRelativeTimeEnhanced(item.timestamp)}
+                        </span>
                       </div>
 
                       <div className="mt-3 text-xs text-gray-400">
-                        Wallet: <span className="font-mono text-gray-300">{item.shortWallet}</span>
+                        Coincarnator: <span className="font-mono text-gray-300">{item.shortWallet}</span>
                       </div>
 
                       <div className="mt-1 text-xs text-gray-400">
