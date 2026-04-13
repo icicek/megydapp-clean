@@ -15,8 +15,8 @@ export async function GET(req: NextRequest) {
     try {
         const rawLimit = Number(req.nextUrl.searchParams.get('limit') || 8);
         const limit = Number.isFinite(rawLimit)
-            ? Math.max(1, Math.min(rawLimit, 12))
-            : 8;
+            ? Math.max(1, Math.min(rawLimit, 30))
+            : 9;
 
         const rows = (await sql`
       SELECT
@@ -44,10 +44,9 @@ export async function GET(req: NextRequest) {
         }>;
 
         const totalRows = (await sql`
-        SELECT COUNT(*)::int AS total
-        FROM contributions c
-        WHERE c.network = 'solana'
-      `) as Array<{ total: number }>;
+            SELECT COUNT(*)::int AS total
+            FROM contributions
+        `) as Array<{ total: number }>;
 
         const items = rows.map((row) => ({
             tokenSymbol: row.token_symbol || null,

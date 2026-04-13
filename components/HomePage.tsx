@@ -96,18 +96,11 @@ export default function HomePage() {
   }
 
   function getActivityDisplayLimit() {
-    if (typeof window === 'undefined') return 8;
-  
-    const w = window.innerWidth;
-  
-    if (w >= 1200) return 9; // 3-column desktop
-    if (w >= 768) return 8;  // 2-column layout
-    return 8;                // mobile
+    return 9;
   }
   
   function getActivityFetchLimit() {
-    const displayLimit = getActivityDisplayLimit();
-    return Math.max(displayLimit * 3, 24);
+    return 27;
   }
 
   function safeReadPendingCoincarnateMint(): string | null {
@@ -573,28 +566,32 @@ export default function HomePage() {
                         sessionStorage.setItem('coincarnate_target_mint', item.tokenContract);
                         window.location.href = '/';
                       }}
-                      className="absolute top-3 right-3 z-10 flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 text-white hover:bg-white/10 transition"
+                      className="absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
                       title="Coincarnate this token"
                     >
                       ↗
                     </button>
-                    {index === 0 && (
-                      <span className="absolute left-4 bottom-4 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-200">
-                        Live
-                      </span>
-                    )}
-                    {item.logoURI ? (
-                      <img
-                        src={item.logoURI}
-                        alt={title}
-                        className="h-12 w-12 rounded-full border border-white/10 object-cover shrink-0"
-                      />
-                    ) : (
-                      <div className="h-12 w-12 rounded-full border border-white/10 bg-white/5 shrink-0" />
-                    )}
 
-                    <div className="min-w-0 flex-1 pr-14 pb-6">
-                      <div className="truncate text-[15px] font-semibold leading-5 text-white max-w-full">
+                    <div className="flex shrink-0 flex-col items-center gap-2 pt-0.5">
+                      {item.logoURI ? (
+                        <img
+                          src={item.logoURI}
+                          alt={title}
+                          className="h-10 w-10 rounded-full border border-white/10 object-cover"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full border border-white/10 bg-white/5" />
+                      )}
+
+                      {index === 0 && (
+                        <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-200 whitespace-nowrap">
+                          Live
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1 pr-14">
+                      <div className="truncate max-w-full text-[15px] font-semibold leading-5 text-white">
                         {title}
                       </div>
 
@@ -603,7 +600,7 @@ export default function HomePage() {
                       </div>
 
                       <div className="mt-3 flex items-center gap-2 text-xs">
-                      <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-emerald-200 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.3)]">
+                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2.5 py-1 text-emerald-200 animate-pulse shadow-[0_0_14px_rgba(16,185,129,0.28)] whitespace-nowrap">
                           Coincarnated
                         </span>
 
@@ -612,12 +609,12 @@ export default function HomePage() {
                         </span>
                       </div>
 
-                      <div className="mt-3 text-xs text-gray-400 truncate whitespace-nowrap">
+                      <div className="mt-3 truncate whitespace-nowrap text-xs text-gray-400">
                         Coincarnator: <span className="font-mono text-gray-300">{item.shortWallet}</span>
                       </div>
 
                       <div className="mt-1 text-xs text-gray-400">
-                        Value: <span className="text-white font-medium">${item.usdValue.toFixed(2)}</span>
+                        Value: <span className="font-medium text-white">${item.usdValue.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -631,7 +628,7 @@ export default function HomePage() {
           )}
         </div>
         <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-500">
-          <span>Only a fraction of live Coincarnations is shown here</span>
+          <span>Only a fraction of the latest Coincarnations is shown here</span>
           <span className="flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/70 animate-pulse" />
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/60 animate-pulse [animation-delay:150ms]" />
