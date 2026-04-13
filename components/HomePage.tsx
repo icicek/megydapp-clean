@@ -500,12 +500,14 @@ export default function HomePage() {
             <h2 className="text-xl md:text-2xl font-semibold text-white">
               Recently Coincarnated
             </h2>
-            <p className="mt-1 text-sm text-gray-400 max-w-2xl">
-            <p className="mt-2 text-xs text-green-400">
-              🔥 {liveActivity.length}/{liveActivityTotal} Coincarnations recently triggered
-            </p>
-              A live glimpse into the latest Coincarnation activity across the ecosystem.
-            </p>
+            <div className="mt-1 max-w-2xl">
+              <p className="text-xs text-green-400">
+                🔥 {liveActivity.length}/{liveActivityTotal} Coincarnations recently triggered
+              </p>
+              <p className="mt-1 text-sm text-gray-400">
+                A live glimpse into the latest Coincarnation activity across the ecosystem.
+              </p>
+            </div>
           </div>
 
           <a
@@ -525,7 +527,7 @@ export default function HomePage() {
 
         <div className="mt-5 grid grid-cols-1 gap-4 justify-items-center md:grid-cols-2 xl:grid-cols-3">
           {liveActivityLoading && liveActivity.length === 0 ? (
-            [...Array(6)].map((_, i) => (
+            [...Array(getActivityDisplayLimit())].map((_, i) => (
               <div
                 key={i}
                 className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 animate-pulse"
@@ -576,7 +578,7 @@ export default function HomePage() {
                       ↗
                     </button>
                     {index === 0 && (
-                      <span className="absolute left-4 bottom-4 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-200">
+                      <span className="absolute left-[72px] top-4 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-200">
                         Live
                       </span>
                     )}
@@ -590,8 +592,8 @@ export default function HomePage() {
                       <div className="h-12 w-12 rounded-full border border-white/10 bg-white/5 shrink-0" />
                     )}
 
-                    <div className="min-w-0 flex-1 pr-12">
-                      <div className="truncate text-[15px] font-semibold leading-5 text-white">
+                    <div className="min-w-0 flex-1 pr-14">
+                      <div className="truncate text-[15px] font-semibold leading-5 text-white max-w-full">
                         {title}
                       </div>
 
