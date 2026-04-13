@@ -116,6 +116,10 @@ export default function HomePage() {
     return '';
   }
 
+  function isUltraFresh(timestamp: string) {
+    return Date.now() - new Date(timestamp).getTime() < 10 * 1000;
+  }
+
   function getActivityDisplayLimit() {
     return 9;
   }
@@ -572,9 +576,10 @@ export default function HomePage() {
                 <a
                   key={`${item.tokenContract}-${item.timestamp}-${index}`}
                   href="/token-universe"
+                  style={{ animationDelay: `${index * 60}ms` }}
                   className={[
-                    'relative block w-full max-w-[380px] rounded-2xl border bg-white/[0.03] p-3 sm:p-4 transition-all duration-200 hover:bg-white/[0.06] hover:scale-[1.02] hover:-translate-y-1 hover:shadow-[0_0_40px_rgba(16,185,129,0.25)]',
-                  
+                    'animate-[fadeIn_0.4s_ease-out_both] relative block w-full max-w-[380px] rounded-2xl border bg-white/[0.03] p-3 sm:p-4 transition-all duration-200 hover:bg-white/[0.06] hover:scale-[1.02] hover:-translate-y-1 hover:shadow-[0_0_40px_rgba(16,185,129,0.25)]',
+
                     index === 0
                       ? 'border-emerald-400/40 shadow-[0_0_30px_rgba(16,185,129,0.18)] bg-emerald-500/[0.03]'
                   
@@ -606,6 +611,10 @@ export default function HomePage() {
                       ↗
                     </button>
 
+                    {isUltraFresh(item.timestamp) && (
+                      <span className="pointer-events-none absolute inset-0 rounded-2xl animate-pulse border border-emerald-400/40" />
+                    )}
+
                     <div className="flex shrink-0 flex-col items-center gap-2 pt-0.5">
                       {item.logoURI ? (
                         <img
@@ -614,7 +623,7 @@ export default function HomePage() {
                           className="h-9 w-9 sm:h-10 sm:w-10 rounded-full border border-white/10 object-cover"
                         />
                       ) : (
-                        <div className="h-10 w-10 rounded-full border border-white/10 bg-white/5" />
+                        <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full border border-white/10 bg-white/5" />
                       )}
 
                       {index === 0 && (
@@ -636,7 +645,7 @@ export default function HomePage() {
                       <div className="mt-2.5 flex items-center gap-2 text-[11px] sm:text-xs">
 
                         {/* 🔥 HOT */}
-                        {Date.now() - new Date(item.timestamp).getTime() < 5 * 60 * 1000 && (
+                        {index < 2 && Date.now() - new Date(item.timestamp).getTime() < 5 * 60 * 1000 && (
                           <span className="rounded-full bg-orange-500/15 border border-orange-400/30 px-2 py-0.5 text-[10px] text-orange-300 animate-pulse whitespace-nowrap">
                             Hot
                           </span>
@@ -656,6 +665,10 @@ export default function HomePage() {
                       <div className="mt-2.5 truncate whitespace-nowrap text-[11px] sm:text-xs text-gray-400">
                         Coincarnator: <span className="font-mono text-gray-300">{item.shortWallet}</span>
                       </div>
+
+                      <span className="text-[11px] text-emerald-400 mt-1 block">
+                        Coincarnate this →
+                      </span>
 
                       <div className="mt-0.5 text-[11px] sm:text-xs text-gray-400">
                         Value: <span className="font-medium text-white">${item.usdValue.toFixed(2)}</span>
