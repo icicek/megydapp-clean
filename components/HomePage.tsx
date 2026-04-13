@@ -100,14 +100,14 @@ export default function HomePage() {
   
     const w = window.innerWidth;
   
-    if (w >= 1280) return 9; // 3 columns
-    if (w >= 768) return 8;  // 2 columns
+    if (w >= 1200) return 9; // 3-column desktop
+    if (w >= 768) return 8;  // 2-column layout
     return 8;                // mobile
   }
   
   function getActivityFetchLimit() {
     const displayLimit = getActivityDisplayLimit();
-    return Math.max(displayLimit * 2, 18);
+    return Math.max(displayLimit * 3, 24);
   }
 
   function safeReadPendingCoincarnateMint(): string | null {
@@ -514,8 +514,9 @@ export default function HomePage() {
             href="/token-universe"
             className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white transition-colors hover:bg-white/[0.08]"
           >
+            <span className="sm:hidden">↗</span>
             <span>Explore Coinographia</span>
-            <span>↗</span>
+            <span className="hidden sm:inline">↗</span>
           </a>
         </div>
 
@@ -578,7 +579,7 @@ export default function HomePage() {
                       ↗
                     </button>
                     {index === 0 && (
-                      <span className="absolute left-[72px] top-4 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-200">
+                      <span className="absolute left-4 bottom-4 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-200">
                         Live
                       </span>
                     )}
@@ -592,7 +593,7 @@ export default function HomePage() {
                       <div className="h-12 w-12 rounded-full border border-white/10 bg-white/5 shrink-0" />
                     )}
 
-                    <div className="min-w-0 flex-1 pr-14">
+                    <div className="min-w-0 flex-1 pr-14 pb-6">
                       <div className="truncate text-[15px] font-semibold leading-5 text-white max-w-full">
                         {title}
                       </div>
@@ -628,6 +629,14 @@ export default function HomePage() {
               No Coincarnation activity has been recorded yet.
             </div>
           )}
+        </div>
+        <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-500">
+          <span>Only a fraction of live Coincarnations is shown here</span>
+          <span className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/70 animate-pulse" />
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/60 animate-pulse [animation-delay:150ms]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/50 animate-pulse [animation-delay:300ms]" />
+          </span>
         </div>
       </div>
 
