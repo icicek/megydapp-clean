@@ -53,6 +53,7 @@ export default function HomePage() {
   const [liveActivity, setLiveActivity] = useState<LiveActivityItem[]>([]);
   const [liveActivityLoading, setLiveActivityLoading] = useState(false);
   const [liveActivityError, setLiveActivityError] = useState<string | null>(null);
+  const [liveActivityTotal, setLiveActivityTotal] = useState(0);
 
   function formatTokenAmount(token: TokenInfo) {
     if (typeof token.uiAmountString === 'string' && token.uiAmountString.trim()) {
@@ -94,14 +95,19 @@ export default function HomePage() {
     return `${diffDay}d ago`;
   }
 
-  function getActivityLimit() {
+  function getActivityDisplayLimit() {
     if (typeof window === 'undefined') return 8;
   
     const w = window.innerWidth;
   
-    if (w >= 1280) return 9;  // 3 columns
-    if (w >= 768) return 8;   // 2 columns
-    return 8;                 // mobile
+    if (w >= 1280) return 9; // 3 columns
+    if (w >= 768) return 8;  // 2 columns
+    return 8;                // mobile
+  }
+  
+  function getActivityFetchLimit() {
+    const displayLimit = getActivityDisplayLimit();
+    return Math.max(displayLimit * 2, 18);
   }
 
   function safeReadPendingCoincarnateMint(): string | null {
@@ -164,9 +170,10 @@ export default function HomePage() {
         setLiveActivityLoading(true);
         setLiveActivityError(null);
   
-        const limit = getActivityLimit();
+        const displayLimit = getActivityDisplayLimit();
+        const fetchLimit = getActivityFetchLimit();
   
-        const res = await fetch(`/api/live-activity?limit=${limit}`, {
+        const res = await fetch(`/api/live-activity?limit=${fetchLimit}`, {
           cache: 'no-store',
           signal: ac.signal,
         });
@@ -177,21 +184,22 @@ export default function HomePage() {
   
         const data = await res.json();
         const incoming = Array.isArray(data?.items) ? data.items : [];
-
+        setLiveActivityTotal(Number(data?.total || 0));
+  
         const uniqueLimited: LiveActivityItem[] = [];
         const seen = new Map<string, number>();
-
+  
         for (const item of incoming) {
           const count = seen.get(item.tokenContract) || 0;
-
+  
           if (count < 2) {
             uniqueLimited.push(item);
             seen.set(item.tokenContract, count + 1);
           }
-
-          if (uniqueLimited.length >= limit) break;
+  
+          if (uniqueLimited.length >= displayLimit) break;
         }
-
+  
         setLiveActivity(uniqueLimited);
       } catch (e: any) {
         if (e?.name === 'AbortError') return;
@@ -493,9 +501,9 @@ export default function HomePage() {
               Recently Coincarnated
             </h2>
             <p className="mt-1 text-sm text-gray-400 max-w-2xl">
-              <p className="mt-2 text-xs text-green-400">
-                🔥 {liveActivity.length} Coincarnations recently triggered
-              </p>
+            <p className="mt-2 text-xs text-green-400">
+              🔥 {liveActivity.length}/{liveActivityTotal} Coincarnations recently triggered
+            </p>
               A live glimpse into the latest Coincarnation activity across the ecosystem.
             </p>
           </div>
@@ -544,7 +552,14 @@ export default function HomePage() {
                 <a
                   key={`${item.tokenContract}-${item.timestamp}-${index}`}
                   href="/token-universe"
-                  className="relative block w-full max-w-[380px] rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] hover:scale-[1.02] hover:-translate-y-1"
+                  className={[
+                    'relative block w-full max-w-[380px] rounded-2xl border bg-white/[0.03] p-4 transition-all duration-200 hover:bg-white/[0.06] hover:scale-[1.02] hover:-translate-y-1',
+                    index === 0
+                      ? 'border-emerald-400/30 shadow-[0_0_24px_rgba(16,185,129,0.12)]'
+                      : index < 3
+                      ? 'border-white/15'
+                      : 'border-white/10',
+                  ].join(' ')}
                 >
                   <div className="flex items-start gap-3">
                     <button
@@ -560,6 +575,11 @@ export default function HomePage() {
                     >
                       ↗
                     </button>
+                    {index === 0 && (
+                      <span className="absolute left-4 bottom-4 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-200">
+                        Live
+                      </span>
+                    )}
                     {item.logoURI ? (
                       <img
                         src={item.logoURI}
@@ -570,7 +590,7 @@ export default function HomePage() {
                       <div className="h-12 w-12 rounded-full border border-white/10 bg-white/5 shrink-0" />
                     )}
 
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 pr-12">
                       <div className="truncate text-[15px] font-semibold leading-5 text-white">
                         {title}
                       </div>
@@ -584,7 +604,7 @@ export default function HomePage() {
                           Coincarnated
                         </span>
 
-                        <span className="truncate text-gray-500 whitespace-nowrap">
+                        <span className="text-gray-400 font-medium whitespace-nowrap">
                           {formatRelativeTimeEnhanced(item.timestamp)}
                         </span>
                       </div>

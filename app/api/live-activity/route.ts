@@ -7,18 +7,18 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 function shortenMint(mint: string) {
-  if (!mint) return '';
-  return `${mint.slice(0, 6)}…${mint.slice(-6)}`;
+    if (!mint) return '';
+    return `${mint.slice(0, 6)}…${mint.slice(-6)}`;
 }
 
 export async function GET(req: NextRequest) {
-  try {
-    const rawLimit = Number(req.nextUrl.searchParams.get('limit') || 8);
-    const limit = Number.isFinite(rawLimit)
-      ? Math.max(1, Math.min(rawLimit, 12))
-      : 8;
+    try {
+        const rawLimit = Number(req.nextUrl.searchParams.get('limit') || 8);
+        const limit = Number.isFinite(rawLimit)
+            ? Math.max(1, Math.min(rawLimit, 12))
+            : 8;
 
-    const rows = (await sql`
+        const rows = (await sql`
       SELECT
         c.token_symbol,
         c.token_contract,
@@ -34,33 +34,40 @@ export async function GET(req: NextRequest) {
       ORDER BY c.timestamp DESC
       LIMIT ${limit}
     `) as Array<{
-      token_symbol: string | null;
-      token_contract: string;
-      wallet_address: string;
-      usd_value: string | number | null;
-      timestamp: string;
-      token_name: string | null;
-      logo_uri: string | null;
-    }>;
+            token_symbol: string | null;
+            token_contract: string;
+            wallet_address: string;
+            usd_value: string | number | null;
+            timestamp: string;
+            token_name: string | null;
+            logo_uri: string | null;
+        }>;
 
-    const items = rows.map((row) => ({
-      tokenSymbol: row.token_symbol || null,
-      tokenName: row.token_name || null,
-      tokenContract: row.token_contract,
-      shortMint: shortenMint(row.token_contract),
-      walletAddress: row.wallet_address,
-      shortWallet: shortenMint(row.wallet_address),
-      usdValue: Number(row.usd_value || 0),
-      timestamp: row.timestamp,
-      logoURI: row.logo_uri || null,
-    }));
+        const totalRows = (await sql`
+        SELECT COUNT(*)::int AS total
+        FROM contributions c
+        WHERE c.network = 'solana'
+      `) as Array<{ total: number }>;
 
-    return NextResponse.json({
-      success: true,
-      items,
-    });
-  } catch (e: any) {
-    const { status, body } = httpErrorFrom(e, 500);
-    return NextResponse.json(body, { status });
-  }
+        const items = rows.map((row) => ({
+            tokenSymbol: row.token_symbol || null,
+            tokenName: row.token_name || null,
+            tokenContract: row.token_contract,
+            shortMint: shortenMint(row.token_contract),
+            walletAddress: row.wallet_address,
+            shortWallet: shortenMint(row.wallet_address),
+            usdValue: Number(row.usd_value || 0),
+            timestamp: row.timestamp,
+            logoURI: row.logo_uri || null,
+        }));
+
+        return NextResponse.json({
+            success: true,
+            total: totalRows[0]?.total ?? 0,
+            items,
+        });
+    } catch (e: any) {
+        const { status, body } = httpErrorFrom(e, 500);
+        return NextResponse.json(body, { status });
+    }
 }
