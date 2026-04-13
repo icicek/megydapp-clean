@@ -78,19 +78,20 @@ export default function HomePage() {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return 'Recently';
   
-    const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
+    const diffSec = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
   
-    if (diffSec < 3) return '🔥 HOT';
-    if (diffSec < 60) return '⚡ NOW';
-    if (diffSec < 300) return '🟢 RECENT';
-    
+    if (diffSec < 10) return '🔥 Hot';
+    if (diffSec < 60) return '⚡ Now';
+    if (diffSec < 300) return '🟢 Recently';
+  
     const diffMin = Math.floor(diffSec / 60);
     if (diffMin < 60) return `${diffMin}m ago`;
   
     const diffHour = Math.floor(diffMin / 60);
     if (diffHour < 24) return `${diffHour}h ago`;
   
-    return `${Math.floor(diffHour / 24)}d ago`;
+    const diffDay = Math.floor(diffHour / 24);
+    return `${diffDay}d ago`;
   }
 
   function getActivityLimit() {
@@ -98,9 +99,8 @@ export default function HomePage() {
   
     const w = window.innerWidth;
   
-    if (w >= 1536) return 12; // very wide desktop, 4 columns
-    if (w >= 1280) return 9;  // desktop, 3 columns
-    if (w >= 640) return 8;   // tablet / small desktop, 2 columns
+    if (w >= 1280) return 9;  // 3 columns
+    if (w >= 768) return 8;   // 2 columns
     return 8;                 // mobile
   }
 
@@ -493,6 +493,9 @@ export default function HomePage() {
               Recently Coincarnated
             </h2>
             <p className="mt-1 text-sm text-gray-400 max-w-2xl">
+              <p className="mt-2 text-xs text-green-400">
+                🔥 {liveActivity.length} Coincarnations recently triggered
+              </p>
               A live glimpse into the latest Coincarnation activity across the ecosystem.
             </p>
           </div>
@@ -512,7 +515,7 @@ export default function HomePage() {
           </div>
         )}
 
-        <div className="mt-5 grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 justify-items-center">
+        <div className="mt-5 grid grid-cols-1 gap-4 justify-items-center md:grid-cols-2 xl:grid-cols-3">
           {liveActivityLoading && liveActivity.length === 0 ? (
             [...Array(6)].map((_, i) => (
               <div
@@ -541,39 +544,52 @@ export default function HomePage() {
                 <a
                   key={`${item.tokenContract}-${item.timestamp}-${index}`}
                   href="/token-universe"
-                  className="block w-full max-w-[420px] rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] hover:scale-[1.02] hover:-translate-y-1"
+                  className="relative block w-full max-w-[380px] rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] hover:scale-[1.02] hover:-translate-y-1"
                 >
                   <div className="flex items-start gap-3">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        sessionStorage.setItem('coincarnate_target_mint', item.tokenContract);
+                        window.location.href = '/';
+                      }}
+                      className="absolute top-3 right-3 z-10 flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 text-white hover:bg-white/10 transition"
+                      title="Coincarnate this token"
+                    >
+                      ↗
+                    </button>
                     {item.logoURI ? (
                       <img
                         src={item.logoURI}
                         alt={title}
-                        className="h-11 w-11 rounded-full border border-white/10 object-cover shrink-0"
+                        className="h-12 w-12 rounded-full border border-white/10 object-cover shrink-0"
                       />
                     ) : (
-                      <div className="h-11 w-11 rounded-full border border-white/10 bg-white/5 shrink-0" />
+                      <div className="h-12 w-12 rounded-full border border-white/10 bg-white/5 shrink-0" />
                     )}
 
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold text-white">
+                      <div className="truncate text-[15px] font-semibold leading-5 text-white">
                         {title}
                       </div>
 
-                      <div className="mt-1 text-xs text-gray-400">
+                      <div className="mt-1 truncate text-[12px] text-gray-400">
                         {item.shortMint}
                       </div>
 
-                      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                        <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-emerald-200 animate-pulse">
+                      <div className="mt-3 flex items-center gap-2 text-xs">
+                      <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-emerald-200 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.3)]">
                           Coincarnated
                         </span>
 
-                        <span className="text-gray-500">
+                        <span className="truncate text-gray-500 whitespace-nowrap">
                           {formatRelativeTimeEnhanced(item.timestamp)}
                         </span>
                       </div>
 
-                      <div className="mt-3 text-xs text-gray-400">
+                      <div className="mt-3 text-xs text-gray-400 truncate whitespace-nowrap">
                         Coincarnator: <span className="font-mono text-gray-300">{item.shortWallet}</span>
                       </div>
 
