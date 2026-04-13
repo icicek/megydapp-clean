@@ -63,6 +63,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({
             success: true,
             total: totalRows[0]?.total ?? 0,
+            debugLimit: limit,
             items,
         });
     } catch (e: any) {
