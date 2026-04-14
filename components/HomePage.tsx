@@ -35,6 +35,13 @@ type LiveActivityItem = {
   status?: string | null;
 };
 
+type LiveActivityCluster = LiveActivityItem & {
+  occurrenceCount: number;
+  uniqueWalletCount: number;
+  totalUsdValue: number;
+  latestTimestamp: string;
+};
+
 export default function HomePage() {
   const router = useRouter();
   const { chain } = useChain(); // 'solana'
@@ -56,7 +63,7 @@ export default function HomePage() {
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null);
   const [showSolModal, setShowSolModal] = useState(false);
   const [autoOpenHandledMint, setAutoOpenHandledMint] = useState<string | null>(null);
-  const [liveActivity, setLiveActivity] = useState<LiveActivityItem[]>([]);
+  const [liveActivity, setLiveActivity] = useState<LiveActivityCluster[]>([]);
   const [liveActivityLoading, setLiveActivityLoading] = useState(false);
   const [liveActivityError, setLiveActivityError] = useState<string | null>(null);
 
@@ -256,21 +263,46 @@ export default function HomePage() {
       const data = await res.json();
       const incoming = Array.isArray(data?.items) ? data.items : [];
 
-      const uniqueLimited: LiveActivityItem[] = [];
-      const seen = new Map<string, number>();
+      const grouped = new Map<string, LiveActivityCluster>();
 
-      for (const item of incoming) {
-        const count = seen.get(item.tokenContract) || 0;
+      for (const item of incoming as LiveActivityItem[]) {
+        const existing = grouped.get(item.tokenContract);
 
-        if (count < 2) {
-          uniqueLimited.push(item);
-          seen.set(item.tokenContract, count + 1);
+        if (!existing) {
+          grouped.set(item.tokenContract, {
+            ...item,
+            occurrenceCount: 1,
+            uniqueWalletCount: item.walletAddress ? 1 : 0,
+            totalUsdValue: Number(item.usdValue || 0),
+            latestTimestamp: item.timestamp,
+          });
+          continue;
         }
 
-        if (uniqueLimited.length >= displayLimit) break;
+        const walletSet = new Set<string>();
+        if (existing.walletAddress) walletSet.add(existing.walletAddress);
+        if (item.walletAddress) walletSet.add(item.walletAddress);
+
+        grouped.set(item.tokenContract, {
+          ...existing,
+          occurrenceCount: existing.occurrenceCount + 1,
+          uniqueWalletCount: walletSet.size,
+          totalUsdValue: Number(existing.totalUsdValue || 0) + Number(item.usdValue || 0),
+          latestTimestamp:
+            new Date(item.timestamp).getTime() > new Date(existing.latestTimestamp).getTime()
+              ? item.timestamp
+              : existing.latestTimestamp,
+        });
       }
 
-      setLiveActivity(uniqueLimited);
+      const clustered = Array.from(grouped.values())
+        .sort(
+          (a, b) =>
+            new Date(b.latestTimestamp).getTime() - new Date(a.latestTimestamp).getTime()
+        )
+        .slice(0, displayLimit);
+
+      setLiveActivity(clustered);
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
       setLiveActivityError(e?.message || 'Could not load live activity.');
@@ -738,6 +770,12 @@ export default function HomePage() {
                         {item.shortMint}
                       </div>
 
+                      {item.occurrenceCount > 1 && (
+                        <div className="mt-1 text-[11px] sm:text-xs text-cyan-300">
+                          {item.occurrenceCount} recent Coincarnations
+                        </div>
+                      )}
+
                       <div className="mt-2.5 flex items-center gap-2 text-[11px] sm:text-xs">
                         <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 sm:px-2.5 sm:py-1 text-emerald-200 whitespace-nowrap">
                           Coincarnated
@@ -756,7 +794,7 @@ export default function HomePage() {
 
                       <div className="mt-1 flex items-end justify-between gap-3">
                         <div className="text-[11px] sm:text-xs text-gray-400">
-                          Value: <span className="font-medium text-white">${item.usdValue.toFixed(2)}</span>
+                          Value: <span className="font-medium text-white">${item.totalUsdValue.toFixed(2)}</span>
                         </div>
 
                         <div className="shrink-0 text-[11px] sm:text-xs text-gray-500 font-medium text-right whitespace-nowrap">
@@ -776,12 +814,12 @@ export default function HomePage() {
         </div>
         <div className="mt-4 flex flex-col items-center justify-center gap-2 text-center text-xs text-gray-500 sm:flex-row sm:gap-2">
   
-          <a
-            href="/coinographia"
-            className="group max-w-[260px] sm:max-w-none cursor-pointer transition-all duration-200 hover:text-emerald-300"
-          >
-            Only a fraction of the latest Coincarnations is shown here
-          </a>
+        <a
+          href="/coinographia"
+          className="group max-w-[260px] sm:max-w-none cursor-pointer transition-all duration-200 hover:text-emerald-300 hover:underline underline-offset-4 decoration-emerald-400/40"
+        >
+          Only a fraction of the latest Coincarnations is shown here
+        </a>
 
           <span className="flex items-center justify-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/70 animate-pulse group-hover:bg-emerald-300" />
