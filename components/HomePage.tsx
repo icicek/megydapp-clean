@@ -775,15 +775,20 @@ export default function HomePage() {
           )}
         </div>
         <div className="mt-4 flex flex-col items-center justify-center gap-2 text-center text-xs text-gray-500 sm:flex-row sm:gap-2">
-          <span className="max-w-[260px] sm:max-w-none">
+  
+          <a
+            href="/coinographia"
+            className="group max-w-[260px] sm:max-w-none cursor-pointer transition-all duration-200 hover:text-emerald-300"
+          >
             Only a fraction of the latest Coincarnations is shown here
-          </span>
+          </a>
 
           <span className="flex items-center justify-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/70 animate-pulse" />
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/60 animate-pulse [animation-delay:150ms]" />
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/50 animate-pulse [animation-delay:300ms]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/70 animate-pulse group-hover:bg-emerald-300" />
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/60 animate-pulse [animation-delay:150ms] group-hover:bg-emerald-300" />
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/50 animate-pulse [animation-delay:300ms] group-hover:bg-emerald-300" />
           </span>
+
         </div>
       </div>
 
