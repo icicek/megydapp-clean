@@ -20,7 +20,6 @@ const POLL_MS = 0;
 const LIVE_ACTIVITY_REFRESH_MS = 30_000;
 const LIVE_ACTIVITY_CLOCK_TICK_MS = 60_000;
 const ACTIVITY_RECENT_WINDOW_MS = 10 * 60 * 1000;
-const ACTIVITY_HOT_WINDOW_MS = 5 * 60 * 1000;
 const ACTIVITY_HOT_BURST_WINDOW_MS = 2 * 60 * 1000;
 const ACTIVITY_TRENDING_WINDOW_MS = 10 * 60 * 1000;
 
@@ -895,16 +894,16 @@ export default function HomePage() {
                       </div>
 
                       <div className="mt-2.5 truncate whitespace-nowrap text-[11px] sm:text-xs text-gray-400">
-                        Coincarnator: <span className="font-mono text-gray-300">{item.shortWallet}</span>
-                      </div>
-
-                      <div className="mt-1 text-[11px] sm:text-xs text-gray-400">
-                        {item.uniqueWalletCount} wallet{item.uniqueWalletCount === 1 ? '' : 's'} joined
+                        By: <span className="font-mono text-gray-300">{item.shortWallet}</span>
                       </div>
 
                       <div className="mt-1 flex items-end justify-between gap-3">
-                        <div className="text-[11px] sm:text-xs text-gray-400">
+                        <div className="min-w-0 text-[11px] sm:text-xs text-gray-400">
                           Value: <span className="font-medium text-white">${item.totalUsdValue.toFixed(2)}</span>
+                          <span className="mx-1 text-gray-600">•</span>
+                          <span>
+                            {item.uniqueWalletCount} wallet{item.uniqueWalletCount === 1 ? '' : 's'}
+                          </span>
                         </div>
 
                         <div className="shrink-0 text-[11px] sm:text-xs text-gray-500 font-medium text-right whitespace-nowrap">
