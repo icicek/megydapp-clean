@@ -291,6 +291,35 @@ export default function HomePage() {
     window.location.href = '/';
   }
 
+  function shareClusterOnX(item: LiveActivityCluster) {
+    if (typeof window === 'undefined') return;
+  
+    const symbol = item.tokenSymbol ? `$${item.tokenSymbol}` : item.shortMint;
+    const heatLevel = getHeatLevel(item, Date.now());
+  
+    const heatText =
+      heatLevel === 'hot'
+        ? 'is on fire'
+        : heatLevel === 'trending'
+        ? 'is trending'
+        : 'is live';
+  
+    const tweetLines = [
+      `${symbol} ${heatText} in Coincarnation.`,
+      '',
+      `x${item.occurrenceCount} recent Coincarnations • $${item.totalUsdValue.toFixed(2)} revived`,
+      `${item.uniqueWalletCount} wallet${item.uniqueWalletCount === 1 ? '' : 's'} joined`,
+      '',
+      'Turn deadcoins into a fair future:',
+      'https://coincarnation.com',
+    ];
+  
+    const text = tweetLines.join('\n');
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+  
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const mint = e.target.value;
   
@@ -825,17 +854,33 @@ export default function HomePage() {
                   ].join(' ') + ' ' + getClusterGlowClass(item, activityNow)}
                 >
                   <div className="flex items-start gap-2.5 sm:gap-3">
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        startCoincarnateFlow(item.tokenContract);
-                      }}
-                      className="absolute top-3 right-3 z-10 flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
-                      title="Coincarnate this token"
-                    >
-                      ↗
-                    </button>
+                    <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          startCoincarnateFlow(item.tokenContract);
+                        }}
+                        className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
+                        title="Coincarnate this token"
+                        aria-label="Coincarnate this token"
+                      >
+                        ↗
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          shareClusterOnX(item);
+                        }}
+                        className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
+                        title="Share on X"
+                        aria-label="Share on X"
+                      >
+                        𝕏
+                      </button>
+                    </div>
 
                     {isUltraFresh(item.timestamp, activityNow) && (
                       <span className="pointer-events-none absolute inset-0 rounded-2xl animate-pulse border border-emerald-400/40" />
