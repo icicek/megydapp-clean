@@ -21,6 +21,8 @@ const LIVE_ACTIVITY_REFRESH_MS = 30_000;
 const LIVE_ACTIVITY_CLOCK_TICK_MS = 60_000;
 const ACTIVITY_RECENT_WINDOW_MS = 10 * 60 * 1000;
 const ACTIVITY_HOT_WINDOW_MS = 5 * 60 * 1000;
+const ACTIVITY_HOT_BURST_WINDOW_MS = 2 * 60 * 1000;
+const ACTIVITY_TRENDING_WINDOW_MS = 10 * 60 * 1000;
 
 type LiveActivityItem = {
   tokenSymbol: string | null;
@@ -40,6 +42,8 @@ type LiveActivityCluster = LiveActivityItem & {
   uniqueWalletCount: number;
   totalUsdValue: number;
   latestTimestamp: string;
+  timestamps: string[];
+  walletAddresses: string[];
 };
 
 export default function HomePage() {
@@ -186,16 +190,77 @@ export default function HomePage() {
     return now - new Date(timestamp).getTime() < 10 * 1000;
   }
 
-  function isHotActivity(timestamp: string, now: number) {
-    return now - new Date(timestamp).getTime() < ACTIVITY_HOT_WINDOW_MS;
-  }
-
   function getActivityDisplayLimit() {
     return 9;
   }
   
   function getActivityFetchLimit() {
     return 27;
+  }
+
+  function countTimestampsWithinWindow(
+    timestamps: string[],
+    now: number,
+    windowMs: number
+  ) {
+    return timestamps.reduce((count, ts) => {
+      const time = new Date(ts).getTime();
+      if (Number.isNaN(time)) return count;
+      return now - time <= windowMs ? count + 1 : count;
+    }, 0);
+  }
+  
+  function getHeatLevel(cluster: LiveActivityCluster, now: number) {
+    const hotCount = countTimestampsWithinWindow(
+      cluster.timestamps,
+      now,
+      ACTIVITY_HOT_BURST_WINDOW_MS
+    );
+  
+    const trendingCount = countTimestampsWithinWindow(
+      cluster.timestamps,
+      now,
+      ACTIVITY_TRENDING_WINDOW_MS
+    );
+  
+    if (hotCount >= 3) return 'hot';
+    if (trendingCount >= 5) return 'trending';
+    return 'live';
+  }
+  
+  function getHeatBadgeClass(level: 'hot' | 'trending' | 'live') {
+    const base =
+      'rounded-full px-2 py-1 text-[10px] font-medium whitespace-nowrap border';
+  
+    if (level === 'hot') {
+      return `${base} border-orange-400/40 bg-orange-500/15 text-orange-200 animate-pulse`;
+    }
+  
+    if (level === 'trending') {
+      return `${base} border-cyan-400/35 bg-cyan-500/10 text-cyan-200`;
+    }
+  
+    return `${base} border-emerald-400/30 bg-emerald-500/10 text-emerald-200`;
+  }
+  
+  function getHeatLabel(level: 'hot' | 'trending' | 'live') {
+    if (level === 'hot') return '🔥 HOT';
+    if (level === 'trending') return '⚡ TRENDING';
+    return '🟢 LIVE';
+  }
+  
+  function getClusterGlowClass(cluster: LiveActivityCluster, now: number) {
+    const level = getHeatLevel(cluster, now);
+  
+    if (level === 'hot') {
+      return 'shadow-[0_0_40px_rgba(249,115,22,0.24)]';
+    }
+  
+    if (level === 'trending') {
+      return 'shadow-[0_0_28px_rgba(34,211,238,0.18)]';
+    }
+  
+    return getTimeGlow(cluster.timestamp, now);
   }
 
   function safeReadPendingCoincarnateMint(): string | null {
@@ -294,12 +359,20 @@ export default function HomePage() {
             uniqueWalletCount: item.walletAddress ? 1 : 0,
             totalUsdValue: Number(item.usdValue || 0),
             latestTimestamp: item.timestamp,
+            timestamps: [item.timestamp],
+            walletAddresses: item.walletAddress ? [item.walletAddress] : [],
           });
           continue;
         }
 
         const isNewer =
           new Date(item.timestamp).getTime() > new Date(existing.latestTimestamp).getTime();
+
+        const mergedWalletAddresses = item.walletAddress
+          ? Array.from(new Set([...existing.walletAddresses, item.walletAddress]))
+          : existing.walletAddresses;
+
+        const mergedTimestamps = [...existing.timestamps, item.timestamp];
 
         grouped.set(item.tokenContract, {
           ...existing,
@@ -315,7 +388,9 @@ export default function HomePage() {
           shortMint: isNewer ? item.shortMint : existing.shortMint,
           usdValue: isNewer ? item.usdValue : existing.usdValue,
           timestamp: isNewer ? item.timestamp : existing.timestamp,
-          uniqueWalletCount: existing.uniqueWalletCount, // şimdilik koru
+          uniqueWalletCount: mergedWalletAddresses.length,
+          walletAddresses: mergedWalletAddresses,
+          timestamps: mergedTimestamps,
         });
       }
 
@@ -486,6 +561,10 @@ export default function HomePage() {
       (item) => activityNow - new Date(item.timestamp).getTime() < ACTIVITY_RECENT_WINDOW_MS
     ).length;
   }, [liveActivity, activityNow]);
+
+  const totalClusteredCoincarnations = useMemo(() => {
+    return liveActivity.reduce((sum, item) => sum + item.occurrenceCount, 0);
+  }, [liveActivity]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center px-6 pt-4 pb-6 space-y-8">
@@ -668,12 +747,12 @@ export default function HomePage() {
               Recently Coincarnated
             </h2>
             <div className="mt-1 max-w-2xl">
-              <p className="text-xs text-green-400">
-                🔥 Showing {liveActivity.length} active tokens
-                <span className="text-emerald-400 ml-1">
-                  ({recentActivityCount} active in last 10 min)
-                </span>
-              </p>
+            <p className="text-xs text-green-400">
+              🔥 {liveActivity.length} tokens • {totalClusteredCoincarnations} Coincarnations
+              <span className="text-emerald-400 ml-1">
+                ({recentActivityCount} active in last 10 min)
+              </span>
+            </p>
               <p className="mt-1 text-sm text-gray-400">
                 A live glimpse into the latest Coincarnation activity across the ecosystem.
               </p>
@@ -744,7 +823,7 @@ export default function HomePage() {
                       : index === 5 || index === 6
                       ? 'border-blue-400/20 hover:border-blue-300/30'
                       : 'border-amber-400/20 hover:border-amber-300/30',
-                  ].join(' ') + ' ' + getTimeGlow(item.timestamp, activityNow)}
+                  ].join(' ') + ' ' + getClusterGlowClass(item, activityNow)}
                 >
                   <div className="flex items-start gap-2.5 sm:gap-3">
                     <button
@@ -774,15 +853,15 @@ export default function HomePage() {
                         <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full border border-white/10 bg-white/5" />
                       )}
 
-                      {isHotActivity(item.timestamp, activityNow) ? (
-                        <span className="rounded-full border border-orange-400/30 bg-orange-500/10 px-2 py-1 text-[10px] font-medium text-orange-200 whitespace-nowrap animate-pulse">
-                          Hot
-                        </span>
-                      ) : index === 0 ? (
-                        <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-200 whitespace-nowrap">
-                          Live
-                        </span>
-                      ) : null}
+                      {(() => {
+                        const heatLevel = getHeatLevel(item, activityNow);
+
+                        return (
+                          <span className={getHeatBadgeClass(heatLevel)}>
+                            {getHeatLabel(heatLevel)}
+                          </span>
+                        );
+                      })()}
 
                       {item.occurrenceCount > 1 && (
                         <span
@@ -817,6 +896,10 @@ export default function HomePage() {
 
                       <div className="mt-2.5 truncate whitespace-nowrap text-[11px] sm:text-xs text-gray-400">
                         Coincarnator: <span className="font-mono text-gray-300">{item.shortWallet}</span>
+                      </div>
+
+                      <div className="mt-1 text-[11px] sm:text-xs text-gray-400">
+                        {item.uniqueWalletCount} wallet{item.uniqueWalletCount === 1 ? '' : 's'} joined
                       </div>
 
                       <div className="mt-1 flex items-end justify-between gap-3">
