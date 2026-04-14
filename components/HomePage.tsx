@@ -645,9 +645,9 @@ export default function HomePage() {
             </h2>
             <div className="mt-1 max-w-2xl">
               <p className="text-xs text-green-400">
-                🔥 Showing {liveActivity.length} recent Coincarnations
+                🔥 Showing {liveActivity.length} active tokens
                 <span className="text-emerald-400 ml-1">
-                  ({recentActivityCount} in last 10 min)
+                  ({recentActivityCount} active in last 10 min)
                 </span>
               </p>
               <p className="mt-1 text-sm text-gray-400">
@@ -759,6 +759,12 @@ export default function HomePage() {
                           Live
                         </span>
                       ) : null}
+
+                      {item.occurrenceCount > 1 && (
+                        <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 text-[10px] font-semibold text-cyan-200 whitespace-nowrap">
+                          x{item.occurrenceCount}
+                        </span>
+                      )}
                     </div>
 
                     <div className="min-w-0 flex-1">
@@ -769,12 +775,6 @@ export default function HomePage() {
                       <div className="mt-0.5 truncate pr-14 text-[11px] sm:text-[12px] text-gray-400">
                         {item.shortMint}
                       </div>
-
-                      {item.occurrenceCount > 1 && (
-                        <div className="mt-1 text-[11px] sm:text-xs text-cyan-300">
-                          {item.occurrenceCount} recent Coincarnations
-                        </div>
-                      )}
 
                       <div className="mt-2.5 flex items-center gap-2 text-[11px] sm:text-xs">
                         <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 sm:px-2.5 sm:py-1 text-emerald-200 whitespace-nowrap">
