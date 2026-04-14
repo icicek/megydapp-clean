@@ -17,6 +17,11 @@ import AdminLink from '@/components/admin/AdminLink';
 // PROD'da 15s, DEV'de 20s polling
 const POLL_MS = 0;
 
+const LIVE_ACTIVITY_REFRESH_MS = 30_000;
+const LIVE_ACTIVITY_CLOCK_TICK_MS = 60_000;
+const ACTIVITY_RECENT_WINDOW_MS = 10 * 60 * 1000;
+const ACTIVITY_HOT_WINDOW_MS = 5 * 60 * 1000;
+
 type LiveActivityItem = {
   tokenSymbol: string | null;
   tokenName: string | null;
@@ -75,11 +80,11 @@ export default function HomePage() {
     return '0';
   }
 
-  function formatRelativeTimeEnhanced(value: string) {
+  function formatRelativeTimeEnhanced(value: string, now: number) {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return 'Recently';
   
-    const diffSec = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+    const diffSec = Math.max(0, Math.floor((now - d.getTime()) / 1000));
   
     if (diffSec < 10) return '🔥 Hot';
     if (diffSec < 60) return '⚡ Now';
@@ -94,9 +99,9 @@ export default function HomePage() {
     const diffDay = Math.floor(diffHour / 24);
     return `${diffDay}d ago`;
   }
-
-  function getTimeGlow(timestamp: string) {
-    const diff = Date.now() - new Date(timestamp).getTime();
+  
+  function getTimeGlow(timestamp: string, now: number) {
+    const diff = now - new Date(timestamp).getTime();
   
     const sec = diff / 1000;
     const min = sec / 60;
@@ -115,9 +120,9 @@ export default function HomePage() {
   
     return '';
   }
-
-  function isUltraFresh(timestamp: string) {
-    return Date.now() - new Date(timestamp).getTime() < 10 * 1000;
+  
+  function isUltraFresh(timestamp: string, now: number) {
+    return now - new Date(timestamp).getTime() < 10 * 1000;
   }
 
   function getActivityDisplayLimit() {
@@ -145,6 +150,16 @@ export default function HomePage() {
     try {
       sessionStorage.removeItem('coincarnate_target_mint');
     } catch {}
+  }
+
+  function startCoincarnateFlow(mint: string) {
+    if (typeof window === 'undefined') return;
+  
+    try {
+      sessionStorage.setItem('coincarnate_target_mint', mint);
+    } catch {}
+  
+    window.location.href = '/';
   }
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -180,54 +195,87 @@ export default function HomePage() {
   });
   const [userContribution, setUserContribution] = useState(0);
 
+  const [activityNow, setActivityNow] = useState(() => Date.now());
+
+  async function loadLiveActivity(signal?: AbortSignal) {
+    try {
+      setLiveActivityLoading(true);
+      setLiveActivityError(null);
+
+      const displayLimit = getActivityDisplayLimit();
+      const fetchLimit = getActivityFetchLimit();
+
+      const res = await fetch(`/api/live-activity?limit=${fetchLimit}`, {
+        cache: 'no-store',
+        signal,
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const incoming = Array.isArray(data?.items) ? data.items : [];
+
+      const uniqueLimited: LiveActivityItem[] = [];
+      const seen = new Map<string, number>();
+
+      for (const item of incoming) {
+        const count = seen.get(item.tokenContract) || 0;
+
+        if (count < 2) {
+          uniqueLimited.push(item);
+          seen.set(item.tokenContract, count + 1);
+        }
+
+        if (uniqueLimited.length >= displayLimit) break;
+      }
+
+      setLiveActivity(uniqueLimited);
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return;
+      setLiveActivityError(e?.message || 'Could not load live activity.');
+    } finally {
+      setLiveActivityLoading(false);
+    }
+  }
+
   useEffect(() => {
     const ac = new AbortController();
-  
-    (async () => {
-      try {
-        setLiveActivityLoading(true);
-        setLiveActivityError(null);
-  
-        const displayLimit = getActivityDisplayLimit();
-        const fetchLimit = getActivityFetchLimit();
-  
-        const res = await fetch(`/api/live-activity?limit=${fetchLimit}`, {
-          cache: 'no-store',
-          signal: ac.signal,
-        });
-  
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-  
-        const data = await res.json();
-        const incoming = Array.isArray(data?.items) ? data.items : [];
-        setLiveActivityTotal(Number(data?.total || 0));
-  
-        const uniqueLimited: LiveActivityItem[] = [];
-        const seen = new Map<string, number>();
-  
-        for (const item of incoming) {
-          const count = seen.get(item.tokenContract) || 0;
-  
-          if (count < 2) {
-            uniqueLimited.push(item);
-            seen.set(item.tokenContract, count + 1);
-          }
-  
-          if (uniqueLimited.length >= displayLimit) break;
-        }
-  
-        setLiveActivity(uniqueLimited);
-      } catch (e: any) {
-        if (e?.name === 'AbortError') return;
-        setLiveActivityError(e?.message || 'Could not load live activity.');
-      } finally {
-        setLiveActivityLoading(false);
+
+    void loadLiveActivity(ac.signal);
+
+    const refreshId = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      void loadLiveActivity();
+    }, LIVE_ACTIVITY_REFRESH_MS);
+
+    const tickId = window.setInterval(() => {
+      setActivityNow(Date.now());
+    }, LIVE_ACTIVITY_CLOCK_TICK_MS);
+
+    const handleFocus = () => {
+      void loadLiveActivity();
+      setActivityNow(Date.now());
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void loadLiveActivity();
+        setActivityNow(Date.now());
       }
-    })();
-  
-    return () => ac.abort();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      ac.abort();
+      window.clearInterval(refreshId);
+      window.clearInterval(tickId);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   useEffect(() => {
@@ -337,6 +385,12 @@ export default function HomePage() {
 
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
   const sharePercentage = Math.max(0, Math.min(100, shareRatio * 100)).toFixed(2);
+
+  const recentActivityCount = useMemo(() => {
+    return liveActivity.filter(
+      (item) => activityNow - new Date(item.timestamp).getTime() < ACTIVITY_RECENT_WINDOW_MS
+    ).length;
+  }, [liveActivity, activityNow]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center px-6 pt-4 pb-6 space-y-8">
@@ -520,9 +574,9 @@ export default function HomePage() {
             </h2>
             <div className="mt-1 max-w-2xl">
               <p className="text-xs text-green-400">
-                🔥 {liveActivity.length}/{liveActivityTotal} Coincarnations  
+                🔥 Showing {liveActivity.length} recent Coincarnations
                 <span className="text-emerald-400 ml-1">
-                  ({liveActivity.filter(i => Date.now() - new Date(i.timestamp).getTime() < 10 * 60 * 1000).length} in last 10 min)
+                  ({recentActivityCount} in last 10 min)
                 </span>
               </p>
               <p className="mt-1 text-sm text-gray-400">
@@ -573,37 +627,37 @@ export default function HomePage() {
                   : item.tokenName || item.shortMint;
 
               return (
-                <a
+                <article
                   key={`${item.tokenContract}-${item.timestamp}-${index}`}
-                  href="/token-universe"
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => router.push('/token-universe')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      router.push('/token-universe');
+                    }
+                  }}
                   style={{ animationDelay: `${index * 60}ms` }}
                   className={[
-                    'animate-[fadeIn_0.4s_ease-out_both] relative block w-full max-w-[380px] rounded-2xl border bg-white/[0.03] p-3 sm:p-4 transition-all duration-200 hover:bg-white/[0.06] hover:scale-[1.02] hover:-translate-y-1 hover:shadow-[0_0_40px_rgba(16,185,129,0.25)]',
-
+                    'animate-[fadeIn_0.4s_ease-out_both] relative block w-full max-w-[380px] cursor-pointer rounded-2xl border bg-white/[0.03] p-3 sm:p-4 transition-all duration-200 hover:bg-white/[0.06] hover:scale-[1.02] hover:-translate-y-1 hover:shadow-[0_0_40px_rgba(16,185,129,0.25)] focus:outline-none focus:ring-2 focus:ring-emerald-400/40',
                     index === 0
                       ? 'border-emerald-400/40 shadow-[0_0_30px_rgba(16,185,129,0.18)] bg-emerald-500/[0.03]'
-                  
                       : index === 1 || index === 2
                       ? 'border-emerald-400/20 hover:border-emerald-300/30'
-                  
                       : index === 3 || index === 4
                       ? 'border-cyan-400/20 hover:border-cyan-300/30'
-                  
                       : index === 5 || index === 6
                       ? 'border-blue-400/20 hover:border-blue-300/30'
-                  
                       : 'border-amber-400/20 hover:border-amber-300/30',
-                  
-                  ].join(' ') + ' ' + getTimeGlow(item.timestamp)}
+                  ].join(' ') + ' ' + getTimeGlow(item.timestamp, activityNow)}
                 >
                   <div className="flex items-start gap-2.5 sm:gap-3">
                     <button
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-
-                        sessionStorage.setItem('coincarnate_target_mint', item.tokenContract);
-                        window.location.href = '/';
+                        startCoincarnateFlow(item.tokenContract);
                       }}
                       className="absolute top-3 right-3 z-10 flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
                       title="Coincarnate this token"
@@ -611,7 +665,7 @@ export default function HomePage() {
                       ↗
                     </button>
 
-                    {isUltraFresh(item.timestamp) && (
+                    {isUltraFresh(item.timestamp, activityNow) && (
                       <span className="pointer-events-none absolute inset-0 rounded-2xl animate-pulse border border-emerald-400/40" />
                     )}
 
@@ -645,7 +699,7 @@ export default function HomePage() {
                       <div className="mt-2.5 flex items-center gap-2 text-[11px] sm:text-xs">
 
                         {/* 🔥 HOT */}
-                        {index < 2 && Date.now() - new Date(item.timestamp).getTime() < 5 * 60 * 1000 && (
+                        {index < 2 && activityNow - new Date(item.timestamp).getTime() < ACTIVITY_HOT_WINDOW_MS && (
                           <span className="rounded-full bg-orange-500/15 border border-orange-400/30 px-2 py-0.5 text-[10px] text-orange-300 animate-pulse whitespace-nowrap">
                             Hot
                           </span>
@@ -658,7 +712,7 @@ export default function HomePage() {
 
                         {/* ⏱ time */}
                         <span className="text-gray-400 font-medium whitespace-nowrap">
-                          {formatRelativeTimeEnhanced(item.timestamp)}
+                          {formatRelativeTimeEnhanced(item.timestamp, activityNow)}
                         </span>
                       </div>
 
@@ -675,7 +729,7 @@ export default function HomePage() {
                       </div>
                     </div>
                   </div>
-                </a>
+                </article>
               );
             })
           ) : (
