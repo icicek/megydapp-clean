@@ -1,4 +1,4 @@
-//app/api/token-universe/route.ts
+//app/api/coinographia/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/app/api/_lib/db';
 import { httpErrorFrom } from '@/app/api/_lib/http';

@@ -586,7 +586,7 @@ export default function HomePage() {
           </div>
 
           <a
-            href="/token-universe"
+            href="/coinographia"
             className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-gradient-to-r from-slate-800/90 via-indigo-900/70 to-slate-800/90 px-4 py-2 text-sm font-medium text-white shadow-[0_0_20px_rgba(34,211,238,0.08)] transition-all duration-200 hover:border-cyan-300/30 hover:from-slate-700/90 hover:via-indigo-800/80 hover:to-slate-700/90 hover:shadow-[0_0_28px_rgba(34,211,238,0.14)]"
           >
             <span className="sm:hidden">↗</span>
@@ -631,11 +631,11 @@ export default function HomePage() {
                   key={`${item.tokenContract}-${item.timestamp}-${index}`}
                   role="link"
                   tabIndex={0}
-                  onClick={() => router.push('/token-universe')}
+                  onClick={() => router.push('/coinographia')}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      router.push('/token-universe');
+                      router.push('/coinographia');
                     }
                   }}
                   style={{ animationDelay: `${index * 60}ms` }}

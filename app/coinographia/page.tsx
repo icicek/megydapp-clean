@@ -1,4 +1,4 @@
-//app/token-universe/page.tsx
+//app/coinographia/page.tsx
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -166,7 +166,7 @@ function handleCoincarnateClick(mint: string, status: TokenStatus) {
     window.location.href = '/';
 }
 
-export default function TokenUniversePage() {
+export default function CoinographiaPage() {
     const [items, setItems] = useState<TokenRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -194,7 +194,7 @@ export default function TokenUniversePage() {
             setLoading(true);
             setError(null);
 
-            const res = await fetch(`/api/token-universe?${params}`, {
+            const res = await fetch(`/api/coinographia?${params}`, {
                 cache: 'no-store',
             });
 
