@@ -729,16 +729,16 @@ export default function HomePage() {
                       ) : null}
                     </div>
 
-                    <div className="min-w-0 flex-1 pr-14">
-                      <div className="truncate max-w-full text-[14px] sm:text-[15px] font-semibold leading-5 text-white">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate max-w-full pr-14 text-[14px] sm:text-[15px] font-semibold leading-5 text-white">
                         {title}
                       </div>
 
-                      <div className="mt-0.5 truncate text-[11px] sm:text-[12px] text-gray-400">
+                      <div className="mt-0.5 truncate pr-14 text-[11px] sm:text-[12px] text-gray-400">
                         {item.shortMint}
                       </div>
 
-                      <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px] sm:text-xs">
+                      <div className="mt-2.5 flex items-center gap-2 text-[11px] sm:text-xs">
                         <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 sm:px-2.5 sm:py-1 text-emerald-200 whitespace-nowrap">
                           Coincarnated
                         </span>
