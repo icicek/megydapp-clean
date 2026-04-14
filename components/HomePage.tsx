@@ -106,6 +106,15 @@ export default function HomePage() {
     return `${base} bg-white/5 text-gray-300 border-white/10`;
   }
 
+  function formatStatusLabel(status: string) {
+    if (status === 'walking_dead') return 'Walking Dead';
+    if (status === 'deadcoin') return 'Deadcoin';
+    if (status === 'healthy') return 'Healthy';
+    if (status === 'redlist') return 'Redlist';
+    if (status === 'blacklist') return 'Blacklist';
+    return status;
+  }
+
   function formatRelativeTimeEnhanced(value: string, now: number) {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return 'Recently';
@@ -613,11 +622,10 @@ export default function HomePage() {
 
           <a
             href="/coinographia"
-            className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-gradient-to-r from-slate-800/90 via-indigo-900/70 to-slate-800/90 px-4 py-2 text-sm font-medium text-white shadow-[0_0_20px_rgba(34,211,238,0.08)] transition-all duration-200 hover:border-cyan-300/30 hover:from-slate-700/90 hover:via-indigo-800/80 hover:to-slate-700/90 hover:shadow-[0_0_28px_rgba(34,211,238,0.14)]"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/20 bg-gradient-to-r from-slate-800/90 via-indigo-900/70 to-slate-800/90 px-4 py-2 text-sm font-medium text-white shadow-[0_0_20px_rgba(34,211,238,0.08)] transition-all duration-200 hover:border-cyan-300/30 hover:from-slate-700/90 hover:via-indigo-800/80 hover:to-slate-700/90 hover:shadow-[0_0_28px_rgba(34,211,238,0.14)]"
           >
-            <span className="sm:hidden">↗</span>
             <span>Explore Coinographia</span>
-            <span className="hidden sm:inline">↗</span>
+            <span>↗</span>
           </a>
         </div>
 
@@ -722,7 +730,7 @@ export default function HomePage() {
                         {item.shortMint}
                       </div>
 
-                      <div className="mt-2.5 flex items-center gap-2 flex-wrap text-[11px] sm:text-xs">
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px] sm:text-xs">
 
                         {/* 🔥 HOT */}
                         {index < 2 && activityNow - new Date(item.timestamp).getTime() < ACTIVITY_HOT_WINDOW_MS && (
@@ -739,12 +747,12 @@ export default function HomePage() {
                         {/* 🧠 STATUS (şimdilik placeholder) */}
                         {item.status && (
                           <span className={getStatusBadgeClass(item.status)}>
-                            {item.status}
+                            {formatStatusLabel(item.status)}
                           </span>
                         )}
 
                         {/* ⏱ time */}
-                        <span className="text-gray-400 font-medium whitespace-nowrap">
+                        <span className="text-gray-500 font-medium whitespace-nowrap">
                           {formatRelativeTimeEnhanced(item.timestamp, activityNow)}
                         </span>
                       </div>
@@ -767,9 +775,12 @@ export default function HomePage() {
             </div>
           )}
         </div>
-        <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-500">
-          <span>Only a fraction of the latest Coincarnations is shown here</span>
-          <span className="flex items-center gap-1">
+        <div className="mt-4 flex flex-col items-center justify-center gap-2 text-center text-xs text-gray-500 sm:flex-row sm:gap-2">
+          <span className="max-w-[260px] sm:max-w-none">
+            Only a fraction of the latest Coincarnations is shown here
+          </span>
+
+          <span className="flex items-center justify-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/70 animate-pulse" />
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/60 animate-pulse [animation-delay:150ms]" />
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/50 animate-pulse [animation-delay:300ms]" />
