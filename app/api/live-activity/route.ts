@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
       SELECT
         c.token_symbol,
         c.token_contract,
+        COALESCE(tr.status::text, 'unknown') AS status,
         c.wallet_address,
         c.usd_value,
         c.timestamp,
@@ -30,12 +31,15 @@ export async function GET(req: NextRequest) {
       FROM contributions c
       LEFT JOIN token_metadata_cache mc
         ON mc.mint = c.token_contract
+      LEFT JOIN token_registry tr
+        ON tr.mint = c.token_contract
       WHERE c.network = 'solana'
       ORDER BY c.timestamp DESC
       LIMIT ${limit}
     `) as Array<{
       token_symbol: string | null;
       token_contract: string;
+      status: string | null;
       wallet_address: string;
       usd_value: string | number | null;
       timestamp: string;
@@ -53,6 +57,7 @@ export async function GET(req: NextRequest) {
       usdValue: Number(row.usd_value || 0),
       timestamp: row.timestamp,
       logoURI: row.logo_uri || null,
+      status: row.status || null,
     }));
 
     return NextResponse.json({

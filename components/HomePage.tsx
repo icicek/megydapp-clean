@@ -32,6 +32,7 @@ type LiveActivityItem = {
   usdValue: number;
   timestamp: string;
   logoURI: string | null;
+  status?: string | null;
 };
 
 export default function HomePage() {
@@ -58,7 +59,6 @@ export default function HomePage() {
   const [liveActivity, setLiveActivity] = useState<LiveActivityItem[]>([]);
   const [liveActivityLoading, setLiveActivityLoading] = useState(false);
   const [liveActivityError, setLiveActivityError] = useState<string | null>(null);
-  const [liveActivityTotal, setLiveActivityTotal] = useState(0);
 
   function formatTokenAmount(token: TokenInfo) {
     if (typeof token.uiAmountString === 'string' && token.uiAmountString.trim()) {
@@ -78,6 +78,32 @@ export default function HomePage() {
     }
   
     return '0';
+  }
+
+  function getStatusBadgeClass(status: string) {
+    const base = 'rounded-full px-2 py-0.5 text-[10px] border whitespace-nowrap';
+  
+    if (status === 'healthy') {
+      return `${base} bg-emerald-500/10 text-emerald-200 border-emerald-400/30`;
+    }
+  
+    if (status === 'walking_dead') {
+      return `${base} bg-amber-500/10 text-amber-200 border-amber-400/30`;
+    }
+  
+    if (status === 'deadcoin') {
+      return `${base} bg-zinc-500/10 text-zinc-200 border-zinc-400/30`;
+    }
+  
+    if (status === 'redlist') {
+      return `${base} bg-rose-500/10 text-rose-200 border-rose-400/30`;
+    }
+  
+    if (status === 'blacklist') {
+      return `${base} bg-fuchsia-500/10 text-fuchsia-200 border-fuchsia-400/30`;
+    }
+  
+    return `${base} bg-white/5 text-gray-300 border-white/10`;
   }
 
   function formatRelativeTimeEnhanced(value: string, now: number) {
@@ -696,7 +722,7 @@ export default function HomePage() {
                         {item.shortMint}
                       </div>
 
-                      <div className="mt-2.5 flex items-center gap-2 text-[11px] sm:text-xs">
+                      <div className="mt-2.5 flex items-center gap-2 flex-wrap text-[11px] sm:text-xs">
 
                         {/* 🔥 HOT */}
                         {index < 2 && activityNow - new Date(item.timestamp).getTime() < ACTIVITY_HOT_WINDOW_MS && (
@@ -706,9 +732,16 @@ export default function HomePage() {
                         )}
 
                         {/* ✅ Coincarnated */}
-                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 sm:px-2.5 sm:py-1 text-emerald-200 animate-pulse shadow-[0_0_14px_rgba(16,185,129,0.28)] whitespace-nowrap">
+                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 sm:px-2.5 sm:py-1 text-emerald-200 whitespace-nowrap">
                           Coincarnated
                         </span>
+
+                        {/* 🧠 STATUS (şimdilik placeholder) */}
+                        {item.status && (
+                          <span className={getStatusBadgeClass(item.status)}>
+                            {item.status}
+                          </span>
+                        )}
 
                         {/* ⏱ time */}
                         <span className="text-gray-400 font-medium whitespace-nowrap">
@@ -719,10 +752,6 @@ export default function HomePage() {
                       <div className="mt-2.5 truncate whitespace-nowrap text-[11px] sm:text-xs text-gray-400">
                         Coincarnator: <span className="font-mono text-gray-300">{item.shortWallet}</span>
                       </div>
-
-                      <span className="text-[11px] text-emerald-400 mt-1 block">
-                        Coincarnate this →
-                      </span>
 
                       <div className="mt-0.5 text-[11px] sm:text-xs text-gray-400">
                         Value: <span className="font-medium text-white">${item.usdValue.toFixed(2)}</span>
