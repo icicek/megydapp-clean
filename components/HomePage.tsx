@@ -160,6 +160,10 @@ export default function HomePage() {
     return now - new Date(timestamp).getTime() < 10 * 1000;
   }
 
+  function isHotActivity(timestamp: string, now: number) {
+    return now - new Date(timestamp).getTime() < ACTIVITY_HOT_WINDOW_MS;
+  }
+
   function getActivityDisplayLimit() {
     return 9;
   }
@@ -625,7 +629,7 @@ export default function HomePage() {
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/20 bg-gradient-to-r from-slate-800/90 via-indigo-900/70 to-slate-800/90 px-4 py-2 text-sm font-medium text-white shadow-[0_0_20px_rgba(34,211,238,0.08)] transition-all duration-200 hover:border-cyan-300/30 hover:from-slate-700/90 hover:via-indigo-800/80 hover:to-slate-700/90 hover:shadow-[0_0_28px_rgba(34,211,238,0.14)]"
           >
             <span>Explore Coinographia</span>
-            <span>↗</span>
+            <span aria-hidden>↗</span>
           </a>
         </div>
 
@@ -714,11 +718,15 @@ export default function HomePage() {
                         <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full border border-white/10 bg-white/5" />
                       )}
 
-                      {index === 0 && (
+                      {isHotActivity(item.timestamp, activityNow) ? (
+                        <span className="rounded-full border border-orange-400/30 bg-orange-500/10 px-2 py-1 text-[10px] font-medium text-orange-200 whitespace-nowrap animate-pulse">
+                          Hot
+                        </span>
+                      ) : index === 0 ? (
                         <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-200 whitespace-nowrap">
                           Live
                         </span>
-                      )}
+                      ) : null}
                     </div>
 
                     <div className="min-w-0 flex-1 pr-14">
@@ -731,38 +739,29 @@ export default function HomePage() {
                       </div>
 
                       <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px] sm:text-xs">
-
-                        {/* 🔥 HOT */}
-                        {index < 2 && activityNow - new Date(item.timestamp).getTime() < ACTIVITY_HOT_WINDOW_MS && (
-                          <span className="rounded-full bg-orange-500/15 border border-orange-400/30 px-2 py-0.5 text-[10px] text-orange-300 animate-pulse whitespace-nowrap">
-                            Hot
-                          </span>
-                        )}
-
-                        {/* ✅ Coincarnated */}
                         <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 sm:px-2.5 sm:py-1 text-emerald-200 whitespace-nowrap">
                           Coincarnated
                         </span>
 
-                        {/* 🧠 STATUS (şimdilik placeholder) */}
                         {item.status && (
                           <span className={getStatusBadgeClass(item.status)}>
                             {formatStatusLabel(item.status)}
                           </span>
                         )}
-
-                        {/* ⏱ time */}
-                        <span className="text-gray-500 font-medium whitespace-nowrap">
-                          {formatRelativeTimeEnhanced(item.timestamp, activityNow)}
-                        </span>
                       </div>
 
                       <div className="mt-2.5 truncate whitespace-nowrap text-[11px] sm:text-xs text-gray-400">
                         Coincarnator: <span className="font-mono text-gray-300">{item.shortWallet}</span>
                       </div>
 
-                      <div className="mt-0.5 text-[11px] sm:text-xs text-gray-400">
-                        Value: <span className="font-medium text-white">${item.usdValue.toFixed(2)}</span>
+                      <div className="mt-1 flex items-end justify-between gap-3">
+                        <div className="text-[11px] sm:text-xs text-gray-400">
+                          Value: <span className="font-medium text-white">${item.usdValue.toFixed(2)}</span>
+                        </div>
+
+                        <div className="shrink-0 text-[11px] sm:text-xs text-gray-500 font-medium text-right whitespace-nowrap">
+                          {formatRelativeTimeEnhanced(item.timestamp, activityNow)}
+                        </div>
                       </div>
                     </div>
                   </div>
