@@ -122,6 +122,25 @@ export default function HomePage() {
     return status;
   }
 
+  function getClusterBadgeClass(count: number) {
+    const base =
+      'rounded-full px-2 py-1 text-[10px] font-semibold whitespace-nowrap border';
+  
+    if (count >= 10) {
+      return `${base} bg-orange-500/15 text-orange-300 border-orange-400/40 animate-pulse`;
+    }
+  
+    if (count >= 7) {
+      return `${base} bg-amber-500/10 text-amber-200 border-amber-400/30`;
+    }
+  
+    if (count >= 4) {
+      return `${base} bg-emerald-500/10 text-emerald-200 border-emerald-400/30`;
+    }
+  
+    return `${base} bg-cyan-500/10 text-cyan-200 border-cyan-400/30`;
+  }
+
   function formatRelativeTimeEnhanced(value: string, now: number) {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return 'Recently';
@@ -279,19 +298,24 @@ export default function HomePage() {
           continue;
         }
 
-        const walletSet = new Set<string>();
-        if (existing.walletAddress) walletSet.add(existing.walletAddress);
-        if (item.walletAddress) walletSet.add(item.walletAddress);
+        const isNewer =
+          new Date(item.timestamp).getTime() > new Date(existing.latestTimestamp).getTime();
 
         grouped.set(item.tokenContract, {
           ...existing,
           occurrenceCount: existing.occurrenceCount + 1,
-          uniqueWalletCount: walletSet.size,
           totalUsdValue: Number(existing.totalUsdValue || 0) + Number(item.usdValue || 0),
-          latestTimestamp:
-            new Date(item.timestamp).getTime() > new Date(existing.latestTimestamp).getTime()
-              ? item.timestamp
-              : existing.latestTimestamp,
+          latestTimestamp: isNewer ? item.timestamp : existing.latestTimestamp,
+          walletAddress: isNewer ? item.walletAddress : existing.walletAddress,
+          shortWallet: isNewer ? item.shortWallet : existing.shortWallet,
+          tokenSymbol: isNewer ? item.tokenSymbol : existing.tokenSymbol,
+          tokenName: isNewer ? item.tokenName : existing.tokenName,
+          logoURI: isNewer ? item.logoURI : existing.logoURI,
+          status: isNewer ? item.status : existing.status,
+          shortMint: isNewer ? item.shortMint : existing.shortMint,
+          usdValue: isNewer ? item.usdValue : existing.usdValue,
+          timestamp: isNewer ? item.timestamp : existing.timestamp,
+          uniqueWalletCount: existing.uniqueWalletCount, // şimdilik koru
         });
       }
 
@@ -761,7 +785,10 @@ export default function HomePage() {
                       ) : null}
 
                       {item.occurrenceCount > 1 && (
-                        <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 text-[10px] font-semibold text-cyan-200 whitespace-nowrap">
+                        <span
+                          className={getClusterBadgeClass(item.occurrenceCount)}
+                          title={`${item.occurrenceCount} Coincarnations in recent activity`}
+                        >
                           x{item.occurrenceCount}
                         </span>
                       )}
