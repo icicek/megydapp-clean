@@ -262,6 +262,21 @@ export default function HomePage() {
     return getTimeGlow(cluster.timestamp, now);
   }
 
+  function getShareButtonClass(level: 'hot' | 'trending' | 'live') {
+    const base =
+      'flex items-center justify-center rounded-lg border text-white transition-all duration-200';
+  
+    if (level === 'hot') {
+      return `${base} border-orange-400/40 bg-orange-500/10 shadow-[0_0_18px_rgba(249,115,22,0.22)] hover:bg-orange-500/15 hover:shadow-[0_0_24px_rgba(249,115,22,0.30)] animate-pulse`;
+    }
+  
+    if (level === 'trending') {
+      return `${base} border-cyan-400/35 bg-cyan-500/10 shadow-[0_0_14px_rgba(34,211,238,0.16)] hover:bg-cyan-500/15 hover:shadow-[0_0_20px_rgba(34,211,238,0.24)]`;
+    }
+  
+    return `${base} border-white/10 bg-white/5 hover:bg-white/10`;
+  }
+
   function safeReadPendingCoincarnateMint(): string | null {
     if (typeof window === 'undefined') return null;
   
@@ -873,13 +888,13 @@ export default function HomePage() {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          startCoincarnateFlow(item.tokenContract);
+                          shareClusterOnX(item);
                         }}
-                        className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
-                        title="Coincarnate this token"
-                        aria-label="Coincarnate this token"
+                        className={`${getShareButtonClass(getHeatLevel(item, activityNow))} h-6 w-6 sm:h-7 sm:w-7`}
+                        title="Share on X"
+                        aria-label="Share on X"
                       >
-                        ↗
+                        𝕏
                       </button>
 
                       <button
@@ -888,7 +903,7 @@ export default function HomePage() {
                           e.stopPropagation();
                           shareClusterOnX(item);
                         }}
-                        className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
+                        className={`${getShareButtonClass(getHeatLevel(item, activityNow))} absolute right-3 bottom-3 z-10 h-7 w-7 sm:hidden`}
                         title="Share on X"
                         aria-label="Share on X"
                       >
