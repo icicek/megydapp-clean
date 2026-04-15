@@ -854,14 +854,14 @@ export default function HomePage() {
                   ].join(' ') + ' ' + getClusterGlowClass(item, activityNow)}
                 >
                   <div className="flex items-start gap-2.5 sm:gap-3">
-                    <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
+                    <div className="absolute top-3 right-3 z-10 flex flex-col gap-1.5 sm:gap-2">
                       <button
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
                           startCoincarnateFlow(item.tokenContract);
                         }}
-                        className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
+                        className="flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-[13px] sm:text-base text-white transition hover:bg-white/10"
                         title="Coincarnate this token"
                         aria-label="Coincarnate this token"
                       >
@@ -874,7 +874,7 @@ export default function HomePage() {
                           e.stopPropagation();
                           shareClusterOnX(item);
                         }}
-                        className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
+                        className="flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-[13px] sm:text-base text-white transition hover:bg-white/10"
                         title="Share on X"
                         aria-label="Share on X"
                       >
@@ -926,7 +926,7 @@ export default function HomePage() {
                         {item.shortMint}
                       </div>
 
-                      <div className="mt-2.5 flex items-center gap-2 text-[11px] sm:text-xs">
+                      <div className="mt-2.5 flex items-center gap-2 pr-16 sm:pr-14 text-[11px] sm:text-xs">
                         <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 sm:px-2.5 sm:py-1 text-emerald-200 whitespace-nowrap">
                           Coincarnated
                         </span>
@@ -938,20 +938,20 @@ export default function HomePage() {
                         )}
                       </div>
 
-                      <div className="mt-2.5 truncate whitespace-nowrap text-[11px] sm:text-xs text-gray-400">
-                        By: <span className="font-mono text-gray-300">{item.shortWallet}</span>
+                      <div className="mt-2.5 flex items-center justify-between gap-3 pr-16 sm:pr-14">
+                        <div className="min-w-0 truncate whitespace-nowrap text-[11px] sm:text-xs text-gray-400">
+                          By: <span className="font-mono text-gray-300">{item.shortWallet}</span>
+                          <span className="mx-1 text-gray-600">•</span>
+                          <span className="text-white font-medium">${item.totalUsdValue.toFixed(2)}</span>
+                        </div>
                       </div>
 
-                      <div className="mt-1 flex items-end justify-between gap-3">
-                        <div className="min-w-0 text-[11px] sm:text-xs text-gray-400">
-                          Value: <span className="font-medium text-white">${item.totalUsdValue.toFixed(2)}</span>
-                          <span className="mx-1 text-gray-600">•</span>
-                          <span>
-                            {item.uniqueWalletCount} wallet{item.uniqueWalletCount === 1 ? '' : 's'}
-                          </span>
+                      <div className="mt-1 flex items-center justify-between gap-3 pr-16 sm:pr-14">
+                        <div className="min-w-0 truncate text-[11px] sm:text-xs text-gray-400">
+                          {item.uniqueWalletCount} wallet{item.uniqueWalletCount === 1 ? '' : 's'}
                         </div>
 
-                        <div className="shrink-0 text-[11px] sm:text-xs text-gray-500 font-medium text-right whitespace-nowrap">
+                        <div className="shrink-0 text-[11px] sm:text-xs text-gray-500 font-medium whitespace-nowrap">
                           {formatRelativeTimeEnhanced(item.timestamp, activityNow)}
                         </div>
                       </div>
