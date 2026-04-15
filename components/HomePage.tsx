@@ -888,6 +888,19 @@ export default function HomePage() {
                       </button>
                     </div>
 
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        startCoincarnateFlow(item.tokenContract);
+                      }}
+                      className="absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10 sm:hidden"
+                      title="Coincarnate this token"
+                      aria-label="Coincarnate this token"
+                    >
+                      ↗
+                    </button>
+
                     {isUltraFresh(item.timestamp, activityNow) && (
                       <span className="pointer-events-none absolute inset-0 rounded-2xl animate-pulse border border-emerald-400/40" />
                     )}
@@ -973,20 +986,7 @@ export default function HomePage() {
                           {formatRelativeTimeEnhanced(item.timestamp, activityNow)}
                         </div>
                       </div>
-                      <div className="mt-2 flex justify-end gap-2 sm:hidden">
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            startCoincarnateFlow(item.tokenContract);
-                          }}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
-                          title="Coincarnate this token"
-                          aria-label="Coincarnate this token"
-                        >
-                          ↗
-                        </button>
-
+                      <div className="mt-2 flex justify-end sm:hidden">
                         <button
                           onClick={(e) => {
                             e.preventDefault();
