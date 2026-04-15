@@ -867,7 +867,7 @@ export default function HomePage() {
                           e.stopPropagation();
                           startCoincarnateFlow(item.tokenContract);
                         }}
-                        className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
+                        className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
                         title="Coincarnate this token"
                         aria-label="Coincarnate this token"
                       >
@@ -880,7 +880,7 @@ export default function HomePage() {
                           e.stopPropagation();
                           shareClusterOnX(item);
                         }}
-                        className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
+                        className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
                         title="Share on X"
                         aria-label="Share on X"
                       >
@@ -894,7 +894,7 @@ export default function HomePage() {
                         e.stopPropagation();
                         startCoincarnateFlow(item.tokenContract);
                       }}
-                      className="absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10 sm:hidden"
+                      className="absolute top-3 right-3 z-10 flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10 sm:hidden"
                       title="Coincarnate this token"
                       aria-label="Coincarnate this token"
                     >
@@ -986,20 +986,18 @@ export default function HomePage() {
                           {formatRelativeTimeEnhanced(item.timestamp, activityNow)}
                         </div>
                       </div>
-                      <div className="mt-2 flex justify-end sm:hidden">
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            shareClusterOnX(item);
-                          }}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
-                          title="Share on X"
-                          aria-label="Share on X"
-                        >
-                          𝕏
-                        </button>
-                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          shareClusterOnX(item);
+                        }}
+                        className="absolute right-3 bottom-12 z-10 flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10 sm:hidden"
+                        title="Share on X"
+                        aria-label="Share on X"
+                      >
+                        𝕏
+                      </button>
                     </div>
                   </div>
                 </article>
