@@ -302,21 +302,29 @@ export default function HomePage() {
   
     const symbol = item.tokenSymbol ? `$${item.tokenSymbol}` : item.shortMint;
     const heatLevel = getHeatLevel(item, Date.now());
+    const revivedUsd = `$${item.totalUsdValue.toFixed(2)}`;
+    const wallets = `${item.uniqueWalletCount} wallet${item.uniqueWalletCount === 1 ? '' : 's'}`;
+    const occurrences = `x${item.occurrenceCount} Coincarnations`;
   
-    const heatText =
-      heatLevel === 'hot'
-        ? 'is on fire'
-        : heatLevel === 'trending'
-        ? 'is trending'
-        : 'is live';
+    let intro = `${symbol} is moving again in Coincarnation.`;
+    let momentum = `${occurrences} • ${revivedUsd} revived • ${wallets}`;
+  
+    if (heatLevel === 'hot') {
+      intro = `🔥 ${symbol} is getting seriously hot in Coincarnation.`;
+      momentum = `${occurrences} in recent activity • ${revivedUsd} revived • ${wallets} joined`;
+    } else if (heatLevel === 'trending') {
+      intro = `⚡ ${symbol} is trending in Coincarnation.`;
+      momentum = `${occurrences} • ${revivedUsd} revived • ${wallets} joined`;
+    }
   
     const tweetLines = [
-      `${symbol} ${heatText} in Coincarnation.`,
+      intro,
       '',
-      `x${item.occurrenceCount} recent Coincarnations • $${item.totalUsdValue.toFixed(2)} revived`,
-      `${item.uniqueWalletCount} wallet${item.uniqueWalletCount === 1 ? '' : 's'} joined`,
+      momentum,
       '',
-      'Turn deadcoins into a fair future:',
+      'Deadcoins are not disappearing quietly here.',
+      'They are being Coincarnated.',
+      '',
       'https://coincarnation.com',
     ];
   
