@@ -964,13 +964,15 @@ export default function HomePage() {
                           <span className="text-white font-medium">${item.totalUsdValue.toFixed(2)}</span>
                         </div>
 
-                        <div className="block sm:hidden truncate whitespace-nowrap">
+                        <div className="block sm:hidden truncate whitespace-nowrap pr-12">
                           By: <span className="font-mono text-gray-300">{shortenWalletCompact(item.shortWallet)}</span>
+                          <span className="mx-1 text-gray-600">•</span>
+                          <span className="text-white font-medium">${item.totalUsdValue.toFixed(2)}</span>
                         </div>
                       </div>
 
                       <div className="mt-1 flex items-center justify-between gap-3 text-[11px] sm:text-xs">
-                        <div className="min-w-0 text-gray-400">
+                        <div className="min-w-0 pr-12 sm:pr-0 text-gray-400">
                           <span>
                             {item.uniqueWalletCount} wallet{item.uniqueWalletCount === 1 ? '' : 's'}
                           </span>
@@ -992,7 +994,7 @@ export default function HomePage() {
                           e.stopPropagation();
                           shareClusterOnX(item);
                         }}
-                        className="absolute right-3 bottom-12 z-10 flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10 sm:hidden"
+                        className="absolute right-3 bottom-3 z-10 flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10 sm:hidden"
                         title="Share on X"
                         aria-label="Share on X"
                       >
