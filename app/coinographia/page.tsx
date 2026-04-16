@@ -498,7 +498,7 @@ export default function CoinographiaPage() {
                         </div>
                     )}
 
-                    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+<div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                         {discoveryLoading && discoveryItems.length === 0 ? (
                             [...Array(6)].map((_, i) => (
                                 <div
@@ -534,53 +534,38 @@ export default function CoinographiaPage() {
                                         key={it.mint}
                                         className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-200 hover:bg-white/[0.05]"
                                     >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="min-w-0 flex items-start gap-3">
-                                                {it.logo_uri ? (
-                                                    <img
-                                                        src={it.logo_uri}
-                                                        alt={it.symbol || it.name || it.mint}
-                                                        className="h-11 w-11 rounded-full border border-white/10 object-cover shrink-0"
-                                                    />
-                                                ) : (
-                                                    <div className="h-11 w-11 rounded-full border border-white/10 bg-white/5 shrink-0" />
-                                                )}
+                                        <div className="flex items-start gap-3">
+                                            {it.logo_uri ? (
+                                                <img
+                                                    src={it.logo_uri}
+                                                    alt={it.symbol || it.name || it.mint}
+                                                    className="h-11 w-11 rounded-full border border-white/10 object-cover shrink-0"
+                                                />
+                                            ) : (
+                                                <div className="h-11 w-11 rounded-full border border-white/10 bg-white/5 shrink-0" />
+                                            )}
 
-                                                <div className="min-w-0">
-                                                    <div className="truncate text-[15px] font-semibold leading-5 text-white">
-                                                        {it.symbol || 'Unknown Symbol'}
-                                                        {it.name ? ` — ${it.name}` : ''}
-                                                    </div>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="truncate text-[15px] font-semibold leading-5 text-white">
+                                                    {it.symbol || 'Unknown Symbol'}
+                                                    {it.name ? ` — ${it.name}` : ''}
+                                                </div>
 
-                                                    <div className="mt-1 truncate font-mono text-[11px] text-gray-400" title={it.mint}>
-                                                        {shortenMint(it.mint)}
-                                                    </div>
+                                                <div
+                                                    className="mt-1 truncate font-mono text-[11px] text-gray-400"
+                                                    title={it.mint}
+                                                >
+                                                    {shortenMint(it.mint)}
+                                                </div>
 
-                                                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                                                        <StatusBadge status={it.status} />
-                                                        <HeatBadge heat={it.heat_level} />
-                                                    </div>
+                                                <div className="mt-2 flex flex-wrap items-center gap-2">
+                                                    <StatusBadge status={it.status} />
+                                                    <HeatBadge heat={it.heat_level} />
                                                 </div>
                                             </div>
-
-                                            <button
-                                                disabled={isDisabled}
-                                                onClick={() => handleCoincarnateClick(it.mint, it.status)}
-                                                className={[
-                                                    'shrink-0 rounded-xl px-3 py-2 text-[12px] font-semibold transition-all duration-200',
-                                                    getCoincarnateButtonClass(it.status, isDisabled),
-                                                ].join(' ')}
-                                                title={
-                                                    isDisabled
-                                                        ? 'Coincarnation is disabled for redlisted or blacklisted tokens.'
-                                                        : `Coincarnate ${it.symbol ? `$${it.symbol}` : 'this token'}`
-                                                }
-                                            >
-                                                ↗
-                                            </button>
                                         </div>
 
-                                        <div className="mt-4 grid grid-cols-3 gap-2">
+                                        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
                                             <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
                                                 <div className="text-[10px] uppercase tracking-[0.08em] text-gray-500">
                                                     Coincarnations
@@ -599,7 +584,7 @@ export default function CoinographiaPage() {
                                                 </div>
                                             </div>
 
-                                            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                                            <div className="col-span-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 sm:col-span-1">
                                                 <div className="text-[10px] uppercase tracking-[0.08em] text-gray-500">
                                                     Wallets
                                                 </div>
@@ -609,15 +594,41 @@ export default function CoinographiaPage() {
                                             </div>
                                         </div>
 
-                                        <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-gray-400">
+                                        <div className="mt-3 grid gap-1 text-[11px] text-gray-400 sm:flex sm:items-center sm:justify-between sm:gap-3">
                                             <div>
-                                                24h activity: <span className="text-gray-200">{formatNumberCompact(it.recent_24h_count)}</span>
+                                                24h activity:{' '}
+                                                <span className="text-gray-200">
+                                                    {formatNumberCompact(it.recent_24h_count)}
+                                                </span>
                                             </div>
 
                                             <div>
-                                                Last activity: <span className="text-gray-200">{formatUpdatedShort(it.last_activity_at)}</span>
+                                                Last activity:{' '}
+                                                <span className="text-gray-200">
+                                                    {formatUpdatedShort(it.last_activity_at)}
+                                                </span>
                                             </div>
                                         </div>
+
+                                        <button
+                                            disabled={isDisabled}
+                                            onClick={() => handleCoincarnateClick(it.mint, it.status)}
+                                            className={[
+                                                'mt-4 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all duration-200',
+                                                getCoincarnateButtonClass(it.status, isDisabled),
+                                            ].join(' ')}
+                                            title={
+                                                isDisabled
+                                                    ? 'Coincarnation is disabled for redlisted or blacklisted tokens.'
+                                                    : `Coincarnate ${it.symbol ? `$${it.symbol}` : 'this token'}`
+                                            }
+                                        >
+                                            {isDisabled
+                                                ? 'Coincarnation Disabled'
+                                                : it.symbol
+                                                    ? `Coincarnate $${it.symbol}`
+                                                    : 'Coincarnate'}
+                                        </button>
                                     </div>
                                 );
                             })
