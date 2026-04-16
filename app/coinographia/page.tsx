@@ -29,6 +29,24 @@ type MetricCard = {
     description: string;
 };
 
+type HeatLevel = 'HOT' | 'TRENDING' | 'LIVE' | null;
+type DiscoverySort = 'recent' | 'usd' | 'wallets' | 'coincarnations';
+
+type DiscoveryRow = {
+    mint: string;
+    symbol: string | null;
+    name: string | null;
+    logo_uri: string | null;
+    status: TokenStatus;
+    total_coincarnations: number;
+    unique_wallets: number;
+    total_revived_usd: number;
+    last_activity_at: string | null;
+    recent_24h_count: number;
+    recent_10m_count: number;
+    heat_level: HeatLevel;
+};
+
 const STATUS_STYLES: Record<TokenStatus, string> = {
     healthy: 'bg-emerald-900/50 text-emerald-200 border border-emerald-700',
     walking_dead: 'bg-amber-900/50 text-amber-200 border border-amber-700',
@@ -56,6 +74,47 @@ function ClassificationBadge({ label }: { label: string }) {
             {label}
         </span>
     );
+}
+
+const HEAT_STYLES: Record<Exclude<HeatLevel, null>, string> = {
+    HOT: 'border border-rose-500/30 bg-rose-500/15 text-rose-200',
+    TRENDING: 'border border-amber-500/30 bg-amber-500/15 text-amber-200',
+    LIVE: 'border border-cyan-500/30 bg-cyan-500/15 text-cyan-200',
+};
+
+function HeatBadge({ heat }: { heat: HeatLevel }) {
+    if (!heat) return null;
+
+    return (
+        <span
+            className={[
+                'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap',
+                HEAT_STYLES[heat],
+            ].join(' ')}
+        >
+            {heat}
+        </span>
+    );
+}
+
+function formatUsdCompact(value: number | null) {
+    if (value === null || !Number.isFinite(value)) return '$0';
+
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        notation: 'compact',
+        maximumFractionDigits: 1,
+    }).format(value);
+}
+
+function formatNumberCompact(value: number | null) {
+    if (value === null || !Number.isFinite(value)) return '0';
+
+    return new Intl.NumberFormat('en-US', {
+        notation: 'compact',
+        maximumFractionDigits: 1,
+    }).format(value);
 }
 
 function shortenMint(mint: string) {
@@ -179,6 +238,10 @@ export default function CoinographiaPage() {
     const [metricCards, setMetricCards] = useState<MetricCard[]>([]);
     const [metricsLoading, setMetricsLoading] = useState(false);
     const [metricsError, setMetricsError] = useState<string | null>(null);
+    const [discoveryItems, setDiscoveryItems] = useState<DiscoveryRow[]>([]);
+    const [discoveryLoading, setDiscoveryLoading] = useState(false);
+    const [discoveryError, setDiscoveryError] = useState<string | null>(null);
+    const [discoverySort, setDiscoverySort] = useState<DiscoverySort>('recent');
 
     const params = useMemo(() => {
         const sp = new URLSearchParams();
@@ -235,6 +298,35 @@ export default function CoinographiaPage() {
         }
     }
 
+    async function loadDiscovery() {
+        try {
+            setDiscoveryLoading(true);
+            setDiscoveryError(null);
+
+            const sp = new URLSearchParams();
+            if (q.trim()) sp.set('q', q.trim());
+            if (status) sp.set('status', status);
+            sp.set('limit', '12');
+            sp.set('offset', '0');
+            sp.set('sort', discoverySort);
+
+            const res = await fetch(`/api/coinographia/discovery?${sp.toString()}`, {
+                cache: 'no-store',
+            });
+
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}`);
+            }
+
+            const j = await res.json();
+            setDiscoveryItems(Array.isArray(j.items) ? j.items : []);
+        } catch (e: any) {
+            setDiscoveryError(e?.message || 'Discovery load error');
+        } finally {
+            setDiscoveryLoading(false);
+        }
+    }
+
     useEffect(() => {
         const id = setTimeout(() => {
             void load();
@@ -250,6 +342,14 @@ export default function CoinographiaPage() {
     useEffect(() => {
         setPage(0);
     }, [q, status, limit]);
+
+    useEffect(() => {
+        const id = setTimeout(() => {
+            void loadDiscovery();
+        }, 180);
+
+        return () => clearTimeout(id);
+    }, [q, status, discoverySort]);
 
     const totalPages = Math.max(1, Math.ceil(total / limit));
 
@@ -357,6 +457,175 @@ export default function CoinographiaPage() {
                                 <span className="font-semibold">Redlist / Blacklist</span> — Coincarnation disabled
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-5">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                        <div className="max-w-3xl">
+                            <h2 className="text-lg font-semibold text-white">Live Discovery</h2>
+                            <p className="mt-2 text-sm text-gray-300">
+                                Explore the most active Coincarnation clusters. This layer highlights how often a token
+                                has been coincarnated, how much value it has revived, how many unique wallets joined,
+                                and whether it is currently live, trending, or hot.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                            <select
+                                value={discoverySort}
+                                onChange={(e) => setDiscoverySort(e.target.value as DiscoverySort)}
+                                className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white"
+                            >
+                                <option value="recent">Most recent</option>
+                                <option value="usd">Most revived USD</option>
+                                <option value="wallets">Most wallets</option>
+                                <option value="coincarnations">Most Coincarnations</option>
+                            </select>
+
+                            <button
+                                onClick={() => void loadDiscovery()}
+                                className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08]"
+                            >
+                                Refresh Discovery
+                            </button>
+                        </div>
+                    </div>
+
+                    {discoveryError && (
+                        <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                            {discoveryError}
+                        </div>
+                    )}
+
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        {discoveryLoading && discoveryItems.length === 0 ? (
+                            [...Array(6)].map((_, i) => (
+                                <div
+                                    key={i}
+                                    className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 animate-pulse"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-11 w-11 rounded-full bg-white/10" />
+                                        <div className="min-w-0 flex-1">
+                                            <div className="h-4 w-28 rounded bg-white/10" />
+                                            <div className="mt-2 h-3 w-40 rounded bg-white/10" />
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4 flex gap-2">
+                                        <div className="h-6 w-16 rounded-full bg-white/10" />
+                                        <div className="h-6 w-20 rounded-full bg-white/10" />
+                                    </div>
+
+                                    <div className="mt-4 grid grid-cols-3 gap-2">
+                                        <div className="h-14 rounded-xl bg-white/10" />
+                                        <div className="h-14 rounded-xl bg-white/10" />
+                                        <div className="h-14 rounded-xl bg-white/10" />
+                                    </div>
+                                </div>
+                            ))
+                        ) : discoveryItems.length > 0 ? (
+                            discoveryItems.map((it) => {
+                                const isDisabled = it.status === 'redlist' || it.status === 'blacklist';
+
+                                return (
+                                    <div
+                                        key={it.mint}
+                                        className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-200 hover:bg-white/[0.05]"
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0 flex items-start gap-3">
+                                                {it.logo_uri ? (
+                                                    <img
+                                                        src={it.logo_uri}
+                                                        alt={it.symbol || it.name || it.mint}
+                                                        className="h-11 w-11 rounded-full border border-white/10 object-cover shrink-0"
+                                                    />
+                                                ) : (
+                                                    <div className="h-11 w-11 rounded-full border border-white/10 bg-white/5 shrink-0" />
+                                                )}
+
+                                                <div className="min-w-0">
+                                                    <div className="truncate text-[15px] font-semibold leading-5 text-white">
+                                                        {it.symbol || 'Unknown Symbol'}
+                                                        {it.name ? ` — ${it.name}` : ''}
+                                                    </div>
+
+                                                    <div className="mt-1 truncate font-mono text-[11px] text-gray-400" title={it.mint}>
+                                                        {shortenMint(it.mint)}
+                                                    </div>
+
+                                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                                        <StatusBadge status={it.status} />
+                                                        <HeatBadge heat={it.heat_level} />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                disabled={isDisabled}
+                                                onClick={() => handleCoincarnateClick(it.mint, it.status)}
+                                                className={[
+                                                    'shrink-0 rounded-xl px-3 py-2 text-[12px] font-semibold transition-all duration-200',
+                                                    getCoincarnateButtonClass(it.status, isDisabled),
+                                                ].join(' ')}
+                                                title={
+                                                    isDisabled
+                                                        ? 'Coincarnation is disabled for redlisted or blacklisted tokens.'
+                                                        : `Coincarnate ${it.symbol ? `$${it.symbol}` : 'this token'}`
+                                                }
+                                            >
+                                                ↗
+                                            </button>
+                                        </div>
+
+                                        <div className="mt-4 grid grid-cols-3 gap-2">
+                                            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                                                <div className="text-[10px] uppercase tracking-[0.08em] text-gray-500">
+                                                    Coincarnations
+                                                </div>
+                                                <div className="mt-1 text-sm font-semibold text-white">
+                                                    {formatNumberCompact(it.total_coincarnations)}
+                                                </div>
+                                            </div>
+
+                                            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                                                <div className="text-[10px] uppercase tracking-[0.08em] text-gray-500">
+                                                    Revived USD
+                                                </div>
+                                                <div className="mt-1 text-sm font-semibold text-white">
+                                                    {formatUsdCompact(it.total_revived_usd)}
+                                                </div>
+                                            </div>
+
+                                            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                                                <div className="text-[10px] uppercase tracking-[0.08em] text-gray-500">
+                                                    Wallets
+                                                </div>
+                                                <div className="mt-1 text-sm font-semibold text-white">
+                                                    {formatNumberCompact(it.unique_wallets)}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-gray-400">
+                                            <div>
+                                                24h activity: <span className="text-gray-200">{formatNumberCompact(it.recent_24h_count)}</span>
+                                            </div>
+
+                                            <div>
+                                                Last activity: <span className="text-gray-200">{formatUpdatedShort(it.last_activity_at)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <div className="sm:col-span-2 xl:col-span-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-gray-400">
+                                No discovery clusters found yet.
+                            </div>
+                        )}
                     </div>
                 </div>
 
