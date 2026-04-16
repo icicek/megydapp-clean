@@ -308,8 +308,8 @@ export default function HomePage() {
 
   function shortenWalletCompact(value: string) {
     if (!value) return '';
-    if (value.length <= 10) return value;
-    return `${value.slice(0, 4)}...${value.slice(-4)}`;
+    if (value.length <= 8) return value;
+    return `${value.slice(0, 3)}...${value.slice(-2)}`;
   }
 
   function shareClusterOnX(item: LiveActivityCluster) {
@@ -1017,7 +1017,7 @@ export default function HomePage() {
                           e.stopPropagation();
                           shareClusterOnX(item);
                         }}
-                        className="absolute right-3 bottom-3 z-10 flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10 sm:hidden"
+                        className={`${getShareButtonClass(getHeatLevel(item, activityNow))} absolute right-3 bottom-3 z-10 h-7 w-7 sm:hidden`}
                         title="Share on X"
                         aria-label="Share on X"
                       >
