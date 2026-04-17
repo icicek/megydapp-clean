@@ -386,14 +386,17 @@ export default function CoinographiaPage() {
                                     Deadcoin
                                 </span>
                                 <span className="inline-flex items-center rounded-full border border-rose-500/25 bg-rose-500/12 px-3 py-1.5 text-xs font-medium text-rose-200">
-                                    Redlist / Blacklist
+                                    Redlist
+                                </span>
+
+                                <span className="inline-flex items-center rounded-full border border-pink-500/25 bg-pink-500/12 px-3 py-1.5 text-xs font-medium text-pink-200">
+                                    Blacklist
                                 </span>
                             </div>
 
                             <p className="mt-5 text-xs leading-6 text-gray-400 sm:text-sm">
                                 Strong tokens remain above higher survival thresholds. Weakening tokens fall into the
-                                walking dead zone. Deadcoins drop below minimum survivability. Redlist and blacklist act
-                                as direct policy overrides.
+                                walking dead zone. Deadcoins drop below minimum survivability. Redlist and Blacklist act as direct policy overrides and disable Coincarnation.
                             </p>
                         </div>
 
@@ -404,7 +407,7 @@ export default function CoinographiaPage() {
                                 </div>
                                 <div className="mt-3 text-2xl font-bold text-white">
                                     {formatMetricValue(
-                                        metricCards.find((c) => c.key === 'healthy_min_volume')?.value ?? null,
+                                        metricCards.find((c) => c.key?.toLowerCase() === 'healthy_min_volume')?.value ?? null,
                                         'usd'
                                     )}
                                 </div>
@@ -419,7 +422,7 @@ export default function CoinographiaPage() {
                                 </div>
                                 <div className="mt-3 text-2xl font-bold text-white">
                                     {formatMetricValue(
-                                        metricCards.find((c) => c.key === 'healthy_min_liquidity')?.value ?? null,
+                                        metricCards.find((c) => c.key?.toLowerCase() === 'healthy_min_liquidity')?.value ?? null,
                                         'usd'
                                     )}
                                 </div>
@@ -434,7 +437,7 @@ export default function CoinographiaPage() {
                                 </div>
                                 <div className="mt-3 text-2xl font-bold text-white">
                                     {formatMetricValue(
-                                        metricCards.find((c) => c.key === 'walking_dead_min_volume')?.value ?? null,
+                                        metricCards.find((c) => c.key?.toLowerCase() === 'walking_dead_min_volume')?.value ?? null,
                                         'usd'
                                     )}
                                 </div>
@@ -449,7 +452,7 @@ export default function CoinographiaPage() {
                                 </div>
                                 <div className="mt-3 text-2xl font-bold text-white">
                                     {formatMetricValue(
-                                        metricCards.find((c) => c.key === 'walking_dead_min_liquidity')?.value ?? null,
+                                        metricCards.find((c) => c.key?.toLowerCase() === 'walking_dead_min_liquidity')?.value ?? null,
                                         'usd'
                                     )}
                                 </div>
@@ -465,7 +468,7 @@ export default function CoinographiaPage() {
                     <input
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
-                        placeholder="Search by mint, symbol, or name"
+                        placeholder="Search token (symbol, name or mint)"
                         className="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2"
                     />
 
