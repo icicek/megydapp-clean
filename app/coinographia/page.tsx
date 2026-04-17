@@ -358,103 +358,104 @@ export default function CoinographiaPage() {
             <div className="mx-auto max-w-7xl">
                 <AppWalletBar className="mb-6 w-full" />
 
-                <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-6">
-                    <h1 className="text-3xl font-bold">Coinographia</h1>
-                    <p className="mt-3 max-w-3xl text-sm text-gray-300">
-                        Explore Coinographia — the living map of tokens tracked by Coincarnation.
-                        Review their current status, understand their classification, and decide what deserves a second life.
-                    </p>
-                </div>
-
-                <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-5">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                <div className="mb-8 overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_28%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.12),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.03))] p-6 md:p-7">
+                    <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
                         <div className="max-w-3xl">
-                            <h2 className="text-lg font-semibold text-white">Classification Metrics</h2>
-                            <p className="mt-2 text-sm text-gray-300">
-                                These thresholds help define how Coincarnation interprets token health,
-                                survivability, and decline. When admins update classification thresholds,
-                                Coinographia reflects the latest public metrics.
+                            <div className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-200">
+                                Coinographia
+                            </div>
+
+                            <h1 className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                                The living map of token resurrection
+                            </h1>
+
+                            <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-300 sm:text-[15px]">
+                                Explore how tokens survive, fade, or return through Coincarnation.
+                                Coinographia turns classification into a living discovery layer —
+                                combining token status, revival activity, and public survivability logic.
+                            </p>
+
+                            <div className="mt-5 flex flex-wrap items-center gap-2">
+                                <span className="inline-flex items-center rounded-full border border-emerald-500/25 bg-emerald-500/12 px-3 py-1.5 text-xs font-medium text-emerald-200">
+                                    Healthy
+                                </span>
+                                <span className="inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/12 px-3 py-1.5 text-xs font-medium text-amber-200">
+                                    Walking Dead
+                                </span>
+                                <span className="inline-flex items-center rounded-full border border-zinc-500/25 bg-zinc-500/12 px-3 py-1.5 text-xs font-medium text-zinc-200">
+                                    Deadcoin
+                                </span>
+                                <span className="inline-flex items-center rounded-full border border-rose-500/25 bg-rose-500/12 px-3 py-1.5 text-xs font-medium text-rose-200">
+                                    Redlist / Blacklist
+                                </span>
+                            </div>
+
+                            <p className="mt-5 text-xs leading-6 text-gray-400 sm:text-sm">
+                                Strong tokens remain above higher survival thresholds. Weakening tokens fall into the
+                                walking dead zone. Deadcoins drop below minimum survivability. Redlist and blacklist act
+                                as direct policy overrides.
                             </p>
                         </div>
 
-                        <button
-                            onClick={() => void loadMetrics()}
-                            className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08]"
-                        >
-                            Refresh Metrics
-                        </button>
-                    </div>
-
-                    {metricsError && (
-                        <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                            {metricsError}
-                        </div>
-                    )}
-
-                    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        {metricsLoading && metricCards.length === 0 ? (
-                            [...Array(4)].map((_, i) => (
-                                <div
-                                    key={i}
-                                    className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 animate-pulse"
-                                >
-                                    <div className="h-4 w-32 rounded bg-white/10" />
-                                    <div className="mt-4 h-8 w-24 rounded bg-white/10" />
-                                    <div className="mt-4 h-3 w-full rounded bg-white/10" />
-                                    <div className="mt-2 h-3 w-5/6 rounded bg-white/10" />
+                        <div className="grid min-w-0 flex-1 grid-cols-2 gap-3 xl:max-w-[520px]">
+                            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm">
+                                <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-gray-400">
+                                    Healthy Min Volume
                                 </div>
-                            ))
-                        ) : metricCards.length > 0 ? (
-                            metricCards.map((card) => (
-                                <div
-                                    key={card.key}
-                                    className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
-                                >
-                                    <div className="text-xs font-medium uppercase tracking-[0.08em] text-gray-400">
-                                        {card.label}
-                                    </div>
-
-                                    <div className="mt-3 text-2xl font-bold text-white">
-                                        {formatMetricValue(card.value, card.unit)}
-                                    </div>
-
-                                    <p className="mt-3 text-xs leading-5 text-gray-400">
-                                        {card.description}
-                                    </p>
+                                <div className="mt-3 text-2xl font-bold text-white">
+                                    {formatMetricValue(
+                                        metricCards.find((c) => c.key === 'healthy_min_volume')?.value ?? null,
+                                        'usd'
+                                    )}
                                 </div>
-                            ))
-                        ) : (
-                            <div className="sm:col-span-2 xl:col-span-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-gray-400">
-                                No public classification metrics available yet.
+                                <p className="mt-2 text-xs leading-5 text-gray-400">
+                                    Minimum volume expected for healthy survival.
+                                </p>
                             </div>
-                        )}
-                    </div>
-                </div>
 
-                <div className="mb-8 rounded-2xl border border-cyan-500/10 bg-cyan-500/5 p-5">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="max-w-4xl">
-                            <h2 className="text-lg font-semibold text-white">How classification works</h2>
-                            <p className="mt-2 text-sm text-gray-300">
-                                Coincarnation classifies tokens through threshold-based survivability logic.
-                                Healthy tokens stay above stronger volume and liquidity expectations, walking dead
-                                tokens remain above minimum survival thresholds, and deadcoins fall beneath them.
-                                Redlist and blacklist statuses are policy overrides, and Coincarnation is disabled for them.
-                            </p>
-                        </div>
+                            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm">
+                                <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-gray-400">
+                                    Healthy Min Liquidity
+                                </div>
+                                <div className="mt-3 text-2xl font-bold text-white">
+                                    {formatMetricValue(
+                                        metricCards.find((c) => c.key === 'healthy_min_liquidity')?.value ?? null,
+                                        'usd'
+                                    )}
+                                </div>
+                                <p className="mt-2 text-xs leading-5 text-gray-400">
+                                    Liquidity threshold required to remain strong.
+                                </p>
+                            </div>
 
-                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 min-w-[240px]">
-                            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
-                                <span className="font-semibold">Healthy</span> — strong enough to stay alive
+                            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm">
+                                <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-gray-400">
+                                    Walking Dead Min Volume
+                                </div>
+                                <div className="mt-3 text-2xl font-bold text-white">
+                                    {formatMetricValue(
+                                        metricCards.find((c) => c.key === 'walking_dead_min_volume')?.value ?? null,
+                                        'usd'
+                                    )}
+                                </div>
+                                <p className="mt-2 text-xs leading-5 text-gray-400">
+                                    Minimum activity needed to avoid the deadcoin zone.
+                                </p>
                             </div>
-                            <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-                                <span className="font-semibold">Walking Dead</span> — weakening but not gone
-                            </div>
-                            <div className="rounded-xl border border-zinc-500/20 bg-zinc-500/10 px-3 py-2 text-xs text-zinc-200">
-                                <span className="font-semibold">Deadcoin</span> — below survival expectations
-                            </div>
-                            <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
-                                <span className="font-semibold">Redlist / Blacklist</span> — Coincarnation disabled
+
+                            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm">
+                                <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-gray-400">
+                                    Walking Dead Min Liquidity
+                                </div>
+                                <div className="mt-3 text-2xl font-bold text-white">
+                                    {formatMetricValue(
+                                        metricCards.find((c) => c.key === 'walking_dead_min_liquidity')?.value ?? null,
+                                        'usd'
+                                    )}
+                                </div>
+                                <p className="mt-2 text-xs leading-5 text-gray-400">
+                                    Survival liquidity line before falling below minimum viability.
+                                </p>
                             </div>
                         </div>
                     </div>
