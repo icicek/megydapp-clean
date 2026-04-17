@@ -380,7 +380,7 @@ export default function CoinographiaPage() {
                                     Healthy
                                 </span>
                                 <span className="inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/12 px-3 py-1.5 text-xs font-medium text-amber-200">
-                                    Walking Dead
+                                    Walking Deadcoin
                                 </span>
                                 <span className="inline-flex items-center rounded-full border border-zinc-500/25 bg-zinc-500/12 px-3 py-1.5 text-xs font-medium text-zinc-200">
                                     Deadcoin
@@ -407,7 +407,7 @@ export default function CoinographiaPage() {
                                 </div>
                                 <div className="mt-3 text-2xl font-bold text-white">
                                     {formatMetricValue(
-                                        metricCards.find((c) => c.key?.toLowerCase() === 'healthy_min_volume')?.value ?? null,
+                                        metricCards.find((c) => c.key?.toLowerCase() === 'healthy_min_vol_usd')?.value ?? null,
                                         'usd'
                                     )}
                                 </div>
@@ -422,7 +422,7 @@ export default function CoinographiaPage() {
                                 </div>
                                 <div className="mt-3 text-2xl font-bold text-white">
                                     {formatMetricValue(
-                                        metricCards.find((c) => c.key?.toLowerCase() === 'healthy_min_liquidity')?.value ?? null,
+                                        metricCards.find((c) => c.key?.toLowerCase() === 'healthy_min_liq_usd')?.value ?? null,
                                         'usd'
                                     )}
                                 </div>
@@ -433,11 +433,11 @@ export default function CoinographiaPage() {
 
                             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm">
                                 <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-gray-400">
-                                    Walking Dead Min Volume
+                                    Walking Deadcoin Min Volume
                                 </div>
                                 <div className="mt-3 text-2xl font-bold text-white">
                                     {formatMetricValue(
-                                        metricCards.find((c) => c.key?.toLowerCase() === 'walking_dead_min_volume')?.value ?? null,
+                                        metricCards.find((c) => c.key?.toLowerCase() === 'walking_dead_min_vol_usd')?.value ?? null,
                                         'usd'
                                     )}
                                 </div>
@@ -448,11 +448,11 @@ export default function CoinographiaPage() {
 
                             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm">
                                 <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-gray-400">
-                                    Walking Dead Min Liquidity
+                                    Walking Deadcoin Min Liquidity
                                 </div>
                                 <div className="mt-3 text-2xl font-bold text-white">
                                     {formatMetricValue(
-                                        metricCards.find((c) => c.key?.toLowerCase() === 'walking_dead_min_liquidity')?.value ?? null,
+                                        metricCards.find((c) => c.key?.toLowerCase() === 'walking_dead_min_liq_usd')?.value ?? null,
                                         'usd'
                                     )}
                                 </div>
