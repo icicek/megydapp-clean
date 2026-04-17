@@ -754,7 +754,7 @@ export default function CoinographiaPage() {
                         </div>
                     )}
 
-                    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="mt-5 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
                         {discoveryLoading && discoveryItems.length === 0 ? (
                             [...Array(6)].map((_, i) => (
                                 <div
@@ -791,7 +791,9 @@ export default function CoinographiaPage() {
                                         key={it.mint}
                                         className={[
                                             getDiscoveryCardClass(it.heat_level, it.status),
-                                            isFeatured ? 'ring-1 ring-cyan-400/30 shadow-[0_0_25px_rgba(34,211,238,0.08)]' : '',
+                                            isFeatured
+                                                ? 'ring-1 ring-cyan-400/30 shadow-[0_0_24px_rgba(34,211,238,0.10)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.03))]'
+                                                : '',
                                         ].join(' ')}
                                     >
                                         {isFeatured && (
@@ -806,36 +808,36 @@ export default function CoinographiaPage() {
                                             </div>
                                         )}
 
-                                        <div className="flex items-start gap-3">
+                                        <div className="flex items-start gap-2.5 sm:gap-3">
                                             {it.logo_uri ? (
                                                 <img
                                                     src={it.logo_uri}
                                                     alt={it.symbol || it.name || it.mint}
-                                                    className="h-11 w-11 rounded-full border border-white/10 object-cover shrink-0"
+                                                    className="h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-white/10 object-cover shrink-0 shadow-[0_0_18px_rgba(255,255,255,0.04)]"
                                                 />
                                             ) : (
-                                                <div className="h-11 w-11 rounded-full border border-white/10 bg-white/5 shrink-0" />
+                                                <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-white/10 bg-white/5 shrink-0" />
                                             )}
 
                                             <div className="min-w-0 flex-1">
-                                                <div className="truncate text-[15px] font-semibold leading-5 text-white">
+                                                <div className="truncate text-[14px] sm:text-[15px] font-semibold leading-5 text-white">
                                                     {it.symbol || 'Unknown Symbol'}
                                                     {it.name ? ` — ${it.name}` : ''}
                                                 </div>
 
                                                 <div
-                                                    className="mt-1 truncate font-mono text-[11px] text-gray-400"
+                                                    className="mt-0.5 truncate font-mono text-[10px] sm:text-[11px] text-gray-500"
                                                     title={it.mint}
                                                 >
                                                     {shortenMint(it.mint)}
                                                 </div>
 
-                                                <div className="mt-2 flex flex-wrap items-center gap-2">
+                                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                                                     <StatusBadge status={it.status} />
                                                     <HeatBadge heat={it.heat_level} />
                                                 </div>
 
-                                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                                <div className="mt-2 flex flex-wrap items-center gap-1.5">
                                                     <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11px] font-medium text-gray-200">
                                                         {getRankReasonLabel(it.rank_reason)}
                                                     </span>
@@ -845,57 +847,57 @@ export default function CoinographiaPage() {
                                                     </span>
                                                 </div>
 
-                                                <div className="mt-3 text-[12px] leading-5 text-gray-300">
+                                                <div className="mt-2 text-[11px] sm:text-[12px] leading-5 text-gray-300">
                                                     {getDiscoveryStoryLine(it)}
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                                            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
-                                                <div className="text-[10px] uppercase tracking-[0.08em] text-gray-500">
-                                                    Coincarnations
+                                        <div className="mt-3 grid grid-cols-3 gap-1.5 sm:gap-2">
+                                            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-2 sm:px-3">
+                                                <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500">
+                                                    Coinc.
                                                 </div>
-                                                <div className="mt-1 text-sm font-semibold text-white">
+                                                <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
                                                     {formatNumberCompact(it.total_coincarnations)}
                                                 </div>
                                             </div>
 
-                                            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
-                                                <div className="text-[10px] uppercase tracking-[0.08em] text-gray-500">
-                                                    Revived USD
+                                            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-2 sm:px-3">
+                                                <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500">
+                                                    Revived
                                                 </div>
-                                                <div className="mt-1 text-sm font-semibold text-white">
+                                                <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
                                                     {formatUsdCompact(it.total_revived_usd)}
                                                 </div>
                                             </div>
 
-                                            <div className="col-span-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 sm:col-span-1">
-                                                <div className="text-[10px] uppercase tracking-[0.08em] text-gray-500">
+                                            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-2 sm:px-3">
+                                                <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500">
                                                     Wallets
                                                 </div>
-                                                <div className="mt-1 text-sm font-semibold text-white">
+                                                <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
                                                     {formatNumberCompact(it.unique_wallets)}
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="mt-3 grid gap-1 text-[11px] text-gray-400 sm:flex sm:items-center sm:justify-between sm:gap-3">
-                                            <div>
+                                        <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] sm:text-[11px] text-gray-400 xl:grid-cols-3">
+                                            <div className="truncate">
                                                 Since:{' '}
                                                 <span className="text-gray-200">
                                                     {formatDiscoverySince(it.first_seen_at) || '—'}
                                                 </span>
                                             </div>
 
-                                            <div>
+                                            <div className="truncate">
                                                 Revived:{' '}
                                                 <span className="text-gray-200">
                                                     {formatUsdCompact(it.total_revived_usd)}
                                                 </span>
                                             </div>
 
-                                            <div>
+                                            <div className="col-span-2 truncate xl:col-span-1">
                                                 Last activity:{' '}
                                                 <span className="text-gray-200">
                                                     {formatUpdatedShort(it.last_activity_at)}
@@ -907,7 +909,7 @@ export default function CoinographiaPage() {
                                             disabled={isDisabled}
                                             onClick={() => handleCoincarnateClick(it.mint, it.status)}
                                             className={[
-                                                'mt-4 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all duration-200',
+                                                'mt-3 w-full rounded-xl px-3 py-2.5 text-[12px] sm:text-[13px] font-semibold transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]',
                                                 getCoincarnateButtonClass(it.status, isDisabled),
                                             ].join(' ')}
                                             title={
