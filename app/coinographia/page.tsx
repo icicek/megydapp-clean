@@ -196,6 +196,60 @@ function getCoincarnateButtonClass(status: TokenStatus, disabled: boolean) {
     return `${base} hover:border-white/20 hover:bg-white/[0.08]`;
 }
 
+function getDiscoveryCardClass(heat: HeatLevel, status: TokenStatus) {
+    const base =
+        'rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-200';
+
+    if (heat === 'HOT') {
+        return `${base} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(244,63,94,0.08),0_0_28px_rgba(244,63,94,0.08)]`;
+    }
+
+    if (heat === 'TRENDING') {
+        return `${base} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(245,158,11,0.08),0_0_24px_rgba(245,158,11,0.08)]`;
+    }
+
+    if (heat === 'LIVE') {
+        return `${base} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(34,211,238,0.08),0_0_24px_rgba(34,211,238,0.08)]`;
+    }
+
+    if (status === 'healthy') {
+        return `${base} hover:bg-white/[0.05]`;
+    }
+
+    if (status === 'walking_dead') {
+        return `${base} hover:bg-white/[0.05]`;
+    }
+
+    if (status === 'deadcoin') {
+        return `${base} hover:bg-white/[0.05]`;
+    }
+
+    return `${base} opacity-90`;
+}
+
+function getDiscoveryStoryLine(item: DiscoveryRow) {
+    if (item.heat_level === 'HOT') {
+        return `${formatNumberCompact(item.recent_10m_count)} recent hits in 10m · ${formatNumberCompact(item.unique_wallets)} wallets joined`;
+    }
+
+    if (item.heat_level === 'TRENDING') {
+        return `${formatNumberCompact(item.recent_10m_count)} recent moves · ${formatNumberCompact(item.total_coincarnations)} Coincarnations`;
+    }
+
+    if (item.heat_level === 'LIVE') {
+        return `${formatNumberCompact(item.recent_24h_count)} activity in 24h · ${formatNumberCompact(item.unique_wallets)} wallets joined`;
+    }
+
+    return `${formatNumberCompact(item.total_coincarnations)} Coincarnations · ${formatNumberCompact(item.unique_wallets)} wallets joined`;
+}
+
+function getDiscoverySortLabel(sort: DiscoverySort) {
+    if (sort === 'usd') return 'Showing clusters ranked by revived USD';
+    if (sort === 'wallets') return 'Showing clusters ranked by wallet participation';
+    if (sort === 'coincarnations') return 'Showing clusters ranked by Coincarnation count';
+    return 'Showing clusters ranked by recent activity';
+}
+
 function getMobileActionButtonClass(status: TokenStatus, disabled: boolean) {
     const base =
         'h-11 w-11 rounded-xl border border-white/10 bg-white/[0.04] text-lg font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm transition-all duration-200 flex items-center justify-center';
@@ -563,6 +617,10 @@ export default function CoinographiaPage() {
                                 has been coincarnated, how much value it has revived, how many unique wallets joined,
                                 and whether it is currently live, trending, or hot.
                             </p>
+                            <p className="mt-3 text-xs text-gray-400">
+                                {getDiscoverySortLabel(discoverySort)}
+                                {status ? ` · Filtered by ${status}` : ''}
+                            </p>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
@@ -626,7 +684,7 @@ export default function CoinographiaPage() {
                                 return (
                                     <div
                                         key={it.mint}
-                                        className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-200 hover:bg-white/[0.05]"
+                                        className={getDiscoveryCardClass(it.heat_level, it.status)}
                                     >
                                         <div className="flex items-start gap-3">
                                             {it.logo_uri ? (
@@ -655,6 +713,10 @@ export default function CoinographiaPage() {
                                                 <div className="mt-2 flex flex-wrap items-center gap-2">
                                                     <StatusBadge status={it.status} />
                                                     <HeatBadge heat={it.heat_level} />
+                                                </div>
+
+                                                <div className="mt-3 text-[12px] leading-5 text-gray-300">
+                                                    {getDiscoveryStoryLine(it)}
                                                 </div>
                                             </div>
                                         </div>
@@ -693,6 +755,13 @@ export default function CoinographiaPage() {
                                                 24h activity:{' '}
                                                 <span className="text-gray-200">
                                                     {formatNumberCompact(it.recent_24h_count)}
+                                                </span>
+                                            </div>
+
+                                            <div>
+                                                Revived:{' '}
+                                                <span className="text-gray-200">
+                                                    {formatUsdCompact(it.total_revived_usd)}
                                                 </span>
                                             </div>
 
