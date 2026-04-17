@@ -69,7 +69,7 @@ function StatusBadge({ status }: { status: TokenStatus }) {
     return (
         <span
             className={[
-                'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap',
+                'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
                 STATUS_STYLES[status],
             ].join(' ')}
         >
@@ -98,7 +98,7 @@ function HeatBadge({ heat }: { heat: HeatLevel }) {
     return (
         <span
             className={[
-                'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap',
+                'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap shadow-[0_0_18px_rgba(255,255,255,0.04)]',
                 HEAT_STYLES[heat],
             ].join(' ')}
         >
@@ -185,22 +185,22 @@ async function copyToClipboard(text: string) {
 
 function getCoincarnateButtonClass(status: TokenStatus, disabled: boolean) {
     const base =
-        'border border-white/10 bg-white/[0.04] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm';
+        'border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.035))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_8px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm';
 
     if (disabled) {
         return `${base} opacity-45 cursor-not-allowed text-gray-500`;
     }
 
     if (status === 'healthy') {
-        return `${base} hover:border-emerald-400/40 hover:bg-emerald-500/12 hover:text-emerald-200 hover:shadow-[0_0_20px_rgba(16,185,129,0.16)]`;
+        return `${base} hover:border-emerald-400/40 hover:bg-emerald-500/12 hover:text-emerald-200 hover:shadow-[0_0_22px_rgba(16,185,129,0.18)]`;
     }
 
     if (status === 'walking_dead') {
-        return `${base} hover:border-amber-400/40 hover:bg-amber-500/12 hover:text-amber-200 hover:shadow-[0_0_20px_rgba(245,158,11,0.16)]`;
+        return `${base} hover:border-amber-400/40 hover:bg-amber-500/12 hover:text-amber-200 hover:shadow-[0_0_22px_rgba(245,158,11,0.18)]`;
     }
 
     if (status === 'deadcoin') {
-        return `${base} hover:border-zinc-300/20 hover:bg-zinc-500/10 hover:text-zinc-100 hover:shadow-[0_0_20px_rgba(113,113,122,0.16)]`;
+        return `${base} hover:border-zinc-300/20 hover:bg-zinc-500/10 hover:text-zinc-100 hover:shadow-[0_0_22px_rgba(113,113,122,0.18)]`;
     }
 
     return `${base} hover:border-white/20 hover:bg-white/[0.08]`;
@@ -208,33 +208,36 @@ function getCoincarnateButtonClass(status: TokenStatus, disabled: boolean) {
 
 function getDiscoveryCardClass(heat: HeatLevel, status: TokenStatus) {
     const base =
-        'group relative cursor-pointer rounded-2xl border border-white/10 bg-white/[0.03] p-3 sm:p-4 transition-all duration-200 hover:-translate-y-[2px] active:scale-[0.995]';
+        'group relative cursor-pointer overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.02))] p-3 sm:p-4 transition-all duration-300 hover:-translate-y-[3px] hover:border-white/15 active:scale-[0.995]';
+
+    const sheen =
+        'after:pointer-events-none after:absolute after:inset-0 after:rounded-2xl after:bg-[linear-gradient(120deg,transparent_0%,rgba(255,255,255,0.06)_18%,transparent_36%)] after:translate-x-[-120%] hover:after:translate-x-[120%] after:transition-transform after:duration-700';
 
     if (heat === 'HOT') {
-        return `${base} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(244,63,94,0.10),0_0_32px_rgba(244,63,94,0.14)] before:absolute before:inset-0 before:rounded-2xl before:bg-[radial-gradient(circle_at_top,rgba(244,63,94,0.14),transparent_62%)] before:opacity-70 before:pointer-events-none`;
+        return `${base} ${sheen} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(244,63,94,0.10),0_0_34px_rgba(244,63,94,0.14)] before:absolute before:inset-0 before:rounded-2xl before:bg-[radial-gradient(circle_at_top,rgba(244,63,94,0.16),transparent_62%)] before:opacity-80 before:pointer-events-none`;
     }
 
     if (heat === 'TRENDING') {
-        return `${base} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(245,158,11,0.10),0_0_28px_rgba(245,158,11,0.12)] before:absolute before:inset-0 before:rounded-2xl before:bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_62%)] before:opacity-70 before:pointer-events-none`;
+        return `${base} ${sheen} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(245,158,11,0.10),0_0_30px_rgba(245,158,11,0.13)] before:absolute before:inset-0 before:rounded-2xl before:bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.14),transparent_62%)] before:opacity-80 before:pointer-events-none`;
     }
 
     if (heat === 'LIVE') {
-        return `${base} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(34,211,238,0.10),0_0_28px_rgba(34,211,238,0.12)] before:absolute before:inset-0 before:rounded-2xl before:bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.12),transparent_62%)] before:opacity-70 before:pointer-events-none`;
+        return `${base} ${sheen} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(34,211,238,0.10),0_0_30px_rgba(34,211,238,0.13)] before:absolute before:inset-0 before:rounded-2xl before:bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.14),transparent_62%)] before:opacity-80 before:pointer-events-none`;
     }
 
     if (status === 'healthy') {
-        return `${base} hover:bg-white/[0.05]`;
+        return `${base} ${sheen} hover:bg-white/[0.05] hover:shadow-[0_0_24px_rgba(16,185,129,0.08)]`;
     }
 
     if (status === 'walking_dead') {
-        return `${base} hover:bg-white/[0.05]`;
+        return `${base} ${sheen} hover:bg-white/[0.05] hover:shadow-[0_0_24px_rgba(245,158,11,0.08)]`;
     }
 
     if (status === 'deadcoin') {
-        return `${base} hover:bg-white/[0.05]`;
+        return `${base} ${sheen} hover:bg-white/[0.05] hover:shadow-[0_0_24px_rgba(113,113,122,0.08)]`;
     }
 
-    return `${base} opacity-90`;
+    return `${base} ${sheen} opacity-90`;
 }
 
 function getDiscoveryStoryLine(item: DiscoveryRow) {
@@ -797,17 +800,17 @@ export default function CoinographiaPage() {
                                         className={[
                                             getDiscoveryCardClass(it.heat_level, it.status),
                                             isFeatured
-                                                ? 'ring-1 ring-cyan-400/30 shadow-[0_0_24px_rgba(34,211,238,0.10)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.03))]'
+                                                ? 'ring-1 ring-cyan-400/30 shadow-[0_0_26px_rgba(34,211,238,0.12)] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))]'
                                                 : '',
                                         ].join(' ')}
                                     >
                                         {isFeatured && (
-                                            <div className="mb-3 flex flex-wrap items-center gap-2">
-                                                <span className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-medium text-cyan-200">
+                                            <div className="relative z-[1] mb-3 flex flex-wrap items-center gap-2">
+                                                <span className="inline-flex items-center rounded-full border border-cyan-400/25 bg-cyan-400/12 px-2.5 py-1 text-[10px] font-semibold tracking-[0.04em] text-cyan-200 shadow-[0_0_18px_rgba(34,211,238,0.10)]">
                                                     Featured
                                                 </span>
 
-                                                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-gray-300">
+                                                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-medium text-gray-300">
                                                     Ranked by {discoverySort}
                                                 </span>
                                             </div>
@@ -818,41 +821,41 @@ export default function CoinographiaPage() {
                                                 <img
                                                     src={it.logo_uri}
                                                     alt={it.symbol || it.name || it.mint}
-                                                    className="h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-white/10 object-cover shrink-0 shadow-[0_0_18px_rgba(255,255,255,0.04)]"
+                                                    className="h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-white/10 object-cover shrink-0 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_0_20px_rgba(255,255,255,0.06)] group-hover:scale-[1.03] transition-transform duration-300"
                                                 />
                                             ) : (
-                                                <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-white/10 bg-white/5 shrink-0" />
+                                                <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-white/10 bg-white/5 shrink-0 shadow-[0_0_18px_rgba(255,255,255,0.03)]" />
                                             )}
 
                                             <div className="min-w-0 flex-1">
-                                                <div className="truncate text-[14px] sm:text-[15px] font-semibold leading-5 text-white">
+                                                <div className="truncate text-[14px] sm:text-[15px] font-semibold leading-5 text-white transition-colors duration-200 group-hover:text-white">
                                                     {it.symbol || 'Unknown Symbol'}
                                                     {it.name ? ` — ${it.name}` : ''}
                                                 </div>
 
                                                 <div
-                                                    className="mt-0.5 truncate font-mono text-[10px] sm:text-[11px] text-gray-500"
+                                                    className="mt-0.5 truncate font-mono text-[10px] sm:text-[11px] text-gray-500 transition-colors duration-200 group-hover:text-gray-400"
                                                     title={it.mint}
                                                 >
                                                     {shortenMint(it.mint)}
                                                 </div>
 
-                                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                                <div className="relative z-[1] mt-1.5 flex flex-wrap items-center gap-1.5">
                                                     <StatusBadge status={it.status} />
                                                     <HeatBadge heat={it.heat_level} />
                                                 </div>
 
-                                                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11px] font-medium text-gray-200">
+                                                <div className="relative z-[1] mt-2 flex flex-wrap items-center gap-1.5">
+                                                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[11px] font-medium text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                                                         {getRankReasonLabel(it.rank_reason)}
                                                     </span>
 
-                                                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-gray-400">
+                                                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                                                         Score {formatNumberCompact(it.activity_score)}
                                                     </span>
                                                 </div>
 
-                                                <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] sm:text-[12px] leading-5 text-gray-300">
+                                                <div className="relative z-[1] mt-2 rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.025))] px-3 py-2 text-[11px] sm:text-[12px] leading-5 text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                                                     {getDiscoveryStoryLine(it)}
                                                 </div>
                                             </div>
@@ -861,13 +864,13 @@ export default function CoinographiaPage() {
                                         <div className="relative z-[1] mt-3 grid grid-cols-3 gap-1.5 sm:gap-2">
                                             <div
                                                 className={[
-                                                    'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200',
+                                                    'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
                                                     isCoinc
                                                         ? 'border-cyan-400/35 bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.14)]'
                                                         : 'border-white/10 bg-white/[0.03]',
                                                 ].join(' ')}
                                             >
-                                                <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500">
+                                                <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
                                                     Coinc.
                                                 </div>
                                                 <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
@@ -877,13 +880,13 @@ export default function CoinographiaPage() {
 
                                             <div
                                                 className={[
-                                                    'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200',
+                                                    'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
                                                     isUsd
                                                         ? 'border-emerald-400/35 bg-emerald-400/10 shadow-[0_0_20px_rgba(16,185,129,0.14)]'
                                                         : 'border-white/10 bg-white/[0.03]',
                                                 ].join(' ')}
                                             >
-                                                <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500">
+                                                <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
                                                     Revived
                                                 </div>
                                                 <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
@@ -893,13 +896,13 @@ export default function CoinographiaPage() {
 
                                             <div
                                                 className={[
-                                                    'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200',
+                                                    'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
                                                     isWallets
                                                         ? 'border-amber-400/35 bg-amber-400/10 shadow-[0_0_20px_rgba(245,158,11,0.14)]'
                                                         : 'border-white/10 bg-white/[0.03]',
                                                 ].join(' ')}
                                             >
-                                                <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500">
+                                                <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
                                                     Wallets
                                                 </div>
                                                 <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
@@ -908,7 +911,7 @@ export default function CoinographiaPage() {
                                             </div>
                                         </div>
 
-                                        <div className="relative z-[1] mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] sm:text-[11px] text-gray-400 xl:grid-cols-3">
+                                        <div className="relative z-[1] mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] sm:text-[11px] text-gray-400 xl:grid-cols-3 border-t border-white/6 pt-2.5">
                                             <div className="truncate">
                                                 Since:{' '}
                                                 <span className="text-gray-200">
@@ -938,7 +941,7 @@ export default function CoinographiaPage() {
                                                 handleCoincarnateClick(it.mint, it.status);
                                             }}
                                             className={[
-                                                'relative z-[1] mt-3 w-full rounded-xl px-3 py-2.5 text-[12px] sm:text-[13px] font-semibold transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]',
+                                                'relative z-[1] mt-3 w-full rounded-xl px-3 py-2.5 text-[12px] sm:text-[13px] font-semibold tracking-[0.01em] transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]',
                                                 getCoincarnateButtonClass(it.status, isDisabled),
                                             ].join(' ')}
                                             title={
