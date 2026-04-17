@@ -460,6 +460,40 @@ export default function CoinographiaPage() {
                     </div>
                 </div>
 
+                <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                    <input
+                        value={q}
+                        onChange={(e) => setQ(e.target.value)}
+                        placeholder="Search by mint, symbol, or name"
+                        className="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2"
+                    />
+
+                    <select
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value as TokenStatus | '')}
+                        className="rounded border border-gray-700 bg-gray-900 px-3 py-2"
+                    >
+                        <option value="">All statuses</option>
+                        {STATUSES.map((s) => (
+                            <option key={s} value={s}>
+                                {s}
+                            </option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={limit}
+                        onChange={(e) => setLimit(parseInt(e.target.value, 10))}
+                        className="rounded border border-gray-700 bg-gray-900 px-3 py-2"
+                    >
+                        {[10, 20, 50, 100].map((n) => (
+                            <option key={n} value={n}>
+                                {n}/page
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
                 <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-5">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                         <div className="max-w-3xl">
@@ -638,40 +672,6 @@ export default function CoinographiaPage() {
                             </div>
                         )}
                     </div>
-                </div>
-
-                <div className="mb-4 grid gap-3 sm:grid-cols-3">
-                    <input
-                        value={q}
-                        onChange={(e) => setQ(e.target.value)}
-                        placeholder="Search by mint, symbol, or name"
-                        className="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2"
-                    />
-
-                    <select
-                        value={status}
-                        onChange={(e) => setStatus(e.target.value as TokenStatus | '')}
-                        className="rounded border border-gray-700 bg-gray-900 px-3 py-2"
-                    >
-                        <option value="">All statuses</option>
-                        {STATUSES.map((s) => (
-                            <option key={s} value={s}>
-                                {s}
-                            </option>
-                        ))}
-                    </select>
-
-                    <select
-                        value={limit}
-                        onChange={(e) => setLimit(parseInt(e.target.value, 10))}
-                        className="rounded border border-gray-700 bg-gray-900 px-3 py-2"
-                    >
-                        {[10, 20, 50, 100].map((n) => (
-                            <option key={n} value={n}>
-                                {n}/page
-                            </option>
-                        ))}
-                    </select>
                 </div>
 
                 <div className="mb-4 flex items-center justify-between text-sm text-gray-400">
