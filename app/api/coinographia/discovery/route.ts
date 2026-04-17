@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
           ? sql`agg.unique_wallets DESC NULLS LAST, agg.last_activity_at DESC NULLS LAST`
           : sort === 'coincarnations'
             ? sql`agg.total_coincarnations DESC NULLS LAST, agg.last_activity_at DESC NULLS LAST`
-            : sql`agg.last_activity_at DESC NULLS LAST, agg.recent_24h_count DESC NULLS LAST`;
+            : sql`agg.activity_score DESC NULLS LAST, agg.last_activity_at DESC NULLS LAST`;
 
     const items = (await sql`
       WITH valid_contributions AS (
@@ -86,13 +86,20 @@ export async function GET(req: NextRequest) {
           COUNT(*)::int AS total_coincarnations,
           COUNT(DISTINCT vc.wallet_address)::int AS unique_wallets,
           COALESCE(SUM(vc.usd_value), 0)::numeric AS total_revived_usd,
+          MIN(vc.timestamp) AS first_seen_at,
           MAX(vc.timestamp) AS last_activity_at,
           COUNT(*) FILTER (
             WHERE vc.timestamp >= NOW() - INTERVAL '24 hours'
           )::int AS recent_24h_count,
           COUNT(*) FILTER (
             WHERE vc.timestamp >= NOW() - INTERVAL '10 minutes'
-          )::int AS recent_10m_count
+          )::int AS recent_10m_count,
+          (
+            COUNT(*) FILTER (WHERE vc.timestamp >= NOW() - INTERVAL '10 minutes') * 100
+            + COUNT(*) FILTER (WHERE vc.timestamp >= NOW() - INTERVAL '24 hours') * 10
+            + COUNT(DISTINCT vc.wallet_address) * 3
+            + COUNT(*)
+          )::int AS activity_score
         FROM valid_contributions vc
         GROUP BY vc.token_contract
       )
@@ -107,16 +114,28 @@ export async function GET(req: NextRequest) {
         agg.total_coincarnations,
         agg.unique_wallets,
         agg.total_revived_usd::float8 AS total_revived_usd,
+        agg.first_seen_at,
         agg.last_activity_at,
         agg.recent_24h_count,
         agg.recent_10m_count,
+        agg.activity_score,
 
         CASE
           WHEN agg.recent_10m_count >= 5 THEN 'HOT'
           WHEN agg.recent_10m_count >= 2 THEN 'TRENDING'
           WHEN agg.recent_24h_count >= 1 THEN 'LIVE'
           ELSE null
-        END AS heat_level
+        END AS heat_level,
+
+        CASE
+          WHEN ${sort}::text = 'usd' THEN 'highest_revived_usd'
+          WHEN ${sort}::text = 'wallets' THEN 'most_wallets'
+          WHEN ${sort}::text = 'coincarnations' THEN 'most_coincarnations'
+          WHEN agg.recent_10m_count >= 5 THEN 'hot_now'
+          WHEN agg.recent_10m_count >= 2 THEN 'trending_now'
+          WHEN agg.recent_24h_count >= 1 THEN 'live_now'
+          ELSE 'recent_cluster'
+        END AS rank_reason
 
       FROM agg
       LEFT JOIN token_registry r
@@ -143,9 +162,11 @@ export async function GET(req: NextRequest) {
         agg.total_coincarnations,
         agg.unique_wallets,
         agg.total_revived_usd,
+        agg.first_seen_at,
         agg.last_activity_at,
         agg.recent_24h_count,
-        agg.recent_10m_count
+        agg.recent_10m_count,
+        agg.activity_score
       ORDER BY
         ${sortSql}
       LIMIT ${limit}
@@ -159,62 +180,72 @@ export async function GET(req: NextRequest) {
       total_coincarnations: number;
       unique_wallets: number;
       total_revived_usd: number;
+      first_seen_at: string | null;
       last_activity_at: string | null;
       recent_24h_count: number;
       recent_10m_count: number;
+      activity_score: number;
       heat_level: 'HOT' | 'TRENDING' | 'LIVE' | null;
+      rank_reason:
+        | 'highest_revived_usd'
+        | 'most_wallets'
+        | 'most_coincarnations'
+        | 'hot_now'
+        | 'trending_now'
+        | 'live_now'
+        | 'recent_cluster';
     }>;
 
     const totalRows = (await sql`
-        WITH valid_contributions AS (
-          SELECT
-            c.id,
-            c.wallet_address,
-            c.token_contract,
-            c.token_symbol,
-            c.usd_value,
-            c.timestamp
-          FROM contributions c
-          WHERE
-            c.network = 'solana'
-            AND COALESCE(NULLIF(TRIM(c.token_contract), ''), '') <> ''
-            AND NOT EXISTS (
-              SELECT 1
-              FROM contribution_invalidations ci
-              WHERE ci.contribution_id = c.id
-            )
-        ),
-        agg AS (
-          SELECT
-            vc.token_contract AS mint
-          FROM valid_contributions vc
-          GROUP BY vc.token_contract
-        ),
-        searchable AS (
-          SELECT
-            agg.mint,
-            COALESCE(mc.symbol, NULLIF(sym.symbol, ''), null) AS symbol,
-            COALESCE(mc.name, null) AS name
-          FROM agg
-          LEFT JOIN token_registry r
-            ON r.mint = agg.mint
-          LEFT JOIN token_metadata_cache mc
-            ON mc.mint = agg.mint
-          LEFT JOIN LATERAL (
-            SELECT MAX(vc2.token_symbol) AS symbol
-            FROM valid_contributions vc2
-            WHERE vc2.token_contract = agg.mint
-          ) sym ON true
-          WHERE
-            (${status ?? null}::text IS NULL OR COALESCE(r.status::text, 'deadcoin') = ${status})
-        )
-        SELECT COUNT(*)::int AS total
-        FROM searchable
+      WITH valid_contributions AS (
+        SELECT
+          c.id,
+          c.wallet_address,
+          c.token_contract,
+          c.token_symbol,
+          c.usd_value,
+          c.timestamp
+        FROM contributions c
         WHERE
-          (${pattern ?? null}::text IS NULL)
-          OR mint ILIKE ${pattern}
-          OR COALESCE(symbol, '') ILIKE ${pattern}
-          OR COALESCE(name, '') ILIKE ${pattern}
+          c.network = 'solana'
+          AND COALESCE(NULLIF(TRIM(c.token_contract), ''), '') <> ''
+          AND NOT EXISTS (
+            SELECT 1
+            FROM contribution_invalidations ci
+            WHERE ci.contribution_id = c.id
+          )
+      ),
+      agg AS (
+        SELECT
+          vc.token_contract AS mint
+        FROM valid_contributions vc
+        GROUP BY vc.token_contract
+      ),
+      searchable AS (
+        SELECT
+          agg.mint,
+          COALESCE(mc.symbol, NULLIF(sym.symbol, ''), null) AS symbol,
+          COALESCE(mc.name, null) AS name
+        FROM agg
+        LEFT JOIN token_registry r
+          ON r.mint = agg.mint
+        LEFT JOIN token_metadata_cache mc
+          ON mc.mint = agg.mint
+        LEFT JOIN LATERAL (
+          SELECT MAX(vc2.token_symbol) AS symbol
+          FROM valid_contributions vc2
+          WHERE vc2.token_contract = agg.mint
+        ) sym ON true
+        WHERE
+          (${status ?? null}::text IS NULL OR COALESCE(r.status::text, 'deadcoin') = ${status})
+      )
+      SELECT COUNT(*)::int AS total
+      FROM searchable
+      WHERE
+        (${pattern ?? null}::text IS NULL)
+        OR mint ILIKE ${pattern}
+        OR COALESCE(symbol, '') ILIKE ${pattern}
+        OR COALESCE(name, '') ILIKE ${pattern}
     `) as unknown as Array<{ total: number }>;
 
     return NextResponse.json({
