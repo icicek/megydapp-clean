@@ -789,15 +789,18 @@ export default function CoinographiaPage() {
                                 return (
                                     <div
                                         key={it.mint}
-                                        className={isFeatured ? getFeaturedDiscoveryCardClass(it.heat_level, it.status) : getDiscoveryCardClass(it.heat_level, it.status)}
+                                        className={[
+                                            getDiscoveryCardClass(it.heat_level, it.status),
+                                            isFeatured ? 'ring-1 ring-cyan-400/30 shadow-[0_0_25px_rgba(34,211,238,0.08)]' : '',
+                                        ].join(' ')}
                                     >
                                         {isFeatured && (
-                                            <div className="mb-4 flex flex-wrap items-center gap-2">
-                                                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white">
-                                                    Featured Cluster
+                                            <div className="mb-3 flex flex-wrap items-center gap-2">
+                                                <span className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-medium text-cyan-200">
+                                                    Featured
                                                 </span>
 
-                                                <span className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-medium text-cyan-200">
+                                                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-gray-300">
                                                     {getDiscoverySortLabel(discoverySort).replace('Showing clusters ranked by ', '')}
                                                 </span>
                                             </div>
@@ -845,15 +848,10 @@ export default function CoinographiaPage() {
                                                 <div className="mt-3 text-[12px] leading-5 text-gray-300">
                                                     {getDiscoveryStoryLine(it)}
                                                 </div>
-                                                {isFeatured && (
-                                                    <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-3 text-[13px] leading-6 text-gray-300">
-                                                        {getFeaturedReasonText(discoverySort, it)}
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
 
-                                        <div className={`mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 ${isFeatured ? 'xl:gap-3' : ''}`}>
+                                        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
                                             <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
                                                 <div className="text-[10px] uppercase tracking-[0.08em] text-gray-500">
                                                     Coincarnations
@@ -909,9 +907,7 @@ export default function CoinographiaPage() {
                                             disabled={isDisabled}
                                             onClick={() => handleCoincarnateClick(it.mint, it.status)}
                                             className={[
-                                                isFeatured
-                                                    ? 'mt-5 w-full rounded-2xl px-4 py-3 text-[13px] font-semibold transition-all duration-200'
-                                                    : 'mt-4 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all duration-200',
+                                                'mt-4 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all duration-200',
                                                 getCoincarnateButtonClass(it.status, isDisabled),
                                             ].join(' ')}
                                             title={
