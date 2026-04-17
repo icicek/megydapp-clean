@@ -295,6 +295,65 @@ function formatDiscoverySince(value: string | null) {
     });
 }
 
+function getFeaturedDiscoveryCardClass(heat: HeatLevel, status: TokenStatus) {
+    const base =
+        'relative overflow-hidden rounded-[26px] border p-5 transition-all duration-300';
+
+    if (heat === 'HOT') {
+        return `${base} border-rose-400/20 bg-[radial-gradient(circle_at_top_left,rgba(244,63,94,0.16),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] shadow-[0_0_0_1px_rgba(244,63,94,0.10),0_0_40px_rgba(244,63,94,0.10)]`;
+    }
+
+    if (heat === 'TRENDING') {
+        return `${base} border-amber-400/20 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.16),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] shadow-[0_0_0_1px_rgba(245,158,11,0.10),0_0_34px_rgba(245,158,11,0.10)]`;
+    }
+
+    if (heat === 'LIVE') {
+        return `${base} border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] shadow-[0_0_0_1px_rgba(34,211,238,0.10),0_0_34px_rgba(34,211,238,0.10)]`;
+    }
+
+    if (status === 'healthy') {
+        return `${base} border-emerald-400/15 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.10),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] shadow-[0_0_0_1px_rgba(16,185,129,0.06),0_0_28px_rgba(16,185,129,0.06)]`;
+    }
+
+    if (status === 'walking_dead') {
+        return `${base} border-amber-400/15 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.10),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] shadow-[0_0_0_1px_rgba(245,158,11,0.06),0_0_28px_rgba(245,158,11,0.06)]`;
+    }
+
+    if (status === 'deadcoin') {
+        return `${base} border-zinc-400/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_0_24px_rgba(255,255,255,0.03)]`;
+    }
+
+    return `${base} border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] opacity-95`;
+}
+
+function getFeaturedReasonText(sort: DiscoverySort, item: DiscoveryRow) {
+    if (sort === 'usd') {
+        return `${item.symbol || 'This token'} leads the current discovery view by revived USD value.`;
+    }
+
+    if (sort === 'wallets') {
+        return `${item.symbol || 'This token'} is leading by wallet participation in the current discovery view.`;
+    }
+
+    if (sort === 'coincarnations') {
+        return `${item.symbol || 'This token'} has the strongest Coincarnation count in the current discovery view.`;
+    }
+
+    if (item.heat_level === 'HOT') {
+        return `${item.symbol || 'This token'} is the hottest cluster right now based on recent Coincarnation activity.`;
+    }
+
+    if (item.heat_level === 'TRENDING') {
+        return `${item.symbol || 'This token'} is currently trending based on recent activity bursts.`;
+    }
+
+    if (item.heat_level === 'LIVE') {
+        return `${item.symbol || 'This token'} is currently live with detectable activity in the last 24 hours.`;
+    }
+
+    return `${item.symbol || 'This token'} stands out as a leading recent cluster in Coinographia.`;
+}
+
 function getMobileActionButtonClass(status: TokenStatus, disabled: boolean) {
     const base =
         'h-11 w-11 rounded-xl border border-white/10 bg-white/[0.04] text-lg font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm transition-all duration-200 flex items-center justify-center';
@@ -723,14 +782,27 @@ export default function CoinographiaPage() {
                                 </div>
                             ))
                         ) : discoveryItems.length > 0 ? (
-                            discoveryItems.map((it) => {
+                            discoveryItems.map((it, index) => {
                                 const isDisabled = it.status === 'redlist' || it.status === 'blacklist';
+                                const isFeatured = index === 0;
 
                                 return (
                                     <div
                                         key={it.mint}
-                                        className={getDiscoveryCardClass(it.heat_level, it.status)}
+                                        className={isFeatured ? getFeaturedDiscoveryCardClass(it.heat_level, it.status) : getDiscoveryCardClass(it.heat_level, it.status)}
                                     >
+                                        {isFeatured && (
+                                            <div className="mb-4 flex flex-wrap items-center gap-2">
+                                                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white">
+                                                    Featured Cluster
+                                                </span>
+
+                                                <span className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-medium text-cyan-200">
+                                                    {getDiscoverySortLabel(discoverySort).replace('Showing clusters ranked by ', '')}
+                                                </span>
+                                            </div>
+                                        )}
+
                                         <div className="flex items-start gap-3">
                                             {it.logo_uri ? (
                                                 <img
@@ -773,10 +845,15 @@ export default function CoinographiaPage() {
                                                 <div className="mt-3 text-[12px] leading-5 text-gray-300">
                                                     {getDiscoveryStoryLine(it)}
                                                 </div>
+                                                {isFeatured && (
+                                                    <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-3 text-[13px] leading-6 text-gray-300">
+                                                        {getFeaturedReasonText(discoverySort, it)}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
 
-                                        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                        <div className={`mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 ${isFeatured ? 'xl:gap-3' : ''}`}>
                                             <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
                                                 <div className="text-[10px] uppercase tracking-[0.08em] text-gray-500">
                                                     Coincarnations
@@ -832,7 +909,9 @@ export default function CoinographiaPage() {
                                             disabled={isDisabled}
                                             onClick={() => handleCoincarnateClick(it.mint, it.status)}
                                             className={[
-                                                'mt-4 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all duration-200',
+                                                isFeatured
+                                                    ? 'mt-5 w-full rounded-2xl px-4 py-3 text-[13px] font-semibold transition-all duration-200'
+                                                    : 'mt-4 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all duration-200',
                                                 getCoincarnateButtonClass(it.status, isDisabled),
                                             ].join(' ')}
                                             title={
