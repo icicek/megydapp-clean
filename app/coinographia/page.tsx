@@ -369,8 +369,8 @@ export default function CoinographiaPage() {
                     <div className="pointer-events-none absolute -left-12 bottom-[-50px] h-40 w-40 rounded-full bg-emerald-400/10 blur-3xl" />
 
                     <div className="relative p-6 md:p-7 xl:p-8">
-                        <div className="flex flex-col gap-7 xl:flex-row xl:items-start xl:justify-between">
-                            <div className="max-w-3xl">
+                        <div className="flex flex-col gap-7 xl:flex-row xl:items-stretch xl:justify-between">
+                            <div className="flex max-w-3xl flex-col xl:min-h-[100%] xl:justify-between">
                                 <div className="flex flex-wrap items-center gap-2">
                                     <span className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-200">
                                         Coinographia
@@ -420,7 +420,7 @@ export default function CoinographiaPage() {
                             </div>
 
                             <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:max-w-[560px]">
-                                <div className="group rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(16,185,129,0.08)]">
+                                <div className="group flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(16,185,129,0.08)]">
                                     <div className="flex items-center justify-between gap-3">
                                         <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                             Healthy Min Volume
@@ -432,12 +432,12 @@ export default function CoinographiaPage() {
                                         {formatMetricValue(getMetricCardValue(metricCards, 'healthy_min_vol_usd'), 'usd')}
                                     </div>
 
-                                    <p className="mt-2 text-xs leading-5 text-gray-400">
+                                    <p className="mt-auto pt-2 text-xs leading-5 text-gray-400">
                                         Minimum volume expected for healthy survival.
                                     </p>
                                 </div>
 
-                                <div className="group rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(34,211,238,0.08)]">
+                                <div className="group flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(34,211,238,0.08)]">
                                     <div className="flex items-center justify-between gap-3">
                                         <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                             Healthy Min Liquidity
@@ -449,12 +449,12 @@ export default function CoinographiaPage() {
                                         {formatMetricValue(getMetricCardValue(metricCards, 'healthy_min_liq_usd'), 'usd')}
                                     </div>
 
-                                    <p className="mt-2 text-xs leading-5 text-gray-400">
+                                    <p className="mt-auto pt-2 text-xs leading-5 text-gray-400">
                                         Liquidity threshold required to remain strong.
                                     </p>
                                 </div>
 
-                                <div className="group rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(245,158,11,0.08)]">
+                                <div className="group flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(245,158,11,0.08)]">
                                     <div className="flex items-center justify-between gap-3">
                                         <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                             Walking Dead Min Volume
@@ -466,12 +466,12 @@ export default function CoinographiaPage() {
                                         {formatMetricValue(getMetricCardValue(metricCards, 'walking_dead_min_vol_usd'), 'usd')}
                                     </div>
 
-                                    <p className="mt-2 text-xs leading-5 text-gray-400">
+                                    <p className="mt-auto pt-2 text-xs leading-5 text-gray-400">
                                         Minimum activity needed to avoid the deadcoin zone.
                                     </p>
                                 </div>
 
-                                <div className="group rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(244,63,94,0.08)]">
+                                <div className="group flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(244,63,94,0.08)]">
                                     <div className="flex items-center justify-between gap-3">
                                         <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                             Walking Dead Min Liquidity
@@ -483,7 +483,7 @@ export default function CoinographiaPage() {
                                         {formatMetricValue(getMetricCardValue(metricCards, 'walking_dead_min_liq_usd'), 'usd')}
                                     </div>
 
-                                    <p className="mt-2 text-xs leading-5 text-gray-400">
+                                    <p className="mt-auto pt-2 text-xs leading-5 text-gray-400">
                                         Survival liquidity line before falling below minimum viability.
                                     </p>
                                 </div>
@@ -492,43 +492,71 @@ export default function CoinographiaPage() {
                     </div>
                 </div>
 
-                <div className="mb-4 grid gap-3 sm:grid-cols-3">
-                    <input
-                        value={q}
-                        onChange={(e) => setQ(e.target.value)}
-                        placeholder="Search token (symbol, name or mint)"
-                        className="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2"
-                    />
+                <div className="mb-5 rounded-[24px] border border-white/10 bg-white/[0.04] p-3 shadow-[0_10px_40px_rgba(0,0,0,0.18)] backdrop-blur-sm">
+                    <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+                        <div className="min-w-0 flex-1">
+                            <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
+                                Search Token
+                            </label>
 
-                    <select
-                        value={status}
-                        onChange={(e) => setStatus(e.target.value as TokenStatus | '')}
-                        className="rounded border border-gray-700 bg-gray-900 px-3 py-2"
-                    >
-                        <option value="">All statuses</option>
-                        {STATUSES.map((s) => (
-                            <option key={s} value={s}>
-                                {s}
-                            </option>
-                        ))}
-                    </select>
+                            <div className="relative">
+                                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                                    ⌕
+                                </span>
 
-                    <select
-                        value={limit}
-                        onChange={(e) => setLimit(parseInt(e.target.value, 10))}
-                        className="rounded border border-gray-700 bg-gray-900 px-3 py-2"
-                    >
-                        {[10, 20, 50, 100].map((n) => (
-                            <option key={n} value={n}>
-                                {n}/page
-                            </option>
-                        ))}
-                    </select>
+                                <input
+                                    value={q}
+                                    onChange={(e) => setQ(e.target.value)}
+                                    placeholder="Search token (symbol, name or mint)"
+                                    className="h-12 w-full rounded-2xl border border-white/10 bg-[#0d1526] pl-10 pr-4 text-sm text-white outline-none transition-all duration-200 placeholder:text-gray-500 focus:border-cyan-400/40 focus:bg-[#101a2e] focus:shadow-[0_0_0_1px_rgba(34,211,238,0.22),0_0_24px_rgba(34,211,238,0.10)]"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2 xl:w-[520px] xl:grid-cols-2">
+                            <div>
+                                <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
+                                    Status
+                                </label>
+
+                                <select
+                                    value={status}
+                                    onChange={(e) => setStatus(e.target.value as TokenStatus | '')}
+                                    className="h-12 w-full rounded-2xl border border-white/10 bg-[#0d1526] px-4 text-sm text-white outline-none transition-all duration-200 focus:border-cyan-400/40 focus:bg-[#101a2e] focus:shadow-[0_0_0_1px_rgba(34,211,238,0.22),0_0_24px_rgba(34,211,238,0.10)]"
+                                >
+                                    <option value="">All statuses</option>
+                                    {STATUSES.map((s) => (
+                                        <option key={s} value={s}>
+                                            {s}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
+                                    Rows
+                                </label>
+
+                                <select
+                                    value={limit}
+                                    onChange={(e) => setLimit(parseInt(e.target.value, 10))}
+                                    className="h-12 w-full rounded-2xl border border-white/10 bg-[#0d1526] px-4 text-sm text-white outline-none transition-all duration-200 focus:border-cyan-400/40 focus:bg-[#101a2e] focus:shadow-[0_0_0_1px_rgba(34,211,238,0.22),0_0_24px_rgba(34,211,238,0.10)]"
+                                >
+                                    {[10, 20, 50, 100].map((n) => (
+                                        <option key={n} value={n}>
+                                            {n}/page
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-5">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                        <div className="max-w-3xl">
+                        <div className="flex max-w-3xl flex-col xl:min-h-[100%] xl:justify-between">
                             <h2 className="text-lg font-semibold text-white">Live Discovery</h2>
                             <p className="mt-2 text-sm text-gray-300">
                                 Explore the most active Coincarnation clusters. This layer highlights how often a token
@@ -564,7 +592,7 @@ export default function CoinographiaPage() {
                         </div>
                     )}
 
-<div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                         {discoveryLoading && discoveryItems.length === 0 ? (
                             [...Array(6)].map((_, i) => (
                                 <div
