@@ -41,10 +41,20 @@ type DiscoveryRow = {
     total_coincarnations: number;
     unique_wallets: number;
     total_revived_usd: number;
+    first_seen_at: string | null;
     last_activity_at: string | null;
     recent_24h_count: number;
     recent_10m_count: number;
+    activity_score: number;
     heat_level: HeatLevel;
+    rank_reason:
+    | 'highest_revived_usd'
+    | 'most_wallets'
+    | 'most_coincarnations'
+    | 'hot_now'
+    | 'trending_now'
+    | 'live_now'
+    | 'recent_cluster';
 };
 
 const STATUS_STYLES: Record<TokenStatus, string> = {
@@ -240,7 +250,19 @@ function getDiscoveryStoryLine(item: DiscoveryRow) {
         return `${formatNumberCompact(item.recent_24h_count)} activity in 24h · ${formatNumberCompact(item.unique_wallets)} wallets joined`;
     }
 
-    return `${formatNumberCompact(item.total_coincarnations)} Coincarnations · ${formatNumberCompact(item.unique_wallets)} wallets joined`;
+    if (item.rank_reason === 'highest_revived_usd') {
+        return `${formatUsdCompact(item.total_revived_usd)} revived · ${formatNumberCompact(item.total_coincarnations)} Coincarnations`;
+    }
+
+    if (item.rank_reason === 'most_wallets') {
+        return `${formatNumberCompact(item.unique_wallets)} wallets joined · ${formatNumberCompact(item.total_coincarnations)} Coincarnations`;
+    }
+
+    if (item.rank_reason === 'most_coincarnations') {
+        return `${formatNumberCompact(item.total_coincarnations)} Coincarnations · ${formatNumberCompact(item.unique_wallets)} wallets joined`;
+    }
+
+    return `${formatNumberCompact(item.total_coincarnations)} Coincarnations · active since ${formatDiscoverySince(item.first_seen_at) || 'unknown'}`;
 }
 
 function getDiscoverySortLabel(sort: DiscoverySort) {
@@ -248,6 +270,29 @@ function getDiscoverySortLabel(sort: DiscoverySort) {
     if (sort === 'wallets') return 'Showing clusters ranked by wallet participation';
     if (sort === 'coincarnations') return 'Showing clusters ranked by Coincarnation count';
     return 'Showing clusters ranked by recent activity';
+}
+
+function getRankReasonLabel(reason: DiscoveryRow['rank_reason']) {
+    if (reason === 'highest_revived_usd') return 'Top by revived USD';
+    if (reason === 'most_wallets') return 'Top by wallet participation';
+    if (reason === 'most_coincarnations') return 'Top by Coincarnation count';
+    if (reason === 'hot_now') return 'Hot right now';
+    if (reason === 'trending_now') return 'Trending now';
+    if (reason === 'live_now') return 'Live in the last 24h';
+    return 'Recent cluster';
+}
+
+function formatDiscoverySince(value: string | null) {
+    if (!value) return null;
+
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+
+    return d.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    });
 }
 
 function getMobileActionButtonClass(status: TokenStatus, disabled: boolean) {
@@ -715,6 +760,16 @@ export default function CoinographiaPage() {
                                                     <HeatBadge heat={it.heat_level} />
                                                 </div>
 
+                                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11px] font-medium text-gray-200">
+                                                        {getRankReasonLabel(it.rank_reason)}
+                                                    </span>
+
+                                                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-gray-400">
+                                                        Score {formatNumberCompact(it.activity_score)}
+                                                    </span>
+                                                </div>
+
                                                 <div className="mt-3 text-[12px] leading-5 text-gray-300">
                                                     {getDiscoveryStoryLine(it)}
                                                 </div>
@@ -752,9 +807,9 @@ export default function CoinographiaPage() {
 
                                         <div className="mt-3 grid gap-1 text-[11px] text-gray-400 sm:flex sm:items-center sm:justify-between sm:gap-3">
                                             <div>
-                                                24h activity:{' '}
+                                                Since:{' '}
                                                 <span className="text-gray-200">
-                                                    {formatNumberCompact(it.recent_24h_count)}
+                                                    {formatDiscoverySince(it.first_seen_at) || '—'}
                                                 </span>
                                             </div>
 
