@@ -208,18 +208,18 @@ function getCoincarnateButtonClass(status: TokenStatus, disabled: boolean) {
 
 function getDiscoveryCardClass(heat: HeatLevel, status: TokenStatus) {
     const base =
-        'rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-200';
+        'group relative cursor-pointer rounded-2xl border border-white/10 bg-white/[0.03] p-3 sm:p-4 transition-all duration-200 hover:-translate-y-[2px] active:scale-[0.995]';
 
     if (heat === 'HOT') {
-        return `${base} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(244,63,94,0.08),0_0_28px_rgba(244,63,94,0.08)]`;
+        return `${base} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(244,63,94,0.10),0_0_32px_rgba(244,63,94,0.14)] before:absolute before:inset-0 before:rounded-2xl before:bg-[radial-gradient(circle_at_top,rgba(244,63,94,0.14),transparent_62%)] before:opacity-70 before:pointer-events-none`;
     }
 
     if (heat === 'TRENDING') {
-        return `${base} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(245,158,11,0.08),0_0_24px_rgba(245,158,11,0.08)]`;
+        return `${base} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(245,158,11,0.10),0_0_28px_rgba(245,158,11,0.12)] before:absolute before:inset-0 before:rounded-2xl before:bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_62%)] before:opacity-70 before:pointer-events-none`;
     }
 
     if (heat === 'LIVE') {
-        return `${base} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(34,211,238,0.08),0_0_24px_rgba(34,211,238,0.08)]`;
+        return `${base} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(34,211,238,0.10),0_0_28px_rgba(34,211,238,0.12)] before:absolute before:inset-0 before:rounded-2xl before:bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.12),transparent_62%)] before:opacity-70 before:pointer-events-none`;
     }
 
     if (status === 'healthy') {
@@ -239,30 +239,30 @@ function getDiscoveryCardClass(heat: HeatLevel, status: TokenStatus) {
 
 function getDiscoveryStoryLine(item: DiscoveryRow) {
     if (item.heat_level === 'HOT') {
-        return `${formatNumberCompact(item.recent_10m_count)} recent hits in 10m · ${formatNumberCompact(item.unique_wallets)} wallets joined`;
+        return `🔥 Exploding now — ${formatNumberCompact(item.recent_10m_count)} hits in 10m`;
     }
 
     if (item.heat_level === 'TRENDING') {
-        return `${formatNumberCompact(item.recent_10m_count)} recent moves · ${formatNumberCompact(item.total_coincarnations)} Coincarnations`;
+        return `📈 Building momentum — ${formatNumberCompact(item.total_coincarnations)} Coincarnations`;
     }
 
     if (item.heat_level === 'LIVE') {
-        return `${formatNumberCompact(item.recent_24h_count)} activity in 24h · ${formatNumberCompact(item.unique_wallets)} wallets joined`;
+        return `⚡ Live in the last 24h — ${formatNumberCompact(item.recent_24h_count)} activity`;
     }
 
     if (item.rank_reason === 'highest_revived_usd') {
-        return `${formatUsdCompact(item.total_revived_usd)} revived · ${formatNumberCompact(item.total_coincarnations)} Coincarnations`;
+        return `💰 Highest value revival right now — ${formatUsdCompact(item.total_revived_usd)}`;
     }
 
     if (item.rank_reason === 'most_wallets') {
-        return `${formatNumberCompact(item.unique_wallets)} wallets joined · ${formatNumberCompact(item.total_coincarnations)} Coincarnations`;
+        return `👥 Strong wallet participation — ${formatNumberCompact(item.unique_wallets)} wallets`;
     }
 
     if (item.rank_reason === 'most_coincarnations') {
-        return `${formatNumberCompact(item.total_coincarnations)} Coincarnations · ${formatNumberCompact(item.unique_wallets)} wallets joined`;
+        return `🔁 Most Coincarnations in view — ${formatNumberCompact(item.total_coincarnations)}`;
     }
 
-    return `${formatNumberCompact(item.total_coincarnations)} Coincarnations · active since ${formatDiscoverySince(item.first_seen_at) || 'unknown'}`;
+    return `🧭 Active cluster since ${formatDiscoverySince(item.first_seen_at) || 'unknown'}`;
 }
 
 function getDiscoverySortLabel(sort: DiscoverySort) {
@@ -786,9 +786,14 @@ export default function CoinographiaPage() {
                                 const isDisabled = it.status === 'redlist' || it.status === 'blacklist';
                                 const isFeatured = index === 0;
 
+                                const isCoinc = discoverySort === 'coincarnations' || discoverySort === 'recent';
+                                const isUsd = discoverySort === 'usd';
+                                const isWallets = discoverySort === 'wallets';
+
                                 return (
                                     <div
                                         key={it.mint}
+                                        onClick={() => handleCoincarnateClick(it.mint, it.status)}
                                         className={[
                                             getDiscoveryCardClass(it.heat_level, it.status),
                                             isFeatured
@@ -803,12 +808,12 @@ export default function CoinographiaPage() {
                                                 </span>
 
                                                 <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-gray-300">
-                                                    {getDiscoverySortLabel(discoverySort).replace('Showing clusters ranked by ', '')}
+                                                    Ranked by {discoverySort}
                                                 </span>
                                             </div>
                                         )}
 
-                                        <div className="flex items-start gap-2.5 sm:gap-3">
+                                        <div className="relative z-[1] flex items-start gap-2.5 sm:gap-3">
                                             {it.logo_uri ? (
                                                 <img
                                                     src={it.logo_uri}
@@ -847,14 +852,21 @@ export default function CoinographiaPage() {
                                                     </span>
                                                 </div>
 
-                                                <div className="mt-2 text-[11px] sm:text-[12px] leading-5 text-gray-300">
+                                                <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] sm:text-[12px] leading-5 text-gray-300">
                                                     {getDiscoveryStoryLine(it)}
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="mt-3 grid grid-cols-3 gap-1.5 sm:gap-2">
-                                            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-2 sm:px-3">
+                                        <div className="relative z-[1] mt-3 grid grid-cols-3 gap-1.5 sm:gap-2">
+                                            <div
+                                                className={[
+                                                    'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200',
+                                                    isCoinc
+                                                        ? 'border-cyan-400/35 bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.14)]'
+                                                        : 'border-white/10 bg-white/[0.03]',
+                                                ].join(' ')}
+                                            >
                                                 <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500">
                                                     Coinc.
                                                 </div>
@@ -863,7 +875,14 @@ export default function CoinographiaPage() {
                                                 </div>
                                             </div>
 
-                                            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-2 sm:px-3">
+                                            <div
+                                                className={[
+                                                    'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200',
+                                                    isUsd
+                                                        ? 'border-emerald-400/35 bg-emerald-400/10 shadow-[0_0_20px_rgba(16,185,129,0.14)]'
+                                                        : 'border-white/10 bg-white/[0.03]',
+                                                ].join(' ')}
+                                            >
                                                 <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500">
                                                     Revived
                                                 </div>
@@ -872,7 +891,14 @@ export default function CoinographiaPage() {
                                                 </div>
                                             </div>
 
-                                            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-2 sm:px-3">
+                                            <div
+                                                className={[
+                                                    'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200',
+                                                    isWallets
+                                                        ? 'border-amber-400/35 bg-amber-400/10 shadow-[0_0_20px_rgba(245,158,11,0.14)]'
+                                                        : 'border-white/10 bg-white/[0.03]',
+                                                ].join(' ')}
+                                            >
                                                 <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500">
                                                     Wallets
                                                 </div>
@@ -882,7 +908,7 @@ export default function CoinographiaPage() {
                                             </div>
                                         </div>
 
-                                        <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] sm:text-[11px] text-gray-400 xl:grid-cols-3">
+                                        <div className="relative z-[1] mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] sm:text-[11px] text-gray-400 xl:grid-cols-3">
                                             <div className="truncate">
                                                 Since:{' '}
                                                 <span className="text-gray-200">
@@ -907,9 +933,12 @@ export default function CoinographiaPage() {
 
                                         <button
                                             disabled={isDisabled}
-                                            onClick={() => handleCoincarnateClick(it.mint, it.status)}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleCoincarnateClick(it.mint, it.status);
+                                            }}
                                             className={[
-                                                'mt-3 w-full rounded-xl px-3 py-2.5 text-[12px] sm:text-[13px] font-semibold transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]',
+                                                'relative z-[1] mt-3 w-full rounded-xl px-3 py-2.5 text-[12px] sm:text-[13px] font-semibold transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]',
                                                 getCoincarnateButtonClass(it.status, isDisabled),
                                             ].join(' ')}
                                             title={
