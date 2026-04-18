@@ -136,8 +136,8 @@ function formatUpdatedShort(value: string | null) {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return '—';
 
-    return d.toLocaleString(undefined, {
-        month: '2-digit',
+    return d.toLocaleString('en-GB', {
+        month: 'short',
         day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
@@ -291,7 +291,7 @@ function formatDiscoverySince(value: string | null) {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return null;
 
-    return d.toLocaleDateString(undefined, {
+    return d.toLocaleDateString('en-GB', {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
