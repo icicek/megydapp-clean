@@ -54,7 +54,8 @@ type DiscoveryRow = {
     | 'hot_now'
     | 'trending_now'
     | 'live_now'
-    | 'recent_cluster';
+    | 'recent_cluster'
+    | 'search_pioneer';
 };
 
 const STATUS_STYLES: Record<TokenStatus, string> = {
@@ -241,6 +242,9 @@ function getDiscoveryCardClass(heat: HeatLevel, status: TokenStatus) {
 }
 
 function getDiscoveryStoryLine(item: DiscoveryRow) {
+    if (item.rank_reason === 'search_pioneer') {
+        return '✨ No Coincarnation activity yet — be the first to Coincarnate this token.';
+    }
     if (item.heat_level === 'HOT') {
         return `🔥 Exploding now — ${formatNumberCompact(item.recent_10m_count)} hits in 10m`;
     }
@@ -282,6 +286,7 @@ function getRankReasonLabel(reason: DiscoveryRow['rank_reason']) {
     if (reason === 'hot_now') return 'Hot right now';
     if (reason === 'trending_now') return 'Trending now';
     if (reason === 'live_now') return 'Live in the last 24h';
+    if (reason === 'search_pioneer') return 'Be the first';
     return 'Recent cluster';
 }
 
@@ -788,6 +793,7 @@ export default function CoinographiaPage() {
                             discoveryItems.map((it, index) => {
                                 const isDisabled = it.status === 'redlist' || it.status === 'blacklist';
                                 const isFeatured = index === 0;
+                                const isPioneer = it.rank_reason === 'search_pioneer';
 
                                 const isCoinc = discoverySort === 'coincarnations' || discoverySort === 'recent';
                                 const isUsd = discoverySort === 'usd';
@@ -861,7 +867,12 @@ export default function CoinographiaPage() {
                                             </div>
                                         </div>
 
-                                        <div className="relative z-[1] mt-3.5 grid grid-cols-3 gap-1.5 sm:gap-2">
+                                        <div
+                                            className={[
+                                                'relative z-[1] mt-3.5 grid grid-cols-3 gap-1.5 sm:gap-2',
+                                                isPioneer ? 'opacity-80' : '',
+                                            ].join(' ')}
+                                        >
                                             <div
                                                 className={[
                                                     'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
@@ -929,7 +940,7 @@ export default function CoinographiaPage() {
                                             <div className="col-span-2 truncate text-gray-400 xl:col-span-1 xl:text-right">
                                                 Last activity:{' '}
                                                 <span className="text-gray-200">
-                                                    {formatUpdatedShort(it.last_activity_at)}
+                                                    {it.last_activity_at ? formatUpdatedShort(it.last_activity_at) : 'No activity yet'}
                                                 </span>
                                             </div>
                                         </div>
@@ -952,9 +963,13 @@ export default function CoinographiaPage() {
                                         >
                                             {isDisabled
                                                 ? 'Coincarnation Disabled'
-                                                : it.symbol
-                                                    ? `Coincarnate $${it.symbol}`
-                                                    : 'Coincarnate'}
+                                                : it.rank_reason === 'search_pioneer'
+                                                    ? it.symbol
+                                                        ? `Be First to Coincarnate $${it.symbol}`
+                                                        : 'Be First to Coincarnate'
+                                                    : it.symbol
+                                                        ? `Coincarnate $${it.symbol}`
+                                                        : 'Coincarnate'}
                                         </button>
                                     </div>
                                 );

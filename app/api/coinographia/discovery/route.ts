@@ -51,15 +51,16 @@ export async function GET(req: NextRequest) {
     const offset = Math.max(toInt(searchParams.get('offset'), 0), 0);
 
     const pattern = q ? `%${q}%` : null;
+    const hasExactSearch = !!q;
 
     const sortSql =
       sort === 'usd'
-        ? sql`agg.total_revived_usd DESC NULLS LAST, agg.last_activity_at DESC NULLS LAST`
+        ? sql`is_search_pioneer DESC, total_revived_usd DESC NULLS LAST, last_activity_at DESC NULLS LAST`
         : sort === 'wallets'
-          ? sql`agg.unique_wallets DESC NULLS LAST, agg.last_activity_at DESC NULLS LAST`
+          ? sql`is_search_pioneer DESC, unique_wallets DESC NULLS LAST, last_activity_at DESC NULLS LAST`
           : sort === 'coincarnations'
-            ? sql`agg.total_coincarnations DESC NULLS LAST, agg.last_activity_at DESC NULLS LAST`
-            : sql`agg.activity_score DESC NULLS LAST, agg.last_activity_at DESC NULLS LAST`;
+            ? sql`is_search_pioneer DESC, total_coincarnations DESC NULLS LAST, last_activity_at DESC NULLS LAST`
+            : sql`is_search_pioneer DESC, activity_score DESC NULLS LAST, last_activity_at DESC NULLS LAST`;
 
     const items = (await sql`
       WITH valid_contributions AS (
@@ -80,6 +81,7 @@ export async function GET(req: NextRequest) {
             WHERE ci.contribution_id = c.id
           )
       ),
+
       agg AS (
         SELECT
           vc.token_contract AS mint,
@@ -102,72 +104,154 @@ export async function GET(req: NextRequest) {
           )::int AS activity_score
         FROM valid_contributions vc
         GROUP BY vc.token_contract
+      ),
+
+      discovery_matches AS (
+        SELECT
+          agg.mint,
+          COALESCE(mc.symbol, NULLIF(MAX(vc.token_symbol), ''), null) AS symbol,
+          COALESCE(mc.name, null) AS name,
+          COALESCE(mc.logo_uri, null) AS logo_uri,
+
+          COALESCE(r.status::text, 'deadcoin') AS status,
+
+          agg.total_coincarnations,
+          agg.unique_wallets,
+          agg.total_revived_usd::float8 AS total_revived_usd,
+          agg.first_seen_at,
+          agg.last_activity_at,
+          agg.recent_24h_count,
+          agg.recent_10m_count,
+          agg.activity_score,
+
+          CASE
+            WHEN agg.recent_10m_count >= 5 THEN 'HOT'
+            WHEN agg.recent_10m_count >= 2 THEN 'TRENDING'
+            WHEN agg.recent_24h_count >= 1 THEN 'LIVE'
+            ELSE null
+          END AS heat_level,
+
+          CASE
+            WHEN ${sort}::text = 'usd' THEN 'highest_revived_usd'
+            WHEN ${sort}::text = 'wallets' THEN 'most_wallets'
+            WHEN ${sort}::text = 'coincarnations' THEN 'most_coincarnations'
+            WHEN agg.recent_10m_count >= 5 THEN 'hot_now'
+            WHEN agg.recent_10m_count >= 2 THEN 'trending_now'
+            WHEN agg.recent_24h_count >= 1 THEN 'live_now'
+            ELSE 'recent_cluster'
+          END AS rank_reason,
+
+          false AS is_search_pioneer,
+
+          CASE
+            WHEN ${q ?? null}::text IS NULL THEN 100
+            WHEN LOWER(agg.mint) = LOWER(${q}) THEN 1
+            WHEN LOWER(COALESCE(mc.symbol, '')) = LOWER(${q}) THEN 2
+            WHEN LOWER(COALESCE(mc.name, '')) = LOWER(${q}) THEN 3
+            WHEN agg.mint ILIKE ${pattern} THEN 4
+            WHEN COALESCE(mc.symbol, '') ILIKE ${pattern} THEN 5
+            WHEN COALESCE(mc.name, '') ILIKE ${pattern} THEN 6
+            WHEN COALESCE(MAX(vc.token_symbol), '') ILIKE ${pattern} THEN 7
+            ELSE 100
+          END AS search_rank
+        FROM agg
+        LEFT JOIN token_registry r
+          ON r.mint = agg.mint
+        LEFT JOIN token_metadata_cache mc
+          ON mc.mint = agg.mint
+        LEFT JOIN valid_contributions vc
+          ON vc.token_contract = agg.mint
+        WHERE
+          (${status ?? null}::text IS NULL OR COALESCE(r.status::text, 'deadcoin') = ${status})
+          AND (
+            (${pattern ?? null}::text IS NULL)
+            OR agg.mint ILIKE ${pattern}
+            OR COALESCE(mc.symbol, '') ILIKE ${pattern}
+            OR COALESCE(mc.name, '') ILIKE ${pattern}
+            OR COALESCE(vc.token_symbol, '') ILIKE ${pattern}
+          )
+        GROUP BY
+          agg.mint,
+          mc.symbol,
+          mc.name,
+          mc.logo_uri,
+          r.status,
+          agg.total_coincarnations,
+          agg.unique_wallets,
+          agg.total_revived_usd,
+          agg.first_seen_at,
+          agg.last_activity_at,
+          agg.recent_24h_count,
+          agg.recent_10m_count,
+          agg.activity_score
+      ),
+
+      pioneer_candidate AS (
+        SELECT
+          r.mint,
+          COALESCE(mc.symbol, null) AS symbol,
+          COALESCE(mc.name, null) AS name,
+          COALESCE(mc.logo_uri, null) AS logo_uri,
+          r.status::text AS status,
+
+          0::int AS total_coincarnations,
+          0::int AS unique_wallets,
+          0::float8 AS total_revived_usd,
+          null::timestamp AS first_seen_at,
+          null::timestamp AS last_activity_at,
+          0::int AS recent_24h_count,
+          0::int AS recent_10m_count,
+          0::int AS activity_score,
+
+          null::text AS heat_level,
+          'search_pioneer'::text AS rank_reason,
+
+          true AS is_search_pioneer,
+          0 AS search_rank
+        FROM token_registry r
+        LEFT JOIN token_metadata_cache mc
+          ON mc.mint = r.mint
+        WHERE
+          ${hasExactSearch}
+          AND (${status ?? null}::text IS NULL OR r.status::text = ${status})
+          AND (
+            LOWER(r.mint) = LOWER(${q ?? ''})
+            OR LOWER(COALESCE(mc.symbol, '')) = LOWER(${q ?? ''})
+            OR LOWER(COALESCE(mc.name, '')) = LOWER(${q ?? ''})
+          )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM agg
+            WHERE agg.mint = r.mint
+          )
+        LIMIT 1
+      ),
+
+      combined AS (
+        SELECT * FROM discovery_matches
+        UNION ALL
+        SELECT * FROM pioneer_candidate
       )
+
       SELECT
-        agg.mint,
-        COALESCE(mc.symbol, NULLIF(MAX(vc.token_symbol), ''), null) AS symbol,
-        COALESCE(mc.name, null) AS name,
-        COALESCE(mc.logo_uri, null) AS logo_uri,
-
-        COALESCE(r.status::text, 'deadcoin') AS status,
-
-        agg.total_coincarnations,
-        agg.unique_wallets,
-        agg.total_revived_usd::float8 AS total_revived_usd,
-        agg.first_seen_at,
-        agg.last_activity_at,
-        agg.recent_24h_count,
-        agg.recent_10m_count,
-        agg.activity_score,
-
-        CASE
-          WHEN agg.recent_10m_count >= 5 THEN 'HOT'
-          WHEN agg.recent_10m_count >= 2 THEN 'TRENDING'
-          WHEN agg.recent_24h_count >= 1 THEN 'LIVE'
-          ELSE null
-        END AS heat_level,
-
-        CASE
-          WHEN ${sort}::text = 'usd' THEN 'highest_revived_usd'
-          WHEN ${sort}::text = 'wallets' THEN 'most_wallets'
-          WHEN ${sort}::text = 'coincarnations' THEN 'most_coincarnations'
-          WHEN agg.recent_10m_count >= 5 THEN 'hot_now'
-          WHEN agg.recent_10m_count >= 2 THEN 'trending_now'
-          WHEN agg.recent_24h_count >= 1 THEN 'live_now'
-          ELSE 'recent_cluster'
-        END AS rank_reason
-
-      FROM agg
-      LEFT JOIN token_registry r
-        ON r.mint = agg.mint
-      LEFT JOIN token_metadata_cache mc
-        ON mc.mint = agg.mint
-      LEFT JOIN valid_contributions vc
-        ON vc.token_contract = agg.mint
-      WHERE
-        (${status ?? null}::text IS NULL OR COALESCE(r.status::text, 'deadcoin') = ${status})
-        AND (
-          (${pattern ?? null}::text IS NULL)
-          OR agg.mint ILIKE ${pattern}
-          OR COALESCE(mc.symbol, '') ILIKE ${pattern}
-          OR COALESCE(mc.name, '') ILIKE ${pattern}
-          OR COALESCE(vc.token_symbol, '') ILIKE ${pattern}
-        )
-      GROUP BY
-        agg.mint,
-        mc.symbol,
-        mc.name,
-        mc.logo_uri,
-        r.status,
-        agg.total_coincarnations,
-        agg.unique_wallets,
-        agg.total_revived_usd,
-        agg.first_seen_at,
-        agg.last_activity_at,
-        agg.recent_24h_count,
-        agg.recent_10m_count,
-        agg.activity_score
+        mint,
+        symbol,
+        name,
+        logo_uri,
+        status,
+        total_coincarnations,
+        unique_wallets,
+        total_revived_usd,
+        first_seen_at,
+        last_activity_at,
+        recent_24h_count,
+        recent_10m_count,
+        activity_score,
+        heat_level,
+        rank_reason
+      FROM combined
       ORDER BY
+        search_rank ASC,
         ${sortSql}
       LIMIT ${limit}
       OFFSET ${offset}
@@ -193,7 +277,8 @@ export async function GET(req: NextRequest) {
         | 'hot_now'
         | 'trending_now'
         | 'live_now'
-        | 'recent_cluster';
+        | 'recent_cluster'
+        | 'search_pioneer';
     }>;
 
     const totalRows = (await sql`
@@ -238,14 +323,39 @@ export async function GET(req: NextRequest) {
         ) sym ON true
         WHERE
           (${status ?? null}::text IS NULL OR COALESCE(r.status::text, 'deadcoin') = ${status})
+      ),
+      pioneer_count AS (
+        SELECT COUNT(*)::int AS total
+        FROM token_registry r
+        LEFT JOIN token_metadata_cache mc
+          ON mc.mint = r.mint
+        WHERE
+          ${hasExactSearch}
+          AND (${status ?? null}::text IS NULL OR r.status::text = ${status})
+          AND (
+            LOWER(r.mint) = LOWER(${q ?? ''})
+            OR LOWER(COALESCE(mc.symbol, '')) = LOWER(${q ?? ''})
+            OR LOWER(COALESCE(mc.name, '')) = LOWER(${q ?? ''})
+          )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM agg
+            WHERE agg.mint = r.mint
+          )
       )
-      SELECT COUNT(*)::int AS total
-      FROM searchable
-      WHERE
-        (${pattern ?? null}::text IS NULL)
-        OR mint ILIKE ${pattern}
-        OR COALESCE(symbol, '') ILIKE ${pattern}
-        OR COALESCE(name, '') ILIKE ${pattern}
+      SELECT (
+        (
+          SELECT COUNT(*)::int
+          FROM searchable
+          WHERE
+            (${pattern ?? null}::text IS NULL)
+            OR mint ILIKE ${pattern}
+            OR COALESCE(symbol, '') ILIKE ${pattern}
+            OR COALESCE(name, '') ILIKE ${pattern}
+        )
+        +
+        (SELECT total FROM pioneer_count)
+      )::int AS total
     `) as unknown as Array<{ total: number }>;
 
     return NextResponse.json({
