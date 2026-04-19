@@ -70,7 +70,7 @@ function StatusBadge({ status }: { status: TokenStatus }) {
     return (
         <span
             className={[
-                'inline-flex items-center rounded-full px-2.5 py-[5px] text-[10px] sm:text-[11px] font-semibold whitespace-nowrap shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
+                'inline-flex items-center rounded-full px-2 py-[5px] text-[10px] sm:text-[11px] font-semibold whitespace-nowrap shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
                 STATUS_STYLES[status],
             ].join(' ')}
         >
@@ -858,7 +858,7 @@ export default function CoinographiaPage() {
                                                     {shortenMint(it.mint)}
                                                 </div>
 
-                                                <div className="relative z-[1] mt-1.5 flex flex-wrap items-center gap-1.5">
+                                                <div className="relative z-[1] mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1">
                                                     <StatusBadge status={it.status} />
                                                     <HeatBadge heat={it.heat_level} />
 
