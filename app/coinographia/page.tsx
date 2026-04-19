@@ -70,7 +70,7 @@ function StatusBadge({ status }: { status: TokenStatus }) {
     return (
         <span
             className={[
-                'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
+                'inline-flex items-center rounded-full px-2.5 py-[5px] text-[10px] sm:text-[11px] font-semibold whitespace-nowrap shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
                 STATUS_STYLES[status],
             ].join(' ')}
         >
@@ -99,7 +99,7 @@ function HeatBadge({ heat }: { heat: HeatLevel }) {
     return (
         <span
             className={[
-                'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap shadow-[0_0_18px_rgba(255,255,255,0.04)]',
+                'inline-flex items-center rounded-full px-2.5 py-[5px] text-[10px] sm:text-[11px] font-semibold whitespace-nowrap shadow-[0_0_18px_rgba(255,255,255,0.04)]',
                 HEAT_STYLES[heat],
             ].join(' ')}
         >
@@ -858,16 +858,16 @@ export default function CoinographiaPage() {
                                                     {shortenMint(it.mint)}
                                                 </div>
 
-                                                <div className="relative z-[1] mt-2 flex flex-wrap items-center gap-1.5">
+                                                <div className="relative z-[1] mt-1.5 flex flex-wrap items-center gap-1.5">
                                                     <StatusBadge status={it.status} />
                                                     <HeatBadge heat={it.heat_level} />
 
-                                                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[11px] font-medium text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                                                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-[5px] text-[10px] sm:text-[11px] font-medium text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                                                         {getRankReasonLabel(it.rank_reason)}
                                                     </span>
 
                                                     {!isPioneer && (
-                                                        <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                                                        <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-[5px] text-[10px] sm:text-[11px] text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                                                             Score {formatNumberCompact(it.activity_score)}
                                                         </span>
                                                     )}
@@ -875,7 +875,7 @@ export default function CoinographiaPage() {
                                             </div>
                                         </div>
 
-                                        <div className="relative z-[1] mt-3 pl-0 sm:pl-[56px]">
+                                        <div className="relative z-[1] mt-2.5 pl-0 sm:pl-[56px]">
                                             <div
                                                 className={[
                                                     'rounded-xl border px-3 py-2 text-[11px] sm:text-[12px] leading-5 text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]',
@@ -889,11 +889,11 @@ export default function CoinographiaPage() {
                                         </div>
 
                                         {isPioneer ? (
-                                            <div className="relative z-[1] mt-3.5 rounded-xl border border-dashed border-violet-400/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(168,85,247,0.03))] px-3 py-3 text-center text-[12px] font-medium text-gray-300 shadow-[0_0_20px_rgba(168,85,247,0.06)]">
+                                            <div className="relative z-[1] mt-3 rounded-xl border border-dashed border-violet-400/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(168,85,247,0.03))] px-3 py-2.5 text-center text-[12px] font-medium text-gray-300 shadow-[0_0_20px_rgba(168,85,247,0.06)]">
                                                 No activity yet
                                             </div>
                                         ) : (
-                                            <div className="relative z-[1] mt-3.5 grid grid-cols-3 gap-1.5 sm:gap-2">
+                                            <div className="relative z-[1] mt-3 grid grid-cols-3 gap-1.5 sm:gap-2">
                                                 <div
                                                     className={[
                                                         'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
@@ -945,22 +945,8 @@ export default function CoinographiaPage() {
                                         )}
 
                                         {!isPioneer && (
-                                            <div className="relative z-[1] mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px] sm:text-[11px] text-gray-400 border-t border-white/6 pt-2.5 xl:grid-cols-3">
-                                                <div className="truncate">
-                                                    Since:{' '}
-                                                    <span className="text-gray-200">
-                                                        {formatDiscoverySince(it.first_seen_at) || '—'}
-                                                    </span>
-                                                </div>
-
-                                                <div className="truncate">
-                                                    Revived:{' '}
-                                                    <span className="text-gray-200">
-                                                        {formatUsdCompact(it.total_revived_usd)}
-                                                    </span>
-                                                </div>
-
-                                                <div className="col-span-2 truncate text-gray-400 xl:col-span-1 xl:text-right">
+                                            <div className="relative z-[1] mt-3 border-t border-white/6 pt-2.5 text-[10px] sm:text-[11px] text-gray-400">
+                                                <div className="truncate text-left">
                                                     Last activity:{' '}
                                                     <span className="text-gray-200">
                                                         {it.last_activity_at ? formatUpdatedShort(it.last_activity_at) : 'No activity yet'}
