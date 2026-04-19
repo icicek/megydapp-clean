@@ -241,6 +241,10 @@ function getDiscoveryCardClass(heat: HeatLevel, status: TokenStatus) {
     return `${base} ${sheen} opacity-90`;
 }
 
+function getPioneerCardAccentClass() {
+    return 'ring-1 ring-violet-400/30 border-violet-400/20 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.08),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.025))] shadow-[0_0_0_1px_rgba(168,85,247,0.10),0_0_30px_rgba(168,85,247,0.10),0_0_50px_rgba(34,211,238,0.06)]';
+}
+
 function getDiscoveryStoryLine(item: DiscoveryRow) {
     if (item.rank_reason === 'search_pioneer') {
         return '✨ No Coincarnation activity yet — be the first to bring this token to life.';
@@ -808,6 +812,7 @@ export default function CoinographiaPage() {
                                             isFeatured
                                                 ? 'ring-1 ring-cyan-400/30 shadow-[0_0_26px_rgba(34,211,238,0.12)] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))]'
                                                 : '',
+                                            isPioneer ? getPioneerCardAccentClass() : '',
                                         ].join(' ')}
                                     >
                                         {isFeatured && (
@@ -819,6 +824,13 @@ export default function CoinographiaPage() {
                                                 <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-medium text-gray-300">
                                                     Ranked by {discoverySort}
                                                 </span>
+                                            </div>
+                                        )}
+
+                                        {isPioneer && (
+                                            <div className="pointer-events-none absolute inset-0 rounded-2xl">
+                                                <div className="absolute -left-10 top-10 h-24 w-24 rounded-full bg-violet-400/10 blur-3xl animate-pulse" />
+                                                <div className="absolute right-0 top-1/2 h-20 w-20 rounded-full bg-cyan-400/10 blur-3xl animate-pulse" />
                                             </div>
                                         )}
 
@@ -864,13 +876,20 @@ export default function CoinographiaPage() {
                                         </div>
 
                                         <div className="relative z-[1] mt-3 pl-0 sm:pl-[56px]">
-                                            <div className="rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.025))] px-3 py-2 text-[11px] sm:text-[12px] leading-5 text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                                            <div
+                                                className={[
+                                                    'rounded-xl border px-3 py-2 text-[11px] sm:text-[12px] leading-5 text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]',
+                                                    isPioneer
+                                                        ? 'border-violet-400/20 bg-[linear-gradient(180deg,rgba(168,85,247,0.10),rgba(255,255,255,0.03))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_24px_rgba(168,85,247,0.08)]'
+                                                        : 'border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.025))]',
+                                                ].join(' ')}
+                                            >
                                                 {getDiscoveryStoryLine(it)}
                                             </div>
                                         </div>
 
                                         {isPioneer ? (
-                                            <div className="relative z-[1] mt-3.5 rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-3 py-3 text-center text-[12px] text-gray-400">
+                                            <div className="relative z-[1] mt-3.5 rounded-xl border border-dashed border-violet-400/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(168,85,247,0.03))] px-3 py-3 text-center text-[12px] font-medium text-gray-300 shadow-[0_0_20px_rgba(168,85,247,0.06)]">
                                                 No activity yet
                                             </div>
                                         ) : (
@@ -959,6 +978,7 @@ export default function CoinographiaPage() {
                                             className={[
                                                 'relative z-[1] mt-3 w-full rounded-xl px-3 py-2.5 text-[12px] sm:text-[13px] font-semibold tracking-[0.01em] transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]',
                                                 getCoincarnateButtonClass(it.status, isDisabled),
+                                                isPioneer ? 'shadow-[0_0_24px_rgba(168,85,247,0.10)] hover:shadow-[0_0_32px_rgba(168,85,247,0.16)]' : '',
                                             ].join(' ')}
                                             title={
                                                 isDisabled
