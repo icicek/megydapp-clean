@@ -243,7 +243,7 @@ function getDiscoveryCardClass(heat: HeatLevel, status: TokenStatus) {
 
 function getDiscoveryStoryLine(item: DiscoveryRow) {
     if (item.rank_reason === 'search_pioneer') {
-        return '✨ No Coincarnation activity yet — be the first to Coincarnate this token.';
+        return '✨ No Coincarnation activity yet — be the first to bring this token to life.';
     }
     if (item.heat_level === 'HOT') {
         return `🔥 Exploding now — ${formatNumberCompact(item.recent_10m_count)} hits in 10m`;
@@ -854,9 +854,11 @@ export default function CoinographiaPage() {
                                                         {getRankReasonLabel(it.rank_reason)}
                                                     </span>
 
-                                                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                                                        Score {formatNumberCompact(it.activity_score)}
-                                                    </span>
+                                                    {!isPioneer && (
+                                                        <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                                                            Score {formatNumberCompact(it.activity_score)}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -867,83 +869,86 @@ export default function CoinographiaPage() {
                                             </div>
                                         </div>
 
-                                        <div
-                                            className={[
-                                                'relative z-[1] mt-3.5 grid grid-cols-3 gap-1.5 sm:gap-2',
-                                                isPioneer ? 'opacity-80' : '',
-                                            ].join(' ')}
-                                        >
-                                            <div
-                                                className={[
-                                                    'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
-                                                    isCoinc
-                                                        ? 'border-cyan-400/35 bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.14)]'
-                                                        : 'border-white/10 bg-white/[0.03]',
-                                                ].join(' ')}
-                                            >
-                                                <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
-                                                    Coinc.
-                                                </div>
-                                                <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
-                                                    {formatNumberCompact(it.total_coincarnations)}
-                                                </div>
+                                        {isPioneer ? (
+                                            <div className="relative z-[1] mt-3.5 rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-3 py-3 text-center text-[12px] text-gray-400">
+                                                No activity yet
                                             </div>
+                                        ) : (
+                                            <div className="relative z-[1] mt-3.5 grid grid-cols-3 gap-1.5 sm:gap-2">
+                                                <div
+                                                    className={[
+                                                        'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
+                                                        isCoinc
+                                                            ? 'border-cyan-400/35 bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.14)]'
+                                                            : 'border-white/10 bg-white/[0.03]',
+                                                    ].join(' ')}
+                                                >
+                                                    <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
+                                                        Coinc.
+                                                    </div>
+                                                    <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
+                                                        {formatNumberCompact(it.total_coincarnations)}
+                                                    </div>
+                                                </div>
 
-                                            <div
-                                                className={[
-                                                    'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
-                                                    isUsd
-                                                        ? 'border-emerald-400/35 bg-emerald-400/10 shadow-[0_0_20px_rgba(16,185,129,0.14)]'
-                                                        : 'border-white/10 bg-white/[0.03]',
-                                                ].join(' ')}
-                                            >
-                                                <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
-                                                    Revived
+                                                <div
+                                                    className={[
+                                                        'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
+                                                        isUsd
+                                                            ? 'border-emerald-400/35 bg-emerald-400/10 shadow-[0_0_20px_rgba(16,185,129,0.14)]'
+                                                            : 'border-white/10 bg-white/[0.03]',
+                                                    ].join(' ')}
+                                                >
+                                                    <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
+                                                        Revived
+                                                    </div>
+                                                    <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
+                                                        {formatUsdCompact(it.total_revived_usd)}
+                                                    </div>
                                                 </div>
-                                                <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
-                                                    {formatUsdCompact(it.total_revived_usd)}
+
+                                                <div
+                                                    className={[
+                                                        'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
+                                                        isWallets
+                                                            ? 'border-amber-400/35 bg-amber-400/10 shadow-[0_0_20px_rgba(245,158,11,0.14)]'
+                                                            : 'border-white/10 bg-white/[0.03]',
+                                                    ].join(' ')}
+                                                >
+                                                    <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
+                                                        Wallets
+                                                    </div>
+                                                    <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
+                                                        {formatNumberCompact(it.unique_wallets)}
+                                                    </div>
                                                 </div>
                                             </div>
+                                        )}
 
-                                            <div
-                                                className={[
-                                                    'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
-                                                    isWallets
-                                                        ? 'border-amber-400/35 bg-amber-400/10 shadow-[0_0_20px_rgba(245,158,11,0.14)]'
-                                                        : 'border-white/10 bg-white/[0.03]',
-                                                ].join(' ')}
-                                            >
-                                                <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
-                                                    Wallets
+                                        {!isPioneer && (
+                                            <div className="relative z-[1] mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px] sm:text-[11px] text-gray-400 border-t border-white/6 pt-2.5 xl:grid-cols-3">
+                                                <div className="truncate">
+                                                    Since:{' '}
+                                                    <span className="text-gray-200">
+                                                        {formatDiscoverySince(it.first_seen_at) || '—'}
+                                                    </span>
                                                 </div>
-                                                <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
-                                                    {formatNumberCompact(it.unique_wallets)}
+
+                                                <div className="truncate">
+                                                    Revived:{' '}
+                                                    <span className="text-gray-200">
+                                                        {formatUsdCompact(it.total_revived_usd)}
+                                                    </span>
+                                                </div>
+
+                                                <div className="col-span-2 truncate text-gray-400 xl:col-span-1 xl:text-right">
+                                                    Last activity:{' '}
+                                                    <span className="text-gray-200">
+                                                        {it.last_activity_at ? formatUpdatedShort(it.last_activity_at) : 'No activity yet'}
+                                                    </span>
                                                 </div>
                                             </div>
-                                        </div>
-
-                                        <div className="relative z-[1] mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px] sm:text-[11px] text-gray-400 border-t border-white/6 pt-2.5 xl:grid-cols-3">
-                                            <div className="truncate">
-                                                Since:{' '}
-                                                <span className="text-gray-200">
-                                                    {formatDiscoverySince(it.first_seen_at) || '—'}
-                                                </span>
-                                            </div>
-
-                                            <div className="truncate">
-                                                Revived:{' '}
-                                                <span className="text-gray-200">
-                                                    {formatUsdCompact(it.total_revived_usd)}
-                                                </span>
-                                            </div>
-
-                                            <div className="col-span-2 truncate text-gray-400 xl:col-span-1 xl:text-right">
-                                                Last activity:{' '}
-                                                <span className="text-gray-200">
-                                                    {it.last_activity_at ? formatUpdatedShort(it.last_activity_at) : 'No activity yet'}
-                                                </span>
-                                            </div>
-                                        </div>
+                                        )}
 
                                         <button
                                             disabled={isDisabled}
