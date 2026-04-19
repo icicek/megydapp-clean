@@ -99,7 +99,7 @@ function HeatBadge({ heat }: { heat: HeatLevel }) {
     return (
         <span
             className={[
-                'inline-flex items-center rounded-full px-2.5 py-[5px] text-[10px] sm:text-[11px] font-semibold whitespace-nowrap shadow-[0_0_18px_rgba(255,255,255,0.04)]',
+                'inline-flex items-center rounded-full px-2 py-[5px] text-[10px] sm:text-[11px] font-semibold whitespace-nowrap shadow-[0_0_18px_rgba(255,255,255,0.04)]',
                 HEAT_STYLES[heat],
             ].join(' ')}
         >
@@ -862,126 +862,120 @@ export default function CoinographiaPage() {
                                                     <StatusBadge status={it.status} />
                                                     <HeatBadge heat={it.heat_level} />
 
-                                                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-[5px] text-[10px] sm:text-[11px] font-medium text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                                                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-2 py-[5px] text-[10px] sm:text-[11px] font-medium text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                                                         {getRankReasonLabel(it.rank_reason)}
                                                     </span>
 
                                                     {!isPioneer && (
-                                                        <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-[5px] text-[10px] sm:text-[11px] text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                                                        <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2 py-[5px] text-[10px] sm:text-[11px] text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                                                             Score {formatNumberCompact(it.activity_score)}
                                                         </span>
                                                     )}
                                                 </div>
+                                                <div
+                                                    className={[
+                                                        'relative z-[1] mt-2.5 rounded-xl border px-3 py-2 text-[11px] sm:text-[12px] leading-5 text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]',
+                                                        isPioneer
+                                                            ? 'border-violet-400/20 bg-[linear-gradient(180deg,rgba(168,85,247,0.10),rgba(255,255,255,0.03))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_24px_rgba(168,85,247,0.08)]'
+                                                            : 'border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.025))]',
+                                                    ].join(' ')}
+                                                >
+                                                    {getDiscoveryStoryLine(it)}
+                                                </div>
+                                                {isPioneer ? (
+                                                    <div className="relative z-[1] mt-3 rounded-xl border border-dashed border-violet-400/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(168,85,247,0.03))] px-3 py-2.5 text-center text-[12px] font-medium text-gray-300 shadow-[0_0_20px_rgba(168,85,247,0.06)]">
+                                                        No activity yet
+                                                    </div>
+                                                ) : (
+                                                    <div className="relative z-[1] mt-3 grid grid-cols-3 gap-1.5 sm:gap-2">
+                                                        <div
+                                                            className={[
+                                                                'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
+                                                                isCoinc
+                                                                    ? 'border-cyan-400/35 bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.14)]'
+                                                                    : 'border-white/10 bg-white/[0.03]',
+                                                            ].join(' ')}
+                                                        >
+                                                            <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
+                                                                Coinc.
+                                                            </div>
+                                                            <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
+                                                                {formatNumberCompact(it.total_coincarnations)}
+                                                            </div>
+                                                        </div>
+
+                                                        <div
+                                                            className={[
+                                                                'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
+                                                                isUsd
+                                                                    ? 'border-emerald-400/35 bg-emerald-400/10 shadow-[0_0_20px_rgba(16,185,129,0.14)]'
+                                                                    : 'border-white/10 bg-white/[0.03]',
+                                                            ].join(' ')}
+                                                        >
+                                                            <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
+                                                                Revived
+                                                            </div>
+                                                            <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
+                                                                {formatUsdCompact(it.total_revived_usd)}
+                                                            </div>
+                                                        </div>
+
+                                                        <div
+                                                            className={[
+                                                                'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
+                                                                isWallets
+                                                                    ? 'border-amber-400/35 bg-amber-400/10 shadow-[0_0_20px_rgba(245,158,11,0.14)]'
+                                                                    : 'border-white/10 bg-white/[0.03]',
+                                                            ].join(' ')}
+                                                        >
+                                                            <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
+                                                                Wallets
+                                                            </div>
+                                                            <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
+                                                                {formatNumberCompact(it.unique_wallets)}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {!isPioneer && (
+                                                    <div className="relative z-[1] mt-3 border-t border-white/6 pt-2.5 text-[10px] sm:text-[11px] text-gray-400">
+                                                        <div className="truncate text-left">
+                                                            Last activity:{' '}
+                                                            <span className="text-gray-200">
+                                                                {it.last_activity_at ? formatUpdatedShort(it.last_activity_at) : 'No activity yet'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                <button
+                                                    disabled={isDisabled}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleCoincarnateClick(it.mint, it.status);
+                                                    }}
+                                                    className={[
+                                                        'relative z-[1] mt-3 w-full rounded-xl px-3 py-2.5 text-[12px] sm:text-[13px] font-semibold tracking-[0.01em] transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]',
+                                                        getCoincarnateButtonClass(it.status, isDisabled),
+                                                        isPioneer ? 'shadow-[0_0_24px_rgba(168,85,247,0.10)] hover:shadow-[0_0_32px_rgba(168,85,247,0.16)]' : '',
+                                                    ].join(' ')}
+                                                    title={
+                                                        isDisabled
+                                                            ? 'Coincarnation is disabled for redlisted or blacklisted tokens.'
+                                                            : `Coincarnate ${it.symbol ? `$${it.symbol}` : 'this token'}`
+                                                    }
+                                                >
+                                                    {isDisabled
+                                                        ? 'Coincarnation Disabled'
+                                                        : it.rank_reason === 'search_pioneer'
+                                                            ? it.symbol
+                                                                ? `Be First to Coincarnate $${it.symbol}`
+                                                                : 'Be First to Coincarnate'
+                                                            : it.symbol
+                                                                ? `Coincarnate $${it.symbol}`
+                                                                : 'Coincarnate'}
+                                                </button>
                                             </div>
                                         </div>
-
-                                        <div className="relative z-[1] mt-2.5 pl-0 sm:pl-[56px]">
-                                            <div
-                                                className={[
-                                                    'rounded-xl border px-3 py-2 text-[11px] sm:text-[12px] leading-5 text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]',
-                                                    isPioneer
-                                                        ? 'border-violet-400/20 bg-[linear-gradient(180deg,rgba(168,85,247,0.10),rgba(255,255,255,0.03))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_24px_rgba(168,85,247,0.08)]'
-                                                        : 'border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.025))]',
-                                                ].join(' ')}
-                                            >
-                                                {getDiscoveryStoryLine(it)}
-                                            </div>
-                                        </div>
-
-                                        {isPioneer ? (
-                                            <div className="relative z-[1] mt-3 rounded-xl border border-dashed border-violet-400/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(168,85,247,0.03))] px-3 py-2.5 text-center text-[12px] font-medium text-gray-300 shadow-[0_0_20px_rgba(168,85,247,0.06)]">
-                                                No activity yet
-                                            </div>
-                                        ) : (
-                                            <div className="relative z-[1] mt-3 grid grid-cols-3 gap-1.5 sm:gap-2">
-                                                <div
-                                                    className={[
-                                                        'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
-                                                        isCoinc
-                                                            ? 'border-cyan-400/35 bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.14)]'
-                                                            : 'border-white/10 bg-white/[0.03]',
-                                                    ].join(' ')}
-                                                >
-                                                    <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
-                                                        Coinc.
-                                                    </div>
-                                                    <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
-                                                        {formatNumberCompact(it.total_coincarnations)}
-                                                    </div>
-                                                </div>
-
-                                                <div
-                                                    className={[
-                                                        'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
-                                                        isUsd
-                                                            ? 'border-emerald-400/35 bg-emerald-400/10 shadow-[0_0_20px_rgba(16,185,129,0.14)]'
-                                                            : 'border-white/10 bg-white/[0.03]',
-                                                    ].join(' ')}
-                                                >
-                                                    <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
-                                                        Revived
-                                                    </div>
-                                                    <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
-                                                        {formatUsdCompact(it.total_revived_usd)}
-                                                    </div>
-                                                </div>
-
-                                                <div
-                                                    className={[
-                                                        'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
-                                                        isWallets
-                                                            ? 'border-amber-400/35 bg-amber-400/10 shadow-[0_0_20px_rgba(245,158,11,0.14)]'
-                                                            : 'border-white/10 bg-white/[0.03]',
-                                                    ].join(' ')}
-                                                >
-                                                    <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
-                                                        Wallets
-                                                    </div>
-                                                    <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
-                                                        {formatNumberCompact(it.unique_wallets)}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {!isPioneer && (
-                                            <div className="relative z-[1] mt-3 border-t border-white/6 pt-2.5 text-[10px] sm:text-[11px] text-gray-400">
-                                                <div className="truncate text-left">
-                                                    Last activity:{' '}
-                                                    <span className="text-gray-200">
-                                                        {it.last_activity_at ? formatUpdatedShort(it.last_activity_at) : 'No activity yet'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <button
-                                            disabled={isDisabled}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleCoincarnateClick(it.mint, it.status);
-                                            }}
-                                            className={[
-                                                'relative z-[1] mt-3 w-full rounded-xl px-3 py-2.5 text-[12px] sm:text-[13px] font-semibold tracking-[0.01em] transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]',
-                                                getCoincarnateButtonClass(it.status, isDisabled),
-                                                isPioneer ? 'shadow-[0_0_24px_rgba(168,85,247,0.10)] hover:shadow-[0_0_32px_rgba(168,85,247,0.16)]' : '',
-                                            ].join(' ')}
-                                            title={
-                                                isDisabled
-                                                    ? 'Coincarnation is disabled for redlisted or blacklisted tokens.'
-                                                    : `Coincarnate ${it.symbol ? `$${it.symbol}` : 'this token'}`
-                                            }
-                                        >
-                                            {isDisabled
-                                                ? 'Coincarnation Disabled'
-                                                : it.rank_reason === 'search_pioneer'
-                                                    ? it.symbol
-                                                        ? `Be First to Coincarnate $${it.symbol}`
-                                                        : 'Be First to Coincarnate'
-                                                    : it.symbol
-                                                        ? `Coincarnate $${it.symbol}`
-                                                        : 'Coincarnate'}
-                                        </button>
                                     </div>
                                 );
                             })
