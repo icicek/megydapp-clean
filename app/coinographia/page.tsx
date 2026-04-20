@@ -307,65 +307,6 @@ function formatDiscoverySince(value: string | null) {
     });
 }
 
-function getFeaturedDiscoveryCardClass(heat: HeatLevel, status: TokenStatus) {
-    const base =
-        'relative overflow-hidden rounded-[26px] border p-5 transition-all duration-300';
-
-    if (heat === 'HOT') {
-        return `${base} border-rose-400/20 bg-[radial-gradient(circle_at_top_left,rgba(244,63,94,0.16),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] shadow-[0_0_0_1px_rgba(244,63,94,0.10),0_0_40px_rgba(244,63,94,0.10)]`;
-    }
-
-    if (heat === 'TRENDING') {
-        return `${base} border-amber-400/20 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.16),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] shadow-[0_0_0_1px_rgba(245,158,11,0.10),0_0_34px_rgba(245,158,11,0.10)]`;
-    }
-
-    if (heat === 'LIVE') {
-        return `${base} border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] shadow-[0_0_0_1px_rgba(34,211,238,0.10),0_0_34px_rgba(34,211,238,0.10)]`;
-    }
-
-    if (status === 'healthy') {
-        return `${base} border-emerald-400/15 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.10),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] shadow-[0_0_0_1px_rgba(16,185,129,0.06),0_0_28px_rgba(16,185,129,0.06)]`;
-    }
-
-    if (status === 'walking_dead') {
-        return `${base} border-amber-400/15 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.10),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] shadow-[0_0_0_1px_rgba(245,158,11,0.06),0_0_28px_rgba(245,158,11,0.06)]`;
-    }
-
-    if (status === 'deadcoin') {
-        return `${base} border-zinc-400/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_0_24px_rgba(255,255,255,0.03)]`;
-    }
-
-    return `${base} border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] opacity-95`;
-}
-
-function getFeaturedReasonText(sort: DiscoverySort, item: DiscoveryRow) {
-    if (sort === 'usd') {
-        return `${item.symbol || 'This token'} leads the current discovery view by revived USD value.`;
-    }
-
-    if (sort === 'wallets') {
-        return `${item.symbol || 'This token'} is leading by wallet participation in the current discovery view.`;
-    }
-
-    if (sort === 'coincarnations') {
-        return `${item.symbol || 'This token'} has the strongest Coincarnation count in the current discovery view.`;
-    }
-
-    if (item.heat_level === 'HOT') {
-        return `${item.symbol || 'This token'} is the hottest cluster right now based on recent Coincarnation activity.`;
-    }
-
-    if (item.heat_level === 'TRENDING') {
-        return `${item.symbol || 'This token'} is currently trending based on recent activity bursts.`;
-    }
-
-    if (item.heat_level === 'LIVE') {
-        return `${item.symbol || 'This token'} is currently live with detectable activity in the last 24 hours.`;
-    }
-
-    return `${item.symbol || 'This token'} stands out as a leading recent cluster in Coinographia.`;
-}
-
 function normalizeSearchText(value: string) {
     return value.trim().toLowerCase();
 }
@@ -820,7 +761,7 @@ export default function CoinographiaPage() {
                                 {discoverySearchContext.title}
                             </div>
 
-                            <div className="mt-1 text-sm leading-6 text-inherit/80">
+                            <div className="mt-1 text-sm leading-6 opacity-80">
                                 {discoverySearchContext.body}
                             </div>
                         </div>
@@ -911,10 +852,8 @@ export default function CoinographiaPage() {
                                     <div
                                         key={it.mint}
                                         onClick={() => handleCoincarnateClick(it.mint, it.status)}
-                                        style={{ animationDelay: `${index * 55}ms` }}
                                         className={[
                                             getDiscoveryCardClass(it.heat_level, it.status),
-                                            'animate-[fadeIn_0.45s_ease-out_both]',
                                             isFeatured
                                                 ? 'ring-1 ring-cyan-400/30 shadow-[0_0_26px_rgba(34,211,238,0.12)] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] md:scale-[1.01]'
                                                 : '',
