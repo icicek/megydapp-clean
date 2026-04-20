@@ -277,10 +277,10 @@ function getDiscoveryStoryLine(item: DiscoveryRow) {
 }
 
 function getDiscoverySortLabel(sort: DiscoverySort) {
-    if (sort === 'usd') return 'Showing clusters ranked by revived USD';
-    if (sort === 'wallets') return 'Showing clusters ranked by wallet participation';
-    if (sort === 'coincarnations') return 'Showing clusters ranked by Coincarnation count';
-    return 'Showing clusters ranked by recent activity';
+    if (sort === 'usd') return 'Clusters ranked by revived value — where capital is flowing';
+    if (sort === 'wallets') return 'Clusters ranked by participation — where people are gathering';
+    if (sort === 'coincarnations') return 'Clusters ranked by activity — where Coincarnation is happening most';
+    return 'Clusters ranked by recent momentum — where activity is emerging';
 }
 
 function getRankReasonLabel(reason: DiscoveryRow['rank_reason']) {
@@ -552,12 +552,13 @@ export default function CoinographiaPage() {
                                 </div>
 
                                 <h1 className="mt-4 max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-4xl xl:text-[42px] xl:leading-[1.05]">
-                                    The living map of token resurrection
+                                    Discover where tokens are coming back to life
                                 </h1>
 
                                 <p className="mt-4 max-w-2xl text-sm leading-6 text-gray-300 sm:text-[15px]">
-                                    Explore how tokens survive, weaken, or return through Coincarnation.
-                                    Coinographia combines status logic, revival activity, and public thresholds into one living discovery surface.
+                                    Coinographia reveals where Coincarnation is actively happening.
+                                    Track emerging clusters, rising activity, and early revival signals —
+                                    before they become obvious to everyone else.
                                 </p>
 
                                 <div className="mt-6 flex flex-wrap items-center gap-2.5">
@@ -677,7 +678,7 @@ export default function CoinographiaPage() {
                                 <input
                                     value={q}
                                     onChange={(e) => setQ(e.target.value)}
-                                    placeholder="Search token (symbol, name or mint)"
+                                    placeholder="Search a token… find clusters or become the first"
                                     className="h-12 w-full rounded-2xl border border-white/10 bg-[#0d1526] pl-10 pr-4 text-sm text-white outline-none transition-all duration-200 placeholder:text-gray-500 focus:border-cyan-400/40 focus:bg-[#101a2e] focus:shadow-[0_0_0_1px_rgba(34,211,238,0.22),0_0_24px_rgba(34,211,238,0.10)]"
                                 />
                             </div>
@@ -729,9 +730,9 @@ export default function CoinographiaPage() {
                         <div className="flex max-w-3xl flex-col xl:min-h-[100%] xl:justify-between">
                             <h2 className="text-lg font-semibold text-white">Live Discovery</h2>
                             <p className="mt-2 text-sm text-gray-300">
-                                Explore the most active Coincarnation clusters. This layer highlights how often a token
-                                has been coincarnated, how much value it has revived, how many unique wallets joined,
-                                and whether it is currently live, trending, or hot.
+                                This is where Coincarnation activity concentrates.
+                                Discover which tokens are gaining traction, attracting wallets,
+                                and generating revival momentum in real time.
                             </p>
                             <p className="mt-3 text-xs text-gray-400">
                                 {getDiscoverySortLabel(discoverySort)}
@@ -987,7 +988,7 @@ export default function CoinographiaPage() {
                             })
                         ) : (
                             <div className="sm:col-span-2 xl:col-span-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-gray-400">
-                                No discovery clusters found yet.
+                                No active clusters found right now — this might be your moment to start one.
                             </div>
                         )}
                     </div>
