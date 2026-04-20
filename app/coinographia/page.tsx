@@ -623,7 +623,7 @@ export default function CoinographiaPage() {
                                 </div>
                             </div>
 
-                            <div className="min-w-0 flex-1 xl:max-w-[560px]">
+                            <div className="min-w-0 flex-1 xl:max-w-[560px] xl:h-full xl:flex xl:flex-col xl:justify-end">
                                 {metricsError && (
                                     <div className="mb-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
                                         Threshold metrics could not be loaded right now.
