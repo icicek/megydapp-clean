@@ -167,20 +167,30 @@ function getMetricCardValue(metricCards: MetricCard[], key: string) {
 
 async function copyToClipboard(text: string) {
     try {
-        await navigator.clipboard.writeText(text);
-        return true;
-    } catch {
-        try {
-            const ta = document.createElement('textarea');
-            ta.value = text;
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
+        if (navigator?.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
             return true;
-        } catch {
-            return false;
         }
+
+        const isCoarsePointer =
+            typeof window !== 'undefined' &&
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(pointer: coarse)').matches;
+
+        if (isCoarsePointer) return false;
+
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', 'true');
+        ta.style.position = 'absolute';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+    } catch {
+        return false;
     }
 }
 
@@ -388,25 +398,25 @@ function getDiscoverySearchContextClass(
 
 function getMobileActionButtonClass(status: TokenStatus, disabled: boolean) {
     const base =
-        'h-11 w-11 rounded-xl border border-white/10 bg-white/[0.04] text-lg font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm transition-all duration-200 flex items-center justify-center';
+        'h-12 w-12 rounded-2xl border text-[18px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_24px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 flex items-center justify-center';
 
     if (disabled) {
-        return `${base} opacity-45 cursor-not-allowed text-gray-500`;
+        return `${base} border-white/10 bg-white/[0.03] text-gray-500 opacity-45 cursor-not-allowed`;
     }
 
     if (status === 'healthy') {
-        return `${base} hover:border-emerald-400/40 hover:bg-emerald-500/12 hover:text-emerald-200 hover:shadow-[0_0_20px_rgba(16,185,129,0.16)]`;
+        return `${base} border-emerald-400/20 bg-emerald-500/10 text-emerald-200`;
     }
 
     if (status === 'walking_dead') {
-        return `${base} hover:border-amber-400/40 hover:bg-amber-500/12 hover:text-amber-200 hover:shadow-[0_0_20px_rgba(245,158,11,0.16)]`;
+        return `${base} border-amber-400/25 bg-amber-500/12 text-amber-200`;
     }
 
     if (status === 'deadcoin') {
-        return `${base} hover:border-zinc-300/20 hover:bg-zinc-500/10 hover:text-zinc-100 hover:shadow-[0_0_20px_rgba(113,113,122,0.16)]`;
+        return `${base} border-zinc-300/15 bg-zinc-500/10 text-zinc-100`;
     }
 
-    return `${base} hover:border-white/20 hover:bg-white/[0.08]`;
+    return `${base} border-cyan-400/20 bg-cyan-500/10 text-cyan-200`;
 }
 
 function scrollToRegistry() {
@@ -433,6 +443,7 @@ export default function CoinographiaPage() {
     const [items, setItems] = useState<TokenRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [copiedMint, setCopiedMint] = useState<string | null>(null);
 
     const [q, setQ] = useState('');
     const [status, setStatus] = useState<TokenStatus | ''>('');
@@ -559,6 +570,17 @@ export default function CoinographiaPage() {
     const hasActiveSearch = q.trim().length > 0;
 
     const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    async function handleMintCopy(mint: string) {
+        const ok = await copyToClipboard(mint);
+        if (!ok) return;
+    
+        setCopiedMint(mint);
+    
+        window.setTimeout(() => {
+            setCopiedMint(null);
+        }, 1200);
+    }
 
     return (
         <div className="min-h-screen bg-[#090d15] text-white px-4 py-4 md:px-8 md:py-6">
@@ -1147,14 +1169,17 @@ export default function CoinographiaPage() {
                                                 </div>
 
                                                 <button
-                                                    onClick={async () => {
-                                                        await copyToClipboard(it.mint);
-                                                    }}
-                                                    className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] text-gray-300 transition-colors hover:bg-white/[0.08] hover:text-white"
-                                                    title="Copy mint"
-                                                    aria-label="Copy mint"
+                                                    onClick={() => void handleMintCopy(it.mint)}
+                                                    className={[
+                                                        'shrink-0 rounded-full border px-2 py-0.5 text-[10px] transition-all duration-200',
+                                                        copiedMint === it.mint
+                                                            ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-200'
+                                                            : 'border-white/10 bg-white/[0.04] text-gray-300 hover:bg-white/[0.08] hover:text-white',
+                                                    ].join(' ')}
+                                                    title={copiedMint === it.mint ? 'Copied' : 'Copy mint'}
+                                                    aria-label={copiedMint === it.mint ? 'Copied' : 'Copy mint'}
                                                 >
-                                                    copy
+                                                    {copiedMint === it.mint ? 'copied' : 'copy'}
                                                 </button>
                                             </div>
                                         </div>
@@ -1177,7 +1202,7 @@ export default function CoinographiaPage() {
                                                 : `Coincarnate ${it.symbol ? `$${it.symbol}` : 'this token'}`
                                         }
                                     >
-                                        ↗
+                                        <span className="leading-none">↗</span>
                                     </button>
                                 </div>
                             </div>
@@ -1187,13 +1212,13 @@ export default function CoinographiaPage() {
 
                 {/* Desktop table */}
                 <div className="hidden md:block overflow-x-auto rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.025))] shadow-[0_16px_50px_rgba(0,0,0,0.16)]">
-                    <table className="min-w-full text-sm">
+                    <table className="min-w-full table-fixed text-sm">
                         <thead className="bg-white/[0.06] backdrop-blur-sm">
                             <tr>
-                                <th className="w-[44%] p-3 text-left text-sm">Token</th>
+                                <th className="w-[40%] p-3 text-left text-sm">Token</th>
                                 <th className="w-[14%] p-3 text-center text-sm">Status</th>
                                 <th className="w-[18%] p-3 text-center text-sm">Details</th>
-                                <th className="w-[24%] p-3 text-center text-sm">Action</th>
+                                <th className="w-[28%] p-3 text-center text-sm">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1235,9 +1260,7 @@ export default function CoinographiaPage() {
                                                         </div>
 
                                                         <button
-                                                            onClick={async () => {
-                                                                await copyToClipboard(it.mint);
-                                                            }}
+                                                            onClick={() => void handleMintCopy(it.mint)}
                                                             className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] text-gray-300 transition-colors hover:bg-white/[0.08] hover:text-white"
                                                             title="Copy mint"
                                                             aria-label="Copy mint"
