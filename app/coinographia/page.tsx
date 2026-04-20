@@ -572,8 +572,8 @@ export default function CoinographiaPage() {
                     <div className="pointer-events-none absolute -left-12 bottom-[-50px] h-40 w-40 rounded-full bg-emerald-400/10 blur-3xl" />
 
                     <div className="relative p-6 md:p-7 xl:p-8">
-                        <div className="flex flex-col gap-7 xl:flex-row xl:items-stretch xl:justify-between">
-                            <div className="flex max-w-3xl flex-col xl:min-h-[100%] xl:justify-between">
+                        <div className="grid gap-7 xl:grid-cols-[minmax(0,1.25fr)_minmax(520px,560px)] xl:grid-rows-[auto_auto] xl:items-stretch">
+                            <div>
                                 <div className="flex flex-wrap items-center gap-2">
                                     <span className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-200">
                                         Coinographia
@@ -615,15 +615,9 @@ export default function CoinographiaPage() {
                                         Blacklist
                                     </span>
                                 </div>
-
-                                <div className="mt-6 max-w-2xl rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-                                    <p className="text-xs leading-6 text-gray-400 sm:text-sm">
-                                        Strong tokens remain above higher survival thresholds. Walking Deadcoins fall into the danger zone without fully disappearing. Deadcoins drop below minimum survivability. Redlist and Blacklist directly override Coincarnation access.
-                                    </p>
-                                </div>
                             </div>
 
-                            <div className="min-w-0 flex-1 xl:max-w-[560px] xl:h-full xl:flex xl:flex-col xl:justify-end">
+                            <div className="min-w-0 xl:row-span-2">
                                 {metricsError && (
                                     <div className="mb-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
                                         Threshold metrics could not be loaded right now.
@@ -698,6 +692,14 @@ export default function CoinographiaPage() {
                                             Survival liquidity line before falling below minimum viability.
                                         </p>
                                     </div>
+                                </div>
+                            </div>
+
+                            <div className="xl:self-end">
+                                <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                                    <p className="text-xs leading-6 text-gray-400 sm:text-sm">
+                                        Strong tokens remain above higher survival thresholds. Walking Deadcoins fall into the danger zone without fully disappearing. Deadcoins drop below minimum survivability. Redlist and Blacklist directly override Coincarnation access.
+                                    </p>
                                 </div>
                             </div>
                         </div>
