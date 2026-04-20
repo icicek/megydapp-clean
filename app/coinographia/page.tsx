@@ -633,7 +633,7 @@ export default function CoinographiaPage() {
                                 )}
 
                                 <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:flex-1">
-                                    <div className="group flex h-full min-h-[182px] xl:min-h-[188px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(16,185,129,0.08)]">
+                                    <div className="group flex h-full min-h-[164px] xl:min-h-[170px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(16,185,129,0.08)]">
                                         <div className="flex items-center justify-between gap-3">
                                             <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                                 Healthy Min Volume
@@ -641,7 +641,7 @@ export default function CoinographiaPage() {
                                             <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.9)]" />
                                         </div>
 
-                                        <div className="mt-4 text-2xl font-bold text-white">
+                                        <div className="mt-6 text-2xl font-bold text-white">
                                             {formatMetricValue(getMetricCardValue(metricCards, 'healthy_min_vol_usd'), 'usd')}
                                         </div>
 
@@ -650,7 +650,7 @@ export default function CoinographiaPage() {
                                         </p>
                                     </div>
 
-                                    <div className="group flex h-full min-h-[182px] xl:min-h-[188px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(34,211,238,0.08)]">
+                                    <div className="group flex h-full min-h-[164px] xl:min-h-[170px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(34,211,238,0.08)]">
                                         <div className="flex items-center justify-between gap-3">
                                             <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                                 Healthy Min Liquidity
@@ -658,7 +658,7 @@ export default function CoinographiaPage() {
                                             <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_14px_rgba(34,211,238,0.9)]" />
                                         </div>
 
-                                        <div className="mt-4 text-2xl font-bold text-white">
+                                        <div className="mt-6 text-2xl font-bold text-white">
                                             {formatMetricValue(getMetricCardValue(metricCards, 'healthy_min_liq_usd'), 'usd')}
                                         </div>
 
@@ -667,7 +667,7 @@ export default function CoinographiaPage() {
                                         </p>
                                     </div>
 
-                                    <div className="group flex h-full min-h-[182px] xl:min-h-[188px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(245,158,11,0.08)]">
+                                    <div className="group flex h-full min-h-[164px] xl:min-h-[170px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(245,158,11,0.08)]">
                                         <div className="flex items-center justify-between gap-3">
                                             <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                                 Walking Dead Min Volume
@@ -675,7 +675,7 @@ export default function CoinographiaPage() {
                                             <span className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.9)]" />
                                         </div>
 
-                                        <div className="mt-4 text-2xl font-bold text-white">
+                                        <div className="mt-6 text-2xl font-bold text-white">
                                             {formatMetricValue(getMetricCardValue(metricCards, 'walking_dead_min_vol_usd'), 'usd')}
                                         </div>
 
@@ -684,7 +684,7 @@ export default function CoinographiaPage() {
                                         </p>
                                     </div>
 
-                                    <div className="group flex h-full min-h-[182px] xl:min-h-[188px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(244,63,94,0.08)]">
+                                    <div className="group flex h-full min-h-[164px] xl:min-h-[170px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(244,63,94,0.08)]">
                                         <div className="flex items-center justify-between gap-3">
                                             <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                                 Walking Dead Min Liquidity
@@ -692,7 +692,7 @@ export default function CoinographiaPage() {
                                             <span className="h-2.5 w-2.5 rounded-full bg-rose-400 shadow-[0_0_14px_rgba(251,113,133,0.9)]" />
                                         </div>
 
-                                        <div className="mt-4 text-2xl font-bold text-white">
+                                        <div className="mt-6 text-2xl font-bold text-white">
                                             {formatMetricValue(getMetricCardValue(metricCards, 'walking_dead_min_liq_usd'), 'usd')}
                                         </div>
 
