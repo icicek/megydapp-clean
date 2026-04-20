@@ -626,6 +626,12 @@ export default function CoinographiaPage() {
                                 </div>
                             </div>
 
+                            {metricsError && (
+                                <div className="mb-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                                    Threshold metrics could not be loaded right now.
+                                </div>
+                            )}
+
                             <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:max-w-[560px]">
                                 <div className="group flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(16,185,129,0.08)]">
                                     <div className="flex items-center justify-between gap-3">
@@ -830,7 +836,7 @@ export default function CoinographiaPage() {
                                 className="max-w-[156px] truncate whitespace-nowrap rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08]"
                                 title="Refresh Discovery"
                             >
-                                Refresh Discovery
+                                Refresh
                             </button>
                         </div>
                     </div>
@@ -846,7 +852,7 @@ export default function CoinographiaPage() {
                             [...Array(6)].map((_, i) => (
                                 <div
                                     key={i}
-                                    className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 animate-pulse"
+                                    className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(20,27,45,0.78),rgba(11,16,28,0.90))] p-4 animate-pulse"
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className="h-11 w-11 rounded-full bg-white/10" />
@@ -1103,7 +1109,7 @@ export default function CoinographiaPage() {
                 {/* Mobile cards */}
                 <div className="space-y-3 md:hidden">
                     {items.length === 0 && !loading && (
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-gray-400">
+                        <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.028))] p-4 text-gray-400 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
                             No registry records matched your current filters.
                         </div>
                     )}
@@ -1292,7 +1298,7 @@ export default function CoinographiaPage() {
                         <button
                             onClick={() => setPage((p) => Math.max(0, p - 1))}
                             disabled={page === 0}
-                            className="rounded border border-white/10 bg-white/5 px-3 py-2 disabled:opacity-50"
+                            className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08] disabled:opacity-50"
                         >
                             Previous
                         </button>
@@ -1300,7 +1306,7 @@ export default function CoinographiaPage() {
                         <button
                             onClick={() => setPage((p) => (p + 1 < totalPages ? p + 1 : p))}
                             disabled={page + 1 >= totalPages}
-                            className="rounded border border-white/10 bg-white/5 px-3 py-2 disabled:opacity-50"
+                            className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08] disabled:opacity-50"
                         >
                             Next
                         </button>
