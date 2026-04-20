@@ -398,8 +398,8 @@ function getDiscoverySearchContextClass(
 
 function getMobileActionButtonClass(status: TokenStatus, disabled: boolean) {
     const base =
-        'h-9 w-9 rounded-xl border text-[14px] font-semibold ' +
-        'shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_20px_rgba(0,0,0,0.14)] ' +
+        'h-8 w-8 rounded-xl border text-[13px] font-semibold ' +
+        'shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_16px_rgba(0,0,0,0.14)] ' +
         'backdrop-blur-sm transition-all duration-200 flex items-center justify-center ' +
         'hover:scale-105 active:scale-95';
 
@@ -412,11 +412,11 @@ function getMobileActionButtonClass(status: TokenStatus, disabled: boolean) {
     }
 
     if (status === 'walking_dead') {
-        return `${base} border-amber-400/25 bg-amber-500/12 text-amber-200 hover:shadow-[0_0_18px_rgba(16,185,129,0.35)]`;
+        return `${base} border-amber-400/25 bg-amber-500/12 text-amber-200 hover:shadow-[0_0_18px_rgba(245,158,11,0.35)]`;
     }
 
     if (status === 'deadcoin') {
-        return `${base} border-zinc-300/15 bg-zinc-500/10 text-zinc-100 hover:shadow-[0_0_18px_rgba(16,185,129,0.35)]`;
+        return `${base} border-zinc-300/15 bg-zinc-500/10 text-zinc-100 hover:shadow-[0_0_18px_rgba(113,113,122,0.35)]`;
     }
 
     return `${base} border-cyan-400/20 bg-cyan-500/10 text-cyan-200`;
@@ -430,6 +430,10 @@ function scrollToRegistry() {
         behavior: 'smooth',
         block: 'start',
     });
+
+    setTimeout(() => {
+        history.replaceState(null, '', '/coinographia');
+    }, 400);
 }
 
 function handleCoincarnateClick(mint: string, status: TokenStatus) {
@@ -860,7 +864,7 @@ export default function CoinographiaPage() {
 
                             <button
                                 onClick={() => void loadDiscovery()}
-                                className="max-w-[156px] truncate whitespace-nowrap rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08]"
+                                className="flex-1 min-w-0 truncate whitespace-nowrap rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08]"
                                 title="Refresh Discovery"
                             >
                                 Refresh
@@ -1175,7 +1179,7 @@ export default function CoinographiaPage() {
                                                 <button
                                                     onClick={() => void handleMintCopy(it.mint)}
                                                     className={[
-                                                        'shrink-0 rounded-full border px-2 py-0.5 text-[10px] transition-all duration-200',
+                                                        'shrink-0 rounded-full border px-2 py-0.5 text-[10px] transition-all duration-200 hover:scale-[1.05] active:scale-[0.95]',
                                                         copiedMint === it.mint
                                                             ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-200'
                                                             : 'border-white/10 bg-white/[0.04] text-gray-300 hover:bg-white/[0.08] hover:text-white',
@@ -1241,7 +1245,7 @@ export default function CoinographiaPage() {
                                 return (
                                     <tr
                                         key={it.mint}
-                                        className="border-b border-white/10 transition-colors duration-150 hover:bg-white/[0.05]"
+                                        className="border-b border-white/10 transition-colors duration-150 hover:bg-white/[0.05] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]"
                                     >
                                         <td className="p-4">
                                             <div className="flex items-center gap-3 min-w-0">
@@ -1269,12 +1273,13 @@ export default function CoinographiaPage() {
                                                         <button
                                                             onClick={() => void handleMintCopy(it.mint)}
                                                             className={[
-                                                                'shrink-0 rounded-full border px-2 py-0.5 text-[10px] transition-all duration-200',
+                                                                'shrink-0 rounded-full border px-2 py-0.5 text-[10px] transition-all duration-200 hover:scale-[1.05] active:scale-[0.95]',
                                                                 copiedMint === it.mint
                                                                     ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-200'
                                                                     : 'border-white/10 bg-white/[0.04] text-gray-300 hover:bg-white/[0.08] hover:text-white',
                                                             ].join(' ')}
                                                             title={copiedMint === it.mint ? 'Copied' : 'Copy mint'}
+                                                            aria-label={copiedMint === it.mint ? 'Copied' : 'Copy mint'}
                                                         >
                                                             {copiedMint === it.mint ? 'copied' : 'copy'}
                                                         </button>
@@ -1350,7 +1355,7 @@ export default function CoinographiaPage() {
             </div>
             {toast && (
                 <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center">
-                    <div className="rounded-full border border-emerald-400/25 bg-emerald-500/12 px-4 py-2 text-sm text-emerald-200 shadow-[0_10px_30px_rgba(16,185,129,0.18)] backdrop-blur-sm animate-[fadeIn_0.25s_ease-out]">
+                    <div className="rounded-full border border-emerald-400/25 bg-emerald-500/12 px-4 py-2 text-sm text-emerald-200 shadow-[0_10px_30px_rgba(16,185,129,0.18)] backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
                         {toast.text}
                     </div>
                 </div>
