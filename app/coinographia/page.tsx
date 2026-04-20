@@ -827,7 +827,7 @@ export default function CoinographiaPage() {
                     )}
                 </div>
 
-                <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-5">
+                <div className="mb-8 rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.028))] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.20)]">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                         <div className="flex max-w-3xl flex-col xl:min-h-[100%] xl:justify-between">
                             <h2 className="text-lg font-semibold text-white">Live Discovery</h2>
@@ -870,7 +870,7 @@ export default function CoinographiaPage() {
                         </div>
                     )}
 
-                    <div className="mt-5 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                         {discoveryLoading && discoveryItems.length === 0 ? (
                             [...Array(6)].map((_, i) => (
                                 <div
@@ -911,21 +911,23 @@ export default function CoinographiaPage() {
                                     <div
                                         key={it.mint}
                                         onClick={() => handleCoincarnateClick(it.mint, it.status)}
+                                        style={{ animationDelay: `${index * 55}ms` }}
                                         className={[
                                             getDiscoveryCardClass(it.heat_level, it.status),
+                                            'animate-[fadeIn_0.45s_ease-out_both]',
                                             isFeatured
-                                                ? 'ring-1 ring-cyan-400/30 shadow-[0_0_26px_rgba(34,211,238,0.12)] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))]'
+                                                ? 'ring-1 ring-cyan-400/30 shadow-[0_0_26px_rgba(34,211,238,0.12)] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] md:scale-[1.01]'
                                                 : '',
                                             isPioneer ? getPioneerCardAccentClass() : '',
                                         ].join(' ')}
                                     >
                                         {isFeatured && (
                                             <div className="relative z-[1] mb-3 flex flex-wrap items-center gap-2">
-                                                <span className="inline-flex items-center rounded-full border border-cyan-400/25 bg-cyan-400/12 px-2.5 py-1 text-[10px] font-semibold tracking-[0.04em] text-cyan-200 shadow-[0_0_18px_rgba(34,211,238,0.10)]">
-                                                    Featured
+                                                <span className="inline-flex items-center rounded-full border border-cyan-400/30 bg-cyan-400/14 px-2.5 py-1 text-[10px] font-semibold tracking-[0.05em] text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.14)]">
+                                                    Featured Cluster
                                                 </span>
 
-                                                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-medium text-gray-300">
+                                                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] font-medium text-gray-300">
                                                     Ranked by {discoverySort}
                                                 </span>
                                             </div>
@@ -950,13 +952,13 @@ export default function CoinographiaPage() {
                                             )}
 
                                             <div className="min-w-0 flex-1 pt-0.5">
-                                                <div className="truncate text-[14px] sm:text-[15px] font-semibold leading-[1.2] text-white transition-colors duration-200 group-hover:text-white">
+                                                <div className="truncate text-[14px] sm:text-[15px] font-semibold leading-[1.2] text-white transition-all duration-200 group-hover:text-cyan-50 group-hover:tracking-[0.01em]">
                                                     {it.symbol || 'Unknown Symbol'}
                                                     {it.name ? ` — ${it.name}` : ''}
                                                 </div>
 
                                                 <div
-                                                    className="mt-0.5 truncate font-mono text-[10px] sm:text-[11px] text-gray-500 transition-colors duration-200 group-hover:text-gray-400"
+                                                    className="mt-0.5 truncate font-mono text-[10px] sm:text-[11px] text-gray-500 transition-colors duration-200 group-hover:text-gray-300"
                                                     title={it.mint}
                                                 >
                                                     {shortenMint(it.mint)}
@@ -982,7 +984,7 @@ export default function CoinographiaPage() {
 
                                             <div
                                                 className={[
-                                                    'relative z-[1] mt-2.5 rounded-xl border px-3 py-2 text-[11px] sm:text-[12px] leading-5 text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]',
+                                                    'relative z-[1] mt-2.5 rounded-xl border px-3 py-2 text-[11px] sm:text-[12px] leading-5 text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-all duration-200 group-hover:-translate-y-[1px]',
                                                     isPioneer
                                                         ? 'border-violet-400/20 bg-[linear-gradient(180deg,rgba(168,85,247,0.10),rgba(255,255,255,0.03))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_24px_rgba(168,85,247,0.08)]'
                                                         : 'border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.025))]',
@@ -999,7 +1001,7 @@ export default function CoinographiaPage() {
                                                 <div className="relative z-[1] mt-3 grid grid-cols-3 gap-1.5 sm:gap-2">
                                                     <div
                                                         className={[
-                                                            'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
+                                                            'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[2px] group-hover:shadow-[0_10px_24px_rgba(0,0,0,0.16)]',
                                                             isCoinc
                                                                 ? 'border-cyan-400/35 bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.14)]'
                                                                 : 'border-white/10 bg-white/[0.03]',
@@ -1015,7 +1017,7 @@ export default function CoinographiaPage() {
 
                                                     <div
                                                         className={[
-                                                            'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
+                                                            'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[2px] group-hover:shadow-[0_10px_24px_rgba(0,0,0,0.16)]',
                                                             isUsd
                                                                 ? 'border-emerald-400/35 bg-emerald-400/10 shadow-[0_0_20px_rgba(16,185,129,0.14)]'
                                                                 : 'border-white/10 bg-white/[0.03]',
@@ -1031,7 +1033,7 @@ export default function CoinographiaPage() {
 
                                                     <div
                                                         className={[
-                                                            'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[1px]',
+                                                            'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[2px] group-hover:shadow-[0_10px_24px_rgba(0,0,0,0.16)]',
                                                             isWallets
                                                                 ? 'border-amber-400/35 bg-amber-400/10 shadow-[0_0_20px_rgba(245,158,11,0.14)]'
                                                                 : 'border-white/10 bg-white/[0.03]',
@@ -1065,7 +1067,7 @@ export default function CoinographiaPage() {
                                                     handleCoincarnateClick(it.mint, it.status);
                                                 }}
                                                 className={[
-                                                    'relative z-[1] mt-3 w-full rounded-xl px-3 py-2.5 text-[12px] sm:text-[13px] font-semibold tracking-[0.01em] transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]',
+                                                    'relative z-[1] mt-3 w-full rounded-xl px-3 py-2.5 text-[12px] sm:text-[13px] font-semibold tracking-[0.01em] transition-all duration-200 hover:scale-[1.01] hover:-translate-y-[1px] active:scale-[0.99]',
                                                     getCoincarnateButtonClass(it.status, isDisabled),
                                                     isPioneer ? 'shadow-[0_0_24px_rgba(168,85,247,0.10)] hover:shadow-[0_0_32px_rgba(168,85,247,0.16)]' : '',
                                                 ].join(' ')}
