@@ -633,7 +633,7 @@ export default function CoinographiaPage() {
                                 )}
 
                                 <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:flex-1">
-                                    <div className="group flex h-full min-h-[226px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(16,185,129,0.08)]">
+                                    <div className="group flex h-full min-h-[182px] xl:min-h-[188px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(16,185,129,0.08)]">
                                         <div className="flex items-center justify-between gap-3">
                                             <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                                 Healthy Min Volume
@@ -650,7 +650,7 @@ export default function CoinographiaPage() {
                                         </p>
                                     </div>
 
-                                    <div className="group flex h-full min-h-[226px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(34,211,238,0.08)]">
+                                    <div className="group flex h-full min-h-[182px] xl:min-h-[188px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(34,211,238,0.08)]">
                                         <div className="flex items-center justify-between gap-3">
                                             <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                                 Healthy Min Liquidity
@@ -667,7 +667,7 @@ export default function CoinographiaPage() {
                                         </p>
                                     </div>
 
-                                    <div className="group flex h-full min-h-[226px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(245,158,11,0.08)]">
+                                    <div className="group flex h-full min-h-[182px] xl:min-h-[188px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(245,158,11,0.08)]">
                                         <div className="flex items-center justify-between gap-3">
                                             <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                                 Walking Dead Min Volume
@@ -684,7 +684,7 @@ export default function CoinographiaPage() {
                                         </p>
                                     </div>
 
-                                    <div className="group flex h-full min-h-[226px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(244,63,94,0.08)]">
+                                    <div className="group flex h-full min-h-[182px] xl:min-h-[188px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(244,63,94,0.08)]">
                                         <div className="flex items-center justify-between gap-3">
                                             <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                                 Walking Dead Min Liquidity
