@@ -247,7 +247,7 @@ function getPioneerCardAccentClass() {
 
 function getDiscoveryStoryLine(item: DiscoveryRow) {
     if (item.rank_reason === 'search_pioneer') {
-        return '✨ No Coincarnation activity yet — be the first to bring this token to life.';
+        return '✨ No Coincarnation activity yet — this search could become its first signal.';
     }
     if (item.heat_level === 'HOT') {
         return `🔥 Exploding now — ${formatNumberCompact(item.recent_10m_count)} hits in 10m`;
@@ -364,6 +364,85 @@ function getFeaturedReasonText(sort: DiscoverySort, item: DiscoveryRow) {
     }
 
     return `${item.symbol || 'This token'} stands out as a leading recent cluster in Coinographia.`;
+}
+
+function normalizeSearchText(value: string) {
+    return value.trim().toLowerCase();
+}
+
+function isExactDiscoveryMatch(item: DiscoveryRow, query: string) {
+    const q = normalizeSearchText(query);
+    if (!q) return false;
+
+    return (
+        normalizeSearchText(item.symbol || '') === q ||
+        normalizeSearchText(item.name || '') === q ||
+        normalizeSearchText(item.mint) === q
+    );
+}
+
+function getDiscoverySearchContext(items: DiscoveryRow[], query: string) {
+    const q = query.trim();
+    if (!q) return null;
+
+    const exactItem = items.find((item) => isExactDiscoveryMatch(item, q));
+    if (exactItem) {
+        if (exactItem.rank_reason === 'search_pioneer') {
+            return {
+                tone: 'pioneer' as const,
+                title: 'Exact match found — no activity yet',
+                body: `${exactItem.symbol || exactItem.name || 'This token'} was found, but it has not entered an active Coincarnation cluster yet.`,
+            };
+        }
+
+        return {
+            tone: 'exact' as const,
+            title: 'Exact match surfaced',
+            body: `${exactItem.symbol || exactItem.name || 'This token'} is currently visible in discovery results.`,
+        };
+    }
+
+    if (items.length > 0) {
+        const hasPioneer = items.some((item) => item.rank_reason === 'search_pioneer');
+
+        if (hasPioneer) {
+            return {
+                tone: 'pioneer' as const,
+                title: 'Found, but not in active clusters',
+                body: 'A matching token was found, but it has no Coincarnation activity yet. This could be an early entry point.',
+            };
+        }
+
+        return {
+            tone: 'related' as const,
+            title: 'Related clusters surfaced',
+            body: 'No exact match was found, but nearby discovery results matched your search.',
+        };
+    }
+
+    return {
+        tone: 'empty' as const,
+        title: 'No discovery match found',
+        body: 'Try a symbol, full token name, or the mint address to surface a better match.',
+    };
+}
+
+function getDiscoverySearchContextClass(
+    tone: 'exact' | 'related' | 'pioneer' | 'empty'
+) {
+    if (tone === 'exact') {
+        return 'border-cyan-400/25 bg-cyan-400/10 text-cyan-100';
+    }
+
+    if (tone === 'related') {
+        return 'border-white/10 bg-white/[0.04] text-gray-200';
+    }
+
+    if (tone === 'pioneer') {
+        return 'border-violet-400/25 bg-violet-400/10 text-violet-100';
+    }
+
+    return 'border-amber-400/20 bg-amber-400/10 text-amber-100';
 }
 
 function getMobileActionButtonClass(status: TokenStatus, disabled: boolean) {
@@ -525,6 +604,12 @@ export default function CoinographiaPage() {
         return () => clearTimeout(id);
     }, [q, status, discoverySort]);
 
+    const discoverySearchContext = useMemo(() => {
+        return getDiscoverySearchContext(discoveryItems, q);
+    }, [discoveryItems, q]);
+
+    const hasActiveSearch = q.trim().length > 0;
+
     const totalPages = Math.max(1, Math.ceil(total / limit));
 
     return (
@@ -585,7 +670,7 @@ export default function CoinographiaPage() {
 
                                 <div className="mt-6 max-w-2xl rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
                                     <p className="text-xs leading-6 text-gray-400 sm:text-sm">
-                                        Strong tokens remain above higher survival thresholds. Walking dead tokens fall into the danger zone without fully disappearing. Deadcoins drop below minimum survivability. Redlist and Blacklist directly override Coincarnation access.
+                                        Strong tokens remain above higher survival thresholds. Walking Deadcoins fall into the danger zone without fully disappearing. Deadcoins drop below minimum survivability. Redlist and Blacklist directly override Coincarnation access.
                                     </p>
                                 </div>
                             </div>
@@ -723,6 +808,23 @@ export default function CoinographiaPage() {
                             </div>
                         </div>
                     </div>
+
+                    {hasActiveSearch && discoverySearchContext && (
+                        <div
+                            className={[
+                                'mt-3 rounded-2xl border px-4 py-3 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]',
+                                getDiscoverySearchContextClass(discoverySearchContext.tone),
+                            ].join(' ')}
+                        >
+                            <div className="font-semibold">
+                                {discoverySearchContext.title}
+                            </div>
+
+                            <div className="mt-1 text-sm leading-6 text-inherit/80">
+                                {discoverySearchContext.body}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-5">
@@ -734,9 +836,10 @@ export default function CoinographiaPage() {
                                 Discover which tokens are gaining traction, attracting wallets,
                                 and generating revival momentum in real time.
                             </p>
-                            <p className="mt-3 text-xs text-gray-400">
+                            <p className="mt-3 text-xs leading-5 text-gray-400">
                                 {getDiscoverySortLabel(discoverySort)}
                                 {status ? ` · Filtered by ${status}` : ''}
+                                {q.trim() ? ` · Search: "${q.trim()}"` : ''}
                             </p>
                         </div>
 
@@ -976,8 +1079,8 @@ export default function CoinographiaPage() {
                                                     ? 'Coincarnation Disabled'
                                                     : it.rank_reason === 'search_pioneer'
                                                         ? it.symbol
-                                                            ? `Be First to Coincarnate $${it.symbol}`
-                                                            : 'Be First to Coincarnate'
+                                                            ? `Start the First Coincarnation for $${it.symbol}`
+                                                            : 'Start the First Coincarnation'
                                                         : it.symbol
                                                             ? `Coincarnate $${it.symbol}`
                                                             : 'Coincarnate'}
@@ -987,8 +1090,18 @@ export default function CoinographiaPage() {
                                 );
                             })
                         ) : (
-                            <div className="sm:col-span-2 xl:col-span-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-gray-400">
-                                No active clusters found right now — this might be your moment to start one.
+                            <div className="sm:col-span-2 xl:col-span-3 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm text-gray-400">
+                                <div className="font-medium text-gray-200">
+                                    {q.trim()
+                                        ? 'No active discovery clusters matched your search.'
+                                        : 'No active clusters found right now — this might be your moment to start one.'}
+                                </div>
+
+                                <div className="mt-2 leading-6 text-gray-400">
+                                    {q.trim()
+                                        ? 'Try searching by symbol, full token name, or mint address.'
+                                        : 'Once Coincarnation activity starts, clusters will surface here automatically.'}
+                                </div>
                             </div>
                         )}
                     </div>
