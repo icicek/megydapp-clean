@@ -572,8 +572,8 @@ export default function CoinographiaPage() {
                     <div className="pointer-events-none absolute -left-12 bottom-[-50px] h-40 w-40 rounded-full bg-emerald-400/10 blur-3xl" />
 
                     <div className="relative p-6 md:p-7 xl:p-8">
-                        <div className="grid gap-7 xl:grid-cols-[minmax(0,1.25fr)_minmax(520px,560px)] xl:grid-rows-[auto_auto] xl:items-stretch">
-                            <div>
+                        <div className="flex flex-col gap-7 xl:grid xl:grid-cols-[minmax(0,1.25fr)_minmax(520px,560px)] xl:gap-7 xl:items-stretch">
+                            <div className="flex min-w-0 flex-col xl:h-full">
                                 <div className="flex flex-wrap items-center gap-2">
                                     <span className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-200">
                                         Coinographia
@@ -615,17 +615,25 @@ export default function CoinographiaPage() {
                                         Blacklist
                                     </span>
                                 </div>
+
+                                <div className="mt-6 xl:mt-auto">
+                                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                                        <p className="text-xs leading-6 text-gray-400 sm:text-sm">
+                                            Strong tokens remain above higher survival thresholds. Walking Deadcoins fall into the danger zone without fully disappearing. Deadcoins drop below minimum survivability. Redlist and Blacklist directly override Coincarnation access.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div className="min-w-0 xl:row-span-2">
+                            <div className="min-w-0 xl:h-full xl:flex xl:flex-col">
                                 {metricsError && (
                                     <div className="mb-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
                                         Threshold metrics could not be loaded right now.
                                     </div>
                                 )}
 
-                                <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-                                    <div className="group flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(16,185,129,0.08)]">
+                                <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:flex-1">
+                                    <div className="group flex h-full min-h-[226px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(16,185,129,0.08)]">
                                         <div className="flex items-center justify-between gap-3">
                                             <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                                 Healthy Min Volume
@@ -642,7 +650,7 @@ export default function CoinographiaPage() {
                                         </p>
                                     </div>
 
-                                    <div className="group flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(34,211,238,0.08)]">
+                                    <div className="group flex h-full min-h-[226px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(34,211,238,0.08)]">
                                         <div className="flex items-center justify-between gap-3">
                                             <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                                 Healthy Min Liquidity
@@ -659,7 +667,7 @@ export default function CoinographiaPage() {
                                         </p>
                                     </div>
 
-                                    <div className="group flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(245,158,11,0.08)]">
+                                    <div className="group flex h-full min-h-[226px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(245,158,11,0.08)]">
                                         <div className="flex items-center justify-between gap-3">
                                             <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                                 Walking Dead Min Volume
@@ -676,7 +684,7 @@ export default function CoinographiaPage() {
                                         </p>
                                     </div>
 
-                                    <div className="group flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(244,63,94,0.08)]">
+                                    <div className="group flex h-full min-h-[226px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(244,63,94,0.08)]">
                                         <div className="flex items-center justify-between gap-3">
                                             <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                                 Walking Dead Min Liquidity
@@ -692,14 +700,6 @@ export default function CoinographiaPage() {
                                             Survival liquidity line before falling below minimum viability.
                                         </p>
                                     </div>
-                                </div>
-                            </div>
-
-                            <div className="xl:self-end">
-                                <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-                                    <p className="text-xs leading-6 text-gray-400 sm:text-sm">
-                                        Strong tokens remain above higher survival thresholds. Walking Deadcoins fall into the danger zone without fully disappearing. Deadcoins drop below minimum survivability. Redlist and Blacklist directly override Coincarnation access.
-                                    </p>
                                 </div>
                             </div>
                         </div>
