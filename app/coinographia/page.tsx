@@ -398,7 +398,7 @@ function getDiscoverySearchContextClass(
 
 function getMobileActionButtonClass(status: TokenStatus, disabled: boolean) {
     const base =
-        'h-12 w-12 rounded-2xl border text-[18px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_24px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 flex items-center justify-center';
+        'h-9 w-9 rounded-xl border text-[14px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_20px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 flex items-center justify-center';
 
     if (disabled) {
         return `${base} border-white/10 bg-white/[0.03] text-gray-500 opacity-45 cursor-not-allowed`;
@@ -574,9 +574,9 @@ export default function CoinographiaPage() {
     async function handleMintCopy(mint: string) {
         const ok = await copyToClipboard(mint);
         if (!ok) return;
-    
+
         setCopiedMint(mint);
-    
+
         window.setTimeout(() => {
             setCopiedMint(null);
         }, 1200);
@@ -1202,7 +1202,7 @@ export default function CoinographiaPage() {
                                                 : `Coincarnate ${it.symbol ? `$${it.symbol}` : 'this token'}`
                                         }
                                     >
-                                        <span className="leading-none">↗</span>
+                                        <span className="leading-none text-[14px]">↗</span>
                                     </button>
                                 </div>
                             </div>
@@ -1261,11 +1261,15 @@ export default function CoinographiaPage() {
 
                                                         <button
                                                             onClick={() => void handleMintCopy(it.mint)}
-                                                            className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] text-gray-300 transition-colors hover:bg-white/[0.08] hover:text-white"
-                                                            title="Copy mint"
-                                                            aria-label="Copy mint"
+                                                            className={[
+                                                                'shrink-0 rounded-full border px-2 py-0.5 text-[10px] transition-all duration-200',
+                                                                copiedMint === it.mint
+                                                                    ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-200'
+                                                                    : 'border-white/10 bg-white/[0.04] text-gray-300 hover:bg-white/[0.08] hover:text-white',
+                                                            ].join(' ')}
+                                                            title={copiedMint === it.mint ? 'Copied' : 'Copy mint'}
                                                         >
-                                                            copy
+                                                            {copiedMint === it.mint ? 'copied' : 'copy'}
                                                         </button>
                                                     </div>
                                                 </div>
