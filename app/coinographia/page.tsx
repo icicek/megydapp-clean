@@ -398,7 +398,7 @@ function getDiscoverySearchContextClass(
 
 function getMobileActionButtonClass(status: TokenStatus, disabled: boolean) {
     const base =
-        'h-9 w-9 rounded-xl border text-[14px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_20px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 flex items-center justify-center';
+        'h-10 w-10 rounded-xl border text-[14px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_20px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 flex items-center justify-center';
 
     if (disabled) {
         return `${base} border-white/10 bg-white/[0.03] text-gray-500 opacity-45 cursor-not-allowed`;
