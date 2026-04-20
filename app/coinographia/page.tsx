@@ -209,7 +209,7 @@ function getCoincarnateButtonClass(status: TokenStatus, disabled: boolean) {
 
 function getDiscoveryCardClass(heat: HeatLevel, status: TokenStatus) {
     const base =
-        'group relative cursor-pointer overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.02))] p-3 sm:p-4 transition-all duration-300 hover:-translate-y-[3px] hover:border-white/15 active:scale-[0.995]';
+        'group relative cursor-pointer overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(20,27,45,0.88),rgba(11,16,28,0.94))] p-3 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_14px_34px_rgba(2,6,23,0.24)] transition-all duration-300 hover:-translate-y-[3px] hover:border-cyan-300/20 active:scale-[0.995]';
 
     const sheen =
         'after:pointer-events-none after:absolute after:inset-0 after:rounded-2xl after:bg-[linear-gradient(120deg,transparent_0%,rgba(255,255,255,0.06)_18%,transparent_36%)] after:translate-x-[-120%] hover:after:translate-x-[120%] after:transition-transform after:duration-700';
@@ -407,6 +407,16 @@ function getMobileActionButtonClass(status: TokenStatus, disabled: boolean) {
     }
 
     return `${base} hover:border-white/20 hover:bg-white/[0.08]`;
+}
+
+function scrollToRegistry() {
+    const el = document.getElementById('token-registry');
+    if (!el) return;
+
+    el.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+    });
 }
 
 function handleCoincarnateClick(mint: string, status: TokenStatus) {
@@ -772,17 +782,23 @@ export default function CoinographiaPage() {
                             <span className="ml-1 text-gray-400">Jump straight to the full registry.</span>
                         </div>
 
-                        <a
-                            href="#token-registry"
+                        <button
+                            type="button"
+                            onClick={scrollToRegistry}
                             className="inline-flex items-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-sm font-medium text-cyan-200 transition-all duration-200 hover:bg-cyan-400/15 hover:border-cyan-400/30 hover:-translate-y-[1px]"
                         >
                             Jump to Token Registry
-                        </a>
+                        </button>
                     </div>
                 </div>
 
-                <div className="mb-8 rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.028))] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.20)]">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div className="relative mb-8 overflow-hidden rounded-[26px] border border-cyan-400/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_24%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.10),transparent_28%),linear-gradient(180deg,rgba(9,14,26,0.98),rgba(12,18,32,0.95))] p-5 shadow-[0_22px_70px_rgba(2,6,23,0.36)]">
+                    <div className="pointer-events-none absolute inset-0">
+                        <div className="absolute -left-10 top-10 h-40 w-40 rounded-full bg-cyan-400/8 blur-3xl" />
+                        <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-violet-400/8 blur-3xl" />
+                        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/30 to-transparent" />
+                    </div>
+                    <div className="relative z-[1] flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                         <div className="flex max-w-3xl flex-col xl:min-h-[100%] xl:justify-between">
                             <h2 className="text-lg font-semibold text-white">Live Discovery</h2>
                             <p className="mt-2 text-sm text-gray-300">
@@ -790,18 +806,18 @@ export default function CoinographiaPage() {
                                 Discover which tokens are gaining traction, attracting wallets,
                                 and generating revival momentum in real time.
                             </p>
-                            <p className="mt-3 text-xs leading-5 text-gray-400">
+                            <p className="mt-3 text-xs leading-5 text-slate-300/70">
                                 {getDiscoverySortLabel(discoverySort)}
                                 {status ? ` · Filtered by ${status}` : ''}
                                 {q.trim() ? ` · Search: "${q.trim()}"` : ''}
                             </p>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center">
                             <select
                                 value={discoverySort}
                                 onChange={(e) => setDiscoverySort(e.target.value as DiscoverySort)}
-                                className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white"
+                                className="min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white"
                             >
                                 <option value="recent">Most recent</option>
                                 <option value="usd">Most revived USD</option>
@@ -811,7 +827,8 @@ export default function CoinographiaPage() {
 
                             <button
                                 onClick={() => void loadDiscovery()}
-                                className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08]"
+                                className="max-w-[156px] truncate whitespace-nowrap rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08]"
+                                title="Refresh Discovery"
                             >
                                 Refresh Discovery
                             </button>
@@ -868,7 +885,7 @@ export default function CoinographiaPage() {
                                         className={[
                                             getDiscoveryCardClass(it.heat_level, it.status),
                                             isFeatured
-                                                ? 'ring-1 ring-cyan-400/30 shadow-[0_0_26px_rgba(34,211,238,0.12)] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] md:scale-[1.01]'
+                                                ? 'ring-1 ring-cyan-400/35 shadow-[0_0_34px_rgba(34,211,238,0.16)] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.08),transparent_24%),linear-gradient(180deg,rgba(22,30,48,0.96),rgba(13,18,31,0.96))] md:scale-[1.01]'
                                                 : '',
                                             isPioneer ? getPioneerCardAccentClass() : '',
                                         ].join(' ')}
