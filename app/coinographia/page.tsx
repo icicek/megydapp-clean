@@ -761,11 +761,24 @@ export default function CoinographiaPage() {
                                 {discoverySearchContext.title}
                             </div>
 
-                            <div className="mt-1 text-sm leading-6 opacity-80">
+                            <div className="mt-1 text-sm leading-6 text-current opacity-80">
                                 {discoverySearchContext.body}
                             </div>
                         </div>
                     )}
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                        <div className="text-sm text-gray-300">
+                            Looking for a specific token status?
+                            <span className="ml-1 text-gray-400">Jump straight to the full registry.</span>
+                        </div>
+
+                        <a
+                            href="#token-registry"
+                            className="inline-flex items-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-sm font-medium text-cyan-200 transition-all duration-200 hover:bg-cyan-400/15 hover:border-cyan-400/30 hover:-translate-y-[1px]"
+                        >
+                            Jump to Token Registry
+                        </a>
+                    </div>
                 </div>
 
                 <div className="mb-8 rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.028))] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.20)]">
@@ -802,6 +815,12 @@ export default function CoinographiaPage() {
                             >
                                 Refresh Discovery
                             </button>
+                            <a
+                                href="#token-registry"
+                                className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-gray-200 transition-colors hover:bg-white/[0.08]"
+                            >
+                                View Full Registry
+                            </a>
                         </div>
                     </div>
 
@@ -1048,13 +1067,19 @@ export default function CoinographiaPage() {
                     </div>
                 </div>
 
-                <div className="mb-4 flex items-center justify-between text-sm text-gray-400">
-                    <div>{loading ? 'Loading…' : `${total} token(s) found`}</div>
+                <div id="token-registry" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-gray-400 scroll-mt-24">
+                    <div>
+                        <div className="text-sm font-semibold text-white">Token Registry</div>
+                        <div className="mt-1 text-xs text-gray-400">
+                            {loading ? 'Loading registry…' : `${total} token(s) found`}
+                        </div>
+                    </div>
+
                     <button
                         onClick={() => void load()}
-                        className="rounded border border-white/10 bg-white/5 px-3 py-2 hover:bg-white/10"
+                        className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08]"
                     >
-                        Refresh
+                        Refresh Registry
                     </button>
                 </div>
 
@@ -1068,7 +1093,7 @@ export default function CoinographiaPage() {
                 <div className="space-y-3 md:hidden">
                     {items.length === 0 && !loading && (
                         <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-gray-400">
-                            No records found.
+                            No registry records matched your current filters.
                         </div>
                     )}
 
@@ -1078,7 +1103,7 @@ export default function CoinographiaPage() {
                         return (
                             <div
                                 key={it.mint}
-                                className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                                className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.028))] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.14)]"
                             >
                                 <div className="grid grid-cols-[1fr_auto_auto] gap-3 items-center">
                                     <div className="min-w-0 flex items-start gap-3">
@@ -1143,9 +1168,9 @@ export default function CoinographiaPage() {
                 </div>
 
                 {/* Desktop table */}
-                <div className="hidden md:block overflow-x-auto rounded-2xl border border-white/10 bg-white/5">
+                <div className="hidden md:block overflow-x-auto rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.025))] shadow-[0_16px_50px_rgba(0,0,0,0.16)]">
                     <table className="min-w-full text-sm">
-                        <thead className="bg-white/5">
+                        <thead className="bg-white/[0.06] backdrop-blur-sm">
                             <tr>
                                 <th className="w-[44%] p-3 text-left text-sm">Token</th>
                                 <th className="w-[14%] p-3 text-center text-sm">Status</th>
@@ -1157,7 +1182,7 @@ export default function CoinographiaPage() {
                             {items.length === 0 && !loading && (
                                 <tr>
                                     <td colSpan={4} className="p-4 text-gray-400">
-                                        No records found.
+                                        No registry records matched your current filters.
                                     </td>
                                 </tr>
                             )}
@@ -1247,7 +1272,7 @@ export default function CoinographiaPage() {
                     </table>
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                     <div className="text-sm text-gray-400">
                         Page {page + 1} / {totalPages}
                     </div>
