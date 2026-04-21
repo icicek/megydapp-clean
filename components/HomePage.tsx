@@ -316,83 +316,53 @@ export default function HomePage() {
     const symbol = item.tokenSymbol ? `$${item.tokenSymbol}` : item.shortMint;
     const heatLevel = getHeatLevel(item, Date.now());
   
-    const revivedUsd = `$${item.totalUsdValue.toFixed(2)}`;
-    const wallets = `${item.uniqueWalletCount} wallet${item.uniqueWalletCount === 1 ? '' : 's'}`;
-    const occurrences = `${item.occurrenceCount} Coincarnation${item.occurrenceCount === 1 ? '' : 's'}`;
-  
-    // 🧠 INTRO VARIATIONS
     const intros = [
       `👀 Something unusual is happening with ${symbol}.`,
-      `🤔 ${symbol} is behaving differently lately.`,
-      `👁️ Been watching ${symbol}… something changed.`,
-      `⚠️ ${symbol} isn’t acting like a normal token anymore.`,
+      `🤔 ${symbol} is getting a lot of Coincarnation activity.`,
+      `⚠️ ${symbol} is being Coincarnated a lot lately.`,
+      `👁️ Watching ${symbol} here is… interesting.`,
     ];
   
-    // 🧠 CORE PATTERN (FIXED - çok güçlü)
-    const core = [
+    const coreLines = [
       `People aren’t selling it.`,
-      `They’re not holding it.`,
-      `They’re not ignoring it.`,
-      ``,
       `They’re Coincarnating it.`,
     ];
   
-    // 🧠 OBSERVATION VARIATIONS
-    const observations = [
-      `Seeing this level of activity is… interesting.`,
-      `Didn’t expect to see this much activity.`,
-      `There’s more activity here than I expected.`,
-    ];
-  
-    // 🧠 SCALE / REALIZATION
-    const realizations = [
-      `With everything happening in crypto…`,
-      `Given how chaotic crypto has become…`,
-      `Looking at the bigger picture…`,
-    ];
-  
-    // 🧠 FINAL HOOK
-    const endings = [
-      `this might be bigger than it looks.`,
-      `this might turn into something bigger.`,
-      `this could be more important than it seems.`,
-    ];
-
-    const secretLines = [
-      `Some people are starting to notice.`,
+    const observationLines = [
       `Feels early.`,
+      `Something is shifting.`,
+      `This might be bigger than it looks.`,
+      `Some people are starting to notice.`,
       `Not sure everyone sees this yet.`,
-      `Might be nothing… or not.`,
+      `With everything happening in crypto… this stands out.`,
     ];
   
-    // 🔥 HEAT BOOST (duruma göre ek satır)
-    let heatLine = '';
-    if (heatLevel === 'hot') {
-      heatLine = `🔥 Activity is accelerating fast.`;
-    } else if (heatLevel === 'trending') {
-      heatLine = `⚡ Momentum is building.`;
-    }
+    const hotLines = [
+      `🔥 Activity is accelerating.`,
+      `🔥 This is getting serious.`,
+    ];
   
-    // 🎲 RANDOM PICK
+    const trendingLines = [
+      `⚡ Momentum is building.`,
+      `⚡ More people are noticing.`,
+    ];
+  
     function pick(arr: string[]) {
       return arr[Math.floor(Math.random() * arr.length)];
     }
   
-    const includeSecretLine = Math.random() < 0.45;
-
+    let heatLine = '';
+    if (heatLevel === 'hot') {
+      heatLine = pick(hotLines);
+    } else if (heatLevel === 'trending') {
+      heatLine = pick(trendingLines);
+    }
+  
     const tweetLines = [
       pick(intros),
       '',
-      ...core,
-      '',
-      heatLine,
-      `${occurrences} • ${revivedUsd} • ${wallets}`,
-      '',
-      pick(observations),
-      '',
-      pick(realizations),
-      pick(endings),
-      includeSecretLine ? pick(secretLines) : '',
+      ...coreLines,
+      heatLine ? heatLine : pick(observationLines),
       '',
       'https://coincarnation.com',
     ].filter(Boolean);

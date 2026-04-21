@@ -447,76 +447,53 @@ function buildDiscoveryTweet(item: DiscoveryRow) {
     const symbol = item.symbol ? `$${item.symbol}` : shortenMint(item.mint);
     const heatLevel = getDiscoveryHeatLevel(item);
 
-    const revivedUsd = formatUsdCompact(item.total_revived_usd);
-    const wallets = `${item.unique_wallets} wallet${item.unique_wallets === 1 ? '' : 's'}`;
-    const occurrences = `${item.total_coincarnations} Coincarnation${item.total_coincarnations === 1 ? '' : 's'}`;
-
     const intros = [
         `👀 Something unusual is happening with ${symbol}.`,
-        `🤔 ${symbol} is behaving differently lately.`,
-        `👁️ Been watching ${symbol}… something changed.`,
-        `⚠️ ${symbol} isn’t acting like a normal token anymore.`,
+        `🤔 ${symbol} is getting a lot of Coincarnation activity.`,
+        `⚠️ ${symbol} is being Coincarnated a lot lately.`,
+        `👁️ Watching ${symbol} here is… interesting.`,
     ];
 
-    const core = [
+    const coreLines = [
         `People aren’t selling it.`,
-        `They’re not holding it.`,
-        `They’re not ignoring it.`,
-        ``,
         `They’re Coincarnating it.`,
     ];
 
-    const observations = [
-        `Seeing this level of activity is… interesting.`,
-        `Didn’t expect to see this much activity.`,
-        `There’s more activity here than I expected.`,
-    ];
-
-    const realizations = [
-        `With everything happening in crypto…`,
-        `Given how chaotic crypto has become…`,
-        `Looking at the bigger picture…`,
-    ];
-
-    const endings = [
-        `this might be bigger than it looks.`,
-        `this might turn into something bigger.`,
-        `this could be more important than it seems.`,
-    ];
-
-    const secretLines = [
-        `Some people are starting to notice.`,
+    const observationLines = [
         `Feels early.`,
+        `Something is shifting.`,
+        `This might be bigger than it looks.`,
+        `Some people are starting to notice.`,
         `Not sure everyone sees this yet.`,
-        `Might be nothing… or not.`,
+        `With everything happening in crypto… this stands out.`,
     ];
 
-    let heatLine = '';
-    if (heatLevel === 'hot') {
-        heatLine = `🔥 Activity is accelerating fast.`;
-    } else if (heatLevel === 'trending') {
-        heatLine = `⚡ Momentum is building.`;
-    }
+    const hotLines = [
+        `🔥 Activity is accelerating.`,
+        `🔥 This is getting serious.`,
+    ];
+
+    const trendingLines = [
+        `⚡ Momentum is building.`,
+        `⚡ More people are noticing.`,
+    ];
 
     function pick(arr: string[]) {
         return arr[Math.floor(Math.random() * arr.length)];
     }
 
-    const includeSecretLine = Math.random() < 0.45;
+    let heatLine = '';
+    if (heatLevel === 'hot') {
+        heatLine = pick(hotLines);
+    } else if (heatLevel === 'trending') {
+        heatLine = pick(trendingLines);
+    }
 
     const tweetLines = [
         pick(intros),
         '',
-        ...core,
-        '',
-        heatLine,
-        `${occurrences} • ${revivedUsd} revived • ${wallets}`,
-        '',
-        pick(observations),
-        '',
-        pick(realizations),
-        pick(endings),
-        includeSecretLine ? pick(secretLines) : '',
+        ...coreLines,
+        heatLine ? heatLine : pick(observationLines),
         '',
         'https://coincarnation.com',
     ].filter(Boolean);
@@ -528,6 +505,46 @@ function shareDiscoveryOnX(item: DiscoveryRow) {
     if (typeof window === 'undefined') return;
 
     const text = buildDiscoveryTweet(item);
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+
+    window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+function buildRegistryTweet(item: TokenRow) {
+    const symbol = item.symbol ? `$${item.symbol}` : shortenMint(item.mint);
+    const statusLabel = item.classification_label || item.status;
+
+    const intros = [
+        `👀 ${symbol} is now classified as ${statusLabel}.`,
+        `🧭 ${symbol} currently shows up as ${statusLabel}.`,
+        `⚠️ ${symbol} is being flagged as ${statusLabel}.`,
+    ];
+
+    const followUps = [
+        `Not all tokens survive the same way.`,
+        `Coinographia makes that visible.`,
+        `This is why Coincarnation exists.`,
+        `Worth paying attention to.`,
+    ];
+
+    function pick(arr: string[]) {
+        return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    const tweetLines = [
+        pick(intros),
+        pick(followUps),
+        '',
+        'https://coincarnation.com',
+    ];
+
+    return tweetLines.join('\n');
+}
+
+function shareRegistryOnX(item: TokenRow) {
+    if (typeof window === 'undefined') return;
+
+    const text = buildRegistryTweet(item);
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
 
     window.open(url, '_blank', 'noopener,noreferrer');
@@ -1061,27 +1078,14 @@ export default function CoinographiaPage() {
                                             </div>
                                         )}
 
-                                        <div className="absolute top-3 right-3 z-10 hidden sm:flex flex-col gap-2">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    handleCoincarnateClick(it.mint, it.status);
-                                                }}
-                                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
-                                                title="Coincarnate this token"
-                                                aria-label="Coincarnate this token"
-                                            >
-                                                ↗
-                                            </button>
-
+                                        <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
                                             <button
                                                 onClick={(e) => {
                                                     e.preventDefault();
                                                     e.stopPropagation();
                                                     shareDiscoveryOnX(it);
                                                 }}
-                                                className={`${getDiscoveryShareButtonClass(getDiscoveryHeatLevel(it))} h-7 w-7`}
+                                                className={`${getDiscoveryShareButtonClass(getDiscoveryHeatLevel(it))} h-7 w-7 sm:h-7 sm:w-7`}
                                                 title="Share on X"
                                                 aria-label="Share on X"
                                             >
@@ -1236,18 +1240,6 @@ export default function CoinographiaPage() {
                                                             ? `Coincarnate $${it.symbol}`
                                                             : 'Coincarnate'}
                                             </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    shareDiscoveryOnX(it);
-                                                }}
-                                                className={`${getDiscoveryShareButtonClass(getDiscoveryHeatLevel(it))} absolute right-3 bottom-3 z-10 h-7 w-7 sm:hidden`}
-                                                title="Share on X"
-                                                aria-label="Share on X"
-                                            >
-                                                𝕏
-                                            </button>
                                         </div>
                                     </div>
                                 );
@@ -1355,18 +1347,29 @@ export default function CoinographiaPage() {
                                         </div>
                                     </div>
 
-                                    <button
-                                        disabled={isDisabled}
-                                        onClick={() => handleCoincarnateClick(it.mint, it.status)}
-                                        className={getMobileActionButtonClass(it.status, isDisabled)}
-                                        title={
-                                            isDisabled
-                                                ? 'Coincarnation is disabled for redlisted or blacklisted tokens.'
-                                                : `Coincarnate ${it.symbol ? `$${it.symbol}` : 'this token'}`
-                                        }
-                                    >
-                                        <span className="leading-none text-[14px]">↗</span>
-                                    </button>
+                                    <div className="flex flex-col items-center gap-2 shrink-0">
+                                        <button
+                                            disabled={isDisabled}
+                                            onClick={() => handleCoincarnateClick(it.mint, it.status)}
+                                            className={getMobileActionButtonClass(it.status, isDisabled)}
+                                            title={
+                                                isDisabled
+                                                    ? 'Coincarnation is disabled for redlisted or blacklisted tokens.'
+                                                    : `Coincarnate ${it.symbol ? `$${it.symbol}` : 'this token'}`
+                                            }
+                                        >
+                                            <span className="leading-none text-[14px]">↗</span>
+                                        </button>
+
+                                        <button
+                                            onClick={() => shareRegistryOnX(it)}
+                                            className="h-8 w-8 rounded-xl border border-white/10 bg-white/[0.03] text-[13px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_16px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 flex items-center justify-center hover:scale-105 active:scale-95 hover:bg-white/[0.08]"
+                                            title="Share on X"
+                                            aria-label="Share on X"
+                                        >
+                                            𝕏
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         );
@@ -1459,7 +1462,7 @@ export default function CoinographiaPage() {
                                         </td>
 
                                         <td className="p-4 text-center align-middle">
-                                            <div className="flex justify-center">
+                                            <div className="flex justify-center items-center gap-2">
                                                 <button
                                                     disabled={isDisabled}
                                                     onClick={() => handleCoincarnateClick(it.mint, it.status)}
@@ -1474,6 +1477,15 @@ export default function CoinographiaPage() {
                                                     }
                                                 >
                                                     {it.symbol ? `Coincarnate $${it.symbol}` : 'Coincarnate'}
+                                                </button>
+
+                                                <button
+                                                    onClick={() => shareRegistryOnX(it)}
+                                                    className="h-10 w-10 rounded-xl border border-white/10 bg-white/[0.04] text-sm text-white transition-all duration-200 hover:bg-white/[0.08] hover:scale-[1.04] active:scale-[0.97]"
+                                                    title="Share on X"
+                                                    aria-label="Share on X"
+                                                >
+                                                    𝕏
                                                 </button>
                                             </div>
                                         </td>
