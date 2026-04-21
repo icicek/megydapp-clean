@@ -422,6 +422,117 @@ function getMobileActionButtonClass(status: TokenStatus, disabled: boolean) {
     return `${base} border-cyan-400/20 bg-cyan-500/10 text-cyan-200`;
 }
 
+function getDiscoveryHeatLevel(item: DiscoveryRow): 'hot' | 'trending' | 'live' {
+    if (item.heat_level === 'HOT') return 'hot';
+    if (item.heat_level === 'TRENDING') return 'trending';
+    return 'live';
+}
+
+function getDiscoveryShareButtonClass(level: 'hot' | 'trending' | 'live') {
+    const base =
+        'flex items-center justify-center rounded-lg border text-white transition-all duration-200';
+
+    if (level === 'hot') {
+        return `${base} border-orange-400/40 bg-orange-500/10 shadow-[0_0_18px_rgba(249,115,22,0.22)] hover:bg-orange-500/15 hover:shadow-[0_0_24px_rgba(249,115,22,0.30)] animate-pulse`;
+    }
+
+    if (level === 'trending') {
+        return `${base} border-cyan-400/35 bg-cyan-500/10 shadow-[0_0_14px_rgba(34,211,238,0.16)] hover:bg-cyan-500/15 hover:shadow-[0_0_20px_rgba(34,211,238,0.24)]`;
+    }
+
+    return `${base} border-white/10 bg-white/5 hover:bg-white/10`;
+}
+
+function buildDiscoveryTweet(item: DiscoveryRow) {
+    const symbol = item.symbol ? `$${item.symbol}` : shortenMint(item.mint);
+    const heatLevel = getDiscoveryHeatLevel(item);
+
+    const revivedUsd = formatUsdCompact(item.total_revived_usd);
+    const wallets = `${item.unique_wallets} wallet${item.unique_wallets === 1 ? '' : 's'}`;
+    const occurrences = `${item.total_coincarnations} Coincarnation${item.total_coincarnations === 1 ? '' : 's'}`;
+
+    const intros = [
+        `👀 Something unusual is happening with ${symbol}.`,
+        `🤔 ${symbol} is behaving differently lately.`,
+        `👁️ Been watching ${symbol}… something changed.`,
+        `⚠️ ${symbol} isn’t acting like a normal token anymore.`,
+    ];
+
+    const core = [
+        `People aren’t selling it.`,
+        `They’re not holding it.`,
+        `They’re not ignoring it.`,
+        ``,
+        `They’re Coincarnating it.`,
+    ];
+
+    const observations = [
+        `Seeing this level of activity is… interesting.`,
+        `Didn’t expect to see this much activity.`,
+        `There’s more activity here than I expected.`,
+    ];
+
+    const realizations = [
+        `With everything happening in crypto…`,
+        `Given how chaotic crypto has become…`,
+        `Looking at the bigger picture…`,
+    ];
+
+    const endings = [
+        `this might be bigger than it looks.`,
+        `this might turn into something bigger.`,
+        `this could be more important than it seems.`,
+    ];
+
+    const secretLines = [
+        `Some people are starting to notice.`,
+        `Feels early.`,
+        `Not sure everyone sees this yet.`,
+        `Might be nothing… or not.`,
+    ];
+
+    let heatLine = '';
+    if (heatLevel === 'hot') {
+        heatLine = `🔥 Activity is accelerating fast.`;
+    } else if (heatLevel === 'trending') {
+        heatLine = `⚡ Momentum is building.`;
+    }
+
+    function pick(arr: string[]) {
+        return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    const includeSecretLine = Math.random() < 0.45;
+
+    const tweetLines = [
+        pick(intros),
+        '',
+        ...core,
+        '',
+        heatLine,
+        `${occurrences} • ${revivedUsd} revived • ${wallets}`,
+        '',
+        pick(observations),
+        '',
+        pick(realizations),
+        pick(endings),
+        includeSecretLine ? pick(secretLines) : '',
+        '',
+        'https://coincarnation.com',
+    ].filter(Boolean);
+
+    return tweetLines.join('\n');
+}
+
+function shareDiscoveryOnX(item: DiscoveryRow) {
+    if (typeof window === 'undefined') return;
+
+    const text = buildDiscoveryTweet(item);
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+
+    window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 function scrollToRegistry() {
     const el = document.getElementById('token-registry');
     if (!el) return;
@@ -950,6 +1061,34 @@ export default function CoinographiaPage() {
                                             </div>
                                         )}
 
+                                        <div className="absolute top-3 right-3 z-10 hidden sm:flex flex-col gap-2">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    handleCoincarnateClick(it.mint, it.status);
+                                                }}
+                                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
+                                                title="Coincarnate this token"
+                                                aria-label="Coincarnate this token"
+                                            >
+                                                ↗
+                                            </button>
+
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    shareDiscoveryOnX(it);
+                                                }}
+                                                className={`${getDiscoveryShareButtonClass(getDiscoveryHeatLevel(it))} h-7 w-7`}
+                                                title="Share on X"
+                                                aria-label="Share on X"
+                                            >
+                                                𝕏
+                                            </button>
+                                        </div>
+
                                         <div className="relative z-[1] flex items-start gap-2.5 sm:gap-3">
                                             {it.logo_uri ? (
                                                 <img
@@ -962,13 +1101,13 @@ export default function CoinographiaPage() {
                                             )}
 
                                             <div className="min-w-0 flex-1 pt-0.5">
-                                                <div className="truncate text-[14px] sm:text-[15px] font-semibold leading-[1.2] text-white transition-all duration-200 group-hover:text-cyan-50 group-hover:tracking-[0.01em]">
+                                                <div className="truncate pr-14 text-[14px] sm:text-[15px] font-semibold leading-[1.2] text-white transition-all duration-200 group-hover:text-cyan-50 group-hover:tracking-[0.01em]">
                                                     {it.symbol || 'Unknown Symbol'}
                                                     {it.name ? ` — ${it.name}` : ''}
                                                 </div>
 
                                                 <div
-                                                    className="mt-0.5 truncate font-mono text-[10px] sm:text-[11px] text-gray-500 transition-colors duration-200 group-hover:text-gray-300"
+                                                    className="mt-0.5 truncate pr-14 font-mono text-[10px] sm:text-[11px] text-gray-500 transition-colors duration-200 group-hover:text-gray-300"
                                                     title={it.mint}
                                                 >
                                                     {shortenMint(it.mint)}
@@ -1096,6 +1235,18 @@ export default function CoinographiaPage() {
                                                         : it.symbol
                                                             ? `Coincarnate $${it.symbol}`
                                                             : 'Coincarnate'}
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    shareDiscoveryOnX(it);
+                                                }}
+                                                className={`${getDiscoveryShareButtonClass(getDiscoveryHeatLevel(it))} absolute right-3 bottom-3 z-10 h-7 w-7 sm:hidden`}
+                                                title="Share on X"
+                                                aria-label="Share on X"
+                                            >
+                                                𝕏
                                             </button>
                                         </div>
                                     </div>

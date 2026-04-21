@@ -312,39 +312,99 @@ export default function HomePage() {
     return `${value.slice(0, 3)}...${value.slice(-2)}`;
   }
 
-  function shareClusterOnX(item: LiveActivityCluster) {
-    if (typeof window === 'undefined') return;
-  
+  function buildDynamicTweet(item: LiveActivityCluster) {
     const symbol = item.tokenSymbol ? `$${item.tokenSymbol}` : item.shortMint;
     const heatLevel = getHeatLevel(item, Date.now());
+  
     const revivedUsd = `$${item.totalUsdValue.toFixed(2)}`;
     const wallets = `${item.uniqueWalletCount} wallet${item.uniqueWalletCount === 1 ? '' : 's'}`;
     const occurrences = `${item.occurrenceCount} Coincarnation${item.occurrenceCount === 1 ? '' : 's'}`;
   
-    let line1 = `${symbol} is not being saved.`;
-    let line2 = `It is being Coincarnated.`;
-  
-    if (heatLevel === 'hot') {
-      line1 = `${symbol} is being actively Coincarnated.`;
-      line2 = `Investors are choosing an exit, not false hope.`;
-    } else if (heatLevel === 'trending') {
-      line1 = `${symbol} is entering the Coincarnation flow.`;
-      line2 = `A smarter path for damaged positions is emerging.`;
-    }
-  
-    const tweetLines = [
-      line1,
-      line2,
-      '',
-      `${occurrences} • ${revivedUsd} • ${wallets}`,
-      '',
-      'Unhealthy tokens should not trap investors forever.',
-      'Coincarnation turns dead ends into a smarter way forward.',
-      '',
-      'https://coincarnation.com',
+    // 🧠 INTRO VARIATIONS
+    const intros = [
+      `👀 Something unusual is happening with ${symbol}.`,
+      `🤔 ${symbol} is behaving differently lately.`,
+      `👁️ Been watching ${symbol}… something changed.`,
+      `⚠️ ${symbol} isn’t acting like a normal token anymore.`,
     ];
   
-    const text = tweetLines.join('\n');
+    // 🧠 CORE PATTERN (FIXED - çok güçlü)
+    const core = [
+      `People aren’t selling it.`,
+      `They’re not holding it.`,
+      `They’re not ignoring it.`,
+      ``,
+      `They’re Coincarnating it.`,
+    ];
+  
+    // 🧠 OBSERVATION VARIATIONS
+    const observations = [
+      `Seeing this level of activity is… interesting.`,
+      `Didn’t expect to see this much activity.`,
+      `There’s more activity here than I expected.`,
+    ];
+  
+    // 🧠 SCALE / REALIZATION
+    const realizations = [
+      `With everything happening in crypto…`,
+      `Given how chaotic crypto has become…`,
+      `Looking at the bigger picture…`,
+    ];
+  
+    // 🧠 FINAL HOOK
+    const endings = [
+      `this might be bigger than it looks.`,
+      `this might turn into something bigger.`,
+      `this could be more important than it seems.`,
+    ];
+
+    const secretLines = [
+      `Some people are starting to notice.`,
+      `Feels early.`,
+      `Not sure everyone sees this yet.`,
+      `Might be nothing… or not.`,
+    ];
+  
+    // 🔥 HEAT BOOST (duruma göre ek satır)
+    let heatLine = '';
+    if (heatLevel === 'hot') {
+      heatLine = `🔥 Activity is accelerating fast.`;
+    } else if (heatLevel === 'trending') {
+      heatLine = `⚡ Momentum is building.`;
+    }
+  
+    // 🎲 RANDOM PICK
+    function pick(arr: string[]) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+  
+    const includeSecretLine = Math.random() < 0.45;
+
+    const tweetLines = [
+      pick(intros),
+      '',
+      ...core,
+      '',
+      heatLine,
+      `${occurrences} • ${revivedUsd} • ${wallets}`,
+      '',
+      pick(observations),
+      '',
+      pick(realizations),
+      pick(endings),
+      includeSecretLine ? pick(secretLines) : '',
+      '',
+      'https://coincarnation.com',
+    ].filter(Boolean);
+  
+    return tweetLines.join('\n');
+  }
+
+  function shareClusterOnX(item: LiveActivityCluster) {
+    if (typeof window === 'undefined') return;
+  
+    const text = buildDynamicTweet(item);
+  
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
   
     window.open(url, '_blank', 'noopener,noreferrer');
