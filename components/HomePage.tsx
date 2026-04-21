@@ -363,15 +363,15 @@ export default function HomePage() {
       '',
       ...coreLines,
       heatLine ? heatLine : pick(observationLines),
-      '',
-      'https://coincarnation.com',
     ].filter(Boolean);
   
     return tweetLines.join('\n');
   }
 
   function openXIntent(text: string) {
-    const url = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    const shareUrl = 'https://coincarnation.com';
+    const intentUrl =
+      `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
   
     const isCoarsePointer =
       typeof window !== 'undefined' &&
@@ -379,11 +379,11 @@ export default function HomePage() {
       window.matchMedia('(pointer: coarse)').matches;
   
     if (isCoarsePointer) {
-      window.location.href = url;
+      window.location.assign(intentUrl);
       return;
     }
   
-    window.open(url, '_blank', 'noopener,noreferrer');
+    window.open(intentUrl, '_blank', 'noopener,noreferrer');
   }
 
   function shareClusterOnX(item: LiveActivityCluster) {
