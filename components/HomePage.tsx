@@ -319,26 +319,27 @@ export default function HomePage() {
     const heatLevel = getHeatLevel(item, Date.now());
     const revivedUsd = `$${item.totalUsdValue.toFixed(2)}`;
     const wallets = `${item.uniqueWalletCount} wallet${item.uniqueWalletCount === 1 ? '' : 's'}`;
-    const occurrences = `x${item.occurrenceCount} Coincarnations`;
+    const occurrences = `${item.occurrenceCount} Coincarnation${item.occurrenceCount === 1 ? '' : 's'}`;
   
-    let intro = `${symbol} is moving again in Coincarnation.`;
-    let momentum = `${occurrences} • ${revivedUsd} revived • ${wallets}`;
+    let line1 = `${symbol} is not being saved.`;
+    let line2 = `It is being Coincarnated.`;
   
     if (heatLevel === 'hot') {
-      intro = `🔥 ${symbol} is getting seriously hot in Coincarnation.`;
-      momentum = `${occurrences} in recent activity • ${revivedUsd} revived • ${wallets} joined`;
+      line1 = `${symbol} is being actively Coincarnated.`;
+      line2 = `Investors are choosing an exit, not false hope.`;
     } else if (heatLevel === 'trending') {
-      intro = `⚡ ${symbol} is trending in Coincarnation.`;
-      momentum = `${occurrences} • ${revivedUsd} revived • ${wallets} joined`;
+      line1 = `${symbol} is entering the Coincarnation flow.`;
+      line2 = `A smarter path for damaged positions is emerging.`;
     }
   
     const tweetLines = [
-      intro,
+      line1,
+      line2,
       '',
-      momentum,
+      `${occurrences} • ${revivedUsd} • ${wallets}`,
       '',
-      'Deadcoins are not disappearing quietly here.',
-      'They are being Coincarnated.',
+      'Unhealthy tokens should not trap investors forever.',
+      'Coincarnation turns dead ends into a smarter way forward.',
       '',
       'https://coincarnation.com',
     ];
