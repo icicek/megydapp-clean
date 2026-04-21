@@ -812,7 +812,7 @@ export default function HomePage() {
               </span>
             </p>
               <p className="mt-1 text-sm text-gray-400">
-                A live glimpse into the latest Coincarnation activity across the ecosystem.
+                A live view of how damaged tokens are being processed through Coincarnation.
               </p>
             </div>
           </div>

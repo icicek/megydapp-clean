@@ -653,7 +653,7 @@ export default function CoinographiaPage() {
                                 <div className="mt-8 xl:mt-10">
                                     <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
                                         <p className="text-xs leading-6 text-gray-400 sm:text-sm">
-                                            Strong tokens remain above higher survival thresholds. Walking Deadcoins fall into the danger zone without fully disappearing. Deadcoins drop below minimum survivability. Redlist and Blacklist directly override Coincarnation access.
+                                            Not every token fails the same way. Some remain strong, some decay slowly, and some are already beyond recovery. Coinographia makes that reality visible — so Coincarnation can act with clarity.
                                         </p>
                                     </div>
                                 </div>
