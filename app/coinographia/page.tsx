@@ -615,13 +615,17 @@ export default function CoinographiaPage() {
                                 </div>
 
                                 <h1 className="mt-4 max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-4xl xl:text-[42px] xl:leading-[1.05]">
-                                    Discover where tokens are coming back to life
+                                    The market is fragmented. Not all tokens survive.
                                 </h1>
 
                                 <p className="mt-4 max-w-2xl text-sm leading-6 text-gray-300 sm:text-[15px]">
-                                    Coinographia reveals where Coincarnation is actively happening.
-                                    Track emerging clusters, rising activity, and early revival signals —
-                                    before they become obvious to everyone else.
+                                    Crypto is no longer a uniform space. Some tokens remain strong, others decay,
+                                    and many are already abandoned. Coinographia reveals this reality in real time —
+                                    separating healthy assets from walking deadcoins and deadcoins.
+
+                                    <span className="block mt-3 text-white font-medium">
+                                        When the system breaks, Coincarnation becomes necessary.
+                                    </span>
                                 </p>
 
                                 <div className="mt-6 flex flex-wrap items-center gap-2.5">
