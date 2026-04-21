@@ -370,14 +370,26 @@ export default function HomePage() {
     return tweetLines.join('\n');
   }
 
-  function shareClusterOnX(item: LiveActivityCluster) {
-    if (typeof window === 'undefined') return;
+  function openXIntent(text: string) {
+    const url = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
   
-    const text = buildDynamicTweet(item);
+    const isCoarsePointer =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(pointer: coarse)').matches;
   
-    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    if (isCoarsePointer) {
+      window.location.href = url;
+      return;
+    }
   
     window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  function shareClusterOnX(item: LiveActivityCluster) {
+    if (typeof window === 'undefined') return;
+    const text = buildDynamicTweet(item);
+    openXIntent(text);
   }
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

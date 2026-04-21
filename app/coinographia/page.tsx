@@ -503,28 +503,34 @@ function buildDiscoveryTweet(item: DiscoveryRow) {
 
 function shareDiscoveryOnX(item: DiscoveryRow) {
     if (typeof window === 'undefined') return;
-
     const text = buildDiscoveryTweet(item);
-    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    openXIntent(text);
+}
 
-    window.open(url, '_blank', 'noopener,noreferrer');
+function formatRegistryShareStatus(status: TokenStatus) {
+    if (status === 'walking_dead') return 'walking dead';
+    if (status === 'deadcoin') return 'deadcoin';
+    if (status === 'healthy') return 'healthy';
+    if (status === 'redlist') return 'redlisted';
+    if (status === 'blacklist') return 'blacklisted';
+    return status;
 }
 
 function buildRegistryTweet(item: TokenRow) {
     const symbol = item.symbol ? `$${item.symbol}` : shortenMint(item.mint);
-    const statusLabel = item.classification_label || item.status;
+    const statusText = formatRegistryShareStatus(item.status);
 
     const intros = [
-        `👀 ${symbol} is now classified as ${statusLabel}.`,
-        `🧭 ${symbol} currently shows up as ${statusLabel}.`,
-        `⚠️ ${symbol} is being flagged as ${statusLabel}.`,
+        `👀 ${symbol} currently looks ${statusText}.`,
+        `🧭 ${symbol} is currently classified as ${statusText}.`,
+        `⚠️ ${symbol} is showing up as ${statusText}.`,
     ];
 
     const followUps = [
-        `Not all tokens survive the same way.`,
+        `Not all tokens are equally healthy.`,
         `Coinographia makes that visible.`,
-        `This is why Coincarnation exists.`,
         `Worth paying attention to.`,
+        `This is exactly why classification matters.`,
     ];
 
     function pick(arr: string[]) {
@@ -543,9 +549,22 @@ function buildRegistryTweet(item: TokenRow) {
 
 function shareRegistryOnX(item: TokenRow) {
     if (typeof window === 'undefined') return;
-
     const text = buildRegistryTweet(item);
-    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    openXIntent(text);
+}
+
+function openXIntent(text: string) {
+    const url = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
+
+    const isCoarsePointer =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(pointer: coarse)').matches;
+
+    if (isCoarsePointer) {
+        window.location.href = url;
+        return;
+    }
 
     window.open(url, '_blank', 'noopener,noreferrer');
 }
