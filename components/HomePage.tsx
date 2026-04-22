@@ -368,28 +368,81 @@ export default function HomePage() {
     return tweetLines.join('\n');
   }
 
-  async function openXIntent(text: string) {
+  async function openXIntent(
+    text: string,
+    onCopied?: (message: string) => void
+  ) {
     const shareUrl = 'https://coincarnation.com';
     const fullText = `${text}\n\n${shareUrl}`;
+  
+    const ua =
+      typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : '';
   
     const isCoarsePointer =
       typeof window !== 'undefined' &&
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(pointer: coarse)').matches;
   
-    // ✅ Mobile / tablet: use native share sheet first
+    const isPhantomInApp = ua.includes('phantom');
+    const isSolflareInApp = ua.includes('solflare');
+    const isWalletInApp = isPhantomInApp || isSolflareInApp;
+  
+    async function copyTextFallback() {
+      try {
+        if (navigator?.clipboard?.writeText) {
+          await navigator.clipboard.writeText(fullText);
+          onCopied?.('Post copied. Open X and paste.');
+          return true;
+        }
+  
+        const ta = document.createElement('textarea');
+        ta.value = fullText;
+        ta.setAttribute('readonly', 'true');
+        ta.style.position = 'absolute';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+  
+        if (ok) {
+          onCopied?.('Post copied. Open X and paste.');
+          return true;
+        }
+      } catch {}
+  
+      return false;
+    }
+  
+    // 1) Wallet in-app browsers: safest path = copy first
+    if (isWalletInApp) {
+      const copied = await copyTextFallback();
+  
+      // Try opening X home as a convenience, but do not rely on it.
+      try {
+        window.location.href = 'https://x.com';
+      } catch {}
+  
+      if (!copied) {
+        onCopied?.('Could not auto-copy. Please copy manually and share on X.');
+      }
+  
+      return;
+    }
+  
+    // 2) Normal mobile browsers: use native share sheet
     if (isCoarsePointer && typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
           text: fullText,
         });
         return;
-      } catch (err: any) {
-        // user cancelled or share failed → fall through to browser intent
+      } catch {
+        // fall through
       }
     }
   
-    // ✅ Desktop fallback
+    // 3) Desktop fallback
     const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(fullText)}`;
     window.open(intentUrl, '_blank', 'noopener,noreferrer');
   }
@@ -397,7 +450,11 @@ export default function HomePage() {
   async function shareClusterOnX(item: LiveActivityCluster) {
     if (typeof window === 'undefined') return;
     const text = buildDynamicTweet(item);
-    await openXIntent(text);
+  
+    await openXIntent(text, (message) => {
+      setLiveActivityError(message);
+      window.setTimeout(() => setLiveActivityError(null), 2200);
+    });
   }
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
