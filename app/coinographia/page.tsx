@@ -499,10 +499,10 @@ function buildDiscoveryTweet(item: DiscoveryRow) {
     return tweetLines.join('\n');
 }
 
-function shareDiscoveryOnX(item: DiscoveryRow) {
+async function shareDiscoveryOnX(item: DiscoveryRow) {
     if (typeof window === 'undefined') return;
     const text = buildDiscoveryTweet(item);
-    openXIntent(text);
+    await openXIntent(text);
 }
 
 function formatRegistryShareStatus(status: TokenStatus) {
@@ -543,27 +543,35 @@ function buildRegistryTweet(item: TokenRow) {
     return tweetLines.join('\n');
 }
 
-function shareRegistryOnX(item: TokenRow) {
+async function shareRegistryOnX(item: TokenRow) {
     if (typeof window === 'undefined') return;
     const text = buildRegistryTweet(item);
-    openXIntent(text);
+    await openXIntent(text);
 }
 
-function openXIntent(text: string) {
+async function openXIntent(text: string) {
     const shareUrl = 'https://coincarnation.com';
-    const intentUrl =
-        `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
+    const fullText = `${text}\n\n${shareUrl}`;
 
     const isCoarsePointer =
         typeof window !== 'undefined' &&
         typeof window.matchMedia === 'function' &&
         window.matchMedia('(pointer: coarse)').matches;
 
-    if (isCoarsePointer) {
-        window.location.assign(intentUrl);
-        return;
+    // ✅ Mobile / tablet: use native share sheet first
+    if (isCoarsePointer && typeof navigator !== 'undefined' && navigator.share) {
+        try {
+            await navigator.share({
+                text: fullText,
+            });
+            return;
+        } catch (err: any) {
+            // user cancelled or share failed → fall through to browser intent
+        }
     }
 
+    // ✅ Desktop fallback
+    const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(fullText)}`;
     window.open(intentUrl, '_blank', 'noopener,noreferrer');
 }
 

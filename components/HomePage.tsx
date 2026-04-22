@@ -368,28 +368,36 @@ export default function HomePage() {
     return tweetLines.join('\n');
   }
 
-  function openXIntent(text: string) {
+  async function openXIntent(text: string) {
     const shareUrl = 'https://coincarnation.com';
-    const intentUrl =
-      `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
+    const fullText = `${text}\n\n${shareUrl}`;
   
     const isCoarsePointer =
       typeof window !== 'undefined' &&
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(pointer: coarse)').matches;
   
-    if (isCoarsePointer) {
-      window.location.assign(intentUrl);
-      return;
+    // ✅ Mobile / tablet: use native share sheet first
+    if (isCoarsePointer && typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          text: fullText,
+        });
+        return;
+      } catch (err: any) {
+        // user cancelled or share failed → fall through to browser intent
+      }
     }
   
+    // ✅ Desktop fallback
+    const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(fullText)}`;
     window.open(intentUrl, '_blank', 'noopener,noreferrer');
   }
 
-  function shareClusterOnX(item: LiveActivityCluster) {
+  async function shareClusterOnX(item: LiveActivityCluster) {
     if (typeof window === 'undefined') return;
     const text = buildDynamicTweet(item);
-    openXIntent(text);
+    await openXIntent(text);
   }
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
