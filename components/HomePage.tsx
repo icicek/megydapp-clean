@@ -384,15 +384,25 @@ export default function HomePage() {
       window.matchMedia('(pointer: coarse)').matches;
   
     const isPhantomInApp = ua.includes('phantom');
-    const isSolflareInApp = ua.includes('solflare');
     const isBackpackInApp = ua.includes('backpack');
-    const isWalletInApp = isPhantomInApp || isSolflareInApp || isBackpackInApp;
+  
+    // 🔥 Solflare fallback detection
+    const isLikelySolflare =
+      ua.includes('solflare') ||
+      (ua.includes('mobile') &&
+        ua.includes('safari') &&
+        !ua.includes('chrome') &&
+        !ua.includes('crios'));
+  
+    const isWalletLike =
+      isPhantomInApp ||
+      isBackpackInApp ||
+      isLikelySolflare;
   
     async function copyTextFallback() {
       try {
         if (navigator?.clipboard?.writeText) {
           await navigator.clipboard.writeText(fullText);
-          onCopied?.('Post copied. Open X and paste.');
           return true;
         }
   
@@ -406,29 +416,26 @@ export default function HomePage() {
         const ok = document.execCommand('copy');
         document.body.removeChild(ta);
   
-        if (ok) {
-          onCopied?.('Post copied. Open X and paste.');
-          return true;
-        }
-      } catch {}
-  
-      return false;
+        return ok;
+      } catch {
+        return false;
+      }
     }
   
-    // 1) Wallet in-app browsers: safest path = copy first
-    if (isWalletInApp) {
+    // ✅ 1) Wallet browsers → COPY ONLY
+    if (isWalletLike) {
       const copied = await copyTextFallback();
-    
+  
       if (copied) {
         onCopied?.('Post copied. Open X and paste.');
       } else {
         onCopied?.('Could not auto-copy. Please copy manually and share on X.');
       }
-    
+  
       return;
     }
   
-    // 2) Normal mobile browsers: use native share sheet
+    // ✅ 2) Normal mobile → native share
     if (isCoarsePointer && typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
@@ -436,11 +443,11 @@ export default function HomePage() {
         });
         return;
       } catch {
-        // fall through
+        // fallback
       }
     }
   
-    // 3) Desktop fallback
+    // ✅ 3) Desktop fallback
     const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(fullText)}`;
     window.open(intentUrl, '_blank', 'noopener,noreferrer');
   }
