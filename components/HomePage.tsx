@@ -385,7 +385,8 @@ export default function HomePage() {
   
     const isPhantomInApp = ua.includes('phantom');
     const isSolflareInApp = ua.includes('solflare');
-    const isWalletInApp = isPhantomInApp || isSolflareInApp;
+    const isBackpackInApp = ua.includes('backpack');
+    const isWalletInApp = isPhantomInApp || isSolflareInApp || isBackpackInApp;
   
     async function copyTextFallback() {
       try {
@@ -424,7 +425,6 @@ export default function HomePage() {
         onCopied?.('Could not auto-copy. Please copy manually and share on X.');
       }
     
-      // 🚫 DO NOT open X in wallet browsers
       return;
     }
   
@@ -451,7 +451,7 @@ export default function HomePage() {
   
     await openXIntent(text, (message) => {
       setLiveActivityError(message);
-      window.setTimeout(() => setLiveActivityError(null), 3200);
+      window.setTimeout(() => setLiveActivityError(null), 3600);
     });
   }
 

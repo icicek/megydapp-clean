@@ -554,7 +554,8 @@ async function openXIntent(
 
     const isPhantomInApp = ua.includes('phantom');
     const isSolflareInApp = ua.includes('solflare');
-    const isWalletInApp = isPhantomInApp || isSolflareInApp;
+    const isBackpackInApp = ua.includes('backpack');
+    const isWalletInApp = isPhantomInApp || isSolflareInApp || isBackpackInApp;
 
     async function copyTextFallback() {
         try {
@@ -593,7 +594,6 @@ async function openXIntent(
             onCopied?.('Could not auto-copy. Please copy manually and share on X.');
         }
     
-        // 🚫 DO NOT open X in wallet browsers
         return;
     }
 
@@ -663,7 +663,7 @@ export default function CoinographiaPage() {
 
         await openXIntent(text, (message) => {
             setToast({ text: message });
-            window.setTimeout(() => setToast(null), 3200);
+            window.setTimeout(() => setToast(null), 3600);
         });
     }
 
@@ -673,7 +673,7 @@ export default function CoinographiaPage() {
 
         await openXIntent(text, (message) => {
             setToast({ text: message });
-            window.setTimeout(() => setToast(null), 3200);
+            window.setTimeout(() => setToast(null), 3600);
         });
     }
 
