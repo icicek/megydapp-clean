@@ -417,16 +417,14 @@ export default function HomePage() {
     // 1) Wallet in-app browsers: safest path = copy first
     if (isWalletInApp) {
       const copied = await copyTextFallback();
-  
-      // Try opening X home as a convenience, but do not rely on it.
-      try {
-        window.location.href = 'https://x.com';
-      } catch {}
-  
-      if (!copied) {
+    
+      if (copied) {
+        onCopied?.('Post copied. Open X and paste.');
+      } else {
         onCopied?.('Could not auto-copy. Please copy manually and share on X.');
       }
-  
+    
+      // 🚫 DO NOT open X in wallet browsers
       return;
     }
   
@@ -453,7 +451,7 @@ export default function HomePage() {
   
     await openXIntent(text, (message) => {
       setLiveActivityError(message);
-      window.setTimeout(() => setLiveActivityError(null), 2200);
+      window.setTimeout(() => setLiveActivityError(null), 3200);
     });
   }
 
