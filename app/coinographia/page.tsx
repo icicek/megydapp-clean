@@ -1482,11 +1482,7 @@ export default function CoinographiaPage() {
                                                     : `Coincarnate ${it.symbol ? `$${it.symbol}` : 'this token'}`
                                             }
                                         >
-                                            <img
-                                                src="/coincarnate-mark-white.png"
-                                                alt="Coincarnate"
-                                                className="h-5 w-5 object-contain opacity-90 transition-all duration-200 group-hover:opacity-100"
-                                            />
+                                            <span className="leading-none text-[16px]">⟲</span>
                                         </button>
 
                                         <button
@@ -1610,10 +1606,10 @@ export default function CoinographiaPage() {
                                                 <button
                                                     onClick={() => shareRegistryOnX(it)}
                                                     className="h-10 w-10 rounded-xl border border-white/10 bg-white/[0.04] text-sm text-white transition-all duration-200 hover:bg-white/[0.08] hover:scale-[1.04] active:scale-[0.97]"
-                                                    title="Share on X"
-                                                    aria-label="Share on X"
+                                                    title="Share signal"
+                                                    aria-label="Share signal"
                                                 >
-                                                    𝕏
+                                                    ↗
                                                 </button>
                                             </div>
                                         </td>

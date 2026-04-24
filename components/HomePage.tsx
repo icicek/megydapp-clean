@@ -1020,10 +1020,10 @@ export default function HomePage() {
                           shareClusterOnX(item);
                         }}
                         className={`${getShareButtonClass(getHeatLevel(item, activityNow))} h-6 w-6 sm:h-7 sm:w-7`}
-                        title="Share on X"
-                        aria-label="Share on X"
+                        title="Share signal"
+                        aria-label="Share signal"
                       >
-                        𝕏
+                        ↗
                       </button>
                     </div>
 
@@ -1137,7 +1137,7 @@ export default function HomePage() {
                         title="Share on X"
                         aria-label="Share on X"
                       >
-                        𝕏
+                        ↗
                       </button>
                     </div>
                   </div>
