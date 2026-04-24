@@ -1102,10 +1102,11 @@ export default function CoinographiaPage() {
 
                             <button
                                 onClick={() => void loadDiscovery()}
-                                className="flex-1 min-w-0 truncate whitespace-nowrap rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08]"
+                                disabled={discoveryLoading}
+                                className="flex-1 min-w-0 truncate whitespace-nowrap rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08] disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Refresh Discovery"
                             >
-                                Refresh
+                                {discoveryLoading ? 'Refreshing...' : 'Refresh'}
                             </button>
                         </div>
                     </div>
@@ -1378,9 +1379,10 @@ export default function CoinographiaPage() {
 
                     <button
                         onClick={() => void load()}
-                        className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08]"
+                        disabled={loading}
+                        className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        Refresh Registry
+                        {loading ? 'Refreshing...' : 'Refresh Registry'}
                     </button>
                 </div>
 
