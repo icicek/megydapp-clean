@@ -768,12 +768,21 @@ export default function CoincarneModal({
   
     const walletName = getWalletName();
     const ua = navigator.userAgent.toLowerCase();
+    const w = window as any;
   
     const isCoarsePointer =
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(pointer: coarse)').matches;
   
-    return walletName.includes('backpack') && isCoarsePointer;
+    const isSmallScreen = window.innerWidth <= 768;
+  
+    const isBackpackWallet =
+      walletName.includes('backpack') ||
+      ua.includes('backpack') ||
+      Boolean(w?.backpack) ||
+      Boolean(w?.backpack?.solana);
+  
+    return isBackpackWallet && (isCoarsePointer || isSmallScreen);
   }
   
   function getInjectedBackpackProvider(): any {
@@ -1476,9 +1485,9 @@ export default function CoincarneModal({
               )}
 
               {isBackpackMobile() && (
-                <div className="mb-4 rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-left text-xs text-amber-100">
-                  <div className="mb-1 font-semibold">
-                    Backpack mobile compatibility notice
+                <div className="mb-4 rounded-xl border border-amber-400/50 bg-amber-500/15 px-4 py-3 text-left text-xs text-amber-100 shadow-[0_0_20px_rgba(245,158,11,0.18)]">
+                  <div className="mb-1 font-semibold text-amber-200">
+                    ⚠️ Backpack mobile compatibility notice
                   </div>
                   <p className="opacity-90">
                     Backpack mobile may fail during transaction broadcast on some devices.
