@@ -817,6 +817,18 @@ export default function CoinographiaPage() {
             <div className="mx-auto max-w-7xl">
                 <AppWalletBar className="mb-6 w-full" />
 
+                <div className="mb-5 flex justify-start">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            window.location.href = '/';
+                        }}
+                        className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-[1px] hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-100"
+                    >
+                        ← Back to Home
+                    </button>
+                </div>
+
                 <div className="relative mb-8 overflow-hidden rounded-[30px] border border-white/10 bg-[#0b1220] shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_26%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.14),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(244,63,94,0.10),transparent_24%)]" />
                     <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
