@@ -81,6 +81,8 @@ export default function ShareCenter({
   const [toastVariant, setToastVariant] = useState<ToastVariant>('info');
   const [shortUrl, setShortUrl] = useState<string | undefined>(payload?.shortUrl);
   const [copyReward, setCopyReward] = useState<number | null>(null);
+  const [copyOpenModal, setCopyOpenModal] = useState(false);
+  const [copiedPostText, setCopiedPostText] = useState('');
 
   // —— Tek noktadan buton yüksekliği
   const BTN_H = 'h-9 md:h-8';
@@ -262,39 +264,67 @@ export default function ShareCenter({
   };
 
   // import satırında useCallback'i kaldır:
-  const openChannel = (channel: Channel) => {
+  const openChannel = async (channel: Channel) => {
     const p = payloadWithShort;
-
+  
     try {
-      // 🔹 Sadece X gerçek paylaşım açıyor
       if (channel === 'twitter') {
+        const composed = buildCopyText(p);
+  
         console.log('[ShareCenter] twitter clicked', {
           context,
           txId,
           walletBase58,
           payload: p,
+          walletBrowser: isWalletBrowser(),
         });
-
+  
+        // ✅ Wallet browsers: copy-only + mini modal
+        if (isWalletBrowser()) {
+          const copied = await copyTextSafe(composed);
+  
+          if (copied) {
+            await sendShareEvent('copy');
+            setCopiedPostText(composed);
+            setCopyOpenModal(true);
+            showToast('Post copied. Open X and paste.', 'top', false, 'success');
+          } else {
+            showToast('Could not auto-copy. Please copy manually and share on X.', 'top', true, 'error');
+          }
+  
+          return;
+        }
+  
+        // ✅ Real mobile browsers: native share
+        if (isRealMobileBrowser() && typeof navigator !== 'undefined' && navigator.share) {
+          try {
+            await navigator.share({ text: composed });
+            await sendShareEvent('twitter');
+            onOpenChange(false);
+            return;
+          } catch {
+            // fallback aşağıda
+          }
+        }
+  
+        // ✅ Desktop fallback: current behavior
         const intentUrl = buildTwitterIntent(p);
-
+  
         if (typeof window !== 'undefined') {
           window.open(intentUrl, '_blank', 'noopener,noreferrer');
         }
-
-        // CorePoint eventi (X)
-        void sendShareEvent('twitter');
+  
+        await sendShareEvent('twitter');
         onOpenChange(false);
         return;
       }
-
-      // 🔹 Diğer tüm kanallar (telegram, whatsapp, email, instagram, tiktok)
+  
       showToast(
         "Direct sharing for this channel isn't live yet — use Copy text to share and earn CorePoints.",
         'bottom',
         true,
         'info',
       );
-      return;
     } catch (e) {
       console.error('[ShareCenter] openChannel error', e);
       showToast('Could not open share channel.', 'top', false, 'error');
@@ -305,19 +335,96 @@ export default function ShareCenter({
   const handleCopy = async () => {
     try {
       const composed = buildCopyText(payloadWithShort);
-      await navigator.clipboard.writeText(composed);
+      const copied = await copyTextSafe(composed);
+  
+      if (!copied) {
+        showToast('Could not copy text.', 'top', false, 'error');
+        return;
+      }
+  
       await sendShareEvent('copy');
-      showToast(
-        'Post text copied — share manually to earn CorePoints!',
-        'top',
-        false,
-        'success',
-      );
+      setCopiedPostText(composed);
+  
+      if (isWalletBrowser()) {
+        setCopyOpenModal(true);
+        showToast('Post copied. Open X and paste.', 'top', false, 'success');
+      } else {
+        showToast(
+          'Post text copied — share manually to earn CorePoints!',
+          'top',
+          false,
+          'success',
+        );
+      }
     } catch (e) {
       console.error('[ShareCenter] copy failed', e);
       showToast('Could not copy text.', 'top', false, 'error');
     }
   };
+
+  function isWalletBrowser() {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  
+    const ua = navigator.userAgent.toLowerCase();
+    const w = window as any;
+  
+    const isCoarsePointer =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(pointer: coarse)').matches;
+  
+    const isPhantom = ua.includes('phantom');
+    const isBackpack = ua.includes('backpack');
+  
+    const isSolflareProvider =
+      Boolean(w.solflare) ||
+      Boolean(w.solana?.isSolflare) ||
+      Boolean(w.solana?.isSolflareWallet);
+  
+    const isLikelySolflare =
+      ua.includes('solflare') ||
+      (isCoarsePointer && isSolflareProvider);
+  
+    return isPhantom || isBackpack || isLikelySolflare;
+  }
+  
+  function isRealMobileBrowser() {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  
+    return (
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(pointer: coarse)').matches &&
+      !isWalletBrowser()
+    );
+  }
+  
+  async function copyTextSafe(text: string) {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+  
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', 'true');
+      ta.style.position = 'absolute';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+  
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+  
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+  
+  function openXHome() {
+    if (typeof window === 'undefined') return;
+    window.open('https://x.com', '_blank', 'noopener,noreferrer');
+  }
 
   const heading = 'Share';
 
@@ -462,6 +569,42 @@ export default function ShareCenter({
           </div>
         </div>
       </div>
+
+      {copyOpenModal && (
+        <div className="fixed inset-0 z-[30000] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-[360px] rounded-2xl border border-cyan-400/20 bg-zinc-950 p-5 text-white shadow-[0_0_32px_rgba(34,211,238,0.18)]">
+            <h4 className="text-lg font-bold text-cyan-200">
+              Post copied
+            </h4>
+
+            <p className="mt-2 text-sm text-zinc-300">
+              Open X and paste to share.
+            </p>
+
+            <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-xs text-zinc-400 line-clamp-4">
+              {copiedPostText}
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={openXHome}
+                className="rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-3 py-2 text-sm font-bold text-black transition hover:brightness-110 active:scale-95"
+              >
+                Open X
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCopyOpenModal(false)}
+                className="rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/[0.08] active:scale-95"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toastMsg && (
         <Toast message={toastMsg} position={toastPos} wide={toastWide} variant={toastVariant} />
