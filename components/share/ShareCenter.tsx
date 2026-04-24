@@ -424,19 +424,13 @@ export default function ShareCenter({
   function openXHome() {
     if (typeof window === 'undefined') return;
   
-    const text = copiedPostText || '';
-    const encodedText = encodeURIComponent(text);
+    const webUrl = 'https://x.com/compose/post';
   
-    const appUrl = `twitter://post?message=${encodedText}`;
-    const webUrl = `https://x.com/compose/post?text=${encodedText}`;
-  
-    window.location.href = appUrl;
-  
-    window.setTimeout(() => {
-      window.location.href = webUrl;
-    }, 1200);
+    // Safer for wallet browsers: do NOT use twitter:// deep link here.
+    window.open(webUrl, '_blank', 'noopener,noreferrer');
   
     setCopyOpenModal(false);
+    onOpenChange(false);
   }
 
   const heading = 'Share';
@@ -609,7 +603,10 @@ export default function ShareCenter({
 
               <button
                 type="button"
-                onClick={() => setCopyOpenModal(false)}
+                onClick={() => {
+                  setCopyOpenModal(false);
+                  onOpenChange(false);
+                }}
                 className="rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/[0.08] active:scale-95"
               >
                 Close
