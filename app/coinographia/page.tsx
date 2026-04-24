@@ -552,21 +552,23 @@ async function openXIntent(
         typeof window.matchMedia === 'function' &&
         window.matchMedia('(pointer: coarse)').matches;
 
-    const isPhantomInApp = ua.includes('phantom');
-    const isBackpackInApp = ua.includes('backpack');
+    const isPhantom = ua.includes('phantom');
+    const isBackpack = ua.includes('backpack');
 
-    // 🔥 Solflare fallback detection
-    const isLikelySolflare =
-        ua.includes('solflare') ||
-        (ua.includes('mobile') &&
-            ua.includes('safari') &&
-            !ua.includes('chrome') &&
-            !ua.includes('crios'));
+    // 🔥 Chrome detection (çok önemli)
+    const isChrome =
+        ua.includes('chrome') ||
+        ua.includes('crios');
 
-    const isWalletLike =
-        isPhantomInApp ||
-        isBackpackInApp ||
-        isLikelySolflare;
+    // 🔥 Mobile detection
+    const isMobile =
+        ua.includes('mobile');
+
+    // 🚀 FINAL LOGIC
+    const shouldForceCopy =
+        isPhantom ||
+        isBackpack ||
+        (isMobile && !isChrome);
 
     async function copyTextFallback() {
         try {
@@ -592,7 +594,7 @@ async function openXIntent(
     }
 
     // ✅ 1) Wallet browsers → COPY ONLY
-    if (isWalletLike) {
+    if (shouldForceCopy) {
         const copied = await copyTextFallback();
 
         if (copied) {

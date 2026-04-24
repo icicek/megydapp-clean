@@ -382,22 +382,24 @@ export default function HomePage() {
       typeof window !== 'undefined' &&
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(pointer: coarse)').matches;
-  
-    const isPhantomInApp = ua.includes('phantom');
-    const isBackpackInApp = ua.includes('backpack');
-  
-    // 🔥 Solflare fallback detection
-    const isLikelySolflare =
-      ua.includes('solflare') ||
-      (ua.includes('mobile') &&
-        ua.includes('safari') &&
-        !ua.includes('chrome') &&
-        !ua.includes('crios'));
-  
-    const isWalletLike =
-      isPhantomInApp ||
-      isBackpackInApp ||
-      isLikelySolflare;
+
+    const isPhantom = ua.includes('phantom');
+    const isBackpack = ua.includes('backpack');
+
+    // 🔥 Chrome detection (çok önemli)
+    const isChrome =
+      ua.includes('chrome') ||
+      ua.includes('crios');
+
+    // 🔥 Mobile detection
+    const isMobile =
+      ua.includes('mobile');
+
+    // 🚀 FINAL LOGIC
+    const shouldForceCopy =
+      isPhantom ||
+      isBackpack ||
+      (isMobile && !isChrome);
   
     async function copyTextFallback() {
       try {
@@ -423,7 +425,7 @@ export default function HomePage() {
     }
   
     // ✅ 1) Wallet browsers → COPY ONLY
-    if (isWalletLike) {
+    if (shouldForceCopy) {
       const copied = await copyTextFallback();
   
       if (copied) {
