@@ -287,7 +287,7 @@ export default function ShareCenter({
             await sendShareEvent('copy');
             setCopiedPostText(composed);
             setCopyOpenModal(true);
-            showToast('Post copied. Open X and paste.', 'top', false, 'success');
+            showToast('Post copied. Wallet browsers block direct sharing. Open X and paste.', 'top', false, 'success');
           } else {
             showToast('Could not auto-copy. Please copy manually and share on X.', 'top', true, 'error');
           }
@@ -347,7 +347,7 @@ export default function ShareCenter({
   
       if (isWalletBrowser()) {
         setCopyOpenModal(true);
-        showToast('Post copied. Open X and paste.', 'top', false, 'success');
+        showToast('Post copied. Paste it on X to share.', 'top', false, 'success');
       } else {
         showToast(
           'Post text copied — share manually to earn CorePoints!',
