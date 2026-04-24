@@ -445,7 +445,11 @@ export default function HomePage() {
           text: fullText,
         });
         return;
-      } catch {
+      } catch (err: any) {
+        if (err?.name === 'AbortError') {
+          return;
+        }
+      
         // fallback
       }
     }
@@ -1134,8 +1138,8 @@ export default function HomePage() {
                           shareClusterOnX(item);
                         }}
                         className={`${getShareButtonClass(getHeatLevel(item, activityNow))} absolute right-3 bottom-3 z-10 h-7 w-7 sm:hidden`}
-                        title="Share on X"
-                        aria-label="Share on X"
+                        title="Share signal"
+                        aria-label="Share signal"
                       >
                         ↗
                       </button>
