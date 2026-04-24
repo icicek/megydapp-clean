@@ -614,8 +614,13 @@ async function openXIntent(
                 text: fullText,
             });
             return;
-        } catch {
-            // fallback
+        } catch (err: any) {
+            // ❗ USER CANCEL → DO NOTHING
+            if (err?.name === 'AbortError') {
+                return;
+            }
+
+            // diğer hatalar için fallback devam edebilir
         }
     }
 
@@ -1086,9 +1091,9 @@ export default function CoinographiaPage() {
                         <div className="flex max-w-3xl flex-col xl:min-h-[100%] xl:justify-between">
                             <h2 className="text-lg font-semibold text-white">Live Discovery</h2>
                             <p className="mt-2 text-sm text-gray-300">
-                                This is where Coincarnation activity concentrates.
-                                Discover which tokens are gaining traction, attracting wallets,
-                                and generating revival momentum in real time.
+                                This is where market decay turns into visible signals.
+                                Discover which tokens are attracting wallets, generating Coincarnation momentum,
+                                and moving from passive failure toward collective revival.
                             </p>
                             <p className="mt-3 text-xs leading-5 text-slate-300/70">
                                 {getDiscoverySortLabel(discoverySort)}
@@ -1202,10 +1207,10 @@ export default function CoinographiaPage() {
                                                     shareDiscoveryOnX(it);
                                                 }}
                                                 className={`${getDiscoveryShareButtonClass(getDiscoveryHeatLevel(it))} h-7 w-7 sm:h-7 sm:w-7`}
-                                                title="Share on X"
-                                                aria-label="Share on X"
+                                                title="Share signal"
+                                                aria-label="Share signal"
                                             >
-                                                {sharedMint === it.mint ? '✓' : '𝕏'}
+                                                {sharedMint === it.mint ? '✓' : '↗'}
                                             </button>
                                         </div>
 
@@ -1382,7 +1387,9 @@ export default function CoinographiaPage() {
                     <div>
                         <div className="text-sm font-semibold text-white">Token Registry</div>
                         <div className="mt-1 text-xs text-gray-400">
-                            {loading ? 'Loading registry…' : `${total} token(s) found`}
+                            {loading
+                                ? 'Loading registry…'
+                                : `${total} token(s) found · every token has a state`}
                         </div>
                     </div>
 
@@ -1475,16 +1482,20 @@ export default function CoinographiaPage() {
                                                     : `Coincarnate ${it.symbol ? `$${it.symbol}` : 'this token'}`
                                             }
                                         >
-                                            <span className="leading-none text-[14px]">↗</span>
+                                            <img
+                                                src="/coincarnate-mark-white.png"
+                                                alt="Coincarnate"
+                                                className="h-5 w-5 object-contain opacity-90 transition-all duration-200 group-hover:opacity-100"
+                                            />
                                         </button>
 
                                         <button
                                             onClick={() => shareRegistryOnX(it)}
                                             className="h-8 w-8 rounded-xl border border-white/10 bg-white/[0.03] text-[13px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_16px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 flex items-center justify-center hover:scale-105 active:scale-95 hover:bg-white/[0.08]"
-                                            title="Share on X"
-                                            aria-label="Share on X"
+                                            title="Share signal"
+                                            aria-label="Share signal"
                                         >
-                                            {sharedMint === it.mint ? '✓' : '𝕏'}
+                                            {sharedMint === it.mint ? '✓' : '↗'}
                                         </button>
                                     </div>
                                 </div>
