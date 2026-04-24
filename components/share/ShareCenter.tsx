@@ -424,13 +424,17 @@ export default function ShareCenter({
   function openXHome() {
     if (typeof window === 'undefined') return;
   
-    const url = 'https://x.com/compose/post';
+    const text = copiedPostText || '';
+    const encodedText = encodeURIComponent(text);
   
-    const opened = window.open(url, '_blank', 'noopener,noreferrer');
+    const appUrl = `twitter://post?message=${encodedText}`;
+    const webUrl = `https://x.com/compose/post?text=${encodedText}`;
   
-    if (!opened) {
-      window.location.href = url;
-    }
+    window.location.href = appUrl;
+  
+    window.setTimeout(() => {
+      window.location.href = webUrl;
+    }, 1200);
   
     setCopyOpenModal(false);
   }
