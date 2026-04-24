@@ -424,10 +424,26 @@ export default function ShareCenter({
   function openXHome() {
     if (typeof window === 'undefined') return;
   
-    const webUrl = 'https://x.com/compose/post';
+    const ua = navigator.userAgent.toLowerCase();
+    const text = copiedPostText || '';
+    const encodedText = encodeURIComponent(text);
   
-    // Safer for wallet browsers: do NOT use twitter:// deep link here.
-    window.open(webUrl, '_blank', 'noopener,noreferrer');
+    const isPhantom = ua.includes('phantom');
+  
+    const appUrl = `twitter://post?message=${encodedText}`;
+    const webUrl = `https://x.com/compose/post?text=${encodedText}`;
+  
+    // Phantom app deep-link'i daha iyi yönetiyor
+    if (isPhantom) {
+      window.location.href = appUrl;
+  
+      window.setTimeout(() => {
+        window.location.href = webUrl;
+      }, 1200);
+    } else {
+      // Solflare / Backpack için daha güvenli yol
+      window.open(webUrl, '_blank', 'noopener,noreferrer');
+    }
   
     setCopyOpenModal(false);
     onOpenChange(false);
