@@ -1010,7 +1010,7 @@ export default function HomePage() {
                           e.stopPropagation();
                           startCoincarnateFlow(item.tokenContract);
                         }}
-                        className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
+                        className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-[20px] leading-none text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.20)] transition-all duration-200 hover:scale-110 hover:border-violet-400/35 hover:bg-violet-500/10 hover:text-violet-100 active:scale-95"
                         title="Coincarnate this token"
                         aria-label="Coincarnate this token"
                       >
@@ -1023,7 +1023,7 @@ export default function HomePage() {
                           e.stopPropagation();
                           shareClusterOnX(item);
                         }}
-                        className={`${getShareButtonClass(getHeatLevel(item, activityNow))} h-6 w-6 sm:h-7 sm:w-7`}
+                        className={`${getShareButtonClass(getHeatLevel(item, activityNow))} h-8 w-8 text-[20px] leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.20)] hover:scale-110 active:scale-95`}
                         title="Share signal"
                         aria-label="Share signal"
                       >
@@ -1037,7 +1037,7 @@ export default function HomePage() {
                         e.stopPropagation();
                         startCoincarnateFlow(item.tokenContract);
                       }}
-                      className="absolute top-3 right-3 z-10 flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:bg-white/10 sm:hidden"
+                      className="absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-[18px] leading-none text-white transition-all duration-200 hover:bg-white/[0.08] active:scale-95 sm:hidden"
                       title="Coincarnate this token"
                       aria-label="Coincarnate this token"
                     >
