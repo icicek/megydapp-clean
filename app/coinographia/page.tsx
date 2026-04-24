@@ -654,6 +654,7 @@ export default function CoinographiaPage() {
     const [error, setError] = useState<string | null>(null);
     const [copiedMint, setCopiedMint] = useState<string | null>(null);
     const [toast, setToast] = useState<{ text: string } | null>(null);
+    const [sharedMint, setSharedMint] = useState<string | null>(null);
 
     const [q, setQ] = useState('');
     const [status, setStatus] = useState<TokenStatus | ''>('');
@@ -669,6 +670,10 @@ export default function CoinographiaPage() {
 
     async function shareDiscoveryOnX(item: DiscoveryRow) {
         if (typeof window === 'undefined') return;
+
+        setSharedMint(item.mint);
+        window.setTimeout(() => setSharedMint(null), 2000);
+
         const text = buildDiscoveryTweet(item);
 
         await openXIntent(text, (message) => {
@@ -679,6 +684,10 @@ export default function CoinographiaPage() {
 
     async function shareRegistryOnX(item: TokenRow) {
         if (typeof window === 'undefined') return;
+
+        setSharedMint(item.mint);
+        window.setTimeout(() => setSharedMint(null), 2000);
+
         const text = buildRegistryTweet(item);
 
         await openXIntent(text, (message) => {
@@ -1196,7 +1205,7 @@ export default function CoinographiaPage() {
                                                 title="Share on X"
                                                 aria-label="Share on X"
                                             >
-                                                𝕏
+                                                {sharedMint === it.mint ? '✓' : '𝕏'}
                                             </button>
                                         </div>
 
@@ -1475,7 +1484,7 @@ export default function CoinographiaPage() {
                                             title="Share on X"
                                             aria-label="Share on X"
                                         >
-                                            𝕏
+                                            {sharedMint === it.mint ? '✓' : '𝕏'}
                                         </button>
                                     </div>
                                 </div>
