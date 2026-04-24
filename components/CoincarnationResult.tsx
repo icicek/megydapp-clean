@@ -4,7 +4,9 @@
 import React, { useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { APP_URL } from '@/app/lib/origin';
-import { buildPayload, buildTwitterIntent } from '@/components/share/intent';
+import type { SharePayload } from '@/components/share/intent';
+import { buildPayload } from '@/components/share/intent';
+import ShareCenter from '@/components/share/ShareCenter';
 
 type Props = {
   tokenFrom: string;
@@ -45,14 +47,14 @@ export default function CoincarnationResult({
   const { publicKey } = useWallet();
   const [copied, setCopied] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
 
   const handleShareOnX = async () => {
     if (shareBusy) return;
     setShareBusy(true);
   
     try {
-      const wallet = publicKey?.toBase58() ?? null;
-  
       const payload = buildPayload(
         'success',
         {
@@ -65,37 +67,16 @@ export default function CoincarnationResult({
         }
       );
   
-      try {
-        const body: any = {
-          channel: 'twitter',
-          context: 'success',
-          txId,
-        };
-        if (wallet) body.wallet = wallet;
-        if (referral) body.anchor = referral;
-  
-        await fetch('/api/share/record', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-          keepalive: true,
-        });
-      } catch (e) {
-        console.warn('⚠️ share/record failed on success screen:', e);
-      }
-  
-      const xUrl = buildTwitterIntent(payload);
-  
-      if (typeof window !== 'undefined') {
-        window.open(xUrl, '_blank', 'noopener,noreferrer');
-      }
+      setSharePayload(payload);
+      setShareOpen(true);
     } finally {
-      window.setTimeout(() => setShareBusy(false), 800);
+      window.setTimeout(() => setShareBusy(false), 500);
     }
   };
 
   return (
-    <div className="p-6 text-center">
+    <>
+      <div className="p-6 text-center">
       <h2 className="mb-4 text-2xl font-bold text-white drop-shadow-[0_0_10px_rgba(168,85,247,0.7)]">
         🎉 Success! Welcome, Coincarnator #{number}!
       </h2>
@@ -115,14 +96,6 @@ export default function CoincarnationResult({
       <div className="mb-6 rounded-xl border border-zinc-700 bg-zinc-900/70 px-4 py-4 text-left">
         <div className="mb-2 text-sm font-semibold text-white">Transaction Summary</div>
         <div className="space-y-1 text-sm text-zinc-300">
-          {typeof amount === 'number' && (
-            <div>
-              Amount:{' '}
-              <span className="font-semibold text-white">
-                {amount} ${tokenFrom}
-              </span>
-            </div>
-          )}
           {typeof amount === 'number' && (
             <div>
               Amount:{' '}
@@ -220,7 +193,7 @@ export default function CoincarnationResult({
         disabled={shareBusy}
         className="mb-6 block w-full max-w-xs mx-auto rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-6 py-3 font-semibold text-white shadow-lg transition hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        {shareBusy ? 'Opening X...' : '🐦 Share on X'}
+        {shareBusy ? 'Preparing...' : '🐦 Share on X'}
       </button>
 
       <div className="mt-4 flex justify-center gap-4">
@@ -241,5 +214,16 @@ export default function CoincarnationResult({
         </button>
       </div>
     </div>
-  );
+
+    <ShareCenter
+      open={shareOpen}
+      onOpenChange={setShareOpen}
+      payload={sharePayload}
+      context="success"
+      txId={txId}
+      walletBase58={publicKey?.toBase58() ?? null}
+      anchor={referral ? `success:${referral}:${txId}` : `success:${txId}`}
+    />
+  </>
+);
 }
