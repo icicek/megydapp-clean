@@ -552,19 +552,19 @@ async function openXIntent(
         typeof window.matchMedia === 'function' &&
         window.matchMedia('(pointer: coarse)').matches;
 
-    // 🎯 Wallet detection (ONLY these!)
+    const w = typeof window !== 'undefined' ? (window as any) : {};
+
     const isPhantom = ua.includes('phantom');
     const isBackpack = ua.includes('backpack');
 
-    // 🔥 Solflare için özel fallback (çok kritik)
+    const isSolflareProvider =
+        Boolean(w.solflare) ||
+        Boolean(w.solana?.isSolflare) ||
+        Boolean(w.solana?.isSolflareWallet);
+
     const isLikelySolflare =
         ua.includes('solflare') ||
-        (ua.includes('mobile') &&
-            ua.includes('safari') &&
-            !ua.includes('chrome') &&
-            !ua.includes('crios') &&
-            // 👇 kritik ek filtre (Safari değilse!)
-            !('share' in navigator)); // Safari'de navigator.share vardır
+        (isCoarsePointer && isSolflareProvider);
 
     const isWalletLike =
         isPhantom ||
