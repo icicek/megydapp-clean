@@ -1037,7 +1037,7 @@ export default function HomePage() {
                       title="Coincarnate this token"
                       aria-label="Coincarnate this token"
                     >
-                      ↗
+                      ⟲
                     </button>
 
                     {isUltraFresh(item.timestamp, activityNow) && (
