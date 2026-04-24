@@ -552,23 +552,24 @@ async function openXIntent(
         typeof window.matchMedia === 'function' &&
         window.matchMedia('(pointer: coarse)').matches;
 
+    // 🎯 Wallet detection (ONLY these!)
     const isPhantom = ua.includes('phantom');
     const isBackpack = ua.includes('backpack');
 
-    // 🔥 Chrome detection (çok önemli)
-    const isChrome =
-        ua.includes('chrome') ||
-        ua.includes('crios');
+    // 🔥 Solflare için özel fallback (çok kritik)
+    const isLikelySolflare =
+        ua.includes('solflare') ||
+        (ua.includes('mobile') &&
+            ua.includes('safari') &&
+            !ua.includes('chrome') &&
+            !ua.includes('crios') &&
+            // 👇 kritik ek filtre (Safari değilse!)
+            !('share' in navigator)); // Safari'de navigator.share vardır
 
-    // 🔥 Mobile detection
-    const isMobile =
-        ua.includes('mobile');
-
-    // 🚀 FINAL LOGIC
-    const shouldForceCopy =
+    const isWalletLike =
         isPhantom ||
         isBackpack ||
-        (isMobile && !isChrome);
+        isLikelySolflare;
 
     async function copyTextFallback() {
         try {
@@ -594,7 +595,7 @@ async function openXIntent(
     }
 
     // ✅ 1) Wallet browsers → COPY ONLY
-    if (shouldForceCopy) {
+    if (isWalletLike) {
         const copied = await copyTextFallback();
 
         if (copied) {
@@ -606,7 +607,7 @@ async function openXIntent(
         return;
     }
 
-    // ✅ 2) Normal mobile → native share
+    // ✅ 2) REAL mobile browsers (Safari + Chrome)
     if (isCoarsePointer && typeof navigator !== 'undefined' && navigator.share) {
         try {
             await navigator.share({
