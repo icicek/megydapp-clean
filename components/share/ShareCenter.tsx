@@ -423,7 +423,16 @@ export default function ShareCenter({
   
   function openXHome() {
     if (typeof window === 'undefined') return;
-    window.open('https://x.com', '_blank', 'noopener,noreferrer');
+  
+    const url = 'https://x.com/compose/post';
+  
+    const opened = window.open(url, '_blank', 'noopener,noreferrer');
+  
+    if (!opened) {
+      window.location.href = url;
+    }
+  
+    setCopyOpenModal(false);
   }
 
   const heading = 'Share';
@@ -571,7 +580,7 @@ export default function ShareCenter({
       </div>
 
       {copyOpenModal && (
-        <div className="fixed inset-0 z-[30000] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[30000] pointer-events-auto flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
           <div className="w-full max-w-[360px] rounded-2xl border border-cyan-400/20 bg-zinc-950 p-5 text-white shadow-[0_0_32px_rgba(34,211,238,0.18)]">
             <h4 className="text-lg font-bold text-cyan-200">
               Post copied
