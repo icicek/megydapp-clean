@@ -673,6 +673,24 @@ export default function CoinographiaPage() {
     const [discoveryError, setDiscoveryError] = useState<string | null>(null);
     const [discoverySort, setDiscoverySort] = useState<DiscoverySort>('recent');
 
+    function ShareArrowIcon({ className = '' }: { className?: string }) {
+        return (
+            <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                className={className}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            >
+                <path d="M7 17L17 7" />
+                <path d="M9 7h8v8" />
+            </svg>
+        );
+    }
+
     async function shareDiscoveryOnX(item: DiscoveryRow) {
         if (typeof window === 'undefined') return;
 
@@ -1213,9 +1231,7 @@ export default function CoinographiaPage() {
                                                 {sharedMint === it.mint ? (
                                                     '✓'
                                                 ) : (
-                                                    <span className="inline-block leading-none text-[14px] -translate-y-[1px] scale-x-[1.18] scale-y-[1.12] font-semibold">
-                                                        ↗
-                                                    </span>
+                                                    <ShareArrowIcon className="h-[17px] w-[17px]" />
                                                 )}
                                             </button>
                                         </div>
@@ -1500,9 +1516,7 @@ export default function CoinographiaPage() {
                                             {sharedMint === it.mint ? (
                                                 '✓'
                                             ) : (
-                                                <span className="inline-block leading-none text-[14px] -translate-y-[1px] scale-x-[1.18] scale-y-[1.12] font-semibold">
-                                                    ↗
-                                                </span>
+                                                <ShareArrowIcon className="h-[17px] w-[17px]" />
                                             )}
                                         </button>
                                     </div>
@@ -1621,7 +1635,11 @@ export default function CoinographiaPage() {
                                                     title="Share signal"
                                                     aria-label="Share signal"
                                                 >
-                                                    {sharedMint === it.mint ? '✓' : '↗'}
+                                                    {sharedMint === it.mint ? (
+                                                        '✓'
+                                                    ) : (
+                                                        <ShareArrowIcon className="h-[17px] w-[17px]" />
+                                                    )}
                                                 </button>
                                             </div>
                                         </td>

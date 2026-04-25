@@ -90,6 +90,24 @@ export default function HomePage() {
     return '0';
   }
 
+  function ShareArrowIcon({ className = '' }: { className?: string }) {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M7 17L17 7" />
+        <path d="M9 7h8v8" />
+      </svg>
+    );
+  }
+
   function getStatusBadgeClass(status: string) {
     const base = 'rounded-full px-2 py-0.5 text-[10px] border whitespace-nowrap';
   
@@ -1143,9 +1161,7 @@ export default function HomePage() {
                         title="Share signal"
                         aria-label="Share signal"
                       >
-                        <span className="inline-block leading-none text-[14px] -translate-y-[1px] scale-x-[1.18] scale-y-[1.12] font-semibold">
-                          ↗
-                        </span>
+                        <ShareArrowIcon className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
