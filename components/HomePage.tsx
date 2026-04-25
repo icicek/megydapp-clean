@@ -1010,7 +1010,7 @@ export default function HomePage() {
                           e.stopPropagation();
                           startCoincarnateFlow(item.tokenContract);
                         }}
-                        className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-[20px] leading-none text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.20)] transition-all duration-200 hover:scale-110 hover:border-violet-400/35 hover:bg-violet-500/10 hover:text-violet-100 active:scale-95"
+                        className="flex h-8 w-8 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-500/[0.07] text-[20px] leading-none text-violet-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.20)] transition-all duration-200 hover:scale-110 hover:border-violet-300/40 hover:bg-violet-500/14 hover:text-white active:scale-95"
                         title="Coincarnate this token"
                         aria-label="Coincarnate this token"
                       >
@@ -1023,11 +1023,11 @@ export default function HomePage() {
                           e.stopPropagation();
                           shareClusterOnX(item);
                         }}
-                        className={`${getShareButtonClass(getHeatLevel(item, activityNow))} h-8 w-8 text-[20px] leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.20)] hover:scale-110 active:scale-95`}
+                        className={`${getShareButtonClass(getHeatLevel(item, activityNow))} h-8 w-8 text-cyan-100 border-cyan-400/20 bg-cyan-500/[0.06] text-[20px] leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.20)] hover:scale-110 hover:bg-cyan-500/12 active:scale-95`}
                         title="Share signal"
                         aria-label="Share signal"
                       >
-                        ↗
+                        <span className="leading-none text-[16px] -translate-y-[1px]">↗</span>
                       </button>
                     </div>
 
