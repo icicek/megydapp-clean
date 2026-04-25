@@ -1027,7 +1027,9 @@ export default function HomePage() {
                         title="Share signal"
                         aria-label="Share signal"
                       >
-                        <span className="leading-none text-[16px] -translate-y-[1px]">↗</span>
+                        <span className="inline-block leading-none text-[15px] -translate-y-[1px] scale-x-[1.18] scale-y-[1.12] font-semibold">
+                          ↗
+                        </span>
                       </button>
                     </div>
 
@@ -1141,7 +1143,9 @@ export default function HomePage() {
                         title="Share signal"
                         aria-label="Share signal"
                       >
-                        <span className="leading-none text-[15px] -translate-y-[1px]">↗</span>
+                        <span className="inline-block leading-none text-[14px] -translate-y-[1px] scale-x-[1.18] scale-y-[1.12] font-semibold">
+                          ↗
+                        </span>
                       </button>
                     </div>
                   </div>
