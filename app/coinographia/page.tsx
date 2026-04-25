@@ -928,11 +928,11 @@ export default function CoinographiaPage() {
                                     </div>
 
                                     <p className="mt-3 max-w-2xl text-lg font-semibold leading-8 text-white sm:text-xl">
-                                        Coincarnation turns ignored crypto damage into renewed participation.
+                                        Coincarnation gives forgotten crypto losses a second life.
                                     </p>
 
                                     <p className="mt-3 max-w-2xl text-sm leading-7 text-gray-400">
-                                        While most of the market moves on from damaged holders, Coincarnation gives dead and decaying assets a second form of value.
+                                        Dead and decaying holdings are no longer forced to remain idle — Coincarnation turns them into renewed participation.
                                     </p>
                                 </div>
                             </div>
