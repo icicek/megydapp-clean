@@ -886,12 +886,10 @@ export default function CoinographiaPage() {
                                     </h1>
 
                                     <p className="mt-4 max-w-2xl text-sm leading-7 text-gray-300 sm:text-[15px]">
-                                        Behind every major rally lies a quieter reality: millions of wallets are carrying deadcoins,
-                                        decaying assets, and positions the market has already left behind.
+                                        Behind every rally, millions of wallets still carry deadcoins, decaying assets and abandoned losses.
 
                                         <span className="block mt-3">
-                                            This is no longer a minor investor issue — it is a structural weakness that slowly damages trust,
-                                            liquidity confidence and long-term participation across crypto.
+                                            Coinographia makes this hidden market damage visible.
                                         </span>
                                     </p>
 
@@ -953,7 +951,7 @@ export default function CoinographiaPage() {
                                                 </div>
 
                                                 <p className="mt-2 max-w-2xl text-xs leading-5 text-gray-400">
-                                                    Coinographia tracks token states, survival thresholds and revival signals in real time.
+                                                    Coinographia tracks token survival signals in real time.
                                                 </p>
 
                                                 <div className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-300/80">
@@ -1028,7 +1026,7 @@ export default function CoinographiaPage() {
                                         </div>
                                     </div>
 
-                                    <div className="rounded-2xl border border-violet-400/20 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.14),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.025))] p-4 shadow-[0_0_34px_rgba(168,85,247,0.08)]">
+                                    <div className="px-1 pt-1">
                                         <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em]">
                                             <span className="text-emerald-200">Healthy</span>
                                             <span className="text-gray-500">→</span>
@@ -1037,8 +1035,8 @@ export default function CoinographiaPage() {
                                             <span className="text-zinc-200">Deadcoin</span>
                                         </div>
 
-                                        <p className="mt-3 text-xs leading-5 text-gray-400">
-                                            These thresholds form the current classification logic. They can evolve over time through community governance as the market changes.
+                                        <p className="mt-2 text-xs leading-5 text-gray-500">
+                                            Thresholds can evolve over time through community governance.
                                         </p>
                                     </div>
                                 </div>
