@@ -922,14 +922,17 @@ export default function CoinographiaPage() {
                                     </div>
                                 </div>
 
-                                <div className="mt-8 xl:mt-auto rounded-3xl border border-violet-400/20 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.10),transparent_35%),rgba(255,255,255,0.03)] px-5 py-4 shadow-[0_0_38px_rgba(168,85,247,0.10)]">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-violet-200">
+                                <div className="mt-10 xl:mt-auto">
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-violet-200">
                                         Why Coincarnation Exists
                                     </div>
 
-                                    <p className="mt-3 text-xs leading-6 text-gray-300 sm:text-sm">
-                                        While most of the market ignores damaged holders, Coincarnation converts dead or decaying tokens
-                                        into renewed participation. It is the revival layer built for the forgotten side of crypto.
+                                    <p className="mt-3 max-w-2xl text-lg font-semibold leading-8 text-white sm:text-xl">
+                                        Coincarnation turns ignored crypto damage into renewed participation.
+                                    </p>
+
+                                    <p className="mt-3 max-w-2xl text-sm leading-7 text-gray-400">
+                                        While most of the market moves on from damaged holders, Coincarnation gives dead and decaying assets a second form of value.
                                     </p>
                                 </div>
                             </div>
@@ -942,21 +945,23 @@ export default function CoinographiaPage() {
                                 )}
 
                                 <div className="relative grid min-w-0 gap-3 xl:flex-1">
-                                    <div className="rounded-2xl border border-cyan-400/15 bg-[linear-gradient(180deg,rgba(34,211,238,0.08),rgba(255,255,255,0.035))] p-4 shadow-[0_0_34px_rgba(34,211,238,0.08)]">
-                                        <div className="flex items-center justify-between gap-3">
+                                    <div className="px-1 pb-1">
+                                        <div className="flex items-start justify-between gap-4">
                                             <div>
                                                 <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-200">
                                                     Live Token Survival Engine
                                                 </div>
-                                                <p className="mt-2 text-xs leading-5 text-gray-400">
-                                                    Coinographia is the intelligence layer of Coincarnation — where token states, survival thresholds and revival signals are tracked in real time.
+
+                                                <p className="mt-2 max-w-2xl text-xs leading-5 text-gray-400">
+                                                    Coinographia tracks token states, survival thresholds and revival signals in real time.
                                                 </p>
+
                                                 <div className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-300/80">
                                                     live thresholds • governance synced
                                                 </div>
                                             </div>
 
-                                            <span className="relative flex h-3 w-3 shrink-0">
+                                            <span className="relative mt-1 flex h-3 w-3 shrink-0">
                                                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-60" />
                                                 <span className="relative inline-flex h-3 w-3 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.9)]" />
                                             </span>
