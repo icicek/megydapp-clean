@@ -869,7 +869,7 @@ export default function CoinographiaPage() {
 
                     <div className="relative p-6 md:p-7 xl:p-8">
                         <div className="flex flex-col gap-7 xl:grid xl:grid-cols-[minmax(0,1.25fr)_minmax(520px,560px)] xl:gap-7 xl:items-stretch">
-                            <div className="flex min-w-0 flex-col xl:h-full">
+                            <div className="flex min-w-0 flex-col xl:h-full xl:justify-between">
                                 <div className="flex flex-wrap items-center gap-2">
                                     <span className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-200">
                                         Coinographia
@@ -916,7 +916,7 @@ export default function CoinographiaPage() {
                                     </span>
                                 </div>
 
-                                <div className="mt-8 xl:mt-10">
+                                <div className="mt-10 xl:mt-auto">
                                     <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
                                         <p className="text-xs leading-6 text-gray-400 sm:text-sm">
                                             Not every token fails the same way. Some remain strong, some decay slowly, and some are already beyond recovery. Coinographia makes that reality visible — so Coincarnation can act with clarity.
