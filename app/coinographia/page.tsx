@@ -942,7 +942,7 @@ export default function CoinographiaPage() {
                                     </div>
                                 )}
 
-                                <div className="relative grid min-w-0 gap-3 xl:flex-1">
+                                <div className="relative grid min-w-0 gap-3 xl:flex-1 rounded-[26px] border border-cyan-400/12 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.10),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.10),transparent_28%),rgba(255,255,255,0.025)] p-4 shadow-[0_0_42px_rgba(34,211,238,0.07)]">
                                     <div className="px-1 pb-1">
                                         <div className="flex items-start justify-between gap-4">
                                             <div>
