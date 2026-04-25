@@ -1605,11 +1605,11 @@ export default function CoinographiaPage() {
 
                                                 <button
                                                     onClick={() => shareRegistryOnX(it)}
-                                                    className="h-10 w-10 rounded-xl border border-white/10 bg-white/[0.04] text-sm text-white transition-all duration-200 hover:bg-white/[0.08] hover:scale-[1.04] active:scale-[0.97]"
+                                                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.06] text-[15px] leading-none text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_18px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-all duration-200 hover:scale-110 hover:bg-cyan-500/[0.12] hover:shadow-[0_0_22px_rgba(34,211,238,0.26)] active:scale-95"
                                                     title="Share signal"
                                                     aria-label="Share signal"
                                                 >
-                                                    ↗
+                                                    {sharedMint === it.mint ? '✓' : '↗'}
                                                 </button>
                                             </div>
                                         </td>

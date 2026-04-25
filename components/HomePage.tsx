@@ -1137,11 +1137,11 @@ export default function HomePage() {
                           e.stopPropagation();
                           shareClusterOnX(item);
                         }}
-                        className={`${getShareButtonClass(getHeatLevel(item, activityNow))} absolute right-3 bottom-3 z-10 h-7 w-7 sm:hidden`}
+                        className={`${getShareButtonClass(getHeatLevel(item, activityNow))} absolute right-3 bottom-3 z-10 h-8 w-8 sm:hidden`}
                         title="Share signal"
                         aria-label="Share signal"
                       >
-                        ↗
+                        <span className="leading-none text-[15px] -translate-y-[1px]">↗</span>
                       </button>
                     </div>
                   </div>
