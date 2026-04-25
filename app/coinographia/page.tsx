@@ -884,7 +884,7 @@ export default function CoinographiaPage() {
                                     The market is fragmented. Not all tokens survive.
                                 </h1>
 
-                                <p className="mt-4 max-w-2xl text-sm leading-6 text-gray-300 sm:text-[15px]">
+                                <p className="mt-5 max-w-2xl text-sm leading-6 text-gray-300 sm:text-[15px]">
                                     Crypto is no longer a uniform space. Some tokens remain strong, others decay,
                                     and many are already abandoned. Coinographia reveals this reality in real time —
                                     separating healthy assets from walking deadcoins and deadcoins.
