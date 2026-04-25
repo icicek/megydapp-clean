@@ -884,13 +884,12 @@ export default function CoinographiaPage() {
                                     The market is fragmented. Not all tokens survive.
                                 </h1>
 
-                                <p className="mt-5 max-w-2xl text-sm leading-6 text-gray-300 sm:text-[15px]">
-                                    Crypto is no longer a uniform space. Some tokens remain strong, others decay,
-                                    and many are already abandoned. Coinographia reveals this reality in real time —
-                                    separating healthy assets from walking deadcoins and deadcoins.
+                                <p className="mt-4 max-w-2xl text-sm leading-6 text-gray-300 sm:text-[15px]">
+                                    Every crypto wallet tells the same story: some assets rise, some fade, and many quietly turn into dead weight.
+                                    Deadcoins and walking deadcoins are not rare exceptions — they are part of the market’s hidden damage.
 
                                     <span className="block mt-3 text-white font-medium">
-                                        When the system breaks, Coincarnation becomes necessary.
+                                        Coincarnation exists to turn that damage into a new form of value.
                                     </span>
                                 </p>
 
@@ -919,7 +918,8 @@ export default function CoinographiaPage() {
                                 <div className="mt-10 xl:mt-auto">
                                     <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
                                         <p className="text-xs leading-6 text-gray-400 sm:text-sm">
-                                            Not every token fails the same way. Some remain strong, some decay slowly, and some are already beyond recovery. Coinographia makes that reality visible — so Coincarnation can act with clarity.
+                                            Too many unhealthy assets weaken trust in crypto and leave investors alone with losses nobody wants to address.
+                                            Coincarnation is built for that forgotten side of the market — helping damaged holders transform dead or decaying tokens into renewed participation.
                                         </p>
                                     </div>
                                 </div>
@@ -940,7 +940,7 @@ export default function CoinographiaPage() {
                                                     Live Token Survival Engine
                                                 </div>
                                                 <p className="mt-2 text-xs leading-5 text-gray-400">
-                                                    Coinographia classifies tokens through liquidity, activity and survivability thresholds.
+                                                    Coinographia is the intelligence layer of Coincarnation — where token states, survival thresholds and revival signals are tracked in real time.
                                                 </p>
                                             </div>
 
@@ -1021,7 +1021,7 @@ export default function CoinographiaPage() {
                                         </div>
 
                                         <p className="mt-3 text-xs leading-5 text-gray-400">
-                                            These thresholds power the classification layer behind Coinographia.
+                                            These thresholds form the current classification logic. They can evolve over time through community governance as the market changes.
                                         </p>
                                     </div>
                                 </div>
