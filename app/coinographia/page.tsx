@@ -896,7 +896,7 @@ export default function CoinographiaPage() {
                                     </p>
 
                                     <div className="mt-5 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500">
-                                        Active token states monitored by Coinographia
+                                        Active asset states monitored by Coinographia
                                     </div>
 
                                     <div className="mt-3 flex flex-wrap items-center gap-2.5">
