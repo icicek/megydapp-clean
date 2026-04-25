@@ -1210,7 +1210,13 @@ export default function CoinographiaPage() {
                                                 title="Share signal"
                                                 aria-label="Share signal"
                                             >
-                                                {sharedMint === it.mint ? '✓' : '↗'}
+                                                {sharedMint === it.mint ? (
+                                                    '✓'
+                                                ) : (
+                                                    <span className="inline-block leading-none text-[14px] -translate-y-[1px] scale-x-[1.18] scale-y-[1.12] font-semibold">
+                                                        ↗
+                                                    </span>
+                                                )}
                                             </button>
                                         </div>
 
@@ -1487,11 +1493,17 @@ export default function CoinographiaPage() {
 
                                         <button
                                             onClick={() => shareRegistryOnX(it)}
-                                            className="h-8 w-8 rounded-xl border border-cyan-400/20 bg-cyan-500/[0.06] text-[15px] font-semibold text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_16px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 hover:bg-cyan-500/[0.12] active:scale-95"
+                                            className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.06] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_16px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 hover:bg-cyan-500/[0.12] active:scale-95"
                                             title="Share signal"
                                             aria-label="Share signal"
                                         >
-                                            {sharedMint === it.mint ? '✓' : '↗'}
+                                            {sharedMint === it.mint ? (
+                                                '✓'
+                                            ) : (
+                                                <span className="inline-block leading-none text-[14px] -translate-y-[1px] scale-x-[1.18] scale-y-[1.12] font-semibold">
+                                                    ↗
+                                                </span>
+                                            )}
                                         </button>
                                     </div>
                                 </div>
