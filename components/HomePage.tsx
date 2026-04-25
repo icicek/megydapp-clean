@@ -264,17 +264,17 @@ export default function HomePage() {
 
   function getShareButtonClass(level: 'hot' | 'trending' | 'live') {
     const base =
-      'flex items-center justify-center rounded-lg border text-white transition-all duration-200';
+      'flex items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.06] text-cyan-100 transition-all duration-200';
   
     if (level === 'hot') {
-      return `${base} border-orange-400/40 bg-orange-500/10 shadow-[0_0_18px_rgba(249,115,22,0.22)] hover:bg-orange-500/15 hover:shadow-[0_0_24px_rgba(249,115,22,0.30)] animate-pulse`;
+      return `${base} border-orange-400/35 bg-orange-500/[0.10] text-orange-100 shadow-[0_0_22px_rgba(249,115,22,0.34)] hover:bg-orange-500/[0.16] hover:shadow-[0_0_32px_rgba(249,115,22,0.46)] animate-pulse`;
     }
   
     if (level === 'trending') {
-      return `${base} border-cyan-400/35 bg-cyan-500/10 shadow-[0_0_14px_rgba(34,211,238,0.16)] hover:bg-cyan-500/15 hover:shadow-[0_0_20px_rgba(34,211,238,0.24)]`;
+      return `${base} border-cyan-300/35 bg-cyan-500/[0.09] shadow-[0_0_18px_rgba(34,211,238,0.26)] hover:bg-cyan-500/[0.15] hover:shadow-[0_0_28px_rgba(34,211,238,0.36)]`;
     }
   
-    return `${base} border-white/10 bg-white/5 hover:bg-white/10`;
+    return `${base} shadow-[0_0_12px_rgba(34,211,238,0.12)] hover:bg-cyan-500/[0.12] hover:shadow-[0_0_22px_rgba(34,211,238,0.24)]`;
   }
 
   function safeReadPendingCoincarnateMint(): string | null {
@@ -1014,7 +1014,7 @@ export default function HomePage() {
                         title="Coincarnate this token"
                         aria-label="Coincarnate this token"
                       >
-                        <span className="leading-none text-[16px]"><span className="leading-none text-[16px]">✦</span></span>
+                        <span className="leading-none text-[16px]">✦</span>
                       </button>
 
                       <button
@@ -1023,7 +1023,7 @@ export default function HomePage() {
                           e.stopPropagation();
                           shareClusterOnX(item);
                         }}
-                        className={`${getShareButtonClass(getHeatLevel(item, activityNow))} h-8 w-8 border-cyan-400/20 bg-cyan-500/[0.06] text-[20px] leading-none text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.20)] hover:scale-110 hover:bg-cyan-500/12 active:scale-95`}
+                        className={`${getShareButtonClass(getHeatLevel(item, activityNow))} h-8 w-8 text-[20px] leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.20)] hover:scale-110 active:scale-95`}
                         title="Share signal"
                         aria-label="Share signal"
                       >
@@ -1137,7 +1137,7 @@ export default function HomePage() {
                           e.stopPropagation();
                           shareClusterOnX(item);
                         }}
-                        className={`${getShareButtonClass(getHeatLevel(item, activityNow))} absolute right-3 bottom-3 z-10 h-7 w-7 border-cyan-400/20 bg-cyan-500/[0.06] text-cyan-100 sm:hidden`}
+                        className={`${getShareButtonClass(getHeatLevel(item, activityNow))} absolute right-3 bottom-3 z-10 h-7 w-7 sm:hidden`}
                         title="Share signal"
                         aria-label="Share signal"
                       >

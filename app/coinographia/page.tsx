@@ -430,17 +430,17 @@ function getDiscoveryHeatLevel(item: DiscoveryRow): 'hot' | 'trending' | 'live' 
 
 function getDiscoveryShareButtonClass(level: 'hot' | 'trending' | 'live') {
     const base =
-        'flex items-center justify-center rounded-lg border text-white transition-all duration-200';
+        'flex items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.06] text-cyan-100 transition-all duration-200';
 
     if (level === 'hot') {
-        return `${base} border-orange-400/40 bg-orange-500/10 shadow-[0_0_18px_rgba(249,115,22,0.22)] hover:bg-orange-500/15 hover:shadow-[0_0_24px_rgba(249,115,22,0.30)] animate-pulse`;
+        return `${base} border-orange-400/35 bg-orange-500/[0.10] text-orange-100 shadow-[0_0_22px_rgba(249,115,22,0.34)] hover:bg-orange-500/[0.16] hover:shadow-[0_0_32px_rgba(249,115,22,0.46)] animate-pulse`;
     }
 
     if (level === 'trending') {
-        return `${base} border-cyan-400/35 bg-cyan-500/10 shadow-[0_0_14px_rgba(34,211,238,0.16)] hover:bg-cyan-500/15 hover:shadow-[0_0_20px_rgba(34,211,238,0.24)]`;
+        return `${base} border-cyan-300/35 bg-cyan-500/[0.09] shadow-[0_0_18px_rgba(34,211,238,0.26)] hover:bg-cyan-500/[0.15] hover:shadow-[0_0_28px_rgba(34,211,238,0.36)]`;
     }
 
-    return `${base} border-white/10 bg-white/5 hover:bg-white/10`;
+    return `${base} shadow-[0_0_12px_rgba(34,211,238,0.12)] hover:bg-cyan-500/[0.12] hover:shadow-[0_0_22px_rgba(34,211,238,0.24)]`;
 }
 
 function buildDiscoveryTweet(item: DiscoveryRow) {
@@ -1206,7 +1206,7 @@ export default function CoinographiaPage() {
                                                     e.stopPropagation();
                                                     shareDiscoveryOnX(it);
                                                 }}
-                                                className={`${getDiscoveryShareButtonClass(getDiscoveryHeatLevel(it))} h-7 w-7 sm:h-7 sm:w-7`}
+                                                className={`${getDiscoveryShareButtonClass(getDiscoveryHeatLevel(it))} h-8 w-8 text-[16px] leading-none`}
                                                 title="Share signal"
                                                 aria-label="Share signal"
                                             >
@@ -1487,7 +1487,7 @@ export default function CoinographiaPage() {
 
                                         <button
                                             onClick={() => shareRegistryOnX(it)}
-                                            className="h-8 w-8 rounded-xl border border-white/10 bg-white/[0.03] text-[13px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_16px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 flex items-center justify-center hover:scale-105 active:scale-95 hover:bg-white/[0.08]"
+                                            className="h-8 w-8 rounded-xl border border-cyan-400/20 bg-cyan-500/[0.06] text-[15px] font-semibold text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_16px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 hover:bg-cyan-500/[0.12] active:scale-95"
                                             title="Share signal"
                                             aria-label="Share signal"
                                         >
