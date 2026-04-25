@@ -1161,7 +1161,7 @@ export default function HomePage() {
                         title="Share signal"
                         aria-label="Share signal"
                       >
-                        <ShareArrowIcon className="h-[17px] w-[17px]" />
+                        <ShareArrowIcon className="h-[15px] w-[15px]" />
                       </button>
                     </div>
                   </div>
