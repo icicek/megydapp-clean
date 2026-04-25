@@ -881,11 +881,11 @@ export default function CoinographiaPage() {
                                         </span>
                                     </div>
 
-                                    <h1 className="mt-4 max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-4xl xl:text-[42px] xl:leading-[1.05]">
+                                    <h1 className="mt-3 max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-4xl xl:text-[42px] xl:leading-[1.05]">
                                         Crypto grew fast. Survivability did not.
                                     </h1>
 
-                                    <p className="mt-5 max-w-2xl text-sm leading-7 text-gray-300 sm:text-[15px]">
+                                    <p className="mt-4 max-w-2xl text-sm leading-7 text-gray-300 sm:text-[15px]">
                                         Behind every major rally lies a quieter reality: millions of wallets are carrying deadcoins,
                                         decaying assets, and positions the market has already left behind.
 
@@ -895,7 +895,7 @@ export default function CoinographiaPage() {
                                         </span>
                                     </p>
 
-                                    <div className="mt-7 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500">
+                                    <div className="mt-5 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500">
                                         Active token states monitored by Coinographia
                                     </div>
 
@@ -922,7 +922,7 @@ export default function CoinographiaPage() {
                                     </div>
                                 </div>
 
-                                <div className="mt-10 xl:mt-auto rounded-3xl border border-violet-400/14 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.10),transparent_35%),rgba(255,255,255,0.03)] px-5 py-4 shadow-[0_0_30px_rgba(168,85,247,0.06)]">
+                                <div className="mt-8 xl:mt-auto rounded-3xl border border-violet-400/20 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.10),transparent_35%),rgba(255,255,255,0.03)] px-5 py-4 shadow-[0_0_38px_rgba(168,85,247,0.10)]">
                                     <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-violet-200">
                                         Why Coincarnation Exists
                                     </div>
@@ -951,6 +951,9 @@ export default function CoinographiaPage() {
                                                 <p className="mt-2 text-xs leading-5 text-gray-400">
                                                     Coinographia is the intelligence layer of Coincarnation — where token states, survival thresholds and revival signals are tracked in real time.
                                                 </p>
+                                                <div className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-300/80">
+                                                    live thresholds • governance synced
+                                                </div>
                                             </div>
 
                                             <span className="relative flex h-3 w-3 shrink-0">
