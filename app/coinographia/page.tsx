@@ -1482,7 +1482,7 @@ export default function CoinographiaPage() {
                                                     : `Coincarnate ${it.symbol ? `$${it.symbol}` : 'this token'}`
                                             }
                                         >
-                                            <span className="leading-none text-[16px]">⟲</span>
+                                            <span className="leading-none text-[16px]">✦</span>
                                         </button>
 
                                         <button
