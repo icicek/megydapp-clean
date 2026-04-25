@@ -1014,7 +1014,7 @@ export default function HomePage() {
                         title="Coincarnate this token"
                         aria-label="Coincarnate this token"
                       >
-                        ✦
+                        <span className="leading-none text-[16px]"><span className="leading-none text-[16px]">✦</span></span>
                       </button>
 
                       <button
@@ -1041,7 +1041,7 @@ export default function HomePage() {
                       title="Coincarnate this token"
                       aria-label="Coincarnate this token"
                     >
-                      ✦
+                      <span className="leading-none text-[15px]">✦</span>
                     </button>
 
                     {isUltraFresh(item.timestamp, activityNow) && (
