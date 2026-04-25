@@ -870,58 +870,67 @@ export default function CoinographiaPage() {
                     <div className="relative p-6 md:p-7 xl:p-8">
                         <div className="flex flex-col gap-7 xl:grid xl:grid-cols-[minmax(0,1.25fr)_minmax(520px,560px)] xl:gap-7 xl:items-stretch">
                             <div className="flex min-w-0 flex-col xl:h-full xl:justify-between">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <span className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-200">
-                                        Coinographia
-                                    </span>
+                                <div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-200">
+                                            Coinographia
+                                        </span>
 
-                                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-gray-300">
-                                        Live Classification Layer
-                                    </span>
-                                </div>
-
-                                <h1 className="mt-4 max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-4xl xl:text-[42px] xl:leading-[1.05]">
-                                    The market is fragmented. Not all tokens survive.
-                                </h1>
-
-                                <p className="mt-4 max-w-2xl text-sm leading-6 text-gray-300 sm:text-[15px]">
-                                    Every crypto wallet tells the same story: some assets rise, some fade, and many quietly turn into dead weight.
-                                    Deadcoins and walking deadcoins are not rare exceptions — they are part of the market’s hidden damage.
-
-                                    <span className="block mt-3 text-white font-medium">
-                                        Coincarnation exists to turn that damage into a new form of value.
-                                    </span>
-                                </p>
-
-                                <div className="mt-6 flex flex-wrap items-center gap-2.5">
-                                    <span className="inline-flex items-center rounded-full border border-emerald-500/25 bg-emerald-500/12 px-3 py-1.5 text-xs font-medium text-emerald-200 shadow-[0_0_20px_rgba(16,185,129,0.10)]">
-                                        Healthy
-                                    </span>
-
-                                    <span className="inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/12 px-3 py-1.5 text-xs font-medium text-amber-200 shadow-[0_0_20px_rgba(245,158,11,0.08)]">
-                                        Walking Deadcoin
-                                    </span>
-
-                                    <span className="inline-flex items-center rounded-full border border-zinc-500/25 bg-zinc-500/12 px-3 py-1.5 text-xs font-medium text-zinc-200">
-                                        Deadcoin
-                                    </span>
-
-                                    <span className="inline-flex items-center rounded-full border border-rose-500/25 bg-rose-500/12 px-3 py-1.5 text-xs font-medium text-rose-200">
-                                        Redlist
-                                    </span>
-
-                                    <span className="inline-flex items-center rounded-full border border-pink-500/25 bg-pink-500/12 px-3 py-1.5 text-xs font-medium text-pink-200">
-                                        Blacklist
-                                    </span>
-                                </div>
-
-                                <div className="mt-10 xl:mt-auto">
-                                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-                                        <p className="text-xs leading-6 text-gray-400 sm:text-sm">
-                                            Too many unhealthy assets weaken trust in crypto and leave investors alone with losses nobody wants to address.
-                                            Coincarnation is built for that forgotten side of the market — helping damaged holders transform dead or decaying tokens into renewed participation.
-                                        </p>
+                                        <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-gray-300">
+                                            Market Damage Observatory
+                                        </span>
                                     </div>
+
+                                    <h1 className="mt-4 max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-4xl xl:text-[42px] xl:leading-[1.05]">
+                                        Crypto grew fast. Survivability did not.
+                                    </h1>
+
+                                    <p className="mt-5 max-w-2xl text-sm leading-7 text-gray-300 sm:text-[15px]">
+                                        Behind every major rally lies a quieter reality: millions of wallets are carrying deadcoins,
+                                        decaying assets, and positions the market has already left behind.
+
+                                        <span className="block mt-3">
+                                            This is no longer a minor investor issue — it is a structural weakness that slowly damages trust,
+                                            liquidity confidence and long-term participation across crypto.
+                                        </span>
+                                    </p>
+
+                                    <div className="mt-7 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500">
+                                        Active token states monitored by Coinographia
+                                    </div>
+
+                                    <div className="mt-3 flex flex-wrap items-center gap-2.5">
+                                        <span className="inline-flex items-center rounded-full border border-emerald-500/25 bg-emerald-500/12 px-3 py-1.5 text-xs font-medium text-emerald-200 shadow-[0_0_20px_rgba(16,185,129,0.10)]">
+                                            Healthy
+                                        </span>
+
+                                        <span className="inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/12 px-3 py-1.5 text-xs font-medium text-amber-200 shadow-[0_0_20px_rgba(245,158,11,0.08)]">
+                                            Walking Deadcoin
+                                        </span>
+
+                                        <span className="inline-flex items-center rounded-full border border-zinc-500/25 bg-zinc-500/12 px-3 py-1.5 text-xs font-medium text-zinc-200">
+                                            Deadcoin
+                                        </span>
+
+                                        <span className="inline-flex items-center rounded-full border border-rose-500/25 bg-rose-500/12 px-3 py-1.5 text-xs font-medium text-rose-200">
+                                            Redlist
+                                        </span>
+
+                                        <span className="inline-flex items-center rounded-full border border-pink-500/25 bg-pink-500/12 px-3 py-1.5 text-xs font-medium text-pink-200">
+                                            Blacklist
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="mt-10 xl:mt-auto rounded-3xl border border-violet-400/14 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.10),transparent_35%),rgba(255,255,255,0.03)] px-5 py-4 shadow-[0_0_30px_rgba(168,85,247,0.06)]">
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-violet-200">
+                                        Why Coincarnation Exists
+                                    </div>
+
+                                    <p className="mt-3 text-xs leading-6 text-gray-300 sm:text-sm">
+                                        While most of the market ignores damaged holders, Coincarnation converts dead or decaying tokens
+                                        into renewed participation. It is the revival layer built for the forgotten side of crypto.
+                                    </p>
                                 </div>
                             </div>
 
@@ -988,7 +997,7 @@ export default function CoinographiaPage() {
                                     <div className="grid gap-3 sm:grid-cols-2">
                                         <div className="rounded-2xl border border-amber-400/20 bg-amber-500/[0.07] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_28px_rgba(245,158,11,0.08)]">
                                             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200">
-                                                Walking Dead Volume Line
+                                                Walking Deadcoin Volume Line
                                             </div>
                                             <div className="mt-4 text-2xl font-extrabold text-white">
                                                 {formatMetricValue(getMetricCardValue(metricCards, 'walking_dead_min_vol_usd'), 'usd')}
@@ -1000,7 +1009,7 @@ export default function CoinographiaPage() {
 
                                         <div className="rounded-2xl border border-rose-400/20 bg-rose-500/[0.07] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_28px_rgba(244,63,94,0.08)]">
                                             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-rose-200">
-                                                Walking Dead Liquidity Line
+                                                Walking Deadcoin Liquidity Line
                                             </div>
                                             <div className="mt-4 text-2xl font-extrabold text-white">
                                                 {formatMetricValue(getMetricCardValue(metricCards, 'walking_dead_min_liq_usd'), 'usd')}
