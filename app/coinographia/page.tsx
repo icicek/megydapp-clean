@@ -932,72 +932,96 @@ export default function CoinographiaPage() {
                                     </div>
                                 )}
 
-                                <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:flex-1">
-                                    <div className="group flex h-full min-h-[172px] xl:min-h-[176px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(16,185,129,0.08)]">
+                                <div className="relative grid min-w-0 gap-3 xl:flex-1">
+                                    <div className="rounded-2xl border border-cyan-400/15 bg-[linear-gradient(180deg,rgba(34,211,238,0.08),rgba(255,255,255,0.035))] p-4 shadow-[0_0_34px_rgba(34,211,238,0.08)]">
                                         <div className="flex items-center justify-between gap-3">
-                                            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
-                                                Healthy Min Volume
+                                            <div>
+                                                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-200">
+                                                    Live Token Survival Engine
+                                                </div>
+                                                <p className="mt-2 text-xs leading-5 text-gray-400">
+                                                    Coinographia classifies tokens through liquidity, activity and survivability thresholds.
+                                                </p>
                                             </div>
-                                            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.9)]" />
-                                        </div>
 
-                                        <div className="mt-6 text-2xl font-bold text-white">
-                                            {formatMetricValue(getMetricCardValue(metricCards, 'healthy_min_vol_usd'), 'usd')}
+                                            <span className="relative flex h-3 w-3 shrink-0">
+                                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-60" />
+                                                <span className="relative inline-flex h-3 w-3 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.9)]" />
+                                            </span>
                                         </div>
-
-                                        <p className="mt-auto pt-2 text-xs leading-5 text-gray-400">
-                                            Minimum volume expected for healthy survival.
-                                        </p>
                                     </div>
 
-                                    <div className="group flex h-full min-h-[172px] xl:min-h-[176px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(34,211,238,0.08)]">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
-                                                Healthy Min Liquidity
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/[0.07] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_28px_rgba(16,185,129,0.08)]">
+                                            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-200">
+                                                Healthy Volume Floor
                                             </div>
-                                            <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_14px_rgba(34,211,238,0.9)]" />
+                                            <div className="mt-4 text-2xl font-extrabold text-white">
+                                                {formatMetricValue(getMetricCardValue(metricCards, 'healthy_min_vol_usd'), 'usd')}
+                                            </div>
+                                            <p className="mt-3 text-xs leading-5 text-gray-400">
+                                                Minimum market activity expected from a healthy token.
+                                            </p>
                                         </div>
 
-                                        <div className="mt-6 text-2xl font-bold text-white">
-                                            {formatMetricValue(getMetricCardValue(metricCards, 'healthy_min_liq_usd'), 'usd')}
+                                        <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/[0.07] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_28px_rgba(34,211,238,0.08)]">
+                                            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-200">
+                                                Healthy Liquidity Floor
+                                            </div>
+                                            <div className="mt-4 text-2xl font-extrabold text-white">
+                                                {formatMetricValue(getMetricCardValue(metricCards, 'healthy_min_liq_usd'), 'usd')}
+                                            </div>
+                                            <p className="mt-3 text-xs leading-5 text-gray-400">
+                                                Liquidity line required to remain in the healthy zone.
+                                            </p>
                                         </div>
-
-                                        <p className="mt-auto pt-2 text-xs leading-5 text-gray-400">
-                                            Liquidity threshold required to remain strong.
-                                        </p>
                                     </div>
 
-                                    <div className="group flex h-full min-h-[172px] xl:min-h-[176px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(245,158,11,0.08)]">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
-                                                Walking Dead Min Volume
-                                            </div>
-                                            <span className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.9)]" />
-                                        </div>
-
-                                        <div className="mt-6 text-2xl font-bold text-white">
-                                            {formatMetricValue(getMetricCardValue(metricCards, 'walking_dead_min_vol_usd'), 'usd')}
-                                        </div>
-
-                                        <p className="mt-auto pt-2 text-xs leading-5 text-gray-400">
-                                            Minimum activity needed to avoid the deadcoin zone.
-                                        </p>
+                                    <div className="flex items-center gap-3 px-1">
+                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
+                                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-300">
+                                            decay scan
+                                        </span>
+                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
                                     </div>
 
-                                    <div className="group flex h-full min-h-[172px] xl:min-h-[176px] flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(244,63,94,0.08)]">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
-                                                Walking Dead Min Liquidity
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <div className="rounded-2xl border border-amber-400/20 bg-amber-500/[0.07] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_28px_rgba(245,158,11,0.08)]">
+                                            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200">
+                                                Walking Dead Volume Line
                                             </div>
-                                            <span className="h-2.5 w-2.5 rounded-full bg-rose-400 shadow-[0_0_14px_rgba(251,113,133,0.9)]" />
+                                            <div className="mt-4 text-2xl font-extrabold text-white">
+                                                {formatMetricValue(getMetricCardValue(metricCards, 'walking_dead_min_vol_usd'), 'usd')}
+                                            </div>
+                                            <p className="mt-3 text-xs leading-5 text-gray-400">
+                                                Below this activity line, decay becomes visible.
+                                            </p>
                                         </div>
 
-                                        <div className="mt-6 text-2xl font-bold text-white">
-                                            {formatMetricValue(getMetricCardValue(metricCards, 'walking_dead_min_liq_usd'), 'usd')}
+                                        <div className="rounded-2xl border border-rose-400/20 bg-rose-500/[0.07] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_28px_rgba(244,63,94,0.08)]">
+                                            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-rose-200">
+                                                Walking Dead Liquidity Line
+                                            </div>
+                                            <div className="mt-4 text-2xl font-extrabold text-white">
+                                                {formatMetricValue(getMetricCardValue(metricCards, 'walking_dead_min_liq_usd'), 'usd')}
+                                            </div>
+                                            <p className="mt-3 text-xs leading-5 text-gray-400">
+                                                Liquidity warning line before minimum viability collapses.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded-2xl border border-violet-400/20 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.14),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.025))] p-4 shadow-[0_0_34px_rgba(168,85,247,0.08)]">
+                                        <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em]">
+                                            <span className="text-emerald-200">Healthy</span>
+                                            <span className="text-gray-500">→</span>
+                                            <span className="text-amber-200">Walking Deadcoin</span>
+                                            <span className="text-gray-500">→</span>
+                                            <span className="text-zinc-200">Deadcoin</span>
                                         </div>
 
-                                        <p className="mt-auto pt-2 text-xs leading-5 text-gray-400">
-                                            Survival liquidity line before falling below minimum viability.
+                                        <p className="mt-3 text-xs leading-5 text-gray-400">
+                                            These thresholds power the classification layer behind Coinographia.
                                         </p>
                                     </div>
                                 </div>
@@ -1527,7 +1551,7 @@ export default function CoinographiaPage() {
                 </div>
 
                 {/* Desktop table */}
-                <div className="hidden md:block overflow-x-auto rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.025))] shadow-[0_16px_50px_rgba(0,0,0,0.16)]">
+                <div className="hidden md:block overflow-x-auto rounded-[24px] border border-cyan-400/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.026))] shadow-[0_16px_50px_rgba(0,0,0,0.16),0_0_34px_rgba(34,211,238,0.06)]">
                     <table className="min-w-full table-fixed text-sm">
                         <thead className="bg-white/[0.06] backdrop-blur-sm">
                             <tr>
@@ -1553,7 +1577,7 @@ export default function CoinographiaPage() {
                                 return (
                                     <tr
                                         key={it.mint}
-                                        className="border-b border-white/10 transition-colors duration-150 hover:bg-white/[0.05] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]"
+                                        className="border-b border-white/10 transition-all duration-200 hover:bg-cyan-400/[0.045] hover:shadow-[inset_3px_0_0_rgba(34,211,238,0.35),inset_0_0_0_1px_rgba(255,255,255,0.035)]"
                                     >
                                         <td className="p-4">
                                             <div className="flex items-center gap-3 min-w-0">
