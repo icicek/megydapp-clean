@@ -1201,11 +1201,11 @@ export default function CoinographiaPage() {
                                         {isFeatured && (
                                             <div className="relative z-[1] mb-3 flex flex-wrap items-center gap-2">
                                                 <span className="inline-flex items-center rounded-full border border-cyan-400/30 bg-cyan-400/14 px-2.5 py-1 text-[10px] font-semibold tracking-[0.05em] text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.14)]">
-                                                    Featured Cluster
+                                                    ✦ Featured Cluster
                                                 </span>
 
                                                 <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] font-medium text-gray-300">
-                                                    Ranked by {discoverySort}
+                                                    Signal ranked by {discoverySort}
                                                 </span>
                                             </div>
                                         )}
@@ -1433,7 +1433,7 @@ export default function CoinographiaPage() {
                 {/* Mobile cards */}
                 <div className="space-y-3 md:hidden">
                     {items.length === 0 && !loading && (
-                        <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.028))] p-4 text-gray-400 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
+                        <div className="rounded-2xl border border-cyan-400/15 bg-[linear-gradient(180deg,rgba(34,211,238,0.06),rgba(255,255,255,0.028))] p-4 text-gray-400 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
                             No registry records matched your current filters.
                         </div>
                     )}
@@ -1444,7 +1444,7 @@ export default function CoinographiaPage() {
                         return (
                             <div
                                 key={it.mint}
-                                className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.028))] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.14)]"
+                                className="group rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.028))] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.14)] transition-all duration-300 hover:-translate-y-[2px] hover:border-cyan-400/20 hover:bg-white/[0.055] hover:shadow-[0_14px_34px_rgba(34,211,238,0.10)]"
                             >
                                 <div className="grid grid-cols-[1fr_auto_auto] gap-3 items-center">
                                     <div className="min-w-0 flex items-start gap-3">
