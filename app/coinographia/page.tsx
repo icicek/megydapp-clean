@@ -781,6 +781,7 @@ export default function CoinographiaPage() {
     const [discoveryLoading, setDiscoveryLoading] = useState(false);
     const [discoveryError, setDiscoveryError] = useState<string | null>(null);
     const [discoverySort, setDiscoverySort] = useState<DiscoverySort>('recent');
+    const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(true);
 
     function ShareArrowIcon({ className = '' }: { className?: string }) {
         return (
@@ -1237,358 +1238,398 @@ export default function CoinographiaPage() {
                             <span className="ml-1 text-gray-400">Jump straight to the full registry.</span>
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={scrollToRegistry}
-                            className="inline-flex items-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-sm font-medium text-cyan-200 transition-all duration-200 hover:bg-cyan-400/15 hover:border-cyan-400/30 hover:-translate-y-[1px]"
-                        >
-                            Jump to Token Registry
-                        </button>
-                    </div>
-                </div>
-
-                <div className="relative mb-8 overflow-hidden rounded-[26px] border border-cyan-400/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_24%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.10),transparent_28%),linear-gradient(180deg,rgba(9,14,26,0.98),rgba(12,18,32,0.95))] p-5 shadow-[0_22px_70px_rgba(2,6,23,0.36)]">
-                    <div className="pointer-events-none absolute inset-0">
-                        <div className="absolute -left-10 top-10 h-40 w-40 rounded-full bg-cyan-400/8 blur-3xl" />
-                        <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-violet-400/8 blur-3xl" />
-                        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/30 to-transparent" />
-                    </div>
-                    <div className="relative z-[1] flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                        <div className="flex max-w-3xl flex-col xl:min-h-[100%] xl:justify-between">
-                            <h2 className="text-lg font-semibold text-white">Live Discovery</h2>
-                            <p className="mt-2 text-sm text-gray-300">
-                                This is where market decay turns into visible signals.
-                                Discover which tokens are attracting wallets, generating Coincarnation momentum,
-                                and moving from passive failure toward collective revival.
-                            </p>
-                            <p className="mt-3 text-xs leading-5 text-slate-300/70">
-                                {getDiscoverySortLabel(discoverySort)}
-                                {status ? ` · Filtered by ${status}` : ''}
-                                {q.trim() ? ` · Search: "${q.trim()}"` : ''}
-                            </p>
-                        </div>
-
-                        <div className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center">
-                            <select
-                                value={discoverySort}
-                                onChange={(e) => setDiscoverySort(e.target.value as DiscoverySort)}
-                                className="min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white"
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setIsDiscoveryOpen((v) => !v)}
+                                className={[
+                                    'inline-flex items-center rounded-xl border px-3 py-2 text-sm font-medium transition-all duration-200 hover:-translate-y-[1px]',
+                                    isDiscoveryOpen
+                                        ? 'border-violet-400/20 bg-violet-400/10 text-violet-200 hover:bg-violet-400/15 hover:border-violet-400/30'
+                                        : 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200 hover:bg-cyan-400/15 hover:border-cyan-400/30',
+                                ].join(' ')}
                             >
-                                <option value="recent">Most recent</option>
-                                <option value="usd">Most revived USD</option>
-                                <option value="wallets">Most wallets</option>
-                                <option value="coincarnations">Most Coincarnations</option>
-                            </select>
+                                {isDiscoveryOpen ? 'Collapse Discovery' : 'Show Discovery'}
+                            </button>
 
                             <button
-                                onClick={() => void loadDiscovery()}
-                                disabled={discoveryLoading}
-                                className="flex-1 min-w-0 truncate whitespace-nowrap rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08] disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Refresh Discovery"
+                                type="button"
+                                onClick={scrollToRegistry}
+                                className="inline-flex items-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-sm font-medium text-cyan-200 transition-all duration-200 hover:bg-cyan-400/15 hover:border-cyan-400/30 hover:-translate-y-[1px]"
                             >
-                                {discoveryLoading ? 'Refreshing...' : 'Refresh'}
+                                Jump to Token Registry
                             </button>
                         </div>
                     </div>
+                </div>
 
-                    {discoveryError && (
-                        <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                            {discoveryError}
-                        </div>
-                    )}
-
-                    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        {discoveryLoading && discoveryItems.length === 0 ? (
-                            [...Array(6)].map((_, i) => (
-                                <div
-                                    key={i}
-                                    className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(20,27,45,0.78),rgba(11,16,28,0.90))] p-4 animate-pulse"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-11 w-11 rounded-full bg-white/10" />
-                                        <div className="min-w-0 flex-1 pt-0.5">
-                                            <div className="h-4 w-28 rounded bg-white/10" />
-                                            <div className="mt-2 h-3 w-40 rounded bg-white/10" />
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-4 flex gap-2">
-                                        <div className="h-6 w-16 rounded-full bg-white/10" />
-                                        <div className="h-6 w-20 rounded-full bg-white/10" />
-                                    </div>
-
-                                    <div className="mt-4 grid grid-cols-3 gap-2">
-                                        <div className="h-14 rounded-xl bg-white/10" />
-                                        <div className="h-14 rounded-xl bg-white/10" />
-                                        <div className="h-14 rounded-xl bg-white/10" />
-                                    </div>
+                {!isDiscoveryOpen && (
+                    <div className="mb-8 overflow-hidden rounded-[24px] border border-cyan-400/15 bg-[linear-gradient(180deg,rgba(34,211,238,0.07),rgba(255,255,255,0.03))] p-4 shadow-[0_18px_50px_rgba(2,6,23,0.28)]">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <div className="text-sm font-semibold text-white">
+                                    Discovery hidden · Live cluster scan still available
                                 </div>
-                            ))
-                        ) : discoveryItems.length > 0 ? (
-                            discoveryItems.map((it, index) => {
-                                const isDisabled = it.status === 'redlist' || it.status === 'blacklist';
-                                const isFeatured = index === 0;
-                                const isPioneer = it.rank_reason === 'search_pioneer';
+                                <div className="mt-1 text-xs leading-5 text-gray-400">
+                                    Use the registry for fast token lookup, or reopen Discovery to explore active Coincarnation signals.
+                                </div>
+                            </div>
 
-                                const isCoinc = discoverySort === 'coincarnations' || discoverySort === 'recent';
-                                const isUsd = discoverySort === 'usd';
-                                const isWallets = discoverySort === 'wallets';
+                            <button
+                                type="button"
+                                onClick={() => setIsDiscoveryOpen(true)}
+                                className="inline-flex items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition-all duration-200 hover:-translate-y-[1px] hover:border-cyan-400/35 hover:bg-cyan-400/15"
+                            >
+                                Show Live Discovery
+                            </button>
+                        </div>
+                    </div>
+                )}
 
-                                return (
+                {isDiscoveryOpen && (
+                    <div className="relative mb-8 overflow-hidden rounded-[26px] border border-cyan-400/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_24%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.10),transparent_28%),linear-gradient(180deg,rgba(9,14,26,0.98),rgba(12,18,32,0.95))] p-5 shadow-[0_22px_70px_rgba(2,6,23,0.36)]">
+                        <div className="pointer-events-none absolute inset-0">
+                            <div className="absolute -left-10 top-10 h-40 w-40 rounded-full bg-cyan-400/8 blur-3xl" />
+                            <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-violet-400/8 blur-3xl" />
+                            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/30 to-transparent" />
+                        </div>
+                        <div className="relative z-[1] flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                            <div className="flex max-w-3xl flex-col xl:min-h-[100%] xl:justify-between">
+                                <h2 className="text-lg font-semibold text-white">Live Discovery</h2>
+                                <p className="mt-2 text-sm text-gray-300">
+                                    This is where market decay turns into visible signals.
+                                    Discover which tokens are attracting wallets, generating Coincarnation momentum,
+                                    and moving from passive failure toward collective revival.
+                                </p>
+                                <p className="mt-3 text-xs leading-5 text-slate-300/70">
+                                    {getDiscoverySortLabel(discoverySort)}
+                                    {status ? ` · Filtered by ${status}` : ''}
+                                    {q.trim() ? ` · Search: "${q.trim()}"` : ''}
+                                </p>
+                            </div>
+
+                            <div className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center">
+                                <select
+                                    value={discoverySort}
+                                    onChange={(e) => setDiscoverySort(e.target.value as DiscoverySort)}
+                                    className="min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white"
+                                >
+                                    <option value="recent">Most recent</option>
+                                    <option value="usd">Most revived USD</option>
+                                    <option value="wallets">Most wallets</option>
+                                    <option value="coincarnations">Most Coincarnations</option>
+                                </select>
+
+                                <button
+                                    onClick={() => void loadDiscovery()}
+                                    disabled={discoveryLoading}
+                                    className="flex-1 min-w-0 truncate whitespace-nowrap rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08] disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Refresh Discovery"
+                                >
+                                    {discoveryLoading ? 'Refreshing...' : 'Refresh'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {discoveryError && (
+                            <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                                {discoveryError}
+                            </div>
+                        )}
+
+                        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                            {discoveryLoading && discoveryItems.length === 0 ? (
+                                [...Array(6)].map((_, i) => (
                                     <div
-                                        key={it.mint}
-                                        onClick={() => handleCoincarnateClick(it.mint, it.status)}
-                                        className={[
-                                            getDiscoveryCardClass(it.heat_level, it.status),
-                                            isFeatured
-                                                ? 'ring-1 ring-cyan-400/35 shadow-[0_0_34px_rgba(34,211,238,0.16)] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.08),transparent_24%),linear-gradient(180deg,rgba(22,30,48,0.96),rgba(13,18,31,0.96))] md:scale-[1.01]'
-                                                : '',
-                                            isPioneer ? getPioneerCardAccentClass() : '',
-                                        ].join(' ')}
+                                        key={i}
+                                        className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(20,27,45,0.78),rgba(11,16,28,0.90))] p-4 animate-pulse"
                                     >
-                                        {isFeatured && (
-                                            <div className="relative z-[1] mb-3 flex flex-wrap items-center gap-2">
-                                                <span className="inline-flex items-center rounded-full border border-cyan-400/30 bg-cyan-400/14 px-2.5 py-1 text-[10px] font-semibold tracking-[0.05em] text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.14)]">
-                                                    ✦ Featured Cluster
-                                                </span>
-
-                                                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] font-medium text-gray-300">
-                                                    Signal ranked by {discoverySort}
-                                                </span>
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-11 w-11 rounded-full bg-white/10" />
+                                            <div className="min-w-0 flex-1 pt-0.5">
+                                                <div className="h-4 w-28 rounded bg-white/10" />
+                                                <div className="mt-2 h-3 w-40 rounded bg-white/10" />
                                             </div>
-                                        )}
-
-                                        {isPioneer && (
-                                            <div className="pointer-events-none absolute inset-0 rounded-2xl">
-                                                <div className="absolute -left-10 top-10 h-24 w-24 rounded-full bg-violet-400/10 blur-3xl animate-pulse" />
-                                                <div className="absolute right-0 top-1/2 h-20 w-20 rounded-full bg-cyan-400/10 blur-3xl animate-pulse" />
-                                            </div>
-                                        )}
-
-                                        <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    shareDiscoveryOnX(it);
-                                                }}
-                                                className={`${getDiscoveryShareButtonClass(getDiscoveryHeatLevel(it))} h-8 w-8 text-[16px] leading-none`}
-                                                title="Share signal"
-                                                aria-label="Share signal"
-                                            >
-                                                {sharedMint === it.mint ? (
-                                                    '✓'
-                                                ) : (
-                                                    <ShareArrowIcon className="h-[17px] w-[17px]" />
-                                                )}
-                                            </button>
                                         </div>
 
-                                        <div className="relative z-[1] flex items-start gap-2.5 sm:gap-3">
-                                            {it.logo_uri ? (
-                                                <img
-                                                    src={it.logo_uri}
-                                                    alt={it.symbol || it.name || it.mint}
-                                                    className="h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-white/10 object-cover shrink-0 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_0_20px_rgba(255,255,255,0.06)] group-hover:scale-[1.03] transition-transform duration-300"
-                                                />
-                                            ) : (
-                                                <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-white/10 bg-white/5 shrink-0 shadow-[0_0_18px_rgba(255,255,255,0.03)]" />
+                                        <div className="mt-4 flex gap-2">
+                                            <div className="h-6 w-16 rounded-full bg-white/10" />
+                                            <div className="h-6 w-20 rounded-full bg-white/10" />
+                                        </div>
+
+                                        <div className="mt-4 grid grid-cols-3 gap-2">
+                                            <div className="h-14 rounded-xl bg-white/10" />
+                                            <div className="h-14 rounded-xl bg-white/10" />
+                                            <div className="h-14 rounded-xl bg-white/10" />
+                                        </div>
+                                    </div>
+                                ))
+                            ) : discoveryItems.length > 0 ? (
+                                discoveryItems.map((it, index) => {
+                                    const isDisabled = it.status === 'redlist' || it.status === 'blacklist';
+                                    const isFeatured = index === 0;
+                                    const isPioneer = it.rank_reason === 'search_pioneer';
+
+                                    const isCoinc = discoverySort === 'coincarnations' || discoverySort === 'recent';
+                                    const isUsd = discoverySort === 'usd';
+                                    const isWallets = discoverySort === 'wallets';
+
+                                    return (
+                                        <div
+                                            key={it.mint}
+                                            onClick={() => handleCoincarnateClick(it.mint, it.status)}
+                                            className={[
+                                                getDiscoveryCardClass(it.heat_level, it.status),
+                                                isFeatured
+                                                    ? 'ring-1 ring-cyan-400/35 shadow-[0_0_34px_rgba(34,211,238,0.16)] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.08),transparent_24%),linear-gradient(180deg,rgba(22,30,48,0.96),rgba(13,18,31,0.96))] md:scale-[1.01]'
+                                                    : '',
+                                                isPioneer ? getPioneerCardAccentClass() : '',
+                                            ].join(' ')}
+                                        >
+                                            {isFeatured && (
+                                                <div className="relative z-[1] mb-3 flex flex-wrap items-center gap-2">
+                                                    <span className="inline-flex items-center rounded-full border border-cyan-400/30 bg-cyan-400/14 px-2.5 py-1 text-[10px] font-semibold tracking-[0.05em] text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.14)]">
+                                                        ✦ Featured Cluster
+                                                    </span>
+
+                                                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] font-medium text-gray-300">
+                                                        Signal ranked by {discoverySort}
+                                                    </span>
+                                                </div>
                                             )}
 
-                                            <div className="min-w-0 flex-1 pt-0.5">
-                                                <div className="truncate pr-14 text-[14px] sm:text-[15px] font-semibold leading-[1.2] text-white transition-all duration-200 group-hover:text-cyan-50 group-hover:tracking-[0.01em]">
-                                                    {it.symbol || 'Unknown Symbol'}
-                                                    {it.name ? ` — ${it.name}` : ''}
+                                            {isPioneer && (
+                                                <div className="pointer-events-none absolute inset-0 rounded-2xl">
+                                                    <div className="absolute -left-10 top-10 h-24 w-24 rounded-full bg-violet-400/10 blur-3xl animate-pulse" />
+                                                    <div className="absolute right-0 top-1/2 h-20 w-20 rounded-full bg-cyan-400/10 blur-3xl animate-pulse" />
+                                                </div>
+                                            )}
+
+                                            <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        shareDiscoveryOnX(it);
+                                                    }}
+                                                    className={`${getDiscoveryShareButtonClass(getDiscoveryHeatLevel(it))} h-8 w-8 text-[16px] leading-none`}
+                                                    title="Share signal"
+                                                    aria-label="Share signal"
+                                                >
+                                                    {sharedMint === it.mint ? (
+                                                        '✓'
+                                                    ) : (
+                                                        <ShareArrowIcon className="h-[17px] w-[17px]" />
+                                                    )}
+                                                </button>
+                                            </div>
+
+                                            <div className="relative z-[1] flex items-start gap-2.5 sm:gap-3">
+                                                {it.logo_uri ? (
+                                                    <img
+                                                        src={it.logo_uri}
+                                                        alt={it.symbol || it.name || it.mint}
+                                                        className="h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-white/10 object-cover shrink-0 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_0_20px_rgba(255,255,255,0.06)] group-hover:scale-[1.03] transition-transform duration-300"
+                                                    />
+                                                ) : (
+                                                    <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-white/10 bg-white/5 shrink-0 shadow-[0_0_18px_rgba(255,255,255,0.03)]" />
+                                                )}
+
+                                                <div className="min-w-0 flex-1 pt-0.5">
+                                                    <div className="truncate pr-14 text-[14px] sm:text-[15px] font-semibold leading-[1.2] text-white transition-all duration-200 group-hover:text-cyan-50 group-hover:tracking-[0.01em]">
+                                                        {it.symbol || 'Unknown Symbol'}
+                                                        {it.name ? ` — ${it.name}` : ''}
+                                                    </div>
+
+                                                    <div
+                                                        className="mt-0.5 truncate pr-14 font-mono text-[10px] sm:text-[11px] text-gray-500 transition-colors duration-200 group-hover:text-gray-300"
+                                                        title={it.mint}
+                                                    >
+                                                        {shortenMint(it.mint)}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="relative z-[1] mt-3">
+                                                <div
+                                                    className={[
+                                                        'mb-2.5 flex items-center gap-2 overflow-hidden rounded-xl border px-3 py-2',
+                                                        'bg-[linear-gradient(90deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))]',
+                                                        'shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
+                                                        'transition-all duration-300 group-hover:border-cyan-300/25 group-hover:bg-cyan-400/[0.055]',
+                                                        isPioneer
+                                                            ? 'border-violet-400/20 text-violet-100'
+                                                            : it.heat_level === 'HOT'
+                                                                ? 'border-rose-400/22 text-rose-100'
+                                                                : it.heat_level === 'TRENDING'
+                                                                    ? 'border-amber-400/22 text-amber-100'
+                                                                    : it.heat_level === 'LIVE'
+                                                                        ? 'border-cyan-400/22 text-cyan-100'
+                                                                        : 'border-white/10 text-gray-300',
+                                                    ].join(' ')}
+                                                >
+                                                    <span className="relative flex h-2 w-2 shrink-0">
+                                                        <span
+                                                            className={[
+                                                                'absolute inline-flex h-full w-full animate-ping rounded-full opacity-60',
+                                                                isPioneer
+                                                                    ? 'bg-violet-400'
+                                                                    : it.heat_level === 'HOT'
+                                                                        ? 'bg-rose-400'
+                                                                        : it.heat_level === 'TRENDING'
+                                                                            ? 'bg-amber-400'
+                                                                            : it.heat_level === 'LIVE'
+                                                                                ? 'bg-cyan-400'
+                                                                                : 'bg-white/50',
+                                                            ].join(' ')}
+                                                        />
+                                                        <span
+                                                            className={[
+                                                                'relative inline-flex h-2 w-2 rounded-full shadow-[0_0_12px_currentColor]',
+                                                                isPioneer
+                                                                    ? 'bg-violet-300'
+                                                                    : it.heat_level === 'HOT'
+                                                                        ? 'bg-rose-300'
+                                                                        : it.heat_level === 'TRENDING'
+                                                                            ? 'bg-amber-300'
+                                                                            : it.heat_level === 'LIVE'
+                                                                                ? 'bg-cyan-300'
+                                                                                : 'bg-gray-300',
+                                                            ].join(' ')}
+                                                        />
+                                                    </span>
+
+                                                    <div className="min-w-0 truncate text-[10px] font-bold uppercase tracking-[0.13em]">
+                                                        {getDiscoverySignalLine(it)}
+                                                    </div>
+                                                </div>
+                                                <div className="relative z-[1] flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                                                    <StatusBadge status={it.status} />
+                                                    <HeatBadge heat={it.heat_level} />
+
+                                                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-2 py-[5px] text-[10px] sm:text-[11px] font-medium text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                                                        {getRankReasonLabel(it.rank_reason)}
+                                                    </span>
+
+                                                    {!isPioneer && (
+                                                        <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2 py-[5px] text-[10px] sm:text-[11px] text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                                                            Score {formatNumberCompact(it.activity_score)}
+                                                        </span>
+                                                    )}
                                                 </div>
 
                                                 <div
-                                                    className="mt-0.5 truncate pr-14 font-mono text-[10px] sm:text-[11px] text-gray-500 transition-colors duration-200 group-hover:text-gray-300"
-                                                    title={it.mint}
+                                                    className={[
+                                                        'relative z-[1] mt-2.5 rounded-xl border px-3 py-2 text-[11px] sm:text-[12px] leading-5 text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-all duration-200 group-hover:-translate-y-[1px]',
+                                                        isPioneer
+                                                            ? 'border-violet-400/20 bg-[linear-gradient(180deg,rgba(168,85,247,0.10),rgba(255,255,255,0.03))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_24px_rgba(168,85,247,0.08)]'
+                                                            : 'border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.025))]',
+                                                    ].join(' ')}
                                                 >
-                                                    {shortenMint(it.mint)}
+                                                    {getDiscoveryStoryLine(it)}
                                                 </div>
-                                            </div>
-                                        </div>
 
-                                        <div className="relative z-[1] mt-3">
-                                            <div
-                                                className={[
-                                                    'mb-2.5 flex items-center gap-2 overflow-hidden rounded-xl border px-3 py-2',
-                                                    'bg-[linear-gradient(90deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))]',
-                                                    'shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
-                                                    'transition-all duration-300 group-hover:border-cyan-300/25 group-hover:bg-cyan-400/[0.055]',
-                                                    isPioneer
-                                                        ? 'border-violet-400/20 text-violet-100'
-                                                        : it.heat_level === 'HOT'
-                                                            ? 'border-rose-400/22 text-rose-100'
-                                                            : it.heat_level === 'TRENDING'
-                                                                ? 'border-amber-400/22 text-amber-100'
-                                                                : it.heat_level === 'LIVE'
-                                                                    ? 'border-cyan-400/22 text-cyan-100'
-                                                                    : 'border-white/10 text-gray-300',
-                                                ].join(' ')}
-                                            >
-                                                <span className="relative flex h-2 w-2 shrink-0">
-                                                    <span
-                                                        className={[
-                                                            'absolute inline-flex h-full w-full animate-ping rounded-full opacity-60',
-                                                            isPioneer
-                                                                ? 'bg-violet-400'
-                                                                : it.heat_level === 'HOT'
-                                                                    ? 'bg-rose-400'
-                                                                    : it.heat_level === 'TRENDING'
-                                                                        ? 'bg-amber-400'
-                                                                        : it.heat_level === 'LIVE'
-                                                                            ? 'bg-cyan-400'
-                                                                            : 'bg-white/50',
-                                                        ].join(' ')}
-                                                    />
-                                                    <span
-                                                        className={[
-                                                            'relative inline-flex h-2 w-2 rounded-full shadow-[0_0_12px_currentColor]',
-                                                            isPioneer
-                                                                ? 'bg-violet-300'
-                                                                : it.heat_level === 'HOT'
-                                                                    ? 'bg-rose-300'
-                                                                    : it.heat_level === 'TRENDING'
-                                                                        ? 'bg-amber-300'
-                                                                        : it.heat_level === 'LIVE'
-                                                                            ? 'bg-cyan-300'
-                                                                            : 'bg-gray-300',
-                                                        ].join(' ')}
-                                                    />
-                                                </span>
+                                                {isPioneer ? (
+                                                    <div className="relative z-[1] mt-3 rounded-xl border border-dashed border-violet-400/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(168,85,247,0.03))] px-3 py-2.5 text-center text-[12px] font-medium text-gray-300 shadow-[0_0_20px_rgba(168,85,247,0.06)]">
+                                                        No activity yet
+                                                    </div>
+                                                ) : (
+                                                    <div className="relative z-[1] mt-3 grid grid-cols-3 gap-1.5 sm:gap-2">
+                                                        <div
+                                                            className={getDiscoveryMetricCellClass(isCoinc, 'cyan')}
+                                                        >
+                                                            <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
+                                                                Coinc.
+                                                            </div>
+                                                            <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
+                                                                {formatNumberCompact(it.total_coincarnations)}
+                                                            </div>
+                                                        </div>
 
-                                                <div className="min-w-0 truncate text-[10px] font-bold uppercase tracking-[0.13em]">
-                                                    {getDiscoverySignalLine(it)}
-                                                </div>
-                                            </div>
-                                            <div className="relative z-[1] flex flex-wrap items-center gap-x-1.5 gap-y-1">
-                                                <StatusBadge status={it.status} />
-                                                <HeatBadge heat={it.heat_level} />
+                                                        <div
+                                                            className={getDiscoveryMetricCellClass(isUsd, 'emerald')}
+                                                        >
+                                                            <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
+                                                                Revived
+                                                            </div>
+                                                            <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
+                                                                {formatUsdCompact(it.total_revived_usd)}
+                                                            </div>
+                                                        </div>
 
-                                                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-2 py-[5px] text-[10px] sm:text-[11px] font-medium text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                                                    {getRankReasonLabel(it.rank_reason)}
-                                                </span>
+                                                        <div
+                                                            className={getDiscoveryMetricCellClass(isWallets, 'amber')}
+                                                        >
+                                                            <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
+                                                                Wallets
+                                                            </div>
+                                                            <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
+                                                                {formatNumberCompact(it.unique_wallets)}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                 {!isPioneer && (
-                                                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2 py-[5px] text-[10px] sm:text-[11px] text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                                                        Score {formatNumberCompact(it.activity_score)}
-                                                    </span>
+                                                    <div className="relative z-[1] mt-3 border-t border-white/6 pt-2.5 text-[10px] sm:text-[11px] text-gray-400">
+                                                        <div className="truncate text-left">
+                                                            Last activity:{' '}
+                                                            <span className="text-gray-200">
+                                                                {it.last_activity_at ? formatUpdatedShort(it.last_activity_at) : 'No activity yet'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 )}
+
+                                                <button
+                                                    disabled={isDisabled}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleCoincarnateClick(it.mint, it.status);
+                                                    }}
+                                                    className={[
+                                                        'relative z-[1] mt-3 w-full rounded-xl px-3 py-2.5 text-[12px] sm:text-[13px] font-semibold tracking-[0.01em] transition-all duration-200 hover:scale-[1.01] hover:-translate-y-[1px] active:scale-[0.99]',
+                                                        getCoincarnateButtonClass(it.status, isDisabled),
+                                                        isPioneer ? 'shadow-[0_0_24px_rgba(168,85,247,0.10)] hover:shadow-[0_0_32px_rgba(168,85,247,0.16)]' : '',
+                                                    ].join(' ')}
+                                                    title={
+                                                        isDisabled
+                                                            ? 'Coincarnation is disabled for redlisted or blacklisted tokens.'
+                                                            : `Coincarnate ${it.symbol ? `$${it.symbol}` : 'this token'}`
+                                                    }
+                                                >
+                                                    {isDisabled
+                                                        ? 'Coincarnation Disabled'
+                                                        : it.rank_reason === 'search_pioneer'
+                                                            ? it.symbol
+                                                                ? `Start the First Coincarnation for $${it.symbol}`
+                                                                : 'Start the First Coincarnation'
+                                                            : it.symbol
+                                                                ? `Coincarnate $${it.symbol}`
+                                                                : 'Coincarnate'}
+                                                </button>
                                             </div>
-
-                                            <div
-                                                className={[
-                                                    'relative z-[1] mt-2.5 rounded-xl border px-3 py-2 text-[11px] sm:text-[12px] leading-5 text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-all duration-200 group-hover:-translate-y-[1px]',
-                                                    isPioneer
-                                                        ? 'border-violet-400/20 bg-[linear-gradient(180deg,rgba(168,85,247,0.10),rgba(255,255,255,0.03))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_24px_rgba(168,85,247,0.08)]'
-                                                        : 'border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.025))]',
-                                                ].join(' ')}
-                                            >
-                                                {getDiscoveryStoryLine(it)}
-                                            </div>
-
-                                            {isPioneer ? (
-                                                <div className="relative z-[1] mt-3 rounded-xl border border-dashed border-violet-400/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(168,85,247,0.03))] px-3 py-2.5 text-center text-[12px] font-medium text-gray-300 shadow-[0_0_20px_rgba(168,85,247,0.06)]">
-                                                    No activity yet
-                                                </div>
-                                            ) : (
-                                                <div className="relative z-[1] mt-3 grid grid-cols-3 gap-1.5 sm:gap-2">
-                                                    <div
-                                                        className={getDiscoveryMetricCellClass(isCoinc, 'cyan')}
-                                                    >
-                                                        <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
-                                                            Coinc.
-                                                        </div>
-                                                        <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
-                                                            {formatNumberCompact(it.total_coincarnations)}
-                                                        </div>
-                                                    </div>
-
-                                                    <div
-                                                        className={getDiscoveryMetricCellClass(isUsd, 'emerald')}
-                                                    >
-                                                        <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
-                                                            Revived
-                                                        </div>
-                                                        <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
-                                                            {formatUsdCompact(it.total_revived_usd)}
-                                                        </div>
-                                                    </div>
-
-                                                    <div
-                                                        className={getDiscoveryMetricCellClass(isWallets, 'amber')}
-                                                    >
-                                                        <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
-                                                            Wallets
-                                                        </div>
-                                                        <div className="mt-1 text-[13px] sm:text-sm font-semibold text-white leading-none">
-                                                            {formatNumberCompact(it.unique_wallets)}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {!isPioneer && (
-                                                <div className="relative z-[1] mt-3 border-t border-white/6 pt-2.5 text-[10px] sm:text-[11px] text-gray-400">
-                                                    <div className="truncate text-left">
-                                                        Last activity:{' '}
-                                                        <span className="text-gray-200">
-                                                            {it.last_activity_at ? formatUpdatedShort(it.last_activity_at) : 'No activity yet'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            <button
-                                                disabled={isDisabled}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleCoincarnateClick(it.mint, it.status);
-                                                }}
-                                                className={[
-                                                    'relative z-[1] mt-3 w-full rounded-xl px-3 py-2.5 text-[12px] sm:text-[13px] font-semibold tracking-[0.01em] transition-all duration-200 hover:scale-[1.01] hover:-translate-y-[1px] active:scale-[0.99]',
-                                                    getCoincarnateButtonClass(it.status, isDisabled),
-                                                    isPioneer ? 'shadow-[0_0_24px_rgba(168,85,247,0.10)] hover:shadow-[0_0_32px_rgba(168,85,247,0.16)]' : '',
-                                                ].join(' ')}
-                                                title={
-                                                    isDisabled
-                                                        ? 'Coincarnation is disabled for redlisted or blacklisted tokens.'
-                                                        : `Coincarnate ${it.symbol ? `$${it.symbol}` : 'this token'}`
-                                                }
-                                            >
-                                                {isDisabled
-                                                    ? 'Coincarnation Disabled'
-                                                    : it.rank_reason === 'search_pioneer'
-                                                        ? it.symbol
-                                                            ? `Start the First Coincarnation for $${it.symbol}`
-                                                            : 'Start the First Coincarnation'
-                                                        : it.symbol
-                                                            ? `Coincarnate $${it.symbol}`
-                                                            : 'Coincarnate'}
-                                            </button>
                                         </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="sm:col-span-2 xl:col-span-3 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm text-gray-400">
+                                    <div className="font-medium text-gray-200">
+                                        {q.trim()
+                                            ? 'No active discovery clusters matched your search.'
+                                            : 'No active clusters found right now — this might be your moment to start one.'}
                                     </div>
-                                );
-                            })
-                        ) : (
-                            <div className="sm:col-span-2 xl:col-span-3 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm text-gray-400">
-                                <div className="font-medium text-gray-200">
-                                    {q.trim()
-                                        ? 'No active discovery clusters matched your search.'
-                                        : 'No active clusters found right now — this might be your moment to start one.'}
-                                </div>
 
-                                <div className="mt-2 leading-6 text-gray-400">
-                                    {q.trim()
-                                        ? 'Try searching by symbol, full token name, or mint address.'
-                                        : 'Once Coincarnation activity starts, clusters will surface here automatically.'}
+                                    <div className="mt-2 leading-6 text-gray-400">
+                                        {q.trim()
+                                            ? 'Try searching by symbol, full token name, or mint address.'
+                                            : 'Once Coincarnation activity starts, clusters will surface here automatically.'}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 <div id="token-registry" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-gray-400 scroll-mt-24">
                     <div>
