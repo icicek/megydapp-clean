@@ -527,6 +527,31 @@ function getDiscoveryShareButtonClass(level: 'hot' | 'trending' | 'live') {
     return `${base} shadow-[0_0_12px_rgba(34,211,238,0.12)] hover:bg-cyan-500/[0.12] hover:shadow-[0_0_22px_rgba(34,211,238,0.24)]`;
 }
 
+function getDiscoveryMetricCellClass(active: boolean, tone: 'cyan' | 'emerald' | 'amber') {
+    const base =
+        'relative overflow-hidden rounded-xl border px-2.5 py-2 sm:px-3 ' +
+        'transition-all duration-300 ' +
+        'before:pointer-events-none before:absolute before:inset-0 before:opacity-0 ' +
+        'before:bg-[linear-gradient(120deg,transparent,rgba(255,255,255,0.08),transparent)] ' +
+        'before:translate-x-[-120%] group-hover:before:translate-x-[120%] ' +
+        'before:transition-transform before:duration-700 group-hover:before:opacity-100 ' +
+        'group-hover:-translate-y-[2px] group-hover:shadow-[0_12px_28px_rgba(0,0,0,0.22)]';
+
+    if (!active) {
+        return `${base} border-white/10 bg-white/[0.035] hover:border-white/15`;
+    }
+
+    if (tone === 'cyan') {
+        return `${base} border-cyan-400/35 bg-cyan-400/10 shadow-[0_0_22px_rgba(34,211,238,0.16)]`;
+    }
+
+    if (tone === 'emerald') {
+        return `${base} border-emerald-400/35 bg-emerald-400/10 shadow-[0_0_22px_rgba(16,185,129,0.16)]`;
+    }
+
+    return `${base} border-amber-400/35 bg-amber-400/10 shadow-[0_0_22px_rgba(245,158,11,0.16)]`;
+}
+
 function buildDiscoveryTweet(item: DiscoveryRow) {
     const symbol = item.symbol ? `$${item.symbol}` : shortenMint(item.mint);
     const heatLevel = getDiscoveryHeatLevel(item);
@@ -1471,12 +1496,7 @@ export default function CoinographiaPage() {
                                             ) : (
                                                 <div className="relative z-[1] mt-3 grid grid-cols-3 gap-1.5 sm:gap-2">
                                                     <div
-                                                        className={[
-                                                            'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[2px] group-hover:shadow-[0_10px_24px_rgba(0,0,0,0.16)]',
-                                                            isCoinc
-                                                                ? 'border-cyan-400/35 bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.14)]'
-                                                                : 'border-white/10 bg-white/[0.03]',
-                                                        ].join(' ')}
+                                                        className={getDiscoveryMetricCellClass(isCoinc, 'cyan')}
                                                     >
                                                         <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
                                                             Coinc.
@@ -1487,12 +1507,7 @@ export default function CoinographiaPage() {
                                                     </div>
 
                                                     <div
-                                                        className={[
-                                                            'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[2px] group-hover:shadow-[0_10px_24px_rgba(0,0,0,0.16)]',
-                                                            isUsd
-                                                                ? 'border-emerald-400/35 bg-emerald-400/10 shadow-[0_0_20px_rgba(16,185,129,0.14)]'
-                                                                : 'border-white/10 bg-white/[0.03]',
-                                                        ].join(' ')}
+                                                        className={getDiscoveryMetricCellClass(isUsd, 'emerald')}
                                                     >
                                                         <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
                                                             Revived
@@ -1503,12 +1518,7 @@ export default function CoinographiaPage() {
                                                     </div>
 
                                                     <div
-                                                        className={[
-                                                            'rounded-xl border px-2.5 py-2 sm:px-3 transition-all duration-200 group-hover:-translate-y-[2px] group-hover:shadow-[0_10px_24px_rgba(0,0,0,0.16)]',
-                                                            isWallets
-                                                                ? 'border-amber-400/35 bg-amber-400/10 shadow-[0_0_20px_rgba(245,158,11,0.14)]'
-                                                                : 'border-white/10 bg-white/[0.03]',
-                                                        ].join(' ')}
+                                                        className={getDiscoveryMetricCellClass(isWallets, 'amber')}
                                                     >
                                                         <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.08em] text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
                                                             Wallets
