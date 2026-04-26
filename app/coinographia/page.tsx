@@ -338,6 +338,38 @@ function getDiscoveryStoryLine(item: DiscoveryRow) {
     return `🧭 Active cluster since ${formatDiscoverySince(item.first_seen_at) || 'unknown'}`;
 }
 
+function getDiscoverySignalLine(item: DiscoveryRow) {
+    if (item.rank_reason === 'search_pioneer') {
+        return 'UNCLAIMED SIGNAL · FIRST REVIVAL WINDOW OPEN';
+    }
+
+    if (item.heat_level === 'HOT') {
+        return `HIGH HEAT · ${formatNumberCompact(item.recent_10m_count)} hits / 10m`;
+    }
+
+    if (item.heat_level === 'TRENDING') {
+        return `MOMENTUM RISING · ${formatNumberCompact(item.total_coincarnations)} total signals`;
+    }
+
+    if (item.heat_level === 'LIVE') {
+        return `LIVE SCAN · ${formatNumberCompact(item.recent_24h_count)} signals / 24h`;
+    }
+
+    if (item.rank_reason === 'highest_revived_usd') {
+        return `CAPITAL SIGNAL · ${formatUsdCompact(item.total_revived_usd)} revived`;
+    }
+
+    if (item.rank_reason === 'most_wallets') {
+        return `WALLET CLUSTER · ${formatNumberCompact(item.unique_wallets)} wallets`;
+    }
+
+    if (item.rank_reason === 'most_coincarnations') {
+        return `REVIVAL FREQUENCY · ${formatNumberCompact(item.total_coincarnations)} events`;
+    }
+
+    return 'CLASSIFIED ASSET SIGNAL · MONITORING ACTIVE';
+}
+
 function getDiscoverySortLabel(sort: DiscoverySort) {
     if (sort === 'usd') return 'Clusters ranked by revived value — where capital is flowing';
     if (sort === 'wallets') return 'Clusters ranked by participation — where people are gathering';
@@ -1354,6 +1386,58 @@ export default function CoinographiaPage() {
                                         </div>
 
                                         <div className="relative z-[1] mt-3">
+                                            <div
+                                                className={[
+                                                    'mb-2.5 flex items-center gap-2 overflow-hidden rounded-xl border px-3 py-2',
+                                                    'bg-[linear-gradient(90deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))]',
+                                                    'shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
+                                                    'transition-all duration-300 group-hover:border-cyan-300/25 group-hover:bg-cyan-400/[0.055]',
+                                                    isPioneer
+                                                        ? 'border-violet-400/20 text-violet-100'
+                                                        : it.heat_level === 'HOT'
+                                                            ? 'border-rose-400/22 text-rose-100'
+                                                            : it.heat_level === 'TRENDING'
+                                                                ? 'border-amber-400/22 text-amber-100'
+                                                                : it.heat_level === 'LIVE'
+                                                                    ? 'border-cyan-400/22 text-cyan-100'
+                                                                    : 'border-white/10 text-gray-300',
+                                                ].join(' ')}
+                                            >
+                                                <span className="relative flex h-2 w-2 shrink-0">
+                                                    <span
+                                                        className={[
+                                                            'absolute inline-flex h-full w-full animate-ping rounded-full opacity-60',
+                                                            isPioneer
+                                                                ? 'bg-violet-400'
+                                                                : it.heat_level === 'HOT'
+                                                                    ? 'bg-rose-400'
+                                                                    : it.heat_level === 'TRENDING'
+                                                                        ? 'bg-amber-400'
+                                                                        : it.heat_level === 'LIVE'
+                                                                            ? 'bg-cyan-400'
+                                                                            : 'bg-white/50',
+                                                        ].join(' ')}
+                                                    />
+                                                    <span
+                                                        className={[
+                                                            'relative inline-flex h-2 w-2 rounded-full shadow-[0_0_12px_currentColor]',
+                                                            isPioneer
+                                                                ? 'bg-violet-300'
+                                                                : it.heat_level === 'HOT'
+                                                                    ? 'bg-rose-300'
+                                                                    : it.heat_level === 'TRENDING'
+                                                                        ? 'bg-amber-300'
+                                                                        : it.heat_level === 'LIVE'
+                                                                            ? 'bg-cyan-300'
+                                                                            : 'bg-gray-300',
+                                                        ].join(' ')}
+                                                    />
+                                                </span>
+
+                                                <div className="min-w-0 truncate text-[10px] font-bold uppercase tracking-[0.13em]">
+                                                    {getDiscoverySignalLine(it)}
+                                                </div>
+                                            </div>
                                             <div className="relative z-[1] flex flex-wrap items-center gap-x-1.5 gap-y-1">
                                                 <StatusBadge status={it.status} />
                                                 <HeatBadge heat={it.heat_level} />
