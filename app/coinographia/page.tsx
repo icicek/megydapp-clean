@@ -1345,7 +1345,7 @@ export default function CoinographiaPage() {
                                 </p>
                             </div>
 
-                            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] lg:flex lg:w-auto lg:flex-wrap lg:items-center">
+                            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 lg:flex lg:w-auto lg:flex-nowrap lg:items-center">
                                 <select
                                     value={discoverySort}
                                     onChange={(e) => setDiscoverySort(e.target.value as DiscoverySort)}
@@ -1388,7 +1388,7 @@ export default function CoinographiaPage() {
                                 <button
                                     onClick={() => void loadDiscovery()}
                                     disabled={discoveryLoading}
-                                    className="flex-1 min-w-0 truncate whitespace-nowrap rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08] disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="min-w-[138px] whitespace-nowrap rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08] disabled:opacity-50 disabled:cursor-not-allowed"
                                     title="Refresh Discovery"
                                 >
                                     {discoveryLoading ? 'Refreshing...' : 'Refresh'}
@@ -1404,10 +1404,10 @@ export default function CoinographiaPage() {
 
                         <div
                             className={[
-                                'mt-5 grid gap-3',
+                                'mt-5 grid',
                                 discoveryView === 'compact'
-                                    ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
-                                    : 'sm:grid-cols-2 xl:grid-cols-3',
+                                    ? 'grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'
+                                    : 'gap-3 sm:grid-cols-2 xl:grid-cols-3',
                             ].join(' ')}
                         >
                             {discoveryLoading && discoveryItems.length === 0 ? (
@@ -1445,6 +1445,152 @@ export default function CoinographiaPage() {
                                     const isCoinc = discoverySort === 'coincarnations' || discoverySort === 'recent';
                                     const isUsd = discoverySort === 'usd';
                                     const isWallets = discoverySort === 'wallets';
+                                    const isExpandedCompact = expandedDiscoveryMint === it.mint;
+
+                                    if (discoveryView === 'compact') {
+                                        return (
+                                            <div
+                                                key={it.mint}
+                                                className={getCompactDiscoveryCardClass(it.heat_level, it.status, isExpandedCompact)}
+                                            >
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setExpandedDiscoveryMint((current) =>
+                                                            current === it.mint ? null : it.mint
+                                                        )
+                                                    }
+                                                    className="relative z-[1] flex w-full flex-col items-start text-left"
+                                                >
+                                                    <div className="flex w-full items-start gap-2">
+                                                        {it.logo_uri ? (
+                                                            <img
+                                                                src={it.logo_uri}
+                                                                alt={it.symbol || it.mint}
+                                                                className="h-8 w-8 shrink-0 rounded-full border border-white/10 object-cover shadow-[0_0_14px_rgba(255,255,255,0.06)]"
+                                                            />
+                                                        ) : (
+                                                            <div className="h-8 w-8 shrink-0 rounded-full border border-white/10 bg-white/[0.06]" />
+                                                        )}
+
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="truncate text-[13px] font-bold leading-tight text-white">
+                                                                {it.symbol || 'Unknown'}
+                                                            </div>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    void handleMintCopy(it.mint);
+                                                                }}
+                                                                className="mt-1 block max-w-full truncate font-mono text-[9px] text-gray-500 transition-colors hover:text-cyan-200"
+                                                                title="Copy mint"
+                                                            >
+                                                                {copiedMint === it.mint ? 'Copied' : shortenMint(it.mint)}
+                                                            </button>
+                                                        </div>
+
+                                                        <span className="shrink-0 text-[13px] leading-none text-gray-500">
+                                                            {isExpandedCompact ? '−' : '+'}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="mt-2 flex w-full flex-wrap items-center gap-1">
+                                                        <StatusBadge status={it.status} />
+                                                        <HeatBadge heat={it.heat_level} />
+                                                    </div>
+
+                                                    <div className="mt-2 flex w-full items-center justify-between gap-1.5">
+                                                        <div className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-semibold text-gray-200">
+                                                            {formatNumberCompact(it.total_coincarnations)} Coinc.
+                                                        </div>
+
+                                                        <div className="flex items-center gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    void shareDiscoveryOnX(it);
+                                                                }}
+                                                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-400/10 text-cyan-100 transition-all hover:bg-cyan-400/15"
+                                                                title="Share"
+                                                                aria-label="Share"
+                                                            >
+                                                                <ShareArrowIcon className="h-3.5 w-3.5" />
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                disabled={isDisabled}
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    handleCoincarnateClick(it.mint, it.status);
+                                                                }}
+                                                                className={[
+                                                                    'flex h-7 w-7 items-center justify-center rounded-lg text-[12px] font-bold transition-all',
+                                                                    getCoincarnateButtonClass(it.status, isDisabled),
+                                                                ].join(' ')}
+                                                                title={isDisabled ? 'Disabled' : 'Coincarnate'}
+                                                                aria-label={isDisabled ? 'Disabled' : 'Coincarnate'}
+                                                            >
+                                                                ✦
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </button>
+
+                                                {isExpandedCompact && (
+                                                    <div className="relative z-[1] mt-3 border-t border-white/10 pt-3">
+                                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2 text-[11px] leading-5 text-gray-300">
+                                                            {getDiscoveryStoryLine(it)}
+                                                        </div>
+
+                                                        {!isPioneer && (
+                                                            <div className="mt-3 grid grid-cols-3 gap-1.5">
+                                                                <div className={getDiscoveryMetricCellClass(true, 'cyan')}>
+                                                                    <div className="text-[8px] uppercase tracking-[0.08em] text-gray-500">
+                                                                        Coinc.
+                                                                    </div>
+                                                                    <div className="mt-1 text-[11px] font-semibold text-white">
+                                                                        {formatNumberCompact(it.total_coincarnations)}
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className={getDiscoveryMetricCellClass(true, 'emerald')}>
+                                                                    <div className="text-[8px] uppercase tracking-[0.08em] text-gray-500">
+                                                                        Revived
+                                                                    </div>
+                                                                    <div className="mt-1 text-[11px] font-semibold text-white">
+                                                                        {formatUsdCompact(it.total_revived_usd)}
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className={getDiscoveryMetricCellClass(true, 'amber')}>
+                                                                    <div className="text-[8px] uppercase tracking-[0.08em] text-gray-500">
+                                                                        Wallets
+                                                                    </div>
+                                                                    <div className="mt-1 text-[11px] font-semibold text-white">
+                                                                        {formatNumberCompact(it.unique_wallets)}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="mt-3 text-[10px] text-gray-500">
+                                                            Last activity:{' '}
+                                                            <span className="text-gray-300">
+                                                                {it.last_activity_at ? formatUpdatedShort(it.last_activity_at) : 'No activity yet'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    }
 
                                     return (
                                         <div
