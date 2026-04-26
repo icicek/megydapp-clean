@@ -818,7 +818,7 @@ export default function CoinographiaPage() {
     const [discoverySort, setDiscoverySort] = useState<DiscoverySort>('recent');
     const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(true);
     const [discoveryView, setDiscoveryView] = useState<'cards' | 'compact'>('cards');
-    const [expandedDiscoveryMint, setExpandedDiscoveryMint] = useState<string | null>(null);
+    const [activeDiscoveryDetail, setActiveDiscoveryDetail] = useState<DiscoveryRow | null>(null);
 
     function ShareArrowIcon({ className = '' }: { className?: string }) {
         return (
@@ -834,6 +834,27 @@ export default function CoinographiaPage() {
             >
                 <path d="M7 17L17 7" />
                 <path d="M9 7h8v8" />
+            </svg>
+        );
+    }
+
+    function SignalCardsIcon({ className = '' }: { className?: string }) {
+        return (
+            <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+                <rect x="4" y="5" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="2" />
+                <rect x="13" y="5" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="2" />
+                <rect x="4" y="14" width="16" height="5" rx="2" stroke="currentColor" strokeWidth="2" />
+            </svg>
+        );
+    }
+
+    function CompactGridIcon({ className = '' }: { className?: string }) {
+        return (
+            <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+                <rect x="4" y="4" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="2" />
+                <rect x="14" y="4" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="2" />
+                <rect x="4" y="14" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="2" />
+                <rect x="14" y="14" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="2" />
             </svg>
         );
     }
@@ -1357,31 +1378,35 @@ export default function CoinographiaPage() {
                                     <option value="coincarnations">Most Coincarnations</option>
                                 </select>
 
-                                <div className="flex overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
+                                <div className="flex overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                                     <button
                                         type="button"
                                         onClick={() => setDiscoveryView('cards')}
                                         className={[
-                                            'px-3 py-2 text-sm font-medium transition-all duration-200',
+                                            'flex h-10 w-11 items-center justify-center rounded-xl transition-all duration-200',
                                             discoveryView === 'cards'
-                                                ? 'bg-cyan-400/12 text-cyan-100'
-                                                : 'text-gray-400 hover:bg-white/[0.04]',
+                                                ? 'bg-cyan-400/14 text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.16)]'
+                                                : 'text-gray-500 hover:bg-white/[0.05] hover:text-gray-200',
                                         ].join(' ')}
+                                        title="Signal Cards"
+                                        aria-label="Signal Cards"
                                     >
-                                        Signal Cards
+                                        <SignalCardsIcon className="h-5 w-5" />
                                     </button>
 
                                     <button
                                         type="button"
                                         onClick={() => setDiscoveryView('compact')}
                                         className={[
-                                            'px-3 py-2 text-sm font-medium transition-all duration-200',
+                                            'flex h-10 w-11 items-center justify-center rounded-xl transition-all duration-200',
                                             discoveryView === 'compact'
-                                                ? 'bg-violet-400/12 text-violet-100'
-                                                : 'text-gray-400 hover:bg-white/[0.04]',
+                                                ? 'bg-violet-400/16 text-violet-100 shadow-[0_0_20px_rgba(168,85,247,0.16)]'
+                                                : 'text-gray-500 hover:bg-white/[0.05] hover:text-gray-200',
                                         ].join(' ')}
+                                        title="Compact Grid"
+                                        aria-label="Compact Grid"
                                     >
-                                        Compact Grid
+                                        <CompactGridIcon className="h-5 w-5" />
                                     </button>
                                 </div>
 
@@ -1445,7 +1470,7 @@ export default function CoinographiaPage() {
                                     const isCoinc = discoverySort === 'coincarnations' || discoverySort === 'recent';
                                     const isUsd = discoverySort === 'usd';
                                     const isWallets = discoverySort === 'wallets';
-                                    const isExpandedCompact = expandedDiscoveryMint === it.mint;
+                                    const isExpandedCompact = activeDiscoveryDetail?.mint === it.mint;
 
                                     if (discoveryView === 'compact') {
                                         return (
@@ -1455,11 +1480,7 @@ export default function CoinographiaPage() {
                                             >
                                                 <button
                                                     type="button"
-                                                    onClick={() =>
-                                                        setExpandedDiscoveryMint((current) =>
-                                                            current === it.mint ? null : it.mint
-                                                        )
-                                                    }
+                                                    onClick={() => setActiveDiscoveryDetail(it)}
                                                     className="relative z-[1] flex w-full flex-col items-start text-left"
                                                 >
                                                     <div className="flex w-full items-start gap-2">
@@ -1492,9 +1513,20 @@ export default function CoinographiaPage() {
                                                             </button>
                                                         </div>
 
-                                                        <span className="shrink-0 text-[13px] leading-none text-gray-500">
-                                                            {isExpandedCompact ? '−' : '+'}
-                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                setActiveDiscoveryDetail((current) =>
+                                                                    current?.mint === it.mint ? null : it
+                                                                );
+                                                            }}
+                                                            className="shrink-0 rounded-lg px-1.5 text-[14px] leading-none text-gray-400 transition-colors hover:text-cyan-200"
+                                                            title={isExpandedCompact ? 'Close details' : 'Open details'}
+                                                        >
+                                                            {isExpandedCompact ? '×' : '+'}
+                                                        </button>
                                                     </div>
 
                                                     <div className="mt-2 flex w-full flex-wrap items-center gap-1">
@@ -1542,52 +1574,6 @@ export default function CoinographiaPage() {
                                                         </div>
                                                     </div>
                                                 </button>
-
-                                                {isExpandedCompact && (
-                                                    <div className="relative z-[1] mt-3 border-t border-white/10 pt-3">
-                                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2 text-[11px] leading-5 text-gray-300">
-                                                            {getDiscoveryStoryLine(it)}
-                                                        </div>
-
-                                                        {!isPioneer && (
-                                                            <div className="mt-3 grid grid-cols-3 gap-1.5">
-                                                                <div className={getDiscoveryMetricCellClass(true, 'cyan')}>
-                                                                    <div className="text-[8px] uppercase tracking-[0.08em] text-gray-500">
-                                                                        Coinc.
-                                                                    </div>
-                                                                    <div className="mt-1 text-[11px] font-semibold text-white">
-                                                                        {formatNumberCompact(it.total_coincarnations)}
-                                                                    </div>
-                                                                </div>
-
-                                                                <div className={getDiscoveryMetricCellClass(true, 'emerald')}>
-                                                                    <div className="text-[8px] uppercase tracking-[0.08em] text-gray-500">
-                                                                        Revived
-                                                                    </div>
-                                                                    <div className="mt-1 text-[11px] font-semibold text-white">
-                                                                        {formatUsdCompact(it.total_revived_usd)}
-                                                                    </div>
-                                                                </div>
-
-                                                                <div className={getDiscoveryMetricCellClass(true, 'amber')}>
-                                                                    <div className="text-[8px] uppercase tracking-[0.08em] text-gray-500">
-                                                                        Wallets
-                                                                    </div>
-                                                                    <div className="mt-1 text-[11px] font-semibold text-white">
-                                                                        {formatNumberCompact(it.unique_wallets)}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        <div className="mt-3 text-[10px] text-gray-500">
-                                                            Last activity:{' '}
-                                                            <span className="text-gray-300">
-                                                                {it.last_activity_at ? formatUpdatedShort(it.last_activity_at) : 'No activity yet'}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                )}
                                             </div>
                                         );
                                     }
@@ -1639,6 +1625,20 @@ export default function CoinographiaPage() {
                                                     ) : (
                                                         <ShareArrowIcon className="h-[17px] w-[17px]" />
                                                     )}
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        setActiveDiscoveryDetail((current) =>
+                                                            current?.mint === it.mint ? null : it
+                                                        );
+                                                    }}
+                                                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-[16px] font-semibold text-gray-200 transition-all duration-200 hover:border-violet-400/30 hover:bg-violet-400/12 hover:text-violet-100"
+                                                    title={activeDiscoveryDetail?.mint === it.mint ? 'Close details' : 'Open details'}
+                                                    aria-label={activeDiscoveryDetail?.mint === it.mint ? 'Close details' : 'Open details'}
+                                                >
+                                                    {activeDiscoveryDetail?.mint === it.mint ? '×' : '+'}
                                                 </button>
                                             </div>
 
@@ -1845,6 +1845,132 @@ export default function CoinographiaPage() {
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    </div>
+                )}
+
+                {activeDiscoveryDetail && (
+                    <div
+                        className="fixed inset-0 z-[80] flex items-start justify-center bg-black/55 px-4 pt-20 backdrop-blur-sm sm:pt-24"
+                        onClick={() => setActiveDiscoveryDetail(null)}
+                    >
+                        <div
+                            className="w-full max-w-xl overflow-hidden rounded-[26px] border border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_28%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.14),transparent_30%),linear-gradient(180deg,rgba(13,19,34,0.98),rgba(7,11,20,0.98))] shadow-[0_30px_90px_rgba(0,0,0,0.55),0_0_42px_rgba(34,211,238,0.12)]"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-start justify-between gap-4 border-b border-white/10 p-4">
+                                <div className="flex min-w-0 items-center gap-3">
+                                    {activeDiscoveryDetail.logo_uri ? (
+                                        <img
+                                            src={activeDiscoveryDetail.logo_uri}
+                                            alt={activeDiscoveryDetail.symbol || activeDiscoveryDetail.mint}
+                                            className="h-11 w-11 shrink-0 rounded-full border border-white/10 object-cover"
+                                        />
+                                    ) : (
+                                        <div className="h-11 w-11 shrink-0 rounded-full border border-white/10 bg-white/[0.06]" />
+                                    )}
+
+                                    <div className="min-w-0">
+                                        <div className="truncate text-lg font-bold text-white">
+                                            {activeDiscoveryDetail.symbol || 'Unknown'}
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleMintCopy(activeDiscoveryDetail.mint)}
+                                            className="mt-1 max-w-full truncate font-mono text-xs text-gray-500 transition-colors hover:text-cyan-200"
+                                            title="Copy mint"
+                                        >
+                                            {copiedMint === activeDiscoveryDetail.mint
+                                                ? 'Copied'
+                                                : shortenMint(activeDiscoveryDetail.mint)}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveDiscoveryDetail(null)}
+                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-lg text-gray-300 transition-all hover:bg-white/[0.09] hover:text-white"
+                                    aria-label="Close"
+                                >
+                                    ×
+                                </button>
+                            </div>
+
+                            <div className="p-4">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <StatusBadge status={activeDiscoveryDetail.status} />
+                                    <HeatBadge heat={activeDiscoveryDetail.heat_level} />
+
+                                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[11px] font-medium text-gray-200">
+                                        {getRankReasonLabel(activeDiscoveryDetail.rank_reason)}
+                                    </span>
+                                </div>
+
+                                <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm leading-6 text-gray-300">
+                                    {getDiscoveryStoryLine(activeDiscoveryDetail)}
+                                </div>
+
+                                {activeDiscoveryDetail.rank_reason !== 'search_pioneer' && (
+                                    <div className="mt-3 grid grid-cols-3 gap-2">
+                                        <div className={getDiscoveryMetricCellClass(true, 'cyan')}>
+                                            <div className="text-[9px] uppercase tracking-[0.08em] text-gray-500">
+                                                Coinc.
+                                            </div>
+                                            <div className="mt-1 text-sm font-semibold text-white">
+                                                {formatNumberCompact(activeDiscoveryDetail.total_coincarnations)}
+                                            </div>
+                                        </div>
+
+                                        <div className={getDiscoveryMetricCellClass(true, 'emerald')}>
+                                            <div className="text-[9px] uppercase tracking-[0.08em] text-gray-500">
+                                                Revived
+                                            </div>
+                                            <div className="mt-1 text-sm font-semibold text-white">
+                                                {formatUsdCompact(activeDiscoveryDetail.total_revived_usd)}
+                                            </div>
+                                        </div>
+
+                                        <div className={getDiscoveryMetricCellClass(true, 'amber')}>
+                                            <div className="text-[9px] uppercase tracking-[0.08em] text-gray-500">
+                                                Wallets
+                                            </div>
+                                            <div className="mt-1 text-sm font-semibold text-white">
+                                                {formatNumberCompact(activeDiscoveryDetail.unique_wallets)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="mt-4 grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => void shareDiscoveryOnX(activeDiscoveryDetail)}
+                                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm font-semibold text-cyan-100 transition-all hover:border-cyan-400/35 hover:bg-cyan-400/15"
+                                    >
+                                        <ShareArrowIcon className="h-4 w-4" />
+                                        Share
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        disabled={activeDiscoveryDetail.status === 'redlist' || activeDiscoveryDetail.status === 'blacklist'}
+                                        onClick={() => handleCoincarnateClick(activeDiscoveryDetail.mint, activeDiscoveryDetail.status)}
+                                        className={[
+                                            'rounded-xl px-4 py-3 text-sm font-semibold transition-all',
+                                            getCoincarnateButtonClass(
+                                                activeDiscoveryDetail.status,
+                                                activeDiscoveryDetail.status === 'redlist' || activeDiscoveryDetail.status === 'blacklist'
+                                            ),
+                                        ].join(' ')}
+                                    >
+                                        {activeDiscoveryDetail.status === 'redlist' || activeDiscoveryDetail.status === 'blacklist'
+                                            ? 'Disabled'
+                                            : 'Coincarnate'}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
