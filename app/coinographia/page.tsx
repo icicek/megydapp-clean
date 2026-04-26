@@ -868,7 +868,7 @@ export default function CoinographiaPage() {
                     <div className="pointer-events-none absolute -left-12 bottom-[-50px] h-40 w-40 rounded-full bg-emerald-400/10 blur-3xl" />
 
                     <div className="relative p-6 md:p-7 xl:p-8">
-                        <div className="flex flex-col gap-7 xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(600px,660px)] xl:gap-7 xl:items-stretch">
+                        <div className="flex flex-col gap-5 xl:grid xl:grid-cols-[minmax(0,0.96fr)_minmax(620px,690px)] xl:gap-4 xl:items-stretch">
                             <div className="flex min-w-0 flex-col xl:h-full xl:justify-between">
                                 <div>
                                     <div className="flex flex-wrap items-center gap-2">
