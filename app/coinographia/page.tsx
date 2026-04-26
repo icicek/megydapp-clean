@@ -1541,7 +1541,7 @@ export default function CoinographiaPage() {
                                                             {formatNumberCompact(it.total_coincarnations)} Coinc.
                                                         </div>
 
-                                                        <div className="flex items-center gap-1">
+                                                        <div className="flex flex-col items-center gap-1 sm:flex-row">
                                                             <button
                                                                 type="button"
                                                                 onClick={(e) => {
@@ -1593,13 +1593,14 @@ export default function CoinographiaPage() {
                                             ].join(' ')}
                                         >
                                             {isFeatured && (
-                                                <div className="relative z-[1] mb-3 flex flex-wrap items-center gap-2">
+                                                <div className="relative z-[1] mb-3 flex flex-wrap items-center gap-2 pr-12 sm:pr-0">
                                                     <span className="inline-flex items-center rounded-full border border-cyan-400/30 bg-cyan-400/14 px-2.5 py-1 text-[10px] font-semibold tracking-[0.05em] text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.14)]">
                                                         ✦ Featured Cluster
                                                     </span>
 
                                                     <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] font-medium text-gray-300">
-                                                        Signal ranked by {discoverySort}
+                                                        <span className="sm:hidden">Ranked: {discoverySort}</span>
+                                                        <span className="hidden sm:inline">Signal ranked by {discoverySort}</span>
                                                     </span>
                                                 </div>
                                             )}
@@ -1627,20 +1628,6 @@ export default function CoinographiaPage() {
                                                     ) : (
                                                         <ShareArrowIcon className="h-[17px] w-[17px]" />
                                                     )}
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        setActiveDiscoveryDetail((current) =>
-                                                            current?.mint === it.mint ? null : it
-                                                        );
-                                                    }}
-                                                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-[16px] font-semibold text-gray-200 transition-all duration-200 hover:border-violet-400/30 hover:bg-violet-400/12 hover:text-violet-100"
-                                                    title={activeDiscoveryDetail?.mint === it.mint ? 'Close details' : 'Open details'}
-                                                    aria-label={activeDiscoveryDetail?.mint === it.mint ? 'Close details' : 'Open details'}
-                                                >
-                                                    {activeDiscoveryDetail?.mint === it.mint ? '×' : '+'}
                                                 </button>
                                             </div>
 
