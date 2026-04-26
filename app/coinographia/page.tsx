@@ -868,7 +868,7 @@ export default function CoinographiaPage() {
                     <div className="pointer-events-none absolute -left-12 bottom-[-50px] h-40 w-40 rounded-full bg-emerald-400/10 blur-3xl" />
 
                     <div className="relative p-6 md:p-7 xl:p-8">
-                        <div className="flex flex-col gap-5 xl:grid xl:grid-cols-[minmax(0,0.96fr)_minmax(620px,690px)] xl:gap-4 xl:items-stretch">
+                        <div className="flex flex-col gap-6 xl:grid xl:grid-cols-2 xl:gap-6 xl:items-stretch">
                             <div className="flex min-w-0 flex-col xl:h-full xl:justify-between">
                                 <div>
                                     <div className="flex flex-wrap items-center gap-2">
@@ -942,7 +942,7 @@ export default function CoinographiaPage() {
                                     </div>
                                 )}
 
-                                <div className="relative -mx-1 sm:mx-0 grid min-w-0 gap-3 xl:flex-1 rounded-[24px] border border-cyan-400/12 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.10),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.10),transparent_28%),rgba(255,255,255,0.025)] p-2.5 sm:p-3 xl:p-4 shadow-[0_0_42px_rgba(34,211,238,0.07)]">
+                                <div className="relative -mx-0.5 sm:mx-0 grid min-w-0 gap-3 rounded-[24px] border border-cyan-400/12 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.10),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.10),transparent_28%),rgba(255,255,255,0.025)] p-3 sm:p-4 xl:h-full shadow-[0_0_42px_rgba(34,211,238,0.07)]">
                                     <div className="px-1 pb-1">
                                         <div className="flex items-start justify-between gap-4">
                                             <div>
