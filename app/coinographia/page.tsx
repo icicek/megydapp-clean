@@ -1531,7 +1531,7 @@ export default function CoinographiaPage() {
                                                         </button>
                                                     </div>
 
-                                                    <div className="mt-2 grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                                                    <div className="relative mt-2 w-full pr-10">
                                                         <div className="min-w-0 space-y-1.5">
                                                             <div className="flex min-w-0 flex-wrap items-center gap-1">
                                                                 <StatusBadge status={it.status} />
@@ -1543,7 +1543,7 @@ export default function CoinographiaPage() {
                                                             </div>
                                                         </div>
 
-                                                        <div className="flex shrink-0 flex-col items-center gap-1">
+                                                        <div className="absolute right-0 top-0 flex flex-col items-center gap-1">
                                                             <button
                                                                 type="button"
                                                                 onClick={(e) => {
