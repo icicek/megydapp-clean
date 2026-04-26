@@ -552,6 +552,41 @@ function getDiscoveryMetricCellClass(active: boolean, tone: 'cyan' | 'emerald' |
     return `${base} border-amber-400/35 bg-amber-400/10 shadow-[0_0_22px_rgba(245,158,11,0.16)]`;
 }
 
+function getCompactDiscoveryCardClass(heat: HeatLevel, status: TokenStatus, expanded: boolean) {
+    const base =
+        'group relative overflow-hidden rounded-2xl border border-white/10 ' +
+        'bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.022))] ' +
+        'p-3 transition-all duration-300 ' +
+        'hover:-translate-y-[2px] hover:border-cyan-300/22 hover:bg-white/[0.055] ' +
+        'hover:shadow-[0_16px_34px_rgba(2,6,23,0.34),0_0_24px_rgba(34,211,238,0.08)]';
+
+    const active = expanded
+        ? 'border-cyan-300/28 bg-cyan-400/[0.055] shadow-[0_18px_42px_rgba(2,6,23,0.42),0_0_34px_rgba(34,211,238,0.12)]'
+        : '';
+
+    if (heat === 'HOT') {
+        return `${base} ${active} hover:border-rose-300/28 before:pointer-events-none before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_top_left,rgba(244,63,94,0.16),transparent_34%)]`;
+    }
+
+    if (heat === 'TRENDING') {
+        return `${base} ${active} hover:border-amber-300/28 before:pointer-events-none before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.15),transparent_34%)]`;
+    }
+
+    if (heat === 'LIVE') {
+        return `${base} ${active} hover:border-cyan-300/28 before:pointer-events-none before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.15),transparent_34%)]`;
+    }
+
+    if (status === 'walking_dead') {
+        return `${base} ${active} before:pointer-events-none before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.10),transparent_34%)]`;
+    }
+
+    if (status === 'healthy') {
+        return `${base} ${active} before:pointer-events-none before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.10),transparent_34%)]`;
+    }
+
+    return `${base} ${active}`;
+}
+
 function buildDiscoveryTweet(item: DiscoveryRow) {
     const symbol = item.symbol ? `$${item.symbol}` : shortenMint(item.mint);
     const heatLevel = getDiscoveryHeatLevel(item);
@@ -783,6 +818,7 @@ export default function CoinographiaPage() {
     const [discoverySort, setDiscoverySort] = useState<DiscoverySort>('recent');
     const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(true);
     const [discoveryView, setDiscoveryView] = useState<'cards' | 'compact'>('cards');
+    const [expandedDiscoveryMint, setExpandedDiscoveryMint] = useState<string | null>(null);
 
     function ShareArrowIcon({ className = '' }: { className?: string }) {
         return (
@@ -1366,7 +1402,14 @@ export default function CoinographiaPage() {
                             </div>
                         )}
 
-                        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        <div
+                            className={[
+                                'mt-5 grid gap-3',
+                                discoveryView === 'compact'
+                                    ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+                                    : 'sm:grid-cols-2 xl:grid-cols-3',
+                            ].join(' ')}
+                        >
                             {discoveryLoading && discoveryItems.length === 0 ? (
                                 [...Array(6)].map((_, i) => (
                                     <div
