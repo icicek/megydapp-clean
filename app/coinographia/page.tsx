@@ -1536,12 +1536,12 @@ export default function CoinographiaPage() {
                                                         <HeatBadge heat={it.heat_level} />
                                                     </div>
 
-                                                    <div className="mt-2 flex w-full items-center justify-between gap-1.5">
+                                                    <div className="mt-2 flex w-full items-start justify-between gap-2">
                                                         <div className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-semibold text-gray-200">
                                                             {formatNumberCompact(it.total_coincarnations)} Coinc.
                                                         </div>
 
-                                                        <div className="flex flex-col items-center gap-1 sm:flex-row">
+                                                        <div className="flex flex-col items-center gap-1">
                                                             <button
                                                                 type="button"
                                                                 onClick={(e) => {
