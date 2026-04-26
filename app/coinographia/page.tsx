@@ -1525,10 +1525,10 @@ export default function CoinographiaPage() {
                                                                 );
                                                             }}
                                                             className={[
-                                                                'absolute right-0 top-0 flex h-6 w-6 items-center justify-center rounded-lg border text-[13px] font-semibold transition-all duration-200',
+                                                                'absolute right-0 top-0 flex h-7 w-7 items-center justify-center rounded-lg px-1.5 text-[18px] leading-none transition-colors',
                                                                 isExpandedCompact
-                                                                    ? 'border-cyan-400/30 bg-cyan-400/12 text-cyan-100 shadow-[0_0_14px_rgba(34,211,238,0.16)]'
-                                                                    : 'border-white/10 bg-white/[0.035] text-gray-400 hover:border-cyan-400/25 hover:bg-cyan-400/10 hover:text-cyan-100',
+                                                                    ? 'text-cyan-100'
+                                                                    : 'text-gray-400 hover:text-cyan-200',
                                                             ].join(' ')}
                                                             title={isExpandedCompact ? 'Close details' : 'Open details'}
                                                             aria-label={isExpandedCompact ? 'Close details' : 'Open details'}
@@ -2027,7 +2027,7 @@ export default function CoinographiaPage() {
                                     >
                                         {activeDiscoveryDetail.status === 'redlist' || activeDiscoveryDetail.status === 'blacklist'
                                             ? 'Disabled'
-                                            : 'Coincarnate'}
+                                            : '✦ Coincarnate'}
                                     </button>
                                 </div>
                             </div>
