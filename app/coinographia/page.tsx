@@ -219,36 +219,88 @@ function getCoincarnateButtonClass(status: TokenStatus, disabled: boolean) {
 
 function getDiscoveryCardClass(heat: HeatLevel, status: TokenStatus) {
     const base =
-        'group relative cursor-pointer overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(20,27,45,0.88),rgba(11,16,28,0.94))] p-3 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_14px_34px_rgba(2,6,23,0.24)] transition-all duration-300 hover:-translate-y-[3px] hover:border-cyan-300/20 active:scale-[0.995]';
+        'group relative cursor-pointer overflow-hidden rounded-2xl border border-white/10 ' +
+        'bg-[linear-gradient(180deg,rgba(20,27,45,0.92),rgba(8,12,22,0.97))] ' +
+        'p-3 sm:p-4 ' +
+        'shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_38px_rgba(2,6,23,0.30)] ' +
+        'transition-all duration-300 ease-out ' +
+        'hover:-translate-y-[4px] hover:scale-[1.012] hover:border-cyan-300/25 ' +
+        'hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_22px_54px_rgba(2,6,23,0.42),0_0_34px_rgba(34,211,238,0.12)] ' +
+        'active:scale-[0.995]';
 
-    const sheen =
-        'after:pointer-events-none after:absolute after:inset-0 after:rounded-2xl after:bg-[linear-gradient(120deg,transparent_0%,rgba(255,255,255,0.06)_18%,transparent_36%)] after:translate-x-[-120%] hover:after:translate-x-[120%] after:transition-transform after:duration-700';
+    const intelligenceLayers =
+        'before:pointer-events-none before:absolute before:inset-0 before:rounded-2xl before:opacity-80 ' +
+        'after:pointer-events-none after:absolute after:inset-0 after:rounded-2xl ' +
+        'after:bg-[linear-gradient(120deg,transparent_0%,rgba(255,255,255,0.075)_18%,transparent_36%)] ' +
+        'after:translate-x-[-125%] hover:after:translate-x-[125%] after:transition-transform after:duration-700';
 
     if (heat === 'HOT') {
-        return `${base} ${sheen} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(244,63,94,0.10),0_0_34px_rgba(244,63,94,0.14)] before:absolute before:inset-0 before:rounded-2xl before:bg-[radial-gradient(circle_at_top,rgba(244,63,94,0.16),transparent_62%)] before:opacity-80 before:pointer-events-none`;
+        return [
+            base,
+            intelligenceLayers,
+            'border-rose-400/22',
+            'shadow-[0_0_0_1px_rgba(244,63,94,0.12),0_0_38px_rgba(244,63,94,0.20),0_18px_46px_rgba(2,6,23,0.38)]',
+            'before:bg-[radial-gradient(circle_at_20%_0%,rgba(244,63,94,0.24),transparent_34%),radial-gradient(circle_at_95%_20%,rgba(249,115,22,0.14),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.035),transparent)]',
+            'hover:border-rose-300/38 hover:shadow-[0_0_0_1px_rgba(244,63,94,0.18),0_0_52px_rgba(244,63,94,0.28),0_24px_62px_rgba(2,6,23,0.48)]',
+        ].join(' ');
     }
 
     if (heat === 'TRENDING') {
-        return `${base} ${sheen} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(245,158,11,0.10),0_0_30px_rgba(245,158,11,0.13)] before:absolute before:inset-0 before:rounded-2xl before:bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.14),transparent_62%)] before:opacity-80 before:pointer-events-none`;
+        return [
+            base,
+            intelligenceLayers,
+            'border-amber-400/20',
+            'shadow-[0_0_0_1px_rgba(245,158,11,0.11),0_0_34px_rgba(245,158,11,0.17),0_18px_46px_rgba(2,6,23,0.36)]',
+            'before:bg-[radial-gradient(circle_at_20%_0%,rgba(245,158,11,0.22),transparent_34%),radial-gradient(circle_at_95%_20%,rgba(34,211,238,0.10),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent)]',
+            'hover:border-amber-300/35 hover:shadow-[0_0_0_1px_rgba(245,158,11,0.16),0_0_48px_rgba(245,158,11,0.24),0_24px_62px_rgba(2,6,23,0.46)]',
+        ].join(' ');
     }
 
     if (heat === 'LIVE') {
-        return `${base} ${sheen} hover:bg-white/[0.05] shadow-[0_0_0_1px_rgba(34,211,238,0.10),0_0_30px_rgba(34,211,238,0.13)] before:absolute before:inset-0 before:rounded-2xl before:bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.14),transparent_62%)] before:opacity-80 before:pointer-events-none`;
+        return [
+            base,
+            intelligenceLayers,
+            'border-cyan-400/20',
+            'shadow-[0_0_0_1px_rgba(34,211,238,0.11),0_0_34px_rgba(34,211,238,0.16),0_18px_46px_rgba(2,6,23,0.36)]',
+            'before:bg-[radial-gradient(circle_at_20%_0%,rgba(34,211,238,0.20),transparent_34%),radial-gradient(circle_at_95%_20%,rgba(168,85,247,0.11),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent)]',
+            'hover:border-cyan-300/35 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.16),0_0_48px_rgba(34,211,238,0.24),0_24px_62px_rgba(2,6,23,0.46)]',
+        ].join(' ');
     }
 
     if (status === 'healthy') {
-        return `${base} ${sheen} hover:bg-white/[0.05] hover:shadow-[0_0_24px_rgba(16,185,129,0.08)]`;
+        return [
+            base,
+            intelligenceLayers,
+            'before:bg-[radial-gradient(circle_at_18%_0%,rgba(16,185,129,0.13),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.025),transparent)]',
+            'hover:border-emerald-300/28 hover:shadow-[0_0_34px_rgba(16,185,129,0.13),0_20px_52px_rgba(2,6,23,0.42)]',
+        ].join(' ');
     }
 
     if (status === 'walking_dead') {
-        return `${base} ${sheen} hover:bg-white/[0.05] hover:shadow-[0_0_24px_rgba(245,158,11,0.08)]`;
+        return [
+            base,
+            intelligenceLayers,
+            'before:bg-[radial-gradient(circle_at_18%_0%,rgba(245,158,11,0.14),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.025),transparent)]',
+            'hover:border-amber-300/28 hover:shadow-[0_0_34px_rgba(245,158,11,0.13),0_20px_52px_rgba(2,6,23,0.42)]',
+        ].join(' ');
     }
 
     if (status === 'deadcoin') {
-        return `${base} ${sheen} hover:bg-white/[0.05] hover:shadow-[0_0_24px_rgba(113,113,122,0.08)]`;
+        return [
+            base,
+            intelligenceLayers,
+            'before:bg-[radial-gradient(circle_at_18%_0%,rgba(113,113,122,0.14),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.022),transparent)]',
+            'hover:border-zinc-300/22 hover:shadow-[0_0_30px_rgba(113,113,122,0.12),0_20px_52px_rgba(2,6,23,0.42)]',
+        ].join(' ');
     }
 
-    return `${base} ${sheen} opacity-90`;
+    return [
+        base,
+        intelligenceLayers,
+        'opacity-90',
+        'before:bg-[radial-gradient(circle_at_18%_0%,rgba(244,63,94,0.10),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]',
+        'hover:border-white/20',
+    ].join(' ');
 }
 
 function getPioneerCardAccentClass() {
