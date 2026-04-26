@@ -1366,7 +1366,7 @@ export default function CoinographiaPage() {
                                 </p>
                             </div>
 
-                            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 lg:flex lg:w-auto lg:flex-nowrap lg:items-center">
+                            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:w-auto lg:grid-cols-[220px_180px_150px] lg:items-center">
                                 <select
                                     value={discoverySort}
                                     onChange={(e) => setDiscoverySort(e.target.value as DiscoverySort)}
@@ -1378,12 +1378,12 @@ export default function CoinographiaPage() {
                                     <option value="coincarnations">Most Coincarnations</option>
                                 </select>
 
-                                <div className="flex overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                                <div className="grid h-12 grid-cols-2 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:h-11 lg:h-10">
                                     <button
                                         type="button"
                                         onClick={() => setDiscoveryView('cards')}
                                         className={[
-                                            'flex h-10 w-11 items-center justify-center rounded-xl transition-all duration-200',
+                                            'flex items-center justify-center gap-2 rounded-xl text-xs font-semibold transition-all duration-200 sm:text-sm',
                                             discoveryView === 'cards'
                                                 ? 'bg-cyan-400/14 text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.16)]'
                                                 : 'text-gray-500 hover:bg-white/[0.05] hover:text-gray-200',
@@ -1391,14 +1391,15 @@ export default function CoinographiaPage() {
                                         title="Signal Cards"
                                         aria-label="Signal Cards"
                                     >
-                                        <SignalCardsIcon className="h-5 w-5" />
+                                        <SignalCardsIcon className="h-4 w-4" />
+                                        <span className="hidden sm:inline">Cards</span>
                                     </button>
 
                                     <button
                                         type="button"
                                         onClick={() => setDiscoveryView('compact')}
                                         className={[
-                                            'flex h-10 w-11 items-center justify-center rounded-xl transition-all duration-200',
+                                            'flex items-center justify-center gap-2 rounded-xl text-xs font-semibold transition-all duration-200 sm:text-sm',
                                             discoveryView === 'compact'
                                                 ? 'bg-violet-400/16 text-violet-100 shadow-[0_0_20px_rgba(168,85,247,0.16)]'
                                                 : 'text-gray-500 hover:bg-white/[0.05] hover:text-gray-200',
@@ -1406,14 +1407,15 @@ export default function CoinographiaPage() {
                                         title="Compact Grid"
                                         aria-label="Compact Grid"
                                     >
-                                        <CompactGridIcon className="h-5 w-5" />
+                                        <CompactGridIcon className="h-4 w-4" />
+                                        <span className="hidden sm:inline">Grid</span>
                                     </button>
                                 </div>
 
                                 <button
                                     onClick={() => void loadDiscovery()}
                                     disabled={discoveryLoading}
-                                    className="min-w-[138px] whitespace-nowrap rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08] disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="h-12 w-full whitespace-nowrap rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-[1px] hover:border-cyan-400/25 hover:bg-cyan-400/10 disabled:opacity-50 disabled:cursor-not-allowed sm:h-11 lg:h-10"
                                     title="Refresh Discovery"
                                 >
                                     {discoveryLoading ? 'Refreshing...' : 'Refresh'}
@@ -1875,16 +1877,26 @@ export default function CoinographiaPage() {
                                             {activeDiscoveryDetail.symbol || 'Unknown'}
                                         </div>
 
-                                        <button
-                                            type="button"
-                                            onClick={() => void handleMintCopy(activeDiscoveryDetail.mint)}
-                                            className="mt-1 max-w-full truncate font-mono text-xs text-gray-500 transition-colors hover:text-cyan-200"
-                                            title="Copy mint"
-                                        >
-                                            {copiedMint === activeDiscoveryDetail.mint
-                                                ? 'Copied'
-                                                : shortenMint(activeDiscoveryDetail.mint)}
-                                        </button>
+                                        <div className="mt-1 flex min-w-0 items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => void handleMintCopy(activeDiscoveryDetail.mint)}
+                                                className="min-w-0 truncate font-mono text-xs text-gray-500 transition-colors hover:text-cyan-200"
+                                                title="Copy mint"
+                                            >
+                                                {copiedMint === activeDiscoveryDetail.mint
+                                                    ? 'Copied'
+                                                    : shortenMint(activeDiscoveryDetail.mint)}
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => void handleMintCopy(activeDiscoveryDetail.mint)}
+                                                className="shrink-0 rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[10px] font-semibold text-cyan-100 transition-all hover:bg-cyan-400/15"
+                                            >
+                                                Copy
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1910,6 +1922,59 @@ export default function CoinographiaPage() {
 
                                 <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm leading-6 text-gray-300">
                                     {getDiscoveryStoryLine(activeDiscoveryDetail)}
+                                </div>
+
+                                <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3">
+                                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.13em] text-cyan-100">
+                                        <span className="relative flex h-2 w-2 shrink-0">
+                                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-60" />
+                                            <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.9)]" />
+                                        </span>
+
+                                        <span className="min-w-0 truncate">
+                                            {getDiscoverySignalLine(activeDiscoveryDetail)}
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2">
+                                            <div className="text-[10px] uppercase tracking-[0.1em] text-gray-500">
+                                                Rank Reason
+                                            </div>
+                                            <div className="mt-1 font-semibold text-gray-200">
+                                                {getRankReasonLabel(activeDiscoveryDetail.rank_reason)}
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2">
+                                            <div className="text-[10px] uppercase tracking-[0.1em] text-gray-500">
+                                                Activity Score
+                                            </div>
+                                            <div className="mt-1 font-semibold text-gray-200">
+                                                {formatNumberCompact(activeDiscoveryDetail.activity_score)}
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2">
+                                            <div className="text-[10px] uppercase tracking-[0.1em] text-gray-500">
+                                                First Seen
+                                            </div>
+                                            <div className="mt-1 font-semibold text-gray-200">
+                                                {formatDiscoverySince(activeDiscoveryDetail.first_seen_at) || 'Unknown'}
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2">
+                                            <div className="text-[10px] uppercase tracking-[0.1em] text-gray-500">
+                                                Last Activity
+                                            </div>
+                                            <div className="mt-1 font-semibold text-gray-200">
+                                                {activeDiscoveryDetail.last_activity_at
+                                                    ? formatUpdatedShort(activeDiscoveryDetail.last_activity_at)
+                                                    : 'No activity yet'}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {activeDiscoveryDetail.rank_reason !== 'search_pioneer' && (
