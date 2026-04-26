@@ -1531,17 +1531,19 @@ export default function CoinographiaPage() {
                                                         </button>
                                                     </div>
 
-                                                    <div className="mt-2 flex w-full flex-wrap items-center gap-1">
-                                                        <StatusBadge status={it.status} />
-                                                        <HeatBadge heat={it.heat_level} />
-                                                    </div>
+                                                    <div className="mt-2 grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                                                        <div className="min-w-0 space-y-1.5">
+                                                            <div className="flex min-w-0 flex-wrap items-center gap-1">
+                                                                <StatusBadge status={it.status} />
+                                                                <HeatBadge heat={it.heat_level} />
+                                                            </div>
 
-                                                    <div className="mt-2 flex w-full items-start justify-between gap-2">
-                                                        <div className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-semibold text-gray-200">
-                                                            {formatNumberCompact(it.total_coincarnations)} Coinc.
+                                                            <div className="inline-flex rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-semibold text-gray-200">
+                                                                {formatNumberCompact(it.total_coincarnations)} Coinc.
+                                                            </div>
                                                         </div>
 
-                                                        <div className="flex flex-col items-center gap-1">
+                                                        <div className="flex shrink-0 flex-col items-center gap-1">
                                                             <button
                                                                 type="button"
                                                                 onClick={(e) => {
