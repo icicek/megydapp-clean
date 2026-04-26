@@ -782,6 +782,7 @@ export default function CoinographiaPage() {
     const [discoveryError, setDiscoveryError] = useState<string | null>(null);
     const [discoverySort, setDiscoverySort] = useState<DiscoverySort>('recent');
     const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(true);
+    const [discoveryView, setDiscoveryView] = useState<'cards' | 'compact'>('cards');
 
     function ShareArrowIcon({ className = '' }: { className?: string }) {
         return (
@@ -1308,7 +1309,7 @@ export default function CoinographiaPage() {
                                 </p>
                             </div>
 
-                            <div className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center">
+                            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] lg:flex lg:w-auto lg:flex-wrap lg:items-center">
                                 <select
                                     value={discoverySort}
                                     onChange={(e) => setDiscoverySort(e.target.value as DiscoverySort)}
@@ -1319,6 +1320,34 @@ export default function CoinographiaPage() {
                                     <option value="wallets">Most wallets</option>
                                     <option value="coincarnations">Most Coincarnations</option>
                                 </select>
+
+                                <div className="flex overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
+                                    <button
+                                        type="button"
+                                        onClick={() => setDiscoveryView('cards')}
+                                        className={[
+                                            'px-3 py-2 text-sm font-medium transition-all duration-200',
+                                            discoveryView === 'cards'
+                                                ? 'bg-cyan-400/12 text-cyan-100'
+                                                : 'text-gray-400 hover:bg-white/[0.04]',
+                                        ].join(' ')}
+                                    >
+                                        Signal Cards
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setDiscoveryView('compact')}
+                                        className={[
+                                            'px-3 py-2 text-sm font-medium transition-all duration-200',
+                                            discoveryView === 'compact'
+                                                ? 'bg-violet-400/12 text-violet-100'
+                                                : 'text-gray-400 hover:bg-white/[0.04]',
+                                        ].join(' ')}
+                                    >
+                                        Compact Grid
+                                    </button>
+                                </div>
 
                                 <button
                                     onClick={() => void loadDiscovery()}
