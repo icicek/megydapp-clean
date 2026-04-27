@@ -1434,7 +1434,7 @@ export default function CoinographiaPage() {
                                 </p>
                             </div>
 
-                            <div className="grid h-10 grid-cols-2 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                            <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 lg:w-auto lg:grid-cols-[190px_150px_130px_130px] lg:items-center">
                                 <select
                                     value={discoverySort}
                                     onChange={(e) => setDiscoverySort(e.target.value as DiscoverySort)}
