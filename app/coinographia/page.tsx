@@ -565,6 +565,46 @@ function getRegistryStatusSignal(status: TokenStatus) {
     return 'Invalidated asset state';
 }
 
+function getRegistryInnerPanelClass(status: TokenStatus) {
+    if (status === 'healthy') {
+        return 'border-emerald-400/12 bg-emerald-400/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]';
+    }
+
+    if (status === 'walking_dead') {
+        return 'border-amber-400/14 bg-amber-400/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]';
+    }
+
+    if (status === 'deadcoin') {
+        return 'border-zinc-300/12 bg-zinc-400/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]';
+    }
+
+    if (status === 'redlist') {
+        return 'border-rose-400/14 bg-rose-400/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]';
+    }
+
+    return 'border-fuchsia-400/14 bg-fuchsia-400/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]';
+}
+
+function getRegistryActionRailClass(status: TokenStatus) {
+    if (status === 'healthy') {
+        return 'border-emerald-400/12 bg-emerald-400/[0.03]';
+    }
+
+    if (status === 'walking_dead') {
+        return 'border-amber-400/14 bg-amber-400/[0.035]';
+    }
+
+    if (status === 'deadcoin') {
+        return 'border-zinc-300/12 bg-zinc-400/[0.028]';
+    }
+
+    if (status === 'redlist') {
+        return 'border-rose-400/14 bg-rose-400/[0.03]';
+    }
+
+    return 'border-fuchsia-400/14 bg-fuchsia-400/[0.03]';
+}
+
 function getDiscoveryHeatLevel(item: DiscoveryRow): 'hot' | 'trending' | 'live' {
     if (item.heat_level === 'HOT') return 'hot';
     if (item.heat_level === 'TRENDING') return 'trending';
@@ -2172,21 +2212,23 @@ export default function CoinographiaPage() {
                                                 </button>
                                             </div>
 
-                                            <div className="mt-2 flex min-w-0 items-center gap-2">
-                                                <StatusBadge status={it.status} />
+                                            <div className={`mt-2 rounded-2xl border px-2.5 py-2 ${getRegistryInnerPanelClass(it.status)}`}>
+                                                <div className="flex min-w-0 items-center gap-2">
+                                                    <StatusBadge status={it.status} />
 
-                                                <div className="min-w-0 truncate text-[10px] text-gray-500">
-                                                    {formatUpdatedShort(it.updated_at)}
+                                                    <div className="min-w-0 truncate text-[10px] text-gray-500">
+                                                        {formatUpdatedShort(it.updated_at)}
+                                                    </div>
                                                 </div>
-                                            </div>
 
-                                            <div className="mt-1 max-w-[220px] truncate text-[10px] text-gray-500">
-                                                {getRegistryStatusSignal(it.status)}
+                                                <div className="mt-1 max-w-[220px] truncate text-[10px] text-gray-500">
+                                                    {getRegistryStatusSignal(it.status)}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="flex shrink-0 flex-col items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.025] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+                                    <div className={`flex shrink-0 flex-col items-center gap-1.5 rounded-2xl border p-1.5 ${getRegistryActionRailClass(it.status)}`}>
                                         <button
                                             disabled={isDisabled}
                                             onClick={() => handleCoincarnateClick(it.mint, it.status)}
