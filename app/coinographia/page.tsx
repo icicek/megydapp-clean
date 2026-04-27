@@ -1392,24 +1392,25 @@ export default function CoinographiaPage() {
                 </div>
 
                 {!isDiscoveryOpen && (
-                    <div className="relative mb-8 overflow-hidden rounded-[26px] border border-cyan-400/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_24%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.10),transparent_28%),linear-gradient(180deg,rgba(9,14,26,0.98),rgba(12,18,32,0.95))] p-5 shadow-[0_22px_70px_rgba(2,6,23,0.36)]">
-                        <div className="relative z-[1] flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <h2 className="text-lg font-semibold text-white">Live Discovery</h2>
-                                <p className="mt-2 text-sm text-gray-400">
-                                    Discovery is collapsed. Registry is ready below for fast token lookup.
-                                </p>
+                    <button
+                        type="button"
+                        onClick={() => setIsDiscoveryOpen(true)}
+                        className="group mb-8 flex w-full items-center justify-between gap-3 overflow-hidden rounded-[22px] border border-cyan-400/15 bg-[linear-gradient(180deg,rgba(34,211,238,0.07),rgba(255,255,255,0.028))] px-4 py-3 text-left shadow-[0_16px_44px_rgba(2,6,23,0.28)] transition-all duration-200 hover:-translate-y-[1px] hover:border-cyan-400/30 hover:bg-cyan-400/[0.08]"
+                    >
+                        <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold text-white">
+                                Live Discovery collapsed
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={() => setIsDiscoveryOpen(true)}
-                                className="h-10 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 text-sm font-semibold text-cyan-200 transition-all duration-200 hover:-translate-y-[1px] hover:border-cyan-400/35 hover:bg-cyan-400/15"
-                            >
-                                Show Discovery
-                            </button>
+                            <div className="mt-0.5 truncate text-xs text-gray-400">
+                                Tap to reopen active Coincarnation signals
+                            </div>
                         </div>
-                    </div>
+
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-100 transition-all duration-200 group-hover:border-cyan-400/35 group-hover:bg-cyan-400/15">
+                            +
+                        </div>
+                    </button>
                 )}
 
                 {isDiscoveryOpen && (
