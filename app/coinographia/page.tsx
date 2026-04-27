@@ -1500,7 +1500,7 @@ export default function CoinographiaPage() {
                                 </div>
 
                                 {/* DESKTOP */}
-                                <div className="hidden lg:flex lg:justify-center">
+                                <div className="hidden lg:flex lg:justify-center lg:-mt-7 lg:mb-2">
                                     <div className="grid grid-cols-[190px_150px_130px_130px] gap-2 rounded-[22px] border border-white/10 bg-white/[0.035] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_14px_34px_rgba(2,6,23,0.22)] backdrop-blur-sm">
                                         <select
                                             value={discoverySort}
