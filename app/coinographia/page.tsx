@@ -506,6 +506,65 @@ function getMobileActionButtonClass(status: TokenStatus, disabled: boolean) {
     return `${base} border-cyan-400/20 bg-cyan-500/10 text-cyan-200`;
 }
 
+function getRegistryFeedItemClass(status: TokenStatus) {
+    const base =
+        'group relative overflow-hidden rounded-2xl border p-4 ' +
+        'bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.028))] ' +
+        'shadow-[0_10px_30px_rgba(0,0,0,0.14)] transition-all duration-300 ' +
+        'hover:-translate-y-[2px] hover:bg-white/[0.055]';
+
+    if (status === 'healthy') {
+        return `${base} border-emerald-400/14 hover:border-emerald-400/28 hover:shadow-[0_14px_34px_rgba(16,185,129,0.10)]`;
+    }
+
+    if (status === 'walking_dead') {
+        return `${base} border-amber-400/14 hover:border-amber-400/28 hover:shadow-[0_14px_34px_rgba(245,158,11,0.10)]`;
+    }
+
+    if (status === 'deadcoin') {
+        return `${base} border-zinc-400/14 hover:border-zinc-300/24 hover:shadow-[0_14px_34px_rgba(113,113,122,0.10)]`;
+    }
+
+    if (status === 'redlist') {
+        return `${base} border-rose-400/14 hover:border-rose-400/28 hover:shadow-[0_14px_34px_rgba(244,63,94,0.10)]`;
+    }
+
+    return `${base} border-fuchsia-400/14 hover:border-fuchsia-400/28 hover:shadow-[0_14px_34px_rgba(217,70,239,0.10)]`;
+}
+
+function getRegistryRowClass(status: TokenStatus) {
+    const base =
+        'border-b border-white/10 transition-all duration-200 ' +
+        'hover:bg-white/[0.045] ' +
+        'hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.035)]';
+
+    if (status === 'healthy') {
+        return `${base} hover:shadow-[inset_3px_0_0_rgba(16,185,129,0.42),inset_0_0_0_1px_rgba(255,255,255,0.035)]`;
+    }
+
+    if (status === 'walking_dead') {
+        return `${base} hover:shadow-[inset_3px_0_0_rgba(245,158,11,0.46),inset_0_0_0_1px_rgba(255,255,255,0.035)]`;
+    }
+
+    if (status === 'deadcoin') {
+        return `${base} hover:shadow-[inset_3px_0_0_rgba(113,113,122,0.42),inset_0_0_0_1px_rgba(255,255,255,0.035)]`;
+    }
+
+    if (status === 'redlist') {
+        return `${base} hover:shadow-[inset_3px_0_0_rgba(244,63,94,0.46),inset_0_0_0_1px_rgba(255,255,255,0.035)]`;
+    }
+
+    return `${base} hover:shadow-[inset_3px_0_0_rgba(217,70,239,0.46),inset_0_0_0_1px_rgba(255,255,255,0.035)]`;
+}
+
+function getRegistryStatusSignal(status: TokenStatus) {
+    if (status === 'healthy') return 'Survival signals above threshold';
+    if (status === 'walking_dead') return 'Decay visible · still revivable';
+    if (status === 'deadcoin') return 'No meaningful survival signal detected';
+    if (status === 'redlist') return 'Restricted by governance';
+    return 'Invalidated asset state';
+}
+
 function getDiscoveryHeatLevel(item: DiscoveryRow): 'hot' | 'trending' | 'live' {
     if (item.heat_level === 'HOT') return 'hot';
     if (item.heat_level === 'TRENDING') return 'trending';
@@ -2074,7 +2133,7 @@ export default function CoinographiaPage() {
                         return (
                             <div
                                 key={it.mint}
-                                className="group rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.028))] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.14)] transition-all duration-300 hover:-translate-y-[2px] hover:border-cyan-400/20 hover:bg-white/[0.055] hover:shadow-[0_14px_34px_rgba(34,211,238,0.10)]"
+                                className={getRegistryFeedItemClass(it.status)}
                             >
                                 <div className="grid grid-cols-[1fr_auto_auto] gap-3 items-center">
                                     <div className="min-w-0 flex items-start gap-3">
@@ -2120,6 +2179,9 @@ export default function CoinographiaPage() {
                                         <StatusBadge status={it.status} />
                                         <div className="text-[11px] text-gray-500 whitespace-nowrap">
                                             {formatUpdatedShort(it.updated_at)}
+                                        </div>
+                                        <div className="max-w-[150px] truncate text-[10px] text-gray-500">
+                                            {getRegistryStatusSignal(it.status)}
                                         </div>
                                     </div>
 
@@ -2183,7 +2245,7 @@ export default function CoinographiaPage() {
                                 return (
                                     <tr
                                         key={it.mint}
-                                        className="border-b border-white/10 transition-all duration-200 hover:bg-cyan-400/[0.045] hover:shadow-[inset_3px_0_0_rgba(34,211,238,0.35),inset_0_0_0_1px_rgba(255,255,255,0.035)]"
+                                        className={getRegistryRowClass(it.status)}
                                     >
                                         <td className="p-4">
                                             <div className="flex items-center gap-3 min-w-0">
@@ -2237,6 +2299,9 @@ export default function CoinographiaPage() {
                                                 <ClassificationBadge label={it.classification_label} />
                                                 <div className="text-[11px] text-gray-500 whitespace-nowrap">
                                                     {formatUpdatedShort(it.updated_at)}
+                                                </div>
+                                                <div className="max-w-[170px] truncate text-[10px] text-gray-500">
+                                                    {getRegistryStatusSignal(it.status)}
                                                 </div>
                                             </div>
                                         </td>
