@@ -1434,67 +1434,129 @@ export default function CoinographiaPage() {
                                 </p>
                             </div>
 
-                            <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 lg:w-auto lg:grid-cols-[190px_150px_130px_130px] lg:items-center">
-                                <select
-                                    value={discoverySort}
-                                    onChange={(e) => setDiscoverySort(e.target.value as DiscoverySort)}
-                                    className="min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white"
-                                >
-                                    <option value="recent">Most recent</option>
-                                    <option value="usd">Most revived USD</option>
-                                    <option value="wallets">Most wallets</option>
-                                    <option value="coincarnations">Most Coincarnations</option>
-                                </select>
+                            <div className="w-full lg:w-auto">
+                                {/* MOBILE */}
+                                <div className="grid gap-2 lg:hidden">
+                                    <div className="grid grid-cols-[4fr_1fr] gap-2">
+                                        <select
+                                            value={discoverySort}
+                                            onChange={(e) => setDiscoverySort(e.target.value as DiscoverySort)}
+                                            className="h-10 min-w-0 rounded-2xl border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none"
+                                        >
+                                            <option value="recent">Most recent</option>
+                                            <option value="usd">Most revived USD</option>
+                                            <option value="wallets">Most wallets</option>
+                                            <option value="coincarnations">Most Coincarnations</option>
+                                        </select>
 
-                                <div className="grid h-12 grid-cols-2 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:h-11 lg:h-10">
+                                        <button
+                                            onClick={() => void loadDiscovery()}
+                                            disabled={discoveryLoading}
+                                            className="h-10 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-semibold text-white transition-all duration-200 hover:border-cyan-400/25 hover:bg-cyan-400/10 disabled:opacity-50"
+                                            title="Refresh Discovery"
+                                        >
+                                            {discoveryLoading ? '…' : '↻'}
+                                        </button>
+                                    </div>
+
+                                    <div className="grid h-10 grid-cols-2 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                                        <button
+                                            type="button"
+                                            onClick={() => setDiscoveryView('cards')}
+                                            className={[
+                                                'flex items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all duration-200',
+                                                discoveryView === 'cards'
+                                                    ? 'bg-cyan-400/14 text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.16)]'
+                                                    : 'text-gray-500 hover:bg-white/[0.05] hover:text-gray-200',
+                                            ].join(' ')}
+                                        >
+                                            <SignalCardsIcon className="h-4 w-4" />
+                                            Cards
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setDiscoveryView('compact')}
+                                            className={[
+                                                'flex items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all duration-200',
+                                                discoveryView === 'compact'
+                                                    ? 'bg-violet-400/16 text-violet-100 shadow-[0_0_20px_rgba(168,85,247,0.16)]'
+                                                    : 'text-gray-500 hover:bg-white/[0.05] hover:text-gray-200',
+                                            ].join(' ')}
+                                        >
+                                            <CompactGridIcon className="h-4 w-4" />
+                                            Grid
+                                        </button>
+                                    </div>
+
                                     <button
                                         type="button"
-                                        onClick={() => setDiscoveryView('cards')}
-                                        className={[
-                                            'flex items-center justify-center gap-2 rounded-xl text-xs font-semibold transition-all duration-200 sm:text-sm',
-                                            discoveryView === 'cards'
-                                                ? 'bg-cyan-400/14 text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.16)]'
-                                                : 'text-gray-500 hover:bg-white/[0.05] hover:text-gray-200',
-                                        ].join(' ')}
-                                        title="Signal Cards"
-                                        aria-label="Signal Cards"
+                                        onClick={() => setIsDiscoveryOpen(false)}
+                                        className="h-10 w-full rounded-2xl border border-violet-400/20 bg-violet-400/10 px-4 text-sm font-semibold text-violet-100 transition-all duration-200 hover:border-violet-400/35 hover:bg-violet-400/15"
                                     >
-                                        <SignalCardsIcon className="h-4 w-4" />
-                                        <span className="hidden sm:inline">Cards</span>
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => setDiscoveryView('compact')}
-                                        className={[
-                                            'flex items-center justify-center gap-2 rounded-xl text-xs font-semibold transition-all duration-200 sm:text-sm',
-                                            discoveryView === 'compact'
-                                                ? 'bg-violet-400/16 text-violet-100 shadow-[0_0_20px_rgba(168,85,247,0.16)]'
-                                                : 'text-gray-500 hover:bg-white/[0.05] hover:text-gray-200',
-                                        ].join(' ')}
-                                        title="Compact Grid"
-                                        aria-label="Compact Grid"
-                                    >
-                                        <CompactGridIcon className="h-4 w-4" />
-                                        <span className="hidden sm:inline">Grid</span>
+                                        Collapse Discovery
                                     </button>
                                 </div>
 
-                                <button
-                                    onClick={() => void loadDiscovery()}
-                                    disabled={discoveryLoading}
-                                    className="h-10 w-full whitespace-nowrap rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-[1px] hover:border-cyan-400/25 hover:bg-cyan-400/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Refresh Discovery"
-                                >
-                                    {discoveryLoading ? 'Refreshing...' : 'Refresh'}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsDiscoveryOpen(false)}
-                                    className="h-10 w-full whitespace-nowrap rounded-2xl border border-violet-400/20 bg-violet-400/10 px-4 text-sm font-semibold text-violet-100 transition-all duration-200 hover:-translate-y-[1px] hover:border-violet-400/35 hover:bg-violet-400/15"
-                                >
-                                    Collapse
-                                </button>
+                                {/* DESKTOP */}
+                                <div className="hidden lg:grid lg:grid-cols-[190px_150px_110px_140px] lg:gap-2">
+                                    <select
+                                        value={discoverySort}
+                                        onChange={(e) => setDiscoverySort(e.target.value as DiscoverySort)}
+                                        className="h-10 min-w-0 rounded-2xl border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none"
+                                    >
+                                        <option value="recent">Most recent</option>
+                                        <option value="usd">Most revived USD</option>
+                                        <option value="wallets">Most wallets</option>
+                                        <option value="coincarnations">Most Coincarnations</option>
+                                    </select>
+
+                                    <div className="grid h-10 grid-cols-2 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                                        <button
+                                            type="button"
+                                            onClick={() => setDiscoveryView('cards')}
+                                            className={[
+                                                'flex items-center justify-center gap-2 rounded-xl text-xs font-semibold transition-all duration-200',
+                                                discoveryView === 'cards'
+                                                    ? 'bg-cyan-400/14 text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.16)]'
+                                                    : 'text-gray-500 hover:bg-white/[0.05] hover:text-gray-200',
+                                            ].join(' ')}
+                                        >
+                                            <SignalCardsIcon className="h-4 w-4" />
+                                            Cards
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setDiscoveryView('compact')}
+                                            className={[
+                                                'flex items-center justify-center gap-2 rounded-xl text-xs font-semibold transition-all duration-200',
+                                                discoveryView === 'compact'
+                                                    ? 'bg-violet-400/16 text-violet-100 shadow-[0_0_20px_rgba(168,85,247,0.16)]'
+                                                    : 'text-gray-500 hover:bg-white/[0.05] hover:text-gray-200',
+                                            ].join(' ')}
+                                        >
+                                            <CompactGridIcon className="h-4 w-4" />
+                                            Grid
+                                        </button>
+                                    </div>
+
+                                    <button
+                                        onClick={() => void loadDiscovery()}
+                                        disabled={discoveryLoading}
+                                        className="h-10 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-semibold text-white transition-all duration-200 hover:border-cyan-400/25 hover:bg-cyan-400/10 disabled:opacity-50"
+                                    >
+                                        {discoveryLoading ? '...' : '↻'}
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsDiscoveryOpen(false)}
+                                        className="h-10 rounded-2xl border border-violet-400/20 bg-violet-400/10 px-4 text-sm font-semibold text-violet-100 transition-all duration-200 hover:border-violet-400/35 hover:bg-violet-400/15"
+                                    >
+                                        Collapse
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
