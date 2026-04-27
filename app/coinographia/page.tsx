@@ -2307,12 +2307,12 @@ export default function CoinographiaPage() {
                                         </td>
 
                                         <td className="p-4 text-center align-middle">
-                                            <div className="flex justify-center items-center gap-2">
+                                            <div className="flex justify-center items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
                                                 <button
                                                     disabled={isDisabled}
                                                     onClick={() => handleCoincarnateClick(it.mint, it.status)}
                                                     className={[
-                                                        'w-[165px] rounded-xl px-3 py-2 text-[13px] font-semibold tracking-[0.01em] transition-all duration-200 text-center whitespace-nowrap overflow-hidden text-ellipsis',
+                                                        'w-[150px] rounded-xl px-3 py-2 text-[12px] font-semibold tracking-[0.01em] transition-all duration-200 text-center whitespace-nowrap overflow-hidden text-ellipsis hover:-translate-y-[1px]',
                                                         getCoincarnateButtonClass(it.status, isDisabled),
                                                     ].join(' ')}
                                                     title={
@@ -2321,12 +2321,12 @@ export default function CoinographiaPage() {
                                                             : `Coincarnate ${tokenLabel}`
                                                     }
                                                 >
-                                                    {it.symbol ? `Coincarnate $${it.symbol}` : 'Coincarnate'}
+                                                    {it.symbol ? `✦ Coincarnate $${it.symbol}` : '✦ Coincarnate'}
                                                 </button>
 
                                                 <button
                                                     onClick={() => shareRegistryOnX(it)}
-                                                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.06] text-[15px] leading-none text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_18px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-all duration-200 hover:scale-110 hover:bg-cyan-500/[0.12] hover:shadow-[0_0_22px_rgba(34,211,238,0.26)] active:scale-95"
+                                                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.08] text-[15px] leading-none text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_18px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-all duration-200 hover:-translate-y-[1px] hover:scale-105 hover:border-cyan-400/35 hover:bg-cyan-500/[0.14] hover:shadow-[0_0_24px_rgba(34,211,238,0.28)] active:scale-95"
                                                     title="Share signal"
                                                     aria-label="Share signal"
                                                 >
