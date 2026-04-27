@@ -1389,55 +1389,24 @@ export default function CoinographiaPage() {
                             </div>
                         </div>
                     )}
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                        <div className="text-sm text-gray-300">
-                            Looking for a specific token status?
-                            <span className="ml-1 text-gray-400">Jump straight to the full registry.</span>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setIsDiscoveryOpen((v) => !v)}
-                                className={[
-                                    'inline-flex items-center rounded-xl border px-3 py-2 text-sm font-medium transition-all duration-200 hover:-translate-y-[1px]',
-                                    isDiscoveryOpen
-                                        ? 'border-violet-400/20 bg-violet-400/10 text-violet-200 hover:bg-violet-400/15 hover:border-violet-400/30'
-                                        : 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200 hover:bg-cyan-400/15 hover:border-cyan-400/30',
-                                ].join(' ')}
-                            >
-                                {isDiscoveryOpen ? 'Collapse Discovery' : 'Show Discovery'}
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={scrollToRegistry}
-                                className="inline-flex items-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-sm font-medium text-cyan-200 transition-all duration-200 hover:bg-cyan-400/15 hover:border-cyan-400/30 hover:-translate-y-[1px]"
-                            >
-                                Jump to Token Registry
-                            </button>
-                        </div>
-                    </div>
                 </div>
 
                 {!isDiscoveryOpen && (
-                    <div className="mb-8 overflow-hidden rounded-[24px] border border-cyan-400/15 bg-[linear-gradient(180deg,rgba(34,211,238,0.07),rgba(255,255,255,0.03))] p-4 shadow-[0_18px_50px_rgba(2,6,23,0.28)]">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="relative mb-8 overflow-hidden rounded-[26px] border border-cyan-400/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_24%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.10),transparent_28%),linear-gradient(180deg,rgba(9,14,26,0.98),rgba(12,18,32,0.95))] p-5 shadow-[0_22px_70px_rgba(2,6,23,0.36)]">
+                        <div className="relative z-[1] flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <div className="text-sm font-semibold text-white">
-                                    Discovery hidden · Live cluster scan still available
-                                </div>
-                                <div className="mt-1 text-xs leading-5 text-gray-400">
-                                    Use the registry for fast token lookup, or reopen Discovery to explore active Coincarnation signals.
-                                </div>
+                                <h2 className="text-lg font-semibold text-white">Live Discovery</h2>
+                                <p className="mt-2 text-sm text-gray-400">
+                                    Discovery is collapsed. Registry is ready below for fast token lookup.
+                                </p>
                             </div>
 
                             <button
                                 type="button"
                                 onClick={() => setIsDiscoveryOpen(true)}
-                                className="inline-flex items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition-all duration-200 hover:-translate-y-[1px] hover:border-cyan-400/35 hover:bg-cyan-400/15"
+                                className="h-10 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 text-sm font-semibold text-cyan-200 transition-all duration-200 hover:-translate-y-[1px] hover:border-cyan-400/35 hover:bg-cyan-400/15"
                             >
-                                Show Live Discovery
+                                Show Discovery
                             </button>
                         </div>
                     </div>
@@ -1465,7 +1434,7 @@ export default function CoinographiaPage() {
                                 </p>
                             </div>
 
-                            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:w-auto lg:grid-cols-[220px_180px_150px] lg:items-center">
+                            <div className="grid h-10 grid-cols-2 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                                 <select
                                     value={discoverySort}
                                     onChange={(e) => setDiscoverySort(e.target.value as DiscoverySort)}
@@ -1514,10 +1483,17 @@ export default function CoinographiaPage() {
                                 <button
                                     onClick={() => void loadDiscovery()}
                                     disabled={discoveryLoading}
-                                    className="h-12 w-full whitespace-nowrap rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-[1px] hover:border-cyan-400/25 hover:bg-cyan-400/10 disabled:opacity-50 disabled:cursor-not-allowed sm:h-11 lg:h-10"
+                                    className="h-10 w-full whitespace-nowrap rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-[1px] hover:border-cyan-400/25 hover:bg-cyan-400/10 disabled:opacity-50 disabled:cursor-not-allowed"
                                     title="Refresh Discovery"
                                 >
                                     {discoveryLoading ? 'Refreshing...' : 'Refresh'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsDiscoveryOpen(false)}
+                                    className="h-10 w-full whitespace-nowrap rounded-2xl border border-violet-400/20 bg-violet-400/10 px-4 text-sm font-semibold text-violet-100 transition-all duration-200 hover:-translate-y-[1px] hover:border-violet-400/35 hover:bg-violet-400/15"
+                                >
+                                    Collapse
                                 </button>
                             </div>
                         </div>
