@@ -2161,7 +2161,7 @@ export default function CoinographiaPage() {
                                                 <button
                                                     onClick={() => void handleMintCopy(it.mint)}
                                                     className={[
-                                                        'shrink-0 rounded-full border px-2 py-0.5 text-[10px] transition-all duration-200 hover:scale-[1.05] active:scale-[0.95]',
+                                                        'shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-all duration-200 hover:scale-[1.05] active:scale-[0.95]',
                                                         copiedMint === it.mint
                                                             ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-200'
                                                             : 'border-white/10 bg-white/[0.04] text-gray-300 hover:bg-white/[0.08] hover:text-white',
@@ -2175,7 +2175,7 @@ export default function CoinographiaPage() {
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-col items-start gap-1 min-w-0">
+                                    <div className="flex min-w-0 flex-col items-start gap-1 rounded-2xl border border-white/10 bg-white/[0.022] px-2.5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
                                         <StatusBadge status={it.status} />
                                         <div className="text-[11px] text-gray-500 whitespace-nowrap">
                                             {formatUpdatedShort(it.updated_at)}
@@ -2185,7 +2185,7 @@ export default function CoinographiaPage() {
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-col items-center gap-2 shrink-0">
+                                    <div className="flex shrink-0 flex-col items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.025] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
                                         <button
                                             disabled={isDisabled}
                                             onClick={() => handleCoincarnateClick(it.mint, it.status)}
@@ -2201,7 +2201,7 @@ export default function CoinographiaPage() {
 
                                         <button
                                             onClick={() => shareRegistryOnX(it)}
-                                            className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.06] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_16px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 hover:bg-cyan-500/[0.12] active:scale-95"
+                                            className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.08] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_16px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 hover:border-cyan-400/35 hover:bg-cyan-500/[0.14] hover:shadow-[0_0_20px_rgba(34,211,238,0.26)] active:scale-95"
                                             title="Share signal"
                                             aria-label="Share signal"
                                         >
