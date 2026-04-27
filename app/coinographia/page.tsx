@@ -1312,8 +1312,9 @@ export default function CoinographiaPage() {
                     </div>
                 </div>
 
-                <div className="mb-5 rounded-[24px] border border-white/10 bg-white/[0.04] p-3 shadow-[0_10px_40px_rgba(0,0,0,0.18)] backdrop-blur-sm">
-                    <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+                <div className="relative mb-5 overflow-hidden rounded-[26px] border border-cyan-400/12 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_24%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.08),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.024))] p-3 shadow-[0_16px_48px_rgba(2,6,23,0.28),0_0_28px_rgba(34,211,238,0.055)] backdrop-blur-sm">
+                    <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/30 to-transparent" />
+                    <div className="relative z-[1] flex flex-col gap-3 xl:flex-row xl:items-center">
                         <div className="min-w-0 flex-1 pt-0.5">
                             <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                 Search Token
