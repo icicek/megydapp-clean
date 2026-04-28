@@ -1312,29 +1312,46 @@ export default function CoinographiaPage() {
                     </div>
                 </div>
 
-                <div className="relative mb-5 overflow-hidden rounded-[26px] border border-cyan-400/12 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_24%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.08),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.024))] p-3 shadow-[0_16px_48px_rgba(2,6,23,0.28),0_0_28px_rgba(34,211,238,0.055)] backdrop-blur-sm">
+                <div className="relative mb-6 overflow-hidden rounded-[30px] border border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_28%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.12),transparent_30%),linear-gradient(180deg,rgba(14,22,38,0.96),rgba(7,12,22,0.96))] p-4 shadow-[0_22px_70px_rgba(2,6,23,0.36),0_0_42px_rgba(34,211,238,0.09)] backdrop-blur-sm">
                     <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/30 to-transparent" />
-                    <div className="relative z-[1] flex flex-col gap-3 xl:flex-row xl:items-center">
+                    <div className="relative z-[1] grid gap-3 xl:grid-cols-[minmax(0,1.45fr)_minmax(420px,0.8fr)] xl:items-end">
                         <div className="min-w-0 flex-1 pt-0.5">
-                            <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
-                                Search Token
-                            </label>
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                                <label className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.12)]">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.9)]" />
+                                    Token Scanner
+                                </label>
 
-                            <div className="relative">
-                                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                                <span className="hidden text-[11px] font-medium text-gray-500 sm:inline">
+                                    Find any token by symbol, name, or mint
+                                </span>
+                            </div>
+
+                            <div className="group relative">
+                                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg text-cyan-300/80 transition-all duration-200 group-focus-within:text-cyan-100 group-focus-within:drop-shadow-[0_0_10px_rgba(34,211,238,0.65)]">
                                     ⌕
                                 </span>
 
                                 <input
                                     value={q}
                                     onChange={(e) => setQ(e.target.value)}
-                                    placeholder="Search a token… find clusters or become the first"
-                                    className="h-12 w-full rounded-2xl border border-white/10 bg-[#0d1526] pl-10 pr-4 text-sm text-white outline-none transition-all duration-200 placeholder:text-gray-500 focus:border-cyan-400/40 focus:bg-[#101a2e] focus:shadow-[0_0_0_1px_rgba(34,211,238,0.22),0_0_24px_rgba(34,211,238,0.10)]"
+                                    placeholder="Search your token… symbol, name, or mint address"
+                                    className="h-14 w-full rounded-[22px] border border-cyan-400/18 bg-[#0b1425] pl-12 pr-24 text-[15px] font-medium text-white outline-none transition-all duration-200 placeholder:text-gray-500 focus:border-cyan-300/45 focus:bg-[#101c32] focus:shadow-[0_0_0_1px_rgba(34,211,238,0.24),0_0_34px_rgba(34,211,238,0.16)]"
                                 />
+
+                                {q.trim() && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setQ('')}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-gray-300 transition-all duration-200 hover:border-cyan-400/25 hover:bg-cyan-400/10 hover:text-cyan-100"
+                                    >
+                                        Clear
+                                    </button>
+                                )}
                             </div>
                         </div>
 
-                        <div className="grid gap-3 sm:grid-cols-2 xl:w-[520px] xl:grid-cols-2">
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
                             <div>
                                 <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
                                     Status
