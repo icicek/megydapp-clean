@@ -1105,6 +1105,36 @@ export default function HomePage() {
                   </div>
                 )}
 
+                {selectedToken && (
+                  <div className="mt-3 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.045] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_12px_28px_rgba(0,0,0,0.18)]">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-300/80">
+                          Selected Asset
+                        </p>
+
+                        <p className="mt-1 truncate text-sm font-bold text-white">
+                          {(selectedToken.symbol || selectedToken.mint.slice(0, 6)).toUpperCase()}
+                          {selectedToken.name &&
+                            selectedToken.name.toUpperCase() !==
+                              (selectedToken.symbol || '').toUpperCase() && (
+                              <span className="font-medium text-gray-300">
+                                {' '}— {selectedToken.name}
+                              </span>
+                            )}
+                        </p>
+                      </div>
+
+                      <div className="shrink-0 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-right">
+                        <p className="text-[10px] text-gray-400">Balance</p>
+                        <p className="text-sm font-bold text-cyan-100">
+                          {formatTokenAmount(selectedToken)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {!tokensLoading && tokens.length === 0 && (
                   <p className="text-xs text-gray-400 mb-2">
                     No supported tokens were found in this wallet yet.
