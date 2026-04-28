@@ -337,7 +337,7 @@ export default function HomePage() {
     title: string,
     message: string,
     tone: 'info' | 'success' | 'warning' = 'info',
-    duration = 950
+    duration = 1500
   ) {
     setCoinFlowOverlay({ title, message, tone });
     window.setTimeout(() => setCoinFlowOverlay(null), duration);
@@ -781,7 +781,7 @@ export default function HomePage() {
         'Scanning Wallet',
         'Syncing your wallet tokens...',
         'info',
-        800
+        1300
       );
       refetchTokens?.();
       return;
@@ -828,14 +828,14 @@ export default function HomePage() {
       'Coincarnation Scan Complete',
       `${pendingLabel} detected. Preparing Coincarnation...`,
       'success',
-      650
+      1400
     );
     
     setSelectedToken(matchedToken);
     
     window.setTimeout(() => {
       setShowSolModal(true);
-    }, 520);
+    }, 1250);
   
     clearPendingCoincarnateMint();
     setAutoOpenHandledMint(pendingMint);
