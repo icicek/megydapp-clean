@@ -1,7 +1,7 @@
 // components/HomePage.tsx
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useRouter } from 'next/navigation';
 import CountUp from 'react-countup';
@@ -70,6 +70,7 @@ export default function HomePage() {
   const [liveActivityLoading, setLiveActivityLoading] = useState(false);
   const [liveActivityError, setLiveActivityError] = useState<string | null>(null);
   const [coinFlowNotice, setCoinFlowNotice] = useState<string | null>(null);
+  const pendingRefetchRequestedMintRef = useRef<string | null>(null);
 
   function formatTokenAmount(token: TokenInfo) {
     if (typeof token.uiAmountString === 'string' && token.uiAmountString.trim()) {
@@ -340,6 +341,10 @@ export default function HomePage() {
     if (!value) return '';
     if (value.length <= 12) return value;
     return `${value.slice(0, 4)}...${value.slice(-4)}`;
+  }
+
+  function normalizeMint(value: string | null | undefined) {
+    return String(value || '').trim().toLowerCase();
   }
 
   function buildDynamicTweet(item: LiveActivityCluster) {
@@ -728,35 +733,53 @@ export default function HomePage() {
     const pendingMint = safeReadPendingCoincarnateMint();
     if (!pendingMint) return;
   
-    if (autoOpenHandledMint === pendingMint) return;
+    const pendingKey = normalizeMint(pendingMint);
   
+    // Wallet is not connected yet.
+    // Do NOT clear pendingMint. User may connect wallet after this notice.
     if (!connected || !pubkeyBase58) {
       showCoinFlowNotice('Connect your wallet to participate in Coincarnation.');
       return;
     }
   
-    if (tokensLoading) return;
+    // Wallet is connected, but token sync is still running.
+    if (tokensLoading || refreshing) return;
+  
+    // If token list is empty, force one extra refetch before deciding.
+    if (tokens.length === 0 && pendingRefetchRequestedMintRef.current !== pendingKey) {
+      pendingRefetchRequestedMintRef.current = pendingKey;
+      showCoinFlowNotice('Syncing your wallet tokens...');
+      refetchTokens?.();
+      return;
+    }
   
     const matchedToken = tokens.find(
-      (t) => String(t.mint).toLowerCase() === pendingMint.toLowerCase()
+      (t) => normalizeMint(t.mint) === pendingKey
     );
   
     if (!matchedToken) {
       clearPendingCoincarnateMint();
       setAutoOpenHandledMint(pendingMint);
+      pendingRefetchRequestedMintRef.current = null;
+  
       showCoinFlowNotice(
         `${shortenMint(pendingMint)} is not in your wallet, so it cannot be Coincarnated.`
       );
       return;
     }
   
-    const hasValidAmount =
-      (typeof matchedToken.amount === 'number' && Number.isFinite(matchedToken.amount)) ||
-      (typeof matchedToken.uiAmountString === 'string' && matchedToken.uiAmountString.trim().length > 0);
+    const numericAmount =
+      typeof matchedToken.amount === 'number' && Number.isFinite(matchedToken.amount)
+        ? matchedToken.amount
+        : Number(matchedToken.uiAmountString || 0);
+  
+    const hasValidAmount = Number.isFinite(numericAmount) && numericAmount > 0;
   
     if (!hasValidAmount) {
       clearPendingCoincarnateMint();
       setAutoOpenHandledMint(pendingMint);
+      pendingRefetchRequestedMintRef.current = null;
+  
       showCoinFlowNotice(
         `${matchedToken.symbol || shortenMint(pendingMint)} is in your wallet, but no valid balance was detected.`
       );
@@ -765,9 +788,18 @@ export default function HomePage() {
   
     setSelectedToken(matchedToken);
     setShowSolModal(true);
+  
     clearPendingCoincarnateMint();
     setAutoOpenHandledMint(pendingMint);
-  }, [tokens, tokensLoading, autoOpenHandledMint, connected, pubkeyBase58]);
+    pendingRefetchRequestedMintRef.current = null;
+  }, [
+    connected,
+    pubkeyBase58,
+    tokens,
+    tokensLoading,
+    refreshing,
+    refetchTokens,
+  ]);
 
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
   const sharePercentage = Math.max(0, Math.min(100, shareRatio * 100)).toFixed(2);
