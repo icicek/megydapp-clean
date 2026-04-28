@@ -76,6 +76,7 @@ export default function HomePage() {
     tone: 'info' | 'success' | 'warning';
   } | null>(null);
   const [tokenSelectorSpotlight, setTokenSelectorSpotlight] = useState(false);
+  const [tokenSelectorHint, setTokenSelectorHint] = useState(false);
   const pendingRefetchRequestedMintRef = useRef<string | null>(null);
   const coinFlowOverlayTimerRef = useRef<number | null>(null);
   const tokenSelectRef = useRef<HTMLSelectElement | null>(null);
@@ -387,6 +388,7 @@ export default function HomePage() {
       if (!select) return;
 
       setTokenSelectorSpotlight(true);
+      setTokenSelectorHint(true);
 
       select.scrollIntoView({
         behavior: 'smooth',
@@ -406,6 +408,7 @@ export default function HomePage() {
 
         window.setTimeout(() => {
           setTokenSelectorSpotlight(false);
+          setTokenSelectorHint(false);
         }, 3200);
       }, 650);
     }, 1500);
@@ -1042,6 +1045,8 @@ export default function HomePage() {
                   Select a token to Coincarnate
                 </label>
 
+                
+                
                 <select
                   ref={tokenSelectRef}
                   id="token-select"
