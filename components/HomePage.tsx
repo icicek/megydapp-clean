@@ -1044,12 +1044,6 @@ export default function HomePage() {
                 <label className="sr-only" htmlFor="token-select">
                   Select a token to Coincarnate
                 </label>
-
-                {tokenSelectorHint && (
-                  <div className="mb-2 rounded-xl border border-cyan-400/25 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.18)]">
-                    Choose one of your available tokens ↓
-                  </div>
-                )}
                 
                 <select
                   ref={tokenSelectRef}
@@ -1082,6 +1076,12 @@ export default function HomePage() {
                     );
                   })}
                 </select>
+
+                {tokenSelectorHint && (
+                  <div className="mt-2 text-center text-[11px] font-medium text-cyan-200 animate-pulse">
+                    ↓ Choose one of your available tokens
+                  </div>
+                )}
 
                 {!tokensLoading && tokens.length === 0 && (
                   <p className="text-xs text-gray-400 mb-2">
