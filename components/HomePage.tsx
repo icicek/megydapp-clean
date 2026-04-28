@@ -1182,48 +1182,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
-        🌐 Global Coincarnation Statistics
-      </h2>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 my-6 w-full max-w-5xl">
-        <div className="rounded-xl p-[2px] bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600">
-          <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
-            <p className="text-sm text-white font-semibold mb-1">Total Participants</p>
-            <p className="text-lg font-bold text-white">
-              <CountUp end={globalStats.totalParticipants} duration={2} />
-            </p>
-          </div>
-        </div>
-
-        <div className="rounded-xl p-[2px] bg-gradient-to-br from-green-400 via-green-500 to-green-600">
-          <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
-            <p className="text-sm text-white font-semibold mb-1">Total USD Revived</p>
-            <p className="text-lg font-bold text-white">
-              $<CountUp end={globalStats.totalUsd} decimals={2} duration={2} />
-            </p>
-          </div>
-        </div>
-
-        <div className="rounded-xl p-[2px] bg-gradient-to-br from-pink-400 via-pink-500 to-pink-600">
-          <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
-            <p className="text-sm text-white font-semibold mb-1">Unique Deadcoins</p>
-            <p className="text-lg font-bold text-white">
-              <CountUp end={globalStats.uniqueDeadcoins} duration={2} />
-            </p>
-          </div>
-        </div>
-
-        <div className="rounded-xl p-[2px] bg-gradient-to-br from-purple-400 via-purple-500 to-purple-600">
-          <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
-            <p className="text-sm text-white font-semibold mb-1">Most Popular Deadcoin</p>
-            <p className="text-lg font-bold text-white">
-              {globalStats.mostPopularDeadcoin || 'No deadcoin yet'}
-            </p>
-          </div>
-        </div>
-      </div>
-
       {publicKey && (
         <div className="w-full max-w-5xl flex justify-center">
           <button
@@ -1490,6 +1448,48 @@ export default function HomePage() {
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/50 animate-pulse [animation-delay:300ms] group-hover:bg-emerald-300" />
           </span>
 
+        </div>
+      </div>
+
+      <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 text-center">
+        🌐 Global Coincarnation Statistics
+      </h2>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 my-6 w-full max-w-5xl">
+        <div className="rounded-xl p-[2px] bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600">
+          <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
+            <p className="text-sm text-white font-semibold mb-1">Total Participants</p>
+            <p className="text-lg font-bold text-white">
+              <CountUp end={globalStats.totalParticipants} duration={2} />
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-xl p-[2px] bg-gradient-to-br from-green-400 via-green-500 to-green-600">
+          <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
+            <p className="text-sm text-white font-semibold mb-1">Total USD Revived</p>
+            <p className="text-lg font-bold text-white">
+              $<CountUp end={globalStats.totalUsd} decimals={2} duration={2} />
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-xl p-[2px] bg-gradient-to-br from-pink-400 via-pink-500 to-pink-600">
+          <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
+            <p className="text-sm text-white font-semibold mb-1">Unique Deadcoins</p>
+            <p className="text-lg font-bold text-white">
+              <CountUp end={globalStats.uniqueDeadcoins} duration={2} />
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-xl p-[2px] bg-gradient-to-br from-purple-400 via-purple-500 to-purple-600">
+          <div className="bg-black/85 backdrop-blur-md rounded-xl p-6 text-center">
+            <p className="text-sm text-white font-semibold mb-1">Most Popular Deadcoin</p>
+            <p className="text-lg font-bold text-white">
+              {globalStats.mostPopularDeadcoin || 'No deadcoin yet'}
+            </p>
+          </div>
         </div>
       </div>
 
