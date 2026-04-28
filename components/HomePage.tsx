@@ -897,7 +897,7 @@ export default function HomePage() {
         'Coincarnation Scan Complete',
         `${pendingLabel} was not detected in your connected wallet. Choose another token from your wallet to continue.`,
         'warning',
-        3500
+        3000
       );
     
       revealTokenSelectorAfterScan();
@@ -920,7 +920,7 @@ export default function HomePage() {
         'Coincarnation Scan Complete',
         `${pendingLabel} was detected, but no valid balance was found. Choose another token from your wallet to continue.`,
         'warning',
-        3500
+        3000
       );
     
       revealTokenSelectorAfterScan();
