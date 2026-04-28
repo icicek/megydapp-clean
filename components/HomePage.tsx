@@ -828,7 +828,7 @@ export default function HomePage() {
         'Wallet Required',
         'Connect your wallet to participate in Coincarnation.',
         'warning',
-        4000
+        3500
       );
       return;
     }
@@ -862,7 +862,7 @@ export default function HomePage() {
         'Coincarnation Scan Complete',
         `${pendingLabel} was not detected in your connected wallet.`,
         'warning',
-        4000
+        3500
       );
       return;
     }
@@ -892,7 +892,7 @@ export default function HomePage() {
       'Coincarnation Scan Complete',
       `${pendingLabel} detected. Preparing Coincarnation...`,
       'success',
-      1400
+      1000
     );
     
     setSelectedToken(matchedToken);
