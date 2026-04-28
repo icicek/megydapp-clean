@@ -1331,8 +1331,12 @@ export default function CoinographiaPage() {
                                 <input
                                     value={q}
                                     onChange={(e) => setQ(e.target.value)}
-                                    placeholder="Search your token… symbol, name, or mint address"
-                                    className="h-14 w-full rounded-[22px] border border-cyan-400/18 bg-[#0b1425] pl-12 pr-24 text-[15px] font-medium text-white outline-none transition-all duration-200 placeholder:text-gray-500 focus:border-cyan-300/45 focus:bg-[#101c32] focus:shadow-[0_0_0_1px_rgba(34,211,238,0.24),0_0_34px_rgba(34,211,238,0.16)]"
+                                    placeholder={
+                                        typeof window !== 'undefined' && window.innerWidth < 640
+                                            ? 'Search your token...'
+                                            : 'Search your token... symbol, name, or mint address'
+                                    }
+                                    className="h-14 w-full rounded-[22px] border border-cyan-400/18 bg-[#0b1425] pl-12 pr-20 sm:pr-24 text-[15px] font-medium text-white outline-none transition-all duration-200 placeholder:text-gray-500 focus:border-cyan-300/45 focus:bg-[#101c32] focus:shadow-[0_0_0_1px_rgba(34,211,238,0.24),0_0_34px_rgba(34,211,238,0.16)]"
                                 />
 
                                 {q.trim() && (
