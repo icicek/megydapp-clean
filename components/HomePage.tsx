@@ -70,6 +70,11 @@ export default function HomePage() {
   const [liveActivityLoading, setLiveActivityLoading] = useState(false);
   const [liveActivityError, setLiveActivityError] = useState<string | null>(null);
   const [coinFlowNotice, setCoinFlowNotice] = useState<string | null>(null);
+  const [coinFlowOverlay, setCoinFlowOverlay] = useState<{
+    title: string;
+    message: string;
+    tone: 'info' | 'success' | 'warning';
+  } | null>(null);
   const pendingRefetchRequestedMintRef = useRef<string | null>(null);
 
   function formatTokenAmount(token: TokenInfo) {
@@ -326,6 +331,16 @@ export default function HomePage() {
   function showCoinFlowNotice(message: string) {
     setCoinFlowNotice(message);
     window.setTimeout(() => setCoinFlowNotice(null), 4200);
+  }
+
+  function showCoinFlowOverlay(
+    title: string,
+    message: string,
+    tone: 'info' | 'success' | 'warning' = 'info',
+    duration = 950
+  ) {
+    setCoinFlowOverlay({ title, message, tone });
+    window.setTimeout(() => setCoinFlowOverlay(null), duration);
   }
 
   function startCoincarnateFlow(mint: string) {
@@ -748,7 +763,11 @@ export default function HomePage() {
     // Wallet is not connected yet.
     // Do NOT clear pendingMint. User may connect wallet after this notice.
     if (!connected || !pubkeyBase58) {
-      showCoinFlowNotice('Connect your wallet to participate in Coincarnation.');
+      showCoinFlowOverlay(
+        'Wallet Required',
+        'Connect your wallet to participate in Coincarnation.',
+        'warning'
+      );
       return;
     }
   
@@ -758,7 +777,12 @@ export default function HomePage() {
     // If token list is empty, force one extra refetch before deciding.
     if (tokens.length === 0 && pendingRefetchRequestedMintRef.current !== pendingKey) {
       pendingRefetchRequestedMintRef.current = pendingKey;
-      showCoinFlowNotice('Syncing your wallet tokens...');
+      showCoinFlowOverlay(
+        'Scanning Wallet',
+        'Syncing your wallet tokens...',
+        'info',
+        800
+      );
       refetchTokens?.();
       return;
     }
@@ -772,8 +796,10 @@ export default function HomePage() {
       setAutoOpenHandledMint(pendingMint);
       pendingRefetchRequestedMintRef.current = null;
   
-      showCoinFlowNotice(
-        `${pendingLabel} is not in your wallet, so it cannot be Coincarnated.`
+      showCoinFlowOverlay(
+        'Coincarnation Scan Complete',
+        `${pendingLabel} was not detected in your connected wallet.`,
+        'warning'
       );
       return;
     }
@@ -790,14 +816,26 @@ export default function HomePage() {
       setAutoOpenHandledMint(pendingMint);
       pendingRefetchRequestedMintRef.current = null;
   
-      showCoinFlowNotice(
-        `${pendingLabel} is in your wallet, but no valid balance was detected.`
+      showCoinFlowOverlay(
+        'Coincarnation Scan Complete',
+        `${pendingLabel} was detected, but no valid balance was found.`,
+        'warning'
       );
       return;
     }
   
+    showCoinFlowOverlay(
+      'Coincarnation Scan Complete',
+      `${pendingLabel} detected. Preparing Coincarnation...`,
+      'success',
+      650
+    );
+    
     setSelectedToken(matchedToken);
-    setShowSolModal(true);
+    
+    window.setTimeout(() => {
+      setShowSolModal(true);
+    }, 520);
   
     clearPendingCoincarnateMint();
     setAutoOpenHandledMint(pendingMint);
@@ -826,6 +864,32 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center px-6 pt-4 pb-6 space-y-8">
+      {coinFlowOverlay && (
+        <div className="fixed inset-0 z-[130] flex items-start justify-center bg-black/45 px-4 pt-24 backdrop-blur-[6px]">
+          <div
+            className={[
+              'w-full max-w-md overflow-hidden rounded-[26px] border px-5 py-4 text-center shadow-[0_30px_90px_rgba(0,0,0,0.55)]',
+              coinFlowOverlay.tone === 'success'
+                ? 'border-emerald-400/25 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.18),transparent_34%),linear-gradient(180deg,rgba(8,18,16,0.96),rgba(5,10,14,0.96))] text-emerald-100'
+                : coinFlowOverlay.tone === 'warning'
+                  ? 'border-amber-400/25 bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.18),transparent_34%),linear-gradient(180deg,rgba(18,14,8,0.96),rgba(7,10,14,0.96))] text-amber-100'
+                  : 'border-cyan-400/25 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.18),transparent_34%),linear-gradient(180deg,rgba(8,15,24,0.96),rgba(5,10,16,0.96))] text-cyan-100',
+            ].join(' ')}
+          >
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06]">
+              {coinFlowOverlay.tone === 'success' ? '✓' : coinFlowOverlay.tone === 'warning' ? '!' : '⌁'}
+            </div>
+
+            <div className="text-sm font-bold uppercase tracking-[0.16em]">
+              {coinFlowOverlay.title}
+            </div>
+
+            <div className="mt-2 text-sm leading-6 text-white/80">
+              {coinFlowOverlay.message}
+            </div>
+          </div>
+        </div>
+      )}
       {coinFlowNotice && (
         <div className="fixed left-1/2 top-5 z-[120] w-[calc(100%-32px)] max-w-md -translate-x-1/2 rounded-2xl border border-cyan-400/25 bg-[#0b1425]/95 px-4 py-3 text-sm font-semibold text-cyan-100 shadow-[0_18px_60px_rgba(0,0,0,0.45),0_0_30px_rgba(34,211,238,0.14)] backdrop-blur">
           {coinFlowNotice}
