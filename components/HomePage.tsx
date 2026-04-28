@@ -767,7 +767,7 @@ export default function HomePage() {
         'Wallet Required',
         'Connect your wallet to participate in Coincarnation.',
         'warning',
-        3400
+        5400
       );
       return;
     }
@@ -801,7 +801,7 @@ export default function HomePage() {
         'Coincarnation Scan Complete',
         `${pendingLabel} was not detected in your connected wallet.`,
         'warning',
-        3600
+        5600
       );
       return;
     }
@@ -822,7 +822,7 @@ export default function HomePage() {
         'Coincarnation Scan Complete',
         `${pendingLabel} was detected, but no valid balance was found.`,
         'warning',
-        3600
+        5600
       );
       return;
     }
