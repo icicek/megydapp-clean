@@ -1045,7 +1045,11 @@ export default function HomePage() {
                   Select a token to Coincarnate
                 </label>
 
-                
+                {tokenSelectorHint && (
+                  <div className="mb-2 rounded-xl border border-cyan-400/25 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.18)]">
+                    Choose one of your available tokens ↓
+                  </div>
+                )}
                 
                 <select
                   ref={tokenSelectRef}
