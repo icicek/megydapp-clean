@@ -1732,7 +1732,7 @@ export default function CoinographiaPage() {
                                                                 onClick={(e) => {
                                                                     e.preventDefault();
                                                                     e.stopPropagation();
-                                                                    handleCoincarnateClick(it.mint, it.status);
+                                                                    handleCoincarnateClick(it.mint, it.status, it.symbol);
                                                                 }}
                                                                 className={[
                                                                     'flex h-7 w-7 items-center justify-center rounded-lg text-[12px] font-bold transition-all',
@@ -1962,7 +1962,7 @@ export default function CoinographiaPage() {
                                                     disabled={isDisabled}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        handleCoincarnateClick(it.mint, it.status);
+                                                        handleCoincarnateClick(it.mint, it.status, it.symbol);
                                                     }}
                                                     className={[
                                                         'relative z-[1] mt-3 w-full rounded-xl px-3 py-2.5 text-[12px] sm:text-[13px] font-semibold tracking-[0.01em] transition-all duration-200 hover:scale-[1.01] hover:-translate-y-[1px] active:scale-[0.99]',
