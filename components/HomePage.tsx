@@ -892,14 +892,14 @@ export default function HomePage() {
       clearPendingCoincarnateMint();
       setAutoOpenHandledMint(pendingMint);
       pendingRefetchRequestedMintRef.current = null;
-    
+
       showCoinFlowOverlay(
         'Coincarnation Scan Complete',
         `${pendingLabel} was not detected in your connected wallet. Choose another token from your wallet to continue.`,
         'warning',
         2500
       );
-    
+
       revealTokenSelectorAfterScan();
       return;
     }
@@ -915,14 +915,14 @@ export default function HomePage() {
       clearPendingCoincarnateMint();
       setAutoOpenHandledMint(pendingMint);
       pendingRefetchRequestedMintRef.current = null;
-    
+
       showCoinFlowOverlay(
         'Coincarnation Scan Complete',
         `${pendingLabel} was detected, but no valid balance was found. Choose another token from your wallet to continue.`,
         'warning',
         2500
       );
-    
+
       revealTokenSelectorAfterScan();
       return;
     }
@@ -1044,7 +1044,7 @@ export default function HomePage() {
                 <label className="sr-only" htmlFor="token-select">
                   Select a token to Coincarnate
                 </label>
-                
+
                 <div
                   className={[
                     'relative mb-2 rounded-2xl border p-[1px] transition-all duration-300',
@@ -1061,12 +1061,16 @@ export default function HomePage() {
                     <select
                       ref={tokenSelectRef}
                       id="token-select"
-                      className="min-w-0 flex-1 appearance-none bg-transparent py-1 pl-1 pr-8 text-sm font-semibold text-white outline-none cursor-pointer"
+                      className="min-w-0 flex-1 appearance-none bg-transparent py-1 pl-1 pr-8 text-sm font-semibold text-white outline-none cursor-pointer [color-scheme:dark]"
                       value={selectedToken?.mint || ''}
                       onChange={handleSelectChange}
                     >
-                      <option value="" disabled>
-                        👉 Select a token to Coincarnate
+                      <option
+                        value=""
+                        disabled
+                        className="bg-slate-950 text-slate-300"
+                      >
+                        Select a token to Coincarnate
                       </option>
                       {tokens.map((token) => {
                         const sym = (token.symbol ?? token.mint.slice(0, 6)).toUpperCase();
@@ -1078,7 +1082,11 @@ export default function HomePage() {
                           : `${sym} — ${amt}`;
 
                         return (
-                          <option key={token.mint} value={token.mint}>
+                          <option
+                            key={token.mint}
+                            value={token.mint}
+                            className="bg-slate-950 text-white"
+                          >
                             {label}
                           </option>
                         );
