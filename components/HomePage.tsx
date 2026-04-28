@@ -307,12 +307,19 @@ export default function HomePage() {
       return null;
     }
   }
+
+  function safeReadPendingCoincarnateSymbol() {
+    try {
+      return sessionStorage.getItem('coincarnate_target_symbol');
+    } catch {
+      return null;
+    }
+  }
   
   function clearPendingCoincarnateMint() {
-    if (typeof window === 'undefined') return;
-  
     try {
       sessionStorage.removeItem('coincarnate_target_mint');
+      sessionStorage.removeItem('coincarnate_target_symbol');
     } catch {}
   }
 
@@ -732,6 +739,9 @@ export default function HomePage() {
   
     const pendingMint = safeReadPendingCoincarnateMint();
     if (!pendingMint) return;
+
+    const pendingSymbol = safeReadPendingCoincarnateSymbol();
+    const pendingLabel = pendingSymbol ? `$${pendingSymbol}` : shortenMint(pendingMint);
   
     const pendingKey = normalizeMint(pendingMint);
   
@@ -763,7 +773,7 @@ export default function HomePage() {
       pendingRefetchRequestedMintRef.current = null;
   
       showCoinFlowNotice(
-        `${shortenMint(pendingMint)} is not in your wallet, so it cannot be Coincarnated.`
+        `${pendingLabel} is not in your wallet, so it cannot be Coincarnated.`
       );
       return;
     }
@@ -781,7 +791,7 @@ export default function HomePage() {
       pendingRefetchRequestedMintRef.current = null;
   
       showCoinFlowNotice(
-        `${matchedToken.symbol || shortenMint(pendingMint)} is in your wallet, but no valid balance was detected.`
+        `${pendingLabel} is in your wallet, but no valid balance was detected.`
       );
       return;
     }
