@@ -732,7 +732,6 @@ export default function HomePage() {
   
     if (!connected || !pubkeyBase58) {
       showCoinFlowNotice('Connect your wallet to participate in Coincarnation.');
-      setAutoOpenHandledMint(pendingMint);
       return;
     }
   
