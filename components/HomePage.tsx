@@ -75,8 +75,10 @@ export default function HomePage() {
     message: string;
     tone: 'info' | 'success' | 'warning';
   } | null>(null);
+  const [tokenSelectorSpotlight, setTokenSelectorSpotlight] = useState(false);
   const pendingRefetchRequestedMintRef = useRef<string | null>(null);
   const coinFlowOverlayTimerRef = useRef<number | null>(null);
+  const tokenSelectRef = useRef<HTMLSelectElement | null>(null);
 
   function formatTokenAmount(token: TokenInfo) {
     if (typeof token.uiAmountString === 'string' && token.uiAmountString.trim()) {
@@ -88,13 +90,13 @@ export default function HomePage() {
       }
       return token.uiAmountString;
     }
-  
+
     if (typeof token.amount === 'number' && Number.isFinite(token.amount)) {
       if (token.amount >= 1000) return token.amount.toLocaleString('en-US', { maximumFractionDigits: 2 });
       if (token.amount >= 1) return token.amount.toLocaleString('en-US', { maximumFractionDigits: 4 });
       return token.amount.toLocaleString('en-US', { maximumFractionDigits: 6 });
     }
-  
+
     return '0';
   }
 
@@ -118,27 +120,27 @@ export default function HomePage() {
 
   function getStatusBadgeClass(status: string) {
     const base = 'rounded-full px-2 py-0.5 text-[10px] border whitespace-nowrap';
-  
+
     if (status === 'healthy') {
       return `${base} bg-emerald-500/10 text-emerald-200 border-emerald-400/30`;
     }
-  
+
     if (status === 'walking_dead') {
       return `${base} bg-amber-500/10 text-amber-200 border-amber-400/30`;
     }
-  
+
     if (status === 'deadcoin') {
       return `${base} bg-zinc-500/10 text-zinc-200 border-zinc-400/30`;
     }
-  
+
     if (status === 'redlist') {
       return `${base} bg-rose-500/10 text-rose-200 border-rose-400/30`;
     }
-  
+
     if (status === 'blacklist') {
       return `${base} bg-fuchsia-500/10 text-fuchsia-200 border-fuchsia-400/30`;
     }
-  
+
     return `${base} bg-white/5 text-gray-300 border-white/10`;
   }
 
@@ -154,63 +156,63 @@ export default function HomePage() {
   function getClusterBadgeClass(count: number) {
     const base =
       'rounded-full px-2 py-1 text-[10px] font-semibold whitespace-nowrap border';
-  
+
     if (count >= 10) {
       return `${base} bg-orange-500/15 text-orange-300 border-orange-400/40 animate-pulse`;
     }
-  
+
     if (count >= 7) {
       return `${base} bg-amber-500/10 text-amber-200 border-amber-400/30`;
     }
-  
+
     if (count >= 4) {
       return `${base} bg-emerald-500/10 text-emerald-200 border-emerald-400/30`;
     }
-  
+
     return `${base} bg-cyan-500/10 text-cyan-200 border-cyan-400/30`;
   }
 
   function formatRelativeTimeEnhanced(value: string, now: number) {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return 'Recently';
-  
+
     const diffSec = Math.max(0, Math.floor((now - d.getTime()) / 1000));
-  
+
     if (diffSec < 10) return '🔥 Hot';
     if (diffSec < 60) return '⚡ Now';
     if (diffSec < 300) return '🟢 Recently';
-  
+
     const diffMin = Math.floor(diffSec / 60);
     if (diffMin < 60) return `${diffMin}m ago`;
-  
+
     const diffHour = Math.floor(diffMin / 60);
     if (diffHour < 24) return `${diffHour}h ago`;
-  
+
     const diffDay = Math.floor(diffHour / 24);
     return `${diffDay}d ago`;
   }
-  
+
   function getTimeGlow(timestamp: string, now: number) {
     const diff = now - new Date(timestamp).getTime();
-  
+
     const sec = diff / 1000;
     const min = sec / 60;
-  
+
     if (sec < 120) {
       return 'shadow-[0_0_40px_rgba(16,185,129,0.35)]';
     }
-  
+
     if (min < 10) {
       return 'shadow-[0_0_25px_rgba(16,185,129,0.25)]';
     }
-  
+
     if (min < 60) {
       return 'shadow-[0_0_15px_rgba(34,211,238,0.18)]';
     }
-  
+
     return '';
   }
-  
+
   function isUltraFresh(timestamp: string, now: number) {
     return now - new Date(timestamp).getTime() < 10 * 1000;
   }
@@ -218,7 +220,7 @@ export default function HomePage() {
   function getActivityDisplayLimit() {
     return 9;
   }
-  
+
   function getActivityFetchLimit() {
     return 27;
   }
@@ -234,78 +236,78 @@ export default function HomePage() {
       return now - time <= windowMs ? count + 1 : count;
     }, 0);
   }
-  
+
   function getHeatLevel(cluster: LiveActivityCluster, now: number) {
     const hotCount = countTimestampsWithinWindow(
       cluster.timestamps,
       now,
       ACTIVITY_HOT_BURST_WINDOW_MS
     );
-  
+
     const trendingCount = countTimestampsWithinWindow(
       cluster.timestamps,
       now,
       ACTIVITY_TRENDING_WINDOW_MS
     );
-  
+
     if (hotCount >= 3) return 'hot';
     if (trendingCount >= 5) return 'trending';
     return 'live';
   }
-  
+
   function getHeatBadgeClass(level: 'hot' | 'trending' | 'live') {
     const base =
       'rounded-full px-2 py-1 text-[10px] font-medium whitespace-nowrap border';
-  
+
     if (level === 'hot') {
       return `${base} border-orange-400/40 bg-orange-500/15 text-orange-200 animate-pulse`;
     }
-  
+
     if (level === 'trending') {
       return `${base} border-cyan-400/35 bg-cyan-500/10 text-cyan-200`;
     }
-  
+
     return `${base} border-emerald-400/30 bg-emerald-500/10 text-emerald-200`;
   }
-  
+
   function getHeatLabel(level: 'hot' | 'trending' | 'live') {
     if (level === 'hot') return '🔥 HOT';
     if (level === 'trending') return '⚡ TRENDING';
     return '🟢 LIVE';
   }
-  
+
   function getClusterGlowClass(cluster: LiveActivityCluster, now: number) {
     const level = getHeatLevel(cluster, now);
-  
+
     if (level === 'hot') {
       return 'shadow-[0_0_40px_rgba(249,115,22,0.24)]';
     }
-  
+
     if (level === 'trending') {
       return 'shadow-[0_0_28px_rgba(34,211,238,0.18)]';
     }
-  
+
     return getTimeGlow(cluster.timestamp, now);
   }
 
   function getShareButtonClass(level: 'hot' | 'trending' | 'live') {
     const base =
       'flex items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.06] text-cyan-100 transition-all duration-200';
-  
+
     if (level === 'hot') {
       return `${base} border-orange-400/35 bg-orange-500/[0.10] text-orange-100 shadow-[0_0_22px_rgba(249,115,22,0.34)] hover:bg-orange-500/[0.16] hover:shadow-[0_0_32px_rgba(249,115,22,0.46)] animate-pulse`;
     }
-  
+
     if (level === 'trending') {
       return `${base} border-cyan-300/35 bg-cyan-500/[0.09] shadow-[0_0_18px_rgba(34,211,238,0.26)] hover:bg-cyan-500/[0.15] hover:shadow-[0_0_28px_rgba(34,211,238,0.36)]`;
     }
-  
+
     return `${base} shadow-[0_0_12px_rgba(34,211,238,0.12)] hover:bg-cyan-500/[0.12] hover:shadow-[0_0_22px_rgba(34,211,238,0.24)]`;
   }
 
   function safeReadPendingCoincarnateMint(): string | null {
     if (typeof window === 'undefined') return null;
-  
+
     try {
       const mint = sessionStorage.getItem('coincarnate_target_mint');
       return mint && mint.trim() ? mint.trim() : null;
@@ -335,13 +337,13 @@ export default function HomePage() {
       return null;
     }
   }
-  
+
   function clearPendingCoincarnateMint() {
     try {
       sessionStorage.removeItem('coincarnate_target_mint');
       sessionStorage.removeItem('coincarnate_target_symbol');
       sessionStorage.removeItem('coincarnate_target_name');
-    } catch {}
+    } catch { }
   }
 
   function showCoinFlowNotice(message: string) {
@@ -354,10 +356,10 @@ export default function HomePage() {
       clearTimeout(coinFlowOverlayTimerRef.current);
       coinFlowOverlayTimerRef.current = null;
     }
-  
+
     setCoinFlowOverlay(null);
   }
-  
+
   function showCoinFlowOverlay(
     title: string,
     message: string,
@@ -368,15 +370,45 @@ export default function HomePage() {
       clearTimeout(coinFlowOverlayTimerRef.current);
       coinFlowOverlayTimerRef.current = null;
     }
-  
+
     setCoinFlowOverlay({ title, message, tone });
-  
+
     window.setTimeout(() => {
       coinFlowOverlayTimerRef.current = window.setTimeout(() => {
         setCoinFlowOverlay(null);
         coinFlowOverlayTimerRef.current = null;
       }, duration);
     }, 120);
+  }
+
+  function revealTokenSelectorAfterScan() {
+    window.setTimeout(() => {
+      const select = tokenSelectRef.current;
+      if (!select) return;
+
+      setTokenSelectorSpotlight(true);
+
+      select.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+
+      window.setTimeout(() => {
+        select.focus();
+
+        try {
+          const maybeSelect = select as HTMLSelectElement & {
+            showPicker?: () => void;
+          };
+
+          maybeSelect.showPicker?.();
+        } catch { }
+
+        window.setTimeout(() => {
+          setTokenSelectorSpotlight(false);
+        }, 3200);
+      }, 650);
+    }, 1500);
   }
 
   function startCoincarnateFlow(
@@ -388,7 +420,7 @@ export default function HomePage() {
 
     const cleanSymbol = String(symbol || '').trim();
     const cleanName = String(name || '').trim();
-  
+
     try {
       sessionStorage.setItem('coincarnate_target_mint', mint);
 
@@ -403,8 +435,8 @@ export default function HomePage() {
       } else {
         sessionStorage.removeItem('coincarnate_target_name');
       }
-    } catch {}
-  
+    } catch { }
+
     window.location.href = '/';
   }
 
@@ -413,7 +445,7 @@ export default function HomePage() {
     if (value.length <= 8) return value;
     return `${value.slice(0, 3)}...${value.slice(-2)}`;
   }
-  
+
   function shortenMint(value: string) {
     if (!value) return '';
     if (value.length <= 12) return value;
@@ -427,19 +459,19 @@ export default function HomePage() {
   function buildDynamicTweet(item: LiveActivityCluster) {
     const symbol = item.tokenSymbol ? `$${item.tokenSymbol}` : item.shortMint;
     const heatLevel = getHeatLevel(item, Date.now());
-  
+
     const intros = [
       `👀 Something unusual is happening with ${symbol}.`,
       `🤔 ${symbol} is getting a lot of Coincarnation activity.`,
       `⚠️ ${symbol} is being Coincarnated a lot lately.`,
       `👁️ Watching ${symbol} here is… interesting.`,
     ];
-  
+
     const coreLines = [
       `People aren’t selling it.`,
       `They’re Coincarnating it.`,
     ];
-  
+
     const observationLines = [
       `Feels early.`,
       `Something is shifting.`,
@@ -448,35 +480,35 @@ export default function HomePage() {
       `Not sure everyone sees this yet.`,
       `With everything happening in crypto… this stands out.`,
     ];
-  
+
     const hotLines = [
       `🔥 Activity is accelerating.`,
       `🔥 This is getting serious.`,
     ];
-  
+
     const trendingLines = [
       `⚡ Momentum is building.`,
       `⚡ More people are noticing.`,
     ];
-  
+
     function pick(arr: string[]) {
       return arr[Math.floor(Math.random() * arr.length)];
     }
-  
+
     let heatLine = '';
     if (heatLevel === 'hot') {
       heatLine = pick(hotLines);
     } else if (heatLevel === 'trending') {
       heatLine = pick(trendingLines);
     }
-  
+
     const tweetLines = [
       pick(intros),
       '',
       ...coreLines,
       heatLine ? heatLine : pick(observationLines),
     ].filter(Boolean);
-  
+
     return tweetLines.join('\n');
   }
 
@@ -486,15 +518,15 @@ export default function HomePage() {
   ) {
     const shareUrl = 'https://coincarnation.com';
     const fullText = `${text}\n\n${shareUrl}`;
-  
+
     const ua =
       typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : '';
-  
+
     const isCoarsePointer =
       typeof window !== 'undefined' &&
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(pointer: coarse)').matches;
-  
+
     const w = typeof window !== 'undefined' ? (window as any) : {};
 
     const isPhantom = ua.includes('phantom');
@@ -513,14 +545,14 @@ export default function HomePage() {
       isPhantom ||
       isBackpack ||
       isLikelySolflare;
-  
+
     async function copyTextFallback() {
       try {
         if (navigator?.clipboard?.writeText) {
           await navigator.clipboard.writeText(fullText);
           return true;
         }
-  
+
         const ta = document.createElement('textarea');
         ta.value = fullText;
         ta.setAttribute('readonly', 'true');
@@ -530,26 +562,26 @@ export default function HomePage() {
         ta.select();
         const ok = document.execCommand('copy');
         document.body.removeChild(ta);
-  
+
         return ok;
       } catch {
         return false;
       }
     }
-  
+
     // ✅ 1) Wallet browsers → COPY ONLY
     if (isWalletLike) {
       const copied = await copyTextFallback();
-  
+
       if (copied) {
         onCopied?.('Post copied. Open X and paste.');
       } else {
         onCopied?.('Could not auto-copy. Please copy manually and share on X.');
       }
-  
+
       return;
     }
-  
+
     // ✅ 2) REAL mobile browsers (Safari + Chrome)
     if (isCoarsePointer && typeof navigator !== 'undefined' && navigator.share) {
       try {
@@ -561,11 +593,11 @@ export default function HomePage() {
         if (err?.name === 'AbortError') {
           return;
         }
-      
+
         // fallback
       }
     }
-  
+
     // ✅ 3) Desktop fallback
     const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(fullText)}`;
     window.open(intentUrl, '_blank', 'noopener,noreferrer');
@@ -574,7 +606,7 @@ export default function HomePage() {
   async function shareClusterOnX(item: LiveActivityCluster) {
     if (typeof window === 'undefined') return;
     const text = buildDynamicTweet(item);
-  
+
     await openXIntent(text, (message) => {
       setLiveActivityError(message);
       window.setTimeout(() => setLiveActivityError(null), 3600);
@@ -583,25 +615,25 @@ export default function HomePage() {
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const mint = e.target.value;
-  
+
     const token = tokens.find((t) => t.mint === mint) || null;
-  
+
     if (!token) {
       setSelectedToken(null);
       setShowSolModal(false);
       return;
     }
-  
+
     const hasValidAmount =
       (typeof token.amount === 'number' && Number.isFinite(token.amount)) ||
       (typeof token.uiAmountString === 'string' && token.uiAmountString.trim().length > 0);
-  
+
     if (!hasValidAmount) {
       setSelectedToken(null);
       setShowSolModal(false);
       return;
     }
-  
+
     setSelectedToken(token);
     setShowSolModal(true);
   };
@@ -744,7 +776,7 @@ export default function HomePage() {
         const res = await fetch('/api/coincarnation/stats', { cache: 'no-store', signal: ac.signal });
         const data = await res.json();
         if ((data as any)?.success) setGlobalStats(data);
-      } catch {}
+      } catch { }
     })();
     return () => ac.abort();
   }, []);
@@ -764,22 +796,22 @@ export default function HomePage() {
         if ((userData as any)?.success) {
           setUserContribution(Number((userData as any)?.data?.total_usd_contributed || 0));
         }
-      } catch {}
+      } catch { }
     })();
     return () => ac.abort();
   }, [pubkeyBase58, connected]);
 
   useEffect(() => {
     if (!connected || !pubkeyBase58) return;
-  
+
     const t1 = setTimeout(() => {
       refetchTokens?.();
     }, 350);
-  
+
     const t2 = setTimeout(() => {
       refetchTokens?.();
     }, 1800);
-  
+
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
@@ -788,17 +820,17 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!selectedToken) return;
-  
+
     const fresh = tokens.find((t) => t.mint === selectedToken.mint);
     if (!fresh) return;
-  
+
     const changed =
       fresh.symbol !== selectedToken.symbol ||
       fresh.name !== selectedToken.name ||
       fresh.logoURI !== selectedToken.logoURI ||
       fresh.amount !== selectedToken.amount ||
       fresh.uiAmountString !== selectedToken.uiAmountString;
-  
+
     if (changed) {
       setSelectedToken(fresh);
     }
@@ -806,7 +838,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-  
+
     const pendingMint = safeReadPendingCoincarnateMint();
     if (!pendingMint) return;
 
@@ -818,9 +850,9 @@ export default function HomePage() {
       : pendingName
         ? pendingName
         : shortenMint(pendingMint);
-  
+
     const pendingKey = normalizeMint(pendingMint);
-  
+
     // Wallet is not connected yet.
     // Do NOT clear pendingMint. User may connect wallet after this notice.
     if (!connected || !pubkeyBase58) {
@@ -832,10 +864,10 @@ export default function HomePage() {
       );
       return;
     }
-  
+
     // Wallet is connected, but token sync is still running.
     if (tokensLoading || refreshing) return;
-  
+
     // If token list is empty, force one extra refetch before deciding.
     if (tokens.length === 0 && pendingRefetchRequestedMintRef.current !== pendingKey) {
       pendingRefetchRequestedMintRef.current = pendingKey;
@@ -848,59 +880,63 @@ export default function HomePage() {
       refetchTokens?.();
       return;
     }
-  
+
     const matchedToken = tokens.find(
       (t) => normalizeMint(t.mint) === pendingKey
     );
-  
+
     if (!matchedToken) {
       clearPendingCoincarnateMint();
       setAutoOpenHandledMint(pendingMint);
       pendingRefetchRequestedMintRef.current = null;
-  
+    
       showCoinFlowOverlay(
         'Coincarnation Scan Complete',
-        `${pendingLabel} was not detected in your connected wallet.`,
+        `${pendingLabel} was not detected in your connected wallet. Choose another token from your wallet to continue.`,
         'warning',
-        3500
+        4200
       );
+    
+      revealTokenSelectorAfterScan();
       return;
     }
-  
+
     const numericAmount =
       typeof matchedToken.amount === 'number' && Number.isFinite(matchedToken.amount)
         ? matchedToken.amount
         : Number(matchedToken.uiAmountString || 0);
-  
+
     const hasValidAmount = Number.isFinite(numericAmount) && numericAmount > 0;
-  
+
     if (!hasValidAmount) {
       clearPendingCoincarnateMint();
       setAutoOpenHandledMint(pendingMint);
       pendingRefetchRequestedMintRef.current = null;
-  
+    
       showCoinFlowOverlay(
         'Coincarnation Scan Complete',
-        `${pendingLabel} was detected, but no valid balance was found.`,
+        `${pendingLabel} was detected, but no valid balance was found. Choose another token from your wallet to continue.`,
         'warning',
-        3600
+        4200
       );
+    
+      revealTokenSelectorAfterScan();
       return;
     }
-  
+
     showCoinFlowOverlay(
       'Coincarnation Scan Complete',
       `${pendingLabel} detected. Preparing Coincarnation...`,
       'success',
       1000
     );
-    
+
     setSelectedToken(matchedToken);
-    
+
     window.setTimeout(() => {
       setShowSolModal(true);
     }, 1250);
-  
+
     clearPendingCoincarnateMint();
     setAutoOpenHandledMint(pendingMint);
     pendingRefetchRequestedMintRef.current = null;
@@ -1007,8 +1043,14 @@ export default function HomePage() {
                 </label>
 
                 <select
+                  ref={tokenSelectRef}
                   id="token-select"
-                  className="w-full bg-gray-800 text-white p-3 rounded mb-2 border border-gray-600"
+                  className={[
+                    'w-full bg-gray-800 text-white p-3 rounded mb-2 border transition-all duration-300',
+                    tokenSelectorSpotlight
+                      ? 'border-cyan-300 shadow-[0_0_28px_rgba(34,211,238,0.45)] ring-2 ring-cyan-400/30'
+                      : 'border-gray-600',
+                  ].join(' ')}
                   value={selectedToken?.mint || ''}
                   onChange={handleSelectChange}
                 >
@@ -1142,12 +1184,12 @@ export default function HomePage() {
               Recently Coincarnated
             </h2>
             <div className="mt-1 max-w-2xl">
-            <p className="text-xs text-green-400">
-              🔥 {liveActivity.length} tokens • {totalClusteredCoincarnations} Coincarnations
-              <span className="text-emerald-400 ml-1">
-                ({recentActivityCount} active in last 10 min)
-              </span>
-            </p>
+              <p className="text-xs text-green-400">
+                🔥 {liveActivity.length} tokens • {totalClusteredCoincarnations} Coincarnations
+                <span className="text-emerald-400 ml-1">
+                  ({recentActivityCount} active in last 10 min)
+                </span>
+              </p>
               <p className="mt-1 text-sm text-gray-400">
                 A live view of how damaged tokens are being processed through Coincarnation.
               </p>
@@ -1212,12 +1254,12 @@ export default function HomePage() {
                     index === 0
                       ? 'border-emerald-400/40 shadow-[0_0_30px_rgba(16,185,129,0.18)] bg-emerald-500/[0.03]'
                       : index === 1 || index === 2
-                      ? 'border-emerald-400/20 hover:border-emerald-300/30'
-                      : index === 3 || index === 4
-                      ? 'border-cyan-400/20 hover:border-cyan-300/30'
-                      : index === 5 || index === 6
-                      ? 'border-blue-400/20 hover:border-blue-300/30'
-                      : 'border-amber-400/20 hover:border-amber-300/30',
+                        ? 'border-emerald-400/20 hover:border-emerald-300/30'
+                        : index === 3 || index === 4
+                          ? 'border-cyan-400/20 hover:border-cyan-300/30'
+                          : index === 5 || index === 6
+                            ? 'border-blue-400/20 hover:border-blue-300/30'
+                            : 'border-amber-400/20 hover:border-amber-300/30',
                   ].join(' ') + ' ' + getClusterGlowClass(item, activityNow)}
                 >
                   <div className="flex items-start gap-2.5 sm:gap-3">
@@ -1373,13 +1415,13 @@ export default function HomePage() {
           )}
         </div>
         <div className="mt-4 flex flex-col items-center justify-center gap-2 text-center text-xs text-gray-500 sm:flex-row sm:gap-2">
-  
-        <a
-          href="/coinographia"
-          className="group max-w-[260px] sm:max-w-none cursor-pointer transition-all duration-200 hover:text-emerald-300 hover:underline underline-offset-4 decoration-emerald-400/40"
-        >
-          Only a fraction of the latest Coincarnations is shown here
-        </a>
+
+          <a
+            href="/coinographia"
+            className="group max-w-[260px] sm:max-w-none cursor-pointer transition-all duration-200 hover:text-emerald-300 hover:underline underline-offset-4 decoration-emerald-400/40"
+          >
+            Only a fraction of the latest Coincarnations is shown here
+          </a>
 
           <span className="flex items-center justify-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/70 animate-pulse group-hover:bg-emerald-300" />
