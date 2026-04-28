@@ -1057,14 +1057,11 @@ export default function HomePage() {
                   <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_32%)]" />
 
                   <div className="relative flex items-center gap-3 rounded-2xl bg-[#07111f]/95 px-3 py-2.5 backdrop-blur-xl">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-400/10 text-lg shadow-[0_0_18px_rgba(34,211,238,0.18)]">
-                      🧬
-                    </div>
 
                     <select
                       ref={tokenSelectRef}
                       id="token-select"
-                      className="min-w-0 flex-1 appearance-none bg-transparent py-1 pr-8 text-sm font-semibold text-white outline-none cursor-pointer"
+                      className="min-w-0 flex-1 appearance-none bg-transparent py-1 pl-1 pr-8 text-sm font-semibold text-white outline-none cursor-pointer"
                       value={selectedToken?.mint || ''}
                       onChange={handleSelectChange}
                     >
