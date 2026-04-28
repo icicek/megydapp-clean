@@ -886,16 +886,30 @@ function scrollToRegistry() {
     }, 400);
 }
 
-function handleCoincarnateClick(mint: string, status: TokenStatus, symbol?: string | null) {
+function handleCoincarnateClick(
+    mint: string,
+    status: TokenStatus,
+    symbol?: string | null,
+    name?: string | null
+) {
     if (status === 'redlist' || status === 'blacklist') return;
+
+    const cleanSymbol = String(symbol || '').trim();
+    const cleanName = String(name || '').trim();
 
     try {
         sessionStorage.setItem('coincarnate_target_mint', mint);
 
-        if (symbol) {
-            sessionStorage.setItem('coincarnate_target_symbol', symbol);
+        if (cleanSymbol) {
+            sessionStorage.setItem('coincarnate_target_symbol', cleanSymbol);
         } else {
             sessionStorage.removeItem('coincarnate_target_symbol');
+        }
+
+        if (cleanName) {
+            sessionStorage.setItem('coincarnate_target_name', cleanName);
+        } else {
+            sessionStorage.removeItem('coincarnate_target_name');
         }
     } catch {}
 
@@ -1732,7 +1746,7 @@ export default function CoinographiaPage() {
                                                                 onClick={(e) => {
                                                                     e.preventDefault();
                                                                     e.stopPropagation();
-                                                                    handleCoincarnateClick(it.mint, it.status, it.symbol);
+                                                                    handleCoincarnateClick(it.mint, it.status, it.symbol, it.name)
                                                                 }}
                                                                 className={[
                                                                     'flex h-7 w-7 items-center justify-center rounded-lg text-[12px] font-bold transition-all',
@@ -1753,7 +1767,7 @@ export default function CoinographiaPage() {
                                     return (
                                         <div
                                             key={it.mint}
-                                            onClick={() => handleCoincarnateClick(it.mint, it.status, it.symbol)}
+                                            onClick={() => handleCoincarnateClick(it.mint, it.status, it.symbol, it.name)}
                                             className={[
                                                 getDiscoveryCardClass(it.heat_level, it.status),
                                                 isFeatured
@@ -1962,7 +1976,7 @@ export default function CoinographiaPage() {
                                                     disabled={isDisabled}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        handleCoincarnateClick(it.mint, it.status, it.symbol);
+                                                        handleCoincarnateClick(it.mint, it.status, it.symbol, it.name)
                                                     }}
                                                     className={[
                                                         'relative z-[1] mt-3 w-full rounded-xl px-3 py-2.5 text-[12px] sm:text-[13px] font-semibold tracking-[0.01em] transition-all duration-200 hover:scale-[1.01] hover:-translate-y-[1px] active:scale-[0.99]',
@@ -2294,7 +2308,7 @@ export default function CoinographiaPage() {
                                     <div className={`flex shrink-0 flex-col items-center gap-1.5 rounded-2xl border p-1.5 ${getRegistryActionRailClass(it.status)}`}>
                                         <button
                                             disabled={isDisabled}
-                                            onClick={() => handleCoincarnateClick(it.mint, it.status, it.symbol)}
+                                            onClick={() => handleCoincarnateClick(it.mint, it.status, it.symbol, it.name)}
                                             className={getMobileActionButtonClass(it.status, isDisabled)}
                                             title={
                                                 isDisabled
@@ -2416,7 +2430,7 @@ export default function CoinographiaPage() {
                                             <div className="flex justify-center items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
                                                 <button
                                                     disabled={isDisabled}
-                                                    onClick={() => handleCoincarnateClick(it.mint, it.status, it.symbol)}
+                                                    onClick={() => handleCoincarnateClick(it.mint, it.status, it.symbol, it.name)}
                                                     className={[
                                                         'w-[150px] rounded-xl px-3 py-2 text-[12px] font-semibold tracking-[0.01em] transition-all duration-200 text-center whitespace-nowrap overflow-hidden text-ellipsis hover:-translate-y-[1px]',
                                                         getCoincarnateButtonClass(it.status, isDisabled),

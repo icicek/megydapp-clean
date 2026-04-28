@@ -314,9 +314,23 @@ export default function HomePage() {
     }
   }
 
-  function safeReadPendingCoincarnateSymbol() {
+  function safeReadPendingCoincarnateSymbol(): string | null {
+    if (typeof window === 'undefined') return null;
+
     try {
-      return sessionStorage.getItem('coincarnate_target_symbol');
+      const symbol = sessionStorage.getItem('coincarnate_target_symbol');
+      return symbol && symbol.trim() ? symbol.trim() : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function safeReadPendingCoincarnateName(): string | null {
+    if (typeof window === 'undefined') return null;
+
+    try {
+      const name = sessionStorage.getItem('coincarnate_target_name');
+      return name && name.trim() ? name.trim() : null;
     } catch {
       return null;
     }
@@ -326,6 +340,7 @@ export default function HomePage() {
     try {
       sessionStorage.removeItem('coincarnate_target_mint');
       sessionStorage.removeItem('coincarnate_target_symbol');
+      sessionStorage.removeItem('coincarnate_target_name');
     } catch {}
   }
 
@@ -777,7 +792,13 @@ export default function HomePage() {
     if (!pendingMint) return;
 
     const pendingSymbol = safeReadPendingCoincarnateSymbol();
-    const pendingLabel = pendingSymbol ? `$${pendingSymbol}` : shortenMint(pendingMint);
+    const pendingName = safeReadPendingCoincarnateName();
+
+    const pendingLabel = pendingSymbol
+      ? `$${pendingSymbol}`
+      : pendingName
+        ? pendingName
+        : shortenMint(pendingMint);
   
     const pendingKey = normalizeMint(pendingMint);
   
