@@ -337,7 +337,7 @@ export default function HomePage() {
     title: string,
     message: string,
     tone: 'info' | 'success' | 'warning' = 'info',
-    duration = 1500
+    duration = 3200
   ) {
     setCoinFlowOverlay({ title, message, tone });
     window.setTimeout(() => setCoinFlowOverlay(null), duration);
@@ -766,7 +766,8 @@ export default function HomePage() {
       showCoinFlowOverlay(
         'Wallet Required',
         'Connect your wallet to participate in Coincarnation.',
-        'warning'
+        'warning',
+        3400
       );
       return;
     }
@@ -799,7 +800,8 @@ export default function HomePage() {
       showCoinFlowOverlay(
         'Coincarnation Scan Complete',
         `${pendingLabel} was not detected in your connected wallet.`,
-        'warning'
+        'warning',
+        3600
       );
       return;
     }
@@ -819,7 +821,8 @@ export default function HomePage() {
       showCoinFlowOverlay(
         'Coincarnation Scan Complete',
         `${pendingLabel} was detected, but no valid balance was found.`,
-        'warning'
+        'warning',
+        3600
       );
       return;
     }
