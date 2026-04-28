@@ -69,6 +69,7 @@ export default function HomePage() {
   const [liveActivity, setLiveActivity] = useState<LiveActivityCluster[]>([]);
   const [liveActivityLoading, setLiveActivityLoading] = useState(false);
   const [liveActivityError, setLiveActivityError] = useState<string | null>(null);
+  const [coinFlowNotice, setCoinFlowNotice] = useState<string | null>(null);
 
   function formatTokenAmount(token: TokenInfo) {
     if (typeof token.uiAmountString === 'string' && token.uiAmountString.trim()) {
@@ -314,6 +315,11 @@ export default function HomePage() {
     } catch {}
   }
 
+  function showCoinFlowNotice(message: string) {
+    setCoinFlowNotice(message);
+    window.setTimeout(() => setCoinFlowNotice(null), 4200);
+  }
+
   function startCoincarnateFlow(mint: string) {
     if (typeof window === 'undefined') return;
   
@@ -328,6 +334,12 @@ export default function HomePage() {
     if (!value) return '';
     if (value.length <= 8) return value;
     return `${value.slice(0, 3)}...${value.slice(-2)}`;
+  }
+  
+  function shortenMint(value: string) {
+    if (!value) return '';
+    if (value.length <= 12) return value;
+    return `${value.slice(0, 4)}...${value.slice(-4)}`;
   }
 
   function buildDynamicTweet(item: LiveActivityCluster) {
@@ -712,23 +724,30 @@ export default function HomePage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (tokensLoading) return;
-    if (!tokens || tokens.length === 0) return;
   
     const pendingMint = safeReadPendingCoincarnateMint();
     if (!pendingMint) return;
   
     if (autoOpenHandledMint === pendingMint) return;
   
+    if (!connected || !pubkeyBase58) {
+      showCoinFlowNotice('Connect your wallet to participate in Coincarnation.');
+      setAutoOpenHandledMint(pendingMint);
+      return;
+    }
+  
+    if (tokensLoading) return;
+  
     const matchedToken = tokens.find(
       (t) => String(t.mint).toLowerCase() === pendingMint.toLowerCase()
     );
   
     if (!matchedToken) {
-      // Token was requested from Coinographia, but it is not currently present
-      // in the connected wallet token list. Clear the pending state to avoid loops.
       clearPendingCoincarnateMint();
       setAutoOpenHandledMint(pendingMint);
+      showCoinFlowNotice(
+        `${shortenMint(pendingMint)} is not in your wallet, so it cannot be Coincarnated.`
+      );
       return;
     }
   
@@ -739,6 +758,9 @@ export default function HomePage() {
     if (!hasValidAmount) {
       clearPendingCoincarnateMint();
       setAutoOpenHandledMint(pendingMint);
+      showCoinFlowNotice(
+        `${matchedToken.symbol || shortenMint(pendingMint)} is in your wallet, but no valid balance was detected.`
+      );
       return;
     }
   
@@ -746,7 +768,7 @@ export default function HomePage() {
     setShowSolModal(true);
     clearPendingCoincarnateMint();
     setAutoOpenHandledMint(pendingMint);
-  }, [tokens, tokensLoading, autoOpenHandledMint]);
+  }, [tokens, tokensLoading, autoOpenHandledMint, connected, pubkeyBase58]);
 
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
   const sharePercentage = Math.max(0, Math.min(100, shareRatio * 100)).toFixed(2);
@@ -763,6 +785,11 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center px-6 pt-4 pb-6 space-y-8">
+      {coinFlowNotice && (
+        <div className="fixed left-1/2 top-5 z-[120] w-[calc(100%-32px)] max-w-md -translate-x-1/2 rounded-2xl border border-cyan-400/25 bg-[#0b1425]/95 px-4 py-3 text-sm font-semibold text-cyan-100 shadow-[0_18px_60px_rgba(0,0,0,0.45),0_0_30px_rgba(34,211,238,0.14)] backdrop-blur">
+          {coinFlowNotice}
+        </div>
+      )}
       <AppWalletBar className="w-full max-w-5xl" />
 
       {/* Hero */}
