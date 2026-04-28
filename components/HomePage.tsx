@@ -379,11 +379,30 @@ export default function HomePage() {
     }, 120);
   }
 
-  function startCoincarnateFlow(mint: string) {
+  function startCoincarnateFlow(
+    mint: string,
+    symbol?: string | null,
+    name?: string | null
+  ) {
     if (typeof window === 'undefined') return;
+
+    const cleanSymbol = String(symbol || '').trim();
+    const cleanName = String(name || '').trim();
   
     try {
       sessionStorage.setItem('coincarnate_target_mint', mint);
+
+      if (cleanSymbol) {
+        sessionStorage.setItem('coincarnate_target_symbol', cleanSymbol);
+      } else {
+        sessionStorage.removeItem('coincarnate_target_symbol');
+      }
+
+      if (cleanName) {
+        sessionStorage.setItem('coincarnate_target_name', cleanName);
+      } else {
+        sessionStorage.removeItem('coincarnate_target_name');
+      }
     } catch {}
   
     window.location.href = '/';
@@ -1207,7 +1226,7 @@ export default function HomePage() {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          startCoincarnateFlow(item.tokenContract);
+                          startCoincarnateFlow(item.tokenContract, item.tokenSymbol, item.tokenName);
                         }}
                         className="flex h-8 w-8 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-500/[0.07] text-[20px] leading-none text-violet-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.20)] transition-all duration-200 hover:scale-110 hover:border-violet-300/40 hover:bg-violet-500/14 hover:text-white active:scale-95"
                         title="Coincarnate this token"
@@ -1234,7 +1253,7 @@ export default function HomePage() {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        startCoincarnateFlow(item.tokenContract);
+                        startCoincarnateFlow(item.tokenContract, item.tokenSymbol, item.tokenName);
                       }}
                       className="absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-500/[0.07] text-[18px] leading-none text-violet-100 transition-all duration-200 hover:bg-violet-500/14 active:scale-95 sm:hidden"
                       title="Coincarnate this token"
