@@ -76,6 +76,7 @@ export default function HomePage() {
     tone: 'info' | 'success' | 'warning';
   } | null>(null);
   const pendingRefetchRequestedMintRef = useRef<string | null>(null);
+  const coinFlowOverlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function formatTokenAmount(token: TokenInfo) {
     if (typeof token.uiAmountString === 'string' && token.uiAmountString.trim()) {
@@ -333,14 +334,34 @@ export default function HomePage() {
     window.setTimeout(() => setCoinFlowNotice(null), 4200);
   }
 
+  function dismissCoinFlowOverlay() {
+    if (coinFlowOverlayTimerRef.current) {
+      clearTimeout(coinFlowOverlayTimerRef.current);
+      coinFlowOverlayTimerRef.current = null;
+    }
+  
+    setCoinFlowOverlay(null);
+  }
+  
   function showCoinFlowOverlay(
     title: string,
     message: string,
     tone: 'info' | 'success' | 'warning' = 'info',
-    duration = 3200
+    duration = 5000
   ) {
+    if (coinFlowOverlayTimerRef.current) {
+      clearTimeout(coinFlowOverlayTimerRef.current);
+      coinFlowOverlayTimerRef.current = null;
+    }
+  
     setCoinFlowOverlay({ title, message, tone });
-    window.setTimeout(() => setCoinFlowOverlay(null), duration);
+  
+    window.setTimeout(() => {
+      coinFlowOverlayTimerRef.current = window.setTimeout(() => {
+        setCoinFlowOverlay(null);
+        coinFlowOverlayTimerRef.current = null;
+      }, duration);
+    }, 120);
   }
 
   function startCoincarnateFlow(mint: string) {
@@ -868,7 +889,10 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col items-center px-6 pt-4 pb-6 space-y-8">
       {coinFlowOverlay && (
-        <div className="fixed inset-0 z-[130] flex items-start justify-center bg-black/45 px-4 pt-24 backdrop-blur-[6px]">
+        <div
+          onClick={dismissCoinFlowOverlay}
+          className="fixed inset-0 z-[130] flex cursor-pointer items-start justify-center bg-black/45 px-4 pt-24 backdrop-blur-[6px]"
+        >
           <div
             className={[
               'w-full max-w-md overflow-hidden rounded-[26px] border px-5 py-4 text-center shadow-[0_30px_90px_rgba(0,0,0,0.55)]',
