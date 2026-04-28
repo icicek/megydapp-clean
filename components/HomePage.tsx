@@ -863,7 +863,7 @@ export default function HomePage() {
         'Wallet Required',
         'Connect your wallet to participate in Coincarnation.',
         'warning',
-        3000
+        2500
       );
       return;
     }
@@ -897,7 +897,7 @@ export default function HomePage() {
         'Coincarnation Scan Complete',
         `${pendingLabel} was not detected in your connected wallet. Choose another token from your wallet to continue.`,
         'warning',
-        3000
+        2500
       );
     
       revealTokenSelectorAfterScan();
@@ -920,7 +920,7 @@ export default function HomePage() {
         'Coincarnation Scan Complete',
         `${pendingLabel} was detected, but no valid balance was found. Choose another token from your wallet to continue.`,
         'warning',
-        3000
+        2500
       );
     
       revealTokenSelectorAfterScan();
@@ -1045,37 +1045,54 @@ export default function HomePage() {
                   Select a token to Coincarnate
                 </label>
                 
-                <select
-                  ref={tokenSelectRef}
-                  id="token-select"
+                <div
                   className={[
-                    'w-full bg-gray-800 text-white p-3 rounded mb-2 border transition-all duration-300',
+                    'relative mb-2 rounded-2xl border p-[1px] transition-all duration-300',
+                    'bg-[linear-gradient(135deg,rgba(34,211,238,0.35),rgba(168,85,247,0.18),rgba(16,185,129,0.18))]',
                     tokenSelectorSpotlight
-                      ? 'border-cyan-300 shadow-[0_0_28px_rgba(34,211,238,0.45)] ring-2 ring-cyan-400/30'
-                      : 'border-gray-600',
+                      ? 'border-cyan-300/60 shadow-[0_0_34px_rgba(34,211,238,0.45)] ring-2 ring-cyan-400/25'
+                      : 'border-white/10 shadow-[0_14px_34px_rgba(0,0,0,0.22)]',
                   ].join(' ')}
-                  value={selectedToken?.mint || ''}
-                  onChange={handleSelectChange}
                 >
-                  <option value="" disabled>
-                    👉 Select a token to Coincarnate
-                  </option>
-                  {tokens.map((token) => {
-                    const sym = (token.symbol ?? token.mint.slice(0, 6)).toUpperCase();
-                    const name = token.name?.trim();
-                    const amt = formatTokenAmount(token);
+                  <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_32%)]" />
 
-                    const label = name && name.toUpperCase() !== sym
-                      ? `${sym} — ${name} — ${amt}`
-                      : `${sym} — ${amt}`;
+                  <div className="relative flex items-center gap-3 rounded-2xl bg-[#07111f]/95 px-3 py-2.5 backdrop-blur-xl">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-400/10 text-lg shadow-[0_0_18px_rgba(34,211,238,0.18)]">
+                      🧬
+                    </div>
 
-                    return (
-                      <option key={token.mint} value={token.mint}>
-                        {label}
+                    <select
+                      ref={tokenSelectRef}
+                      id="token-select"
+                      className="min-w-0 flex-1 appearance-none bg-transparent py-1 pr-8 text-sm font-semibold text-white outline-none cursor-pointer"
+                      value={selectedToken?.mint || ''}
+                      onChange={handleSelectChange}
+                    >
+                      <option value="" disabled>
+                        👉 Select a token to Coincarnate
                       </option>
-                    );
-                  })}
-                </select>
+                      {tokens.map((token) => {
+                        const sym = (token.symbol ?? token.mint.slice(0, 6)).toUpperCase();
+                        const name = token.name?.trim();
+                        const amt = formatTokenAmount(token);
+
+                        const label = name && name.toUpperCase() !== sym
+                          ? `${sym} — ${name} — ${amt}`
+                          : `${sym} — ${amt}`;
+
+                        return (
+                          <option key={token.mint} value={token.mint}>
+                            {label}
+                          </option>
+                        );
+                      })}
+                    </select>
+
+                    <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-cyan-200">
+                      ▾
+                    </div>
+                  </div>
+                </div>
 
                 {tokenSelectorHint && (
                   <div className="mt-2 text-center text-[11px] font-medium text-cyan-200 animate-pulse">
