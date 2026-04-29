@@ -1180,66 +1180,64 @@ export default function HomePage() {
             🌍 Your personal contribution to the Fair Future Fund (% of total)
           </p>
         </div>
-      </div>
+        <div className="w-full max-w-5xl mt-3">
+          <button
+            onClick={() => {
+              if (!connected || !pubkeyBase58) {
+                showCoinFlowOverlay(
+                  'Wallet Required',
+                  'Connect your wallet to view your Coincarnation profile.',
+                  'info',
+                  3200
+                );
+                return;
+              }
 
-      <div className="w-full max-w-5xl mt-3">
-        <button
-          onClick={() => {
-            if (!connected || !pubkeyBase58) {
-              showCoinFlowOverlay(
-                'Wallet Required',
-                'Connect your wallet to view your Coincarnation profile.',
-                'info',
-                3200
-              );
-              return;
-            }
+              router.push('/profile');
+            }}
+            className={[
+              'group relative w-full overflow-hidden rounded-2xl border px-4 py-3 text-left transition-all duration-300',
+              'bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.18)]',
+              connected && pubkeyBase58
+                ? 'border-cyan-400/18 hover:border-cyan-300/30 hover:bg-cyan-400/[0.055] hover:shadow-[0_14px_34px_rgba(0,0,0,0.24),0_0_24px_rgba(34,211,238,0.10)]'
+                : 'border-white/10 hover:border-cyan-400/22 hover:bg-white/[0.05]',
+            ].join(' ')}
+          >
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.08),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.07),transparent_30%)]" />
 
-            router.push('/profile');
-          }}
-          className={[
-            'group relative w-full overflow-hidden rounded-2xl border px-4 py-3 text-left transition-all duration-300',
-            'bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.18)]',
-            connected && pubkeyBase58
-              ? 'border-cyan-400/18 hover:border-cyan-300/30 hover:bg-cyan-400/[0.055] hover:shadow-[0_14px_34px_rgba(0,0,0,0.24),0_0_24px_rgba(34,211,238,0.10)]'
-              : 'border-white/10 hover:border-cyan-400/22 hover:bg-white/[0.05]',
-          ].join(' ')}
-        >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.08),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.07),transparent_30%)]" />
+            <div className="relative flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div
+                  className={[
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-sm',
+                    connected && pubkeyBase58
+                      ? 'border-cyan-300/20 bg-cyan-400/10 text-cyan-200'
+                      : 'border-white/10 bg-white/[0.04] text-gray-400',
+                  ].join(' ')}
+                >
+                  {connected && pubkeyBase58 ? '⦿' : '◌'}
+                </div>
 
-          <div className="relative flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div
-                className={[
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-sm',
-                  connected && pubkeyBase58
-                    ? 'border-cyan-300/20 bg-cyan-400/10 text-cyan-200'
-                    : 'border-white/10 bg-white/[0.04] text-gray-400',
-                ].join(' ')}
-              >
-                {connected && pubkeyBase58 ? '⦿' : '◌'}
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-white">
+                    Open Your Profile
+                  </p>
+
+                  <p className="mt-0.5 truncate text-[11px] text-gray-400">
+                    {connected && pubkeyBase58
+                      ? 'claims · contributions · personal value currency'
+                      : 'connect wallet required for personal access'}
+                  </p>
+                </div>
               </div>
 
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-white">
-                  Open Your Profile
-                </p>
-
-                <p className="mt-0.5 truncate text-[11px] text-gray-400">
-                  {connected && pubkeyBase58
-                    ? 'claims · contributions · personal value currency'
-                    : 'connect wallet required for personal access'}
-                </p>
+              <div className="shrink-0 text-cyan-200/80 transition-transform duration-300 group-hover:translate-x-0.5">
+                ↗
               </div>
             </div>
-
-            <div className="shrink-0 text-cyan-200/80 transition-transform duration-300 group-hover:translate-x-0.5">
-              ↗
-            </div>
-          </div>
-        </button>
+          </button>
+        </div>
       </div>
-
       <div className="w-full max-w-5xl rounded-2xl border border-white/10 bg-white/5 p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
