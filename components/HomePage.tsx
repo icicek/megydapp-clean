@@ -1155,14 +1155,14 @@ export default function HomePage() {
           )}
 
           <div className="my-5 flex items-center justify-center gap-3 px-8" aria-hidden>
-            <div className="h-px w-full max-w-[220px] bg-gradient-to-r from-transparent via-cyan-400/20 to-cyan-400/8" />
+            <div className="h-[2px] w-full max-w-[220px] bg-gradient-to-r from-transparent via-cyan-400/24 to-cyan-400/10" />
 
-            <div className="relative flex h-6 w-6 items-center justify-center">
-              <span className="absolute h-6 w-6 rounded-full bg-cyan-400/8 blur-md" />
+            <div className="relative flex h-7 w-7 items-center justify-center">
+              <span className="absolute h-7 w-7 rounded-full bg-cyan-400/10 blur-md" />
               <span className="relative text-[13px] text-cyan-200/85">↕</span>
             </div>
 
-            <div className="h-px w-full max-w-[220px] bg-gradient-to-l from-transparent via-cyan-400/20 to-cyan-400/8" />
+            <div className="h-[2px] w-full max-w-[220px] bg-gradient-to-l from-transparent via-cyan-400/24 to-cyan-400/10" />
           </div>
 
           <h2 className="text-lg text-left mb-2">You receive</h2>
