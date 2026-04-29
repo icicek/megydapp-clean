@@ -693,7 +693,6 @@ function buildDiscoveryTweet(item: DiscoveryRow) {
 
     const totalCoincarnations = Number(item.total_coincarnations || 0);
     const uniqueWallets = Number(item.unique_wallets || 0);
-    const revivedUsd = Number(item.total_revived_usd || 0);
 
     function pick(arr: string[]) {
         return arr[Math.floor(Math.random() * arr.length)];
@@ -701,47 +700,47 @@ function buildDiscoveryTweet(item: DiscoveryRow) {
 
     const statusLineMap: Record<TokenStatus, string[]> = {
         healthy: [
-            `${symbol} still shows survival signals, but Coinographia is watching the movement around it.`,
-            `${symbol} is alive for now, yet its market signals are being tracked inside Coinographia.`,
+            `${symbol} still shows survival signals.`,
+            `${symbol} is alive, but Coinographia is tracking it.`,
         ],
         walking_dead: [
-            `${symbol} looks like a walking dead asset: visible, but clearly damaged.`,
-            `${symbol} is not dead yet, but Coinographia is detecting decay signals.`,
+            `${symbol} looks like a walking dead asset.`,
+            `${symbol} is visible, but decay signals are forming.`,
         ],
         deadcoin: [
-            `${symbol} is showing up as a deadcoin: abandoned value with no strong survival signal.`,
-            `${symbol} may look dead, but dead value can still become participation.`,
+            `${symbol} is showing up as a deadcoin.`,
+            `${symbol} looks like abandoned market damage.`,
         ],
         redlist: [
-            `${symbol} is restricted by Coinographia governance and cannot be Coincarnated right now.`,
-            `${symbol} is redlisted, which means its Coincarnation access is restricted.`,
+            `${symbol} is currently redlisted.`,
+            `${symbol} is restricted by Coinographia governance.`,
         ],
         blacklist: [
-            `${symbol} is blacklisted inside Coinographia and cannot enter Coincarnation.`,
-            `${symbol} is blocked from Coincarnation because it is marked as invalidated damage.`,
+            `${symbol} is blacklisted inside Coinographia.`,
+            `${symbol} is blocked from Coincarnation.`,
         ],
     };
 
     const solutionLineMap: Record<TokenStatus, string[]> = {
         healthy: [
-            `Not every asset is dead, but every asset still needs visible survival signals.`,
-            `Coinographia makes survival and decay visible before the crowd notices.`,
+            `Survival has to be visible too.`,
+            `Coinographia tracks survival before decay.`,
         ],
         walking_dead: [
-            `Coincarnation exists for assets trapped between survival and collapse.`,
-            `Walking dead assets do not have to stay frozen forever.`,
+            `This is where Coincarnation becomes relevant.`,
+            `Walking dead assets do not stay invisible forever.`,
         ],
         deadcoin: [
-            `Coincarnation turns dead weight into renewed participation.`,
-            `This is where abandoned holdings can begin a second life.`,
+            `Coincarnation turns dead weight into participation.`,
+            `Dead value can still begin a second life.`,
         ],
         redlist: [
-            `Classification protects the revival flow when market signals are broken.`,
-            `Not every damaged token should be allowed into Coincarnation.`,
+            `Not every damaged token enters the revival flow.`,
+            `Classification protects the system.`,
         ],
         blacklist: [
-            `A revival system also needs protection from invalid assets.`,
-            `Coinographia separates invalidated assets from the revival path.`,
+            `A revival system also needs protection.`,
+            `Invalid assets stay outside the revival path.`,
         ],
     };
 
@@ -749,49 +748,45 @@ function buildDiscoveryTweet(item: DiscoveryRow) {
 
     if (heatLevel === 'hot') {
         signalLine = pick([
-            `🔥 Activity is accelerating around ${symbol}.`,
-            `🔥 More Coincarnation signals are forming around ${symbol}.`,
+            `🔥 Activity is accelerating.`,
+            `🔥 This cluster is heating up.`,
         ]);
     } else if (heatLevel === 'trending') {
         signalLine = pick([
-            `⚡ Momentum is building around ${symbol}.`,
-            `⚡ This may be turning into a larger Coincarnation signal.`,
+            `⚡ Momentum is building.`,
+            `⚡ Attention is quietly growing.`,
         ]);
     } else {
         signalLine = pick([
-            `Feels early, but the signal is now visible.`,
-            `This may be the beginning of a larger pattern.`,
+            `Signal detected early.`,
+            `Worth watching closely.`,
         ]);
     }
 
-    const metricLines: string[] = [];
+    const metricParts: string[] = [];
 
     if (totalCoincarnations > 0) {
-        metricLines.push(`${formatNumberCompact(totalCoincarnations)} Coincarnations detected.`);
+        metricParts.push(`${formatNumberCompact(totalCoincarnations)} Coincarnations`);
     }
 
     if (uniqueWallets > 0) {
-        metricLines.push(`${formatNumberCompact(uniqueWallets)} wallet${uniqueWallets === 1 ? '' : 's'} involved.`);
-    }
-
-    if (revivedUsd > 0) {
-        metricLines.push(`${formatUsdCompact(revivedUsd)} revived through this signal.`);
+        metricParts.push(`${formatNumberCompact(uniqueWallets)} wallets`);
     }
 
     const metricLine =
-        metricLines.length > 0
-            ? metricLines.slice(0, 2).join(' ')
-            : `Coinographia is making hidden market damage visible.`;
+        metricParts.length > 0
+            ? `${metricParts.join(' · ')} involved.`
+            : `Hidden market damage is becoming visible.`;
 
-    const closingLine = `${signalLine} ${metricLine} #Coincarnation`;
+    const finalLine = `${signalLine} ${metricLine} #Coincarnation`;
 
     const tweetLines = [
-        `👁️ ${symbol} is on the Coinographia radar.`,
+        `👁️ ${symbol} on Coinographia.`,
         '',
         pick(statusLineMap[item.status]),
         pick(solutionLineMap[item.status]),
         '',
-        closingLine,
+        finalLine,
     ];
 
     return tweetLines.join('\n');

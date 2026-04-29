@@ -101,6 +101,15 @@ export default function HomePage() {
     return '0';
   }
 
+  function formatNumberCompact(value: number | null) {
+    if (value === null || !Number.isFinite(value)) return '0';
+  
+    return new Intl.NumberFormat('en-US', {
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(value);
+  }
+
   function ShareArrowIcon({ className = '' }: { className?: string }) {
     return (
       <svg
@@ -462,56 +471,117 @@ export default function HomePage() {
   function buildDynamicTweet(item: LiveActivityCluster) {
     const symbol = item.tokenSymbol ? `$${item.tokenSymbol}` : item.shortMint;
     const heatLevel = getHeatLevel(item, Date.now());
-
-    const intros = [
-      `👀 Something unusual is happening with ${symbol}.`,
-      `🤔 ${symbol} is getting a lot of Coincarnation activity.`,
-      `⚠️ ${symbol} is being Coincarnated a lot lately.`,
-      `👁️ Watching ${symbol} here is… interesting.`,
-    ];
-
-    const coreLines = [
-      `People aren’t selling it.`,
-      `They’re Coincarnating it.`,
-    ];
-
-    const observationLines = [
-      `Feels early.`,
-      `Something is shifting.`,
-      `This might be bigger than it looks.`,
-      `Some people are starting to notice.`,
-      `Not sure everyone sees this yet.`,
-      `With everything happening in crypto… this stands out.`,
-    ];
-
-    const hotLines = [
-      `🔥 Activity is accelerating.`,
-      `🔥 This is getting serious.`,
-    ];
-
-    const trendingLines = [
-      `⚡ Momentum is building.`,
-      `⚡ More people are noticing.`,
-    ];
-
+  
+    const totalCoincarnations = Number(item.occurrenceCount || 0);
+    const uniqueWallets = Number(item.uniqueWalletCount || 0);
+  
     function pick(arr: string[]) {
       return arr[Math.floor(Math.random() * arr.length)];
     }
-
-    let heatLine = '';
+  
+    const status = item.status || 'unknown';
+  
+    const statusLines: Record<string, string[]> = {
+      healthy: [
+        `${symbol} still shows survival signals.`,
+        `${symbol} is alive, but Coincarnation activity is visible.`,
+      ],
+      walking_dead: [
+        `${symbol} looks like a walking dead asset.`,
+        `${symbol} is visible, but decay signals are forming.`,
+      ],
+      deadcoin: [
+        `${symbol} is showing up as a deadcoin.`,
+        `${symbol} looks like abandoned market damage.`,
+      ],
+      redlist: [
+        `${symbol} is currently restricted.`,
+        `${symbol} is not open for Coincarnation right now.`,
+      ],
+      blacklist: [
+        `${symbol} is blocked from Coincarnation.`,
+        `${symbol} is marked as invalidated market damage.`,
+      ],
+      unknown: [
+        `${symbol} is moving through Coincarnation.`,
+        `${symbol} is appearing in recent Coincarnation activity.`,
+      ],
+    };
+  
+    const contextLines: Record<string, string[]> = {
+      healthy: [
+        `Survival has to be visible too.`,
+        `Coinographia tracks survival before decay.`,
+      ],
+      walking_dead: [
+        `This is where Coincarnation becomes relevant.`,
+        `Walking dead assets do not stay invisible forever.`,
+      ],
+      deadcoin: [
+        `Coincarnation turns dead weight into participation.`,
+        `Dead value can still begin a second life.`,
+      ],
+      redlist: [
+        `Classification protects the revival flow.`,
+        `Not every damaged token enters the system.`,
+      ],
+      blacklist: [
+        `A revival system also needs protection.`,
+        `Invalid assets stay outside the revival path.`,
+      ],
+      unknown: [
+        `Hidden market damage is becoming visible.`,
+        `Coincarnation makes forgotten assets visible again.`,
+      ],
+    };
+  
+    let signalLine = '';
+  
     if (heatLevel === 'hot') {
-      heatLine = pick(hotLines);
+      signalLine = pick([
+        `🔥 Activity is accelerating.`,
+        `🔥 This cluster is heating up.`,
+      ]);
     } else if (heatLevel === 'trending') {
-      heatLine = pick(trendingLines);
+      signalLine = pick([
+        `⚡ Momentum is building.`,
+        `⚡ Attention is quietly growing.`,
+      ]);
+    } else {
+      signalLine = pick([
+        `Signal detected early.`,
+        `Worth watching closely.`,
+      ]);
     }
-
+  
+    const metricParts: string[] = [];
+  
+    if (totalCoincarnations > 1) {
+      metricParts.push(`${formatNumberCompact(totalCoincarnations)} Coincarnations`);
+    }
+  
+    if (uniqueWallets > 1) {
+      metricParts.push(`${formatNumberCompact(uniqueWallets)} wallets`);
+    }
+  
+    const metricLine =
+      metricParts.length > 0
+        ? `${metricParts.join(' · ')} involved.`
+        : `A new Coincarnation signal is live.`;
+  
+    const safeStatus = statusLines[status] ? status : 'unknown';
+  
+    const finalLine = `${signalLine} ${metricLine} #Coincarnation`;
+  
     const tweetLines = [
-      pick(intros),
+      `👁️ ${symbol} on Coincarnation.`,
       '',
-      ...coreLines,
-      heatLine ? heatLine : pick(observationLines),
-    ].filter(Boolean);
-
+      pick(statusLines[safeStatus]),
+      pick(contextLines[safeStatus]),
+      '',
+      finalLine,
+    ];
+  
     return tweetLines.join('\n');
   }
 
