@@ -1017,7 +1017,7 @@ export default function HomePage() {
         </p>
       </section>
 
-      <div className="w-full max-w-5xl bg-gradient-to-br from-gray-900 via-zinc-800 to-gray-900 p-8 rounded-2xl border border-purple-700 shadow-2xl">
+      <div className="w-full max-w-5xl overflow-hidden rounded-[28px] border border-violet-500/45 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.08),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.10),transparent_30%),linear-gradient(180deg,rgba(20,26,40,0.96),rgba(13,17,28,0.98))] p-5 sm:p-7 shadow-[0_24px_80px_rgba(0,0,0,0.34),0_0_42px_rgba(168,85,247,0.10)]">
         <h2 className="text-lg mb-1 text-left">You give</h2>
         <p className="text-xs text-gray-400 text-left mb-2">
           Walking deadcoins, memecoins, any unsupported assets…
@@ -1153,8 +1153,12 @@ export default function HomePage() {
           <p className="text-gray-400">Connect your wallet to see your tokens.</p>
         )}
 
-        <div className="text-2xl my-4 text-center" aria-hidden>
-          ↔️
+        <div className="my-5 flex items-center justify-center gap-3" aria-hidden>
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-cyan-400/25 to-transparent" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-sm text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.12)]">
+            ↔
+          </div>
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-cyan-400/25 to-transparent" />
         </div>
 
         <h2 className="text-lg text-left mb-2">You receive</h2>
@@ -1162,7 +1166,7 @@ export default function HomePage() {
           $MEGY — the currency of the Fair Future Fund
         </p>
 
-        <div className="mt-4">
+        <div className="mt-3">
           <div
             className="w-full bg-gray-800 rounded-full h-6 overflow-hidden relative border border-gray-600"
             aria-label="Your share of the Fair Future Fund"
@@ -1196,7 +1200,7 @@ export default function HomePage() {
               router.push('/profile');
             }}
             className={[
-              'group relative w-full overflow-hidden rounded-2xl border px-4 py-3 text-left transition-all duration-300',
+              'group relative w-full overflow-hidden rounded-2xl border px-4 py-2.5 text-left transition-all duration-300',
               'bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.18)]',
               connected && pubkeyBase58
                 ? 'border-cyan-400/18 hover:border-cyan-300/30 hover:bg-cyan-400/[0.055] hover:shadow-[0_14px_34px_rgba(0,0,0,0.24),0_0_24px_rgba(34,211,238,0.10)]'
