@@ -1154,15 +1154,15 @@ export default function HomePage() {
             <p className="text-gray-400">Connect your wallet to see your tokens.</p>
           )}
 
-          <div className="my-6 flex items-center justify-center gap-4" aria-hidden>
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-cyan-400/18 to-transparent" />
+          <div className="my-5 flex items-center justify-center gap-3 px-8" aria-hidden>
+            <div className="h-px w-full max-w-[220px] bg-gradient-to-r from-transparent via-cyan-400/20 to-cyan-400/8" />
 
-            <div className="relative px-2 text-cyan-200/75 text-sm">
-              <span className="absolute inset-0 blur-md text-cyan-400/20">↕</span>
-              <span className="relative">↕</span>
+            <div className="relative flex h-6 w-6 items-center justify-center">
+              <span className="absolute h-6 w-6 rounded-full bg-cyan-400/8 blur-md" />
+              <span className="relative text-[13px] text-cyan-200/85">↕</span>
             </div>
 
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-cyan-400/18 to-transparent" />
+            <div className="h-px w-full max-w-[220px] bg-gradient-to-l from-transparent via-cyan-400/20 to-cyan-400/8" />
           </div>
 
           <h2 className="text-lg text-left mb-2">You receive</h2>
