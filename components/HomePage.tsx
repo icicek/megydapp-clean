@@ -1182,42 +1182,52 @@ export default function HomePage() {
         </div>
       </div>
 
-      {publicKey && (
-        <div className="w-full max-w-5xl mt-3">
-          <button
-            onClick={() => router.push('/profile')}
-            className="group relative w-full overflow-hidden rounded-2xl border border-cyan-400/18 bg-[linear-gradient(180deg,rgba(8,15,28,0.96),rgba(6,10,20,0.98))] px-5 py-4 text-left shadow-[0_16px_42px_rgba(0,0,0,0.30),0_0_26px_rgba(34,211,238,0.08)] transition-all duration-300 hover:-translate-y-[2px] hover:border-cyan-300/30 hover:shadow-[0_22px_54px_rgba(0,0,0,0.36),0_0_34px_rgba(34,211,238,0.14)]"
-          >
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.10),transparent_28%)]" />
+      <div className="w-full max-w-5xl mt-3">
+        <button
+          onClick={() => {
+            if (!connected || !pubkeyBase58) {
+              showCoinFlowOverlay(
+                'Wallet Required',
+                'Connect your wallet to view your Coincarnation profile.',
+                'info',
+                3200
+              );
+              return;
+            }
 
-            <div className="relative flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4 min-w-0">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-200 shadow-[0_0_20px_rgba(34,211,238,0.14)]">
-                  ⦿
-                </div>
+            router.push('/profile');
+          }}
+          className="group relative w-full overflow-hidden rounded-2xl border border-cyan-400/18 bg-[linear-gradient(180deg,rgba(8,15,28,0.96),rgba(6,10,20,0.98))] px-5 py-4 text-left shadow-[0_16px_42px_rgba(0,0,0,0.30),0_0_26px_rgba(34,211,238,0.08)] transition-all duration-300 hover:-translate-y-[2px] hover:border-cyan-300/30 hover:shadow-[0_22px_54px_rgba(0,0,0,0.36),0_0_34px_rgba(34,211,238,0.14)]"
+        >
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.10),transparent_28%)]" />
 
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300/75">
-                    PERSONAL ACCESS
-                  </p>
-
-                  <p className="mt-1 text-sm sm:text-base font-bold text-white">
-                    Open Your Coincarnation Profile
-                  </p>
-
-                  <p className="mt-0.5 text-[11px] sm:text-xs text-gray-400">
-                    claims · contribution history · personal value currency
-                  </p>
-                </div>
+          <div className="relative flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-200 shadow-[0_0_20px_rgba(34,211,238,0.14)]">
+                ⦿
               </div>
 
-              <div className="shrink-0 text-cyan-200 text-lg transition-transform duration-300 group-hover:translate-x-1">
-                ↗
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300/75">
+                  PERSONAL ACCESS
+                </p>
+
+                <p className="mt-1 text-sm sm:text-base font-bold text-white">
+                  Open Your Coincarnation Profile
+                </p>
+
+                <p className="mt-0.5 text-[11px] sm:text-xs text-gray-400">
+                  claims · contribution history · personal value currency
+                </p>
               </div>
             </div>
-          </button>
-        </div>
-      )}
+
+            <div className="shrink-0 text-cyan-200 text-lg transition-transform duration-300 group-hover:translate-x-1">
+              ↗
+            </div>
+          </div>
+        </button>
+      </div>
 
       <div className="w-full max-w-5xl rounded-2xl border border-white/10 bg-white/5 p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
