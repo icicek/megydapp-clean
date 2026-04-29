@@ -1017,229 +1017,231 @@ export default function HomePage() {
         </p>
       </section>
 
-      <div className="w-full max-w-5xl overflow-hidden rounded-[28px] border border-violet-500/45 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.08),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.10),transparent_30%),linear-gradient(180deg,rgba(20,26,40,0.96),rgba(13,17,28,0.98))] p-5 sm:p-7 shadow-[0_24px_80px_rgba(0,0,0,0.34),0_0_42px_rgba(168,85,247,0.10)]">
-        <h2 className="text-lg mb-1 text-left">You give</h2>
-        <p className="text-xs text-gray-400 text-left mb-2">
-          Walking deadcoins, memecoins, any unsupported assets…
-        </p>
-
-        {/* -------- SADECE SOLANA -------- */}
-        {publicKey ? (
-          <>
-            {tokensLoading && tokens.length === 0 ? (
-              <div className="space-y-2 mb-4" aria-busy="true">
-                {[...Array(6)].map((_, i) => (
-                  <Skeleton key={i} className="h-10 w-full" />
-                ))}
-              </div>
-            ) : (
-              <>
-                {refreshing && (
-                  <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
-                    <span className="inline-block h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
-                    <span>Syncing tokens…</span>
-                  </div>
-                )}
-
-                <label className="sr-only" htmlFor="token-select">
-                  Select a token to Coincarnate
-                </label>
-
-                <div
-                  className={[
-                    'relative mb-2 rounded-2xl border p-[1px] transition-all duration-300',
-                    'bg-[linear-gradient(135deg,rgba(34,211,238,0.35),rgba(168,85,247,0.18),rgba(16,185,129,0.18))]',
-                    tokenSelectorSpotlight
-                      ? 'border-cyan-300/60 shadow-[0_0_34px_rgba(34,211,238,0.45)] ring-2 ring-cyan-400/25'
-                      : 'border-white/10 shadow-[0_14px_34px_rgba(0,0,0,0.22)]',
-                  ].join(' ')}
-                >
-                  <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_32%)]" />
-
-                  <div className="relative flex items-center gap-3 rounded-2xl bg-[#07111f]/95 px-3 py-2.5 backdrop-blur-xl">
-
-                    <select
-                      ref={tokenSelectRef}
-                      id="token-select"
-                      className="min-w-0 flex-1 appearance-none bg-transparent py-1 pl-1 pr-8 text-sm font-semibold text-white outline-none cursor-pointer [color-scheme:dark]"
-                      value={selectedToken?.mint || ''}
-                      onChange={handleSelectChange}
-                    >
-                      <option
-                        value=""
-                        disabled
-                        className="bg-slate-950 text-slate-300"
-                      >
-                        Select a token to Coincarnate
-                      </option>
-                      {tokens.map((token) => {
-                        const sym = (token.symbol ?? token.mint.slice(0, 6)).toUpperCase();
-                        const name = token.name?.trim();
-                        const amt = formatTokenAmount(token);
-
-                        const label = name && name.toUpperCase() !== sym
-                          ? `${sym} — ${name} — ${amt}`
-                          : `${sym} — ${amt}`;
-
-                        return (
-                          <option
-                            key={token.mint}
-                            value={token.mint}
-                            className="bg-slate-950 text-white"
-                          >
-                            {label}
-                          </option>
-                        );
-                      })}
-                    </select>
-
-                    <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-cyan-200">
-                      ▾
-                    </div>
-                  </div>
-                </div>
-
-                {tokenSelectorHint && (
-                  <div className="mt-2 text-center text-[11px] font-medium text-cyan-200 animate-pulse">
-                    ↓ Choose one of your available tokens
-                  </div>
-                )}
-
-                {selectedToken && (
-                  <div className="mt-3 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.045] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_12px_28px_rgba(0,0,0,0.18)]">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-300/80">
-                          Selected Asset
-                        </p>
-
-                        <p className="mt-1 truncate text-sm font-bold text-white">
-                          {(selectedToken.symbol || selectedToken.mint.slice(0, 6)).toUpperCase()}
-                          {selectedToken.name &&
-                            selectedToken.name.toUpperCase() !==
-                              (selectedToken.symbol || '').toUpperCase() && (
-                              <span className="font-medium text-gray-300">
-                                {' '}— {selectedToken.name}
-                              </span>
-                            )}
-                        </p>
-                      </div>
-
-                      <div className="shrink-0 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-right">
-                        <p className="text-[10px] text-gray-400">Balance</p>
-                        <p className="text-sm font-bold text-cyan-100">
-                          {formatTokenAmount(selectedToken)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {!tokensLoading && tokens.length === 0 && (
-                  <p className="text-xs text-gray-400 mb-2">
-                    No supported tokens were found in this wallet yet.
-                  </p>
-                )}
-
-                {tokensError && (
-                  <p className="text-xs text-red-400 mb-2">
-                    Could not fully sync wallet tokens. Please try again.
-                  </p>
-                )}
-              </>
-            )}
-          </>
-        ) : (
-          <p className="text-gray-400">Connect your wallet to see your tokens.</p>
-        )}
-
-        <div className="my-5 flex items-center justify-center gap-3" aria-hidden>
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-cyan-400/25 to-transparent" />
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-sm text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.12)]">
-            ↔
-          </div>
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-cyan-400/25 to-transparent" />
-        </div>
-
-        <h2 className="text-lg text-left mb-2">You receive</h2>
-        <p className="text-xs text-gray-400 text-left mb-2">
-          $MEGY — the currency of the Fair Future Fund
-        </p>
-
-        <div className="mt-3">
-          <div
-            className="w-full bg-gray-800 rounded-full h-6 overflow-hidden relative border border-gray-600"
-            aria-label="Your share of the Fair Future Fund"
-          >
-            <div
-              className="h-6 bg-gradient-to-r from-yellow-800 via-green-500 to-yellow-300"
-              style={{ width: `${sharePercentage}%` }}
-            />
-            <span className="absolute inset-0 flex items-center justify-center text-xs text-yellow-200 font-bold">
-              {sharePercentage}%
-            </span>
-          </div>
-
-          <p className="text-sm text-gray-300 mt-2 text-left">
-            🌍 Your personal contribution to the Fair Future Fund (% of total)
+      <div className="relative w-full max-w-5xl overflow-hidden rounded-[30px] border border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.13),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.13),transparent_32%),linear-gradient(180deg,rgba(20,26,40,0.96),rgba(13,17,28,0.98))] p-5 sm:p-7 shadow-[0_24px_80px_rgba(0,0,0,0.34),0_0_42px_rgba(34,211,238,0.08),0_0_54px_rgba(168,85,247,0.08)] before:pointer-events-none before:absolute before:inset-0 before:rounded-[30px] before:bg-[linear-gradient(135deg,rgba(34,211,238,0.22),transparent_28%,rgba(168,85,247,0.18)_62%,transparent_82%)] before:opacity-60">
+        <div className="relative z-[1]">
+          <h2 className="text-lg mb-1 text-left">You give</h2>
+          <p className="text-xs text-gray-400 text-left mb-2">
+            Walking deadcoins, memecoins, any unsupported assets…
           </p>
-        </div>
-        <div className="w-full max-w-5xl mt-3">
-          <button
-            onClick={() => {
-              if (!connected || !pubkeyBase58) {
-                showCoinFlowOverlay(
-                  'Wallet Required',
-                  'Connect your wallet to view your Coincarnation profile.',
-                  'info',
-                  3200
-                );
-                return;
-              }
 
-              router.push('/profile');
-            }}
-            className={[
-              'group relative w-full overflow-hidden rounded-2xl border px-4 py-2.5 text-left transition-all duration-300',
-              'bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.18)]',
-              connected && pubkeyBase58
-                ? 'border-cyan-400/18 hover:border-cyan-300/30 hover:bg-cyan-400/[0.055] hover:shadow-[0_14px_34px_rgba(0,0,0,0.24),0_0_24px_rgba(34,211,238,0.10)]'
-                : 'border-white/10 hover:border-cyan-400/22 hover:bg-white/[0.05]',
-            ].join(' ')}
-          >
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.08),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.07),transparent_30%)]" />
-
-            <div className="relative flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <div
-                  className={[
-                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-sm',
-                    connected && pubkeyBase58
-                      ? 'border-cyan-300/20 bg-cyan-400/10 text-cyan-200'
-                      : 'border-white/10 bg-white/[0.04] text-gray-400',
-                  ].join(' ')}
-                >
-                  {connected && pubkeyBase58 ? '⦿' : '◌'}
+          {/* -------- SADECE SOLANA -------- */}
+          {publicKey ? (
+            <>
+              {tokensLoading && tokens.length === 0 ? (
+                <div className="space-y-2 mb-4" aria-busy="true">
+                  {[...Array(6)].map((_, i) => (
+                    <Skeleton key={i} className="h-10 w-full" />
+                  ))}
                 </div>
+              ) : (
+                <>
+                  {refreshing && (
+                    <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+                      <span className="inline-block h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                      <span>Syncing tokens…</span>
+                    </div>
+                  )}
 
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-white">
-                    Open Your Profile
-                  </p>
+                  <label className="sr-only" htmlFor="token-select">
+                    Select a token to Coincarnate
+                  </label>
 
-                  <p className="mt-0.5 truncate text-[11px] text-gray-400">
-                    {connected && pubkeyBase58
-                      ? 'claims · contributions · personal value currency'
-                      : 'connect wallet required for personal access'}
-                  </p>
-                </div>
-              </div>
+                  <div
+                    className={[
+                      'relative mb-2 rounded-2xl border p-[1px] transition-all duration-300',
+                      'bg-[linear-gradient(135deg,rgba(34,211,238,0.35),rgba(168,85,247,0.18),rgba(16,185,129,0.18))]',
+                      tokenSelectorSpotlight
+                        ? 'border-cyan-300/60 shadow-[0_0_34px_rgba(34,211,238,0.45)] ring-2 ring-cyan-400/25'
+                        : 'border-white/10 shadow-[0_14px_34px_rgba(0,0,0,0.22)]',
+                    ].join(' ')}
+                  >
+                    <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_32%)]" />
 
-              <div className="shrink-0 text-cyan-200/80 transition-transform duration-300 group-hover:translate-x-0.5">
-                ↗
-              </div>
+                    <div className="relative flex items-center gap-3 rounded-2xl bg-[#07111f]/95 px-3 py-2.5 backdrop-blur-xl">
+
+                      <select
+                        ref={tokenSelectRef}
+                        id="token-select"
+                        className="min-w-0 flex-1 appearance-none bg-transparent py-1 pl-1 pr-8 text-sm font-semibold text-white outline-none cursor-pointer [color-scheme:dark]"
+                        value={selectedToken?.mint || ''}
+                        onChange={handleSelectChange}
+                      >
+                        <option
+                          value=""
+                          disabled
+                          className="bg-slate-950 text-slate-300"
+                        >
+                          Select a token to Coincarnate
+                        </option>
+                        {tokens.map((token) => {
+                          const sym = (token.symbol ?? token.mint.slice(0, 6)).toUpperCase();
+                          const name = token.name?.trim();
+                          const amt = formatTokenAmount(token);
+
+                          const label = name && name.toUpperCase() !== sym
+                            ? `${sym} — ${name} — ${amt}`
+                            : `${sym} — ${amt}`;
+
+                          return (
+                            <option
+                              key={token.mint}
+                              value={token.mint}
+                              className="bg-slate-950 text-white"
+                            >
+                              {label}
+                            </option>
+                          );
+                        })}
+                      </select>
+
+                      <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-cyan-200">
+                        ▾
+                      </div>
+                    </div>
+                  </div>
+
+                  {tokenSelectorHint && (
+                    <div className="mt-2 text-center text-[11px] font-medium text-cyan-200 animate-pulse">
+                      ↓ Choose one of your available tokens
+                    </div>
+                  )}
+
+                  {selectedToken && (
+                    <div className="mt-3 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.045] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_12px_28px_rgba(0,0,0,0.18)]">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-300/80">
+                            Selected Asset
+                          </p>
+
+                          <p className="mt-1 truncate text-sm font-bold text-white">
+                            {(selectedToken.symbol || selectedToken.mint.slice(0, 6)).toUpperCase()}
+                            {selectedToken.name &&
+                              selectedToken.name.toUpperCase() !==
+                              (selectedToken.symbol || '').toUpperCase() && (
+                                <span className="font-medium text-gray-300">
+                                  {' '}— {selectedToken.name}
+                                </span>
+                              )}
+                          </p>
+                        </div>
+
+                        <div className="shrink-0 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-right">
+                          <p className="text-[10px] text-gray-400">Balance</p>
+                          <p className="text-sm font-bold text-cyan-100">
+                            {formatTokenAmount(selectedToken)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {!tokensLoading && tokens.length === 0 && (
+                    <p className="text-xs text-gray-400 mb-2">
+                      No supported tokens were found in this wallet yet.
+                    </p>
+                  )}
+
+                  {tokensError && (
+                    <p className="text-xs text-red-400 mb-2">
+                      Could not fully sync wallet tokens. Please try again.
+                    </p>
+                  )}
+                </>
+              )}
+            </>
+          ) : (
+            <p className="text-gray-400">Connect your wallet to see your tokens.</p>
+          )}
+
+          <div className="my-5 flex items-center justify-center gap-3" aria-hidden>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-cyan-400/25 to-transparent" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-sm text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.12)]">
+              ↕
             </div>
-          </button>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-cyan-400/25 to-transparent" />
+          </div>
+
+          <h2 className="text-lg text-left mb-2">You receive</h2>
+          <p className="text-xs text-gray-400 text-left mb-2">
+            $MEGY — the currency of the Fair Future Fund
+          </p>
+
+          <div className="mt-3">
+            <div
+              className="w-full bg-gray-800 rounded-full h-6 overflow-hidden relative border border-gray-600"
+              aria-label="Your share of the Fair Future Fund"
+            >
+              <div
+                className="h-6 bg-gradient-to-r from-yellow-800 via-green-500 to-yellow-300"
+                style={{ width: `${sharePercentage}%` }}
+              />
+              <span className="absolute inset-0 flex items-center justify-center text-xs text-yellow-200 font-bold">
+                {sharePercentage}%
+              </span>
+            </div>
+
+            <p className="text-sm text-gray-300 mt-2 text-left">
+              🌍 Your personal contribution to the Fair Future Fund (% of total)
+            </p>
+          </div>
+          <div className="w-full max-w-5xl mt-6">
+            <button
+              onClick={() => {
+                if (!connected || !pubkeyBase58) {
+                  showCoinFlowOverlay(
+                    'Wallet Required',
+                    'Connect your wallet to view your Coincarnation profile.',
+                    'info',
+                    3200
+                  );
+                  return;
+                }
+
+                router.push('/profile');
+              }}
+              className={[
+                'group relative w-full overflow-hidden rounded-2xl border px-4 py-3 text-left transition-all duration-300',
+                'bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.18)]',
+                connected && pubkeyBase58
+                  ? 'border-cyan-400/18 hover:border-cyan-300/30 hover:bg-cyan-400/[0.055] hover:shadow-[0_14px_34px_rgba(0,0,0,0.24),0_0_24px_rgba(34,211,238,0.10)]'
+                  : 'border-white/10 hover:border-cyan-400/22 hover:bg-white/[0.05]',
+              ].join(' ')}
+            >
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.08),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.07),transparent_30%)]" />
+
+              <div className="relative flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div
+                    className={[
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-sm',
+                      connected && pubkeyBase58
+                        ? 'border-cyan-300/20 bg-cyan-400/10 text-cyan-200'
+                        : 'border-white/10 bg-white/[0.04] text-gray-400',
+                    ].join(' ')}
+                  >
+                    {connected && pubkeyBase58 ? '⦿' : '◌'}
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-white">
+                      Open Your Profile
+                    </p>
+
+                    <p className="mt-0.5 truncate text-[11px] text-gray-400">
+                      {connected && pubkeyBase58
+                        ? 'claims · contributions · personal value currency'
+                        : 'connect wallet required for personal access'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="shrink-0 text-cyan-200/80 transition-transform duration-300 group-hover:translate-x-0.5">
+                  ↗
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
       <div className="w-full max-w-5xl rounded-2xl border border-white/10 bg-white/5 p-6">
