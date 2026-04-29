@@ -1213,12 +1213,12 @@ export default function HomePage() {
                 </p>
 
                 <p className="mt-1 text-sm sm:text-base font-bold text-white">
-                  Open Your Coincarnation Profile
+                  Open Your Profile
                 </p>
 
                 <p className="mt-0.5 text-[11px] sm:text-xs text-gray-400">
                   {connected && pubkeyBase58
-                    ? 'claims · contribution history · personal value currency'
+                    ? 'claims · contributions · personal value currency'
                     : 'connect wallet required for personal access'}
                 </p>
               </div>
