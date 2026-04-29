@@ -1197,26 +1197,35 @@ export default function HomePage() {
 
             router.push('/profile');
           }}
-          className="group relative w-full overflow-hidden rounded-2xl border border-cyan-400/18 bg-[linear-gradient(180deg,rgba(8,15,28,0.96),rgba(6,10,20,0.98))] px-5 py-4 text-left shadow-[0_16px_42px_rgba(0,0,0,0.30),0_0_26px_rgba(34,211,238,0.08)] transition-all duration-300 hover:-translate-y-[2px] hover:border-cyan-300/30 hover:shadow-[0_22px_54px_rgba(0,0,0,0.36),0_0_34px_rgba(34,211,238,0.14)]"
+          className={[
+            'group relative w-full overflow-hidden rounded-2xl border px-4 py-3 text-left transition-all duration-300',
+            'bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.18)]',
+            connected && pubkeyBase58
+              ? 'border-cyan-400/18 hover:border-cyan-300/30 hover:bg-cyan-400/[0.055] hover:shadow-[0_14px_34px_rgba(0,0,0,0.24),0_0_24px_rgba(34,211,238,0.10)]'
+              : 'border-white/10 hover:border-cyan-400/22 hover:bg-white/[0.05]',
+          ].join(' ')}
         >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.10),transparent_28%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.08),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.07),transparent_30%)]" />
 
-          <div className="relative flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-200 shadow-[0_0_20px_rgba(34,211,238,0.14)]">
+          <div className="relative flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div
+                className={[
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-sm',
+                  connected && pubkeyBase58
+                    ? 'border-cyan-300/20 bg-cyan-400/10 text-cyan-200'
+                    : 'border-white/10 bg-white/[0.04] text-gray-400',
+                ].join(' ')}
+              >
                 {connected && pubkeyBase58 ? '⦿' : '◌'}
               </div>
 
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300/75">
-                  {connected && pubkeyBase58 ? 'PERSONAL ACCESS' : 'PROFILE LOCKED'}
-                </p>
-
-                <p className="mt-1 text-sm sm:text-base font-bold text-white">
+                <p className="truncate text-sm font-bold text-white">
                   Open Your Profile
                 </p>
 
-                <p className="mt-0.5 text-[11px] sm:text-xs text-gray-400">
+                <p className="mt-0.5 truncate text-[11px] text-gray-400">
                   {connected && pubkeyBase58
                     ? 'claims · contributions · personal value currency'
                     : 'connect wallet required for personal access'}
@@ -1224,7 +1233,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="shrink-0 text-cyan-200 text-lg transition-transform duration-300 group-hover:translate-x-1">
+            <div className="shrink-0 text-cyan-200/80 transition-transform duration-300 group-hover:translate-x-0.5">
               ↗
             </div>
           </div>
