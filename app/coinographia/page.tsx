@@ -823,28 +823,74 @@ function formatRegistryShareStatus(status: TokenStatus) {
 
 function buildRegistryTweet(item: TokenRow) {
     const symbol = item.symbol ? `$${item.symbol}` : shortenMint(item.mint);
-    const statusText = formatRegistryShareStatus(item.status);
 
-    const intros = [
-        `👀 ${symbol} currently looks ${statusText}.`,
-        `🧭 ${symbol} is currently classified as ${statusText}.`,
-        `⚠️ ${symbol} is showing up as ${statusText}.`,
-    ];
+    const statusLines: Record<TokenStatus, string[]> = {
+        healthy: [
+            `${symbol} is still showing survival signals.`,
+            `${symbol} is currently classified as healthy.`,
+            `${symbol} is still above Coinographia’s survival line.`,
+        ],
+        walking_dead: [
+            `${symbol} looks like a walking dead asset.`,
+            `${symbol} is still visible, but decay signals are forming.`,
+            `${symbol} is not dead yet, but Coinographia sees damage.`,
+        ],
+        deadcoin: [
+            `${symbol} is showing up as a deadcoin.`,
+            `${symbol} looks like abandoned market damage.`,
+            `${symbol} may be dead, but its story is not over.`,
+        ],
+        redlist: [
+            `${symbol} is currently redlisted.`,
+            `${symbol} is restricted by Coinographia governance.`,
+            `${symbol} is not open for Coincarnation right now.`,
+        ],
+        blacklist: [
+            `${symbol} is blacklisted inside Coinographia.`,
+            `${symbol} is blocked from Coincarnation.`,
+            `${symbol} is marked as invalidated market damage.`,
+        ],
+    };
 
-    const followUps = [
-        `Not all tokens are equally healthy.`,
-        `Coinographia makes that visible.`,
-        `Worth paying attention to.`,
-        `This is exactly why classification matters.`,
-    ];
+    const contextLines: Record<TokenStatus, string[]> = {
+        healthy: [
+            `Not every token in crypto is dead — but survival has to be visible.`,
+            `Coinographia makes survival and decay easier to see.`,
+            `Healthy today does not mean invisible tomorrow.`,
+        ],
+        walking_dead: [
+            `Crypto is full of assets trapped between survival and collapse.`,
+            `Walking dead assets should not stay invisible forever.`,
+            `Some tokens are not dead, but they are clearly damaged.`,
+        ],
+        deadcoin: [
+            `Deadcoins do not have to remain silent forever.`,
+            `Coincarnation turns dead weight into renewed participation.`,
+            `Abandoned value can still become part of something new.`,
+        ],
+        redlist: [
+            `Classification protects the revival flow.`,
+            `Not every damaged token should enter Coincarnation.`,
+            `Governance matters when signals are broken.`,
+        ],
+        blacklist: [
+            `A revival system also needs protection.`,
+            `Some assets are too damaged to enter safely.`,
+            `Coinographia separates invalidated assets from the revival path.`,
+        ],
+    };
 
     function pick(arr: string[]) {
         return arr[Math.floor(Math.random() * arr.length)];
     }
 
     const tweetLines = [
-        pick(intros),
-        pick(followUps),
+        `👁️ ${symbol} on Coinographia`,
+        '',
+        pick(statusLines[item.status]),
+        pick(contextLines[item.status]),
+        '',
+        `#Coincarnation`,
     ];
 
     return tweetLines.join('\n');
