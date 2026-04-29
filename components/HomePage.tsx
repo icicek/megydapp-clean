@@ -1204,12 +1204,12 @@ export default function HomePage() {
           <div className="relative flex items-center justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-200 shadow-[0_0_20px_rgba(34,211,238,0.14)]">
-                ⦿
+                {connected && pubkeyBase58 ? '⦿' : '◌'}
               </div>
 
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300/75">
-                  PERSONAL ACCESS
+                  {connected && pubkeyBase58 ? 'PERSONAL ACCESS' : 'PROFILE LOCKED'}
                 </p>
 
                 <p className="mt-1 text-sm sm:text-base font-bold text-white">
@@ -1217,7 +1217,9 @@ export default function HomePage() {
                 </p>
 
                 <p className="mt-0.5 text-[11px] sm:text-xs text-gray-400">
-                  claims · contribution history · personal value currency
+                  {connected && pubkeyBase58
+                    ? 'claims · contribution history · personal value currency'
+                    : 'connect wallet required for personal access'}
                 </p>
               </div>
             </div>
