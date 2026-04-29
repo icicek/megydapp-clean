@@ -691,54 +691,65 @@ function buildDiscoveryTweet(item: DiscoveryRow) {
     const symbol = item.symbol ? `$${item.symbol}` : shortenMint(item.mint);
     const heatLevel = getDiscoveryHeatLevel(item);
 
-    const intros = [
-        `👀 Something unusual is happening with ${symbol}.`,
-        `🤔 ${symbol} is getting a lot of Coincarnation activity.`,
-        `⚠️ ${symbol} is being Coincarnated a lot lately.`,
-        `👁️ Watching ${symbol} here is… interesting.`,
+    const introLines = [
+        `👀 ${symbol} is lighting up inside Coinographia.`,
+        `⚠️ Coinographia is detecting unusual Coincarnation around ${symbol}.`,
+        `🧭 ${symbol} is surfacing as an active Coincarnation signal.`,
+        `👁️ ${symbol} just entered the Coinographia radar.`,
     ];
 
-    const coreLines = [
-        `People aren’t selling it.`,
-        `They’re Coincarnating it.`,
+    const marketLines = [
+        `Not every token in crypto is equally alive.`,
+        `Some assets are healthy. Some are walking dead. Some are already gone.`,
+        `Crypto is full of silent damage most people never see.`,
+        `Behind every rally, thousands of assets are still decaying.`,
     ];
 
-    const observationLines = [
-        `Feels early.`,
-        `Something is shifting.`,
-        `This might be bigger than it looks.`,
-        `Some people are starting to notice.`,
-        `Not sure everyone sees this yet.`,
-        `With everything happening in crypto… this stands out.`,
+    const coincarnationLines = [
+        `Coinographia exposes that hidden damage.`,
+        `Coincarnation turns dead weight into renewed participation.`,
+        `This is where abandoned holdings start getting a second life.`,
+        `This is exactly why Coincarnation exists.`,
     ];
 
     const hotLines = [
-        `🔥 Activity is accelerating.`,
-        `🔥 This is getting serious.`,
+        `🔥 Activity is accelerating fast.`,
+        `🔥 This cluster is heating up.`,
+        `🔥 More wallets are moving here.`,
     ];
 
     const trendingLines = [
         `⚡ Momentum is building.`,
-        `⚡ More people are noticing.`,
+        `⚡ Attention is quietly growing.`,
+        `⚡ Something is forming here.`,
+    ];
+
+    const neutralLines = [
+        `Feels early.`,
+        `Worth watching closely.`,
+        `Something is shifting.`,
+        `This may be the beginning of a larger pattern.`,
     ];
 
     function pick(arr: string[]) {
         return arr[Math.floor(Math.random() * arr.length)];
     }
 
-    let heatLine = '';
+    let signalLine = pick(neutralLines);
+
     if (heatLevel === 'hot') {
-        heatLine = pick(hotLines);
+        signalLine = pick(hotLines);
     } else if (heatLevel === 'trending') {
-        heatLine = pick(trendingLines);
+        signalLine = pick(trendingLines);
     }
 
     const tweetLines = [
-        pick(intros),
+        pick(introLines),
         '',
-        ...coreLines,
-        heatLine ? heatLine : pick(observationLines),
-    ].filter(Boolean);
+        pick(marketLines),
+        pick(coincarnationLines),
+        signalLine,
+    ];
 
     return tweetLines.join('\n');
 }
