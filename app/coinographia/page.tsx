@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import AppWalletBar from '@/components/AppWalletBar';
+import { useRouter } from 'next/navigation';
 
 const STATUSES = ['healthy', 'walking_dead', 'deadcoin', 'redlist', 'blacklist'] as const;
 type TokenStatus = typeof STATUSES[number];
@@ -886,13 +887,13 @@ function scrollToRegistry() {
     }, 400);
 }
 
-function handleCoincarnateClick(
+function prepareCoincarnateTarget(
     mint: string,
     status: TokenStatus,
     symbol?: string | null,
     name?: string | null
-) {
-    if (status === 'redlist' || status === 'blacklist') return;
+): boolean {
+    if (status === 'redlist' || status === 'blacklist') return false;
 
     const cleanSymbol = String(symbol || '').trim();
     const cleanName = String(name || '').trim();
@@ -912,8 +913,9 @@ function handleCoincarnateClick(
             sessionStorage.removeItem('coincarnate_target_name');
         }
     } catch {}
+    
+    return true;
 
-    window.location.href = '/';
 }
 
 export default function CoinographiaPage() {
@@ -923,6 +925,7 @@ export default function CoinographiaPage() {
     const [copiedMint, setCopiedMint] = useState<string | null>(null);
     const [toast, setToast] = useState<{ text: string } | null>(null);
     const [sharedMint, setSharedMint] = useState<string | null>(null);
+    const router = useRouter();
 
     const [q, setQ] = useState('');
     const [status, setStatus] = useState<TokenStatus | ''>('');
@@ -939,6 +942,18 @@ export default function CoinographiaPage() {
     const [discoveryView, setDiscoveryView] = useState<'cards' | 'compact'>('cards');
     const [activeDiscoveryDetail, setActiveDiscoveryDetail] = useState<DiscoveryRow | null>(null);
 
+    function handleCoincarnateClick(
+        mint: string,
+        status: TokenStatus,
+        symbol?: string | null,
+        name?: string | null
+    ) {
+        const prepared = prepareCoincarnateTarget(mint, status, symbol, name);
+        if (!prepared) return;
+    
+        router.push('/');
+    }
+    
     function ShareArrowIcon({ className = '' }: { className?: string }) {
         return (
             <svg
