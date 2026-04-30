@@ -315,6 +315,19 @@ export default function HomePage() {
     return `${base} shadow-[0_0_12px_rgba(34,211,238,0.12)] hover:bg-cyan-500/[0.12] hover:shadow-[0_0_22px_rgba(34,211,238,0.24)]`;
   }
 
+  function canShareStatus(status?: string | null) {
+    return status !== 'redlist' && status !== 'blacklist';
+  }
+  
+  function getShareButtonDisabledClass() {
+    return [
+      'flex items-center justify-center rounded-xl border border-white/10',
+      'bg-white/[0.03] text-gray-500 opacity-45 cursor-not-allowed',
+      'shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_6px_16px_rgba(0,0,0,0.12)]',
+      'backdrop-blur-sm',
+    ].join(' ');
+  }
+
   function safeReadPendingCoincarnateMint(): string | null {
     if (typeof window === 'undefined') return null;
 
@@ -652,8 +665,10 @@ export default function HomePage() {
 
   async function shareClusterOnX(item: LiveActivityCluster) {
     if (typeof window === 'undefined') return;
+    if (!canShareStatus(item.status)) return;
+  
     const text = buildDynamicTweet(item);
-
+  
     await openXIntent(text, (message) => {
       setLiveActivityError(message);
       window.setTimeout(() => setLiveActivityError(null), 3600);
@@ -1391,20 +1406,28 @@ export default function HomePage() {
                         <span className="leading-none text-[16px]">✦</span>
                       </button>
 
-                      {item.status !== 'redlist' && item.status !== 'blacklist' && (
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            shareClusterOnX(item);
-                          }}
-                          className={`${getShareButtonClass(getHeatLevel(item, activityNow))} h-8 w-8 text-[20px] leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.20)] hover:scale-110 active:scale-95`}
-                          title="Share signal"
-                          aria-label="Share signal"
-                        >
-                          <ShareArrowIcon className="h-[15px] w-[15px]" />
-                        </button>
-                      )}
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!canShareStatus(item.status)) return;
+                          void shareClusterOnX(item);
+                        }}
+                        disabled={!canShareStatus(item.status)}
+                        className={
+                          canShareStatus(item.status)
+                            ? `${getShareButtonClass(getHeatLevel(item, activityNow))} h-8 w-8 text-[20px] leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.20)] hover:scale-110 active:scale-95`
+                            : `${getShareButtonDisabledClass()} h-8 w-8 text-[20px] leading-none`
+                        }
+                        title={
+                          canShareStatus(item.status)
+                            ? 'Share signal'
+                            : 'Sharing is disabled for redlisted or blacklisted tokens'
+                        }
+                        aria-label={canShareStatus(item.status) ? 'Share signal' : 'Sharing disabled'}
+                      >
+                        <ShareArrowIcon className="h-[15px] w-[15px]" />
+                      </button>
                     </div>
 
                     <button
@@ -1511,11 +1534,21 @@ export default function HomePage() {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          shareClusterOnX(item);
+                          if (!canShareStatus(item.status)) return;
+                          void shareClusterOnX(item);
                         }}
-                        className={`${getShareButtonClass(getHeatLevel(item, activityNow))} absolute right-3 bottom-3 z-10 h-8 w-8 sm:hidden`}
-                        title="Share signal"
-                        aria-label="Share signal"
+                        disabled={!canShareStatus(item.status)}
+                        className={
+                          canShareStatus(item.status)
+                            ? `${getShareButtonClass(getHeatLevel(item, activityNow))} absolute right-3 bottom-3 z-10 h-8 w-8 sm:hidden`
+                            : `${getShareButtonDisabledClass()} absolute right-3 bottom-3 z-10 h-8 w-8 sm:hidden`
+                        }
+                        title={
+                          canShareStatus(item.status)
+                            ? 'Share signal'
+                            : 'Sharing is disabled for redlisted or blacklisted tokens'
+                        }
+                        aria-label={canShareStatus(item.status) ? 'Share signal' : 'Sharing disabled'}
                       >
                         <ShareArrowIcon className="h-[15px] w-[15px]" />
                       </button>
