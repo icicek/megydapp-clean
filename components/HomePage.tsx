@@ -318,6 +318,19 @@ export default function HomePage() {
   function canShareStatus(status?: string | null) {
     return status !== 'redlist' && status !== 'blacklist';
   }
+
+  function canCoincarnateStatus(status?: string | null) {
+    return status !== 'redlist' && status !== 'blacklist';
+  }
+  
+  function getCoincarnateDisabledClass() {
+    return [
+      'flex items-center justify-center rounded-xl border border-white/10',
+      'bg-white/[0.03] text-gray-500 opacity-45 cursor-not-allowed',
+      'shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_6px_16px_rgba(0,0,0,0.12)]',
+      'backdrop-blur-sm',
+    ].join(' ');
+  }
   
   function getShareButtonDisabledClass() {
     return [
@@ -1397,11 +1410,21 @@ export default function HomePage() {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
+                          if (!canCoincarnateStatus(item.status)) return;
                           startCoincarnateFlow(item.tokenContract, item.tokenSymbol, item.tokenName);
                         }}
-                        className="flex h-8 w-8 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-500/[0.07] text-[20px] leading-none text-violet-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.20)] transition-all duration-200 hover:scale-110 hover:border-violet-300/40 hover:bg-violet-500/14 hover:text-white active:scale-95"
-                        title="Coincarnate this token"
-                        aria-label="Coincarnate this token"
+                        disabled={!canCoincarnateStatus(item.status)}
+                        className={
+                          canCoincarnateStatus(item.status)
+                            ? "flex h-8 w-8 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-500/[0.07] text-[20px] leading-none text-violet-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.20)] transition-all duration-200 hover:scale-110 hover:border-violet-300/40 hover:bg-violet-500/14 hover:text-white active:scale-95"
+                            : `${getCoincarnateDisabledClass()} h-8 w-8 text-[20px] leading-none`
+                        }
+                        title={
+                          canCoincarnateStatus(item.status)
+                            ? 'Coincarnate this token'
+                            : 'Coincarnation is disabled for redlisted or blacklisted tokens'
+                        }
+                        aria-label={canCoincarnateStatus(item.status) ? 'Coincarnate this token' : 'Coincarnation disabled'}
                       >
                         <span className="leading-none text-[16px]">✦</span>
                       </button>
