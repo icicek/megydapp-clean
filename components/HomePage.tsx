@@ -503,44 +503,44 @@ export default function HomePage() {
     ];
   }
   
-  function getStatusSharePsychology(status: string) {
+  function getStatusSharePsychology(status: any) {
     if (status === 'healthy') {
-      return [
-        `If even healthy bags are entering this flow, the upside here may be huge.`,
-        `This clearly isn't just for deadcoins anymore.`,
-        `People are coincarnating strong tokens too... think about that.`,
-      ];
+        return [
+            `People are Coincarnating even solid bags now.`,
+            `This thing is spreading way beyond deadcoins.`,
+            `Healthy coins entering this is not a small signal.`,
+        ];
     }
-  
+
     if (status === 'walking_dead') {
-      return [
-        `Let's be honest, we all have bags slowly dying in silence.`,
-        `Holding hurts, selling hurts more... this feels smarter.`,
-        `Almost everyone has at least one token stuck in this zone.`,
-      ];
+        return [
+            `Too many of us know this feeling.`,
+            `Almost every wallet has one of these.`,
+            `This is painfully relatable.`,
+        ];
     }
-  
+
     if (status === 'deadcoin') {
-      return [
-        `Who doesn't have deadcoins sitting useless in the wallet?`,
-        `Dead losses finally having a route out is such a wild idea.`,
-        `Watching dead bags turn into participation feels genius.`,
-      ];
+        return [
+            `Every wallet has a graveyard.`,
+            `Finally a use for dead bags.`,
+            `This actually makes dead losses useful.`,
+        ];
     }
-  
+
     return [
-      `Crypto has been waiting for something like this.`,
-      `Hidden damage is finally getting a use case.`,
+        `Crypto has been needing this.`,
+        `Hard not to notice this anymore.`,
     ];
   }
   
   function getShareCloserLine() {
     return pickShareLine([
-      `So... what are you bringing in? #Coincarnation`,
-      `Feels like everyone ends up here eventually. #Coincarnation`,
-      `Might be smarter to get in before the crowd does. #Coincarnation`,
-      `Tell me this isn't the most needed thing in crypto right now. #Coincarnation`,
-      `This chaos was waiting for something like this. #Coincarnation`,
+        `What are you sending in? #Coincarnation`,
+        `This might get crowded fast. #Coincarnation`,
+        `Feels early... maybe too early. #Coincarnation`,
+        `Hard not to think about joining. #Coincarnation`,
+        `This is getting harder to ignore. #Coincarnation`,
     ]);
   }
 
