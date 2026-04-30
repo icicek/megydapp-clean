@@ -80,6 +80,8 @@ export default function HomePage() {
   const pendingRefetchRequestedMintRef = useRef<string | null>(null);
   const coinFlowOverlayTimerRef = useRef<number | null>(null);
   const tokenSelectRef = useRef<HTMLSelectElement | null>(null);
+  const pendingModalOpenTimerRef = useRef<number | null>(null);
+  const pendingWalletSyncOverlayShownRef = useRef<string | null>(null);
 
   function formatTokenAmount(token: TokenInfo) {
     if (typeof token.uiAmountString === 'string' && token.uiAmountString.trim()) {
@@ -690,29 +692,31 @@ export default function HomePage() {
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const mint = e.target.value;
-
+  
     const token = tokens.find((t) => t.mint === mint) || null;
-
+  
     if (!token) {
       setSelectedToken(null);
       setShowSolModal(false);
       return;
     }
-
-    const hasValidAmount =
-      (typeof token.amount === 'number' && Number.isFinite(token.amount)) ||
-      (typeof token.uiAmountString === 'string' && token.uiAmountString.trim().length > 0);
-
+  
+    const numericAmount =
+      typeof token.amount === 'number' && Number.isFinite(token.amount)
+        ? token.amount
+        : Number(token.uiAmountString || 0);
+  
+    const hasValidAmount = Number.isFinite(numericAmount) && numericAmount > 0;
+  
     if (!hasValidAmount) {
       setSelectedToken(null);
       setShowSolModal(false);
       return;
     }
-
+  
     setSelectedToken(token);
     setShowSolModal(true);
   };
-
   const [globalStats, setGlobalStats] = useState({
     totalUsd: 0,
     totalParticipants: 0,
@@ -912,6 +916,20 @@ export default function HomePage() {
   }, [tokens, selectedToken]);
 
   useEffect(() => {
+    return () => {
+      if (coinFlowOverlayTimerRef.current) {
+        clearTimeout(coinFlowOverlayTimerRef.current);
+        coinFlowOverlayTimerRef.current = null;
+      }
+  
+      if (pendingModalOpenTimerRef.current) {
+        clearTimeout(pendingModalOpenTimerRef.current);
+        pendingModalOpenTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const pendingMint = safeReadPendingCoincarnateMint();
@@ -928,6 +946,13 @@ export default function HomePage() {
 
     const pendingKey = normalizeMint(pendingMint);
 
+    if (autoOpenHandledMint && normalizeMint(autoOpenHandledMint) === pendingKey) {
+      clearPendingCoincarnateMint();
+      pendingRefetchRequestedMintRef.current = null;
+      pendingWalletSyncOverlayShownRef.current = null;
+      return;
+    }
+
     // Wallet is not connected yet.
     // Do NOT clear pendingMint. User may connect wallet after this notice.
     if (!connected || !pubkeyBase58) {
@@ -938,6 +963,17 @@ export default function HomePage() {
         2500
       );
       return;
+    }
+
+    if (pendingWalletSyncOverlayShownRef.current !== pendingKey) {
+      pendingWalletSyncOverlayShownRef.current = pendingKey;
+    
+      showCoinFlowOverlay(
+        'Wallet Syncing',
+        'Scanning wallet assets for pending Coincarnation target...',
+        'info',
+        2200
+      );
     }
 
     // Wallet is connected, but token sync is still running.
@@ -964,6 +1000,7 @@ export default function HomePage() {
       clearPendingCoincarnateMint();
       setAutoOpenHandledMint(pendingMint);
       pendingRefetchRequestedMintRef.current = null;
+      pendingWalletSyncOverlayShownRef.current = null;
 
       showCoinFlowOverlay(
         'Coincarnation Scan Complete',
@@ -987,6 +1024,7 @@ export default function HomePage() {
       clearPendingCoincarnateMint();
       setAutoOpenHandledMint(pendingMint);
       pendingRefetchRequestedMintRef.current = null;
+      pendingWalletSyncOverlayShownRef.current = null;
 
       showCoinFlowOverlay(
         'Coincarnation Scan Complete',
@@ -1008,13 +1046,19 @@ export default function HomePage() {
 
     setSelectedToken(matchedToken);
 
-    window.setTimeout(() => {
+    if (pendingModalOpenTimerRef.current) {
+      clearTimeout(pendingModalOpenTimerRef.current);
+    }
+    
+    pendingModalOpenTimerRef.current = window.setTimeout(() => {
       setShowSolModal(true);
+      pendingModalOpenTimerRef.current = null;
     }, 1250);
 
     clearPendingCoincarnateMint();
     setAutoOpenHandledMint(pendingMint);
     pendingRefetchRequestedMintRef.current = null;
+    pendingWalletSyncOverlayShownRef.current = null;
   }, [
     connected,
     pubkeyBase58,
@@ -1022,6 +1066,7 @@ export default function HomePage() {
     tokensLoading,
     refreshing,
     refetchTokens,
+    autoOpenHandledMint,
   ]);
 
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
@@ -1262,6 +1307,7 @@ export default function HomePage() {
           </div>
           <div className="w-full max-w-5xl mt-6">
             <button
+              type="button"
               onClick={() => {
                 if (!connected || !pubkeyBase58) {
                   showCoinFlowOverlay(
@@ -1275,6 +1321,16 @@ export default function HomePage() {
 
                 router.push('/profile');
               }}
+              title={
+                connected && pubkeyBase58
+                  ? 'Open your Coincarnation profile'
+                  : 'Connect wallet to open your profile'
+              }
+              aria-label={
+                connected && pubkeyBase58
+                  ? 'Open your Coincarnation profile'
+                  : 'Connect wallet to open your profile'
+              }
               className={[
                 'group relative w-full overflow-hidden rounded-2xl border px-4 py-3 text-left transition-all duration-300',
                 'bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.18)]',
@@ -1457,11 +1513,25 @@ export default function HomePage() {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        if (!canCoincarnateStatus(item.status)) return;
                         startCoincarnateFlow(item.tokenContract, item.tokenSymbol, item.tokenName);
                       }}
-                      className="absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-500/[0.07] text-[18px] leading-none text-violet-100 transition-all duration-200 hover:bg-violet-500/14 active:scale-95 sm:hidden"
-                      title="Coincarnate this token"
-                      aria-label="Coincarnate this token"
+                      disabled={!canCoincarnateStatus(item.status)}
+                      className={
+                        canCoincarnateStatus(item.status)
+                          ? "absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-500/[0.07] text-[18px] leading-none text-violet-100 transition-all duration-200 hover:bg-violet-500/14 active:scale-95 sm:hidden"
+                          : `${getCoincarnateDisabledClass()} absolute top-3 right-3 z-10 h-8 w-8 text-[18px] leading-none sm:hidden`
+                      }
+                      title={
+                        canCoincarnateStatus(item.status)
+                          ? 'Coincarnate this token'
+                          : 'Coincarnation is disabled for redlisted or blacklisted tokens'
+                      }
+                      aria-label={
+                        canCoincarnateStatus(item.status)
+                          ? 'Coincarnate this token'
+                          : 'Coincarnation disabled'
+                      }
                     >
                       <span className="leading-none text-[15px]">✦</span>
                     </button>
