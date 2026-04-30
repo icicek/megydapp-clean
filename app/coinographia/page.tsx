@@ -687,6 +687,10 @@ function getCompactDiscoveryCardClass(heat: HeatLevel, status: TokenStatus, expa
     return `${base} ${active}`;
 }
 
+function canShareStatus(status: string) {
+    return status !== 'redlist' && status !== 'blacklist';
+}
+
 function pickShareLine(arr: string[]) {
     return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -1760,7 +1764,7 @@ export default function CoinographiaPage() {
                                                         </div>
 
                                                         <div className="absolute right-0 top-0 flex flex-col items-center gap-1">
-                                                            {it.status !== 'redlist' && it.status !== 'blacklist' && (
+                                                            {canShareStatus(it.status) && (
                                                                 <button
                                                                     type="button"
                                                                     onClick={(e) => {
@@ -1833,22 +1837,24 @@ export default function CoinographiaPage() {
                                             )}
 
                                             <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        shareDiscoveryOnX(it);
-                                                    }}
-                                                    className={`${getDiscoveryShareButtonClass(getDiscoveryHeatLevel(it))} h-8 w-8 text-[16px] leading-none`}
-                                                    title="Share signal"
-                                                    aria-label="Share signal"
-                                                >
-                                                    {sharedMint === it.mint ? (
-                                                        '✓'
-                                                    ) : (
-                                                        <ShareArrowIcon className="h-[17px] w-[17px]" />
-                                                    )}
-                                                </button>
+                                                {canShareStatus(it.status) && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            shareDiscoveryOnX(it);
+                                                        }}
+                                                        className={`${getDiscoveryShareButtonClass(getDiscoveryHeatLevel(it))} h-8 w-8 text-[16px] leading-none`}
+                                                        title="Share signal"
+                                                        aria-label="Share signal"
+                                                    >
+                                                        {sharedMint === it.mint ? (
+                                                            '✓'
+                                                        ) : (
+                                                            <ShareArrowIcon className="h-[17px] w-[17px]" />
+                                                        )}
+                                                    </button>
+                                                )}
                                             </div>
 
                                             <div className="relative z-[1] flex items-start gap-2.5 sm:gap-3">
@@ -2216,14 +2222,16 @@ export default function CoinographiaPage() {
                                 )}
 
                                 <div className="mt-4 grid grid-cols-2 gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => void shareDiscoveryOnX(activeDiscoveryDetail)}
-                                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm font-semibold text-cyan-100 transition-all hover:border-cyan-400/35 hover:bg-cyan-400/15"
-                                    >
-                                        <ShareArrowIcon className="h-4 w-4" />
-                                        Share
-                                    </button>
+                                    {activeDiscoveryDetail && canShareStatus(activeDiscoveryDetail.status) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => void shareDiscoveryOnX(activeDiscoveryDetail)}
+                                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm font-semibold text-cyan-100 transition-all hover:border-cyan-400/35 hover:bg-cyan-400/15"
+                                        >
+                                            <ShareArrowIcon className="h-4 w-4" />
+                                            Share
+                                        </button>
+                                    )}
 
                                     <button
                                         type="button"
