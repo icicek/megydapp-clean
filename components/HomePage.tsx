@@ -475,7 +475,7 @@ export default function HomePage() {
   function getStatusShareOpeners(symbol: string, status: string) {
     if (status === 'healthy') {
       return [
-        `😳 Even ${symbol} is being Coincarnated now.`,
+        `😳 Even ${symbol} is being coincarnated now.`,
         `👀 Seeing ${symbol} on Coincarnation feels unreal.`,
         `🔥 ${symbol} on Coincarnation? This is getting serious.`,
       ];
@@ -508,7 +508,7 @@ export default function HomePage() {
       return [
         `If even healthy bags are entering this flow, the upside here may be huge.`,
         `This clearly isn't just for deadcoins anymore.`,
-        `People are Coincarnating strong tokens too... think about that.`,
+        `People are coincarnating strong tokens too... think about that.`,
       ];
     }
   
@@ -1391,18 +1391,20 @@ export default function HomePage() {
                         <span className="leading-none text-[16px]">✦</span>
                       </button>
 
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          shareClusterOnX(item);
-                        }}
-                        className={`${getShareButtonClass(getHeatLevel(item, activityNow))} h-8 w-8 text-[20px] leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.20)] hover:scale-110 active:scale-95`}
-                        title="Share signal"
-                        aria-label="Share signal"
-                      >
-                        <ShareArrowIcon className="h-[15px] w-[15px]" />
-                      </button>
+                      {item.status !== 'redlist' && item.status !== 'blacklist' && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            shareClusterOnX(item);
+                          }}
+                          className={`${getShareButtonClass(getHeatLevel(item, activityNow))} h-8 w-8 text-[20px] leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.20)] hover:scale-110 active:scale-95`}
+                          title="Share signal"
+                          aria-label="Share signal"
+                        >
+                          <ShareArrowIcon className="h-[15px] w-[15px]" />
+                        </button>
+                      )}
                     </div>
 
                     <button

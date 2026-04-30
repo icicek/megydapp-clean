@@ -694,7 +694,7 @@ function pickShareLine(arr: string[]) {
 function getStatusShareOpeners(symbol: string, status: TokenStatus) {
     if (status === 'healthy') {
         return [
-            `😳 Even ${symbol} is being Coincarnated now.`,
+            `😳 Even ${symbol} is being coincarnated now.`,
             `👀 Seeing ${symbol} on Coincarnation feels unreal.`,
             `🔥 ${symbol} on Coincarnation? This is getting serious.`,
         ];
@@ -727,7 +727,7 @@ function getStatusSharePsychology(status: TokenStatus) {
         return [
             `If even healthy bags are entering this flow, the upside here may be huge.`,
             `This clearly isn't just for deadcoins anymore.`,
-            `People are Coincarnating strong tokens too... think about that.`,
+            `People are coincarnating strong tokens too... think about that.`,
         ];
     }
 
@@ -1760,19 +1760,21 @@ export default function CoinographiaPage() {
                                                         </div>
 
                                                         <div className="absolute right-0 top-0 flex flex-col items-center gap-1">
-                                                            <button
-                                                                type="button"
-                                                                onClick={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    void shareDiscoveryOnX(it);
-                                                                }}
-                                                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-400/10 text-cyan-100 transition-all hover:bg-cyan-400/15"
-                                                                title="Share"
-                                                                aria-label="Share"
-                                                            >
-                                                                <ShareArrowIcon className="h-3.5 w-3.5" />
-                                                            </button>
+                                                            {it.status !== 'redlist' && it.status !== 'blacklist' && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        void shareDiscoveryOnX(it);
+                                                                    }}
+                                                                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-400/10 text-cyan-100 transition-all hover:bg-cyan-400/15"
+                                                                    title="Share"
+                                                                    aria-label="Share"
+                                                                >
+                                                                    <ShareArrowIcon className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            )}
 
                                                             <button
                                                                 type="button"
@@ -2353,18 +2355,20 @@ export default function CoinographiaPage() {
                                             <span className="leading-none text-[16px]">✦</span>
                                         </button>
 
-                                        <button
-                                            onClick={() => shareRegistryOnX(it)}
-                                            className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.08] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_16px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 hover:border-cyan-400/35 hover:bg-cyan-500/[0.14] active:scale-95"
-                                            title="Share signal"
-                                            aria-label="Share signal"
-                                        >
-                                            {sharedMint === it.mint ? (
-                                                '✓'
-                                            ) : (
-                                                <ShareArrowIcon className="h-[17px] w-[17px]" />
-                                            )}
-                                        </button>
+                                        {it.status !== 'redlist' && it.status !== 'blacklist' && (
+                                            <button
+                                                onClick={() => shareRegistryOnX(it)}
+                                                className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.08] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_16px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 hover:border-cyan-400/35 hover:bg-cyan-500/[0.14] active:scale-95"
+                                                title="Share signal"
+                                                aria-label="Share signal"
+                                            >
+                                                {sharedMint === it.mint ? (
+                                                    '✓'
+                                                ) : (
+                                                    <ShareArrowIcon className="h-[17px] w-[17px]" />
+                                                )}
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
