@@ -468,118 +468,92 @@ export default function HomePage() {
     return String(value || '').trim().toLowerCase();
   }
 
+  function pickShareLine(arr: string[]) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+  
+  function getStatusShareOpeners(symbol: string, status: string) {
+    if (status === 'healthy') {
+      return [
+        `😳 Even ${symbol} is being Coincarnated now.`,
+        `👀 Seeing ${symbol} on Coincarnation feels unreal.`,
+        `🔥 ${symbol} on Coincarnation? This is getting serious.`,
+      ];
+    }
+  
+    if (status === 'walking_dead') {
+      return [
+        `🧟 ${symbol} is officially a walking deadcoin on Coincarnation.`,
+        `⚠️ ${symbol} showing walking dead signals here feels too familiar.`,
+        `🪦 ${symbol} was already halfway gone anyway.`,
+      ];
+    }
+  
+    if (status === 'deadcoin') {
+      return [
+        `☠️ ${symbol} is now a deadcoin on Coincarnation.`,
+        `🪦 Seeing ${symbol} here hurts... but makes sense.`,
+        `⚰️ ${symbol} finally found its Coincarnation route.`,
+      ];
+    }
+  
+    return [
+      `👀 ${symbol} is showing up on Coincarnation.`,
+      `⚠️ ${symbol} is drawing Coincarnation attention.`,
+    ];
+  }
+  
+  function getStatusSharePsychology(status: string) {
+    if (status === 'healthy') {
+      return [
+        `If even healthy bags are entering this flow, the upside here may be huge.`,
+        `This clearly isn't just for deadcoins anymore.`,
+        `People are Coincarnating strong tokens too... think about that.`,
+      ];
+    }
+  
+    if (status === 'walking_dead') {
+      return [
+        `Let's be honest, we all have bags slowly dying in silence.`,
+        `Holding hurts, selling hurts more... this feels smarter.`,
+        `Almost everyone has at least one token stuck in this zone.`,
+      ];
+    }
+  
+    if (status === 'deadcoin') {
+      return [
+        `Who doesn't have deadcoins sitting useless in the wallet?`,
+        `Dead losses finally having a route out is such a wild idea.`,
+        `Watching dead bags turn into participation feels genius.`,
+      ];
+    }
+  
+    return [
+      `Crypto has been waiting for something like this.`,
+      `Hidden damage is finally getting a use case.`,
+    ];
+  }
+  
+  function getShareCloserLine() {
+    return pickShareLine([
+      `So... what are you bringing in? #Coincarnation`,
+      `Feels like everyone ends up here eventually. #Coincarnation`,
+      `Might be smarter to get in before the crowd does. #Coincarnation`,
+      `Tell me this isn't the most needed thing in crypto right now. #Coincarnation`,
+      `This chaos was waiting for something like this. #Coincarnation`,
+    ]);
+  }
+
   function buildDynamicTweet(item: LiveActivityCluster) {
     const symbol = item.tokenSymbol ? `$${item.tokenSymbol}` : item.shortMint;
-    const heatLevel = getHeatLevel(item, Date.now());
-  
-    const totalCoincarnations = Number(item.occurrenceCount || 0);
-    const uniqueWallets = Number(item.uniqueWalletCount || 0);
-  
-    function pick(arr: string[]) {
-      return arr[Math.floor(Math.random() * arr.length)];
-    }
-  
     const status = item.status || 'unknown';
   
-    const statusLines: Record<string, string[]> = {
-      healthy: [
-        `${symbol} still shows survival signals.`,
-        `${symbol} is alive, but Coincarnation activity is visible.`,
-      ],
-      walking_dead: [
-        `${symbol} looks like a walking dead asset.`,
-        `${symbol} is visible, but decay signals are forming.`,
-      ],
-      deadcoin: [
-        `${symbol} is showing up as a deadcoin.`,
-        `${symbol} looks like abandoned market damage.`,
-      ],
-      redlist: [
-        `${symbol} is currently restricted.`,
-        `${symbol} is not open for Coincarnation right now.`,
-      ],
-      blacklist: [
-        `${symbol} is blocked from Coincarnation.`,
-        `${symbol} is marked as invalidated market damage.`,
-      ],
-      unknown: [
-        `${symbol} is moving through Coincarnation.`,
-        `${symbol} is appearing in recent Coincarnation activity.`,
-      ],
-    };
-  
-    const contextLines: Record<string, string[]> = {
-      healthy: [
-        `Survival has to be visible too.`,
-        `Coinographia tracks survival before decay.`,
-      ],
-      walking_dead: [
-        `This is where Coincarnation becomes relevant.`,
-        `Walking dead assets do not stay invisible forever.`,
-      ],
-      deadcoin: [
-        `Coincarnation turns dead weight into participation.`,
-        `Dead value can still begin a second life.`,
-      ],
-      redlist: [
-        `Classification protects the revival flow.`,
-        `Not every damaged token enters the system.`,
-      ],
-      blacklist: [
-        `A revival system also needs protection.`,
-        `Invalid assets stay outside the revival path.`,
-      ],
-      unknown: [
-        `Hidden market damage is becoming visible.`,
-        `Coincarnation makes forgotten assets visible again.`,
-      ],
-    };
-  
-    let signalLine = '';
-  
-    if (heatLevel === 'hot') {
-      signalLine = pick([
-        `🔥 Activity is accelerating.`,
-        `🔥 This cluster is heating up.`,
-      ]);
-    } else if (heatLevel === 'trending') {
-      signalLine = pick([
-        `⚡ Momentum is building.`,
-        `⚡ Attention is quietly growing.`,
-      ]);
-    } else {
-      signalLine = pick([
-        `Signal detected early.`,
-        `Worth watching closely.`,
-      ]);
-    }
-  
-    const metricParts: string[] = [];
-  
-    if (totalCoincarnations > 1) {
-      metricParts.push(`${formatNumberCompact(totalCoincarnations)} Coincarnations`);
-    }
-  
-    if (uniqueWallets > 1) {
-      metricParts.push(`${formatNumberCompact(uniqueWallets)} wallets`);
-    }
-  
-    const metricLine =
-      metricParts.length > 0
-        ? `${metricParts.join(' · ')} involved.`
-        : `A new Coincarnation signal is live.`;
-  
-    const safeStatus = statusLines[status] ? status : 'unknown';
-  
-    const finalLine = `${signalLine} ${metricLine} #Coincarnation`;
-  
     const tweetLines = [
-      `👁️ ${symbol} on Coincarnation.`,
+      pickShareLine(getStatusShareOpeners(symbol, status)),
       '',
-      pick(statusLines[safeStatus]),
-      pick(contextLines[safeStatus]),
+      pickShareLine(getStatusSharePsychology(status)),
       '',
-      finalLine,
+      getShareCloserLine(),
     ];
   
     return tweetLines.join('\n');

@@ -772,8 +772,6 @@ function buildDiscoveryTweet(item: DiscoveryRow) {
         pickShareLine(getStatusSharePsychology(item.status)),
         '',
         getShareCloserLine(),
-        '',
-        'coincarnation.com',
     ];
 
     return tweetLines.join('\n');
@@ -797,8 +795,6 @@ function buildRegistryTweet(item: TokenRow) {
         pickShareLine(getStatusSharePsychology(item.status)),
         '',
         getShareCloserLine(),
-        '',
-        'coincarnation.com',
     ];
 
     return tweetLines.join('\n');
