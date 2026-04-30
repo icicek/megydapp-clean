@@ -506,7 +506,7 @@ export default function HomePage() {
   function getStatusSharePsychology(status: any) {
     if (status === 'healthy') {
         return [
-            `People are Coincarnating even solid bags now.`,
+            `People are coincarnating even solid bags now.`,
             `This thing is spreading way beyond deadcoins.`,
             `Healthy coins entering this is not a small signal.`,
         ];
