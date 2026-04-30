@@ -687,106 +687,93 @@ function getCompactDiscoveryCardClass(heat: HeatLevel, status: TokenStatus, expa
     return `${base} ${active}`;
 }
 
+function pickShareLine(arr: string[]) {
+    return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function getStatusShareOpeners(symbol: string, status: TokenStatus) {
+    if (status === 'healthy') {
+        return [
+            `😳 Even ${symbol} is being Coincarnated now.`,
+            `👀 Seeing ${symbol} on Coincarnation feels unreal.`,
+            `🔥 ${symbol} on Coincarnation? This is getting serious.`,
+        ];
+    }
+
+    if (status === 'walking_dead') {
+        return [
+            `🧟 ${symbol} is officially a walking deadcoin on Coincarnation.`,
+            `⚠️ ${symbol} showing walking dead signals here feels too familiar.`,
+            `🪦 ${symbol} was already halfway gone anyway.`,
+        ];
+    }
+
+    if (status === 'deadcoin') {
+        return [
+            `☠️ ${symbol} is now a deadcoin on Coincarnation.`,
+            `🪦 Seeing ${symbol} here hurts... but makes sense.`,
+            `⚰️ ${symbol} finally found its Coincarnation route.`,
+        ];
+    }
+
+    return [
+        `👀 ${symbol} is showing up on Coincarnation.`,
+        `⚠️ ${symbol} is drawing Coincarnation attention.`,
+    ];
+}
+
+function getStatusSharePsychology(status: TokenStatus) {
+    if (status === 'healthy') {
+        return [
+            `If even healthy bags are entering this flow, the upside here may be huge.`,
+            `This clearly isn't just for deadcoins anymore.`,
+            `People are Coincarnating strong tokens too... think about that.`,
+        ];
+    }
+
+    if (status === 'walking_dead') {
+        return [
+            `Let's be honest, we all have bags slowly dying in silence.`,
+            `Holding hurts, selling hurts more... this feels smarter.`,
+            `Almost everyone has at least one token stuck in this zone.`,
+        ];
+    }
+
+    if (status === 'deadcoin') {
+        return [
+            `Who doesn't have deadcoins sitting useless in the wallet?`,
+            `Dead losses finally having a route out is such a wild idea.`,
+            `Watching dead bags turn into participation feels genius.`,
+        ];
+    }
+
+    return [
+        `Crypto has been waiting for something like this.`,
+        `Hidden damage is finally getting a use case.`,
+    ];
+}
+
+function getShareCloserLine() {
+    return pickShareLine([
+        `So... what are you bringing in? #Coincarnation`,
+        `Feels like everyone ends up here eventually. #Coincarnation`,
+        `Might be smarter to get in before the crowd does. #Coincarnation`,
+        `Tell me this isn't the most needed thing in crypto right now. #Coincarnation`,
+        `This chaos was waiting for something like this. #Coincarnation`,
+    ]);
+}
+
 function buildDiscoveryTweet(item: DiscoveryRow) {
     const symbol = item.symbol ? `$${item.symbol}` : shortenMint(item.mint);
-    const heatLevel = getDiscoveryHeatLevel(item);
-
-    const totalCoincarnations = Number(item.total_coincarnations || 0);
-    const uniqueWallets = Number(item.unique_wallets || 0);
-
-    function pick(arr: string[]) {
-        return arr[Math.floor(Math.random() * arr.length)];
-    }
-
-    const statusLineMap: Record<TokenStatus, string[]> = {
-        healthy: [
-            `${symbol} still shows survival signals.`,
-            `${symbol} is alive, but Coinographia is tracking it.`,
-        ],
-        walking_dead: [
-            `${symbol} looks like a walking dead asset.`,
-            `${symbol} is visible, but decay signals are forming.`,
-        ],
-        deadcoin: [
-            `${symbol} is showing up as a deadcoin.`,
-            `${symbol} looks like abandoned market damage.`,
-        ],
-        redlist: [
-            `${symbol} is currently redlisted.`,
-            `${symbol} is restricted by Coinographia governance.`,
-        ],
-        blacklist: [
-            `${symbol} is blacklisted inside Coinographia.`,
-            `${symbol} is blocked from Coincarnation.`,
-        ],
-    };
-
-    const solutionLineMap: Record<TokenStatus, string[]> = {
-        healthy: [
-            `Survival has to be visible too.`,
-            `Coinographia tracks survival before decay.`,
-        ],
-        walking_dead: [
-            `This is where Coincarnation becomes relevant.`,
-            `Walking dead assets do not stay invisible forever.`,
-        ],
-        deadcoin: [
-            `Coincarnation turns dead weight into participation.`,
-            `Dead value can still begin a second life.`,
-        ],
-        redlist: [
-            `Not every damaged token enters the revival flow.`,
-            `Classification protects the system.`,
-        ],
-        blacklist: [
-            `A revival system also needs protection.`,
-            `Invalid assets stay outside the revival path.`,
-        ],
-    };
-
-    let signalLine = '';
-
-    if (heatLevel === 'hot') {
-        signalLine = pick([
-            `🔥 Activity is accelerating.`,
-            `🔥 This cluster is heating up.`,
-        ]);
-    } else if (heatLevel === 'trending') {
-        signalLine = pick([
-            `⚡ Momentum is building.`,
-            `⚡ Attention is quietly growing.`,
-        ]);
-    } else {
-        signalLine = pick([
-            `Signal detected early.`,
-            `Worth watching closely.`,
-        ]);
-    }
-
-    const metricParts: string[] = [];
-
-    if (totalCoincarnations > 0) {
-        metricParts.push(`${formatNumberCompact(totalCoincarnations)} Coincarnations`);
-    }
-
-    if (uniqueWallets > 0) {
-        metricParts.push(`${formatNumberCompact(uniqueWallets)} wallets`);
-    }
-
-    const metricLine =
-        metricParts.length > 0
-            ? `${metricParts.join(' · ')} involved.`
-            : `Hidden market damage is becoming visible.`;
-
-    const finalLine = `${signalLine} ${metricLine} #Coincarnation`;
 
     const tweetLines = [
-        `👁️ ${symbol} on Coinographia.`,
+        pickShareLine(getStatusShareOpeners(symbol, item.status)),
         '',
-        pick(statusLineMap[item.status]),
-        pick(solutionLineMap[item.status]),
+        pickShareLine(getStatusSharePsychology(item.status)),
         '',
-        finalLine,
+        getShareCloserLine(),
+        '',
+        'coincarnation.com',
     ];
 
     return tweetLines.join('\n');
@@ -804,88 +791,14 @@ function formatRegistryShareStatus(status: TokenStatus) {
 function buildRegistryTweet(item: TokenRow) {
     const symbol = item.symbol ? `$${item.symbol}` : shortenMint(item.mint);
 
-    function pick(arr: string[]) {
-        return arr[Math.floor(Math.random() * arr.length)];
-    }
-
-    const statusLineMap: Record<TokenStatus, string[]> = {
-        healthy: [
-            `${symbol} is currently classified as healthy inside Coinographia.`,
-            `${symbol} still shows survival signals, but those signals are now visible.`,
-        ],
-        walking_dead: [
-            `${symbol} looks like a walking dead asset: not fully gone, but clearly damaged.`,
-            `${symbol} is still visible, but Coinographia is detecting decay signals.`,
-        ],
-        deadcoin: [
-            `${symbol} is showing up as a deadcoin inside Coinographia.`,
-            `${symbol} looks like abandoned market damage, but its story may not be over.`,
-        ],
-        redlist: [
-            `${symbol} is currently redlisted by Coinographia governance.`,
-            `${symbol} is restricted and not open for Coincarnation right now.`,
-        ],
-        blacklist: [
-            `${symbol} is blacklisted inside Coinographia.`,
-            `${symbol} is blocked from Coincarnation as invalidated market damage.`,
-        ],
-    };
-
-    const contextLineMap: Record<TokenStatus, string[]> = {
-        healthy: [
-            `Not every token in crypto is dead, but survival has to be visible.`,
-            `Coinographia makes survival and decay easier to see.`,
-        ],
-        walking_dead: [
-            `Crypto is full of assets trapped between survival and collapse.`,
-            `Walking dead assets should not stay invisible forever.`,
-        ],
-        deadcoin: [
-            `Deadcoins do not have to remain silent forever.`,
-            `Coincarnation turns dead weight into renewed participation.`,
-        ],
-        redlist: [
-            `Classification protects the revival flow when signals are broken.`,
-            `Not every damaged token should enter Coincarnation.`,
-        ],
-        blacklist: [
-            `A revival system also needs protection from invalid assets.`,
-            `Coinographia separates invalidated assets from the revival path.`,
-        ],
-    };
-
-    const closingLines: Record<TokenStatus, string[]> = {
-        healthy: [
-            `Watch the signal before the crowd notices.`,
-            `Survival is a signal too.`,
-        ],
-        walking_dead: [
-            `This is exactly where Coincarnation becomes relevant.`,
-            `The damage is visible now.`,
-        ],
-        deadcoin: [
-            `Dead value can still become participation.`,
-            `This is where a second life can begin.`,
-        ],
-        redlist: [
-            `Governance matters when market damage is real.`,
-            `The revival flow needs boundaries.`,
-        ],
-        blacklist: [
-            `Protection is part of the revival system.`,
-            `Invalidated assets stay outside the revival path.`,
-        ],
-    };
-
-    const finalLine = `${pick(closingLines[item.status])} #Coincarnation`;
-
     const tweetLines = [
-        `👁️ ${symbol} on Coinographia.`,
+        pickShareLine(getStatusShareOpeners(symbol, item.status)),
         '',
-        pick(statusLineMap[item.status]),
-        pick(contextLineMap[item.status]),
+        pickShareLine(getStatusSharePsychology(item.status)),
         '',
-        finalLine,
+        getShareCloserLine(),
+        '',
+        'coincarnation.com',
     ];
 
     return tweetLines.join('\n');
@@ -1022,8 +935,8 @@ function prepareCoincarnateTarget(
         } else {
             sessionStorage.removeItem('coincarnate_target_name');
         }
-    } catch {}
-    
+    } catch { }
+
     return true;
 
 }
@@ -1060,10 +973,10 @@ export default function CoinographiaPage() {
     ) {
         const prepared = prepareCoincarnateTarget(mint, status, symbol, name);
         if (!prepared) return;
-    
+
         router.push('/');
     }
-    
+
     function ShareArrowIcon({ className = '' }: { className?: string }) {
         return (
             <svg
