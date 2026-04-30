@@ -333,6 +333,11 @@ export default function HomePage() {
       'backdrop-blur-sm',
     ].join(' ');
   }
+
+  function hasPendingCoincarnateScan() {
+    if (typeof window === 'undefined') return false;
+    return !!safeReadPendingCoincarnateMint();
+  }
   
   function getShareButtonDisabledClass() {
     return [
@@ -691,6 +696,8 @@ export default function HomePage() {
   }
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (hasPendingCoincarnateScan()) return;
+
     const mint = e.target.value;
   
     const token = tokens.find((t) => t.mint === mint) || null;
@@ -1179,9 +1186,15 @@ export default function HomePage() {
                       <select
                         ref={tokenSelectRef}
                         id="token-select"
-                        className="min-w-0 flex-1 appearance-none bg-transparent py-1 pl-1 pr-8 text-sm font-semibold text-white outline-none cursor-pointer [color-scheme:dark]"
+                        className={[
+                          'min-w-0 flex-1 appearance-none bg-transparent py-1 pl-1 pr-8 text-sm font-semibold text-white outline-none [color-scheme:dark]',
+                          tokensLoading || refreshing || hasPendingCoincarnateScan()
+                            ? 'cursor-not-allowed opacity-60'
+                            : 'cursor-pointer',
+                        ].join(' ')}
                         value={selectedToken?.mint || ''}
                         onChange={handleSelectChange}
+                        disabled={tokensLoading || refreshing || hasPendingCoincarnateScan()}
                       >
                         <option
                           value=""
@@ -1190,14 +1203,16 @@ export default function HomePage() {
                         >
                           Select a token to Coincarnate
                         </option>
+
                         {tokens.map((token) => {
                           const sym = (token.symbol ?? token.mint.slice(0, 6)).toUpperCase();
                           const name = token.name?.trim();
                           const amt = formatTokenAmount(token);
 
-                          const label = name && name.toUpperCase() !== sym
-                            ? `${sym} — ${name} — ${amt}`
-                            : `${sym} — ${amt}`;
+                          const label =
+                            name && name.toUpperCase() !== sym
+                              ? `${sym} — ${name} — ${amt}`
+                              : `${sym} — ${amt}`;
 
                           return (
                             <option
