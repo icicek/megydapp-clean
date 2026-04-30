@@ -1851,24 +1851,32 @@ export default function CoinographiaPage() {
                                             )}
 
                                             <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
-                                                {canShareStatus(it.status) && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            shareDiscoveryOnX(it);
-                                                        }}
-                                                        className={`${getDiscoveryShareButtonClass(getDiscoveryHeatLevel(it))} h-8 w-8 text-[16px] leading-none`}
-                                                        title="Share signal"
-                                                        aria-label="Share signal"
-                                                    >
-                                                        {sharedMint === it.mint ? (
-                                                            '✓'
-                                                        ) : (
-                                                            <ShareArrowIcon className="h-[17px] w-[17px]" />
-                                                        )}
-                                                    </button>
-                                                )}
+                                                <button
+                                                    disabled={!canShareStatus(it.status)}
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        if (!canShareStatus(it.status)) return;
+                                                        void shareDiscoveryOnX(it);
+                                                    }}
+                                                    className={
+                                                        canShareStatus(it.status)
+                                                            ? `${getDiscoveryShareButtonClass(getDiscoveryHeatLevel(it))} h-8 w-8 text-[16px] leading-none`
+                                                            : `${getShareButtonDisabledClass('sm')} text-[16px] leading-none`
+                                                    }
+                                                    title={
+                                                        canShareStatus(it.status)
+                                                            ? 'Share signal'
+                                                            : 'Sharing is disabled for redlisted or blacklisted tokens'
+                                                    }
+                                                    aria-label={canShareStatus(it.status) ? 'Share signal' : 'Sharing disabled'}
+                                                >
+                                                    {sharedMint === it.mint && canShareStatus(it.status) ? (
+                                                        '✓'
+                                                    ) : (
+                                                        <ShareArrowIcon className="h-[17px] w-[17px]" />
+                                                    )}
+                                                </button>
                                             </div>
 
                                             <div className="relative z-[1] flex items-start gap-2.5 sm:gap-3">
