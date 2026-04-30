@@ -691,6 +691,18 @@ function canShareStatus(status: string) {
     return status !== 'redlist' && status !== 'blacklist';
 }
 
+function getShareButtonDisabledClass(size: 'sm' | 'md' = 'sm') {
+    const dimension = size === 'md' ? 'h-9 w-9' : 'h-8 w-8';
+
+    return [
+        'flex items-center justify-center rounded-xl border border-white/10',
+        'bg-white/[0.03] text-gray-500 opacity-45 cursor-not-allowed',
+        'shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_6px_16px_rgba(0,0,0,0.12)]',
+        'backdrop-blur-sm',
+        dimension,
+    ].join(' ');
+}
+
 function pickShareLine(arr: string[]) {
     return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -1018,6 +1030,7 @@ export default function CoinographiaPage() {
 
     async function shareDiscoveryOnX(item: DiscoveryRow) {
         if (typeof window === 'undefined') return;
+        if (!canShareStatus(item.status)) return;
 
         setSharedMint(item.mint);
         window.setTimeout(() => setSharedMint(null), 2000);
@@ -1032,6 +1045,7 @@ export default function CoinographiaPage() {
 
     async function shareRegistryOnX(item: TokenRow) {
         if (typeof window === 'undefined') return;
+        if (!canShareStatus(item.status)) return;
 
         setSharedMint(item.mint);
         window.setTimeout(() => setSharedMint(null), 2000);
@@ -2222,11 +2236,25 @@ export default function CoinographiaPage() {
                                 )}
 
                                 <div className="mt-4 grid grid-cols-2 gap-2">
-                                    {activeDiscoveryDetail && canShareStatus(activeDiscoveryDetail.status) && (
+                                    {activeDiscoveryDetail && (
                                         <button
                                             type="button"
-                                            onClick={() => void shareDiscoveryOnX(activeDiscoveryDetail)}
-                                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm font-semibold text-cyan-100 transition-all hover:border-cyan-400/35 hover:bg-cyan-400/15"
+                                            disabled={!canShareStatus(activeDiscoveryDetail.status)}
+                                            onClick={() => {
+                                                if (!canShareStatus(activeDiscoveryDetail.status)) return;
+                                                void shareDiscoveryOnX(activeDiscoveryDetail);
+                                            }}
+                                            className={[
+                                                'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all',
+                                                canShareStatus(activeDiscoveryDetail.status)
+                                                    ? 'border border-cyan-400/20 bg-cyan-400/10 text-cyan-100 hover:border-cyan-400/35 hover:bg-cyan-400/15'
+                                                    : 'border border-white/10 bg-white/[0.03] text-gray-500 opacity-45 cursor-not-allowed',
+                                            ].join(' ')}
+                                            title={
+                                                canShareStatus(activeDiscoveryDetail.status)
+                                                    ? 'Share signal'
+                                                    : 'Sharing is disabled for redlisted or blacklisted tokens'
+                                            }
                                         >
                                             <ShareArrowIcon className="h-4 w-4" />
                                             Share
@@ -2363,20 +2391,26 @@ export default function CoinographiaPage() {
                                             <span className="leading-none text-[16px]">✦</span>
                                         </button>
 
-                                        {it.status !== 'redlist' && it.status !== 'blacklist' && (
-                                            <button
-                                                onClick={() => shareRegistryOnX(it)}
-                                                className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.08] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_16px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 hover:border-cyan-400/35 hover:bg-cyan-500/[0.14] active:scale-95"
-                                                title="Share signal"
-                                                aria-label="Share signal"
-                                            >
-                                                {sharedMint === it.mint ? (
-                                                    '✓'
-                                                ) : (
-                                                    <ShareArrowIcon className="h-[17px] w-[17px]" />
-                                                )}
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={() => {
+                                                if (!canShareStatus(it.status)) return;
+                                                void shareRegistryOnX(it);
+                                            }}
+                                            disabled={!canShareStatus(it.status)}
+                                            className={
+                                                canShareStatus(it.status)
+                                                    ? "flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.08] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_16px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 hover:border-cyan-400/35 hover:bg-cyan-500/[0.14] active:scale-95"
+                                                    : getShareButtonDisabledClass('sm')
+                                            }
+                                            title={canShareStatus(it.status) ? 'Share signal' : 'Sharing is disabled for redlisted or blacklisted tokens'}
+                                            aria-label={canShareStatus(it.status) ? 'Share signal' : 'Sharing disabled'}
+                                        >
+                                            {sharedMint === it.mint && canShareStatus(it.status) ? (
+                                                '✓'
+                                            ) : (
+                                                <ShareArrowIcon className="h-[17px] w-[17px]" />
+                                            )}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -2490,20 +2524,30 @@ export default function CoinographiaPage() {
                                                     {it.symbol ? `✦ Coincarnate $${it.symbol}` : '✦ Coincarnate'}
                                                 </button>
 
-                                                {canShareStatus(it.status) && (
-                                                    <button
-                                                        onClick={() => shareRegistryOnX(it)}
-                                                        className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.08] text-[15px] leading-none text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_18px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-all duration-200 hover:-translate-y-[1px] hover:scale-105 hover:border-cyan-400/35 hover:bg-cyan-500/[0.14] hover:shadow-[0_0_24px_rgba(34,211,238,0.28)] active:scale-95"
-                                                        title="Share signal"
-                                                        aria-label="Share signal"
-                                                    >
-                                                        {sharedMint === it.mint ? (
-                                                            '✓'
-                                                        ) : (
-                                                            <ShareArrowIcon className="h-[17px] w-[17px]" />
-                                                        )}
-                                                    </button>
-                                                )}
+                                                <button
+                                                    onClick={() => {
+                                                        if (!canShareStatus(it.status)) return;
+                                                        void shareRegistryOnX(it);
+                                                    }}
+                                                    disabled={!canShareStatus(it.status)}
+                                                    className={
+                                                        canShareStatus(it.status)
+                                                            ? "flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.08] text-[15px] leading-none text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_18px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-all duration-200 hover:-translate-y-[1px] hover:scale-105 hover:border-cyan-400/35 hover:bg-cyan-500/[0.14] hover:shadow-[0_0_24px_rgba(34,211,238,0.28)] active:scale-95"
+                                                            : getShareButtonDisabledClass('md')
+                                                    }
+                                                    title={
+                                                        canShareStatus(it.status)
+                                                            ? 'Share signal'
+                                                            : 'Sharing is disabled for redlisted or blacklisted tokens'
+                                                    }
+                                                    aria-label={canShareStatus(it.status) ? 'Share signal' : 'Sharing disabled'}
+                                                >
+                                                    {sharedMint === it.mint && canShareStatus(it.status) ? (
+                                                        '✓'
+                                                    ) : (
+                                                        <ShareArrowIcon className="h-[17px] w-[17px]" />
+                                                    )}
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
