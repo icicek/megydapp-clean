@@ -2490,18 +2490,20 @@ export default function CoinographiaPage() {
                                                     {it.symbol ? `✦ Coincarnate $${it.symbol}` : '✦ Coincarnate'}
                                                 </button>
 
-                                                <button
-                                                    onClick={() => shareRegistryOnX(it)}
-                                                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.08] text-[15px] leading-none text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_18px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-all duration-200 hover:-translate-y-[1px] hover:scale-105 hover:border-cyan-400/35 hover:bg-cyan-500/[0.14] hover:shadow-[0_0_24px_rgba(34,211,238,0.28)] active:scale-95"
-                                                    title="Share signal"
-                                                    aria-label="Share signal"
-                                                >
-                                                    {sharedMint === it.mint ? (
-                                                        '✓'
-                                                    ) : (
-                                                        <ShareArrowIcon className="h-[17px] w-[17px]" />
-                                                    )}
-                                                </button>
+                                                {canShareStatus(it.status) && (
+                                                    <button
+                                                        onClick={() => shareRegistryOnX(it)}
+                                                        className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.08] text-[15px] leading-none text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_18px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-all duration-200 hover:-translate-y-[1px] hover:scale-105 hover:border-cyan-400/35 hover:bg-cyan-500/[0.14] hover:shadow-[0_0_24px_rgba(34,211,238,0.28)] active:scale-95"
+                                                        title="Share signal"
+                                                        aria-label="Share signal"
+                                                    >
+                                                        {sharedMint === it.mint ? (
+                                                            '✓'
+                                                        ) : (
+                                                            <ShareArrowIcon className="h-[17px] w-[17px]" />
+                                                        )}
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
