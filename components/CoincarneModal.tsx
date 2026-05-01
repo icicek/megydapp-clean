@@ -1602,7 +1602,7 @@ export default function CoincarneModal({
                 {[25, 50, 75, 100].map((p) => (
                   <button
                     key={p}
-                    className="bg-gradient-to-br from-purple-600 to-pink-500 hover:opacity-90 text-white font-semibold py-2 rounded-lg shadow"
+                    className="rounded-2xl border border-violet-400/20 bg-violet-500/[0.08] py-2.5 text-sm font-semibold text-violet-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_18px_rgba(0,0,0,0.16)] transition-all duration-200 hover:-translate-y-[1px] hover:border-violet-300/35 hover:bg-violet-500/[0.14] hover:text-white active:scale-95"
                     onClick={() => handlePercentage(p)}
                     disabled={loading || (balLoading && !hasUsableBalance) || !hasUsableBalance}
                   >
@@ -1624,14 +1624,14 @@ export default function CoincarneModal({
                   setPrecheckMsg(null);
                 }}
                 placeholder="Enter amount"
-                className="w-full bg-zinc-800 text-white p-3 rounded-lg border border-zinc-600 mb-4"
+                className="mb-4 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] outline-none transition-all duration-200 placeholder:text-gray-500 focus:border-cyan-400/30 focus:bg-cyan-400/[0.03]"
                 disabled={loading || isTxInFlight}
               />
 
               <button
                 onClick={handlePrepareConfirm}
                 disabled={loading || isTxInFlight || !amountInput || !!destErr || !hasUsableBalance}
-                className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 text-black font-extrabold py-3 rounded-xl transition hover:scale-105 active:scale-95"
+                className="w-full rounded-2xl bg-[linear-gradient(90deg,#22d3ee,#a855f7,#f472b6)] px-4 py-3 font-black tracking-wide text-black shadow-[0_12px_30px_rgba(168,85,247,0.28)] transition-all duration-200 hover:scale-[1.015] hover:shadow-[0_16px_34px_rgba(168,85,247,0.34)] active:scale-95 disabled:opacity-50"
               >
                 {loading
                   ? getTxStageLabel(txStage) || 'Processing...'
@@ -1639,13 +1639,17 @@ export default function CoincarneModal({
               </button>
 
               {txStage !== 'idle' && (
-                <div className="mt-3 rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-3 text-center">
-                  <p className="text-sm text-zinc-200">{getTxStageLabel(txStage)}</p>
+                <div className="mt-4 rounded-2xl border border-cyan-400/12 bg-cyan-400/[0.04] px-4 py-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
+                  <p className="text-sm font-medium text-cyan-100">
+                    {getTxStageLabel(txStage)}
+                  </p>
+
                   {txStage !== 'success' && txStage !== 'error' && (
                     <p className="mt-1 text-xs text-zinc-400">
                       Please keep this window open until the process finishes.
                     </p>
                   )}
+
                   {txError && (
                     <p className="mt-2 text-xs text-red-400">{txError}</p>
                   )}
@@ -1653,9 +1657,9 @@ export default function CoincarneModal({
               )}
 
               {precheckMsg && (
-                <p className="mt-2 text-xs text-amber-300 text-center">
+                <div className="mt-3 rounded-2xl border border-amber-400/20 bg-amber-500/[0.07] px-4 py-3 text-center text-xs text-amber-200">
                   {precheckMsg}
-                </p>
+                </div>
               )}
 
               <button
