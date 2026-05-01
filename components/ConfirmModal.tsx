@@ -266,10 +266,10 @@ export default function ConfirmModal({
     if (statusLoading) return null;
     if (!listStatus) return null;
 
-    const base = 'p-3 rounded font-medium text-white';
+    const base = 'p-3 font-medium text-white';
     if (listStatus === 'blacklist') {
       return (
-        <div className={`bg-red-600 ${base}`}>
+        <div className={`rounded-2xl border border-red-400/20 bg-red-500/[0.08] ${base}`}>
           ⛔ This token is on the <strong>Blacklist</strong>.
           {statusAt ? <> Since {new Date(statusAt).toLocaleString()}.</> : null}
           <div className="text-xs opacity-90">
@@ -280,7 +280,7 @@ export default function ConfirmModal({
     }
     if (listStatus === 'redlist') {
       return (
-        <div className={`bg-amber-600 ${base}`}>
+        <div className={`rounded-2xl border border-amber-400/20 bg-amber-500/[0.08] ${base}`}>
           ⚠️ This token is on the <strong>Redlist</strong>.
           {statusAt ? <> Since {new Date(statusAt).toLocaleString()}.</> : null}
           <div className="text-xs opacity-90">
@@ -291,7 +291,7 @@ export default function ConfirmModal({
     }
     if (listStatus === 'deadcoin') {
       return (
-        <div className={`bg-yellow-700 ${base}`}>
+        <div className={`rounded-2xl border border-yellow-400/20 bg-yellow-500/[0.08] ${base}`}>
           ☠️ This token is classified as a <strong>Deadcoin</strong>.
           {statusAt ? <> Since {new Date(statusAt).toLocaleString()}.</> : null}
           <div className="text-xs opacity-90">
@@ -302,7 +302,7 @@ export default function ConfirmModal({
     }
     if (listStatus === 'walking_dead') {
       return (
-        <div className={`bg-orange-700 ${base}`}>
+        <div className={`rounded-2xl border border-orange-400/20 bg-orange-500/[0.08] ${base}`}>
           🧟 This token is on the <strong>Walking Deadcoin</strong> list.
           {statusAt ? <> Since {new Date(statusAt).toLocaleString()}.</> : null}
           <div className="text-xs opacity-90">
@@ -365,9 +365,17 @@ export default function ConfirmModal({
         onEscapeKeyDown={(e) => {
           if (busy) e.preventDefault();
         }}
-        className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-50 shadow-lg"
+        className="w-[92vw] max-w-md rounded-[26px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.07),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.08),transparent_22%),linear-gradient(135deg,#09090b,#121218_58%,#0a0a0d)] p-6 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_24px_70px_rgba(0,0,0,0.62),0_0_50px_rgba(34,211,238,0.05)] backdrop-blur-xl z-50"
       >
-        <DialogTitle className="text-white">{titleText}</DialogTitle>
+        <div className="mb-4 text-center">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-200">
+            Coincarnation Review
+          </div>
+
+          <DialogTitle className="text-[24px] font-black tracking-tight text-white">
+            {titleText}
+          </DialogTitle>
+        </div>
         {errorMessage && (
           <div className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-100">
             <div className="font-semibold mb-1">Could not continue</div>
@@ -410,7 +418,7 @@ export default function ConfirmModal({
           </div>
         )}
 
-        <div className="mt-3 text-sm text-white space-y-1">
+        <div className="mt-3 rounded-2xl border border-white/8 bg-white/[0.025] px-4 py-3 text-sm text-white space-y-1">
           <p>
             You are about to coincarnate <strong>{tokenSymbol}</strong> ({amount}{' '}
             units).
@@ -453,7 +461,7 @@ export default function ConfirmModal({
 
         <div className="space-y-3 text-sm text-white mt-4">
           {statusLoading && (
-            <div className="bg-blue-700 text-white p-3 rounded font-medium">
+            <div className="rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] p-3 font-medium text-cyan-100">
               🔄 Checking latest token status...
             </div>
           )}
@@ -462,7 +470,7 @@ export default function ConfirmModal({
 
           {/* 🔄 Fiyat yükleniyor */}
           {fetchStatus === 'loading' && (
-            <div className="bg-blue-700 text-white p-3 rounded font-medium">
+            <div className="rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] p-3 font-medium text-cyan-100">
               🔄 Fetching price data... Please wait.
             </div>
           )}
@@ -472,7 +480,7 @@ export default function ConfirmModal({
             listStatus !== 'deadcoin' &&
             fetchStatus !== 'loading' &&
             fetchStatus !== 'error' && (
-              <div className="bg-yellow-700 text-white p-3 rounded">
+              <div className="rounded-2xl border border-yellow-400/20 bg-yellow-500/[0.08] p-3 text-white">
                 ☠️ <strong>This token is treated as a Deadcoin.</strong>
                 <br />
                 CorePoint is granted; MEGY is not distributed,
@@ -484,7 +492,7 @@ export default function ConfirmModal({
           {fetchStatus === 'found' &&
             !isHardBlocked &&
             derivedUsd > 0 && (
-              <div className="bg-green-700 text-white p-3 rounded font-medium">
+              <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/[0.06] p-3 font-medium text-emerald-100">
                 ✅ Estimated value:{' '}
                 <strong>${derivedUsd.toString()}</strong>
                 {isDeadcoin && (
@@ -581,13 +589,13 @@ export default function ConfirmModal({
               onCancel();
             }}
             disabled={busy}
-            className="rounded bg-gray-500/70 px-4 py-2 font-semibold text-white transition hover:bg-gray-500 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-2.5 font-semibold text-gray-300 transition-all duration-200 hover:bg-white/[0.06] hover:text-white disabled:opacity-60 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
           <button
             onClick={handleConfirmClick}
-            className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+            className="rounded-2xl bg-[linear-gradient(90deg,#22d3ee,#a855f7,#f472b6)] px-4 py-2.5 font-black text-black shadow-[0_10px_24px_rgba(168,85,247,0.24)] transition-all duration-200 hover:scale-[1.02] active:scale-95 disabled:opacity-50"
             disabled={confirmBtnDisabled}
           >
             {effectiveConfirmLabel}
