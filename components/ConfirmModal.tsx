@@ -358,7 +358,15 @@ export default function ConfirmModal({
       }}
     >
       <DialogOverlay />
-      <DialogContent className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-50 shadow-lg">
+      <DialogContent
+        onPointerDownOutside={(e) => {
+          if (busy) e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          if (busy) e.preventDefault();
+        }}
+        className="bg-zinc-900 text-white p-6 rounded-xl w-[90vw] max-w-md z-50 shadow-lg"
+      >
         <DialogTitle className="text-white">{titleText}</DialogTitle>
         {errorMessage && (
           <div className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-100">
@@ -568,7 +576,10 @@ export default function ConfirmModal({
         <div className="flex justify-end gap-2 mt-6">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={() => {
+              if (busy) return;
+              onCancel();
+            }}
             disabled={busy}
             className="rounded bg-gray-500/70 px-4 py-2 font-semibold text-white transition hover:bg-gray-500 disabled:opacity-60 disabled:cursor-not-allowed"
           >

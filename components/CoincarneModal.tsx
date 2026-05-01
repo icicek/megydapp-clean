@@ -314,7 +314,8 @@ export default function CoincarneModal({
     explorerUrl?: string;
   } | null>(null);
   
-  const [statusInfo, setStatusInfo] = useState<StatusApiResponse | null>(null);  
+  const [statusInfo, setStatusInfo] = useState<StatusApiResponse | null>(null);
+  const amountInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [priceView, setPriceView] = useState<PriceView>({
@@ -832,6 +833,68 @@ export default function CoincarneModal({
     setTxError(null);
     setUiNotice(null);
     setLoading(false);
+  }
+
+  function resetForRecoincarnate() {
+    setResultData(null);
+    setAmountInput('');
+    setTxStage('idle');
+    setTxError(null);
+    setPrecheckMsg(null);
+    setUiNotice(null);
+    setLoading(false);
+    setConfirmModalOpen(false);
+  
+    window.setTimeout(() => {
+      amountInputRef.current?.focus();
+      amountInputRef.current?.scrollIntoView({
+        block: 'center',
+        behavior: 'smooth',
+      });
+    }, 180);
+  }
+
+  function sanitizeAmountInput(raw: string) {
+    const cleaned = raw.replace(',', '.').replace(/[^\d.]/g, '');
+  
+    if (!cleaned) return '';
+  
+    const firstDot = cleaned.indexOf('.');
+    const normalized =
+      firstDot >= 0
+        ? cleaned.slice(0, firstDot + 1) +
+          cleaned
+            .slice(firstDot + 1)
+            .replace(/\./g, '')
+        : cleaned;
+  
+    let numeric = Number(normalized);
+  
+    if (!Number.isFinite(numeric) || numeric < 0) {
+      return '';
+    }
+  
+    const maxDecimals = effectiveBalance.decimals ?? (isSOLToken ? 9 : 6);
+  
+    const [intPart, decPart] = normalized.split('.');
+  
+    let finalString =
+      decPart !== undefined
+        ? `${intPart}.${decPart.slice(0, maxDecimals)}`
+        : intPart;
+  
+    numeric = Number(finalString);
+  
+    if (Number.isFinite(numeric) && numeric > effectiveBalance.amount) {
+      finalString = String(
+        quantize(
+          effectiveBalance.amount,
+          effectiveBalance.decimals ?? (isSOLToken ? 9 : 6)
+        )
+      );
+    }
+  
+    return finalString;
   }
   
   async function submitTx(
@@ -1440,7 +1503,15 @@ export default function CoincarneModal({
         }}
       >
         <DialogOverlay />
-        <DialogContent className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center">
+        <DialogContent
+          onPointerDownOutside={(e) => {
+            if (isTxInFlight) e.preventDefault();
+          }}
+          onEscapeKeyDown={(e) => {
+            if (isTxInFlight) e.preventDefault();
+          }}
+          className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center"
+        >
           <button
             type="button"
             onClick={() => {
@@ -1476,7 +1547,7 @@ export default function CoincarneModal({
             amount={resultData.amount}
             usdValue={resultData.usdValue}
             explorerUrl={resultData.explorerUrl}
-            onRecoincarnate={() => setResultData(null)}
+            onRecoincarnate={resetForRecoincarnate}
             onGoToProfile={() => {
               onClose();
               onGoToProfileRequest?.();
@@ -1535,11 +1606,15 @@ export default function CoincarneModal({
               </div>
 
               <input
+                ref={amountInputRef}
                 type="number"
+                inputMode="decimal"
                 step="0.000001"
+                min="0"
+                max={String(effectiveBalance.amount)}
                 value={amountInput}
                 onChange={(e) => {
-                  setAmountInput(e.target.value);
+                  setAmountInput(sanitizeAmountInput(e.target.value));
                   setPrecheckMsg(null);
                 }}
                 placeholder="Enter amount"
