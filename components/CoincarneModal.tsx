@@ -476,6 +476,12 @@ export default function CoincarneModal({
       return;
     }
 
+    if (!hasUsableBalance || amountToSend > effectiveBalance.amount) {
+      setPrecheckMsg('Amount exceeds your available balance.');
+      setTxStage('idle');
+      return;
+    }
+
     try {
       // --- Precheck: SOL sufficiency (fees / ATA rent) ---
       const solLamports = await connection.getBalance(publicKey, 'processed');
@@ -819,6 +825,8 @@ export default function CoincarneModal({
   }
   
   function closeConfirmModal() {
+    if (isTxInFlight) return;
+  
     setConfirmModalOpen(false);
     setTxStage('idle');
     setTxError(null);
@@ -1433,6 +1441,23 @@ export default function CoincarneModal({
       >
         <DialogOverlay />
         <DialogContent className="z-50 bg-gradient-to-br from-black to-zinc-900 text-white rounded-2xl p-6 max-w-md w-full h-[90vh] overflow-y-auto flex flex-col justify-center">
+          <button
+            type="button"
+            onClick={() => {
+              if (isTxInFlight) return;
+              onClose();
+            }}
+            disabled={isTxInFlight}
+            className={
+              isTxInFlight
+                ? 'absolute right-4 top-4 z-50 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-gray-500 opacity-40 cursor-not-allowed'
+                : 'absolute right-4 top-4 z-50 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-gray-300 transition-all duration-200 hover:bg-white/[0.08] hover:text-white active:scale-95'
+            }
+            title={isTxInFlight ? 'Transaction in progress' : 'Close'}
+            aria-label={isTxInFlight ? 'Transaction in progress' : 'Close'}
+          >
+            ✕
+          </button>
           <DialogTitle className="sr-only">
             Coincarnate {displaySymbol}
           </DialogTitle>
@@ -1519,12 +1544,12 @@ export default function CoincarneModal({
                 }}
                 placeholder="Enter amount"
                 className="w-full bg-zinc-800 text-white p-3 rounded-lg border border-zinc-600 mb-4"
-                disabled={loading}
+                disabled={loading || isTxInFlight}
               />
 
               <button
                 onClick={handlePrepareConfirm}
-                disabled={loading || !amountInput || !!destErr}
+                disabled={loading || isTxInFlight || !amountInput || !!destErr || !hasUsableBalance}
                 className="w-full bg-gradient-to-r from-green-500 via-yellow-400 to-pink-500 text-black font-extrabold py-3 rounded-xl transition hover:scale-105 active:scale-95"
               >
                 {loading
@@ -1553,11 +1578,16 @@ export default function CoincarneModal({
               )}
 
               <button
+                type="button"
                 onClick={onClose}
-                className="mt-3 w-full text-sm text-red-500 hover:text-white"
-                disabled={loading}
+                disabled={loading || isTxInFlight}
+                className={
+                  loading || isTxInFlight
+                    ? 'mt-3 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-medium text-gray-500 opacity-45 cursor-not-allowed'
+                    : 'mt-3 w-full rounded-xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm font-medium text-gray-300 transition-all duration-200 hover:border-red-400/25 hover:bg-red-500/[0.06] hover:text-white active:scale-[0.98]'
+                }
               >
-                ❌ Not Interested in Global Synergy
+                Not Interested in Global Synergy
               </button>
             </>
           )}
