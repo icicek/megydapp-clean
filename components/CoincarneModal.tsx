@@ -1510,7 +1510,7 @@ export default function CoincarneModal({
           onEscapeKeyDown={(e) => {
             if (isTxInFlight) e.preventDefault();
           }}
-          className="z-50 w-[92vw] max-w-md h-[90vh] overflow-y-auto rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.08),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.08),transparent_24%),linear-gradient(135deg,#050505,#101014_58%,#09090b)] p-6 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_30px_80px_rgba(0,0,0,0.65),0_0_60px_rgba(34,211,238,0.06)] backdrop-blur-xl flex flex-col justify-center"
+          className="z-50 w-[92vw] max-w-md h-[90vh] overflow-y-auto rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.08),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.08),transparent_24%),linear-gradient(135deg,#050505,#101014_58%,#09090b)] p-6 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_30px_80px_rgba(0,0,0,0.65),0_0_60px_rgba(34,211,238,0.06)] backdrop-blur-xl flex flex-col justify-start"
         >
           <button
             type="button"
