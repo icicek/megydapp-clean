@@ -1450,37 +1450,57 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="relative mx-auto flex w-full max-w-[420px] items-center justify-center py-4 sm:py-6">
-            <div className="absolute h-[280px] w-[280px] rounded-full border border-emerald-300/10 sm:h-[340px] sm:w-[340px]" />
-            <div className="absolute h-[220px] w-[220px] rounded-full border border-cyan-300/10 sm:h-[270px] sm:w-[270px]" />
-            <div className="absolute h-[150px] w-[150px] rounded-full border border-violet-300/10 sm:h-[190px] sm:w-[190px]" />
+          <div className="relative mx-auto w-full max-w-[420px] py-4 sm:py-6">
+            <div className="relative mx-auto flex min-h-[255px] items-center justify-center sm:min-h-[320px]">
+              <div className="absolute h-[245px] w-[245px] rounded-full border border-emerald-300/10 sm:h-[340px] sm:w-[340px]" />
+              <div className="absolute h-[195px] w-[195px] rounded-full border border-cyan-300/10 sm:h-[270px] sm:w-[270px]" />
+              <div className="absolute h-[135px] w-[135px] rounded-full border border-violet-300/10 sm:h-[190px] sm:w-[190px]" />
 
-            <div className="relative flex h-[180px] w-[180px] flex-col items-center justify-center rounded-full border border-emerald-300/25 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),rgba(8,18,20,0.96)_58%,rgba(5,10,16,0.98))] text-center shadow-[0_0_50px_rgba(16,185,129,0.16)] sm:h-[220px] sm:w-[220px]">
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-200">
-                Core Engine
-              </p>
-              <p className="mt-2 text-xl font-black text-white sm:text-2xl">
-                Fair Future Fund
-              </p>
-              <p className="mt-2 max-w-[145px] text-[11px] leading-5 text-gray-300 sm:max-w-[170px]">
-                collective revival power into shared future value
-              </p>
+              <div className="relative flex h-[165px] w-[165px] flex-col items-center justify-center rounded-full border border-emerald-300/25 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),rgba(8,18,20,0.96)_58%,rgba(5,10,16,0.98))] text-center shadow-[0_0_50px_rgba(16,185,129,0.16)] sm:h-[220px] sm:w-[220px]">
+                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-emerald-200 sm:text-[10px] sm:tracking-[0.22em]">
+                  Core Engine
+                </p>
+                <p className="mt-2 text-lg font-black text-white sm:text-2xl">
+                  Fair Future Fund
+                </p>
+                <p className="mt-2 max-w-[130px] text-[10px] leading-4 text-gray-300 sm:max-w-[170px] sm:text-[11px] sm:leading-5">
+                  collective revival power into shared future value
+                </p>
+              </div>
+
+              <div className="absolute left-0 top-5 hidden rounded-2xl border border-cyan-300/20 bg-cyan-400/[0.08] px-3 py-2 text-xs font-semibold text-cyan-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)] sm:block">
+                Coincarne Actions
+              </div>
+
+              <div className="absolute right-0 top-10 hidden rounded-2xl border border-amber-300/20 bg-amber-400/[0.08] px-3 py-2 text-xs font-semibold text-amber-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)] sm:block">
+                Deadcoin Deliveries
+              </div>
+
+              <div className="absolute bottom-8 left-2 hidden rounded-2xl border border-violet-300/20 bg-violet-400/[0.08] px-3 py-2 text-xs font-semibold text-violet-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)] sm:block">
+                Referrals
+              </div>
+
+              <div className="absolute bottom-3 right-2 hidden rounded-2xl border border-emerald-300/20 bg-emerald-400/[0.08] px-3 py-2 text-xs font-semibold text-emerald-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)] sm:block">
+                Social Impact
+              </div>
             </div>
 
-            <div className="absolute left-0 top-5 rounded-2xl border border-cyan-300/20 bg-cyan-400/[0.08] px-3 py-2 text-xs font-semibold text-cyan-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)]">
-              Coincarnation Inputs
-            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:hidden">
+              <div className="rounded-2xl border border-cyan-300/20 bg-cyan-400/[0.08] px-3 py-2 text-center text-[11px] font-semibold text-cyan-100">
+                Coincarne Actions
+              </div>
 
-            <div className="absolute right-0 top-10 rounded-2xl border border-amber-300/20 bg-amber-400/[0.08] px-3 py-2 text-xs font-semibold text-amber-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)]">
-              Deadcoin Deliveries
-            </div>
+              <div className="rounded-2xl border border-amber-300/20 bg-amber-400/[0.08] px-3 py-2 text-center text-[11px] font-semibold text-amber-100">
+                Deadcoin Deliveries
+              </div>
 
-            <div className="absolute bottom-8 left-2 rounded-2xl border border-violet-300/20 bg-violet-400/[0.08] px-3 py-2 text-xs font-semibold text-violet-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)]">
-              Referral Growth
-            </div>
+              <div className="rounded-2xl border border-violet-300/20 bg-violet-400/[0.08] px-3 py-2 text-center text-[11px] font-semibold text-violet-100">
+                Referrals
+              </div>
 
-            <div className="absolute bottom-3 right-2 rounded-2xl border border-emerald-300/20 bg-emerald-400/[0.08] px-3 py-2 text-xs font-semibold text-emerald-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)]">
-              Social Impact
+              <div className="rounded-2xl border border-emerald-300/20 bg-emerald-400/[0.08] px-3 py-2 text-center text-[11px] font-semibold text-emerald-100">
+                Social Impact
+              </div>
             </div>
           </div>
         </div>
@@ -1504,7 +1524,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-      
+
       <div className="w-full max-w-5xl rounded-2xl border border-white/10 bg-white/5 p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
