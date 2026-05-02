@@ -1969,59 +1969,100 @@ export default function HomePage() {
         </div>
       </section>
 
-            {/* Footer Command Bar */}
-            <section className="w-full max-w-5xl pb-4">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <a
-            href="/coinographia"
-            className="group rounded-2xl border border-cyan-300/15 bg-cyan-400/[0.05] px-4 py-4 text-center transition-all duration-200 hover:border-cyan-300/30 hover:bg-cyan-400/[0.08] hover:-translate-y-0.5"
-          >
-            <p className="text-sm font-bold text-cyan-100">Explore Coinographia</p>
-            <p className="mt-1 text-[11px] text-gray-400">live token intelligence</p>
-          </a>
+      {/* Premium Footer */}
+      <footer className="w-full max-w-5xl border-t border-white/10 pt-6 pb-4">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+          <div>
+            <h3 className="text-lg font-bold text-white">Coincarnation</h3>
+            <p className="mt-2 max-w-sm text-sm leading-6 text-gray-400">
+              A Proof of Value protocol transforming forgotten crypto value into
+              Personal Value Currency while building the Fair Future Fund.
+            </p>
+          </div>
 
-          <button
-            onClick={() => {
-              if (!connected || !pubkeyBase58) {
-                showCoinFlowOverlay(
-                  'Wallet Required',
-                  'Connect your wallet to view your Coincarnation profile.',
-                  'info',
-                  3200
-                );
-                return;
-              }
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
+              Navigate
+            </p>
 
-              router.push('/profile');
-            }}
-            className="group rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.05] px-4 py-4 text-center transition-all duration-200 hover:border-emerald-300/30 hover:bg-emerald-400/[0.08] hover:-translate-y-0.5"
-          >
-            <p className="text-sm font-bold text-emerald-100">Open Your Profile</p>
-            <p className="mt-1 text-[11px] text-gray-400">claims, CorePoint, history</p>
-          </button>
+            <div className="mt-3 flex flex-col gap-2 text-sm">
+              <a
+                href="/coinographia"
+                className="text-cyan-200 transition-colors hover:text-cyan-100"
+              >
+                Explore Coinographia
+              </a>
 
-          <a
-            href="/docs"
-            className="group rounded-2xl border border-violet-300/15 bg-violet-400/[0.05] px-4 py-4 text-center transition-all duration-200 hover:border-violet-300/30 hover:bg-violet-400/[0.08] hover:-translate-y-0.5"
-          >
-            <p className="text-sm font-bold text-violet-100">Read the Docs</p>
-            <p className="mt-1 text-[11px] text-gray-400">protocol mechanics</p>
-          </a>
+              <button
+                onClick={() => {
+                  if (!connected || !pubkeyBase58) {
+                    showCoinFlowOverlay(
+                      'Wallet Required',
+                      'Connect your wallet to view your Coincarnation profile.',
+                      'info',
+                      3200
+                    );
+                    return;
+                  }
 
-          <button
-            type="button"
-            onClick={() =>
-              void openXIntent(
-                'People are starting to Coincarnate deadcoins into something much bigger.'
-              )
-            }
-            className="group rounded-2xl border border-pink-300/15 bg-pink-400/[0.05] px-4 py-4 text-center transition-all duration-200 hover:border-pink-300/30 hover:bg-pink-400/[0.08] hover:-translate-y-0.5"
-          >
-            <p className="text-sm font-bold text-pink-100">Share Coincarnation</p>
-            <p className="mt-1 text-[11px] text-gray-400">spread the signal</p>
-          </button>
+                  router.push('/profile');
+                }}
+                className="text-left text-emerald-200 transition-colors hover:text-emerald-100"
+              >
+                Open Your Profile
+              </button>
+
+              <a
+                href="/docs"
+                className="text-violet-200 transition-colors hover:text-violet-100"
+              >
+                Read the Docs
+              </a>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
+              Social
+            </p>
+
+            <div className="mt-3 flex flex-col gap-2 text-sm">
+              <button
+                type="button"
+                onClick={() =>
+                  void openXIntent(
+                    'People are starting to Coincarnate deadcoins into something much bigger.'
+                  )
+                }
+                className="text-left text-pink-200 transition-colors hover:text-pink-100"
+              >
+                Share on X
+              </button>
+
+              <a
+                href="#"
+                className="text-gray-300 transition-colors hover:text-white"
+              >
+                Telegram
+              </a>
+
+              <a
+                href="#"
+                className="text-gray-300 transition-colors hover:text-white"
+              >
+                Discord
+              </a>
+            </div>
+          </div>
         </div>
-      </section>
+
+        <div className="mt-8 border-t border-white/8 pt-4 text-center">
+          <p className="text-xs leading-5 text-gray-500">
+            Every human being should have the right to build a personal currency
+            powered by the value they contribute to the world.
+          </p>
+        </div>
+      </footer>
 
       <AdminLink className="w-full max-w-5xl mt-3" />
 
