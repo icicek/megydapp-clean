@@ -1832,82 +1832,99 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Global Revival Metrics */}
+      {/* Protocol Pulse Metrics */}
       <section className="w-full max-w-5xl">
-        <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.12),transparent_30%),linear-gradient(180deg,rgba(15,23,42,0.72),rgba(3,7,18,0.86))] p-4 sm:p-6 shadow-[0_22px_70px_rgba(0,0,0,0.32),0_0_36px_rgba(34,211,238,0.06)]">
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.07),transparent_25%,rgba(16,185,129,0.07)_58%,transparent_82%)] opacity-60" />
+        <div className="relative overflow-hidden rounded-[32px] border border-cyan-400/15 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.14),transparent_34%),radial-gradient(circle_at_bottom,rgba(16,185,129,0.12),transparent_34%),linear-gradient(180deg,rgba(4,11,20,0.92),rgba(2,6,14,0.98))] px-4 py-7 sm:px-6 sm:py-9 shadow-[0_28px_90px_rgba(0,0,0,0.38),0_0_60px_rgba(34,211,238,0.08)]">
+          <div className="pointer-events-none absolute left-1/2 top-1/2 h-[360px] w-[360px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-300/10" />
+          <div className="pointer-events-none absolute left-1/2 top-1/2 h-[260px] w-[260px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-emerald-300/10" />
+          <div className="pointer-events-none absolute left-1/2 top-1/2 h-[160px] w-[160px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-violet-300/10" />
 
-          <div className="relative z-[1] flex flex-col gap-2 text-center sm:text-left">
-            <div className="inline-flex w-fit items-center justify-center gap-2 self-center rounded-full border border-cyan-300/20 bg-cyan-400/[0.07] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-200 sm:self-start">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.7)]" />
-              Live Protocol Metrics
+          <div className="relative z-[1] text-center">
+            <div className="inline-flex items-center justify-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/[0.07] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.75)]" />
+              Protocol Pulse
             </div>
 
-            <h2 className="text-2xl font-black leading-tight text-white sm:text-3xl">
+            <h2 className="mt-4 text-2xl font-black leading-tight text-white sm:text-3xl">
               Global Revival Metrics
             </h2>
 
-            <p className="max-w-2xl text-sm leading-6 text-gray-400">
-              A live snapshot of Coincarnation activity, revived value, damaged assets,
-              and the emerging Proof of Value economy.
+            <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-gray-400">
+              The live output of Coincarnation: revived value, active wallets,
+              processed dead assets, and emerging Proof of Value units.
             </p>
           </div>
 
-          <div className="relative z-[1] mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="group rounded-2xl border border-cyan-300/15 bg-cyan-400/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-200 hover:border-cyan-300/28 hover:bg-cyan-400/[0.07]">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200">
-                Total Participants
-              </p>
+          <div className="relative z-[1] mx-auto mt-7 grid max-w-4xl grid-cols-1 gap-4 md:grid-cols-[1fr_1.35fr_1fr] md:items-center">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-1">
+              <div className="rounded-2xl border border-cyan-300/15 bg-cyan-400/[0.045] p-4 text-center md:text-left">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200">
+                  Participants
+                </p>
+                <p className="mt-2 text-2xl font-black text-white">
+                  <CountUp end={globalStats.totalParticipants} duration={2} />
+                </p>
+                <p className="mt-1 text-[11px] leading-4 text-gray-400">
+                  unique wallets
+                </p>
+              </div>
 
-              <p className="mt-2 text-3xl font-black text-white">
-                <CountUp end={globalStats.totalParticipants} duration={2} />
-              </p>
-
-              <p className="mt-1 text-xs leading-5 text-gray-400">
-                unique participating wallets
-              </p>
+              <div className="rounded-2xl border border-amber-300/15 bg-amber-400/[0.045] p-4 text-center md:text-left">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-200">
+                  Dead Assets
+                </p>
+                <p className="mt-2 text-2xl font-black text-white">
+                  <CountUp end={globalStats.uniqueDeadcoins} duration={2} />
+                </p>
+                <p className="mt-1 text-[11px] leading-4 text-gray-400">
+                  processed
+                </p>
+              </div>
             </div>
 
-            <div className="group rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-200 hover:border-emerald-300/28 hover:bg-emerald-400/[0.07]">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-200">
-                Total USD Revived
-              </p>
+            <div className="relative mx-auto flex min-h-[230px] w-full max-w-[360px] items-center justify-center rounded-[32px] border border-emerald-300/18 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.18),transparent_54%),rgba(255,255,255,0.035)] p-5 text-center shadow-[0_0_45px_rgba(16,185,129,0.12)] sm:min-h-[270px]">
+              <div className="pointer-events-none absolute inset-4 rounded-[28px] border border-white/8" />
+              <div className="pointer-events-none absolute inset-8 rounded-full border border-emerald-300/10" />
 
-              <p className="mt-2 text-3xl font-black text-white">
-                $<CountUp end={globalStats.totalUsd} decimals={2} duration={2} />
-              </p>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-200">
+                  Total USD Revived
+                </p>
 
-              <p className="mt-1 text-xs leading-5 text-gray-400">
-                capital redirected into the fund
-              </p>
+                <p className="mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl">
+                  $<CountUp end={globalStats.totalUsd} decimals={2} duration={2} />
+                </p>
+
+                <p className="mx-auto mt-3 max-w-[230px] text-xs leading-5 text-gray-400">
+                  capital redirected into the Fair Future Fund
+                </p>
+              </div>
             </div>
 
-            <div className="group rounded-2xl border border-amber-300/15 bg-amber-400/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-200 hover:border-amber-300/28 hover:bg-amber-400/[0.07]">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-200">
-                Dead Assets Processed
-              </p>
+            <div className="grid grid-cols-1 gap-3">
+              <div className="rounded-2xl border border-violet-300/15 bg-violet-400/[0.045] p-4 text-center md:text-right">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-200">
+                  CorePoint
+                </p>
+                <p className="mt-2 text-2xl font-black text-white">
+                  <CountUp end={generatedCorePoint} duration={2} />
+                </p>
+                <p className="mt-1 text-[11px] leading-4 text-gray-400">
+                  generated units
+                </p>
+              </div>
 
-              <p className="mt-2 text-3xl font-black text-white">
-                <CountUp end={globalStats.uniqueDeadcoins} duration={2} />
-              </p>
-
-              <p className="mt-1 text-xs leading-5 text-gray-400">
-                damaged tokens submitted
-              </p>
-            </div>
-
-            <div className="group rounded-2xl border border-violet-300/15 bg-violet-400/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-200 hover:border-violet-300/28 hover:bg-violet-400/[0.07]">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-200">
-                CorePoint Generated
-              </p>
-
-              <p className="mt-2 text-3xl font-black text-white">
-                <CountUp end={generatedCorePoint} duration={2} />
-              </p>
-
-              <p className="mt-1 text-xs leading-5 text-gray-400">
-                estimated Proof of Value units
-              </p>
+              <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.045] p-4 text-center md:text-right">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-200">
+                  Value Engine
+                </p>
+                <p className="mt-2 text-lg font-black text-white">
+                  Live
+                </p>
+                <p className="mt-1 text-[11px] leading-4 text-gray-400">
+                  Proof of Value active
+                </p>
+              </div>
             </div>
           </div>
         </div>
