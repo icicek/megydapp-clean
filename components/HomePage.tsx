@@ -1145,20 +1145,20 @@ export default function HomePage() {
           Transforming Crypto Reality into a Fair Future.
         </h1>
 
-        <p className="text-lg md:text-xl text-pink-400 mb-1">
+        <p className="mt-4 text-xl font-bold text-pink-400 md:text-2xl">
           This is not a swap. This is{' '}
-          <span className="inline-flex items-baseline">
+          <span className="inline-flex items-baseline text-pink-400">
             <span
               className={[
-                'inline-block min-w-[1.35em] text-cyan-300 transition-all duration-500',
+                'inline-block min-w-[1.35em] transition-all duration-500',
                 heroPrefix === 'Co'
-                  ? 'opacity-100 blur-0 drop-shadow-[0_0_12px_rgba(34,211,238,0.45)]'
-                  : 'opacity-75 blur-[0.2px]',
+                  ? 'opacity-100 blur-0'
+                  : 'opacity-85 blur-[0.15px]',
               ].join(' ')}
             >
               {heroPrefix}
             </span>
-            <span className="text-pink-400">incarnation.</span>
+            <span>incarnation.</span>
           </span>
         </p>
 
