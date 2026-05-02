@@ -40,6 +40,13 @@ export default function SiteFooter() {
 
           <div className="mt-3 flex flex-col gap-2 text-sm">
             <a
+              href="/"
+              className="text-white transition-colors hover:text-gray-200"
+            >
+              Home
+            </a>
+            
+            <a
               href="/coinographia"
               className="text-cyan-200 transition-colors hover:text-cyan-100"
             >
