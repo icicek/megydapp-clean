@@ -1507,6 +1507,11 @@ export default function HomePage() {
 
         <div className="relative z-[1] mt-6 rounded-2xl border border-white/10 bg-black/20 p-3 sm:p-4">
           <div className="flex flex-col gap-3 text-center sm:text-left">
+            <div className="inline-flex items-center justify-center sm:justify-start gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,0.7)]" />
+              Fair Future Principle
+            </div>
+
             <p className="text-sm font-semibold leading-6 text-white sm:text-base">
               Every human being should have the right to build a personal currency powered
               by the value they contribute to the world.
