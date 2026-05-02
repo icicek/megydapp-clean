@@ -1971,17 +1971,19 @@ export default function HomePage() {
 
       {/* Premium Footer */}
       <footer className="w-full max-w-5xl border-t border-white/10 pt-6 pb-4">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-          <div>
-            <h3 className="text-lg font-bold text-white">Coincarnation</h3>
-            <p className="mt-2 max-w-sm text-sm leading-6 text-gray-400">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-3 md:items-start">
+          <div className="md:mx-auto md:max-w-[280px]">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
+              Coincarnation
+            </p>
+
+            <p className="mt-3 text-sm leading-7 text-gray-400">
               Coincarnation is a creative initial offering event developed by Levershare
-              to transform crypto market fragmentation and investor losses into a new
-              Proof of Value economy.
+              to transform crypto market fragmentation into a new Proof of Value economy.
             </p>
           </div>
 
-          <div>
+          <div className="md:mx-auto">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
               Navigate
             </p>
@@ -2022,7 +2024,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div>
+          <div className="md:mx-auto">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
               Social
             </p>
