@@ -70,6 +70,7 @@ export default function HomePage() {
   const [liveActivityLoading, setLiveActivityLoading] = useState(false);
   const [liveActivityError, setLiveActivityError] = useState<string | null>(null);
   const [coinFlowNotice, setCoinFlowNotice] = useState<string | null>(null);
+  const [heroPrefix, setHeroPrefix] = useState<'Re' | 'Co'>('Re');
   const [coinFlowOverlay, setCoinFlowOverlay] = useState<{
     title: string;
     message: string;
@@ -924,6 +925,14 @@ export default function HomePage() {
   }, [tokens, selectedToken]);
 
   useEffect(() => {
+    const id = window.setInterval(() => {
+      setHeroPrefix((prev) => (prev === 'Re' ? 'Co' : 'Re'));
+    }, 2200);
+  
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (coinFlowOverlayTimerRef.current) {
         clearTimeout(coinFlowOverlayTimerRef.current);
@@ -1133,13 +1142,29 @@ export default function HomePage() {
       {/* Hero */}
       <section className="text-center pt-2 pb-2 w-full">
         <h1 className="text-4xl md:text-5xl font-extrabold mb-2">
-          Turn Deadcoins into a Fair Future.
+          Transforming Crypto Reality into a Fair Future.
         </h1>
+
         <p className="text-lg md:text-xl text-pink-400 mb-1">
-          This is not a swap. This is reincarnation.
+          This is not a swap. This is{' '}
+          <span className="inline-flex items-baseline">
+            <span
+              className={[
+                'inline-block min-w-[1.35em] text-cyan-300 transition-all duration-500',
+                heroPrefix === 'Co'
+                  ? 'opacity-100 blur-0 drop-shadow-[0_0_12px_rgba(34,211,238,0.45)]'
+                  : 'opacity-75 blur-[0.2px]',
+              ].join(' ')}
+            >
+              {heroPrefix}
+            </span>
+            <span className="text-pink-400">incarnation.</span>
+          </span>
         </p>
-        <p className="text-sm text-gray-300 max-w-xl mx-auto">
-          Burning wealth inequality. One deadcoin at a time.
+
+        <p className="text-sm text-gray-300 max-w-2xl mx-auto">
+          Turn forgotten crypto value into your Personal Value Currency — and together,
+          build the Fair Future Fund.
         </p>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-400/[0.06] px-3 py-1.5 text-[11px] font-semibold text-cyan-100 shadow-[0_0_14px_rgba(34,211,238,0.08)]">
