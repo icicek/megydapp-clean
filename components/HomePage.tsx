@@ -1145,9 +1145,9 @@ export default function HomePage() {
           Transforming Crypto Reality into a Fair Future.
         </h1>
 
-        <p className="mt-4 text-xl font-bold text-pink-400 md:text-2xl">
+        <p className="mt-4 text-xl font-bold md:text-2xl bg-gradient-to-r from-cyan-300 via-violet-300 to-pink-300 bg-clip-text text-transparent drop-shadow-[0_0_14px_rgba(168,85,247,0.18)]">
           This is not a swap. This is{' '}
-          <span className="inline-flex items-baseline text-pink-400">
+          <span className="inline-flex items-baseline">
             <span
               className={[
                 'inline-block min-w-[1.35em] transition-all duration-500',
