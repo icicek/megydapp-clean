@@ -1141,6 +1141,25 @@ export default function HomePage() {
         <p className="text-sm text-gray-300 max-w-xl mx-auto">
           Burning wealth inequality. One deadcoin at a time.
         </p>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-400/[0.06] px-3 py-1.5 text-[11px] font-semibold text-cyan-100 shadow-[0_0_14px_rgba(34,211,238,0.08)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 animate-pulse" />
+            <span>{globalStats.totalParticipants}</span>
+            <span className="text-gray-400">active wallets</span>
+          </div>
+
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-400/[0.06] px-3 py-1.5 text-[11px] font-semibold text-emerald-100 shadow-[0_0_14px_rgba(16,185,129,0.08)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
+            <span>${Number(globalStats.totalUsd || 0).toFixed(2)}</span>
+            <span className="text-gray-400">revived</span>
+          </div>
+
+          <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/15 bg-amber-400/[0.06] px-3 py-1.5 text-[11px] font-semibold text-amber-100 shadow-[0_0_14px_rgba(245,158,11,0.08)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-300 animate-pulse" />
+            <span>{globalStats.uniqueDeadcoins}</span>
+            <span className="text-gray-400">deadcoins processed</span>
+          </div>
+        </div>
       </section>
 
       <div className="relative w-full max-w-5xl overflow-hidden rounded-[30px] border border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.13),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.13),transparent_32%),linear-gradient(180deg,rgba(20,26,40,0.96),rgba(13,17,28,0.98))] p-5 sm:p-7 shadow-[0_24px_80px_rgba(0,0,0,0.34),0_0_42px_rgba(34,211,238,0.08),0_0_54px_rgba(168,85,247,0.08)] before:pointer-events-none before:absolute before:inset-0 before:rounded-[30px] before:bg-[linear-gradient(135deg,rgba(34,211,238,0.22),transparent_28%,rgba(168,85,247,0.18)_62%,transparent_82%)] before:opacity-60">
