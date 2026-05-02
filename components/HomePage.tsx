@@ -1162,9 +1162,9 @@ export default function HomePage() {
           </span>
         </p>
 
-        <p className="text-sm text-gray-300 max-w-2xl mx-auto">
-          Turn forgotten crypto value into your Personal Value Currency — and together,
-          build the Fair Future Fund.
+        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-gray-300 sm:text-base sm:leading-7">
+          Turn forgotten crypto value into your Personal Value Currency — while building
+          the Fair Future Fund.
         </p>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-400/[0.06] px-3 py-1.5 text-[11px] font-semibold text-cyan-100 shadow-[0_0_14px_rgba(34,211,238,0.08)]">
