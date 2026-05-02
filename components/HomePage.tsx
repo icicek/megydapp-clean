@@ -729,6 +729,7 @@ export default function HomePage() {
     totalParticipants: 0,
     uniqueDeadcoins: 0,
     mostPopularDeadcoin: '',
+    corePointGenerated: 0,
   });
   const [userContribution, setUserContribution] = useState(0);
 
@@ -1078,9 +1079,7 @@ export default function HomePage() {
 
   const shareRatio = globalStats.totalUsd > 0 ? userContribution / globalStats.totalUsd : 0;
   const sharePercentage = Math.max(0, Math.min(100, shareRatio * 100)).toFixed(2);
-  const generatedCorePoint = Math.round(
-    Number(globalStats.totalUsd || 0) + Number(globalStats.uniqueDeadcoins || 0) * 30
-  );
+  const generatedCorePoint = Math.round(Number(globalStats.corePointGenerated || 0));
 
   const recentActivityCount = useMemo(() => {
     return liveActivity.filter(
@@ -1851,7 +1850,7 @@ export default function HomePage() {
 
             <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-gray-400">
               The live output of Coincarnation: revived value, active wallets,
-              processed dead assets, and emerging Proof of Value units.
+              processed deadcoins, and emerging Proof of Value units.
             </p>
           </div>
 
@@ -1871,7 +1870,7 @@ export default function HomePage() {
 
               <div className="rounded-2xl border border-amber-300/15 bg-amber-400/[0.045] p-4 text-center md:text-left">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-200">
-                  Dead Assets
+                  Deadcoins
                 </p>
                 <p className="mt-2 text-2xl font-black text-white">
                   <CountUp end={globalStats.uniqueDeadcoins} duration={2} />

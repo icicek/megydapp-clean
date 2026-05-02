@@ -54,6 +54,11 @@ export async function GET() {
       FROM contributions;
     ` as any[];
 
+    const corePointResult = await sql`
+      SELECT COALESCE(SUM(points), 0)::numeric AS total
+      FROM corepoint_events;
+    ` as any[];
+
     const contribRows = await sql`
       SELECT token_contract, usd_value
       FROM contributions
@@ -130,6 +135,7 @@ export async function GET() {
 
     const totalParticipants = Number(participantResult[0]?.count ?? 0);
     const totalUsd = totalUsdEligible;
+    const corePointGenerated = Number(corePointResult[0]?.total ?? 0);
 
     const res = NextResponse.json({
       success: true,
@@ -139,6 +145,7 @@ export async function GET() {
       totalUsd,
       uniqueDeadcoins,
       mostPopularDeadcoin,
+      corePointGenerated,
 
       // backward-compatible aliases
       participantCount: totalParticipants,
@@ -159,6 +166,7 @@ export async function GET() {
         totalUsd: 0,
         uniqueDeadcoins: 0,
         mostPopularDeadcoin: 'No deadcoin yet',
+        corePointGenerated: 0,
 
         participantCount: 0,
         totalUsdValue: 0,
