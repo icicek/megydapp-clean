@@ -1390,6 +1390,7 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
       {/* Fair Future Engine */}
       <section className="relative w-full max-w-5xl overflow-hidden rounded-[30px] border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.14),transparent_32%),linear-gradient(180deg,rgba(9,18,22,0.96),rgba(6,10,18,0.98))] p-4 sm:p-6 md:p-7 shadow-[0_24px_80px_rgba(0,0,0,0.34),0_0_48px_rgba(16,185,129,0.08),0_0_54px_rgba(34,211,238,0.07)]">
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),transparent_24%,rgba(34,211,238,0.08)_58%,transparent_82%)] opacity-70" />
@@ -1406,15 +1407,16 @@ export default function HomePage() {
             </h2>
 
             <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-300 sm:text-base sm:leading-7">
-              Coincarnation brings millions of people, millions of tokens, and forgotten
-              value into one shared economic engine — built to create the Fair Future Fund.
+              Coincarnation unites the value that millions of people have lost — or are
+              about to lose — across billions in crypto assets into one shared economic
+              engine, built to form the Fair Future Fund.
             </p>
 
             <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
               <p className="text-sm leading-6 text-gray-300">
-                The Fair Future Fund is designed to fight personal wealth inequality by
-                investing collective revival power into global capital markets and sharing
-                future gains with Coincarnators.
+                The Fair Future Fund, formed through Coincarnation, is designed to generate
+                global capital gains and return them to Coincarnators — with one mission:
+                reducing personal wealth inequality worldwide.
               </p>
             </div>
 
@@ -1448,7 +1450,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="relative mx-auto flex w-full max-w-[420px] items-center justify-center py-3 sm:py-5">
+          <div className="relative mx-auto flex w-full max-w-[420px] items-center justify-center py-4 sm:py-6">
             <div className="absolute h-[280px] w-[280px] rounded-full border border-emerald-300/10 sm:h-[340px] sm:w-[340px]" />
             <div className="absolute h-[220px] w-[220px] rounded-full border border-cyan-300/10 sm:h-[270px] sm:w-[270px]" />
             <div className="absolute h-[150px] w-[150px] rounded-full border border-violet-300/10 sm:h-[190px] sm:w-[190px]" />
@@ -1466,40 +1468,43 @@ export default function HomePage() {
             </div>
 
             <div className="absolute left-0 top-5 rounded-2xl border border-cyan-300/20 bg-cyan-400/[0.08] px-3 py-2 text-xs font-semibold text-cyan-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)]">
-              Coincarnations
+              Coincarnation Inputs
             </div>
 
             <div className="absolute right-0 top-10 rounded-2xl border border-amber-300/20 bg-amber-400/[0.08] px-3 py-2 text-xs font-semibold text-amber-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)]">
-              Deadcoins
+              Deadcoin Deliveries
             </div>
 
             <div className="absolute bottom-8 left-2 rounded-2xl border border-violet-300/20 bg-violet-400/[0.08] px-3 py-2 text-xs font-semibold text-violet-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)]">
-              Referrals
+              Referral Growth
             </div>
 
             <div className="absolute bottom-3 right-2 rounded-2xl border border-emerald-300/20 bg-emerald-400/[0.08] px-3 py-2 text-xs font-semibold text-emerald-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)]">
-              Social Shares
+              Social Impact
             </div>
           </div>
         </div>
 
         <div className="relative z-[1] mt-6 rounded-2xl border border-white/10 bg-black/20 p-3 sm:p-4">
-          <div className="flex flex-col gap-3 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
-            <p className="text-sm leading-6 text-gray-300">
-              Every Coincarnator builds their own currency of value through contribution,
-              participation, and impact.
+          <div className="flex flex-col gap-3 text-center sm:text-left">
+            <p className="text-sm font-semibold leading-6 text-white sm:text-base">
+              Every human being should have the right to build a personal currency powered
+              by the value they contribute to the world.
             </p>
 
-            <div className="flex shrink-0 items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-200">
+            <div className="flex flex-wrap items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-200 sm:justify-start sm:text-[11px]">
               <span>Proof of Value</span>
               <span className="text-gray-500">→</span>
               <span>CorePoint</span>
               <span className="text-gray-500">→</span>
-              <span>PVC</span>
+              <span>Personal Value Currency</span>
+              <span className="text-gray-500">→</span>
+              <span>Fair Future Fund</span>
             </div>
           </div>
         </div>
       </section>
+      
       <div className="w-full max-w-5xl rounded-2xl border border-white/10 bg-white/5 p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
