@@ -5,6 +5,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import Providers from './providers';
 import { APP_URL, absoluteUrl } from '@/app/lib/origin';
+import SiteFooter from '@/components/SiteFooter';
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -41,7 +42,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+
+          <div className="flex w-full justify-center bg-black px-6">
+            <SiteFooter />
+          </div>
+        </Providers>
+
         <noscript>
           This app works best with JavaScript enabled.
         </noscript>

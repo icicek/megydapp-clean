@@ -13,7 +13,6 @@ import Skeleton from '@/components/ui/Skeleton';
 import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
 import { useChain } from '@/app/providers/ChainProvider';
 import AdminLink from '@/components/admin/AdminLink';
-import SiteFooter from '@/components/SiteFooter';
 
 // PROD'da 15s, DEV'de 20s polling
 const POLL_MS = 0;
@@ -1969,12 +1968,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      <SiteFooter
-        connected={connected}
-        pubkeyBase58={pubkeyBase58}
-        openXIntent={openXIntent}
-      />
 
       <AdminLink className="w-full max-w-5xl mt-3" />
 

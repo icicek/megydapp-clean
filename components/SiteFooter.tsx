@@ -1,19 +1,23 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useWallet } from '@solana/wallet-adapter-react';
 
-type Props = {
-  connected?: boolean;
-  pubkeyBase58?: string | null;
-  openXIntent?: (text: string) => Promise<void> | void;
-};
-
-export default function SiteFooter({
-  connected,
-  pubkeyBase58,
-  openXIntent,
-}: Props) {
+export default function SiteFooter() {
   const router = useRouter();
+  const { publicKey, connected } = useWallet();
+  const pubkeyBase58 = publicKey?.toBase58() ?? null;
+
+  function shareOnX() {
+    const text =
+      'People are starting to Coincarnate deadcoins into something much bigger.';
+
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+      `${text}\n\nhttps://coincarnation.com`
+    )}`;
+
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
 
   return (
     <footer className="w-full max-w-5xl border-t border-white/10 pt-6 pb-4">
@@ -45,9 +49,10 @@ export default function SiteFooter({
             <button
               onClick={() => {
                 if (!connected || !pubkeyBase58) {
-                    alert('Connect your wallet to view your Coincarnation profile.');
-                    return;
-                  }
+                  alert('Connect your wallet to view your Coincarnation profile.');
+                  return;
+                }
+
                 router.push('/profile');
               }}
               className="text-left text-emerald-200 transition-colors hover:text-emerald-100"
@@ -72,11 +77,7 @@ export default function SiteFooter({
           <div className="mt-3 flex flex-col gap-3 text-sm">
             <button
               type="button"
-              onClick={() =>
-                void openXIntent?.(
-                  'People are starting to Coincarnate deadcoins into something much bigger.'
-                )
-              }
+              onClick={shareOnX}
               className="inline-flex items-center gap-2 text-left text-pink-200 transition-colors hover:text-pink-100"
             >
               <span className="flex h-7 w-7 items-center justify-center rounded-full border border-pink-300/20 bg-pink-400/[0.07] text-xs font-black">
@@ -86,7 +87,7 @@ export default function SiteFooter({
             </button>
 
             <a
-              href="https://x.com/YOUR_X_USERNAME"
+              href="https://x.com/levershare"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-gray-300 transition-colors hover:text-white"
@@ -98,7 +99,7 @@ export default function SiteFooter({
             </a>
 
             <a
-              href="https://t.me/YOUR_TELEGRAM_USERNAME"
+              href="https://t.me/levershare"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-gray-300 transition-colors hover:text-white"
