@@ -1969,15 +1969,59 @@ export default function HomePage() {
         </div>
       </section>
 
-      <div className="w-full max-w-5xl mt-2 text-center">
-        <a
-          href="/docs"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-sm"
-        >
-          <span>📘</span>
-          <span>Read the Docs</span>
-        </a>
-      </div>
+            {/* Footer Command Bar */}
+            <section className="w-full max-w-5xl pb-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <a
+            href="/coinographia"
+            className="group rounded-2xl border border-cyan-300/15 bg-cyan-400/[0.05] px-4 py-4 text-center transition-all duration-200 hover:border-cyan-300/30 hover:bg-cyan-400/[0.08] hover:-translate-y-0.5"
+          >
+            <p className="text-sm font-bold text-cyan-100">Explore Coinographia</p>
+            <p className="mt-1 text-[11px] text-gray-400">live token intelligence</p>
+          </a>
+
+          <button
+            onClick={() => {
+              if (!connected || !pubkeyBase58) {
+                showCoinFlowOverlay(
+                  'Wallet Required',
+                  'Connect your wallet to view your Coincarnation profile.',
+                  'info',
+                  3200
+                );
+                return;
+              }
+
+              router.push('/profile');
+            }}
+            className="group rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.05] px-4 py-4 text-center transition-all duration-200 hover:border-emerald-300/30 hover:bg-emerald-400/[0.08] hover:-translate-y-0.5"
+          >
+            <p className="text-sm font-bold text-emerald-100">Open Your Profile</p>
+            <p className="mt-1 text-[11px] text-gray-400">claims, CorePoint, history</p>
+          </button>
+
+          <a
+            href="/docs"
+            className="group rounded-2xl border border-violet-300/15 bg-violet-400/[0.05] px-4 py-4 text-center transition-all duration-200 hover:border-violet-300/30 hover:bg-violet-400/[0.08] hover:-translate-y-0.5"
+          >
+            <p className="text-sm font-bold text-violet-100">Read the Docs</p>
+            <p className="mt-1 text-[11px] text-gray-400">protocol mechanics</p>
+          </a>
+
+          <button
+            type="button"
+            onClick={() =>
+              void openXIntent(
+                'People are starting to Coincarnate deadcoins into something much bigger.'
+              )
+            }
+            className="group rounded-2xl border border-pink-300/15 bg-pink-400/[0.05] px-4 py-4 text-center transition-all duration-200 hover:border-pink-300/30 hover:bg-pink-400/[0.08] hover:-translate-y-0.5"
+          >
+            <p className="text-sm font-bold text-pink-100">Share Coincarnation</p>
+            <p className="mt-1 text-[11px] text-gray-400">spread the signal</p>
+          </button>
+        </div>
+      </section>
 
       <AdminLink className="w-full max-w-5xl mt-3" />
 
