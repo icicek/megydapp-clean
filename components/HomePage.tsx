@@ -741,6 +741,10 @@ export default function HomePage() {
     uniqueDeadcoins: 0,
     mostPopularDeadcoin: '',
     corePointGenerated: 0,
+    totalIndexedAssets: 0,
+    healthyAssets: 0,
+    walkingDeadAssets: 0,
+    deadcoinAssets: 0,
   });
   const [userContribution, setUserContribution] = useState(0);
 
@@ -1535,7 +1539,7 @@ export default function HomePage() {
 
             <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
               <p className="text-sm leading-6 text-gray-300">
-                The Fair Future Fund, formed through Coincarnation, is designed to generate
+                The Fair Future Fund is designed to generate
                 global capital gains and return them to Coincarnators — with one mission:
                 reducing personal wealth inequality worldwide.
               </p>
@@ -1968,8 +1972,7 @@ export default function HomePage() {
             </h2>
 
             <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-gray-400">
-              The live output of Coincarnation: revived value, active wallets,
-              processed deadcoins, and emerging Proof of Value units.
+              The live protocol output of Coincarnation: revived value, Coincarnator growth, processed deadcoins, and generated Proof of Value units.
             </p>
           </div>
 
@@ -1977,13 +1980,13 @@ export default function HomePage() {
             <div className="grid grid-cols-2 gap-3 md:grid-cols-1">
               <div className="rounded-2xl border border-cyan-300/15 bg-cyan-400/[0.045] p-4 text-center md:text-left">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200">
-                  Participants
+                  Coincarnators
                 </p>
                 <p className="mt-2 text-2xl font-black text-white">
                   <CountUp end={globalStats.totalParticipants} duration={2} />
                 </p>
                 <p className="mt-1 text-[11px] leading-4 text-gray-400">
-                  unique wallets
+                  unique contributors
                 </p>
               </div>
 
@@ -2006,15 +2009,15 @@ export default function HomePage() {
 
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-200">
-                  Total USD Revived
+                  Revived Value
                 </p>
 
                 <p className="mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl">
                   $<CountUp end={globalStats.totalUsd} decimals={2} duration={2} />
                 </p>
 
-                <p className="mx-auto mt-3 max-w-[230px] text-xs leading-5 text-gray-400">
-                  capital redirected into the Fair Future Fund
+                <p className="mx-auto mt-3 max-w-[240px] text-[12px] leading-5 text-emerald-100/80">
+                  live cumulative value entering the Coincarnation engine
                 </p>
               </div>
             </div>
@@ -2034,14 +2037,35 @@ export default function HomePage() {
 
               <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.045] p-4 text-center md:text-right">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-200">
-                  Value Engine
+                  Indexed Assets
                 </p>
-                <p className="mt-2 text-lg font-black text-white">
-                  Live
+
+                <p className="mt-2 text-2xl font-black text-white">
+                  <CountUp end={globalStats.totalIndexedAssets} duration={2} />
                 </p>
-                <p className="mt-1 text-[11px] leading-4 text-gray-400">
-                  Proof of Value active
-                </p>
+
+                <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
+                  <div className="rounded-xl border border-emerald-300/15 bg-emerald-400/[0.06] px-2 py-1.5">
+                    <p className="text-[9px] font-bold text-emerald-200">Healthy</p>
+                    <p className="text-xs font-black text-white">
+                      {globalStats.healthyAssets}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-amber-300/15 bg-amber-400/[0.06] px-2 py-1.5">
+                    <p className="text-[9px] font-bold text-amber-200">Walking</p>
+                    <p className="text-xs font-black text-white">
+                      {globalStats.walkingDeadAssets}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-zinc-300/15 bg-zinc-400/[0.06] px-2 py-1.5">
+                    <p className="text-[9px] font-bold text-zinc-200">Dead</p>
+                    <p className="text-xs font-black text-white">
+                      {globalStats.deadcoinAssets}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

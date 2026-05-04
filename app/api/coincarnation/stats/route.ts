@@ -59,6 +59,15 @@ export async function GET() {
       FROM corepoint_events;
     ` as any[];
 
+    const registryStatsResult = await sql`
+      SELECT
+        COUNT(*)::int AS total_indexed_assets,
+        COUNT(*) FILTER (WHERE status = 'healthy')::int AS healthy_assets,
+        COUNT(*) FILTER (WHERE status = 'walking_dead')::int AS walking_dead_assets,
+        COUNT(*) FILTER (WHERE status = 'deadcoin')::int AS deadcoin_assets
+      FROM token_registry;
+    ` as any[];
+
     const contribRows = await sql`
       SELECT token_contract, usd_value
       FROM contributions
@@ -136,6 +145,10 @@ export async function GET() {
     const totalParticipants = Number(participantResult[0]?.count ?? 0);
     const totalUsd = totalUsdEligible;
     const corePointGenerated = Number(corePointResult[0]?.total ?? 0);
+    const totalIndexedAssets = Number(registryStatsResult[0]?.total_indexed_assets ?? 0);
+    const healthyAssets = Number(registryStatsResult[0]?.healthy_assets ?? 0);
+    const walkingDeadAssets = Number(registryStatsResult[0]?.walking_dead_assets ?? 0);
+    const deadcoinAssets = Number(registryStatsResult[0]?.deadcoin_assets ?? 0);
 
     const res = NextResponse.json({
       success: true,
@@ -146,6 +159,10 @@ export async function GET() {
       uniqueDeadcoins,
       mostPopularDeadcoin,
       corePointGenerated,
+      totalIndexedAssets,
+      healthyAssets,
+      walkingDeadAssets,
+      deadcoinAssets,
 
       // backward-compatible aliases
       participantCount: totalParticipants,
@@ -167,6 +184,10 @@ export async function GET() {
         uniqueDeadcoins: 0,
         mostPopularDeadcoin: 'No deadcoin yet',
         corePointGenerated: 0,
+        totalIndexedAssets: 0,
+        healthyAssets: 0,
+        walkingDeadAssets: 0,
+        deadcoinAssets: 0,
 
         participantCount: 0,
         totalUsdValue: 0,
