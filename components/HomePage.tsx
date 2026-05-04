@@ -2026,7 +2026,7 @@ export default function HomePage() {
             <div className="grid grid-cols-1 gap-3">
               <div className="flex min-h-[150px] flex-col justify-center rounded-2xl border border-violet-300/15 bg-violet-400/[0.045] p-4 text-center md:text-right">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-200">
-                  CorePoint
+                  CorePoint Generated
                 </p>
                 <p className="mt-2 text-2xl font-black text-white">
                   <CountUp end={generatedCorePoint} duration={2} />
