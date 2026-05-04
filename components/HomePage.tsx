@@ -1456,30 +1456,40 @@ export default function HomePage() {
                 <div className="flex min-w-0 items-center gap-3">
                   <div
                     className={[
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-sm',
+                      'relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border text-sm font-black',
                       connected && pubkeyBase58
-                        ? 'border-cyan-300/20 bg-cyan-400/10 text-cyan-200'
+                        ? 'border-emerald-300/25 bg-emerald-400/[0.10] text-emerald-100 shadow-[0_0_18px_rgba(16,185,129,0.14)]'
                         : 'border-white/10 bg-white/[0.04] text-gray-400',
                     ].join(' ')}
                   >
-                    {connected && pubkeyBase58 ? '⦿' : '◌'}
+                    <span className="absolute inset-1 rounded-xl border border-white/8" />
+                    <span>{connected && pubkeyBase58 ? '◈' : '◌'}</span>
                   </div>
 
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-white">
-                      Open Your Profile
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-sm font-black text-white">
+                        Open Your Value Profile
+                      </p>
 
-                    <p className="mt-0.5 truncate text-[11px] text-gray-400">
+                      <span className="rounded-full border border-emerald-300/20 bg-emerald-400/[0.08] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-emerald-200">
+                        Personal
+                      </span>
+                    </div>
+
+                    <p className="mt-1 truncate text-[11px] text-gray-400">
                       {connected && pubkeyBase58
-                        ? 'claims · contributions · personal value currency'
-                        : 'connect wallet required for personal access'}
+                        ? 'claims · CorePoint · Personal Value Currency'
+                        : 'connect wallet to access your personal value profile'}
                     </p>
                   </div>
                 </div>
 
-                <div className="shrink-0 text-cyan-200/80 transition-transform duration-300 group-hover:translate-x-0.5">
-                  ↗
+                <div className="flex shrink-0 items-center gap-2 text-emerald-200/85 transition-transform duration-300 group-hover:translate-x-0.5">
+                  <span className="hidden rounded-full border border-emerald-300/15 bg-emerald-400/[0.06] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] sm:inline">
+                    Profile
+                  </span>
+                  <span>↗</span>
                 </div>
               </div>
             </button>
