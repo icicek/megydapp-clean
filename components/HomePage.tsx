@@ -741,6 +741,7 @@ export default function HomePage() {
     uniqueDeadcoins: 0,
     mostPopularDeadcoin: '',
     corePointGenerated: 0,
+    megyGenerated: 0,
     totalIndexedAssets: 0,
     healthyAssets: 0,
     walkingDeadAssets: 0,
@@ -1991,15 +1992,15 @@ export default function HomePage() {
               </div>
 
               <div className="rounded-2xl border border-amber-300/15 bg-amber-400/[0.045] p-4 text-center md:text-left">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-200">
-                  Deadcoins
-                </p>
-                <p className="mt-2 text-2xl font-black text-white">
-                  <CountUp end={globalStats.uniqueDeadcoins} duration={2} />
-                </p>
-                <p className="mt-1 text-[11px] leading-4 text-gray-400">
-                  processed
-                </p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-200">
+                MEGY Generated
+              </p>
+              <p className="mt-2 text-2xl font-black text-white">
+                <CountUp end={globalStats.megyGenerated} duration={2} separator="," />
+              </p>
+              <p className="mt-1 text-[11px] leading-4 text-gray-400">
+                allocated revival currency
+              </p>
               </div>
             </div>
 
@@ -2053,7 +2054,7 @@ export default function HomePage() {
                   </div>
 
                   <div className="rounded-xl border border-amber-300/15 bg-amber-400/[0.06] px-2 py-1.5">
-                    <p className="text-[9px] font-bold text-amber-200">Walking</p>
+                    <p className="text-[9px] font-bold text-amber-200">WD</p>
                     <p className="text-xs font-black text-white">
                       {globalStats.walkingDeadAssets}
                     </p>

@@ -59,6 +59,11 @@ export async function GET() {
       FROM corepoint_events;
     ` as any[];
 
+    const megyAllocatedResult = await sql`
+      SELECT COALESCE(SUM(megy_allocated), 0)::numeric AS total
+      FROM phase_allocations;
+    ` as any[];
+
     const registryStatsResult = await sql`
       SELECT
         COUNT(*)::int AS total_indexed_assets,
@@ -145,6 +150,7 @@ export async function GET() {
     const totalParticipants = Number(participantResult[0]?.count ?? 0);
     const totalUsd = totalUsdEligible;
     const corePointGenerated = Number(corePointResult[0]?.total ?? 0);
+    const megyGenerated = Number(megyAllocatedResult[0]?.total ?? 0);
     const totalIndexedAssets = Number(registryStatsResult[0]?.total_indexed_assets ?? 0);
     const healthyAssets = Number(registryStatsResult[0]?.healthy_assets ?? 0);
     const walkingDeadAssets = Number(registryStatsResult[0]?.walking_dead_assets ?? 0);
@@ -159,6 +165,7 @@ export async function GET() {
       uniqueDeadcoins,
       mostPopularDeadcoin,
       corePointGenerated,
+      megyGenerated,
       totalIndexedAssets,
       healthyAssets,
       walkingDeadAssets,
@@ -184,6 +191,7 @@ export async function GET() {
         uniqueDeadcoins: 0,
         mostPopularDeadcoin: 'No deadcoin yet',
         corePointGenerated: 0,
+        megyGenerated: 0,
         totalIndexedAssets: 0,
         healthyAssets: 0,
         walkingDeadAssets: 0,
