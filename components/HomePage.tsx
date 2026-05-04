@@ -1978,8 +1978,8 @@ export default function HomePage() {
           </div>
 
           <div className="relative z-[1] mx-auto mt-7 grid max-w-4xl grid-cols-1 gap-4 md:grid-cols-[1fr_1.35fr_1fr] md:items-center">
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-1">
-              <div className="rounded-2xl border border-cyan-300/15 bg-cyan-400/[0.045] p-4 text-center md:text-left">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-1">
+              <div className="rounded-2xl border border-cyan-300/15 bg-cyan-400/[0.045] flex min-h-[150px] flex-col justify-center p-4 text-center md:text-left">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200">
                   Coincarnators
                 </p>
@@ -1991,7 +1991,7 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-amber-300/15 bg-amber-400/[0.045] p-4 text-center md:text-left">
+              <div className="rounded-2xl border border-amber-300/15 bg-amber-400/[0.045] flex min-h-[150px] flex-col justify-center p-4 text-center md:text-left">
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-200">
                 MEGY Generated
               </p>
@@ -2024,7 +2024,7 @@ export default function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 gap-3">
-              <div className="rounded-2xl border border-violet-300/15 bg-violet-400/[0.045] p-4 text-center md:text-right">
+              <div className="flex min-h-[150px] flex-col justify-center rounded-2xl border border-violet-300/15 bg-violet-400/[0.045] p-4 text-center md:text-right">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-200">
                   CorePoint
                 </p>
@@ -2036,7 +2036,7 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.045] p-4 text-center md:text-right">
+              <div className="flex min-h-[150px] flex-col justify-center rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.045] p-4 text-center md:text-right">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-200">
                   Classified Assets
                 </p>
@@ -2045,7 +2045,7 @@ export default function HomePage() {
                   <CountUp end={globalStats.totalIndexedAssets} duration={2} />
                 </p>
 
-                <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
+                <div className="mt-3 grid grid-cols-3 gap-1.5 text-center md:mt-4">
                   <div className="rounded-xl border border-emerald-300/15 bg-emerald-400/[0.06] px-2 py-1.5">
                     <p className="text-[9px] font-bold text-emerald-200">Healthy</p>
                     <p className="text-xs font-black text-white">
