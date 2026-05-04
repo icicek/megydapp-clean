@@ -731,7 +731,7 @@ export default function HomePage() {
   function handleTokenSelectPointerDown(e: React.PointerEvent<HTMLSelectElement>) {
     if (!tokensLoading && !refreshing && tokens.length === 0) {
       e.preventDefault();
-      setEmptyTokenNotice(true);
+      setEmptyTokenNotice((prev) => !prev);
       setTokenSelectorHint(false);
     }
   }
@@ -1310,27 +1310,27 @@ export default function HomePage() {
                     </div>
                     
                     {emptyTokenNotice && !tokensLoading && !refreshing && tokens.length === 0 && (
-                        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl border border-amber-300/20 bg-[#111827]/98 text-left shadow-[0_18px_45px_rgba(0,0,0,0.45),0_0_22px_rgba(245,158,11,0.10)] backdrop-blur-xl">
-                          <div className="border-b border-white/8 px-4 py-3">
-                            <p className="text-sm font-semibold text-amber-100">
-                              No Coincarnatable assets found.
-                            </p>
+                      <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl border border-amber-300/20 bg-[#111827]/98 px-4 py-3 text-left shadow-[0_18px_45px_rgba(0,0,0,0.45),0_0_22px_rgba(245,158,11,0.10)] backdrop-blur-xl">
+                        <button
+                          type="button"
+                          onClick={() => setEmptyTokenNotice(false)}
+                          className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-sm font-bold text-gray-400 transition-colors hover:border-amber-300/25 hover:text-amber-100"
+                          aria-label="Close empty token notice"
+                        >
+                          ×
+                        </button>
 
-                            <p className="mt-1 text-xs leading-5 text-gray-400">
-                              This wallet currently holds no visible SOL or SPL assets eligible for
-                              Coincarnation.
-                            </p>
-                          </div>
+                        <div className="pr-8">
+                          <p className="text-sm font-semibold text-amber-100">
+                            No Coincarnatable assets found.
+                          </p>
 
-                          <button
-                            type="button"
-                            onClick={() => setEmptyTokenNotice(false)}
-                            className="flex w-full items-center justify-between px-4 py-3 text-left text-xs font-semibold text-gray-300 transition-colors hover:bg-white/[0.04] hover:text-white"
-                          >
-                            <span>Close</span>
-                            <span aria-hidden>↗</span>
-                          </button>
+                          <p className="mt-1 text-xs leading-5 text-gray-400">
+                            This wallet currently holds no visible SOL or SPL assets eligible for
+                            Coincarnation.
+                          </p>
                         </div>
+                      </div>
                     )}
                   </div>
 
