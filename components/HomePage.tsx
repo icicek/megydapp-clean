@@ -1518,71 +1518,42 @@ export default function HomePage() {
       </div>
 
       {/* Fair Future Engine */}
-      <section className="relative w-full max-w-5xl overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.018))] px-4 py-6 sm:px-6 md:px-7 md:py-8 shadow-[0_18px_70px_rgba(0,0,0,0.26)]">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.10),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.08),transparent_34%)] opacity-80" />
+      <section className="relative w-full max-w-5xl py-8 sm:py-10">
+        <div className="pointer-events-none absolute inset-x-0 top-10 h-[420px] bg-[radial-gradient(circle_at_20%_30%,rgba(16,185,129,0.10),transparent_32%),radial-gradient(circle_at_82%_38%,rgba(34,211,238,0.09),transparent_30%)]" />
 
-        <div className="relative z-[1] grid grid-cols-1 gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-          <div>
+        <div className="relative z-[1] grid grid-cols-1 gap-10 lg:grid-cols-[1fr_0.9fr] lg:items-center">
+          <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/[0.08] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-200">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,0.75)]" />
               Proof of Value Economy
             </div>
 
-            <h2 className="mt-4 text-2xl font-black leading-tight text-white sm:text-3xl md:text-4xl">
+            <h2 className="mt-5 text-3xl font-black leading-tight text-white sm:text-4xl md:text-5xl">
               The Fair Future Engine
             </h2>
 
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-300 sm:text-base sm:leading-7">
+            <p className="mt-5 text-base leading-8 text-gray-300 sm:text-lg sm:leading-9">
               Coincarnation unites the value that millions of people have lost — or are
               about to lose — across billions in crypto assets into one shared economic
               engine, built to form the Fair Future Fund.
             </p>
 
-            <div className="mt-5 border-l-2 border-emerald-300/20 pl-4">
-              <p className="text-sm leading-6 text-gray-300">
-                The Fair Future Fund is designed to generate
-                global capital gains and return them to Coincarnators — with one mission:
-                reducing personal wealth inequality worldwide.
+            <div className="mt-7 border-l-2 border-emerald-300/25 pl-5">
+              <p className="text-sm leading-7 text-gray-300 sm:text-base sm:leading-8">
+                The Fair Future Fund is designed to generate global capital gains and return
+                them to Coincarnators — with one mission: reducing personal wealth inequality
+                worldwide.
               </p>
-            </div>
-
-            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.055] p-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200">
-                  Value Source
-                </p>
-                <p className="mt-1 text-sm font-semibold text-white">
-                  Coincarnation
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-violet-400/15 bg-violet-400/[0.055] p-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-200">
-                  Unit
-                </p>
-                <p className="mt-1 text-sm font-semibold text-white">
-                  CorePoint
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.055] p-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-200">
-                  Outcome
-                </p>
-                <p className="mt-1 text-sm font-semibold text-white">
-                  Personal Value Currency
-                </p>
-              </div>
             </div>
           </div>
 
-          <div className="relative mx-auto w-full max-w-[420px] py-4 sm:py-6">
-            <div className="relative mx-auto flex min-h-[255px] items-center justify-center sm:min-h-[320px]">
-              <div className="absolute h-[245px] w-[245px] rounded-full border border-emerald-300/10 sm:h-[340px] sm:w-[340px]" />
-              <div className="absolute h-[195px] w-[195px] rounded-full border border-cyan-300/10 sm:h-[270px] sm:w-[270px]" />
-              <div className="absolute h-[135px] w-[135px] rounded-full border border-violet-300/10 sm:h-[190px] sm:w-[190px]" />
+          <div className="relative mx-auto w-full max-w-[440px] py-4 sm:py-8">
+            <div className="relative mx-auto flex min-h-[285px] items-center justify-center sm:min-h-[360px]">
+              <div className="absolute h-[250px] w-[250px] rounded-full border border-emerald-300/10 sm:h-[360px] sm:w-[360px]" />
+              <div className="absolute h-[198px] w-[198px] rounded-full border border-cyan-300/10 sm:h-[285px] sm:w-[285px]" />
+              <div className="absolute h-[138px] w-[138px] rounded-full border border-violet-300/10 sm:h-[200px] sm:w-[200px]" />
 
-              <div className="relative flex h-[165px] w-[165px] flex-col items-center justify-center rounded-full border border-emerald-300/25 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),rgba(8,18,20,0.96)_58%,rgba(5,10,16,0.98))] text-center shadow-[0_0_50px_rgba(16,185,129,0.16)] sm:h-[220px] sm:w-[220px]">
+              <div className="relative flex h-[170px] w-[170px] flex-col items-center justify-center rounded-full border border-emerald-300/25 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.22),rgba(8,18,20,0.96)_58%,rgba(5,10,16,0.98))] text-center shadow-[0_0_55px_rgba(16,185,129,0.18)] sm:h-[230px] sm:w-[230px]">
                 <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-emerald-200 sm:text-[10px] sm:tracking-[0.22em]">
                   Core Engine
                 </p>
@@ -1594,19 +1565,19 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <div className="absolute left-0 top-5 hidden rounded-2xl border border-cyan-300/20 bg-cyan-400/[0.08] px-3 py-2 text-xs font-semibold text-cyan-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)] sm:block">
+              <div className="absolute left-1 top-6 hidden rounded-2xl border border-cyan-300/20 bg-cyan-400/[0.08] px-3 py-2 text-xs font-semibold text-cyan-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)] sm:block">
                 Coincarne Actions
               </div>
 
-              <div className="absolute right-0 top-10 hidden rounded-2xl border border-amber-300/20 bg-amber-400/[0.08] px-3 py-2 text-xs font-semibold text-amber-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)] sm:block">
+              <div className="absolute right-1 top-12 hidden rounded-2xl border border-amber-300/20 bg-amber-400/[0.08] px-3 py-2 text-xs font-semibold text-amber-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)] sm:block">
                 Deadcoin Deliveries
               </div>
 
-              <div className="absolute bottom-8 left-2 hidden rounded-2xl border border-violet-300/20 bg-violet-400/[0.08] px-3 py-2 text-xs font-semibold text-violet-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)] sm:block">
+              <div className="absolute bottom-10 left-3 hidden rounded-2xl border border-violet-300/20 bg-violet-400/[0.08] px-3 py-2 text-xs font-semibold text-violet-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)] sm:block">
                 Referrals
               </div>
 
-              <div className="absolute bottom-3 right-2 hidden rounded-2xl border border-emerald-300/20 bg-emerald-400/[0.08] px-3 py-2 text-xs font-semibold text-emerald-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)] sm:block">
+              <div className="absolute bottom-5 right-3 hidden rounded-2xl border border-emerald-300/20 bg-emerald-400/[0.08] px-3 py-2 text-xs font-semibold text-emerald-100 shadow-[0_12px_30px_rgba(0,0,0,0.25)] sm:block">
                 Social Impact
               </div>
             </div>
@@ -1631,9 +1602,38 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="relative z-[1] mt-7 rounded-2xl border border-white/8 bg-black/15 p-3 sm:p-4">
+        <div className="relative z-[1] mt-10 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.045] p-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200">
+              Value Source
+            </p>
+            <p className="mt-2 text-base font-bold text-white">
+              Coincarnation
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-violet-400/15 bg-violet-400/[0.045] p-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-200">
+              Unit
+            </p>
+            <p className="mt-2 text-base font-bold text-white">
+              CorePoint
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.045] p-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-200">
+              Outcome
+            </p>
+            <p className="mt-2 text-base font-bold text-white">
+              Personal Value Currency
+            </p>
+          </div>
+        </div>
+
+        <div className="relative z-[1] mt-8 border-t border-white/10 pt-6">
           <div className="flex flex-col gap-3 text-center sm:text-left">
-            <div className="inline-flex items-center justify-center sm:justify-start gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-200">
+            <div className="inline-flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-200 sm:justify-start">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,0.7)]" />
               Fair Future Principle
             </div>
