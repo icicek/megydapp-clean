@@ -1461,11 +1461,15 @@ export default function HomePage() {
             >
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),transparent_28%,rgba(139,92,246,0.08)_58%,transparent_82%)] opacity-70" />
 
+              <div className="pointer-events-none absolute -inset-x-24 top-0 h-full translate-x-[-70%] bg-[linear-gradient(100deg,transparent_0%,rgba(255,255,255,0.10)_42%,rgba(125,249,255,0.18)_50%,transparent_62%)] opacity-0 blur-sm transition-opacity duration-300 group-hover:opacity-100 group-hover:animate-[profileShine_1.45s_ease-out_1]" />
+
+              <div className="pointer-events-none absolute inset-0 rounded-2xl opacity-60 group-hover:animate-[profileBreath_1.8s_ease-in-out_infinite] group-hover:shadow-[inset_0_0_28px_rgba(45,212,191,0.10),0_0_34px_rgba(139,92,246,0.16)]" />
+
               <div className="relative flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <div
                     className={[
-                      'relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border text-sm font-black',
+                      'relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border text-sm font-black transition-transform duration-300 group-hover:scale-105 group-hover:animate-[profileIconPulse_1.4s_ease-in-out_infinite]',
                       connected && pubkeyBase58
                         ? 'border-emerald-300/25 bg-emerald-400/[0.10] text-emerald-100 shadow-[0_0_18px_rgba(16,185,129,0.14)]'
                         : 'border-white/10 bg-white/[0.04] text-gray-400',
@@ -1498,7 +1502,9 @@ export default function HomePage() {
                   <span className="hidden rounded-full border border-emerald-300/15 bg-emerald-400/[0.06] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] sm:inline">
                     Profile
                   </span>
-                  <span>↗</span>
+                  <span className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
+                    ↗
+                  </span>
                 </div>
               </div>
             </button>
@@ -2056,6 +2062,37 @@ export default function HomePage() {
           onGoToProfileRequest={() => router.push('/profile')}
         />
       )}
+
+      <style jsx global>{`
+        @keyframes profileShine {
+          0% {
+            transform: translateX(-70%);
+          }
+          100% {
+            transform: translateX(170%);
+          }
+        }
+
+        @keyframes profileBreath {
+          0%,
+          100% {
+            opacity: 0.45;
+          }
+          50% {
+            opacity: 0.95;
+          }
+        }
+
+        @keyframes profileIconPulse {
+          0%,
+          100% {
+            box-shadow: 0 0 18px rgba(16, 185, 129, 0.14);
+          }
+          50% {
+            box-shadow: 0 0 26px rgba(45, 212, 191, 0.26);
+          }
+        }
+      `}</style>
     </div>
   );
 }
