@@ -725,6 +725,15 @@ export default function HomePage() {
     setSelectedToken(token);
     setShowSolModal(true);
   };
+  function handleTokenSelectMouseDown(e: React.MouseEvent<HTMLSelectElement>) {
+    if (!tokensLoading && !refreshing && tokens.length === 0) {
+      e.preventDefault();
+  
+      alert(
+        'No Coincarnatable assets were found in this wallet. This wallet currently holds no visible SOL or SPL assets eligible for Coincarnation.'
+      );
+    }
+  }
   const [globalStats, setGlobalStats] = useState({
     totalUsd: 0,
     totalParticipants: 0,
@@ -1235,6 +1244,7 @@ export default function HomePage() {
                             : 'cursor-pointer',
                         ].join(' ')}
                         value={selectedToken?.mint || ''}
+                        onMouseDown={handleTokenSelectMouseDown}
                         onChange={handleSelectChange}
                         disabled={tokensLoading || refreshing || hasPendingCoincarnateScan()}
                       >
