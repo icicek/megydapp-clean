@@ -78,6 +78,7 @@ export default function HomePage() {
   } | null>(null);
   const [tokenSelectorSpotlight, setTokenSelectorSpotlight] = useState(false);
   const [tokenSelectorHint, setTokenSelectorHint] = useState(false);
+  const [emptyTokenNotice, setEmptyTokenNotice] = useState(false);
   const pendingRefetchRequestedMintRef = useRef<string | null>(null);
   const coinFlowOverlayTimerRef = useRef<number | null>(null);
   const tokenSelectRef = useRef<HTMLSelectElement | null>(null);
@@ -725,13 +726,11 @@ export default function HomePage() {
     setSelectedToken(token);
     setShowSolModal(true);
   };
-  function handleTokenSelectMouseDown(e: React.MouseEvent<HTMLSelectElement>) {
+  function handleTokenSelectPointerDown(e: React.PointerEvent<HTMLSelectElement>) {
     if (!tokensLoading && !refreshing && tokens.length === 0) {
       e.preventDefault();
-  
-      alert(
-        'No Coincarnatable assets were found in this wallet. This wallet currently holds no visible SOL or SPL assets eligible for Coincarnation.'
-      );
+      setEmptyTokenNotice(true);
+      setTokenSelectorHint(false);
     }
   }
   const [globalStats, setGlobalStats] = useState({
@@ -1244,7 +1243,7 @@ export default function HomePage() {
                             : 'cursor-pointer',
                         ].join(' ')}
                         value={selectedToken?.mint || ''}
-                        onMouseDown={handleTokenSelectMouseDown}
+                        onPointerDown={handleTokenSelectPointerDown}
                         onChange={handleSelectChange}
                         disabled={tokensLoading || refreshing || hasPendingCoincarnateScan()}
                       >
@@ -1284,6 +1283,19 @@ export default function HomePage() {
                     </div>
                   </div>
 
+                  {emptyTokenNotice && !tokensLoading && !refreshing && tokens.length === 0 && (
+                    <div className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-400/[0.07] px-4 py-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                      <p className="text-sm font-semibold text-amber-100">
+                        No Coincarnatable assets found.
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-gray-400">
+                        This wallet currently holds no visible SOL or SPL assets eligible for
+                        Coincarnation.
+                      </p>
+                    </div>
+                  )}
+
                   {tokenSelectorHint && (
                     <div className="mt-2 text-center text-[11px] font-medium text-cyan-200 animate-pulse">
                       ↓ Choose one of your available tokens
@@ -1318,12 +1330,6 @@ export default function HomePage() {
                         </div>
                       </div>
                     </div>
-                  )}
-
-                  {!tokensLoading && tokens.length === 0 && (
-                    <p className="text-xs text-gray-400 mb-2">
-                      No supported tokens were found in this wallet yet.
-                    </p>
                   )}
 
                   {tokensError && (
