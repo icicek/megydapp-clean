@@ -84,6 +84,7 @@ export default function HomePage() {
   const tokenSelectRef = useRef<HTMLSelectElement | null>(null);
   const pendingModalOpenTimerRef = useRef<number | null>(null);
   const pendingWalletSyncOverlayShownRef = useRef<string | null>(null);
+  const tokenSelectorWrapRef = useRef<HTMLDivElement | null>(null);
 
   function formatTokenAmount(token: TokenInfo) {
     if (typeof token.uiAmountString === 'string' && token.uiAmountString.trim()) {
@@ -698,6 +699,7 @@ export default function HomePage() {
   }
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setEmptyTokenNotice(false);
     if (hasPendingCoincarnateScan()) return;
 
     const mint = e.target.value;
@@ -953,6 +955,30 @@ export default function HomePage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!emptyTokenNotice) return;
+  
+    function handleOutsideClick(e: PointerEvent) {
+      if (!tokenSelectorWrapRef.current) return;
+  
+      if (!tokenSelectorWrapRef.current.contains(e.target as Node)) {
+        setEmptyTokenNotice(false);
+      }
+    }
+  
+    document.addEventListener('pointerdown', handleOutsideClick);
+  
+    return () => {
+      document.removeEventListener('pointerdown', handleOutsideClick);
+    };
+  }, [emptyTokenNotice]);
+
+  useEffect(() => {
+    if (tokens.length > 0) {
+      setEmptyTokenNotice(false);
+    }
+  }, [tokens.length]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1221,6 +1247,7 @@ export default function HomePage() {
                   </label>
 
                   <div
+                    ref={tokenSelectorWrapRef}
                     className={[
                       'relative mb-2 rounded-2xl border p-[1px] transition-all duration-300',
                       'bg-[linear-gradient(135deg,rgba(34,211,238,0.35),rgba(168,85,247,0.18),rgba(16,185,129,0.18))]',
@@ -1281,20 +1308,31 @@ export default function HomePage() {
                         ▾
                       </div>
                     </div>
+                    
+                    {emptyTokenNotice && !tokensLoading && !refreshing && tokens.length === 0 && (
+                        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl border border-amber-300/20 bg-[#111827]/98 text-left shadow-[0_18px_45px_rgba(0,0,0,0.45),0_0_22px_rgba(245,158,11,0.10)] backdrop-blur-xl">
+                          <div className="border-b border-white/8 px-4 py-3">
+                            <p className="text-sm font-semibold text-amber-100">
+                              No Coincarnatable assets found.
+                            </p>
+
+                            <p className="mt-1 text-xs leading-5 text-gray-400">
+                              This wallet currently holds no visible SOL or SPL assets eligible for
+                              Coincarnation.
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setEmptyTokenNotice(false)}
+                            className="flex w-full items-center justify-between px-4 py-3 text-left text-xs font-semibold text-gray-300 transition-colors hover:bg-white/[0.04] hover:text-white"
+                          >
+                            <span>Close</span>
+                            <span aria-hidden>↗</span>
+                          </button>
+                        </div>
+                    )}
                   </div>
-
-                  {emptyTokenNotice && !tokensLoading && !refreshing && tokens.length === 0 && (
-                    <div className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-400/[0.07] px-4 py-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                      <p className="text-sm font-semibold text-amber-100">
-                        No Coincarnatable assets found.
-                      </p>
-
-                      <p className="mt-1 text-xs leading-5 text-gray-400">
-                        This wallet currently holds no visible SOL or SPL assets eligible for
-                        Coincarnation.
-                      </p>
-                    </div>
-                  )}
 
                   {tokenSelectorHint && (
                     <div className="mt-2 text-center text-[11px] font-medium text-cyan-200 animate-pulse">
