@@ -1446,20 +1446,20 @@ export default function HomePage() {
                 'group relative w-full overflow-hidden rounded-2xl border px-4 py-3 text-left transition-all duration-300',
                 connected && pubkeyBase58
                   ? [
-                      'border-amber-300/22',
-                      'bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.13),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.13),transparent_32%),linear-gradient(180deg,rgba(38,28,12,0.62),rgba(18,14,28,0.72))]',
-                      'shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_12px_32px_rgba(0,0,0,0.22),0_0_26px_rgba(251,191,36,0.08)]',
-                      'hover:border-amber-200/36 hover:shadow-[0_16px_38px_rgba(0,0,0,0.28),0_0_34px_rgba(251,191,36,0.13)]',
+                      'border-violet-300/22',
+                      'bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.10),transparent_32%),linear-gradient(180deg,rgba(20,18,42,0.72),rgba(9,14,28,0.78))]',
+                      'shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_12px_32px_rgba(0,0,0,0.22),0_0_26px_rgba(139,92,246,0.10)]',
+                      'hover:border-violet-200/36 hover:shadow-[0_16px_38px_rgba(0,0,0,0.28),0_0_34px_rgba(139,92,246,0.16)]',
                     ].join(' ')
                   : [
                       'border-white/10',
                       'bg-white/[0.035]',
                       'shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.18)]',
-                      'hover:border-amber-300/22 hover:bg-white/[0.05]',
+                      'hover:border-violet-300/22 hover:bg-white/[0.05]',
                     ].join(' '),
               ].join(' ')}
             >
-              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),transparent_28%,rgba(251,191,36,0.08)_58%,transparent_82%)] opacity-70" />
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),transparent_28%,rgba(139,92,246,0.08)_58%,transparent_82%)] opacity-70" />
 
               <div className="relative flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
@@ -1481,7 +1481,7 @@ export default function HomePage() {
                         Open Your Profile
                       </p>
 
-                      <span className="rounded-full border border-emerald-300/20 bg-emerald-400/[0.08] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-emerald-200">
+                      <span className="hidden rounded-full border border-violet-300/20 bg-violet-400/[0.08] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-violet-200 sm:inline">
                         Personal
                       </span>
                     </div>
