@@ -1444,13 +1444,22 @@ export default function HomePage() {
               }
               className={[
                 'group relative w-full overflow-hidden rounded-2xl border px-4 py-3 text-left transition-all duration-300',
-                'bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.18)]',
                 connected && pubkeyBase58
-                  ? 'border-cyan-400/18 hover:border-cyan-300/30 hover:bg-cyan-400/[0.055] hover:shadow-[0_14px_34px_rgba(0,0,0,0.24),0_0_24px_rgba(34,211,238,0.10)]'
-                  : 'border-white/10 hover:border-cyan-400/22 hover:bg-white/[0.05]',
+                  ? [
+                      'border-amber-300/22',
+                      'bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.13),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.13),transparent_32%),linear-gradient(180deg,rgba(38,28,12,0.62),rgba(18,14,28,0.72))]',
+                      'shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_12px_32px_rgba(0,0,0,0.22),0_0_26px_rgba(251,191,36,0.08)]',
+                      'hover:border-amber-200/36 hover:shadow-[0_16px_38px_rgba(0,0,0,0.28),0_0_34px_rgba(251,191,36,0.13)]',
+                    ].join(' ')
+                  : [
+                      'border-white/10',
+                      'bg-white/[0.035]',
+                      'shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.18)]',
+                      'hover:border-amber-300/22 hover:bg-white/[0.05]',
+                    ].join(' '),
               ].join(' ')}
             >
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.08),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.07),transparent_30%)]" />
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),transparent_28%,rgba(251,191,36,0.08)_58%,transparent_82%)] opacity-70" />
 
               <div className="relative flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
@@ -1469,7 +1478,7 @@ export default function HomePage() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate text-sm font-black text-white">
-                        Open Your Value Profile
+                        Open Your Profile
                       </p>
 
                       <span className="rounded-full border border-emerald-300/20 bg-emerald-400/[0.08] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-emerald-200">
