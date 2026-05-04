@@ -1518,8 +1518,8 @@ export default function HomePage() {
       </div>
 
       {/* Fair Future Engine */}
-      <section className="relative w-full max-w-5xl px-1 py-2 sm:px-2">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_left,rgba(16,185,129,0.10),transparent_26%),radial-gradient(circle_at_right,rgba(34,211,238,0.08),transparent_24%)] opacity-80" />
+      <section className="relative w-full max-w-5xl overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.018))] px-4 py-6 sm:px-6 md:px-7 md:py-8 shadow-[0_18px_70px_rgba(0,0,0,0.26)]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.10),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.08),transparent_34%)] opacity-80" />
 
         <div className="relative z-[1] grid grid-cols-1 gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div>
@@ -1631,7 +1631,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="relative z-[1] mt-8 border-t border-white/8 pt-5">
+        <div className="relative z-[1] mt-7 rounded-2xl border border-white/8 bg-black/15 p-3 sm:p-4">
           <div className="flex flex-col gap-3 text-center sm:text-left">
             <div className="inline-flex items-center justify-center sm:justify-start gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-200">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,0.7)]" />
@@ -1656,7 +1656,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <div className="w-full max-w-5xl rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div className="mt-4 w-full max-w-5xl rounded-2xl border border-white/10 bg-white/5 p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-xl md:text-2xl font-semibold text-white">
