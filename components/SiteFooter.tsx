@@ -20,7 +20,7 @@ export default function SiteFooter() {
   }
 
   return (
-    <footer className="w-full max-w-5xl border-t border-white/10 pt-6 pb-4">
+    <footer className="mt-10 w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.06),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.07),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] px-5 py-6 shadow-[0_18px_70px_rgba(0,0,0,0.26)] sm:px-6">
       <div className="grid grid-cols-1 gap-10 md:grid-cols-3 md:items-start">
         <div className="md:mx-auto md:max-w-[280px]">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
@@ -120,7 +120,7 @@ export default function SiteFooter() {
         </div>
       </div>
 
-      <div className="mt-8 border-t border-white/8 pt-4 text-center">
+      <div className="mt-8 border-t border-white/10 pt-4 text-center">
         <p className="text-xs leading-5 text-gray-500">
           Every human being should have the right to build a personal currency
           powered by the value they contribute to the world.
