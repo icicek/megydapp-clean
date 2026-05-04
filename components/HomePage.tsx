@@ -1518,8 +1518,8 @@ export default function HomePage() {
       </div>
 
       {/* Fair Future Engine */}
-      <section className="relative w-full max-w-5xl overflow-hidden rounded-[30px] border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.14),transparent_32%),linear-gradient(180deg,rgba(9,18,22,0.96),rgba(6,10,18,0.98))] p-4 sm:p-6 md:p-7 shadow-[0_24px_80px_rgba(0,0,0,0.34),0_0_48px_rgba(16,185,129,0.08),0_0_54px_rgba(34,211,238,0.07)]">
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),transparent_24%,rgba(34,211,238,0.08)_58%,transparent_82%)] opacity-70" />
+      <section className="relative w-full max-w-5xl px-1 py-2 sm:px-2">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_left,rgba(16,185,129,0.10),transparent_26%),radial-gradient(circle_at_right,rgba(34,211,238,0.08),transparent_24%)] opacity-80" />
 
         <div className="relative z-[1] grid grid-cols-1 gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div>
@@ -1538,7 +1538,7 @@ export default function HomePage() {
               engine, built to form the Fair Future Fund.
             </p>
 
-            <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="mt-5 border-l-2 border-emerald-300/20 pl-4">
               <p className="text-sm leading-6 text-gray-300">
                 The Fair Future Fund is designed to generate
                 global capital gains and return them to Coincarnators — with one mission:
@@ -1631,7 +1631,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="relative z-[1] mt-6 rounded-2xl border border-white/10 bg-black/20 p-3 sm:p-4">
+        <div className="relative z-[1] mt-8 border-t border-white/8 pt-5">
           <div className="flex flex-col gap-3 text-center sm:text-left">
             <div className="inline-flex items-center justify-center sm:justify-start gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-200">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,0.7)]" />
