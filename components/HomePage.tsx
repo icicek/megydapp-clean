@@ -2038,7 +2038,7 @@ export default function HomePage() {
 
               <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.045] p-4 text-center md:text-right">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-200">
-                  Indexed Assets
+                  Classified Assets
                 </p>
 
                 <p className="mt-2 text-2xl font-black text-white">

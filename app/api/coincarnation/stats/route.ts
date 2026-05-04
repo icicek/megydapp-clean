@@ -66,9 +66,14 @@ export async function GET() {
 
     const registryStatsResult = await sql`
       SELECT
-        COUNT(*)::int AS total_indexed_assets,
+        COUNT(*) FILTER (
+          WHERE status IN ('healthy','walking_dead','deadcoin')
+        )::int AS total_indexed_assets,
+
         COUNT(*) FILTER (WHERE status = 'healthy')::int AS healthy_assets,
+
         COUNT(*) FILTER (WHERE status = 'walking_dead')::int AS walking_dead_assets,
+
         COUNT(*) FILTER (WHERE status = 'deadcoin')::int AS deadcoin_assets
       FROM token_registry;
     ` as any[];
