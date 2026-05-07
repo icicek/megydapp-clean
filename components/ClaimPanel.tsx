@@ -24,6 +24,15 @@ import {
   type UserIdentityStatus,
 } from '@/lib/identity/userIdentityAuth';
 
+type LinkedIdentityWallet = {
+  walletAddress: string;
+  chain: string;
+  isPrimary: boolean;
+  verifiedAt: string | null;
+  lastSeenAt: string | null;
+  createdAt: string | null;
+};
+
 const TREASURY_PUBKEY = new PublicKey(
   process.env.NEXT_PUBLIC_CLAIM_FEE_TREASURY ??
     'D7iqkQmY3ryNFtc9qseUv6kPeVjxsSD98hKN5q3rkYTd'
@@ -133,6 +142,7 @@ export default function ClaimPanel() {
     authenticated: false,
     identity: null,
   });
+  const [linkedWallets, setLinkedWallets] = useState<LinkedIdentityWallet[]>([]);
 
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
   const [copied, setCopied] = useState(false);
@@ -177,6 +187,27 @@ export default function ClaimPanel() {
   const walletBase58 = publicKey?.toBase58() ?? null;
   const [refundDebug, setRefundDebug] = useState<any>(null);
 
+  async function fetchLinkedIdentityWallets() {
+    try {
+      const res = await fetch('/api/auth/wallets', {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+      });
+  
+      const json = await res.json().catch(() => ({}));
+  
+      if (!res.ok || !json?.ok || !Array.isArray(json.wallets)) {
+        setLinkedWallets([]);
+        return;
+      }
+  
+      setLinkedWallets(json.wallets);
+    } catch {
+      setLinkedWallets([]);
+    }
+  }
+  
   useEffect(() => {
     let alive = true;
   
@@ -448,6 +479,7 @@ export default function ClaimPanel() {
         if (!alive) return;
   
         setIdentityStatus(nextStatus);
+        await fetchLinkedIdentityWallets();
       } catch {
         if (!alive) return;
   
@@ -1393,6 +1425,39 @@ export default function ClaimPanel() {
               color="yellow"
             />
           </div>
+
+          {linkedWallets.length > 0 && (
+            <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-4">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-cyan-300">
+                Linked Wallets
+              </p>
+
+              <div className="grid gap-2">
+                {linkedWallets.map((item) => (
+                  <div
+                    key={`${item.chain}-${item.walletAddress}`}
+                    className="flex flex-col gap-2 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <span className="font-mono text-xs text-gray-300 break-all">
+                      {shorten(item.walletAddress)}
+                    </span>
+
+                    <div className="flex gap-2 text-[10px] font-bold uppercase tracking-wide">
+                      {item.isPrimary && (
+                        <span className="rounded-full bg-emerald-400/20 px-2 py-1 text-emerald-300">
+                          Primary
+                        </span>
+                      )}
+
+                      <span className="rounded-full bg-cyan-400/10 px-2 py-1 text-cyan-300">
+                        {item.chain}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <p className="mt-3 text-xs text-gray-400 italic text-center">
             Increase your share by Coincarnating more.
