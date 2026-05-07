@@ -5,6 +5,7 @@
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { useEffect, useRef, useState } from 'react';
 import AppWalletBar from '@/components/AppWalletBar';
+import IdentityGate from '@/components/identity/IdentityGate';
 import { motion } from 'framer-motion';
 import CorePointChart from './CorePointChart';
 import Leaderboard from './Leaderboard';
@@ -18,6 +19,10 @@ import {
   Transaction,
   SystemProgram,
 } from '@solana/web3.js';
+import {
+  getUserIdentityStatus,
+  type UserIdentityStatus,
+} from '@/lib/identity/userIdentityAuth';
 
 const TREASURY_PUBKEY = new PublicKey(
   process.env.NEXT_PUBLIC_CLAIM_FEE_TREASURY ??
@@ -124,6 +129,10 @@ export default function ClaimPanel() {
   const [phaseLoading, setPhaseLoading] = useState<boolean>(true);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [feeSigForSupport, setFeeSigForSupport] = useState<string | null>(null);
+  const [identityStatus, setIdentityStatus] = useState<UserIdentityStatus>({
+    authenticated: false,
+    identity: null,
+  });
 
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
   const [copied, setCopied] = useState(false);
@@ -427,6 +436,33 @@ export default function ClaimPanel() {
 
   useEffect(() => {
     setSessionId(null);
+  }, [publicKey]);
+
+  useEffect(() => {
+    let alive = true;
+  
+    async function fetchIdentityStatus() {
+      try {
+        const nextStatus = await getUserIdentityStatus();
+  
+        if (!alive) return;
+  
+        setIdentityStatus(nextStatus);
+      } catch {
+        if (!alive) return;
+  
+        setIdentityStatus({
+          authenticated: false,
+          identity: null,
+        });
+      }
+    }
+  
+    void fetchIdentityStatus();
+  
+    return () => {
+      alive = false;
+    };
   }, [publicKey]);
 
   useEffect(() => {
@@ -1224,6 +1260,10 @@ export default function ClaimPanel() {
           : `🎉 Claim from ${effectivePhaseName ? String(effectivePhaseName) : String(effectivePhaseLabel)}`;
 
   return (
+  <IdentityGate
+    title="Verify your Coincarnation Identity"
+    description="Verify your wallet and device signal before accessing your Claim Panel. This protects fair participation without moving funds or approving a transaction."
+  >
     <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
       <div className="max-w-6xl w-full mx-auto space-y-6">
 
@@ -1236,6 +1276,44 @@ export default function ClaimPanel() {
           className="bg-zinc-900 text-white p-6 rounded-2xl w-full border border-zinc-700 shadow-lg space-y-10"
         >
         <h2 className="text-3xl font-extrabold text-center tracking-tight mb-2">🎁 Claim Panel</h2>
+        
+        {/* 🧬 Identity Summary */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.05 }}
+          className="w-full bg-zinc-900 border border-cyan-500/30 rounded-xl px-4 py-4 sm:px-6 sm:py-5 mb-5 shadow-md"
+        >
+          <h3 className="text-cyan-300 text-sm font-semibold uppercase mb-4 tracking-wide">
+            🧬 Coincarnation Identity
+          </h3>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
+            <Info
+              label="Identity Status"
+              value={identityStatus.identity?.claimReady ? 'Claim Ready' : 'Not Ready'}
+            />
+
+            <Info
+              label="Linked Wallets"
+              value={String(identityStatus.identity?.linkedWalletCount ?? 0)}
+            />
+
+            <Info
+              label="Human Confidence"
+              value={String(identityStatus.identity?.humanConfidenceScore ?? 0)}
+            />
+
+            <Info
+              label="Risk Score"
+              value={String(identityStatus.identity?.riskScore ?? 0)}
+            />
+          </div>
+
+          <p className="mt-3 text-xs text-gray-400 italic text-center">
+            Your Claim Panel is now protected by your Coincarnation Identity. Multiple wallets can belong to one identity.
+          </p>
+        </motion.section>
 
         {/* 👤 Personal Info */}
         <motion.section
@@ -2410,7 +2488,8 @@ export default function ClaimPanel() {
         </div>
       )}
     </div>
-  </div>
+    </div>
+  </IdentityGate>
 );
 }
 

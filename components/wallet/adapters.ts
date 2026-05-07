@@ -3,12 +3,17 @@
 
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import type { Adapter } from '@solana/wallet-adapter-base';
+import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
+import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
+import { BackpackWalletAdapter } from '@solana/wallet-adapter-backpack';
 import { WalletConnectWalletAdapter } from '@solana/wallet-adapter-walletconnect';
 
-const adapters: Adapter[] = [];
+const adapters: Adapter[] = [
+  new PhantomWalletAdapter(),
+  new SolflareWalletAdapter({ network: WalletAdapterNetwork.Mainnet }),
+  new BackpackWalletAdapter(),
+];
 
-// Keep only WalletConnect in the standard modal.
-// Phantom / Solflare / Backpack are handled by our custom mobile picker flow.
 if (process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID) {
   adapters.push(
     new WalletConnectWalletAdapter({
