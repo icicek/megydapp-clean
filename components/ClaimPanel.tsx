@@ -1348,6 +1348,38 @@ export default function ClaimPanel() {
             />
           </div>
 
+          <div className="mt-5 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">
+                  Identity View
+                </p>
+
+                <p className="mt-1 text-sm text-gray-300">
+                  Currently viewing claim data for your active wallet.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-black"
+                >
+                  Current Wallet
+                </button>
+
+                <button
+                  type="button"
+                  disabled
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-bold text-white/40"
+                  title="Identity-wide claim aggregation will be enabled in a later version."
+                >
+                  All Linked Wallets · Soon
+                </button>
+              </div>
+            </div>
+          </div>
+
           {linkedWallets.length > 0 && (
             <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-4">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-cyan-300">
