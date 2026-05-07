@@ -1276,7 +1276,13 @@ export default function ClaimPanel() {
           className="bg-zinc-900 text-white p-6 rounded-2xl w-full border border-zinc-700 shadow-lg space-y-10"
         >
         <h2 className="text-3xl font-extrabold text-center tracking-tight mb-2">🎁 Claim Panel</h2>
-        
+
+        {identityStatus.identity && (
+          <div className="text-center text-xs text-cyan-400 mb-2">
+            Identity #{identityStatus.identity.id.slice(0, 6)} · {identityStatus.identity.linkedWalletCount} wallets linked
+          </div>
+        )}
+
         {/* 🧬 Identity Summary */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
