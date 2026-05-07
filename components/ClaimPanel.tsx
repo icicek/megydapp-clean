@@ -1348,6 +1348,39 @@ export default function ClaimPanel() {
             />
           </div>
 
+          {linkedWallets.length > 0 && (
+            <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-4">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-cyan-300">
+                Linked Wallets
+              </p>
+
+              <div className="grid gap-2">
+                {linkedWallets.map((item) => (
+                  <div
+                    key={`${item.chain}-${item.walletAddress}`}
+                    className="flex flex-col gap-2 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <span className="font-mono text-xs text-gray-300 break-all">
+                      {shorten(item.walletAddress)}
+                    </span>
+
+                    <div className="flex gap-2 text-[10px] font-bold uppercase tracking-wide">
+                      {item.isPrimary && (
+                        <span className="rounded-full bg-emerald-400/20 px-2 py-1 text-emerald-300">
+                          Primary
+                        </span>
+                      )}
+
+                      <span className="rounded-full bg-cyan-400/10 px-2 py-1 text-cyan-300">
+                        {item.chain}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <p className="mt-3 text-xs text-gray-400 italic text-center">
             Your Claim Panel is now protected by your Coincarnation Identity. Multiple wallets can belong to one identity.
           </p>
@@ -1425,39 +1458,6 @@ export default function ClaimPanel() {
               color="yellow"
             />
           </div>
-
-          {linkedWallets.length > 0 && (
-            <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-4">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-cyan-300">
-                Linked Wallets
-              </p>
-
-              <div className="grid gap-2">
-                {linkedWallets.map((item) => (
-                  <div
-                    key={`${item.chain}-${item.walletAddress}`}
-                    className="flex flex-col gap-2 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <span className="font-mono text-xs text-gray-300 break-all">
-                      {shorten(item.walletAddress)}
-                    </span>
-
-                    <div className="flex gap-2 text-[10px] font-bold uppercase tracking-wide">
-                      {item.isPrimary && (
-                        <span className="rounded-full bg-emerald-400/20 px-2 py-1 text-emerald-300">
-                          Primary
-                        </span>
-                      )}
-
-                      <span className="rounded-full bg-cyan-400/10 px-2 py-1 text-cyan-300">
-                        {item.chain}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           <p className="mt-3 text-xs text-gray-400 italic text-center">
             Increase your share by Coincarnating more.
