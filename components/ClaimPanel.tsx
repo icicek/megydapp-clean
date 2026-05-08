@@ -5,7 +5,6 @@
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { useEffect, useRef, useState } from 'react';
 import AppWalletBar from '@/components/AppWalletBar';
-import IdentityGate from '@/components/identity/IdentityGate';
 import { motion } from 'framer-motion';
 import CorePointChart from './CorePointChart';
 import Leaderboard from './Leaderboard';
@@ -22,8 +21,10 @@ import {
 import {
   getUserIdentityStatus,
   linkWalletToCurrentIdentity,
+  signInWithWalletIdentity,
   type UserIdentityStatus,
 } from '@/lib/identity/userIdentityAuth';
+import { recordIdentityFingerprint } from '@/lib/identity/fingerprint';
 
 type LinkedIdentityWallet = {
   walletAddress: string;
@@ -144,6 +145,7 @@ export default function ClaimPanel() {
     identity: null,
   });
   const [linkedWallets, setLinkedWallets] = useState<LinkedIdentityWallet[]>([]);
+  const [verifyingIdentity, setVerifyingIdentity] = useState(false);
 
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
   const [copied, setCopied] = useState(false);
@@ -630,10 +632,49 @@ export default function ClaimPanel() {
     return { r, j };
   }
 
+  async function handleVerifyIdentityInline() {
+    try {
+      if (!publicKey) {
+        setMessage('❌ Please connect your wallet.');
+        return;
+      }
+  
+      setVerifyingIdentity(true);
+      setMessage('⏳ Verifying your Coincarnation Identity...');
+  
+      await signInWithWalletIdentity({
+        publicKey,
+        signMessage,
+        walletName: wallet?.adapter?.name,
+      });
+  
+      await recordIdentityFingerprint(publicKey.toBase58());
+  
+      const nextStatus = await getUserIdentityStatus();
+      setIdentityStatus(nextStatus);
+  
+      await fetchLinkedIdentityWallets();
+  
+      setMessage('✅ Identity verified. You can now perform protected actions.');
+    } catch (error) {
+      const msg =
+        error instanceof Error ? error.message : 'Identity verification failed.';
+  
+      setMessage(`❌ ${msg}`);
+    } finally {
+      setVerifyingIdentity(false);
+    }
+  }
+
   async function handleLinkActiveWalletToIdentity() {
     try {
       if (!publicKey) {
         setMessage('❌ Please connect your wallet.');
+        return;
+      }
+
+      if (!identityStatus.identity?.claimReady) {
+        setMessage('❌ Please verify your Coincarnation Identity before claiming.');
         return;
       }
   
@@ -1338,10 +1379,6 @@ export default function ClaimPanel() {
           : `🎉 Claim from ${effectivePhaseName ? String(effectivePhaseName) : String(effectivePhaseLabel)}`;
 
   return (
-  <IdentityGate
-    title="Verify your Coincarnation Identity"
-    description="Verify your wallet and device signal before accessing your Claim Panel. This protects fair participation without moving funds or approving a transaction."
-  >
     <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
       <div className="max-w-6xl w-full mx-auto space-y-6">
 
@@ -1415,6 +1452,27 @@ export default function ClaimPanel() {
             </div>
           )}
 
+          {!identityStatus.identity?.claimReady && (
+            <div className="mt-5 rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-4">
+              <p className="text-sm font-bold text-yellow-200">
+                Identity verification recommended
+              </p>
+
+              <p className="mt-2 text-xs leading-5 text-yellow-100/80">
+                You can view your profile now, but claiming and other protected actions require identity verification.
+              </p>
+
+              <button
+                type="button"
+                onClick={handleVerifyIdentityInline}
+                disabled={verifyingIdentity}
+                className="mt-3 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {verifyingIdentity ? 'Verifying...' : 'Verify Identity'}
+              </button>
+            </div>
+          )}
+          
           <div className="mt-5 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -2659,8 +2717,7 @@ export default function ClaimPanel() {
       )}
     </div>
     </div>
-  </IdentityGate>
-);
+  );
 }
 
 function Info({ label, value }: { label: string; value: string }) {
