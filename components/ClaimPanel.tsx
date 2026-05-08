@@ -21,6 +21,7 @@ import {
 } from '@solana/web3.js';
 import {
   getUserIdentityStatus,
+  linkWalletToCurrentIdentity,
   type UserIdentityStatus,
 } from '@/lib/identity/userIdentityAuth';
 
@@ -122,7 +123,7 @@ type CpConfig = {
 };
 
 export default function ClaimPanel() {
-  const { publicKey, sendTransaction, signMessage } = useWallet();
+  const { publicKey, sendTransaction, signMessage, wallet } = useWallet();
   const { connection } = useConnection();
 
   const [cpConfig, setCpConfig] = useState<CpConfig | null>(null);
@@ -185,6 +186,14 @@ export default function ClaimPanel() {
   const FEE_SOL = 0.003;
   const FEE_LAMPORTS = Math.round(FEE_SOL * 1_000_000_000);
   const walletBase58 = publicKey?.toBase58() ?? null;
+  const activeWalletLinked = Boolean(
+    walletBase58 &&
+      linkedWallets.some(
+        (item) =>
+          item.chain === 'solana' &&
+          item.walletAddress.toLowerCase() === walletBase58.toLowerCase()
+      )
+  );
   const [refundDebug, setRefundDebug] = useState<any>(null);
 
   async function fetchLinkedIdentityWallets() {
@@ -619,6 +628,43 @@ export default function ClaimPanel() {
 
     const j: any = await r.json().catch(() => ({}));
     return { r, j };
+  }
+
+  async function handleLinkActiveWalletToIdentity() {
+    try {
+      if (!publicKey) {
+        setMessage('❌ Please connect your wallet.');
+        return;
+      }
+  
+      if (!identityStatus.authenticated || !identityStatus.identity) {
+        setMessage('❌ Please verify your Coincarnation Identity first.');
+        return;
+      }
+  
+      setLoading(true);
+      setMessage('⏳ Linking active wallet to your Coincarnation Identity...');
+  
+      await linkWalletToCurrentIdentity({
+        publicKey,
+        signMessage,
+        walletName: wallet?.adapter?.name,
+      });
+  
+      const nextStatus = await getUserIdentityStatus();
+      setIdentityStatus(nextStatus);
+  
+      await fetchLinkedIdentityWallets();
+  
+      setMessage('✅ Active wallet linked to your Coincarnation Identity.');
+    } catch (error) {
+      const msg =
+        error instanceof Error ? error.message : 'Failed to link active wallet.';
+  
+      setMessage(`❌ ${msg}`);
+    } finally {
+      setLoading(false);
+    }
   }
   
   const handleClaim = async () => {
@@ -1347,6 +1393,27 @@ export default function ClaimPanel() {
               value={String(identityStatus.identity?.riskScore ?? 0)}
             />
           </div>
+
+          {walletBase58 && identityStatus.authenticated && !activeWalletLinked && (
+            <div className="mt-5 rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-4">
+              <p className="text-sm font-bold text-yellow-200">
+                New wallet detected
+              </p>
+
+              <p className="mt-2 text-xs leading-5 text-yellow-100/80">
+                This wallet is not linked to your current Coincarnation Identity. Link it to keep your identity unified across wallets.
+              </p>
+
+              <button
+                type="button"
+                onClick={handleLinkActiveWalletToIdentity}
+                disabled={loading}
+                className="mt-3 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Link Current Wallet
+              </button>
+            </div>
+          )}
 
           <div className="mt-5 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
