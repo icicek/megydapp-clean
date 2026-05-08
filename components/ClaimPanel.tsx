@@ -19,8 +19,10 @@ import {
   SystemProgram,
 } from '@solana/web3.js';
 import {
+  createIdentityLinkCode,
   getUserIdentityStatus,
   linkWalletToCurrentIdentity,
+  linkWalletWithIdentityCode,
   signInWithWalletIdentity,
   type UserIdentityStatus,
 } from '@/lib/identity/userIdentityAuth';
@@ -146,6 +148,11 @@ export default function ClaimPanel() {
   });
   const [linkedWallets, setLinkedWallets] = useState<LinkedIdentityWallet[]>([]);
   const [verifyingIdentity, setVerifyingIdentity] = useState(false);
+  const [identityLinkCode, setIdentityLinkCode] = useState<string | null>(null);
+  const [identityLinkCodeExpiresAt, setIdentityLinkCodeExpiresAt] = useState<string | null>(null);
+  const [identityLinkCodeInput, setIdentityLinkCodeInput] = useState('');
+  const [identityLinkingByCode, setIdentityLinkingByCode] = useState(false);
+  const [identityCodeCreating, setIdentityCodeCreating] = useState(false);
 
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
   const [copied, setCopied] = useState(false);
@@ -638,6 +645,11 @@ export default function ClaimPanel() {
         setMessage('❌ Please connect your wallet.');
         return;
       }
+
+      if (!identityStatus.identity?.claimReady) {
+        setMessage('❌ Please verify your Coincarnation Identity before requesting a refund.');
+        return;
+      }
   
       setVerifyingIdentity(true);
       setMessage('⏳ Verifying your Coincarnation Identity...');
@@ -663,6 +675,72 @@ export default function ClaimPanel() {
       setMessage(`❌ ${msg}`);
     } finally {
       setVerifyingIdentity(false);
+    }
+  }
+
+  async function handleCreateIdentityLinkCode() {
+    try {
+      if (!identityStatus.authenticated || !identityStatus.identity) {
+        setMessage('❌ Please verify your Coincarnation Identity first.');
+        return;
+      }
+  
+      setIdentityCodeCreating(true);
+      setMessage('⏳ Creating identity link code...');
+  
+      const result = await createIdentityLinkCode();
+  
+      setIdentityLinkCode(result.code);
+      setIdentityLinkCodeExpiresAt(result.expiresAt);
+      setMessage('✅ Identity link code created.');
+    } catch (error) {
+      const msg =
+        error instanceof Error ? error.message : 'Failed to create identity link code.';
+  
+      setMessage(`❌ ${msg}`);
+    } finally {
+      setIdentityCodeCreating(false);
+    }
+  }
+  
+  async function handleLinkWalletWithCode() {
+    try {
+      if (!publicKey) {
+        setMessage('❌ Please connect your wallet.');
+        return;
+      }
+  
+      const code = identityLinkCodeInput.trim();
+  
+      if (!code) {
+        setMessage('❌ Please enter an identity link code.');
+        return;
+      }
+  
+      setIdentityLinkingByCode(true);
+      setMessage('⏳ Linking wallet with identity code...');
+  
+      await linkWalletWithIdentityCode({
+        publicKey,
+        signMessage,
+        walletName: wallet?.adapter?.name,
+        code,
+      });
+  
+      const nextStatus = await getUserIdentityStatus();
+      setIdentityStatus(nextStatus);
+  
+      await fetchLinkedIdentityWallets();
+  
+      setIdentityLinkCodeInput('');
+      setMessage('✅ Wallet linked with identity code.');
+    } catch (error) {
+      const msg =
+        error instanceof Error ? error.message : 'Failed to link wallet with identity code.';
+  
+      setMessage(`❌ ${msg}`);
+    } finally {
+      setIdentityLinkingByCode(false);
     }
   }
 
@@ -1439,7 +1517,7 @@ export default function ClaimPanel() {
                 {!identityStatus.identity?.claimReady && (
                   <div>
                     <p className="text-xs leading-5 text-yellow-100/80">
-                      Verify your Coincarnation Identity to unlock claiming, voting, and other protected actions.
+                      Activate your Coincarnation Identity on this browser to unlock claiming, voting, and other protected actions.
                     </p>
 
                     <button
@@ -1503,6 +1581,86 @@ export default function ClaimPanel() {
                 >
                   All Linked Wallets · Soon
                 </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-xl border border-violet-400/20 bg-violet-400/5 p-4">
+            <div className="flex flex-col gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-violet-300">
+                  Identity Recovery / Link Code
+                </p>
+
+                <p className="mt-1 text-sm text-gray-300">
+                  Use a temporary code to link wallets from another device, browser, or wallet app.
+                </p>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Create code from this identity
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={handleCreateIdentityLinkCode}
+                    disabled={identityCodeCreating || !identityStatus.authenticated}
+                    className="mt-3 rounded-full bg-violet-300 px-4 py-2 text-xs font-black text-black transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {identityCodeCreating ? 'Creating...' : 'Generate Link Code'}
+                  </button>
+
+                  {identityLinkCode && (
+                    <div className="mt-3 rounded-lg border border-violet-400/20 bg-violet-400/10 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-violet-200/70">
+                        Your temporary code
+                      </p>
+
+                      <p className="mt-1 font-mono text-lg font-black text-violet-100">
+                        {identityLinkCode}
+                      </p>
+
+                      {identityLinkCodeExpiresAt && (
+                        <p className="mt-1 text-[11px] text-gray-400">
+                          Expires: {new Date(identityLinkCodeExpiresAt).toLocaleString()}
+                        </p>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard.writeText(identityLinkCode)}
+                        className="mt-3 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-white/[0.08]"
+                      >
+                        Copy Code
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Link this wallet with a code
+                  </p>
+
+                  <input
+                    type="text"
+                    value={identityLinkCodeInput}
+                    onChange={(e) => setIdentityLinkCodeInput(e.target.value.toUpperCase())}
+                    placeholder="MEGY-123456"
+                    className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-white outline-none transition focus:border-violet-300"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={handleLinkWalletWithCode}
+                    disabled={identityLinkingByCode || !walletBase58 || !identityLinkCodeInput.trim()}
+                    className="mt-3 rounded-full bg-violet-300 px-4 py-2 text-xs font-black text-black transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {identityLinkingByCode ? 'Linking...' : 'Link Wallet With Code'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

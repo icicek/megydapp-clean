@@ -358,3 +358,109 @@ export async function linkWalletToCurrentIdentity(params: {
 
     return verifyData;
 }
+
+export async function createIdentityLinkCode() {
+    const res = await fetch('/api/auth/link-code/create', {
+        method: 'POST',
+        credentials: 'include',
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.ok || !data.code) {
+        throw new Error(data.error || 'Failed to create identity link code.');
+    }
+
+    return data as {
+        ok: true;
+        code: string;
+        expiresAt: string;
+    };
+}
+
+export async function linkWalletWithIdentityCode(params: {
+    publicKey: PublicKey | null;
+    signMessage?: SignMessageFn;
+    walletName?: string;
+    code: string;
+}) {
+    const { publicKey, signMessage, walletName, code } = params;
+
+    if (!publicKey) {
+        throw new Error('Wallet is not connected.');
+    }
+
+    if (!signMessage) {
+        throw new Error('This wallet does not support message signing.');
+    }
+
+    const walletAddress = publicKey.toBase58();
+    const normalizedCode = code.trim().toUpperCase();
+
+    if (!normalizedCode) {
+        throw new Error('Identity link code is required.');
+    }
+
+    const message = [
+        'Coincarnation Identity Recovery',
+        '',
+        `Wallet: ${walletAddress}`,
+        `Link Code: ${normalizedCode}`,
+        '',
+        'Sign this message to link this wallet to an existing Coincarnation Identity.',
+        'This does not approve a transaction or move funds.',
+    ].join('\n');
+
+    console.info('[identity-code] Step 1: requesting wallet signature');
+
+    let signatureBytes: Uint8Array;
+
+    try {
+        const encodedMessage = new TextEncoder().encode(message);
+
+        const directSignature = await signWithDirectProvider({
+            message: encodedMessage,
+            walletAddress,
+            walletName,
+        });
+
+        if (directSignature) {
+            signatureBytes = directSignature;
+        } else {
+            signatureBytes = await signMessage(encodedMessage);
+        }
+    } catch (error) {
+        console.warn('[identity-code] Wallet signMessage failed:', error);
+
+        throw new Error(
+            'Wallet signature request failed. Please reconnect your wallet and approve the message signature.'
+        );
+    }
+
+    const signature = toBase64(signatureBytes);
+
+    console.info('[identity-code] Step 2: verifying link code on backend');
+
+    const verifyRes = await fetch('/api/auth/link-code/verify', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+            walletAddress,
+            code: normalizedCode,
+            signature,
+        }),
+    });
+
+    const verifyData = await verifyRes.json();
+
+    if (!verifyRes.ok || !verifyData.ok) {
+        throw new Error(verifyData.error || 'Failed to link wallet with identity code.');
+    }
+
+    console.info('[identity-code] Step 3: wallet linked with identity code');
+
+    return verifyData;
+}
