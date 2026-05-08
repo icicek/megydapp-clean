@@ -489,31 +489,61 @@ export default function ClaimPanel() {
 
   useEffect(() => {
     let alive = true;
-  
+
     async function fetchIdentityStatus() {
       try {
         const nextStatus = await getUserIdentityStatus();
-  
+
         if (!alive) return;
-  
+
+        if (nextStatus.authenticated || !walletBase58) {
+          setIdentityStatus(nextStatus);
+          await fetchLinkedIdentityWallets();
+          return;
+        }
+
+        const recoverRes = await fetch('/api/auth/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          cache: 'no-store',
+          body: JSON.stringify({
+            walletAddress: walletBase58,
+          }),
+        });
+
+        const recoveredStatus = await recoverRes.json().catch(() => null);
+
+        if (!alive) return;
+
+        if (recoverRes.ok && recoveredStatus?.authenticated) {
+          setIdentityStatus({
+            authenticated: true,
+            identity: recoveredStatus.identity,
+          });
+
+          await fetchLinkedIdentityWallets();
+          return;
+        }
+
         setIdentityStatus(nextStatus);
         await fetchLinkedIdentityWallets();
       } catch {
         if (!alive) return;
-  
+
         setIdentityStatus({
           authenticated: false,
           identity: null,
         });
       }
     }
-  
+
     void fetchIdentityStatus();
-  
+
     return () => {
       alive = false;
     };
-  }, [publicKey]);
+  }, [walletBase58]);
 
   useEffect(() => {
     attemptIdemKeyRef.current = null;

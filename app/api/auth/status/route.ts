@@ -2,7 +2,12 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { sql } from '@/app/api/_lib/db';
-import { USER_AUTH_COOKIE, verifyUserSession } from '@/app/api/_lib/user-auth';
+import {
+  USER_AUTH_COOKIE,
+  getUserCookieOptions,
+  signUserSession,
+  verifyUserSession,
+} from '@/app/api/_lib/user-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,6 +117,121 @@ export async function GET() {
 
     return NextResponse.json(
       { ok: false, error: 'Failed to read identity status.' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json().catch(() => null);
+    const walletAddress = String(body?.walletAddress || '').trim();
+
+    if (!walletAddress) {
+      return NextResponse.json(
+        { ok: false, error: 'Wallet address is required.' },
+        { status: 400 }
+      );
+    }
+
+    const walletRows = await sql`
+      SELECT
+        iw.identity_id,
+        iw.wallet_address,
+        i.primary_wallet_address,
+        i.human_confidence_score,
+        i.risk_score,
+        i.status
+      FROM identity_wallets iw
+      JOIN identities i ON i.id = iw.identity_id
+      WHERE LOWER(iw.wallet_address) = LOWER(${walletAddress})
+        AND iw.chain = 'solana'
+        AND iw.verified_at IS NOT NULL
+      LIMIT 1
+    `;
+
+    if (walletRows.length === 0) {
+      return NextResponse.json({
+        ok: true,
+        recovered: false,
+        authenticated: false,
+        identity: null,
+      });
+    }
+
+    const linked = walletRows[0];
+
+    const sessionToken = signUserSession({
+      identityId: linked.identity_id,
+      walletAddress: linked.wallet_address,
+    });
+
+    const fingerprintRows = await sql`
+      SELECT id
+      FROM identity_fingerprints
+      WHERE identity_id = ${linked.identity_id}
+      LIMIT 1
+    `;
+
+    const socialRows = await sql`
+      SELECT id
+      FROM identity_socials
+      WHERE identity_id = ${linked.identity_id}
+        AND provider = 'x'
+        AND verified_at IS NOT NULL
+      LIMIT 1
+    `;
+
+    const linkedWalletCountRows = await sql`
+      SELECT COUNT(*)::int AS count
+      FROM identity_wallets
+      WHERE identity_id = ${linked.identity_id}
+        AND chain = 'solana'
+        AND verified_at IS NOT NULL
+    `;
+
+    const riskScore = Number(linked.risk_score || 0);
+    const humanConfidenceScore = Number(linked.human_confidence_score || 0);
+    const fingerprintRecorded = fingerprintRows.length > 0;
+    const xLinked = socialRows.length > 0;
+    const linkedWalletCount = Number(linkedWalletCountRows[0]?.count || 0);
+
+    const claimReady =
+      linked.status === 'active' &&
+      fingerprintRecorded &&
+      riskScore < 50;
+
+    const response = NextResponse.json({
+      ok: true,
+      recovered: true,
+      authenticated: true,
+      identity: {
+        id: linked.identity_id,
+        primaryWalletAddress: linked.primary_wallet_address,
+        walletAddress: linked.wallet_address,
+        humanConfidenceScore,
+        riskScore,
+        status: linked.status,
+        walletVerified: true,
+        fingerprintRecorded,
+        xLinked,
+        claimReady,
+        linkedWalletCount,
+      },
+    });
+
+    response.cookies.set(
+      USER_AUTH_COOKIE,
+      sessionToken,
+      getUserCookieOptions()
+    );
+
+    return response;
+  } catch (error) {
+    console.error('[auth/status/recover] error:', error);
+
+    return NextResponse.json(
+      { ok: false, error: 'Failed to recover identity session.' },
       { status: 500 }
     );
   }
