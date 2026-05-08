@@ -672,11 +672,6 @@ export default function ClaimPanel() {
         setMessage('❌ Please connect your wallet.');
         return;
       }
-
-      if (!identityStatus.identity?.claimReady) {
-        setMessage('❌ Please verify your Coincarnation Identity before claiming.');
-        return;
-      }
   
       if (!identityStatus.authenticated || !identityStatus.identity) {
         setMessage('❌ Please verify your Coincarnation Identity first.');
@@ -1431,45 +1426,52 @@ export default function ClaimPanel() {
             />
           </div>
 
-          {walletBase58 && identityStatus.authenticated && !activeWalletLinked && (
+          {((walletBase58 &&
+            identityStatus.authenticated &&
+            !activeWalletLinked) ||
+            !identityStatus.identity?.claimReady) && (
             <div className="mt-5 rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-4">
               <p className="text-sm font-bold text-yellow-200">
-                New wallet detected
+                🧬 Identity Action Required
               </p>
 
-              <p className="mt-2 text-xs leading-5 text-yellow-100/80">
-                This wallet is not linked to your current Coincarnation Identity. Link it to keep your identity unified across wallets.
-              </p>
+              <div className="mt-3 space-y-3">
+                {!identityStatus.identity?.claimReady && (
+                  <div>
+                    <p className="text-xs leading-5 text-yellow-100/80">
+                      Verify your Coincarnation Identity to unlock claiming, voting, and other protected actions.
+                    </p>
 
-              <button
-                type="button"
-                onClick={handleLinkActiveWalletToIdentity}
-                disabled={loading}
-                className="mt-3 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Link Current Wallet
-              </button>
-            </div>
-          )}
+                    <button
+                      type="button"
+                      onClick={handleVerifyIdentityInline}
+                      disabled={verifyingIdentity}
+                      className="mt-3 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {verifyingIdentity ? 'Verifying...' : 'Verify Identity'}
+                    </button>
+                  </div>
+                )}
 
-          {!identityStatus.identity?.claimReady && (
-            <div className="mt-5 rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-4">
-              <p className="text-sm font-bold text-yellow-200">
-                Identity verification recommended
-              </p>
+                {walletBase58 &&
+                  identityStatus.authenticated &&
+                  !activeWalletLinked && (
+                    <div className="border-t border-yellow-400/20 pt-3">
+                      <p className="text-xs leading-5 text-yellow-100/80">
+                        This wallet is not linked to your current Coincarnation Identity.
+                      </p>
 
-              <p className="mt-2 text-xs leading-5 text-yellow-100/80">
-                You can view your profile now, but claiming and other protected actions require identity verification.
-              </p>
-
-              <button
-                type="button"
-                onClick={handleVerifyIdentityInline}
-                disabled={verifyingIdentity}
-                className="mt-3 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {verifyingIdentity ? 'Verifying...' : 'Verify Identity'}
-              </button>
+                      <button
+                        type="button"
+                        onClick={handleLinkActiveWalletToIdentity}
+                        disabled={loading}
+                        className="mt-3 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Link Current Wallet
+                      </button>
+                    </div>
+                  )}
+              </div>
             </div>
           )}
           
