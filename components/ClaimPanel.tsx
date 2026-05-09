@@ -759,11 +759,6 @@ export default function ClaimPanel() {
         setMessage('❌ Please connect your wallet.');
         return;
       }
-
-      if (!identityStatus.identity?.claimReady) {
-        setMessage('❌ Please verify your Coincarnation Identity before requesting a refund.');
-        return;
-      }
   
       setVerifyingIdentity(true);
       setMessage('⏳ Verifying your Coincarnation Identity...');
@@ -1640,9 +1635,10 @@ export default function ClaimPanel() {
             />
           </div>
 
-          {((walletBase58 &&
-            identityStatus.authenticated &&
-            !activeWalletLinked) ||
+          {((walletBase58 && !identityStatus.authenticated) ||
+            (walletBase58 &&
+              identityStatus.authenticated &&
+              !activeWalletLinked) ||
             (identityStatus.authenticated && !identityStatus.identity?.claimReady)) && (
             <div className="mt-5 rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-4">
               <p className="text-sm font-bold text-yellow-200">
@@ -1650,7 +1646,24 @@ export default function ClaimPanel() {
               </p>
 
               <div className="mt-3 space-y-3">
-                {!identityStatus.identity?.claimReady && (
+               {walletBase58 && !identityStatus.authenticated && (
+                  <div>
+                    <p className="text-xs leading-5 text-yellow-100/80">
+                      No linked identity was found for this wallet. Verify it as a new Coincarnation Identity, or link it to an existing identity with a code below.
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={handleVerifyIdentityInline}
+                      disabled={verifyingIdentity}
+                      className="mt-3 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {verifyingIdentity ? 'Verifying...' : 'Verify as New Identity'}
+                    </button>
+                  </div>
+                )}
+
+                {identityStatus.authenticated && !identityStatus.identity?.claimReady && (
                   <div>
                     <p className="text-xs leading-5 text-yellow-100/80">
                       Activate your Coincarnation Identity on this browser to unlock claiming, voting, and other protected actions.
@@ -1666,25 +1679,6 @@ export default function ClaimPanel() {
                     </button>
                   </div>
                 )}
-
-                {walletBase58 &&
-                  identityStatus.authenticated &&
-                  !activeWalletLinked && (
-                    <div className="border-t border-yellow-400/20 pt-3">
-                      <p className="text-xs leading-5 text-yellow-100/80">
-                        This wallet is not linked to your current Coincarnation Identity.
-                      </p>
-
-                      <button
-                        type="button"
-                        onClick={handleLinkActiveWalletToIdentity}
-                        disabled={loading}
-                        className="mt-3 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Link Current Wallet
-                      </button>
-                    </div>
-                  )}
               </div>
             </div>
           )}
