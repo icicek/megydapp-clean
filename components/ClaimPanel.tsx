@@ -669,6 +669,31 @@ export default function ClaimPanel() {
     return { r, j };
   }
 
+  async function handleIdentityLogout() {
+    try {
+      setMessage('⏳ Signing out identity on this browser...');
+
+      const res = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        throw new Error('IDENTITY_LOGOUT_FAILED');
+      }
+
+      setIdentityStatus({
+        authenticated: false,
+        identity: null,
+      });
+
+      setLinkedWallets([]);
+      setMessage('✅ Identity signed out on this browser. Your linked wallets remain safe.');
+    } catch {
+      setMessage('❌ Failed to sign out identity. Please try again.');
+    }
+  }
+
   async function handleVerifyIdentityInline() {
     try {
       if (!publicKey) {
@@ -1508,9 +1533,22 @@ export default function ClaimPanel() {
           transition={{ duration: 0.5, delay: 0.05 }}
           className="w-full bg-zinc-900 border border-cyan-500/30 rounded-xl px-4 py-4 sm:px-6 sm:py-5 mb-5 shadow-md"
         >
-          <h3 className="text-cyan-300 text-sm font-semibold uppercase mb-4 tracking-wide">
-            🧬 Coincarnation Identity
-          </h3>
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="text-cyan-300 text-sm font-semibold uppercase tracking-wide">
+              🧬 Coincarnation Identity
+            </h3>
+
+            {identityStatus.authenticated && (
+              <button
+                type="button"
+                onClick={handleIdentityLogout}
+                className="self-start rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-white/70 transition hover:bg-white/[0.08] hover:text-white sm:self-auto"
+                title="Only signs out this browser. Your linked wallets remain connected to your identity."
+              >
+                Sign out Identity
+              </button>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
             <Info
