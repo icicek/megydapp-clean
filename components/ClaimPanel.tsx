@@ -153,6 +153,7 @@ export default function ClaimPanel() {
   const [identityLinkCodeInput, setIdentityLinkCodeInput] = useState('');
   const [identityLinkingByCode, setIdentityLinkingByCode] = useState(false);
   const [identityCodeCreating, setIdentityCodeCreating] = useState(false);
+  const [walletHasNoLinkedIdentity, setWalletHasNoLinkedIdentity] = useState(false);
 
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
   const [copied, setCopied] = useState(false);
@@ -488,6 +489,10 @@ export default function ClaimPanel() {
   }, [publicKey]);
 
   useEffect(() => {
+    setWalletHasNoLinkedIdentity(false);
+  }, [walletBase58]);
+
+  useEffect(() => {
     let alive = true;
 
     async function fetchIdentityStatus() {
@@ -736,7 +741,8 @@ export default function ClaimPanel() {
       const json = await res.json().catch(() => null);
 
       if (!res.ok || !json?.authenticated || !json?.identity) {
-        setMessage('❌ No linked identity found for this wallet. Please verify identity first.');
+        setWalletHasNoLinkedIdentity(true);
+        setMessage('❌ No linked identity found for this wallet. You can verify it as a new identity or link it with a code.');
         return;
       }
 
@@ -744,6 +750,7 @@ export default function ClaimPanel() {
         authenticated: true,
         identity: json.identity,
       });
+      setWalletHasNoLinkedIdentity(false);
 
       await fetchLinkedIdentityWallets();
 
@@ -1646,7 +1653,7 @@ export default function ClaimPanel() {
               </p>
 
               <div className="mt-3 space-y-3">
-               {walletBase58 && !identityStatus.authenticated && (
+               {walletBase58 && !identityStatus.authenticated && walletHasNoLinkedIdentity && (
                   <div>
                     <p className="text-xs leading-5 text-yellow-100/80">
                       No linked identity was found for this wallet. Verify it as a new Coincarnation Identity, or link it to an existing identity with a code below.
