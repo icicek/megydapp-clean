@@ -694,6 +694,45 @@ export default function ClaimPanel() {
     }
   }
 
+  async function handleRestoreIdentitySession() {
+    try {
+      if (!walletBase58) {
+        setMessage('❌ Please connect your wallet.');
+        return;
+      }
+
+      setMessage('⏳ Restoring your Coincarnation Identity...');
+
+      const res = await fetch('/api/auth/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        cache: 'no-store',
+        body: JSON.stringify({
+          walletAddress: walletBase58,
+        }),
+      });
+
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok || !json?.authenticated || !json?.identity) {
+        setMessage('❌ No linked identity found for this wallet. Please verify identity first.');
+        return;
+      }
+
+      setIdentityStatus({
+        authenticated: true,
+        identity: json.identity,
+      });
+
+      await fetchLinkedIdentityWallets();
+
+      setMessage('✅ Identity restored on this browser.');
+    } catch {
+      setMessage('❌ Failed to restore identity. Please try again.');
+    }
+  }
+
   async function handleVerifyIdentityInline() {
     try {
       if (!publicKey) {
@@ -1538,7 +1577,7 @@ export default function ClaimPanel() {
               🧬 Coincarnation Identity
             </h3>
 
-            {identityStatus.authenticated && (
+            {identityStatus.authenticated ? (
               <button
                 type="button"
                 onClick={handleIdentityLogout}
@@ -1547,7 +1586,16 @@ export default function ClaimPanel() {
               >
                 Sign out Identity
               </button>
-            )}
+            ) : walletBase58 ? (
+              <button
+                type="button"
+                onClick={handleRestoreIdentitySession}
+                className="self-start rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-bold text-cyan-200 transition hover:bg-cyan-400/15 hover:text-white sm:self-auto"
+                title="Restore your identity session if this wallet is already linked."
+              >
+                Restore Identity
+              </button>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
