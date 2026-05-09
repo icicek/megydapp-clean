@@ -492,13 +492,20 @@ export default function ClaimPanel() {
 
     async function fetchIdentityStatus() {
       try {
-        const nextStatus = await getUserIdentityStatus();
+        if (!walletBase58) {
+          await fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'include',
+          }).catch(() => null);
 
-        if (!alive) return;
+          if (!alive) return;
 
-        if (nextStatus.authenticated || !walletBase58) {
-          setIdentityStatus(nextStatus);
-          await fetchLinkedIdentityWallets();
+          setIdentityStatus({
+            authenticated: false,
+            identity: null,
+          });
+
+          setLinkedWallets([]);
           return;
         }
 
@@ -516,7 +523,7 @@ export default function ClaimPanel() {
 
         if (!alive) return;
 
-        if (recoverRes.ok && recoveredStatus?.authenticated) {
+        if (recoverRes.ok && recoveredStatus?.authenticated && recoveredStatus?.identity) {
           setIdentityStatus({
             authenticated: true,
             identity: recoveredStatus.identity,
@@ -526,8 +533,19 @@ export default function ClaimPanel() {
           return;
         }
 
-        setIdentityStatus(nextStatus);
-        await fetchLinkedIdentityWallets();
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          credentials: 'include',
+        }).catch(() => null);
+
+        if (!alive) return;
+
+        setIdentityStatus({
+          authenticated: false,
+          identity: null,
+        });
+
+        setLinkedWallets([]);
       } catch {
         if (!alive) return;
 
@@ -535,6 +553,8 @@ export default function ClaimPanel() {
           authenticated: false,
           identity: null,
         });
+
+        setLinkedWallets([]);
       }
     }
 
@@ -694,14 +714,14 @@ export default function ClaimPanel() {
     }
   }
 
-  async function handleRestoreIdentitySession() {
+  async function handleSignInWithWalletIdentity() {
     try {
       if (!walletBase58) {
         setMessage('❌ Please connect your wallet.');
         return;
       }
 
-      setMessage('⏳ Restoring your Coincarnation Identity...');
+      setMessage('⏳ Signing in with your connected wallet...');
 
       const res = await fetch('/api/auth/status', {
         method: 'POST',
@@ -727,9 +747,9 @@ export default function ClaimPanel() {
 
       await fetchLinkedIdentityWallets();
 
-      setMessage('✅ Identity restored on this browser.');
+      setMessage('✅ Signed in with your linked wallet.');
     } catch {
-      setMessage('❌ Failed to restore identity. Please try again.');
+      setMessage('❌ Failed to sign in with wallet. Please try again.');
     }
   }
 
@@ -1589,11 +1609,11 @@ export default function ClaimPanel() {
             ) : walletBase58 ? (
               <button
                 type="button"
-                onClick={handleRestoreIdentitySession}
+                onClick={handleSignInWithWalletIdentity}
                 className="self-start rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-bold text-cyan-200 transition hover:bg-cyan-400/15 hover:text-white sm:self-auto"
                 title="Restore your identity session if this wallet is already linked."
               >
-                Restore Identity
+                Sign in with Wallet
               </button>
             ) : null}
           </div>
