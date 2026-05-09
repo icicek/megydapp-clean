@@ -1575,7 +1575,7 @@ export default function ClaimPanel() {
           {((walletBase58 &&
             identityStatus.authenticated &&
             !activeWalletLinked) ||
-            !identityStatus.identity?.claimReady) && (
+            (identityStatus.authenticated && !identityStatus.identity?.claimReady)) && (
             <div className="mt-5 rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-4">
               <p className="text-sm font-bold text-yellow-200">
                 🧬 Identity Action Required
