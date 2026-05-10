@@ -1882,15 +1882,17 @@ export default function ClaimPanel() {
             </div>
           </div>
 
-          <div className="mt-5 rounded-xl border border-amber-400/25 bg-amber-400/10 p-4">
-            <p className="text-sm font-black text-amber-200">
-              ⚠️ Use one Coincarnation Identity
-            </p>
+          {walletBase58 && !identityStatus.authenticated && (
+            <div className="mt-5 rounded-xl border border-amber-400/25 bg-amber-400/10 p-4">
+              <p className="text-sm font-black text-amber-200">
+                ⚠️ Use one Coincarnation Identity
+              </p>
 
-            <p className="mt-2 text-xs leading-5 text-amber-100/80">
-              Link all wallets you own to a single Coincarnation Identity. Creating multiple identities with wallets that belong to the same person may increase your risk score and can temporarily lock protected actions such as claiming, voting, or refund requests.
-            </p>
-          </div>
+              <p className="mt-2 text-xs leading-5 text-amber-100/80">
+                Link all wallets you own to a single Coincarnation Identity. Creating multiple identities with wallets that belong to the same person may increase your risk score and can temporarily lock protected actions such as claiming, voting, or refund requests.
+              </p>
+            </div>
+          )}
 
           <div className="mt-5 rounded-xl border border-violet-400/20 bg-violet-400/5 p-4">
             <div className="flex flex-col gap-4">
