@@ -8,6 +8,7 @@ import {
   signUserSession,
   verifyUserSession,
 } from '@/app/api/_lib/user-auth';
+import { recalculateIdentityScores } from '@/app/api/_lib/identity-score';
 
 export const dynamic = 'force-dynamic';
 
@@ -160,6 +161,23 @@ export async function POST(request: Request) {
     }
 
     const linked = walletRows[0];
+    try {
+      await recalculateIdentityScores(linked.identity_id);
+    } catch (e) {
+      console.error('[identity-score] recalculate failed:', e);
+    }
+
+    const refreshedIdentityRows = await sql`
+      SELECT
+        human_confidence_score,
+        risk_score,
+        status
+      FROM identities
+      WHERE id = ${linked.identity_id}
+      LIMIT 1
+    `;
+
+    const refreshedIdentity = refreshedIdentityRows[0] || linked;
 
     const sessionToken = signUserSession({
       identityId: linked.identity_id,
@@ -190,14 +208,14 @@ export async function POST(request: Request) {
         AND verified_at IS NOT NULL
     `;
 
-    const riskScore = Number(linked.risk_score || 0);
-    const humanConfidenceScore = Number(linked.human_confidence_score || 0);
+    const riskScore = Number(refreshedIdentity.risk_score || 0);
+    const humanConfidenceScore = Number(refreshedIdentity.human_confidence_score || 0);
     const fingerprintRecorded = fingerprintRows.length > 0;
     const xLinked = socialRows.length > 0;
     const linkedWalletCount = Number(linkedWalletCountRows[0]?.count || 0);
 
     const claimReady =
-      linked.status === 'active' &&
+      refreshedIdentity.status === 'active' &&
       fingerprintRecorded &&
       riskScore < 50;
 
@@ -211,7 +229,7 @@ export async function POST(request: Request) {
         walletAddress: linked.wallet_address,
         humanConfidenceScore,
         riskScore,
-        status: linked.status,
+        status: refreshedIdentity.status,
         walletVerified: true,
         fingerprintRecorded,
         xLinked,

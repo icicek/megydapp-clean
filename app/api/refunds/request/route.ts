@@ -6,6 +6,7 @@ import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import { isBlacklistRefundReason } from '@/app/api/_lib/refund-reason';
 import { requireIdentityWalletAccess } from '@/app/api/_lib/identity-guard';
+import { recalculateIdentityScores } from '@/app/api/_lib/identity-score';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
@@ -212,6 +213,12 @@ export async function POST(req: NextRequest) {
       WHERE id = ${challenge.id}
         AND used_at IS NULL
     `;
+
+    try {
+      await recalculateIdentityScores(identityGuard.identityId);
+    } catch (e) {
+      console.error('[identity-score] recalculate failed:', e);
+    }
 
     return NextResponse.json({
       success: true,

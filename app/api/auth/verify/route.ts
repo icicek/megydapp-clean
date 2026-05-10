@@ -9,6 +9,7 @@ import {
     signUserSession,
     USER_AUTH_COOKIE,
 } from '@/app/api/_lib/user-auth';
+import { recalculateIdentityScores } from '@/app/api/_lib/identity-score';
 
 export const dynamic = 'force-dynamic';
 
@@ -155,6 +156,12 @@ export async function POST(req: NextRequest) {
           ${JSON.stringify({ chain: 'solana' })}::jsonb
         )
       `;
+        }
+
+        try {
+            await recalculateIdentityScores(identityId);
+        } catch (e) {
+            console.error('[identity-score] recalculate failed:', e);
         }
 
         const latestIdentityRows = await sql`

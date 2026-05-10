@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { sql } from '@/app/api/_lib/db';
 import { USER_AUTH_COOKIE, verifyUserSession } from '@/app/api/_lib/user-auth';
+import { recalculateIdentityScores } from '@/app/api/_lib/identity-score';
 
 export const dynamic = 'force-dynamic';
 
@@ -148,15 +149,13 @@ export async function POST(req: NextRequest) {
               })}::jsonb
             )
           `;
-      
-          await sql`
-            UPDATE identities
-            SET
-              risk_score = risk_score + 10,
-              updated_at = NOW()
-            WHERE id = ${session.identityId}
-          `;
         }
+    }
+
+    try {
+      await recalculateIdentityScores(session.identityId);
+    } catch (e) {
+      console.error('[identity-score] recalculate failed:', e);
     }
 
     return NextResponse.json({

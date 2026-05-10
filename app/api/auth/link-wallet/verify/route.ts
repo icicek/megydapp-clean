@@ -5,6 +5,7 @@ import { PublicKey } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 import { sql } from '@/app/api/_lib/db';
 import { USER_AUTH_COOKIE, verifyUserSession } from '@/app/api/_lib/user-auth';
+import { recalculateIdentityScores } from '@/app/api/_lib/identity-score';
 
 export const dynamic = 'force-dynamic';
 
@@ -169,6 +170,11 @@ export async function POST(req: NextRequest) {
         })}::jsonb
       )
     `;
+    try {
+        await recalculateIdentityScores(session.identityId);
+      } catch (e) {
+        console.error('[identity-score] recalculate failed:', e);
+      }
 
     return NextResponse.json({
       ok: true,
