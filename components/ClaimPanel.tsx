@@ -2017,42 +2017,131 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-4 sm:px-6 sm:py-5 mb-5 shadow-md"
+          className="relative overflow-hidden w-full rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 py-5 sm:px-6 sm:py-6 mb-5 shadow-[0_0_35px_rgba(34,211,238,0.06)]"
         >
-          <h3 className="text-blue-400 text-sm font-semibold uppercase mb-4 tracking-wide">
-            👤 Personal Info
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full">
-            <Info label="Wallet Address" value={shorten(data.wallet_address)} />
-            <Info label="Coincarnator No" value={`#${data.id}`} />
+          <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-cyan-400/10 blur-3xl" />
+          <div className="pointer-events-none absolute -left-24 bottom-0 h-48 w-48 rounded-full bg-fuchsia-500/10 blur-3xl" />
+
+          <div className="relative mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-cyan-300/80">
+                Coincarnator Profile
+              </p>
+
+              <h3 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
+                Your Revival Signature
+              </h3>
+
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
+                This is your personal proof of revival — the trace of what you brought back into the Fair Future Fund.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left sm:text-right">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">
+                Coincarnator No
+              </p>
+              <p className="mt-1 text-2xl font-black text-cyan-200">
+                #{data.id}
+              </p>
+            </div>
+          </div>
+
+          <div className="relative grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
+                Wallet Address
+              </p>
+              <p className="mt-2 font-mono text-sm font-semibold text-white">
+                {shorten(data.wallet_address)}
+              </p>
+              <p className="mt-3 text-xs leading-5 text-zinc-500">
+                Your active wallet identity inside the Coincarnation graph.
+              </p>
+            </div>
 
             <div
-              className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 min-h-[100px] flex flex-col justify-between relative cursor-pointer hover:bg-zinc-700 transition"
+              className="group relative cursor-pointer overflow-hidden rounded-2xl border border-fuchsia-400/20 bg-fuchsia-400/10 p-4 transition hover:border-fuchsia-300/40 hover:bg-fuchsia-400/15"
               onClick={() => {
                 if (!data?.referral_code) return;
                 const url = buildReferralUrl(data.referral_code ?? '');
                 navigator.clipboard.writeText(url);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
-              }}              
+              }}
             >
-              <p className="text-gray-400 text-sm mb-1">Referral Code</p>
-              <p className="text-white font-medium text-sm break-words">
-                {data.referral_code || '-'}
-              </p>
-              {copied && (
-                <p className="absolute top-20 right-3 text-green-400 text-xs font-semibold">
-                  ✅ Code refCopiedTop!
+              <div className="absolute inset-0 opacity-0 transition group-hover:opacity-100">
+                <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-fuchsia-300/20 blur-2xl" />
+              </div>
+
+              <div className="relative">
+                <p className="text-xs font-bold uppercase tracking-wide text-fuchsia-200/70">
+                  Referral Code
                 </p>
-              )}
+
+                <p className="mt-2 font-mono text-lg font-black text-fuchsia-100 break-words">
+                  {data.referral_code || '-'}
+                </p>
+
+                <p className="mt-3 text-xs leading-5 text-fuchsia-100/60">
+                  Click to copy your invitation link and expand your revival network.
+                </p>
+
+                {copied && (
+                  <p className="mt-3 inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-300">
+                    ✅ Referral link copied
+                  </p>
+                )}
+              </div>
             </div>
 
-            <Info label="Referrals Brought" value={String(data.referral_count ?? 0)} />
-            <Info
-              label="Total USD Contributed"
-              value={`$${Number(data.total_usd_contributed || 0).toFixed(2)}`}
-            />
-            <Info label="Deadcoins Revived" value={String(deadcoinsRevived)} />
+            <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-emerald-200/70">
+                Referrals Brought
+              </p>
+              <p className="mt-2 text-3xl font-black text-emerald-200">
+                {String(data.referral_count ?? 0)}
+              </p>
+              <p className="mt-3 text-xs leading-5 text-emerald-100/60">
+                People pulled into the Coincarnation movement through your signal.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-4 md:col-span-1">
+              <p className="text-xs font-bold uppercase tracking-wide text-yellow-200/70">
+                Total USD Revived
+              </p>
+              <p className="mt-2 text-3xl font-black text-yellow-100">
+                ${Number(data.total_usd_contributed || 0).toFixed(2)}
+              </p>
+              <p className="mt-3 text-xs leading-5 text-yellow-100/60">
+                The measurable value you personally pushed into the revival engine.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-red-400/20 bg-red-400/10 p-4 md:col-span-1">
+              <p className="text-xs font-bold uppercase tracking-wide text-red-200/70">
+                Deadcoins Revived
+              </p>
+              <p className="mt-2 text-3xl font-black text-red-100">
+                {String(deadcoinsRevived)}
+              </p>
+              <p className="mt-3 text-xs leading-5 text-red-100/60">
+                Forgotten assets you carried into Coincarnation.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4 md:col-span-1">
+              <p className="text-xs font-bold uppercase tracking-wide text-cyan-200/70">
+                Personal Value Trace
+              </p>
+              <p className="mt-2 text-lg font-black text-cyan-100">
+                Building
+              </p>
+              <p className="mt-3 text-xs leading-5 text-cyan-100/60">
+                Your activity is becoming a living proof of contribution, identity, and future value.
+              </p>
+            </div>
           </div>
         </motion.section>
 
