@@ -135,6 +135,7 @@ export default function ClaimPanel() {
   const [loading, setLoading] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [refundMessage, setRefundMessage] = useState<string | null>(null);
   const [claimOpen, setClaimOpen] = useState(false);
   const [useAltAddress, setUseAltAddress] = useState(false);
   const [altAddress, setAltAddress] = useState('');
@@ -897,27 +898,30 @@ export default function ClaimPanel() {
     }
   }
 
-  function ensureProtectedActionReady(actionLabel: string) {
+  function ensureProtectedActionReady(
+    actionLabel: string,
+    messageSetter: (value: string) => void = setMessage
+  ) {
     if (!walletBase58) {
-      setMessage('❌ Please connect your wallet.');
+      messageSetter('❌ Please connect your wallet.');
       return false;
     }
-
+  
     if (!identityStatus.authenticated || !identityStatus.identity) {
-      setMessage(`❌ Please sign in with your Coincarnation Identity before ${actionLabel}.`);
+      messageSetter(`❌ Please sign in with your Coincarnation Identity before ${actionLabel}.`);
       return false;
     }
-
+  
     if (!activeWalletLinked) {
-      setMessage('❌ This wallet is not linked to your active Coincarnation Identity.');
+      messageSetter('❌ This wallet is not linked to your active Coincarnation Identity.');
       return false;
     }
-
+  
     if (!identityStatus.identity.claimReady) {
-      setMessage('❌ Your Coincarnation Identity is not ready for protected actions.');
+      messageSetter('❌ Your Coincarnation Identity is not ready for protected actions.');
       return false;
     }
-
+  
     return true;
   }
   
@@ -1070,7 +1074,9 @@ export default function ClaimPanel() {
       return;
     }
 
-    if (!ensureProtectedActionReady('requesting a refund')) {
+    setRefundMessage(null);
+
+    if (!ensureProtectedActionReady('requesting a refund', setRefundMessage)) {
       return;
     }
   
@@ -2476,6 +2482,12 @@ export default function ClaimPanel() {
           <h3 className="text-yellow-400 text-sm font-semibold uppercase mb-4 tracking-wide">
             📜 Contribution History
           </h3>
+
+          {refundMessage && (
+            <div className="mb-4 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3 text-sm font-medium text-yellow-100">
+              {refundMessage}
+            </div>
+          )}
 
           {txs.length > 0 ? (
             <div className="w-full overflow-x-auto rounded-xl border border-zinc-700">
