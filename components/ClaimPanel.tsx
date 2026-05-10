@@ -166,6 +166,7 @@ export default function ClaimPanel() {
   const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
   const [shareAnchor, setShareAnchor] = useState<string | undefined>(undefined);
   const [refundingContributionId, setRefundingContributionId] = useState<number | null>(null);
+  const [refundErrors, setRefundErrors] = useState<Record<number, string>>({});
   const [refundFeeStep, setRefundFeeStep] = useState<
     'idle' | 'paying' | 'confirming' | 'paid' | 'signing' | 'submitting' | 'submitted'
   >('idle');
@@ -898,6 +899,21 @@ export default function ClaimPanel() {
     }
   }
 
+  function setRefundError(contributionId: number, error: string) {
+    setRefundErrors((prev) => ({
+      ...prev,
+      [contributionId]: error,
+    }));
+  }
+  
+  function clearRefundError(contributionId: number) {
+    setRefundErrors((prev) => {
+      const next = { ...prev };
+      delete next[contributionId];
+      return next;
+    });
+  }
+
   function ensureProtectedActionReady(
     actionLabel: string,
     messageSetter: (value: string) => void = setMessage
@@ -1069,30 +1085,46 @@ export default function ClaimPanel() {
   };
 
   const handleRequestRefund = async (tx: any) => {
+    const contributionId = Number(
+      tx?.contribution_id ??
+        tx?.contributionId ??
+        tx?.id ??
+        0
+    );
+  
+    if (Number.isFinite(contributionId) && contributionId > 0) {
+      clearRefundError(contributionId);
+    }
+  
     if (!publicKey) {
+      if (Number.isFinite(contributionId) && contributionId > 0) {
+        setRefundError(contributionId, '❌ Please connect your wallet.');
+      }
+  
       setMessage('❌ Please connect your wallet.');
       return;
     }
-
-    setRefundMessage(null);
-
-    if (!ensureProtectedActionReady('requesting a refund', setRefundMessage)) {
+  
+    if (!ensureProtectedActionReady('requesting a refund')) {
+      if (Number.isFinite(contributionId) && contributionId > 0) {
+        setRefundError(
+          contributionId,
+          '❌ Please sign in with your Coincarnation Identity before requesting a refund.'
+        );
+      }
       return;
     }
   
     if (!signMessage) {
+      if (Number.isFinite(contributionId) && contributionId > 0) {
+        setRefundError(contributionId, '❌ Your wallet does not support message signing.');
+      }
+  
       setMessage('❌ Your wallet does not support message signing.');
       return;
     }
   
     console.log('[REFUND] clicked tx:', tx);
-  
-    const contributionId = Number(
-      tx?.contribution_id ??
-      tx?.contributionId ??
-      tx?.id ??
-      0
-    );
   
     const mint = String(
       tx?.token_contract ??
@@ -1256,6 +1288,10 @@ export default function ClaimPanel() {
     } catch (e: any) {
       console.error('[REFUND] handleRequestRefund failed:', e);
       setMessage(`❌ ${userFriendlyError(String(e?.message ?? 'REFUND_REQUEST_FAILED'))}`);
+      setRefundError(
+        contributionId,
+        `❌ ${userFriendlyError(String(e?.message ?? 'REFUND_REQUEST_FAILED'))}`
+      );
     } finally {
       setRefundingContributionId(null);
     }
@@ -2597,6 +2633,27 @@ export default function ClaimPanel() {
                                   ? 'Processing...'
                                   : getRefundUiState(tx).buttonLabel}
                               </button>
+                            )}
+                            {refundErrors[
+                              Number(
+                                tx?.contribution_id ??
+                                  tx?.contributionId ??
+                                  tx?.id ??
+                                  0
+                              )
+                            ] && (
+                              <p className="mt-2 max-w-xs text-xs font-semibold leading-5 text-yellow-200">
+                                {
+                                  refundErrors[
+                                    Number(
+                                      tx?.contribution_id ??
+                                        tx?.contributionId ??
+                                        tx?.id ??
+                                        0
+                                    )
+                                  ]
+                                }
+                              </p>
                             )}
                           </div>
                         </div>
