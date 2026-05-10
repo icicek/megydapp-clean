@@ -896,10 +896,38 @@ export default function ClaimPanel() {
       setLoading(false);
     }
   }
+
+  function ensureProtectedActionReady(actionLabel: string) {
+    if (!walletBase58) {
+      setMessage('❌ Please connect your wallet.');
+      return false;
+    }
+
+    if (!identityStatus.authenticated || !identityStatus.identity) {
+      setMessage(`❌ Please sign in with your Coincarnation Identity before ${actionLabel}.`);
+      return false;
+    }
+
+    if (!activeWalletLinked) {
+      setMessage('❌ This wallet is not linked to your active Coincarnation Identity.');
+      return false;
+    }
+
+    if (!identityStatus.identity.claimReady) {
+      setMessage('❌ Your Coincarnation Identity is not ready for protected actions.');
+      return false;
+    }
+
+    return true;
+  }
   
   const handleClaim = async () => {
     if (!publicKey) {
       setMessage('❌ Please connect your wallet.');
+      return;
+    }
+
+    if (!ensureProtectedActionReady('claiming')) {
       return;
     }
     
@@ -1039,6 +1067,10 @@ export default function ClaimPanel() {
   const handleRequestRefund = async (tx: any) => {
     if (!publicKey) {
       setMessage('❌ Please connect your wallet.');
+      return;
+    }
+
+    if (!ensureProtectedActionReady('requesting a refund')) {
       return;
     }
   

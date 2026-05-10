@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { requireIdentityWalletAccess } from '@/app/api/_lib/identity-guard';
 import { createHash } from 'crypto';
 import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
 import {
@@ -126,6 +127,15 @@ export async function POST(req: NextRequest) {
     new PublicKey(destination);
   } catch {
     return json(400, { success: false, error: 'INVALID_PUBKEY' });
+  }
+
+  const identityGuard = await requireIdentityWalletAccess(wallet);
+
+  if (!identityGuard.ok) {
+    return json(identityGuard.status, {
+      success: false,
+      error: identityGuard.error,
+    });
   }
 
   const MEGY_MINT = asStr(process.env.MEGY_MINT || '');

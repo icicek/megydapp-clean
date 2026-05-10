@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { neon } from '@neondatabase/serverless';
+import { requireIdentityWalletAccess } from '@/app/api/_lib/identity-guard';
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -112,6 +113,15 @@ export async function POST(req: NextRequest) {
 
   if (!isBase58Pubkey(wallet) || !isBase58Pubkey(destination) || !isBase58Pubkey(TREASURY.toBase58())) {
     return json(400, { success: false, error: 'INVALID_PUBKEY' });
+  }
+
+  const identityGuard = await requireIdentityWalletAccess(wallet);
+
+  if (!identityGuard.ok) {
+    return json(identityGuard.status, {
+      success: false,
+      error: identityGuard.error,
+    });
   }
 
   // 1) Reuse open session (wallet-based)

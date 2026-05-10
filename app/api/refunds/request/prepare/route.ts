@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import crypto from 'crypto';
+import { requireIdentityWalletAccess } from '@/app/api/_lib/identity-guard';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
@@ -11,6 +12,8 @@ export const dynamic = 'force-dynamic';
 function randomNonce(size = 24) {
   return crypto.randomBytes(size).toString('hex');
 }
+
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -74,6 +77,15 @@ export async function POST(req: NextRequest) {
     const resolvedContributionId = Number(row.contribution_id);
     const resolvedMint = String(row.mint || '').trim();
     const current = String(row.refund_status || '').trim().toLowerCase();
+
+    const identityGuard = await requireIdentityWalletAccess(resolvedWallet);
+
+    if (!identityGuard.ok) {
+      return NextResponse.json(
+        { success: false, error: identityGuard.error },
+        { status: identityGuard.status }
+      );
+    }
 
     if (current === 'refunded') {
       return NextResponse.json(

@@ -5,6 +5,7 @@ import { neon } from '@neondatabase/serverless';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import { isBlacklistRefundReason } from '@/app/api/_lib/refund-reason';
+import { requireIdentityWalletAccess } from '@/app/api/_lib/identity-guard';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
@@ -89,6 +90,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'INVALID_SIGNATURE' },
         { status: 401 }
+      );
+    }
+
+    const identityGuard = await requireIdentityWalletAccess(wallet);
+
+    if (!identityGuard.ok) {
+      return NextResponse.json(
+        { success: false, error: identityGuard.error },
+        { status: identityGuard.status }
       );
     }
 

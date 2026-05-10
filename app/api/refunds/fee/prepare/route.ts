@@ -5,6 +5,7 @@ import { neon } from '@neondatabase/serverless';
 import { PublicKey } from '@solana/web3.js';
 import { getRefundFeeLamports } from '@/app/api/_lib/refund-config';
 import { isBlacklistRefundReason } from '@/app/api/_lib/refund-reason';
+import { requireIdentityWalletAccess } from '@/app/api/_lib/identity-guard';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
@@ -93,6 +94,15 @@ export async function POST(req: NextRequest) {
     const dbMint = String(row.mint || '').trim();
 
     const dbWallet = String(row.wallet_address || '').trim();
+
+    const identityGuard = await requireIdentityWalletAccess(dbWallet);
+
+    if (!identityGuard.ok) {
+      return NextResponse.json(
+        { success: false, error: identityGuard.error },
+        { status: identityGuard.status }
+      );
+    }
 
     if (!hasInvalidationId && wallet && wallet !== dbWallet) {
         return NextResponse.json(
