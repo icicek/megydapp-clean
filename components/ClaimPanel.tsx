@@ -37,6 +37,13 @@ type LinkedIdentityWallet = {
   createdAt: string | null;
 };
 
+type ProtectedActionIssue = {
+  tone: 'yellow' | 'red' | 'cyan';
+  title: string;
+  description: string;
+  action?: 'signIn' | 'verifyNew' | 'verifyBrowser' | 'linkWallet';
+};
+
 const TREASURY_PUBKEY = new PublicKey(
   process.env.NEXT_PUBLIC_CLAIM_FEE_TREASURY ??
     'D7iqkQmY3ryNFtc9qseUv6kPeVjxsSD98hKN5q3rkYTd'
@@ -914,6 +921,62 @@ export default function ClaimPanel() {
     });
   }
 
+  function getProtectedActionIssue(): ProtectedActionIssue | null {
+    if (!walletBase58) return null;
+  
+    if (!identityStatus.authenticated || !identityStatus.identity) {
+      return {
+        tone: 'yellow',
+        title: 'Identity Session Required',
+        description: walletHasNoLinkedIdentity
+          ? 'No linked identity was found for this wallet. Verify it as a new Coincarnation Identity, or link it to an existing identity with a code below.'
+          : 'This wallet may already be linked to an identity. Sign in with your wallet to recover your Coincarnation Identity session.',
+        action: walletHasNoLinkedIdentity ? 'verifyNew' : 'signIn',
+      };
+    }
+  
+    if (!activeWalletLinked) {
+      return {
+        tone: 'yellow',
+        title: 'Wallet Not Linked',
+        description: 'This wallet is not linked to your active Coincarnation Identity. Link it before using protected actions.',
+        action: 'linkWallet',
+      };
+    }
+  
+    if (identityStatus.identity.claimReady) return null;
+  
+    const riskScore = Number(identityStatus.identity.riskScore ?? 0);
+    const fingerprintRecorded = Boolean((identityStatus.identity as any).fingerprintRecorded);
+  
+    if (riskScore >= 50) {
+      return {
+        tone: 'red',
+        title: 'Identity Under Risk Review',
+        description:
+          'Your identity is active, but protected actions are locked because the current risk score is too high. This can happen after repeated identity tests from the same browser or shared fingerprint signals. Do not create another identity; this identity needs review or risk normalization.',
+      };
+    }
+  
+    if (!fingerprintRecorded) {
+      return {
+        tone: 'yellow',
+        title: 'Browser Verification Required',
+        description:
+          'Your identity exists, but this browser still needs to record its identity fingerprint before protected actions can be unlocked.',
+        action: 'verifyBrowser',
+      };
+    }
+  
+    return {
+      tone: 'yellow',
+      title: 'Identity Not Ready Yet',
+      description:
+        'Your identity is active, but one or more readiness checks are still incomplete. Please refresh the identity status or verify this browser again.',
+      action: 'verifyBrowser',
+    };
+  }
+
   function ensureProtectedActionReady(
     actionLabel: string,
     messageSetter: (value: string) => void = setMessage
@@ -934,7 +997,14 @@ export default function ClaimPanel() {
     }
   
     if (!identityStatus.identity.claimReady) {
-      messageSetter('❌ Your Coincarnation Identity is not ready for protected actions.');
+      const issue = getProtectedActionIssue();
+    
+      messageSetter(
+        issue?.tone === 'red'
+          ? `❌ ${issue.title}: ${issue.description}`
+          : `❌ ${issue?.description ?? 'Your Coincarnation Identity is not ready for protected actions.'}`
+      );
+    
       return false;
     }
   
@@ -1641,6 +1711,15 @@ export default function ClaimPanel() {
           ? '✅ Nothing to claim'
           : `🎉 Claim from ${effectivePhaseName ? String(effectivePhaseName) : String(effectivePhaseLabel)}`;
 
+  const protectedActionIssue = getProtectedActionIssue();
+
+  const protectedActionToneClass =
+    protectedActionIssue?.tone === 'red'
+      ? 'border-red-400/30 bg-red-400/10 text-red-100'
+      : protectedActionIssue?.tone === 'cyan'
+        ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
+        : 'border-yellow-400/30 bg-yellow-400/10 text-yellow-100';
+
   return (
     <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
       <div className="max-w-6xl w-full mx-auto space-y-6">
@@ -1716,51 +1795,58 @@ export default function ClaimPanel() {
             />
           </div>
 
-          {((walletBase58 && !identityStatus.authenticated) ||
-            (walletBase58 &&
-              identityStatus.authenticated &&
-              !activeWalletLinked) ||
-            (identityStatus.authenticated && !identityStatus.identity?.claimReady)) && (
-            <div className="mt-5 rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-4">
-              <p className="text-sm font-bold text-yellow-200">
-                🧬 Identity Action Required
+          {protectedActionIssue && (
+            <div className={`mt-5 rounded-xl border p-4 ${protectedActionToneClass}`}>
+              <p className="text-sm font-bold">
+                🧬 {protectedActionIssue.title}
               </p>
 
-              <div className="mt-3 space-y-3">
-               {walletBase58 && !identityStatus.authenticated && walletHasNoLinkedIdentity && (
-                  <div>
-                    <p className="text-xs leading-5 text-yellow-100/80">
-                      No linked identity was found for this wallet. Verify it as a new Coincarnation Identity, or link it to an existing identity with a code below.
-                    </p>
+              <p className="mt-2 text-xs leading-5 opacity-85">
+                {protectedActionIssue.description}
+              </p>
 
-                    <button
-                      type="button"
-                      onClick={handleVerifyIdentityInline}
-                      disabled={verifyingIdentity}
-                      className="mt-3 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {verifyingIdentity ? 'Verifying...' : 'Verify as New Identity'}
-                    </button>
-                  </div>
-                )}
+              {protectedActionIssue.action === 'signIn' && (
+                <button
+                  type="button"
+                  onClick={handleSignInWithWalletIdentity}
+                  className="mt-3 rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-black transition hover:bg-cyan-200"
+                >
+                  Sign in with Wallet
+                </button>
+              )}
 
-                {identityStatus.authenticated && !identityStatus.identity?.claimReady && (
-                  <div>
-                    <p className="text-xs leading-5 text-yellow-100/80">
-                      Activate your Coincarnation Identity on this browser to unlock claiming, voting, and other protected actions.
-                    </p>
+              {protectedActionIssue.action === 'verifyNew' && (
+                <button
+                  type="button"
+                  onClick={handleVerifyIdentityInline}
+                  disabled={verifyingIdentity}
+                  className="mt-3 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {verifyingIdentity ? 'Verifying...' : 'Verify as New Identity'}
+                </button>
+              )}
 
-                    <button
-                      type="button"
-                      onClick={handleVerifyIdentityInline}
-                      disabled={verifyingIdentity}
-                      className="mt-3 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {verifyingIdentity ? 'Verifying...' : 'Verify Identity'}
-                    </button>
-                  </div>
-                )}
-              </div>
+              {protectedActionIssue.action === 'verifyBrowser' && (
+                <button
+                  type="button"
+                  onClick={handleVerifyIdentityInline}
+                  disabled={verifyingIdentity}
+                  className="mt-3 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {verifyingIdentity ? 'Verifying...' : 'Verify This Browser'}
+                </button>
+              )}
+
+              {protectedActionIssue.action === 'linkWallet' && (
+                <button
+                  type="button"
+                  onClick={handleLinkActiveWalletToIdentity}
+                  disabled={loading}
+                  className="mt-3 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading ? 'Linking...' : 'Link Current Wallet'}
+                </button>
+              )}
             </div>
           )}
           
