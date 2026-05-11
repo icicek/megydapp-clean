@@ -2402,12 +2402,19 @@ export default function ClaimPanel() {
                 : phases;
 
             return (
-              <div className="mb-5 bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-sm">
+              <div className="mb-5 rounded-2xl border border-violet-400/20 bg-gradient-to-br from-zinc-950 via-violet-950/10 to-zinc-950 p-4 text-sm shadow-[0_0_30px_rgba(139,92,246,0.06)]">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3 min-w-0">
-                  <p className="text-gray-300 font-medium">🧬 Snapshot Timeline</p>
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.28em] text-violet-300/80">
+                      Snapshot Timeline
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Review finalized phases and select the snapshot you want to claim from.
+                    </p>
+                  </div>
 
                   <div className="w-full sm:w-auto flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
-                    <span className="text-xs text-gray-400 shrink-0">Select phase</span>
+                    <span className="text-xs font-semibold text-violet-200/70 shrink-0">Select phase</span>
 
                     <select
                       value={activePid ? String(activePid) : ''}
@@ -2447,7 +2454,7 @@ export default function ClaimPanel() {
                       <div
                         key={p.pid}
                         className={[
-                          "rounded-lg border px-3 py-2 flex items-start justify-between gap-3 transition min-w-0",
+                          "rounded-2xl border px-4 py-3 flex items-start justify-between gap-3 transition min-w-0",
                           isSelected
                             ? "border-emerald-400/40 bg-emerald-400/10 shadow-[0_0_0_1px_rgba(52,211,153,0.25)]"
                             : "border-zinc-700 bg-zinc-900/20 hover:bg-zinc-800/40",
@@ -2461,7 +2468,7 @@ export default function ClaimPanel() {
 
                             {isSelected && (
                               <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300 shrink-0">
-                                🟢 Selected
+                                Selected
                               </span>
                             )}
                           </div>
