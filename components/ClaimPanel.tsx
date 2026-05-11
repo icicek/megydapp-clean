@@ -2679,9 +2679,27 @@ export default function ClaimPanel() {
             </p>
 
             {!useAltAddress ? (
-              <p className="relative rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 font-mono text-sm text-emerald-200 break-all">
+              <button
+                type="button"
+                onClick={() => {
+                  const address = publicKey?.toBase58();
+                  if (!address) return;
+
+                  navigator.clipboard.writeText(address);
+                  setCopiedTarget('wallet');
+                  setTimeout(() => setCopiedTarget(null), 2000);
+                }}
+                className="relative w-full rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-left font-mono text-sm text-emerald-200 break-all transition hover:border-emerald-300/40 hover:bg-emerald-400/15"
+                title="Click to copy destination address"
+              >
                 {publicKey?.toBase58()}
-              </p>
+
+                {copiedTarget === 'wallet' && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300 backdrop-blur-sm">
+                    ✅ Copied
+                  </span>
+                )}
+              </button>
             ) : (
               <input
                 type="text"
