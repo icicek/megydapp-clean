@@ -582,8 +582,13 @@ export default function ClaimPanel() {
 
   useEffect(() => {
     attemptIdemKeyRef.current = null;
-  }, [claimAmount, altAddress, useAltAddress, selectedPhaseId]);  
+  }, [claimAmount, altAddress, useAltAddress, selectedPhaseId]);
 
+  useEffect(() => {
+    setClaimAmount('');
+    setSelectedClaimPercent(null);
+  }, [selectedPhaseId, phaseId]);
+  
   useEffect(() => {
   (async () => {
     try {
@@ -2691,7 +2696,10 @@ export default function ClaimPanel() {
               <input
                 type="checkbox"
                 checked={useAltAddress}
-                onChange={(e) => setUseAltAddress(e.target.checked)}
+                onChange={(e) => {
+                  setUseAltAddress(e.target.checked);
+                  setAltAddress('');
+                }}
                 className="accent-pink-500"
               />
               <span>I want to claim to a different address</span>
@@ -2716,8 +2724,9 @@ export default function ClaimPanel() {
                     <div className="grid grid-cols-3 gap-2 text-xs font-black">
                       <button
                         type="button"
+                        disabled={!claimOpen || isClaiming || selectedClaimable <= 0}
                         className={[
-                          'rounded-full border px-4 py-2 transition',
+                          'rounded-full border px-4 py-2 transition disabled:cursor-not-allowed disabled:opacity-50',
                           selectedClaimPercent === 25
                             ? 'border-pink-300/50 bg-pink-400/15 text-pink-100'
                             : 'border-white/10 bg-white/[0.04] text-zinc-300 hover:border-pink-300/30 hover:bg-pink-400/10 hover:text-pink-100',
@@ -2732,8 +2741,9 @@ export default function ClaimPanel() {
 
                       <button
                         type="button"
+                        disabled={!claimOpen || isClaiming || selectedClaimable <= 0}
                         className={[
-                          'rounded-full border px-4 py-2 transition',
+                          'rounded-full border px-4 py-2 transition disabled:cursor-not-allowed disabled:opacity-50',
                           selectedClaimPercent === 50
                             ? 'border-pink-300/50 bg-pink-400/15 text-pink-100'
                             : 'border-white/10 bg-white/[0.04] text-zinc-300 hover:border-pink-300/30 hover:bg-pink-400/10 hover:text-pink-100',
@@ -2748,8 +2758,9 @@ export default function ClaimPanel() {
 
                       <button
                         type="button"
+                        disabled={!claimOpen || isClaiming || selectedClaimable <= 0}
                         className={[
-                          'rounded-full border px-4 py-2 transition',
+                          'rounded-full border px-4 py-2 transition disabled:cursor-not-allowed disabled:opacity-50',
                           selectedClaimPercent === 100
                             ? 'border-pink-300/50 bg-pink-400/15 text-pink-100'
                             : 'border-white/10 bg-white/[0.04] text-zinc-300 hover:border-pink-300/30 hover:bg-pink-400/10 hover:text-pink-100',
