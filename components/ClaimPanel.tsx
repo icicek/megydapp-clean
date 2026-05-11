@@ -2594,11 +2594,23 @@ export default function ClaimPanel() {
           </div>
 
           {/* 💳 Claim controls */}
-          <div className="bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-4 sm:px-4 sm:py-5 space-y-4">
-            <p className="text-sm font-medium text-gray-300">Claim To Address</p>
+          <div className="relative overflow-hidden rounded-2xl border border-pink-400/20 bg-gradient-to-br from-zinc-950 via-pink-950/10 to-zinc-950 px-4 py-5 sm:px-5 sm:py-6 space-y-4 shadow-[0_0_30px_rgba(236,72,153,0.06)]">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-pink-500/10 blur-3xl" />
+            <div className="relative">
+              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-pink-300/80">
+                Claim Execution
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Choose destination, amount, and execute your MEGY claim.
+              </p>
+            </div>
+
+            <p className="relative text-sm font-semibold text-gray-300">
+              Claim To Address
+            </p>
 
             {!useAltAddress ? (
-              <p className="text-green-400 text-sm font-mono break-all bg-zinc-900 p-2 rounded">
+              <p className="relative rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 font-mono text-sm text-emerald-200 break-all">
                 {publicKey?.toBase58()}
               </p>
             ) : (
@@ -2607,7 +2619,7 @@ export default function ClaimPanel() {
                 value={altAddress}
                 onChange={(e) => setAltAddress(e.target.value)}
                 placeholder="Enter custom wallet address"
-                className="w-full bg-zinc-900 border border-zinc-600 p-2 rounded-md text-sm text-white font-mono"
+                className="relative w-full rounded-xl border border-pink-400/20 bg-black/30 p-3 font-mono text-sm text-white outline-none transition focus:border-pink-300/60"
               />
             )}
 
