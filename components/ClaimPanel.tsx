@@ -3674,6 +3674,28 @@ function userFriendlyError(msg: string) {
   const m = String(msg || '').trim();
 
   if (m === 'CLAIM_NOT_OPEN') return 'Claiming is currently closed.';
+  if (m === 'DB_ERROR_CLAIM_OPEN_CHECK') {
+    return 'Claim status could not be verified. Please try again shortly.';
+  }
+  if (m === 'SESSION_DESTINATION_MISMATCH') {
+    return 'Claim destination changed during the session. Please start the claim again.';
+  }
+  
+  if (m === 'SESSION_NOT_OPEN') {
+    return 'Your claim session is no longer active. Please start again.';
+  }
+  
+  if (m === 'SESSION_NOT_FOUND') {
+    return 'Claim session could not be found. Please start again.';
+  }
+  
+  if (m === 'FEE_TX_TOO_OLD') {
+    return 'Fee transaction is too old. Please start a new claim session.';
+  }
+  
+  if (m === 'CLAIM_NOT_LIVE') {
+    return 'Claim is not available yet. MEGY token is not live.';
+  }
   if (m === 'WALLET_NOT_CONNECTED') return 'Please connect your wallet.';
   if (m === 'RPC_CONNECTION_MISSING') return 'RPC connection is missing. Please retry.';
   if (m === 'FEE_TX_CONFIRM_TIMEOUT') return 'Fee payment is taking longer than usual. Please retry.';
