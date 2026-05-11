@@ -2049,7 +2049,7 @@ export default function ClaimPanel() {
 
           <div className="relative grid grid-cols-1 items-stretch gap-4 md:grid-cols-3">
             <div
-              className="group relative h-[150px] grid grid-rows-[auto_1fr_auto] cursor-pointer rounded-2xl border border-white/10 bg-black/25 p-4 transition hover:border-cyan-300/30 hover:bg-cyan-400/10"
+              className="group relative flex h-[130px] cursor-pointer flex-col rounded-2xl border border-white/10 bg-black/25 p-4 transition hover:border-cyan-300/30 hover:bg-cyan-400/10"
               onClick={() => {
                 if (!data?.wallet_address) return;
                 navigator.clipboard.writeText(data.wallet_address);
@@ -2065,23 +2065,23 @@ export default function ClaimPanel() {
                 Wallet Address
               </p>
 
-              <p className="mt-2 font-mono text-sm font-semibold text-white">
+              <p className="mt-2 truncate pr-8 font-mono text-sm font-semibold text-white">
                 {shorten(data.wallet_address)}
               </p>
 
-              <p className="mt-3 text-xs leading-5 text-zinc-500">
+              <p className="mt-auto line-clamp-2 text-xs leading-5 text-zinc-500">
                 Click to copy your active wallet.
               </p>
 
               {copiedTarget === 'wallet' && (
-                <p className="mt-3 inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-300">
-                  ✅ Wallet address copied
+                <p className="absolute bottom-3 left-4 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-300">
+                  ✅ Wallet copied
                 </p>
               )}
             </div>
 
             <div
-              className="group relative h-[150px] grid grid-rows-[auto_1fr_auto] cursor-pointer overflow-hidden rounded-2xl border border-fuchsia-400/20 bg-fuchsia-400/10 p-4 transition hover:border-fuchsia-300/40 hover:bg-fuchsia-400/15"
+              className="group relative flex h-[130px] cursor-pointer flex-col overflow-hidden rounded-2xl border border-fuchsia-400/20 bg-fuchsia-400/10 p-4 transition hover:border-fuchsia-300/40 hover:bg-fuchsia-400/15"
               onClick={() => {
                 if (!data?.referral_code) return;
                 const url = buildReferralUrl(data.referral_code ?? '');
@@ -2094,76 +2094,75 @@ export default function ClaimPanel() {
                 <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-fuchsia-300/20 blur-2xl" />
               </div>
 
-              <div className="relative">
-                <span className="absolute right-0 top-0 text-white/30 transition group-hover:text-fuchsia-100">
-                  ⧉
-                </span>
-                <p className="text-xs font-bold uppercase tracking-wide text-fuchsia-200/70">
-                  Referral Code
-                </p>
+              <span className="absolute right-4 top-4 text-white/30 transition group-hover:text-fuchsia-100">
+                ⧉
+              </span>
 
-                <p className="mt-2 font-mono text-lg font-black text-fuchsia-100 break-words">
-                  {data.referral_code || '-'}
-                </p>
+              <p className="relative text-xs font-bold uppercase tracking-wide text-fuchsia-200/70">
+                Referral Code
+              </p>
 
-                <p className="mt-3 text-xs leading-5 text-fuchsia-100/60">
-                  Copy your invite link.
-                </p>
+              <p className="relative mt-2 truncate pr-8 font-mono text-lg font-black text-fuchsia-100">
+                {data.referral_code || '-'}
+              </p>
 
-                {copiedTarget === 'referral' && (
-                  <p className="mt-3 inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-300">
-                    ✅ Referral link copied
-                  </p>
-                )}
-              </div>
+              <p className="relative mt-auto line-clamp-2 text-xs leading-5 text-fuchsia-100/60">
+                Copy your invite link.
+              </p>
+
+              {copiedTarget === 'referral' && (
+                <p className="absolute bottom-3 left-4 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-300">
+                  ✅ Link copied
+                </p>
+              )}
             </div>
 
-            <div className="h-[150px] grid grid-rows-[auto_1fr_auto] rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
+            <div className="flex h-[130px] flex-col rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
               <p className="text-xs font-bold uppercase tracking-wide text-emerald-200/70">
                 Referrals Brought
               </p>
               <p className="mt-2 text-3xl font-black text-emerald-200">
                 {String(data.referral_count ?? 0)}
               </p>
-              <p className="mt-3 text-xs leading-5 text-emerald-100/60">
+              <p className="mt-auto line-clamp-2 text-xs leading-5 text-emerald-100/60">
                 Coincarne actions through your referral.
               </p>
             </div>
 
-            <div className="h-[150px] grid grid-rows-[auto_1fr_auto] rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-4 md:col-span-1">
+            <div className="flex h-[130px] flex-col rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-4">
               <p className="text-xs font-bold uppercase tracking-wide text-yellow-200/70">
                 Total USD Revived
               </p>
               <p className="mt-2 text-3xl font-black text-yellow-100">
                 ${Number(data.total_usd_contributed || 0).toFixed(2)}
               </p>
-              <p className="mt-3 text-xs leading-5 text-yellow-100/60">
+              <p className="mt-auto line-clamp-2 text-xs leading-5 text-yellow-100/60">
                 Your personal revival contribution.
               </p>
             </div>
 
-            <div className="h-[150px] grid grid-rows-[auto_1fr_auto] rounded-2xl border border-red-400/20 bg-red-400/10 p-4 md:col-span-1">
+            <div className="flex h-[130px] flex-col rounded-2xl border border-red-400/20 bg-red-400/10 p-4">
               <p className="text-xs font-bold uppercase tracking-wide text-red-200/70">
                 Deadcoins Revived
               </p>
               <p className="mt-2 text-3xl font-black text-red-100">
                 {String(deadcoinsRevived)}
               </p>
-              <p className="mt-3 text-xs leading-5 text-red-100/60">
+              <p className="mt-auto line-clamp-2 text-xs leading-5 text-red-100/60">
                 Forgotten assets revived by you.
               </p>
             </div>
 
-            <div className="h-[150px] grid grid-rows-[auto_1fr_auto] rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4 md:col-span-1">
+            <div className="flex h-[130px] flex-col rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4">
               <p className="text-xs font-bold uppercase tracking-wide text-cyan-200/70">
                 Personal Value Currency
               </p>
 
-              <p className="mt-2 text-3xl font-black text-cyan-100">
+              <p className="mt-2 truncate text-3xl font-black text-cyan-100">
                 {Number(data.core_point ?? 0).toLocaleString()} CP
               </p>
 
-              <p className="mt-3 text-xs leading-5 text-cyan-100/60">
+              <p className="mt-auto line-clamp-2 text-xs leading-5 text-cyan-100/60">
                 Your CorePoint-powered PVC.
               </p>
             </div>
