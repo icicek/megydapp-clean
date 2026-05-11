@@ -2169,7 +2169,7 @@ export default function ClaimPanel() {
           </div>
         </motion.section>
 
-        {/* 🌍 Global Momentum */}
+        {/* 🌍 Protocol Momentum */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -2177,7 +2177,7 @@ export default function ClaimPanel() {
           className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 sm:px-6 py-4 sm:py-5 mb-5 shadow-md"
         >
           <h3 className="text-emerald-300 text-sm font-semibold uppercase mb-4 tracking-wide">
-            🌍 Global Momentum
+            🌍 Protocol Momentum
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -2198,38 +2198,8 @@ export default function ClaimPanel() {
             />
           </div>
 
-          <div className="mt-5 flex justify-center">
-            <button
-              type="button"
-              onClick={() => {
-                sessionStorage.setItem('coincarnation_recoincarnate_intent', 'profile_global_momentum');
-                window.location.href = '/';
-              }}
-              className="group inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-white/[0.03] px-5 py-2 text-xs font-black text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-400/10 hover:text-emerald-100"
-            >
-              <span className="text-sm text-emerald-300 transition-transform duration-500 group-hover:rotate-180">
-                ✦
-              </span>
-              <span>
-                Recoincarnate
-              </span>
-            </button>
-          </div>
-        </motion.section>
-
-        {/* 📊 Claim */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 sm:px-6 py-4 sm:py-5 mb-5 shadow-md"
-        >
-          <h3 className="text-blue-400 text-sm font-semibold uppercase mb-4 tracking-wide">
-            📊 Claim
-          </h3>
-
           {/* 🟢 Phase Engine */}
-          <div className="mb-5">
+          <div className="mt-6">
             <div className="mb-3">
               <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-300/80">
                 Phase Engine
@@ -2371,6 +2341,36 @@ export default function ClaimPanel() {
               )}
             </div>
           </div>
+
+          <div className="mt-5 flex justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                sessionStorage.setItem('coincarnation_recoincarnate_intent', 'profile_global_momentum');
+                window.location.href = '/';
+              }}
+              className="group inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-white/[0.03] px-5 py-2 text-xs font-black text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-400/10 hover:text-emerald-100"
+            >
+              <span className="text-sm text-emerald-300 transition-transform duration-500 group-hover:rotate-180">
+                ✦
+              </span>
+              <span>
+                Recoincarnate
+              </span>
+            </button>
+          </div>
+        </motion.section>
+
+        {/* 📊 Claim */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 sm:px-6 py-4 sm:py-5 mb-5 shadow-md"
+        >
+          <h3 className="text-blue-400 text-sm font-semibold uppercase mb-4 tracking-wide">
+            📊 Claim
+          </h3>
 
           {/* 🧬 Snapshot Timeline */}
           {Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 0 && (() => {
