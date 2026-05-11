@@ -2649,10 +2649,10 @@ export default function ClaimPanel() {
 
                 {selectedClaimable > 0 && (
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2 text-xs text-gray-300 font-medium">
+                    <div className="grid grid-cols-3 gap-2 text-xs font-black">
                       <button
                         type="button"
-                        className="bg-zinc-700 px-2 py-1 rounded hover:bg-zinc-600 transition"
+                        className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-zinc-300 transition hover:border-pink-300/30 hover:bg-pink-400/10 hover:text-pink-100"
                         onClick={() => setClaimAmount(String(Math.floor(selectedClaimable * 0.25)))}
                       >
                         %25
@@ -2660,7 +2660,7 @@ export default function ClaimPanel() {
 
                       <button
                         type="button"
-                        className="bg-zinc-700 px-2 py-1 rounded hover:bg-zinc-600 transition"
+                        className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-zinc-300 transition hover:border-pink-300/30 hover:bg-pink-400/10 hover:text-pink-100"
                         onClick={() => setClaimAmount(String(Math.floor(selectedClaimable * 0.5)))}
                       >
                         %50
@@ -2668,7 +2668,7 @@ export default function ClaimPanel() {
 
                       <button
                         type="button"
-                        className="bg-zinc-700 px-2 py-1 rounded hover:bg-zinc-600 transition"
+                        className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-zinc-300 transition hover:border-pink-300/30 hover:bg-pink-400/10 hover:text-pink-100"
                         onClick={() => setClaimAmount(String(Math.floor(selectedClaimable)))}
                       >
                         %100
@@ -2684,7 +2684,7 @@ export default function ClaimPanel() {
                         setClaimAmount(v);
                       }}
                       placeholder="Enter amount to claim"
-                      className="w-full bg-zinc-900 border border-zinc-600 p-2 rounded-md text-sm text-white"
+                      className="w-full rounded-xl border border-pink-400/20 bg-black/30 p-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60"
                     />
 
                     {isClaimAmountEmpty && (
@@ -2709,7 +2709,7 @@ export default function ClaimPanel() {
                   <button
                     onClick={handleClaim}
                     disabled={claimDisabled}
-                    className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:scale-105 transition-all text-white font-bold py-3 rounded-xl disabled:opacity-50"
+                    className="w-full rounded-2xl border border-pink-300/30 bg-gradient-to-r from-purple-600 via-fuchsia-500 to-pink-500 py-3.5 text-sm font-black text-white shadow-[0_0_30px_rgba(236,72,153,0.18)] transition-all hover:scale-[1.01] hover:shadow-[0_0_40px_rgba(236,72,153,0.28)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
                   >
                     {claimButtonLabel}
                   </button>
@@ -2770,19 +2770,30 @@ export default function ClaimPanel() {
           </div>
 
           <motion.div
-            className="mt-6 text-center"
+            className="mt-8 flex flex-col items-center justify-center"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.7 }}
           >
             <button
-              onClick={() => (window.location.href = '/')}
-              className="bg-gradient-to-r from-pink-500 to-yellow-500 hover:scale-105 transition-all text-white font-bold py-3 px-6 rounded-xl text-sm shadow-lg mb-3"
+              type="button"
+              onClick={() => {
+                sessionStorage.setItem('coincarnation_recoincarnate_intent', 'profile_footer');
+                window.location.href = '/';
+              }}
+              className="group inline-flex items-center gap-2 rounded-full border border-pink-300/20 bg-white/[0.03] px-5 py-2.5 text-xs font-black text-pink-100 transition hover:border-pink-300/50 hover:bg-pink-400/10 hover:text-white"
             >
-              🔁 Recoincarnate
+              <span className="text-sm text-pink-300 transition-transform duration-500 group-hover:rotate-180">
+                ✦
+              </span>
+
+              <span>
+                Recoincarnate
+              </span>
             </button>
-            <p className="text-xs text-gray-400 italic">
-              Want to contribute more? Return to the homepage and coincarne again.
+
+            <p className="mt-3 text-center text-xs text-zinc-500">
+              Return to the Coincarnation engine and expand your revival impact.
             </p>
           </motion.div>
         </motion.section>
