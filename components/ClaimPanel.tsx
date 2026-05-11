@@ -2138,7 +2138,7 @@ export default function ClaimPanel() {
                 ${Number(data.total_usd_contributed || 0).toFixed(2)}
               </p>
               <p className="mt-3 text-xs leading-5 text-yellow-100/60">
-                The measurable value you personally pushed into the revival engine.
+                Your personal contribution to Coincarnation.
               </p>
             </div>
 
