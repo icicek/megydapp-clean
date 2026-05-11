@@ -2033,7 +2033,7 @@ export default function ClaimPanel() {
               </h3>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
-                This is your personal proof of revival — the trace of what you brought back into the Fair Future Fund.
+                Track your Coincarnation journey, your impact, and the value you are building.
               </p>
             </div>
 
@@ -2049,7 +2049,7 @@ export default function ClaimPanel() {
 
           <div className="relative grid grid-cols-1 gap-4 md:grid-cols-3">
             <div
-              className="group relative cursor-pointer rounded-2xl border border-white/10 bg-black/25 p-4 transition hover:border-cyan-300/30 hover:bg-cyan-400/10"
+              className="group relative min-h-[168px] flex flex-col justify-between cursor-pointer rounded-2xl border border-white/10 bg-black/25 p-4 transition hover:border-cyan-300/30 hover:bg-cyan-400/10"
               onClick={() => {
                 if (!data?.wallet_address) return;
                 navigator.clipboard.writeText(data.wallet_address);
@@ -2070,7 +2070,7 @@ export default function ClaimPanel() {
               </p>
 
               <p className="mt-3 text-xs leading-5 text-zinc-500">
-                Click to copy your active wallet address.
+                Click to copy your active wallet.
               </p>
 
               {copiedTarget === 'wallet' && (
@@ -2081,7 +2081,7 @@ export default function ClaimPanel() {
             </div>
 
             <div
-              className="group relative cursor-pointer overflow-hidden rounded-2xl border border-fuchsia-400/20 bg-fuchsia-400/10 p-4 transition hover:border-fuchsia-300/40 hover:bg-fuchsia-400/15"
+              className="group relative min-h-[168px] flex flex-col justify-between cursor-pointer overflow-hidden rounded-2xl border border-fuchsia-400/20 bg-fuchsia-400/10 p-4 transition hover:border-fuchsia-300/40 hover:bg-fuchsia-400/15"
               onClick={() => {
                 if (!data?.referral_code) return;
                 const url = buildReferralUrl(data.referral_code ?? '');
@@ -2107,7 +2107,7 @@ export default function ClaimPanel() {
                 </p>
 
                 <p className="mt-3 text-xs leading-5 text-fuchsia-100/60">
-                  Copy your invitation link and expand your network.
+                  Copy your invite link.
                 </p>
 
                 {copiedTarget === 'referral' && (
@@ -2118,7 +2118,7 @@ export default function ClaimPanel() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
+            <div className="min-h-[168px] flex flex-col justify-between rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
               <p className="text-xs font-bold uppercase tracking-wide text-emerald-200/70">
                 Referrals Brought
               </p>
@@ -2126,11 +2126,11 @@ export default function ClaimPanel() {
                 {String(data.referral_count ?? 0)}
               </p>
               <p className="mt-3 text-xs leading-5 text-emerald-100/60">
-                Coincarne actions generated through your referral.
+                Coincarne actions through your referral.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-4 md:col-span-1">
+            <div className=" min-h-[168px] flex flex-col justify-between rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-4 md:col-span-1">
               <p className="text-xs font-bold uppercase tracking-wide text-yellow-200/70">
                 Total USD Revived
               </p>
@@ -2138,11 +2138,11 @@ export default function ClaimPanel() {
                 ${Number(data.total_usd_contributed || 0).toFixed(2)}
               </p>
               <p className="mt-3 text-xs leading-5 text-yellow-100/60">
-                Your personal contribution to Coincarnation.
+                Your personal revival contribution.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-red-400/20 bg-red-400/10 p-4 md:col-span-1">
+            <div className=" min-h-[168px] flex flex-col justify-between rounded-2xl border border-red-400/20 bg-red-400/10 p-4 md:col-span-1">
               <p className="text-xs font-bold uppercase tracking-wide text-red-200/70">
                 Deadcoins Revived
               </p>
@@ -2150,11 +2150,11 @@ export default function ClaimPanel() {
                 {String(deadcoinsRevived)}
               </p>
               <p className="mt-3 text-xs leading-5 text-red-100/60">
-                Forgotten assets you carried into Coincarnation.
+                Forgotten assets revived by you.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4 md:col-span-1">
+            <div className=" min-h-[168px] flex flex-col justify-between rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4 md:col-span-1">
               <p className="text-xs font-bold uppercase tracking-wide text-cyan-200/70">
                 Personal Value Currency
               </p>
@@ -2164,7 +2164,7 @@ export default function ClaimPanel() {
               </p>
 
               <p className="mt-3 text-xs leading-5 text-cyan-100/60">
-                Personal Value Currency measured in CorePoints
+                Your CorePoint-powered PVC.
               </p>
             </div>
           </div>
