@@ -2361,16 +2361,144 @@ export default function ClaimPanel() {
           </div>
         </motion.section>
 
-        {/* 📊 Claim */}
+        {/* 📊 MEGY Claim Center */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 sm:px-6 py-4 sm:py-5 mb-5 shadow-md"
+          className="relative overflow-hidden w-full rounded-2xl border border-purple-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 sm:px-6 py-5 sm:py-6 mb-5 shadow-[0_0_35px_rgba(168,85,247,0.06)]"
         >
+          <div className="pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full bg-purple-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -left-24 top-10 h-44 w-44 rounded-full bg-pink-500/10 blur-3xl" />
+          
           <h3 className="text-blue-400 text-sm font-semibold uppercase mb-4 tracking-wide">
-            📊 Claim
+            📊 MEGY Claim Center
           </h3>
+
+          {/* 🎯 Claim Hero */}
+          <div className="relative overflow-hidden rounded-2xl border border-purple-400/20 bg-gradient-to-br from-zinc-950 via-purple-950/20 to-zinc-950 p-5 mb-5 shadow-[0_0_35px_rgba(168,85,247,0.10)]">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-purple-500/10 blur-3xl" />
+            <div className="pointer-events-none absolute -left-16 bottom-0 h-32 w-32 rounded-full bg-pink-500/10 blur-3xl" />
+
+            <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.28em] text-purple-300/80">
+                  Claimable MEGY
+                </p>
+
+                <div className="mt-3 flex items-end gap-3">
+                  <p className="text-4xl sm:text-5xl font-black tracking-tight text-white">
+                    {claimableMegy.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </p>
+
+                  {(() => {
+                    const finalized = Number(finalizedClaim?.finalized_megy_total ?? 0);
+                    const claimed = Number(finalizedClaim?.claimed_megy_total ?? 0);
+                    const claimable = Number(claimableMegy ?? 0);
+
+                    const badge =
+                      finalized > 0 && claimed >= finalized
+                        ? {
+                            label: 'CLAIMED',
+                            className: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
+                          }
+                        : !claimOpen
+                          ? {
+                              label: 'LOCKED',
+                              className: 'border-yellow-400/20 bg-yellow-400/10 text-yellow-300',
+                            }
+                          : claimable <= 0
+                            ? {
+                                label: 'EMPTY',
+                                className: 'border-zinc-400/20 bg-white/[0.04] text-zinc-300',
+                              }
+                            : claimed > 0
+                              ? {
+                                  label: 'PARTIAL',
+                                  className: 'border-purple-400/20 bg-purple-400/10 text-purple-200',
+                                }
+                              : {
+                                  label: 'READY',
+                                  className: 'border-purple-400/20 bg-purple-400/10 text-purple-200',
+                                };
+
+                    return (
+                      <span className={`mb-1 rounded-full border px-3 py-1 text-xs font-bold ${badge.className}`}>
+                        {badge.label}
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                <p className="mt-3 max-w-xl text-sm text-zinc-400">
+                  Finalized MEGY currently available to claim from your Coincarnation snapshots.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 min-w-0 lg:min-w-[480px]">
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-zinc-500">
+                    Finalized
+                  </p>
+
+                  <p className="mt-2 text-xl font-black text-white">
+                    {Math.floor(Number(finalizedClaim?.finalized_megy_total ?? 0)).toLocaleString()}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-zinc-500">
+                    Claimed
+                  </p>
+
+                  <p className="mt-2 text-xl font-black text-white">
+                    {Math.floor(Number(finalizedClaim?.claimed_megy_total ?? 0)).toLocaleString()}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-purple-400/20 bg-purple-400/10 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-purple-200/70">
+                    Selected Phase
+                  </p>
+
+                  <p className="mt-2 text-xl font-black text-purple-100">
+                    {Math.floor(Number(selectedClaimable ?? 0)).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-300">
+                  finalized snapshots
+                </span>
+
+                {effectivePhaseName && (
+                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-zinc-300">
+                    {String(effectivePhaseName)}
+                  </span>
+                )}
+              </div>
+
+              <div className="text-xs text-zinc-500">
+                {(() => {
+                  const f = Number(finalizedClaim?.finalized_megy_total ?? 0);
+                  const c = Number(finalizedClaim?.claimed_megy_total ?? 0);
+
+                  if (f > 0 && c >= f) {
+                    return 'Fully claimed';
+                  }
+
+                  if (c > 0 && c < f) {
+                    return `Partially claimed`;
+                  }
+
+                  return 'Ready for claiming';
+                })()}
+              </div>
+            </div>
+          </div>
 
           {/* 🧬 Snapshot Timeline */}
           {Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 0 && (() => {
@@ -2501,97 +2629,6 @@ export default function ClaimPanel() {
               </div>
             );
           })()}
-
-          {/* 🎯 Claim Hero */}
-          <div className="relative overflow-hidden rounded-2xl border border-purple-400/20 bg-gradient-to-br from-zinc-950 via-purple-950/20 to-zinc-950 p-5 mb-5 shadow-[0_0_35px_rgba(168,85,247,0.10)]">
-            <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-purple-500/10 blur-3xl" />
-            <div className="pointer-events-none absolute -left-16 bottom-0 h-32 w-32 rounded-full bg-pink-500/10 blur-3xl" />
-
-            <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.28em] text-purple-300/80">
-                  Claimable MEGY
-                </p>
-
-                <div className="mt-3 flex items-end gap-3">
-                  <p className="text-4xl sm:text-5xl font-black tracking-tight text-white">
-                    {claimableMegy.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </p>
-
-                  <span className="mb-1 rounded-full border border-purple-400/20 bg-purple-400/10 px-3 py-1 text-xs font-bold text-purple-200">
-                    READY
-                  </span>
-                </div>
-
-                <p className="mt-3 max-w-xl text-sm text-zinc-400">
-                  Finalized MEGY currently available to claim from your Coincarnation snapshots.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 min-w-0 lg:min-w-[480px]">
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <p className="text-[11px] uppercase tracking-wide text-zinc-500">
-                    Finalized
-                  </p>
-
-                  <p className="mt-2 text-xl font-black text-white">
-                    {Math.floor(Number(finalizedClaim?.finalized_megy_total ?? 0)).toLocaleString()}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <p className="text-[11px] uppercase tracking-wide text-zinc-500">
-                    Claimed
-                  </p>
-
-                  <p className="mt-2 text-xl font-black text-white">
-                    {Math.floor(Number(finalizedClaim?.claimed_megy_total ?? 0)).toLocaleString()}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-purple-400/20 bg-purple-400/10 p-4">
-                  <p className="text-[11px] uppercase tracking-wide text-purple-200/70">
-                    Selected Phase
-                  </p>
-
-                  <p className="mt-2 text-xl font-black text-purple-100">
-                    {Math.floor(Number(selectedClaimable ?? 0)).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="relative mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-300">
-                  finalized snapshots
-                </span>
-
-                {effectivePhaseName && (
-                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-zinc-300">
-                    {String(effectivePhaseName)}
-                  </span>
-                )}
-              </div>
-
-              <div className="text-xs text-zinc-500">
-                {(() => {
-                  const f = Number(finalizedClaim?.finalized_megy_total ?? 0);
-                  const c = Number(finalizedClaim?.claimed_megy_total ?? 0);
-
-                  if (f > 0 && c >= f) {
-                    return 'Fully claimed';
-                  }
-
-                  if (c > 0 && c < f) {
-                    return `Partially claimed`;
-                  }
-
-                  return 'Ready for claiming';
-                })()}
-              </div>
-            </div>
-          </div>
 
           {/* 💳 Claim controls */}
           <div className="relative overflow-hidden rounded-2xl border border-pink-400/20 bg-gradient-to-br from-zinc-950 via-pink-950/10 to-zinc-950 px-4 py-5 sm:px-5 sm:py-6 space-y-4 shadow-[0_0_30px_rgba(236,72,153,0.06)]">
