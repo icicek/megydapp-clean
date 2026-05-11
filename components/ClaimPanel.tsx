@@ -2070,7 +2070,7 @@ export default function ClaimPanel() {
               </p>
 
               <p className="mt-3 text-xs leading-5 text-zinc-500">
-                Click to copy your active wallet address inside the Coincarnation graph.
+                Click to copy your active wallet address.
               </p>
 
               {copiedTarget === 'wallet' && (
