@@ -139,6 +139,7 @@ export default function ClaimPanel() {
   const [cpConfig, setCpConfig] = useState<CpConfig | null>(null);
   const [data, setData] = useState<any>(null);
   const [claimAmount, setClaimAmount] = useState<string>('');
+  const [selectedClaimPercent, setSelectedClaimPercent] = useState<25 | 50 | 100 | null>(null);
   const [loading, setLoading] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -1681,20 +1682,46 @@ export default function ClaimPanel() {
     });
   }  
 
-  const isClaimAmountEmpty = claimAmount.trim() === '';
+  const claimAmountRaw = claimAmount.trim();
+  const isClaimAmountEmpty = claimAmountRaw === '';
 
-  const amtNum = Number(claimAmount);
-  const claimAmountInvalid = !Number.isFinite(amtNum) || amtNum <= 0;
+  const amtNum = Number(claimAmountRaw);
+  const claimAmountInvalid =
+    !isClaimAmountEmpty && (!Number.isFinite(amtNum) || amtNum <= 0);
 
-  const claimDisabled =
-    !effectivePhaseId ||
-    phaseLoading ||
-    isClaiming ||
-    !claimOpen ||
-    selectedClaimable <= 0 ||
-    isClaimAmountEmpty ||
-    claimAmountInvalid ||
-    amtNum > selectedClaimable;
+  const claimAmountExceeds =
+    Number.isFinite(amtNum) && amtNum > selectedClaimable;
+
+  const altAddressRaw = altAddress.trim();
+
+  let destinationAddressInvalid = false;
+  if (useAltAddress && altAddressRaw) {
+    try {
+      // eslint-disable-next-line no-new
+      new PublicKey(altAddressRaw);
+    } catch {
+      destinationAddressInvalid = true;
+    }
+  }
+
+  const claimDisabledReason = (() => {
+    if (phaseLoading) return 'Loading finalized phase...';
+    if (!effectivePhaseId) return 'No finalized phase found yet.';
+    if (!claimOpen) return 'Claim window is currently closed.';
+    if (isClaiming) return 'Claim is already in progress.';
+    if (selectedClaimable <= 0) return 'No claimable balance for the selected snapshot.';
+    if (isClaimAmountEmpty) return 'Enter an amount to continue.';
+    if (claimAmountInvalid) return 'Enter a valid positive amount.';
+    if (claimAmountExceeds) {
+      return `Amount exceeds selected snapshot balance. Max: ${Math.floor(selectedClaimable).toLocaleString()} MEGY.`;
+    }
+    if (useAltAddress && !altAddressRaw) return 'Enter destination wallet address.';
+    if (destinationAddressInvalid) return 'Destination address is not a valid Solana wallet.';
+
+    return null;
+  })();
+
+  const claimDisabled = Boolean(claimDisabledReason);
 
   const effectivePhaseName =
     selectedPhaseRow?.phase_name ||
@@ -2689,44 +2716,75 @@ export default function ClaimPanel() {
                     <div className="grid grid-cols-3 gap-2 text-xs font-black">
                       <button
                         type="button"
-                        className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-zinc-300 transition hover:border-pink-300/30 hover:bg-pink-400/10 hover:text-pink-100"
-                        onClick={() => setClaimAmount(String(Math.floor(selectedClaimable * 0.25)))}
+                        className={[
+                          'rounded-full border px-4 py-2 transition',
+                          selectedClaimPercent === 25
+                            ? 'border-pink-300/50 bg-pink-400/15 text-pink-100'
+                            : 'border-white/10 bg-white/[0.04] text-zinc-300 hover:border-pink-300/30 hover:bg-pink-400/10 hover:text-pink-100',
+                        ].join(' ')}
+                        onClick={() => {
+                          setSelectedClaimPercent(25);
+                          setClaimAmount(String(Math.floor(selectedClaimable * 0.25)));
+                        }}
                       >
-                        %25
+                        25%
                       </button>
 
                       <button
                         type="button"
-                        className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-zinc-300 transition hover:border-pink-300/30 hover:bg-pink-400/10 hover:text-pink-100"
-                        onClick={() => setClaimAmount(String(Math.floor(selectedClaimable * 0.5)))}
+                        className={[
+                          'rounded-full border px-4 py-2 transition',
+                          selectedClaimPercent === 50
+                            ? 'border-pink-300/50 bg-pink-400/15 text-pink-100'
+                            : 'border-white/10 bg-white/[0.04] text-zinc-300 hover:border-pink-300/30 hover:bg-pink-400/10 hover:text-pink-100',
+                        ].join(' ')}
+                        onClick={() => {
+                          setSelectedClaimPercent(50);
+                          setClaimAmount(String(Math.floor(selectedClaimable * 0.5)));
+                        }}
                       >
-                        %50
+                        50%
                       </button>
 
                       <button
                         type="button"
-                        className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-zinc-300 transition hover:border-pink-300/30 hover:bg-pink-400/10 hover:text-pink-100"
-                        onClick={() => setClaimAmount(String(Math.floor(selectedClaimable)))}
+                        className={[
+                          'rounded-full border px-4 py-2 transition',
+                          selectedClaimPercent === 100
+                            ? 'border-pink-300/50 bg-pink-400/15 text-pink-100'
+                            : 'border-white/10 bg-white/[0.04] text-zinc-300 hover:border-pink-300/30 hover:bg-pink-400/10 hover:text-pink-100',
+                        ].join(' ')}
+                        onClick={() => {
+                          setSelectedClaimPercent(100);
+                          setClaimAmount(String(Math.floor(selectedClaimable)));
+                        }}
                       >
-                        %100
+                        100%
                       </button>
                     </div>
-
                     <input
                       type="text"
                       inputMode="numeric"
                       value={claimAmount}
                       onChange={(e) => {
                         const v = e.target.value.replace(/[^\d]/g, '');
+                        setSelectedClaimPercent(null);
                         setClaimAmount(v);
                       }}
                       placeholder="Enter amount to claim"
                       className="w-full rounded-xl border border-pink-400/20 bg-black/30 p-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60"
                     />
 
-                    {isClaimAmountEmpty && (
-                      <p className="text-xs text-yellow-400 text-center">
-                        ⚠️ Enter an amount to claim
+                    {claimDisabledReason && selectedClaimable > 0 && (
+                      <p
+                        className={[
+                          'text-center text-xs',
+                          claimAmountExceeds || claimAmountInvalid || destinationAddressInvalid
+                            ? 'text-red-300'
+                            : 'text-yellow-300',
+                        ].join(' ')}
+                      >
+                        ⚠️ {claimDisabledReason}
                       </p>
                     )}
                   </div>
@@ -2761,11 +2819,17 @@ export default function ClaimPanel() {
                         "whitespace-nowrap",
                       ].join(" ")}
                     >
-                      You can claim up to{" "}
-                      <span className="text-purple-300 font-semibold">
-                        {Math.floor(selectedClaimable).toLocaleString()}
-                      </span>{" "}
-                      MEGY in this phase.
+                      {claimDisabledReason ? (
+                        <span>{claimDisabledReason}</span>
+                      ) : (
+                        <>
+                          You can claim up to{" "}
+                          <span className="text-purple-300 font-semibold">
+                            {Math.floor(selectedClaimable).toLocaleString()}
+                          </span>{" "}
+                          MEGY in this phase.
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2778,7 +2842,7 @@ export default function ClaimPanel() {
 
             {message && <p className="text-center mt-3 text-sm whitespace-pre-line">{message}</p>}
 
-            {refundDebug ? (
+            {process.env.NODE_ENV !== 'production' && refundDebug ? (
               <pre className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3 text-[11px] text-white/80 overflow-x-auto whitespace-pre-wrap">
                 {JSON.stringify(refundDebug, null, 2)}
               </pre>
