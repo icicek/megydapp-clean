@@ -2074,8 +2074,8 @@ export default function ClaimPanel() {
               </p>
 
               {copiedTarget === 'wallet' && (
-                <p className="absolute bottom-3 left-4 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-300">
-                  ✅ Wallet copied
+                <p className="absolute right-4 top-10 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300 backdrop-blur-sm">
+                  ✅ Copied
                 </p>
               )}
             </div>
@@ -2111,8 +2111,8 @@ export default function ClaimPanel() {
               </p>
 
               {copiedTarget === 'referral' && (
-                <p className="absolute bottom-3 left-4 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-300">
-                  ✅ Link copied
+                <p className="absolute right-4 top-10 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300 backdrop-blur-sm">
+                  ✅ Copied
                 </p>
               )}
             </div>
