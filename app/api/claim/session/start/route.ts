@@ -24,6 +24,7 @@ const TREASURY = new PublicKey(
 
 const AMOUNT_TOLERANCE_PCT = Number(process.env.CLAIM_FEE_TOLERANCE_PCT ?? 0.02); // 2%
 const MAX_TX_AGE_MINUTES = Number(process.env.CLAIM_FEE_MAX_TX_AGE_MINUTES ?? 30);
+const SESSION_MAX_AGE_MINUTES = Number(process.env.CLAIM_SESSION_MAX_AGE_MINUTES ?? 30);
 
 type Body = {
   wallet_address: string;
@@ -124,27 +125,50 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  try {
+    const rows = await sql`
+      SELECT value
+      FROM app_config
+      WHERE key = 'claim_open'
+      LIMIT 1
+    `;
+  
+    const claimOpenValue = String(rows?.[0]?.value ?? '').toLowerCase().trim();
+    const claimOpen =
+      claimOpenValue === 'true' ||
+      claimOpenValue === '1' ||
+      claimOpenValue === 'yes';
+  
+    if (!claimOpen) {
+      return json(403, { success: false, error: 'CLAIM_NOT_OPEN' });
+    }
+  } catch (e) {
+    console.error('claim_open check failed:', e);
+    return json(500, { success: false, error: 'DB_ERROR_CLAIM_OPEN_CHECK' });
+  }
+
   // 1) Reuse open session (wallet-based)
   try {
     const open = await sql`
-      SELECT id, destination
+      SELECT id, destination, opened_at
       FROM claim_sessions
       WHERE wallet_address = ${wallet}
         AND status = 'open'
+        AND opened_at > now() - (${SESSION_MAX_AGE_MINUTES} || ' minutes')::interval
       ORDER BY opened_at DESC
       LIMIT 1
     `;
 
     if (open?.length && open[0]?.id) {
       const currentDest = String(open[0].destination ?? '').trim();
+    
       if (currentDest !== destination) {
-        await sql`
-          UPDATE claim_sessions
-          SET destination = ${destination}
-          WHERE id = ${open[0].id}
-        `;
+        return json(409, {
+          success: false,
+          error: 'SESSION_DESTINATION_MISMATCH',
+        });
       }
-
+    
       return json(200, { success: true, session_id: open[0].id, reused: true });
     }
   } catch (e) {
