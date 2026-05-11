@@ -2198,9 +2198,21 @@ export default function ClaimPanel() {
             />
           </div>
 
-          <p className="mt-3 text-xs text-gray-400 italic text-center">
-            Increase your share by Coincarnating more.
-          </p>
+          <div className="mt-5 flex justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                sessionStorage.setItem('coincarnation_recoincarnate_intent', 'profile_global_momentum');
+                window.location.href = '/';
+              }}
+              className="group inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-5 py-2.5 text-xs font-black text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-400/20 hover:text-emerald-100"
+            >
+              <span className="transition group-hover:rotate-180">🔁</span>
+              <span className="underline-offset-4 group-hover:underline">
+                Recoincarnate and grow your share
+              </span>
+            </button>
+          </div>
         </motion.section>
 
         {/* 📊 Claim */}
