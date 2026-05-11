@@ -2228,13 +2228,21 @@ export default function ClaimPanel() {
             📊 Claim
           </h3>
 
-          {/* 🟢 Phase Card: Current Phase + Your Estimate */}
+          {/* 🟢 Phase Engine */}
           <div className="mb-5">
+            <div className="mb-3">
+              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-300/80">
+                Phase Engine
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Track the active phase, live estimate, and snapshot progress.
+              </p>
+            </div>
             <div
               className={[
-                "bg-zinc-800 border rounded-xl p-4",
+                "relative overflow-hidden rounded-2xl border bg-gradient-to-br from-zinc-950 via-emerald-950/10 to-zinc-950 p-4 shadow-[0_0_30px_rgba(16,185,129,0.06)]",
                 currentPhase && !currentPhase?.snapshot_taken_at && !currentPhase?.finalized_at
-                  ? "border-emerald-400/40 shadow-[0_0_0_1px_rgba(52,211,153,0.25)]"
+                  ? "border-emerald-400/40 ring-1 ring-emerald-400/25"
                   : "border-zinc-700",
               ].join(" ")}
             >
@@ -2334,22 +2342,22 @@ export default function ClaimPanel() {
                   </div>
 
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                    <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
-                      <p className="text-xs text-gray-400">Your USD (active phase)</p>
+                    <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
+                      <p className="text-xs text-emerald-100/60">Your USD</p>
                       <p className="font-semibold text-white">
                         ${Number(activeEstimate.me.userUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                       </p>
                     </div>
 
-                    <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
-                      <p className="text-xs text-gray-400">Total USD (active phase)</p>
+                    <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4">
+                      <p className="text-xs text-cyan-100/60">Phase Total</p>
                       <p className="font-semibold text-white">
                         ${Number(activeEstimate.totals.totalUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                       </p>
                     </div>
 
-                    <div className="bg-zinc-900/40 border border-zinc-700 rounded-lg p-3">
-                      <p className="text-xs text-gray-400">Estimated MEGY</p>
+                    <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-4 shadow-[0_0_25px_rgba(250,204,21,0.06)]">
+                      <p className="text-xs text-yellow-100/60">Estimated MEGY</p>
                       <p className="font-extrabold text-yellow-300 text-lg">
                         {Math.floor(activeEstimate.me.estimatedMegy).toLocaleString()}
                       </p>
