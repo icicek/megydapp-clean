@@ -2048,15 +2048,29 @@ export default function ClaimPanel() {
           </div>
 
           <div className="relative grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+            <div
+              className="group relative cursor-pointer rounded-2xl border border-white/10 bg-black/25 p-4 transition hover:border-cyan-300/30 hover:bg-cyan-400/10"
+              onClick={() => {
+                if (!data?.wallet_address) return;
+                navigator.clipboard.writeText(data.wallet_address);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+            >
+              <span className="absolute right-4 top-4 text-white/30 transition group-hover:text-cyan-200">
+                ⧉
+              </span>
+
               <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
                 Wallet Address
               </p>
+
               <p className="mt-2 font-mono text-sm font-semibold text-white">
                 {shorten(data.wallet_address)}
               </p>
+
               <p className="mt-3 text-xs leading-5 text-zinc-500">
-                Your active wallet identity inside the Coincarnation graph.
+                Click to copy your active wallet address inside the Coincarnation graph.
               </p>
             </div>
 
@@ -2075,6 +2089,9 @@ export default function ClaimPanel() {
               </div>
 
               <div className="relative">
+                <span className="absolute right-0 top-0 text-white/30 transition group-hover:text-fuchsia-100">
+                  ⧉
+                </span>
                 <p className="text-xs font-bold uppercase tracking-wide text-fuchsia-200/70">
                   Referral Code
                 </p>
@@ -2103,7 +2120,7 @@ export default function ClaimPanel() {
                 {String(data.referral_count ?? 0)}
               </p>
               <p className="mt-3 text-xs leading-5 text-emerald-100/60">
-                People pulled into the Coincarnation movement through your signal.
+                Contribution actions generated through your referral signal.
               </p>
             </div>
 
@@ -2133,13 +2150,15 @@ export default function ClaimPanel() {
 
             <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4 md:col-span-1">
               <p className="text-xs font-bold uppercase tracking-wide text-cyan-200/70">
-                Personal Value Trace
+                Personal Value Currency
               </p>
-              <p className="mt-2 text-lg font-black text-cyan-100">
-                Building
+
+              <p className="mt-2 text-3xl font-black text-cyan-100">
+                {Number(data.core_point ?? 0).toLocaleString()} CP
               </p>
+
               <p className="mt-3 text-xs leading-5 text-cyan-100/60">
-                Your activity is becoming a living proof of contribution, identity, and future value.
+                Powered by CorePoint earned through Coincarnation, referrals, deadcoin revival, and social contribution.
               </p>
             </div>
           </div>
