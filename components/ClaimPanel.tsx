@@ -2174,7 +2174,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.15 }}
-          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 sm:px-6 py-4 sm:py-5 mb-5 shadow-md"
+          className="relative overflow-hidden w-full rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 sm:px-6 py-5 sm:py-6 mb-5 shadow-[0_0_35px_rgba(16,185,129,0.06)]"
         >
           <h3 className="text-emerald-300 text-sm font-semibold uppercase mb-4 tracking-wide">
             🌍 Protocol Momentum
@@ -2198,6 +2198,24 @@ export default function ClaimPanel() {
             />
           </div>
 
+          <div className="mt-5 flex justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                sessionStorage.setItem('coincarnation_recoincarnate_intent', 'profile_global_momentum');
+                window.location.href = '/';
+              }}
+              className="group inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-white/[0.03] px-5 py-2 text-xs font-black text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-400/10 hover:text-emerald-100"
+            >
+              <span className="text-sm text-emerald-300 transition-transform duration-500 group-hover:rotate-180">
+                ✦
+              </span>
+              <span>
+                Recoincarnate
+              </span>
+            </button>
+          </div>
+
           {/* 🟢 Phase Engine */}
           <div className="mt-6">
             <div className="mb-3">
@@ -2205,7 +2223,7 @@ export default function ClaimPanel() {
                 Phase Engine
               </p>
               <p className="mt-1 text-xs text-zinc-500">
-                Track the active phase, live estimate, and snapshot progress.
+                See how the current phase is filling and how your live estimate evolves.
               </p>
             </div>
             <div
@@ -2340,24 +2358,6 @@ export default function ClaimPanel() {
                 </div>
               )}
             </div>
-          </div>
-
-          <div className="mt-5 flex justify-center">
-            <button
-              type="button"
-              onClick={() => {
-                sessionStorage.setItem('coincarnation_recoincarnate_intent', 'profile_global_momentum');
-                window.location.href = '/';
-              }}
-              className="group inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-white/[0.03] px-5 py-2 text-xs font-black text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-400/10 hover:text-emerald-100"
-            >
-              <span className="text-sm text-emerald-300 transition-transform duration-500 group-hover:rotate-180">
-                ✦
-              </span>
-              <span>
-                Recoincarnate
-              </span>
-            </button>
           </div>
         </motion.section>
 
