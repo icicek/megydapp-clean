@@ -2107,7 +2107,7 @@ export default function ClaimPanel() {
                 </p>
 
                 <p className="mt-3 text-xs leading-5 text-fuchsia-100/60">
-                  Click to copy your invitation link and expand your revival network.
+                  Copy your invitation link and expand your network.
                 </p>
 
                 {copiedTarget === 'referral' && (
@@ -2126,7 +2126,7 @@ export default function ClaimPanel() {
                 {String(data.referral_count ?? 0)}
               </p>
               <p className="mt-3 text-xs leading-5 text-emerald-100/60">
-                Contribution actions generated through your referral signal.
+                Coincarne actions generated through your referral.
               </p>
             </div>
 
