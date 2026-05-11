@@ -2047,9 +2047,9 @@ export default function ClaimPanel() {
             </div>
           </div>
 
-          <div className="relative grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="relative grid grid-cols-1 items-stretch gap-4 md:grid-cols-3">
             <div
-              className="group relative min-h-[168px] flex flex-col justify-between cursor-pointer rounded-2xl border border-white/10 bg-black/25 p-4 transition hover:border-cyan-300/30 hover:bg-cyan-400/10"
+              className="group relative cursor-pointer rounded-2xl border border-white/10 bg-black/25 p-4 transition hover:border-cyan-300/30 hover:bg-cyan-400/10"
               onClick={() => {
                 if (!data?.wallet_address) return;
                 navigator.clipboard.writeText(data.wallet_address);
@@ -2081,7 +2081,7 @@ export default function ClaimPanel() {
             </div>
 
             <div
-              className="group relative min-h-[168px] flex flex-col justify-between cursor-pointer overflow-hidden rounded-2xl border border-fuchsia-400/20 bg-fuchsia-400/10 p-4 transition hover:border-fuchsia-300/40 hover:bg-fuchsia-400/15"
+              className="group relative cursor-pointer overflow-hidden rounded-2xl border border-fuchsia-400/20 bg-fuchsia-400/10 p-4 transition hover:border-fuchsia-300/40 hover:bg-fuchsia-400/15"
               onClick={() => {
                 if (!data?.referral_code) return;
                 const url = buildReferralUrl(data.referral_code ?? '');
@@ -2118,7 +2118,7 @@ export default function ClaimPanel() {
               </div>
             </div>
 
-            <div className="min-h-[168px] flex flex-col justify-between rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
+            <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
               <p className="text-xs font-bold uppercase tracking-wide text-emerald-200/70">
                 Referrals Brought
               </p>
@@ -2130,7 +2130,7 @@ export default function ClaimPanel() {
               </p>
             </div>
 
-            <div className=" min-h-[168px] flex flex-col justify-between rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-4 md:col-span-1">
+            <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-4 md:col-span-1">
               <p className="text-xs font-bold uppercase tracking-wide text-yellow-200/70">
                 Total USD Revived
               </p>
@@ -2142,7 +2142,7 @@ export default function ClaimPanel() {
               </p>
             </div>
 
-            <div className=" min-h-[168px] flex flex-col justify-between rounded-2xl border border-red-400/20 bg-red-400/10 p-4 md:col-span-1">
+            <div className="rounded-2xl border border-red-400/20 bg-red-400/10 p-4 md:col-span-1">
               <p className="text-xs font-bold uppercase tracking-wide text-red-200/70">
                 Deadcoins Revived
               </p>
@@ -2154,7 +2154,7 @@ export default function ClaimPanel() {
               </p>
             </div>
 
-            <div className=" min-h-[168px] flex flex-col justify-between rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4 md:col-span-1">
+            <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4 md:col-span-1">
               <p className="text-xs font-bold uppercase tracking-wide text-cyan-200/70">
                 Personal Value Currency
               </p>
