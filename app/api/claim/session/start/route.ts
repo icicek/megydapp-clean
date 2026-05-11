@@ -125,28 +125,6 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  try {
-    const rows = await sql`
-      SELECT value
-      FROM app_config
-      WHERE key = 'claim_open'
-      LIMIT 1
-    `;
-  
-    const claimOpenValue = String(rows?.[0]?.value ?? '').toLowerCase().trim();
-    const claimOpen =
-      claimOpenValue === 'true' ||
-      claimOpenValue === '1' ||
-      claimOpenValue === 'yes';
-  
-    if (!claimOpen) {
-      return json(403, { success: false, error: 'CLAIM_NOT_OPEN' });
-    }
-  } catch (e) {
-    console.error('claim_open check failed:', e);
-    return json(500, { success: false, error: 'DB_ERROR_CLAIM_OPEN_CHECK' });
-  }
-
   // 1) Reuse open session (wallet-based)
   try {
     const open = await sql`
