@@ -15,6 +15,8 @@ import {
 
 const sql = neon(process.env.DATABASE_URL!);
 
+const SESSION_MAX_AGE_MINUTES = Number(process.env.CLAIM_SESSION_MAX_AGE_MINUTES ?? 30);
+
 const RPC_URL =
   process.env.SOLANA_RPC_URL ||
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
@@ -138,6 +140,28 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  try {
+    const rows = await sql`
+      SELECT value
+      FROM app_config
+      WHERE key = 'claim_open'
+      LIMIT 1
+    `;
+  
+    const claimOpenValue = String(rows?.[0]?.value ?? '').toLowerCase().trim();
+    const claimOpen =
+      claimOpenValue === 'true' ||
+      claimOpenValue === '1' ||
+      claimOpenValue === 'yes';
+  
+    if (!claimOpen) {
+      return json(403, { success: false, error: 'CLAIM_NOT_OPEN' });
+    }
+  } catch (e) {
+    console.error('claim_open check failed:', e);
+    return json(500, { success: false, error: 'DB_ERROR_CLAIM_OPEN_CHECK' });
+  }
+
   const MEGY_MINT = asStr(process.env.MEGY_MINT || '');
   if (!MEGY_MINT) {
     return json(503, {
@@ -228,9 +252,10 @@ export async function POST(req: NextRequest) {
     await sql`BEGIN`;
 
     const s = await sql`
-      SELECT id, wallet_address, destination, status
+      SELECT id, wallet_address, destination, status, opened_at
       FROM claim_sessions
       WHERE id = ${sessionId}
+        AND opened_at > now() - (${SESSION_MAX_AGE_MINUTES} || ' minutes')::interval
       LIMIT 1
       FOR UPDATE
     `;
@@ -248,11 +273,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (String(s[0].destination) !== destination) {
-      await sql`
-        UPDATE claim_sessions
-        SET destination = ${destination}
-        WHERE id = ${sessionId}
-      `;
+      await sql`ROLLBACK`;
+      return json(409, { success: false, error: 'SESSION_DESTINATION_MISMATCH' });
     }
 
     await sql`

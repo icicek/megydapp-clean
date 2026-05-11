@@ -150,7 +150,8 @@ export default function ClaimPanel() {
   const [phaseId, setPhaseId] = useState<number | null>(null);
   const [phaseLoading, setPhaseLoading] = useState<boolean>(true);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [feeSigForSupport, setFeeSigForSupport] = useState<string | null>(null);
+  const [claimFeeSigForSupport, setClaimFeeSigForSupport] = useState<string | null>(null);
+  const [refundFeeSigForSupport, setRefundFeeSigForSupport] = useState<string | null>(null);
   const [identityStatus, setIdentityStatus] = useState<UserIdentityStatus>({
     authenticated: false,
     identity: null,
@@ -1119,10 +1120,16 @@ export default function ClaimPanel() {
           return;
         }
     
-        setFeeSigForSupport(null);
+        setClaimFeeSigForSupport(null);
         setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
+
+        setClaimAmount('');
+        setSelectedClaimPercent(null);
+        setUseAltAddress(false);
+        setAltAddress('');
+        setPendingClaim(null);
         attemptIdemKeyRef.current = null;
-    
+
         if (execJson?.session_closed === true) setSessionId(null);
     
         // Refresh profile
@@ -1200,7 +1207,9 @@ export default function ClaimPanel() {
       return;
     }
   
-    console.log('[REFUND] clicked tx:', tx);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[REFUND] clicked tx:', tx);
+    }
   
     const mint = String(
       tx?.token_contract ??
@@ -1254,10 +1263,12 @@ export default function ClaimPanel() {
   
       const feePrepJson: any = await feePrepRes.json().catch(() => ({}));
   
-      console.log('[REFUND] fee prepare response:', {
-        status: feePrepRes.status,
-        body: feePrepJson,
-      });
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[REFUND] fee prepare response:', {
+          status: feePrepRes.status,
+          body: feePrepJson,
+        });
+      }
   
       if (!feePrepRes.ok || !feePrepJson?.success) {
         throw new Error(String(feePrepJson?.error || `REFUND_FEE_PREPARE_FAILED (${feePrepRes.status})`));
@@ -1286,10 +1297,12 @@ export default function ClaimPanel() {
   
         const prepJson: any = await prepRes.json().catch(() => ({}));
   
-        console.log('[REFUND] request prepare response:', {
-          status: prepRes.status,
-          body: prepJson,
-        });
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[REFUND] request prepare response:', {
+            status: prepRes.status,
+            body: prepJson,
+          });
+        }
   
         if (!prepRes.ok || !prepJson?.success || !prepJson?.message || !prepJson?.nonce) {
           throw new Error(String(prepJson?.error || `REFUND_PREPARE_FAILED (${prepRes.status})`));
@@ -1320,10 +1333,12 @@ export default function ClaimPanel() {
   
         const j = await r.json().catch(() => ({}));
   
-        console.log('[REFUND] request submit response:', {
-          status: r.status,
-          body: j,
-        });
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[REFUND] request submit response:', {
+            status: r.status,
+            body: j,
+          });
+        }
   
         if (!r.ok || !j?.success) {
           throw new Error(String(j?.error || `REFUND_REQUEST_FAILED (${r.status})`));
@@ -1412,7 +1427,7 @@ export default function ClaimPanel() {
           maxRetries: 3,
         } as any)
       );
-      setFeeSigForSupport(feeSig);
+      setRefundFeeSigForSupport(feeSig);
   
       setRefundFeeStep('confirming');
       setMessage('⏳ Verifying refund fee payment...');
@@ -1433,10 +1448,12 @@ export default function ClaimPanel() {
   
       const feeConfirmJson: any = await feeConfirmRes.json().catch(() => ({}));
   
-      console.log('[REFUND] fee confirm response:', {
-        status: feeConfirmRes.status,
-        body: feeConfirmJson,
-      });
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[REFUND] fee confirm response:', {
+          status: feeConfirmRes.status,
+          body: feeConfirmJson,
+        });
+      }
   
       setRefundDebug({
         step: 'fee_confirm',
@@ -1468,10 +1485,12 @@ export default function ClaimPanel() {
   
       const prepJson: any = await prepRes.json().catch(() => ({}));
   
-      console.log('[REFUND] request prepare response:', {
-        status: prepRes.status,
-        body: prepJson,
-      });
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[REFUND] request prepare response:', {
+          status: prepRes.status,
+          body: prepJson,
+        });
+      }
   
       setRefundDebug({
         step: 'request_prepare',
@@ -1511,10 +1530,12 @@ export default function ClaimPanel() {
   
       const j = await r.json().catch(() => ({}));
   
-      console.log('[REFUND] request submit response:', {
-        status: r.status,
-        body: j,
-      });
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[REFUND] request submit response:', {
+          status: r.status,
+          body: j,
+        });
+      }
   
       setRefundDebug({
         step: 'request_submit',
@@ -1551,7 +1572,7 @@ export default function ClaimPanel() {
       }));
   
       setRefundFeeStep('idle');
-      setMessage(`❌ ${userFriendlyError(raw)} [${raw}]`);
+      setMessage(`❌ ${userFriendlyError(raw)}`);
     } finally {
       setRefundingContributionId(null);
     }
@@ -1595,7 +1616,7 @@ export default function ClaimPanel() {
         } as any)
       );
   
-      setFeeSigForSupport(feeSig);
+      setClaimFeeSigForSupport(feeSig);
       setMessage('⏳ Confirming fee payment on-chain…');
   
       await connection.confirmTransaction(
@@ -1655,10 +1676,16 @@ export default function ClaimPanel() {
         throw new Error(rawErr);
       }
   
-      setFeeSigForSupport(null);
+      setClaimFeeSigForSupport(null);
       setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
+
+      setClaimAmount('');
+      setSelectedClaimPercent(null);
+      setUseAltAddress(false);
+      setAltAddress('');
+      setPendingClaim(null);
       attemptIdemKeyRef.current = null;
-  
+
       if (execJson?.session_closed === true) setSessionId(null);
   
       // 4) Refresh profile
@@ -1752,6 +1779,13 @@ export default function ClaimPanel() {
         ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100'
         : 'border-yellow-400/30 bg-yellow-400/10 text-yellow-100';
 
+  const supportFeeSig = claimFeeSigForSupport ?? refundFeeSigForSupport;
+
+  const supportFeeSigLabel = claimFeeSigForSupport
+    ? 'claim fee tx'
+    : refundFeeSigForSupport
+      ? 'refund fee tx'
+      : 'fee tx';
   return (
     <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
       <div className="max-w-6xl w-full mx-auto space-y-6">
@@ -2877,18 +2911,18 @@ export default function ClaimPanel() {
               </pre>
             ) : null}
 
-            {feeSigForSupport && (
-              <div className="mt-3 flex items-center justify-center gap-2">
+            {supportFeeSig && (
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                 <button
                   type="button"
-                  onClick={() => navigator.clipboard.writeText(feeSigForSupport)}
-                  className="bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 text-white text-xs px-3 py-2 rounded-lg transition"
+                  onClick={() => navigator.clipboard.writeText(supportFeeSig)}
+                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs text-white transition hover:bg-zinc-700"
                 >
-                  Copy fee tx
+                  Copy {supportFeeSigLabel}
                 </button>
 
                 <a
-                  href={`https://solscan.io/tx/${feeSigForSupport}`}
+                  href={`https://solscan.io/tx/${supportFeeSig}`}
                   target="_blank"
                   rel="noreferrer"
                   className="text-xs text-blue-300 underline"
