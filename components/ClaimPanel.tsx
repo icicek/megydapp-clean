@@ -164,7 +164,7 @@ export default function ClaimPanel() {
   const [walletHasNoLinkedIdentity, setWalletHasNoLinkedIdentity] = useState(false);
 
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
-  const [copied, setCopied] = useState(false);
+  const [copiedTarget, setCopiedTarget] = useState<'wallet' | 'referral' | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
   const [shareContext, setShareContext] = useState<'profile'|'contribution'|'leaderboard'|'success'>('profile');
@@ -2053,8 +2053,8 @@ export default function ClaimPanel() {
               onClick={() => {
                 if (!data?.wallet_address) return;
                 navigator.clipboard.writeText(data.wallet_address);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
+                setCopiedTarget('wallet');
+                setTimeout(() => setCopiedTarget(null), 2000);
               }}
             >
               <span className="absolute right-4 top-4 text-white/30 transition group-hover:text-cyan-200">
@@ -2072,6 +2072,12 @@ export default function ClaimPanel() {
               <p className="mt-3 text-xs leading-5 text-zinc-500">
                 Click to copy your active wallet address inside the Coincarnation graph.
               </p>
+
+              {copiedTarget === 'wallet' && (
+                <p className="mt-3 inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-300">
+                  ✅ Wallet address copied
+                </p>
+              )}
             </div>
 
             <div
@@ -2080,8 +2086,8 @@ export default function ClaimPanel() {
                 if (!data?.referral_code) return;
                 const url = buildReferralUrl(data.referral_code ?? '');
                 navigator.clipboard.writeText(url);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
+                setCopiedTarget('referral');
+                setTimeout(() => setCopiedTarget(null), 2000);
               }}
             >
               <div className="absolute inset-0 opacity-0 transition group-hover:opacity-100">
@@ -2104,7 +2110,7 @@ export default function ClaimPanel() {
                   Click to copy your invitation link and expand your revival network.
                 </p>
 
-                {copied && (
+                {copiedTarget === 'referral' && (
                   <p className="mt-3 inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-300">
                     ✅ Referral link copied
                   </p>
@@ -2158,7 +2164,7 @@ export default function ClaimPanel() {
               </p>
 
               <p className="mt-3 text-xs leading-5 text-cyan-100/60">
-                Powered by CorePoint earned through Coincarnation, referrals, deadcoin revival, and social contribution.
+                Personal Value Currency measured in CorePoints
               </p>
             </div>
           </div>
@@ -2999,8 +3005,8 @@ export default function ClaimPanel() {
                         if (!data.referral_code) return;
                         const url = buildReferralUrl(data.referral_code ?? '');
                         navigator.clipboard.writeText(url);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
+                        setCopiedTarget('referral');
+                        setTimeout(() => setCopiedTarget(null), 2000);
                       }}
                       className="bg-zinc-700 hover:bg-zinc-600 text-xs text-white px-2 py-1 rounded"
                     >
@@ -3039,9 +3045,9 @@ export default function ClaimPanel() {
                   </div>
                 )}
 
-                {copied && (
+                {copiedTarget === 'referral' && (
                   <p className="absolute top-14 right-3 text-green-400 text-xs font-semibold">
-                    ✅ refCopiedPvc!
+                    ✅ Referral link copied
                   </p>
                 )}
               </div>
