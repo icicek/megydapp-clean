@@ -1960,7 +1960,7 @@ export default function ClaimPanel() {
           )}
 
           <div className="mt-5 rounded-xl border border-violet-400/20 bg-violet-400/5 p-4">
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 lg:flex-1">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-violet-300">
                   Identity Recovery / Link Code
@@ -3029,11 +3029,11 @@ export default function ClaimPanel() {
                 return (
                   <div
                     key={rawTxId || contributionId || index}
-                    className="group rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-yellow-300/25 hover:bg-yellow-300/[0.03]"
+                    className="group rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-yellow-300/25 hover:bg-yellow-300/[0.03] lg:flex lg:items-center lg:justify-between"
                   >
-                    <div className="flex flex-col gap-4">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:flex-1 lg:min-w-0">
+                      <div className="min-w-0 lg:flex lg:items-center lg:gap-4 lg:flex-1">
+                        <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
                           <p className="text-lg font-black text-white">
                             {assetLabel}
                           </p>
@@ -3062,8 +3062,8 @@ export default function ClaimPanel() {
                           )}
                         </div>
 
-                        <div className="mt-3 grid gap-2 text-sm text-zinc-300 sm:grid-cols-3">
-                          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                        <div className="mt-3 grid gap-2 text-sm text-zinc-300 sm:grid-cols-3 lg:mt-0 lg:flex lg:items-center lg:gap-3 lg:flex-wrap">
+                          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 lg:min-w-[120px] lg:border-transparent lg:bg-transparent">
                             <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                               Amount
                             </p>
@@ -3072,7 +3072,7 @@ export default function ClaimPanel() {
                             </p>
                           </div>
 
-                          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 lg:min-w-[120px] lg:border-transparent lg:bg-transparent">
                             <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                               USD Value
                             </p>
@@ -3081,7 +3081,7 @@ export default function ClaimPanel() {
                             </p>
                           </div>
 
-                          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 lg:min-w-[120px] lg:border-transparent lg:bg-transparent">
                             <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                               Date
                             </p>
@@ -3098,7 +3098,7 @@ export default function ClaimPanel() {
                         )}
                       </div>
 
-                      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end lg:ml-4 lg:flex-shrink-0 lg:items-center">
                         <button
                           type="button"
                           onClick={() => {
