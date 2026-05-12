@@ -143,7 +143,6 @@ export default function ClaimPanel() {
   const [loading, setLoading] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [refundMessage, setRefundMessage] = useState<string | null>(null);
   const [claimOpen, setClaimOpen] = useState(false);
   const [useAltAddress, setUseAltAddress] = useState(false);
   const [altAddress, setAltAddress] = useState('');
@@ -2381,6 +2380,13 @@ export default function ClaimPanel() {
                         <span className="px-2 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/30 text-yellow-200">
                           ⏳ live estimate
                         </span>
+
+                        {estimateLoading && (
+                          <span className="px-2 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-200">
+                            refreshing…
+                          </span>
+                        )}
+
                         <span className="px-2 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300">
                           changes until snapshot
                         </span>
@@ -2967,160 +2973,193 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-4 sm:px-6 sm:py-5 mb-5 shadow-md"
+          className="relative overflow-hidden w-full rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 py-5 sm:px-6 sm:py-6 mb-5 shadow-[0_0_35px_rgba(250,204,21,0.06)]"
         >
-          <h3 className="text-yellow-400 text-sm font-semibold uppercase mb-4 tracking-wide">
-            📜 Contribution History
-          </h3>
+          <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-yellow-400/10 blur-3xl" />
+          <div className="pointer-events-none absolute -left-24 bottom-0 h-48 w-48 rounded-full bg-orange-500/10 blur-3xl" />
 
-          {refundMessage && (
-            <div className="mb-4 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3 text-sm font-medium text-yellow-100">
-              {refundMessage}
+          <div className="relative mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-yellow-300/80">
+                Contribution History
+              </p>
+
+              <h3 className="mt-2 text-2xl font-black tracking-tight text-white">
+                Your Coincarnation Trail
+              </h3>
+
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
+                Every Coincarnation you made, every revived asset, and every shareable proof of impact.
+              </p>
             </div>
-          )}
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">
+                Total Records
+              </p>
+              <p className="mt-1 text-2xl font-black text-yellow-200">
+                {txs.length}
+              </p>
+            </div>
+          </div>
 
           {txs.length > 0 ? (
-            <div className="w-full overflow-x-auto rounded-xl border border-zinc-700">
-              <table className="min-w-[600px] w-full text-sm text-left bg-zinc-900">
-                <thead className="bg-zinc-800 text-gray-300">
-                  <tr>
-                    <th className="px-4 py-2">Asset</th>
-                    <th className="px-4 py-2">Amount</th>
-                    <th className="px-4 py-2">USD Value</th>
-                    <th className="px-4 py-2">Date</th>
-                    <th className="px-4 py-2 text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...txs].reverse().map((tx: any, index: number) => (
-                    <tr key={index} className="border-t border-zinc-700 hover:bg-zinc-800">
-                      <td className="px-4 py-2 font-medium">{tx.token_symbol}</td>
-                      <td className="px-4 py-2">{tx.token_amount}</td>
-                      <td className="px-4 py-2">
-                        {formatUsdValue(tx.usd_value)}
-                      </td>
-                      <td className="px-4 py-2">
-                        {tx.timestamp ? formatDate(tx.timestamp) : 'N/A'}
-                      </td>
-                      <td className="px-4 py-2 text-center">
-                        <div className="flex flex-col items-center gap-2">
-                          {tx.blacklisted && (
-                            <span className="inline-flex items-center rounded-full border border-fuchsia-500/40 bg-fuchsia-500/10 px-2 py-1 text-[11px] font-medium text-fuchsia-200">
-                              {tx.blacklist_label || 'Blacklisted — Refund Available'}
+            <div className="relative grid gap-3">
+              {[...txs].reverse().map((tx: any, index: number) => {
+                const contributionId = Number(
+                  tx?.contribution_id ??
+                    tx?.contributionId ??
+                    tx?.id ??
+                    0
+                );
+
+                const refundState = getRefundUiState(tx);
+
+                const rawTxId =
+                  (tx.tx_id && String(tx.tx_id)) ||
+                  (tx.txId && String(tx.txId)) ||
+                  (tx.transaction_signature && String(tx.transaction_signature)) ||
+                  (tx.tx_signature && String(tx.tx_signature)) ||
+                  (tx.tx_hash && String(tx.tx_hash)) ||
+                  undefined;
+
+                const assetLabel = tx.token_symbol || tx.symbol || 'Unknown Asset';
+                const isRefunding = refundingContributionId === contributionId;
+
+                return (
+                  <div
+                    key={rawTxId || contributionId || index}
+                    className="group rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-yellow-300/25 hover:bg-yellow-300/[0.03]"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-lg font-black text-white">
+                            {assetLabel}
+                          </p>
+
+                          {tx?.blacklisted && (
+                            <span className="rounded-full border border-red-400/25 bg-red-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-red-200">
+                              Blacklist
                             </span>
                           )}
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const url = buildReferralUrl(data.referral_code ?? '');
+                          {refundState.badge && (
+                            <span
+                              className={[
+                                'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide',
+                                refundState.badge === 'Refunded'
+                                  ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200'
+                                  : refundState.badge === 'Refund Requested'
+                                    ? 'border-yellow-400/25 bg-yellow-400/10 text-yellow-200'
+                                    : refundState.badge === 'Complete Refund Request'
+                                      ? 'border-orange-400/25 bg-orange-400/10 text-orange-200'
+                                      : 'border-blue-400/25 bg-blue-400/10 text-blue-200',
+                              ].join(' ')}
+                            >
+                              {refundState.badge}
+                            </span>
+                          )}
+                        </div>
 
-                              const payload = buildPayload(
-                                'contribution',
-                                {
-                                  url,
-                                  token: tx.token_symbol,
-                                  amount: tx.token_amount,
-                                },
-                                {
-                                  ref: data.referral_code ?? undefined,
-                                  src: 'app',
-                                },
-                              );
+                        <div className="mt-3 grid gap-2 text-sm text-zinc-300 sm:grid-cols-3">
+                          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                              Amount
+                            </p>
+                            <p className="mt-1 font-semibold text-white">
+                              {tx.token_amount ?? '-'}
+                            </p>
+                          </div>
 
-                              setSharePayload(payload);
-                              setShareContext('contribution');
+                          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                              USD Value
+                            </p>
+                            <p className="mt-1 font-semibold text-emerald-300">
+                              {formatUsdValue(tx.usd_value)}
+                            </p>
+                          </div>
 
-                              const rawTxId =
-                                (tx.tx_id && String(tx.tx_id)) ||
-                                (tx.txId && String(tx.txId)) ||
-                                (tx.transaction_signature && String(tx.transaction_signature)) ||
-                                (tx.tx_signature && String(tx.tx_signature)) ||
-                                (tx.tx_hash && String(tx.tx_hash)) ||
-                                undefined;
-
-                              const wallet = data.wallet_address || publicKey?.toBase58() || 'unknown';
-                              const anchor =
-                                rawTxId
-                                  ? `contribution:${wallet}:${rawTxId}`
-                                  : `contribution:${wallet}:idx-${index}`;
-
-                              setShareTxId(rawTxId);
-                              setShareAnchor(anchor);
-                              setShareOpen(true);
-                            }}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-all"
-                          >
-                            Share
-                          </button>
-
-                          <div className="flex flex-col gap-2">
-                            {getRefundUiState(tx).badge && (
-                              <span
-                                className={[
-                                  'text-[11px] font-medium',
-                                  getRefundUiState(tx).badge === 'Refunded'
-                                    ? 'text-green-300'
-                                    : getRefundUiState(tx).badge === 'Refund Requested'
-                                    ? 'text-yellow-300'
-                                    : getRefundUiState(tx).badge === 'Complete Refund Request'
-                                    ? 'text-orange-300'
-                                    : 'text-blue-300',
-                                ].join(' ')}
-                              >
-                                {getRefundUiState(tx).badge}
-                              </span>
-                            )}
-
-                            {getRefundUiState(tx).showRefundButton && (
-                              <button
-                                type="button"
-                                onClick={() => handleRequestRefund(tx)}
-                                disabled={
-                                  refundingContributionId === Number(
-                                    tx.contribution_id ?? tx.contributionId ?? tx.id
-                                  )
-                                }
-                                className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-3 py-1 rounded-md text-xs transition-all disabled:opacity-50"
-                              >
-                                {refundingContributionId === Number(tx.contribution_id ?? tx.contributionId ?? tx.id)
-                                  ? 'Processing...'
-                                  : getRefundUiState(tx).buttonLabel}
-                              </button>
-                            )}
-                            {refundErrors[
-                              Number(
-                                tx?.contribution_id ??
-                                  tx?.contributionId ??
-                                  tx?.id ??
-                                  0
-                              )
-                            ] && (
-                              <p className="mt-2 max-w-xs text-xs font-semibold leading-5 text-yellow-200">
-                                {
-                                  refundErrors[
-                                    Number(
-                                      tx?.contribution_id ??
-                                        tx?.contributionId ??
-                                        tx?.id ??
-                                        0
-                                    )
-                                  ]
-                                }
-                              </p>
-                            )}
+                          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                              Date
+                            </p>
+                            <p className="mt-1 font-semibold text-zinc-200">
+                              {tx.timestamp ? formatDate(tx.timestamp) : '-'}
+                            </p>
                           </div>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+                        {refundErrors[contributionId] && (
+                          <p className="mt-3 rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-3 py-2 text-xs font-semibold leading-5 text-yellow-100">
+                            {refundErrors[contributionId]}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const url = buildReferralUrl(data.referral_code ?? '');
+
+                            const payload = buildPayload(
+                              'contribution',
+                              {
+                                url,
+                                token: tx.token_symbol,
+                                amount: tx.token_amount,
+                              },
+                              {
+                                ref: data.referral_code ?? undefined,
+                                src: 'app',
+                              },
+                            );
+
+                            setSharePayload(payload);
+                            setShareContext('contribution');
+
+                            const wallet = data.wallet_address || publicKey?.toBase58() || 'unknown';
+                            const anchor =
+                              rawTxId
+                                ? `contribution:${wallet}:${rawTxId}`
+                                : `contribution:${wallet}:idx-${index}`;
+
+                            setShareTxId(rawTxId);
+                            setShareAnchor(anchor);
+                            setShareOpen(true);
+                          }}
+                          className="inline-flex items-center justify-center rounded-full border border-blue-300/20 bg-blue-400/10 px-4 py-2 text-xs font-black text-blue-100 transition hover:border-blue-300/45 hover:bg-blue-400/15 hover:text-white"
+                        >
+                          Share
+                        </button>
+
+                        {refundState.showRefundButton && (
+                          <button
+                            type="button"
+                            onClick={() => handleRequestRefund(tx)}
+                            disabled={isRefunding}
+                            className="inline-flex items-center justify-center rounded-full border border-fuchsia-300/20 bg-fuchsia-500/10 px-4 py-2 text-xs font-black text-fuchsia-100 transition hover:border-fuchsia-300/45 hover:bg-fuchsia-500/15 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {isRefunding ? 'Processing...' : refundState.buttonLabel}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
-            <p className="text-gray-400 text-sm mt-2">
-              You haven’t Coincarnated anything yet.
-            </p>
+            <div className="relative rounded-2xl border border-white/10 bg-black/20 px-4 py-8 text-center">
+              <p className="text-sm font-semibold text-zinc-300">
+                You haven’t Coincarnated anything yet.
+              </p>
+              <p className="mt-2 text-xs text-zinc-500">
+                Your revived assets and shareable contribution proofs will appear here.
+              </p>
+            </div>
           )}
         </motion.section>
 
@@ -3673,64 +3712,171 @@ function uint8ToBase64(bytes: Uint8Array): string {
 function userFriendlyError(msg: string) {
   const m = String(msg || '').trim();
 
-  if (m === 'CLAIM_NOT_OPEN') return 'Claiming is currently closed.';
+  // Claim / session
+  if (m === 'CLAIM_NOT_LIVE') {
+    return 'Claim is not available yet. MEGY token is not live.';
+  }
+  if (m === 'CLAIM_NOT_OPEN') {
+    return 'Claiming is currently closed.';
+  }
   if (m === 'DB_ERROR_CLAIM_OPEN_CHECK') {
     return 'Claim status could not be verified. Please try again shortly.';
   }
   if (m === 'SESSION_DESTINATION_MISMATCH') {
     return 'Claim destination changed during the session. Please start the claim again.';
   }
-  
   if (m === 'SESSION_NOT_OPEN') {
     return 'Your claim session is no longer active. Please start again.';
   }
-  
   if (m === 'SESSION_NOT_FOUND') {
     return 'Claim session could not be found. Please start again.';
   }
-  
+  if (m === 'SESSION_WALLET_MISMATCH') {
+    return 'Claim session does not belong to the connected wallet. Please reconnect and try again.';
+  }
+  if (m === 'SESSION_ALREADY_OPEN') {
+    return 'A claim session is already open. Please refresh and try again.';
+  }
+
+  // Wallet / RPC / transaction
+  if (m === 'WALLET_NOT_CONNECTED') {
+    return 'Please connect your wallet.';
+  }
+  if (m === 'RPC_CONNECTION_MISSING') {
+    return 'RPC connection is missing. Please retry.';
+  }
+  if (m === 'WALLET_SEND_TX_UNAVAILABLE') {
+    return 'Your wallet cannot send this transaction. Please reconnect and try again.';
+  }
+  if (m === 'FEE_TX_CONFIRM_TIMEOUT') {
+    return 'Fee payment is taking longer than usual. Please retry.';
+  }
+  if (m === 'FEE_TX_FAILED') {
+    return 'Fee transaction failed. Please retry.';
+  }
   if (m === 'FEE_TX_TOO_OLD') {
     return 'Fee transaction is too old. Please start a new claim session.';
   }
-  
-  if (m === 'CLAIM_NOT_LIVE') {
-    return 'Claim is not available yet. MEGY token is not live.';
+  if (m === 'FEE_TX_NOT_FOUND') {
+    return 'Fee transaction could not be found yet. Please try again.';
   }
-  if (m === 'WALLET_NOT_CONNECTED') return 'Please connect your wallet.';
-  if (m === 'RPC_CONNECTION_MISSING') return 'RPC connection is missing. Please retry.';
-  if (m === 'FEE_TX_CONFIRM_TIMEOUT') return 'Fee payment is taking longer than usual. Please retry.';
-  if (m === 'FEE_TX_FAILED') return 'Fee transaction failed. Please retry.';
-  if (m === 'FEE_SIGNATURE_ALREADY_USED') return 'This fee transaction was already used. Please press Claim again.';
-  if (m.startsWith('SESSION_START_FAILED')) return 'Could not open claim session. Please retry.';
-  if (m.startsWith('CLAIM_EXECUTE_FAILED')) return 'Claim could not be executed. Please retry.';
-  if (m === 'REFUND_NOT_AVAILABLE') return 'Refund is not available for this contribution.';
-  if (m === 'ALREADY_REFUNDED') return 'This contribution was already refunded.';
-  if (m.startsWith('REFUND_REQUEST_FAILED')) return 'Refund request could not be recorded.';
-  if (m === 'REFUND_PREPARE_FAILED') return 'Refund signing challenge could not be prepared.';
-  if (m === 'CHALLENGE_NOT_FOUND') return 'Refund signing challenge was not found. Please try again.';
-  if (m === 'CHALLENGE_ALREADY_USED') return 'This refund signing challenge was already used. Please try again.';
-  if (m === 'CHALLENGE_EXPIRED') return 'Refund signing challenge expired. Please try again.';
-  if (m === 'INVALID_SIGNATURE') return 'Signature verification failed.';
-  if (m === 'REFUND_ONLY_FOR_BLACKLIST') return 'Refund requests are only available for blacklist-based invalidations.';
-  if (m === 'REFUND_FEE_REQUIRED') return 'Refund fee must be paid before submitting the request.';
-  if (m === 'REFUND_FEE_PREPARE_FAILED') return 'Refund fee information could not be prepared.';
-  if (m.startsWith('REFUND_FEE_PREPARE_FAILED')) return 'Refund fee information could not be prepared.';
-  if (m === 'TREASURY_WALLET_MISSING') return 'Refund treasury wallet is not configured.';
-  if (m === 'FEE_TX_NOT_FOUND') return 'Refund fee transaction could not be found yet. Please try again.';
-  if (m === 'FEE_TX_WALLET_MISMATCH') return 'Refund fee transaction does not belong to the connected wallet.';
-  if (m === 'REFUND_FEE_PAYMENT_NOT_VALID') return 'Refund fee payment could not be verified.';
-  if (m.startsWith('REFUND_FEE_CONFIRM_FAILED')) return 'Refund fee payment could not be confirmed.';
-  if (m === 'BAD_REQUEST') return 'Request payload is invalid.';
-  if (m === 'REFUND_NOT_REQUESTED') return 'Refund is not yet in requested state.';
-  if (m === 'FEE_TX_SIGNATURE_ALREADY_USED') return 'This refund fee transaction was already used.';
-  if (m === 'INTERNAL_ERROR') return 'Internal server error.';
-  if (m === 'REFUND_STATUS_NOT_REQUESTABLE') return 'This refund request is no longer in a requestable state.';
-  if (m === 'BAD_REQUEST') return 'Request payload is invalid.';
-  if (m === 'REFUND_FEE_NOT_PAID') return 'Refund fee has not been paid yet.';
-  if (m === 'REFUND_ONLY_FOR_BLACKLIST') {
-    return 'This contribution is not recognized as a blacklist-based refund candidate by the backend.';
+  if (m === 'FEE_TRANSFER_NOT_DETECTED') {
+    return 'Fee transfer could not be detected. Please retry after a few seconds.';
+  }
+  if (m === 'FEE_AMOUNT_TOO_LOW') {
+    return 'Fee payment amount is lower than required. Please start again.';
+  }
+  if (m === 'FEE_SIGNATURE_ALREADY_USED') {
+    return 'This fee transaction was already used. Please press Claim again.';
   }
 
-  // default
+  // Claim execution
+  if (m === 'BAD_AMOUNT') {
+    return 'Claim amount is invalid.';
+  }
+  if (m === 'BAD_PHASE_ID') {
+    return 'Selected claim phase is invalid.';
+  }
+  if (m === 'BAD_MEGY_DECIMALS') {
+    return 'MEGY token configuration is invalid.';
+  }
+  if (m === 'MISSING_TREASURY_SECRET') {
+    return 'Claim treasury is not configured yet.';
+  }
+  if (m === 'NO_CLAIMABLE_BALANCE') {
+    return 'No claimable MEGY balance is available.';
+  }
+  if (m === 'AMOUNT_EXCEEDS_PHASE_CLAIMABLE') {
+    return 'Claim amount exceeds the selected snapshot balance.';
+  }
+  if (m === 'AMOUNT_EXCEEDS_TOTAL_CLAIMABLE') {
+    return 'Claim amount exceeds your total claimable balance.';
+  }
+  if (m === 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_REQUEST') {
+    return 'This claim attempt was reused with different details. Please start again.';
+  }
+  if (m === 'CLAIM_TX_FAILED') {
+    return 'Claim transaction failed on-chain. Please retry.';
+  }
+  if (m === 'DB_RESERVATION_FAILED') {
+    return 'Claim could not be reserved. Please retry.';
+  }
+  if (m === 'DB_FINALIZE_FAILED_AFTER_TRANSFER') {
+    return 'Claim transaction succeeded, but final recording needs review. Please contact support.';
+  }
+  if (m.startsWith('SESSION_START_FAILED')) {
+    return 'Could not open claim session. Please retry.';
+  }
+  if (m.startsWith('CLAIM_EXECUTE_FAILED')) {
+    return 'Claim could not be executed. Please retry.';
+  }
+
+  // Refund
+  if (m === 'REFUND_NOT_AVAILABLE') {
+    return 'Refund is not available for this contribution.';
+  }
+  if (m === 'ALREADY_REFUNDED') {
+    return 'This contribution was already refunded.';
+  }
+  if (m.startsWith('REFUND_REQUEST_FAILED')) {
+    return 'Refund request could not be recorded.';
+  }
+  if (m === 'REFUND_PREPARE_FAILED') {
+    return 'Refund signing challenge could not be prepared.';
+  }
+  if (m === 'CHALLENGE_NOT_FOUND') {
+    return 'Refund signing challenge was not found. Please try again.';
+  }
+  if (m === 'CHALLENGE_ALREADY_USED') {
+    return 'This refund signing challenge was already used. Please try again.';
+  }
+  if (m === 'CHALLENGE_EXPIRED') {
+    return 'Refund signing challenge expired. Please try again.';
+  }
+  if (m === 'INVALID_SIGNATURE') {
+    return 'Signature verification failed.';
+  }
+  if (m === 'REFUND_ONLY_FOR_BLACKLIST') {
+    return 'Refund requests are only available for blacklist-based invalidations.';
+  }
+  if (m === 'REFUND_FEE_REQUIRED') {
+    return 'Refund fee must be paid before submitting the request.';
+  }
+  if (m === 'REFUND_FEE_PREPARE_FAILED' || m.startsWith('REFUND_FEE_PREPARE_FAILED')) {
+    return 'Refund fee information could not be prepared.';
+  }
+  if (m === 'TREASURY_WALLET_MISSING') {
+    return 'Refund treasury wallet is not configured.';
+  }
+  if (m === 'FEE_TX_WALLET_MISMATCH') {
+    return 'Refund fee transaction does not belong to the connected wallet.';
+  }
+  if (m === 'REFUND_FEE_PAYMENT_NOT_VALID') {
+    return 'Refund fee payment could not be verified.';
+  }
+  if (m.startsWith('REFUND_FEE_CONFIRM_FAILED')) {
+    return 'Refund fee payment could not be confirmed.';
+  }
+  if (m === 'REFUND_NOT_REQUESTED') {
+    return 'Refund is not yet in requested state.';
+  }
+  if (m === 'FEE_TX_SIGNATURE_ALREADY_USED') {
+    return 'This refund fee transaction was already used.';
+  }
+  if (m === 'REFUND_STATUS_NOT_REQUESTABLE') {
+    return 'This refund request is no longer in a requestable state.';
+  }
+  if (m === 'REFUND_FEE_NOT_PAID') {
+    return 'Refund fee has not been paid yet.';
+  }
+
+  // Generic
+  if (m === 'BAD_REQUEST') {
+    return 'Request payload is invalid.';
+  }
+  if (m === 'INTERNAL_ERROR') {
+    return 'Internal server error.';
+  }
+
   return m || 'Unexpected error. Please retry.';
 }
