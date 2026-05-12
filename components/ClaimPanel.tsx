@@ -3005,7 +3005,14 @@ export default function ClaimPanel() {
 
           {txs.length > 0 ? (
             <div className="relative grid max-h-[72vh] gap-3 overflow-y-auto pr-1 sm:max-h-[620px]">
-              {[...txs].reverse().map((tx: any, index: number) => {
+              {[...txs]
+                .sort((a: any, b: any) => {
+                  const aTime = a?.timestamp ? new Date(a.timestamp).getTime() : 0;
+                  const bTime = b?.timestamp ? new Date(b.timestamp).getTime() : 0;
+
+                  return bTime - aTime;
+                })
+                .map((tx: any, index: number) => {
                 const contributionId = Number(
                   tx?.contribution_id ??
                     tx?.contributionId ??
