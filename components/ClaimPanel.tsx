@@ -3004,7 +3004,7 @@ export default function ClaimPanel() {
           </div>
 
           {txs.length > 0 ? (
-            <div className="relative grid gap-3">
+            <div className="relative grid max-h-[72vh] gap-3 overflow-y-auto pr-1 sm:max-h-[620px]">
               {[...txs].reverse().map((tx: any, index: number) => {
                 const contributionId = Number(
                   tx?.contribution_id ??
