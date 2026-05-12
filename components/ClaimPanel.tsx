@@ -3199,7 +3199,7 @@ export default function ClaimPanel() {
               </h3>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
-                Every contribution, share, referral, and revived deadcoin becomes part of your evolving value record.
+                 Every contribution, referral, share, and revived deadcoin generates CorePoints — the foundational accounting layer behind your evolving Personal Value Currency.
               </p>
             </div>
 
