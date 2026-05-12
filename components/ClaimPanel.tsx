@@ -3004,7 +3004,7 @@ export default function ClaimPanel() {
           </div>
 
           {txs.length > 0 ? (
-            <div className="relative grid gap-3">
+            <div className="relative grid max-h-[72vh] gap-3 overflow-y-auto pr-1 sm:max-h-[620px]">
               {[...txs].reverse().map((tx: any, index: number) => {
                 const contributionId = Number(
                   tx?.contribution_id ??
@@ -3029,9 +3029,9 @@ export default function ClaimPanel() {
                 return (
                   <div
                     key={rawTxId || contributionId || index}
-                    className="group rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-yellow-300/25 hover:bg-yellow-300/[0.03]"
+                    className="group rounded-2xl border border-white/10 bg-black/20 p-3.5 transition hover:border-yellow-300/25 hover:bg-yellow-300/[0.03] sm:p-4"
                   >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="grid gap-3 lg:grid-cols-[220px_1fr_auto] lg:items-center">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-lg font-black text-white">
@@ -3062,7 +3062,7 @@ export default function ClaimPanel() {
                           )}
                         </div>
 
-                        <div className="mt-3 grid gap-2 text-sm text-zinc-300 sm:grid-cols-3">
+                        <div className="grid grid-cols-3 gap-2 text-sm text-zinc-300">
                           <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
                             <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                               Amount
@@ -3098,7 +3098,7 @@ export default function ClaimPanel() {
                         )}
                       </div>
 
-                      <div className="flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
+                      <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
                         <button
                           type="button"
                           onClick={() => {
