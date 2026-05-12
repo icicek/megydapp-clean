@@ -3031,7 +3031,7 @@ export default function ClaimPanel() {
                     key={rawTxId || contributionId || index}
                     className="group rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-yellow-300/25 hover:bg-yellow-300/[0.03]"
                   >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-col gap-4">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-lg font-black text-white">
@@ -3098,7 +3098,7 @@ export default function ClaimPanel() {
                         )}
                       </div>
 
-                      <div className="flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                         <button
                           type="button"
                           onClick={() => {
