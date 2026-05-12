@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
     return json(503, {
       success: false,
       code: 'CLAIM_NOT_LIVE',
-      error: 'Claim is not available yet. MEGY token is not live.',
+      error: 'CLAIM_NOT_LIVE',
     });
   }
 

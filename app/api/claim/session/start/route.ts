@@ -125,6 +125,16 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const MEGY_MINT = String(process.env.MEGY_MINT || '').trim();
+
+  if (!MEGY_MINT) {
+    return json(503, {
+      success: false,
+      code: 'CLAIM_NOT_LIVE',
+      error: 'CLAIM_NOT_LIVE',
+    });
+  }
+
   // 1) Reuse open session (wallet-based)
   try {
     const open = await sql`
