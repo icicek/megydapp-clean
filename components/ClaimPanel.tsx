@@ -3029,76 +3029,78 @@ export default function ClaimPanel() {
                 return (
                   <div
                     key={rawTxId || contributionId || index}
-                    className="group rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-yellow-300/25 hover:bg-yellow-300/[0.03] lg:flex lg:items-center lg:justify-between"
+                    className="group rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-yellow-300/25 hover:bg-yellow-300/[0.03]"
                   >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:flex-1 lg:min-w-0">
-                      <div className="min-w-0 lg:flex lg:items-center lg:gap-4 lg:flex-1">
-                        <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
-                          <p className="text-lg font-black text-white">
+                    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[1.35fr_0.75fr_0.9fr_0.9fr_1fr_auto] lg:items-center lg:gap-5">
+                      {/* ASSET */}
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-lg font-black text-white">
                             {assetLabel}
                           </p>
-
-                          {tx?.blacklisted && (
-                            <span className="rounded-full border border-red-400/25 bg-red-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-red-200">
-                              Blacklist
-                            </span>
-                          )}
-
-                          {refundState.badge && (
-                            <span
-                              className={[
-                                'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide',
-                                refundState.badge === 'Refunded'
-                                  ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200'
-                                  : refundState.badge === 'Refund Requested'
-                                    ? 'border-yellow-400/25 bg-yellow-400/10 text-yellow-200'
-                                    : refundState.badge === 'Complete Refund Request'
-                                      ? 'border-orange-400/25 bg-orange-400/10 text-orange-200'
-                                      : 'border-blue-400/25 bg-blue-400/10 text-blue-200',
-                              ].join(' ')}
-                            >
-                              {refundState.badge}
-                            </span>
-                          )}
                         </div>
+                      </div>
 
-                        <div className="mt-3 grid gap-2 text-sm text-zinc-300 sm:grid-cols-3 lg:mt-0 lg:flex lg:items-center lg:gap-3 lg:flex-wrap">
-                          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 lg:min-w-[120px] lg:border-transparent lg:bg-transparent">
-                            <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                              Amount
-                            </p>
-                            <p className="mt-1 font-semibold text-white">
-                              {tx.token_amount ?? '-'}
-                            </p>
-                          </div>
+                      {/* AMOUNT */}
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 lg:border-transparent lg:bg-transparent lg:px-0 lg:py-0">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                          Amount
+                        </p>
+                        <p className="mt-1 font-semibold text-white">
+                          {tx.token_amount ?? '-'}
+                        </p>
+                      </div>
 
-                          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 lg:min-w-[120px] lg:border-transparent lg:bg-transparent">
-                            <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                              USD Value
-                            </p>
-                            <p className="mt-1 font-semibold text-emerald-300">
-                              {formatUsdValue(tx.usd_value)}
-                            </p>
-                          </div>
+                      {/* USD VALUE */}
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 lg:border-transparent lg:bg-transparent lg:px-0 lg:py-0">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                          USD Value
+                        </p>
+                        <p className="mt-1 font-semibold text-emerald-300">
+                          {formatUsdValue(tx.usd_value)}
+                        </p>
+                      </div>
 
-                          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 lg:min-w-[120px] lg:border-transparent lg:bg-transparent">
-                            <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                              Date
-                            </p>
-                            <p className="mt-1 font-semibold text-zinc-200">
-                              {tx.timestamp ? formatDate(tx.timestamp) : '-'}
-                            </p>
-                          </div>
-                        </div>
+                      {/* DATE */}
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 lg:border-transparent lg:bg-transparent lg:px-0 lg:py-0">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                          Date
+                        </p>
+                        <p className="mt-1 font-semibold text-zinc-200">
+                          {tx.timestamp ? formatDate(tx.timestamp) : '-'}
+                        </p>
+                      </div>
 
-                        {refundErrors[contributionId] && (
-                          <p className="mt-3 rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-3 py-2 text-xs font-semibold leading-5 text-yellow-100">
-                            {refundErrors[contributionId]}
-                          </p>
+                      {/* STATUS */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {tx?.blacklisted && (
+                          <span className="rounded-full border border-red-400/25 bg-red-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-red-200">
+                            Blacklist
+                          </span>
+                        )}
+
+                        {refundState.badge ? (
+                          <span
+                            className={[
+                              'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide',
+                              refundState.badge === 'Refunded'
+                                ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200'
+                                : refundState.badge === 'Refund Requested'
+                                  ? 'border-yellow-400/25 bg-yellow-400/10 text-yellow-200'
+                                  : refundState.badge === 'Complete Refund Request'
+                                    ? 'border-orange-400/25 bg-orange-400/10 text-orange-200'
+                                    : 'border-blue-400/25 bg-blue-400/10 text-blue-200',
+                            ].join(' ')}
+                          >
+                            {refundState.badge}
+                          </span>
+                        ) : (
+                          <span className="hidden text-zinc-600 lg:inline">—</span>
                         )}
                       </div>
 
-                      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end lg:ml-4 lg:flex-shrink-0 lg:items-center">
+                      {/* ACTION */}
+                      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end lg:justify-end">
                         <button
                           type="button"
                           onClick={() => {
@@ -3147,6 +3149,12 @@ export default function ClaimPanel() {
                         )}
                       </div>
                     </div>
+
+                    {refundErrors[contributionId] && (
+                      <p className="mt-3 rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-3 py-2 text-xs font-semibold leading-5 text-yellow-100">
+                        {refundErrors[contributionId]}
+                      </p>
+                    )}
                   </div>
                 );
               })}
