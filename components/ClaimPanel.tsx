@@ -3203,13 +3203,26 @@ export default function ClaimPanel() {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">
-                Ledger Events
-              </p>
-              <p className="mt-1 text-2xl font-black text-emerald-200">
-                {cpHistory.length}
-              </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">
+                  Ledger Events
+                </p>
+
+                <p className="mt-1 text-2xl font-black text-emerald-200">
+                  {cpHistory.length}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-200/70">
+                  Total CorePoint
+                </p>
+
+                <p className="mt-1 text-2xl font-black text-white">
+                  {Number(data?.total_core_point || 0).toLocaleString()}
+                </p>
+              </div>
             </div>
           </div>
 
