@@ -2695,6 +2695,13 @@ export default function ClaimPanel() {
                     );
                   })}
                 </div>
+                {ordered.length > 4 && (
+                  <div className="mt-2 flex items-center justify-center sm:hidden">
+                    <span className="animate-pulse text-[11px] font-semibold tracking-wide text-cyan-300/70">
+                      More snapshots below ↓
+                    </span>
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -3251,7 +3258,8 @@ export default function ClaimPanel() {
           )}
 
           {!loadingHistory && cpHistory.length > 0 && (
-            <div className="relative grid max-h-[620px] gap-3 overflow-y-auto pr-1">
+            <>
+              <div className="relative grid max-h-[620px] gap-3 overflow-y-auto pr-1">
               {[...cpHistory]
                 .sort((a: any, b: any) => {
                   const aDate = a?.created_at || a?.day || null;
@@ -3351,7 +3359,16 @@ export default function ClaimPanel() {
                     </div>
                   );
                 })}
-            </div>
+              </div>
+
+              {cpHistory.length > 6 && (
+                <div className="mt-2 flex items-center justify-center sm:hidden">
+                  <span className="animate-pulse text-[11px] font-semibold tracking-wide text-cyan-300/70">
+                    More records below ↓
+                  </span>
+                </div>
+              )}
+            </>
           )}
         </motion.section>
 
