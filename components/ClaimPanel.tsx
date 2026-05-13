@@ -2536,37 +2536,6 @@ export default function ClaimPanel() {
                 </div>
               </div>
             </div>
-
-            <div className="relative mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-300">
-                  finalized snapshots
-                </span>
-
-                {effectivePhaseName && (
-                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-zinc-300">
-                    {String(effectivePhaseName)}
-                  </span>
-                )}
-              </div>
-
-              <div className="text-xs text-zinc-500">
-                {(() => {
-                  const f = Number(finalizedClaim?.finalized_megy_total ?? 0);
-                  const c = Number(finalizedClaim?.claimed_megy_total ?? 0);
-
-                  if (f > 0 && c >= f) {
-                    return 'Fully claimed';
-                  }
-
-                  if (c > 0 && c < f) {
-                    return `Partially claimed`;
-                  }
-
-                  return 'Ready for claiming';
-                })()}
-              </div>
-            </div>
           </div>
 
           {/* 🧬 Snapshot Timeline */}
