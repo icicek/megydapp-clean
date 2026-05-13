@@ -2705,6 +2705,8 @@ export default function ClaimPanel() {
             );
           })()}
 
+        <div className="grid gap-5 lg:grid-cols-[1.05fr_1fr] lg:items-start">
+
           {/* 💳 Claim controls */}
           <div className="relative overflow-hidden rounded-2xl border border-pink-400/20 bg-gradient-to-br from-zinc-950 via-pink-950/10 to-zinc-950 px-4 py-5 sm:px-5 sm:py-6 space-y-4 shadow-[0_0_30px_rgba(236,72,153,0.06)]">
             <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-pink-500/10 blur-3xl" />
@@ -2969,6 +2971,7 @@ export default function ClaimPanel() {
               Return to the Coincarnation engine and expand your revival impact.
             </p>
           </motion.div>
+          </div>
         </motion.section>
 
         {/* 📜 Contribution History */}
