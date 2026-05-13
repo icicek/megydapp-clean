@@ -2646,15 +2646,18 @@ export default function ClaimPanel() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
                   {ordered.map((p: any) => {
                     const isSelected = activePid != null && p.pid === activePid;
 
                     return (
-                      <div
+                      <button
+                        type="button"
                         key={p.pid}
+                        onClick={() => setSelectedPhaseId(p.pid)}
+                        aria-pressed={isSelected}
                         className={[
-                          "rounded-2xl border px-4 py-3 flex items-start justify-between gap-3 transition min-w-0",
+                          "w-full text-left rounded-2xl border px-4 py-3 flex items-start justify-between gap-3 transition min-w-0 focus:outline-none focus:ring-2 focus:ring-violet-300/40",
                           isSelected
                             ? "border-emerald-400/40 bg-emerald-400/10 shadow-[0_0_0_1px_rgba(52,211,153,0.25)]"
                             : "border-zinc-700 bg-zinc-900/20 hover:bg-zinc-800/40",
@@ -2694,7 +2697,7 @@ export default function ClaimPanel() {
                             {Math.floor(p.claimable).toLocaleString()}
                           </div>
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
