@@ -2548,6 +2548,7 @@ export default function ClaimPanel() {
                 phaseName: p?.phase_name ?? p?.phaseName ?? null,
                 created: p?.created_at ?? p?.snapshot_taken_at ?? p?.createdAt ?? null,
                 claimable: Number(p?.claimable_megy ?? p?.claimable ?? p?.claimableMegy ?? 0),
+                claimed: Number(p?.claimed_megy ?? p?.claimed ?? p?.claimedMegy ?? 0),
               }))
               .filter((x: any) => Number.isFinite(x.pid) && x.pid > 0)
               .sort((a: any, b: any) => b.pid - a.pid);
@@ -2640,6 +2641,33 @@ export default function ClaimPanel() {
                                 Selected
                               </span>
                             )}
+
+                            {(() => {
+                              const phaseClaimable = Number(p.claimable || 0);
+                              const phaseClaimed = Number(p.claimed || 0);
+
+                              if (phaseClaimable <= 0 && phaseClaimed > 0) {
+                                return (
+                                  <span className="rounded-full border border-zinc-400/20 bg-zinc-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-zinc-300 shrink-0">
+                                    Fully Claimed
+                                  </span>
+                                );
+                              }
+
+                              if (phaseClaimed > 0 && phaseClaimable > 0) {
+                                return (
+                                  <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-200 shrink-0">
+                                    Partial
+                                  </span>
+                                );
+                              }
+
+                              return (
+                                <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-cyan-200 shrink-0">
+                                  Ready
+                                </span>
+                              );
+                            })()}
                           </div>
 
                           {p.created ? (
