@@ -2624,13 +2624,13 @@ export default function ClaimPanel() {
                         onClick={() => setSelectedPhaseId(p.pid)}
                         aria-pressed={isSelected}
                         className={[
-                          "w-full text-left rounded-2xl border px-4 py-3 flex items-start justify-between gap-3 transition min-w-0 focus:outline-none focus:ring-2 focus:ring-violet-300/40",
+                          "w-full text-left rounded-2xl border px-4 py-3 flex flex-col gap-3 transition min-w-0 focus:outline-none focus:ring-2 focus:ring-violet-300/40 sm:flex-row sm:items-start sm:justify-between",
                           isSelected
                             ? "border-emerald-400/40 bg-emerald-400/10 shadow-[0_0_0_1px_rgba(52,211,153,0.25)]"
                             : "border-zinc-700 bg-zinc-900/20 hover:bg-zinc-800/40",
                         ].join(" ")}
                       >
-                        <div className="text-gray-300 min-w-0">
+                        <div className="text-gray-300 min-w-0 w-full sm:w-auto">
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="text-white font-semibold truncate">
                               {p.phaseName ? String(p.phaseName) : (p.phaseNo ? `Phase ${p.phaseNo}` : `Phase`)}
@@ -2675,7 +2675,7 @@ export default function ClaimPanel() {
                           ) : null}
                         </div>
 
-                        <div className="text-right shrink-0">
+                        <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:block sm:text-right sm:shrink-0">
                           <div className="text-xs text-gray-400 flex items-center justify-end gap-1">
                             Claimable
                             {isSelected && (
