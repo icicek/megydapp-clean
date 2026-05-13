@@ -3163,9 +3163,13 @@ export default function ClaimPanel() {
                 );
               })}
             </div>
-            <div className="mt-2 flex items-center justify-center text-[11px] font-medium text-zinc-500 sm:hidden">
-              Scroll for more ↓
-            </div>
+            {txs.length > 6 && (
+              <div className="mt-2 flex items-center justify-center sm:hidden">
+                <span className="animate-pulse text-[11px] font-semibold tracking-wide text-cyan-300/70">
+                  Scroll for more ↓
+                </span>
+              </div>
+            )}
             </div>
           ) : (
             <div className="relative rounded-2xl border border-white/10 bg-black/20 px-4 py-8 text-center">
