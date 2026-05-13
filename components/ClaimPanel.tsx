@@ -2448,10 +2448,7 @@ export default function ClaimPanel() {
           </h3>
 
           {/* 🎯 Claim Hero */}
-          <div className="relative overflow-hidden rounded-2xl border border-purple-400/15 bg-purple-400/[0.04] p-4 mb-4">
-            <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-purple-500/10 blur-3xl" />
-            <div className="pointer-events-none absolute -left-16 bottom-0 h-32 w-32 rounded-full bg-pink-500/10 blur-3xl" />
-
+          <div className="relative border-b border-white/10 pb-5 mb-5">
             <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-[0.28em] text-purple-300/80">
