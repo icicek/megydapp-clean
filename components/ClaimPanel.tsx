@@ -3163,7 +3163,9 @@ export default function ClaimPanel() {
                 );
               })}
             </div>
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 rounded-b-2xl bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-transparent" />
+            <div className="mt-2 flex items-center justify-center text-[11px] font-medium text-zinc-500 sm:hidden">
+              Scroll for more ↓
+            </div>
             </div>
           ) : (
             <div className="relative rounded-2xl border border-white/10 bg-black/20 px-4 py-8 text-center">
