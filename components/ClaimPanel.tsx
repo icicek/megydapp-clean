@@ -3000,6 +3000,7 @@ export default function ClaimPanel() {
           </div>
 
           {txs.length > 0 ? (
+            <div className="relative">
             <div className="relative grid max-h-[72vh] gap-3 overflow-y-auto pr-1 sm:max-h-[620px]">
               {[...txs]
                 .sort((a: any, b: any) => {
@@ -3161,6 +3162,8 @@ export default function ClaimPanel() {
                   </div>
                 );
               })}
+            </div>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 rounded-b-2xl bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-transparent" />
             </div>
           ) : (
             <div className="relative rounded-2xl border border-white/10 bg-black/20 px-4 py-8 text-center">
