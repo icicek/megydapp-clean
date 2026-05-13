@@ -2572,6 +2572,7 @@ export default function ClaimPanel() {
             </div>
           </div>
 
+          <div className="grid gap-5 lg:grid-cols-[1.05fr_1fr] lg:items-start">
           {/* 🧬 Snapshot Timeline */}
           {Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 0 && (() => {
             const phases = finalizedClaim.finalized_by_phase
@@ -2704,8 +2705,6 @@ export default function ClaimPanel() {
               </div>
             );
           })()}
-
-        <div className="grid gap-5 lg:grid-cols-[1.05fr_1fr] lg:items-start">
 
           {/* 💳 Claim controls */}
           <div className="relative overflow-hidden rounded-2xl border border-pink-400/20 bg-gradient-to-br from-zinc-950 via-pink-950/10 to-zinc-950 px-4 py-5 sm:px-5 sm:py-6 space-y-4 shadow-[0_0_30px_rgba(236,72,153,0.06)]">
