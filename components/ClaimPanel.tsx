@@ -2599,7 +2599,7 @@ export default function ClaimPanel() {
                 : phases;
 
             return (
-              <div className="mb-4 rounded-2xl border border-violet-400/15 bg-white/[0.025] p-4 text-sm">
+              <div className="border-b border-white/10 pb-5 mb-5 text-sm">
                 <div className="flex flex-col gap-3 mb-3 min-w-0">
                   <div>
                     <p className="text-[11px] font-black uppercase tracking-[0.28em] text-violet-300/80">
@@ -2703,8 +2703,7 @@ export default function ClaimPanel() {
           })()}
 
           {/* 💳 Claim controls */}
-          <div className="relative overflow-hidden rounded-2xl border border-pink-400/15 bg-white/[0.025] px-4 py-4 sm:px-5 space-y-3">
-            <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-pink-500/10 blur-3xl" />
+          <div className="relative space-y-3">
             <div className="relative">
               <p className="text-[11px] font-black uppercase tracking-[0.28em] text-pink-300/80">
                 Claim Execution
