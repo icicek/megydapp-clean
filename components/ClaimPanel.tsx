@@ -2448,7 +2448,7 @@ export default function ClaimPanel() {
           </h3>
 
           {/* 🎯 Claim Hero */}
-          <div className="relative overflow-hidden rounded-2xl border border-purple-400/20 bg-gradient-to-br from-zinc-950 via-purple-950/20 to-zinc-950 p-5 mb-5 shadow-[0_0_35px_rgba(168,85,247,0.10)]">
+          <div className="relative overflow-hidden rounded-2xl border border-purple-400/15 bg-purple-400/[0.04] p-4 mb-4">
             <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-purple-500/10 blur-3xl" />
             <div className="pointer-events-none absolute -left-16 bottom-0 h-32 w-32 rounded-full bg-pink-500/10 blur-3xl" />
 
@@ -2503,7 +2503,7 @@ export default function ClaimPanel() {
                 </div>
 
                 <p className="mt-3 max-w-xl text-sm text-zinc-400">
-                  Finalized MEGY currently available to claim from your Coincarnation snapshots.
+                  Your finalized MEGY balance across Coincarnation snapshots.
                 </p>
               </div>
 
@@ -2572,7 +2572,6 @@ export default function ClaimPanel() {
             </div>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
           {/* 🧬 Snapshot Timeline */}
           {Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 0 && (() => {
             const phases = finalizedClaim.finalized_by_phase
@@ -2603,14 +2602,14 @@ export default function ClaimPanel() {
                 : phases;
 
             return (
-              <div className="mb-5 rounded-2xl border border-violet-400/20 bg-gradient-to-br from-zinc-950 via-violet-950/10 to-zinc-950 p-4 text-sm shadow-[0_0_30px_rgba(139,92,246,0.06)]">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3 min-w-0">
+              <div className="mb-4 rounded-2xl border border-violet-400/15 bg-white/[0.025] p-4 text-sm">
+                <div className="flex flex-col gap-3 mb-3 min-w-0">
                   <div>
                     <p className="text-[11px] font-black uppercase tracking-[0.28em] text-violet-300/80">
                       Snapshot Timeline
                     </p>
                     <p className="mt-1 text-xs text-zinc-500">
-                      Review finalized phases and select the snapshot you want to claim from.
+                      Select the finalized snapshot you want to claim from.
                     </p>
                   </div>
 
@@ -2707,14 +2706,14 @@ export default function ClaimPanel() {
           })()}
 
           {/* 💳 Claim controls */}
-          <div className="relative overflow-hidden rounded-2xl border border-pink-400/20 bg-gradient-to-br from-zinc-950 via-pink-950/10 to-zinc-950 px-4 py-5 sm:px-5 sm:py-6 space-y-4 shadow-[0_0_30px_rgba(236,72,153,0.06)]">
+          <div className="relative overflow-hidden rounded-2xl border border-pink-400/15 bg-white/[0.025] px-4 py-4 sm:px-5 space-y-3">
             <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-pink-500/10 blur-3xl" />
             <div className="relative">
               <p className="text-[11px] font-black uppercase tracking-[0.28em] text-pink-300/80">
                 Claim Execution
               </p>
               <p className="mt-1 text-xs text-zinc-500">
-                Choose destination, amount, and execute your MEGY claim.
+                Choose destination and claim amount.
               </p>
             </div>
 
@@ -2970,7 +2969,6 @@ export default function ClaimPanel() {
               Return to the Coincarnation engine and expand your revival impact.
             </p>
           </motion.div>
-          </div>
         </motion.section>
 
         {/* 📜 Contribution History */}
