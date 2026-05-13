@@ -2572,7 +2572,7 @@ export default function ClaimPanel() {
             </div>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-[1.05fr_1fr] lg:items-start">
+          <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
           {/* 🧬 Snapshot Timeline */}
           {Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 0 && (() => {
             const phases = finalizedClaim.finalized_by_phase
