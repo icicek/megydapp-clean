@@ -3214,37 +3214,17 @@ export default function ClaimPanel() {
                 </span>
               </h3>
 
-              <p className="mt-5 max-w-2xl text-sm leading-7 text-zinc-400 sm:text-[15px]">
-                PVC is the personal economic layer you build through real contribution.
-                Coincarnations, referrals, shares, and revived deadcoins become CorePoint —
-                the first signal of your future value identity.
+              <p className="mt-6 max-w-2xl text-base leading-8 text-zinc-400">
+                Turn contribution into currency.
+                Build the economic layer of your future identity.
               </p>
 
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">
-                    Step 01
-                  </p>
-                  <p className="mt-2 text-sm font-bold text-white">Create value</p>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">
-                    Step 02
-                  </p>
-                  <p className="mt-2 text-sm font-bold text-white">Generate CorePoint</p>
-                </div>
-
-                <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-200/70">
-                    Step 03
-                  </p>
-                  <p className="mt-2 text-sm font-black text-cyan-100">Build PVC</p>
-                </div>
-              </div>
+              <p className="mt-4 text-sm font-semibold tracking-wide text-fuchsia-200/70">
+                CorePoint powers your Personal Value Currency.
+              </p>
             </div>
 
-            <div className="relative rounded-[28px] border border-fuchsia-400/20 bg-black/30 p-6 text-center backdrop-blur-xl">
+            <div className="relative rounded-[28px] border border-fuchsia-400/20 bg-black/30 px-6 py-10 text-center backdrop-blur-xl">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(217,70,239,0.16),transparent_68%)]" />
 
               <div className="relative">
@@ -3256,21 +3236,17 @@ export default function ClaimPanel() {
                   {Number(data.core_point || 0).toFixed(1)}
                 </p>
 
-                <p className="mt-3 text-xs font-black uppercase tracking-[0.34em] text-fuchsia-200/70">
+                <p className="mt-4 text-[10px] font-black uppercase tracking-[0.42em] text-fuchsia-200/70">
                   CorePoint
                 </p>
 
-                <p className="mx-auto mt-5 max-w-xs text-sm leading-6 text-zinc-400">
-                  Your personal value signal is active and evolving.
-                </p>
-
                 {typeof data.pvc_share === 'number' && (
-                  <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3">
+                  <div className="mt-8 rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.06] px-4 py-4">
                     <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-200/70">
                       PVC Economy Share
                     </p>
 
-                    <p className="mt-1 text-3xl font-black text-emerald-200">
+                    <p className="mt-1 text-4xl font-black text-emerald-200">
                       {(Number(data.pvc_share) * 100).toFixed(2)}%
                     </p>
                   </div>
