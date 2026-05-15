@@ -381,12 +381,21 @@ export async function GET(req: NextRequest) {
     const cpShares = Number((cpRow as any).cp_share || 0);
     const core_point = cpCoincarnations + cpReferrals + cpDeadcoins + cpShares;
 
-    const totalCorePointResult = await sql/* sql */`
-      SELECT COALESCE(SUM(points), 0)::float AS total_core_point
+    const globalCorePointResult = await sql/* sql */`
+      SELECT COALESCE(SUM(points), 0)::float AS global_core_point
       FROM corepoint_events;
     `;
-    const total_core_point = Number((totalCorePointResult[0] as any).total_core_point || 0);
-    const pvc_share = total_core_point > 0 ? core_point / total_core_point : 0;
+
+    const global_core_point = Number(
+      (globalCorePointResult[0] as any).global_core_point || 0
+    );
+
+    // User/identity scoped CorePoint.
+    // This is the value shown as the user's Personal Value Currency core.
+    const total_core_point = core_point;
+
+    // Ecosystem-wide share denominator.
+    const pvc_share = global_core_point > 0 ? core_point / global_core_point : 0;
 
     // -----------------------------
     // Claim truth (snapshot + claims)
@@ -487,6 +496,7 @@ export async function GET(req: NextRequest) {
 
         core_point,
         total_core_point,
+        global_core_point,
         pvc_share,
         core_point_breakdown: {
           coincarnations: cpCoincarnations,
