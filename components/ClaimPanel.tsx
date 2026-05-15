@@ -3542,7 +3542,7 @@ export default function ClaimPanel() {
               </div>
 
               <p className="max-w-xl text-xs leading-5 text-zinc-500">
-                Every CorePoint that builds your Personal Value Currency is recorded here as a proof-of-value event.
+                Every CorePoint that builds your Personal Value Currency is recorded here across your linked Coincarnation Identity wallets.
               </p>
             </div>
 
