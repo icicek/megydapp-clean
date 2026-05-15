@@ -3201,8 +3201,8 @@ export default function ClaimPanel() {
           <div className="pointer-events-none absolute -right-24 bottom-0 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
 
           {/* HERO */}
-          <div className="relative z-10 grid gap-8 lg:grid-cols-[1fr_420px] lg:items-center">
-            <div>
+          <div className="relative z-10 grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] lg:items-center">
+            <div className="min-w-0">
               <p className="text-[11px] font-black uppercase tracking-[0.34em] text-fuchsia-300/80">
                 Personal Value Currency
               </p>
@@ -3222,9 +3222,38 @@ export default function ClaimPanel() {
               <p className="mt-4 text-sm font-semibold tracking-wide text-fuchsia-200/70">
                 CorePoint powers your Personal Value Currency.
               </p>
+
+              <div className="mt-7 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-fuchsia-300/70">
+                    Contribution
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-white">
+                    Your actions create value.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300/70">
+                    CorePoint
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-white">
+                    Value becomes signal.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-200/70">
+                    PVC
+                  </p>
+                  <p className="mt-2 text-sm font-black text-cyan-100">
+                    Signal becomes currency.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="relative rounded-[28px] border border-fuchsia-400/20 bg-black/30 px-6 py-10 text-center backdrop-blur-xl">
+            <div className="relative min-w-0 rounded-[28px] border border-fuchsia-400/20 bg-black/30 px-4 py-8 text-center backdrop-blur-xl sm:px-6 sm:py-10">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(217,70,239,0.16),transparent_68%)]" />
 
               <div className="relative">
@@ -3232,7 +3261,7 @@ export default function ClaimPanel() {
                   Your Value Core
                 </p>
 
-                <p className="mt-5 text-6xl font-black tracking-tight text-white sm:text-7xl">
+                <p className="mt-5 break-words text-5xl font-black tracking-tight text-white sm:text-7xl">
                   {Number(data.core_point || 0).toFixed(1)}
                 </p>
 
