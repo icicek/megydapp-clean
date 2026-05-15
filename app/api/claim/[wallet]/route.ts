@@ -87,13 +87,18 @@ export async function GET(req: NextRequest) {
     const requestedPhaseId = parsePhaseId(req);
 
     // 1) Participant
+    // A wallet may belong to an identity even if it has no direct Coincarnation record.
+    // In that case, claim/transaction data stays empty, but identity-wide PVC/CorePoint
+    // must still be calculated below.
     const participantResult = await sql`
-      SELECT * FROM participants WHERE wallet_address = ${wallet} LIMIT 1;
+    SELECT * FROM participants WHERE wallet_address = ${wallet} LIMIT 1;
     `;
-    if (participantResult.length === 0) {
-      return NextResponse.json(emptyClaimData(wallet), { status: 200 });
-    }
-    const participant = participantResult[0] as any;
+
+    const participant = (participantResult[0] as any) ?? {
+    id: '-',
+    wallet_address: wallet,
+    referral_code: null,
+    };
     // Identity-aware wallet scope for Personal Value Currency / CorePoint
     // Claim/refund/transaction data remains active-wallet based.
     let corePointWallets: string[] = [wallet];
