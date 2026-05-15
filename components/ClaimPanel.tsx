@@ -3287,7 +3287,7 @@ export default function ClaimPanel() {
           {/* BUILD SOURCES */}
           {data.core_point_breakdown && (
             <div className="relative z-10 mt-10 rounded-[28px] border border-white/10 bg-black/20 p-4 sm:p-5">
-              <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-[0.3em] text-cyan-300/80">
                     How your PVC is built
@@ -3298,86 +3298,60 @@ export default function ClaimPanel() {
                   </h4>
                 </div>
 
-                <p className="max-w-xl text-xs leading-5 text-zinc-500">
-                  Rates are set by the protocol and may change over time through the admin panel.
-                </p>
+                <div className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[11px] font-semibold leading-5 text-zinc-400">
+                  Rates are protocol-defined and may evolve through community decision.
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-3xl border border-fuchsia-400/15 bg-fuchsia-400/[0.05] p-5">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 text-2xl">
+              <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {/* Coincarnations */}
+                <div className="flex h-full flex-col rounded-3xl border border-fuchsia-400/15 bg-fuchsia-400/[0.05] p-5">
+                  <div className="flex min-h-[56px] items-center gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 text-2xl">
                       🪙
                     </span>
-                    <div>
+
+                    <div className="min-w-0">
                       <p className="font-black text-white">Coincarnations</p>
                       <p className="text-xs text-zinc-500">Revived value</p>
                     </div>
                   </div>
 
-                  <p className="mt-5 text-3xl font-black text-fuchsia-200">
-                    {Number(data.core_point_breakdown.coincarnations || 0).toFixed(1)}
+                  <div className="mt-5 min-h-[78px]">
+                    <p className="text-3xl font-black text-fuchsia-200">
+                      {Number(data.core_point_breakdown.coincarnations || 0).toFixed(1)}
+                    </p>
+
+                    <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
+                      CorePoint
+                    </p>
+                  </div>
+
+                  <p className="min-h-[48px] text-sm leading-6 text-zinc-400">
+                    Value revived through Coincarnation.
                   </p>
 
-                  <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
-                    CorePoint
-                  </p>
-
-                  <p className="mt-4 text-sm leading-6 text-zinc-400">
-                    Value recovered through Coincarnation participation.
-                  </p>
-
-                  <div className="mt-5 rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
+                  <div className="mt-auto rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-fuchsia-200/60">
                       Earning Logic
                     </p>
+
                     <p className="mt-2 text-xs leading-5 text-fuchsia-100/80">
                       {cpConfig
-                        ? `Currently ~${Math.round(cpConfig.usdPer1 * cpConfig.multUsd)} CP per $1 revived.`
-                        : 'CorePoints from your Coincarnation contributions.'}
+                        ? `~${Math.round(cpConfig.usdPer1 * cpConfig.multUsd)} CP per $1 revived.`
+                        : 'CorePoints from Coincarnation contributions.'}
                     </p>
                   </div>
                 </div>
 
-                <div className="rounded-3xl border border-amber-400/15 bg-amber-400/[0.05] p-5">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-full border border-amber-300/20 bg-amber-400/10 text-2xl">
-                      📣
-                    </span>
-                    <div>
-                      <p className="font-black text-white">Referrals</p>
-                      <p className="text-xs text-zinc-500">Network value</p>
-                    </div>
-                  </div>
-
-                  <p className="mt-5 text-3xl font-black text-amber-200">
-                    {Number(data.core_point_breakdown.referrals || 0).toFixed(1)}
-                  </p>
-
-                  <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
-                    CorePoint
-                  </p>
-
-                  <p className="mt-4 text-sm leading-6 text-zinc-400">
-                    Economic gravity created by people you bring into Coincarnation.
-                  </p>
-
-                  <div className="mt-5 rounded-2xl border border-amber-300/15 bg-black/25 px-4 py-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-200/60">
-                      Earning Logic
-                    </p>
-                    <p className="mt-2 text-xs leading-5 text-amber-100/80">
-                      {cpConfig
-                        ? `Each new wallet you bring currently grants ~${Math.round(
-                            cpConfig.refSignup * cpConfig.multReferral
-                          )} signup CorePoints.`
-                        : `${data.referral_count} wallet joined with your link; each signup adds fixed CorePoints.`}
-                    </p>
-                  </div>
-
+                {/* Referrals */}
+                <div className="relative flex h-full flex-col rounded-3xl border border-amber-400/15 bg-amber-400/[0.05] p-5">
                   {data.referral_code && (
-                    <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="absolute right-4 top-4 z-10 flex gap-2">
                       <button
+                        type="button"
+                        title="Copy referral link"
+                        aria-label="Copy referral link"
                         onClick={() => {
                           if (!data.referral_code) return;
                           const url = buildReferralUrl(data.referral_code ?? '');
@@ -3385,12 +3359,15 @@ export default function ClaimPanel() {
                           setCopiedTarget('referral');
                           setTimeout(() => setCopiedTarget(null), 2000);
                         }}
-                        className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 text-[11px] font-bold text-white/80 transition hover:bg-white/[0.1]"
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/10 text-sm text-amber-100 shadow-[0_0_20px_rgba(251,191,36,0.08)] transition hover:bg-amber-300/20"
                       >
-                        Copy link
+                        🔗
                       </button>
 
                       <button
+                        type="button"
+                        title="Share referral link"
+                        aria-label="Share referral link"
                         onClick={() => {
                           if (!data.referral_code) return;
 
@@ -3411,12 +3388,49 @@ export default function ClaimPanel() {
                           setShareAnchor(`profile:${data.wallet_address}`);
                           setShareOpen(true);
                         }}
-                        className="rounded-full bg-blue-600 px-3 py-2 text-[11px] font-black text-white transition hover:bg-blue-500"
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm text-white shadow-[0_0_22px_rgba(37,99,235,0.28)] transition hover:bg-blue-500"
                       >
-                        Share
+                        ↗
                       </button>
                     </div>
                   )}
+
+                  <div className="flex min-h-[56px] items-center gap-3 pr-24">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-amber-300/20 bg-amber-400/10 text-2xl">
+                      📣
+                    </span>
+
+                    <div className="min-w-0">
+                      <p className="font-black text-white">Referrals</p>
+                      <p className="text-xs text-zinc-500">Network value</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 min-h-[78px]">
+                    <p className="text-3xl font-black text-amber-200">
+                      {Number(data.core_point_breakdown.referrals || 0).toFixed(1)}
+                    </p>
+
+                    <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
+                      CorePoint
+                    </p>
+                  </div>
+
+                  <p className="min-h-[48px] text-sm leading-6 text-zinc-400">
+                    Value created through network growth.
+                  </p>
+
+                  <div className="mt-auto rounded-2xl border border-amber-300/15 bg-black/25 px-4 py-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-200/60">
+                      Earning Logic
+                    </p>
+
+                    <p className="mt-2 text-xs leading-5 text-amber-100/80">
+                      {cpConfig
+                        ? `~${Math.round(cpConfig.refSignup * cpConfig.multReferral)} CP per referred wallet.`
+                        : `${data.referral_count} wallet joined with your link.`}
+                    </p>
+                  </div>
 
                   {copiedTarget === 'referral' && (
                     <p className="mt-3 text-xs font-semibold text-emerald-300">
@@ -3425,78 +3439,84 @@ export default function ClaimPanel() {
                   )}
                 </div>
 
-                <div className="rounded-3xl border border-cyan-400/15 bg-cyan-400/[0.05] p-5">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/10 text-2xl">
+                {/* Social Shares */}
+                <div className="flex h-full flex-col rounded-3xl border border-cyan-400/15 bg-cyan-400/[0.05] p-5">
+                  <div className="flex min-h-[56px] items-center gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/10 text-2xl">
                       🐦
                     </span>
-                    <div>
+
+                    <div className="min-w-0">
                       <p className="font-black text-white">Social Shares</p>
                       <p className="text-xs text-zinc-500">Social value</p>
                     </div>
                   </div>
 
-                  <p className="mt-5 text-3xl font-black text-cyan-200">
-                    {Number(data.core_point_breakdown.shares || 0).toFixed(1)}
+                  <div className="mt-5 min-h-[78px]">
+                    <p className="text-3xl font-black text-cyan-200">
+                      {Number(data.core_point_breakdown.shares || 0).toFixed(1)}
+                    </p>
+
+                    <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
+                      CorePoint
+                    </p>
+                  </div>
+
+                  <p className="min-h-[48px] text-sm leading-6 text-zinc-400">
+                    Value created through visibility.
                   </p>
 
-                  <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
-                    CorePoint
-                  </p>
-
-                  <p className="mt-4 text-sm leading-6 text-zinc-400">
-                    Visibility and narrative energy generated through sharing.
-                  </p>
-
-                  <div className="mt-5 rounded-2xl border border-cyan-300/15 bg-black/25 px-4 py-3">
+                  <div className="mt-auto rounded-2xl border border-cyan-300/15 bg-black/25 px-4 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-200/60">
                       Earning Logic
                     </p>
+
                     <p className="mt-2 text-xs leading-5 text-cyan-100/80">
                       {cpConfig
-                        ? `First share on X: ~${Math.round(
-                            cpConfig.shareTwitter * cpConfig.multShare
-                          )} CP; other channels: ~${Math.round(
+                        ? `X share: ~${Math.round(cpConfig.shareTwitter * cpConfig.multShare)} CP. Other: ~${Math.round(
                             cpConfig.shareOther * cpConfig.multShare
-                          )} CP (once per wallet).`
-                        : 'CorePoints for sharing Coincarnation on X and other channels.'}
+                          )} CP.`
+                        : 'CorePoints from sharing Coincarnation.'}
                     </p>
                   </div>
                 </div>
 
-                <div className="rounded-3xl border border-violet-400/15 bg-violet-400/[0.05] p-5">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-full border border-violet-300/20 bg-violet-400/10 text-2xl">
+                {/* Deadcoins Bonus */}
+                <div className="flex h-full flex-col rounded-3xl border border-violet-400/15 bg-violet-400/[0.05] p-5">
+                  <div className="flex min-h-[56px] items-center gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-violet-300/20 bg-violet-400/10 text-2xl">
                       💀
                     </span>
-                    <div>
+
+                    <div className="min-w-0">
                       <p className="font-black text-white">Deadcoins Bonus</p>
                       <p className="text-xs text-zinc-500">Forgotten value</p>
                     </div>
                   </div>
 
-                  <p className="mt-5 text-3xl font-black text-violet-200">
-                    {Number(data.core_point_breakdown.deadcoins || 0).toFixed(1)}
+                  <div className="mt-5 min-h-[78px]">
+                    <p className="text-3xl font-black text-violet-200">
+                      {Number(data.core_point_breakdown.deadcoins || 0).toFixed(1)}
+                    </p>
+
+                    <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
+                      CorePoint
+                    </p>
+                  </div>
+
+                  <p className="min-h-[48px] text-sm leading-6 text-zinc-400">
+                    Value unlocked from deadcoins.
                   </p>
 
-                  <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
-                    CorePoint
-                  </p>
-
-                  <p className="mt-4 text-sm leading-6 text-zinc-400">
-                    Extra value unlocked by reviving forgotten and abandoned assets.
-                  </p>
-
-                  <div className="mt-5 rounded-2xl border border-violet-300/15 bg-black/25 px-4 py-3">
+                  <div className="mt-auto rounded-2xl border border-violet-300/15 bg-black/25 px-4 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-200/60">
                       Earning Logic
                     </p>
+
                     <p className="mt-2 text-xs leading-5 text-violet-100/80">
                       {cpConfig
-                        ? `Each deadcoin contract you revive: ~${Math.round(
-                            cpConfig.deadcoinFirst * cpConfig.multDeadcoin
-                          )} bonus CP (once per contract).`
-                        : 'Extra CorePoints for reviving true deadcoins (USD = 0).'}
+                        ? `~${Math.round(cpConfig.deadcoinFirst * cpConfig.multDeadcoin)} CP per deadcoin contract.`
+                        : 'Extra CorePoints for reviving true deadcoins.'}
                     </p>
                   </div>
                 </div>
