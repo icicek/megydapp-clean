@@ -94,6 +94,44 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(emptyClaimData(wallet), { status: 200 });
     }
     const participant = participantResult[0] as any;
+    // Identity-aware wallet scope for Personal Value Currency / CorePoint
+    // Claim/refund/transaction data remains active-wallet based.
+    let corePointWallets: string[] = [wallet];
+
+    try {
+      const identityRows = (await sql/* sql */`
+        SELECT identity_id
+        FROM identity_wallets
+        WHERE chain = 'solana'
+          AND LOWER(wallet_address) = LOWER(${wallet})
+        LIMIT 1;
+      `) as any[];
+
+      const identityId = identityRows?.[0]?.identity_id ?? null;
+
+      if (identityId) {
+        const linkedRows = (await sql/* sql */`
+          SELECT wallet_address
+          FROM identity_wallets
+          WHERE identity_id = ${identityId}
+            AND chain = 'solana';
+        `) as any[];
+
+        const linkedWallets = linkedRows
+          .map((row: any) => String(row.wallet_address || '').trim())
+          .filter(Boolean);
+
+        if (linkedWallets.length > 0) {
+          corePointWallets = Array.from(new Set(linkedWallets));
+        }
+      }
+    } catch (e) {
+      console.warn(
+        '[claim] identity wallet scope failed, falling back to active wallet:',
+        (e as any)?.message || e
+      );
+      corePointWallets = [wallet];
+    }
     // Blacklist invalidation ledger for this wallet
     const invalidationRows = (await sql/* sql */`
       SELECT
@@ -303,7 +341,7 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // 3) CorePoint totals (from corepoint_events)
+    // 3) CorePoint totals (identity-aware, from corepoint_events)
     const cpRows = await sql/* sql */`
       SELECT
         COALESCE(
@@ -334,7 +372,7 @@ export async function GET(req: NextRequest) {
           0
         )::float AS cp_share
       FROM corepoint_events
-      WHERE wallet_address = ${wallet};
+      WHERE wallet_address = ANY(${corePointWallets});
     `;
     const cpRow = cpRows[0] || {};
     const cpCoincarnations = Number((cpRow as any).cp_usd || 0);
