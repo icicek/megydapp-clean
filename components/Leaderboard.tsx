@@ -1,7 +1,7 @@
 // components/Leaderboard.tsx
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { APP_URL } from '@/app/lib/origin';
 import ShareCenter from '@/components/share/ShareCenter';
@@ -10,7 +10,12 @@ import { buildPayload } from '@/components/share/intent';
 type Props = { referralCode?: string };
 
 type LeaderboardEntry = {
+  scope_key: string;
+  identity_id: string | null;
+  identity_label: string | null;
   wallet_address: string;
+  wallet_addresses?: string[];
+  linked_wallet_count: number;
   core_point: number;
 };
 
@@ -22,35 +27,55 @@ export default function Leaderboard({ referralCode }: Props) {
   const [userRank, setUserRank] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
 
-  // Share modal state
   const [shareOpen, setShareOpen] = useState(false);
   const [shareAnchor, setShareAnchor] = useState<string | undefined>(undefined);
   const [shareTxId, setShareTxId] = useState<string | undefined>(undefined);
 
+  const shorten = (a: string) => `${a.slice(0, 4)}...${a.slice(-4)}`;
+
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        const res = await fetch('/api/leaderboard');
-        const json = await res.json();
+        setLoading(true);
+
+        const res = await fetch('/api/leaderboard', { cache: 'no-store' });
+        const json = await res.json().catch(() => ({}));
 
         if (json?.success && Array.isArray(json.leaderboard)) {
-          setData(json.leaderboard as LeaderboardEntry[]);
+          const leaderboard = json.leaderboard as LeaderboardEntry[];
+          setData(leaderboard);
 
           if (publicKey) {
             const me = publicKey.toBase58();
-            const i = json.leaderboard.findIndex(
-              (e: LeaderboardEntry) => e.wallet_address === me
-            );
+
+            const i = leaderboard.findIndex((entry) => {
+              const wallets = Array.isArray(entry.wallet_addresses)
+                ? entry.wallet_addresses
+                : [entry.wallet_address];
+
+              return wallets.some(
+                (w) => String(w).toLowerCase() === me.toLowerCase()
+              );
+            });
+
             if (i !== -1) {
               setUserRank(i + 1);
             } else {
-              // Eğer top 10'da değilse sunucudan rank çek
-              const rankRes = await fetch(`/api/leaderboard/rank?wallet=${me}`);
-              const rankJson = await rankRes.json();
-              if (rankJson?.success && Number.isFinite(rankJson.rank)) {
-                setUserRank(rankJson.rank);
+              const rankRes = await fetch(
+                `/api/leaderboard/rank?wallet=${encodeURIComponent(me)}`,
+                { cache: 'no-store' }
+              );
+
+              const rankJson = await rankRes.json().catch(() => ({}));
+
+              if (rankJson?.success && Number.isFinite(Number(rankJson.rank))) {
+                setUserRank(Number(rankJson.rank));
+              } else {
+                setUserRank(null);
               }
             }
+          } else {
+            setUserRank(null);
           }
         }
       } catch (err) {
@@ -60,13 +85,11 @@ export default function Leaderboard({ referralCode }: Props) {
       }
     };
 
-    fetchLeaderboard();
+    void fetchLeaderboard();
   }, [publicKey]);
 
-  const shorten = (a: string) => `${a.slice(0, 4)}...${a.slice(-4)}`;
   const visible = showAll ? data : data.slice(0, 10);
 
-  // ---- Share payload (dynamic rank message) ----
   const shareUrl = useMemo(
     () => (referralCode ? `${APP_URL}?r=${encodeURIComponent(referralCode)}` : APP_URL),
     [referralCode]
@@ -82,7 +105,6 @@ export default function Leaderboard({ referralCode }: Props) {
       {
         ref: referralCode ?? undefined,
         src: 'app',
-        // ctx otomatik 'leaderboard'
       }
     );
   }, [shareUrl, userRank, referralCode]);
@@ -93,70 +115,105 @@ export default function Leaderboard({ referralCode }: Props) {
     const wallet = publicKey.toBase58();
     const lbKey = `lb:${wallet}`;
 
-    // anchor: eskisi gibi (sadece log / izleme için)
     setShareAnchor(lbKey);
-
-    // 🔑 asıl kritik kısım: leaderboard share'i için pseudo-txId
-    // Böylece backend'de TX branch'ine düşecek:
-    //   ctx = "tx:copy:lb:<wallet>"
     setShareTxId(lbKey);
-
     setShareOpen(true);
   };
 
   return (
-    <div className="mt-10 border border-pink-500/20 rounded-2xl p-6 bg-gradient-to-br from-zinc-900/70 to-black/80 shadow-xl backdrop-blur-lg">
-      <h2 className="text-xl font-bold mb-4 text-white">🌍 Global Leaderboard</h2>
+    <div className="mt-10 rounded-2xl border border-pink-500/20 bg-gradient-to-br from-zinc-900/70 to-black/80 p-6 shadow-xl backdrop-blur-lg">
+      <h2 className="mb-2 text-xl font-bold text-white">🌍 Global Leaderboard</h2>
+
+      <p className="mb-4 text-sm leading-6 text-zinc-400">
+        Ranking is based on Coincarnation Identity, not individual wallets.
+        One person, one identity, one Personal Value Currency.
+      </p>
 
       {loading ? (
         <p className="text-white">Loading...</p>
       ) : (
         <div className="w-full overflow-x-auto">
-          <div className="min-w-[360px] w-full max-w-4xl mx-auto">
-            <table className="w-full text-sm text-white text-center table-auto">
+          <div className="mx-auto w-full min-w-[420px] max-w-4xl">
+            <table className="w-full table-auto text-center text-sm text-white">
               <thead>
-                <tr className="text-center border-b border-white/10 bg-zinc-800/60 backdrop-blur-sm">
-                  <th className="py-2 px-2 w-[80px]">Rank</th>
-                  <th className="py-2 px-4">Wallet</th>
-                  <th className="py-2 px-4">CorePoint</th>
+                <tr className="border-b border-white/10 bg-zinc-800/60 text-center backdrop-blur-sm">
+                  <th className="w-[80px] px-2 py-2">Rank</th>
+                  <th className="px-4 py-2">Identity</th>
+                  <th className="px-4 py-2">Wallets</th>
+                  <th className="px-4 py-2">CorePoint</th>
                 </tr>
               </thead>
+
               <tbody>
                 {visible.map((entry) => {
                   const realIndex = data.indexOf(entry);
-                  const isUser = publicKey?.toBase58() === entry.wallet_address;
+                  const myWallet = publicKey?.toBase58() ?? null;
+
+                  const wallets = Array.isArray(entry.wallet_addresses)
+                    ? entry.wallet_addresses
+                    : [entry.wallet_address];
+
+                  const isUser = Boolean(
+                    myWallet &&
+                      wallets.some(
+                        (w) => String(w).toLowerCase() === myWallet.toLowerCase()
+                      )
+                  );
+
+                  const label =
+                    entry.identity_label ||
+                    (entry.identity_id
+                      ? `Identity #${entry.identity_id.slice(0, 6)}`
+                      : shorten(entry.wallet_address));
 
                   return (
                     <tr
-                      key={entry.wallet_address}
+                      key={entry.scope_key || entry.identity_id || entry.wallet_address}
                       className={`border-b border-white/5 transition duration-200 ${
                         isUser
                           ? 'bg-yellow-500/10 font-bold'
                           : realIndex === 0
-                          ? 'bg-amber-800/20'
-                          : realIndex === 1
-                          ? 'bg-gray-700/20'
-                          : realIndex === 2
-                          ? 'bg-orange-600/10'
-                          : 'hover:bg-white/5'
+                            ? 'bg-amber-800/20'
+                            : realIndex === 1
+                              ? 'bg-gray-700/20'
+                              : realIndex === 2
+                                ? 'bg-orange-600/10'
+                                : 'hover:bg-white/5'
                       }`}
                     >
-                      <td className="py-2 px-2">
+                      <td className="px-2 py-3">
                         {realIndex === 0
                           ? '🥇'
                           : realIndex === 1
-                          ? '🥈'
-                          : realIndex === 2
-                          ? '🥉'
-                          : realIndex + 1}
+                            ? '🥈'
+                            : realIndex === 2
+                              ? '🥉'
+                              : realIndex + 1}
                       </td>
 
-                      <td className="py-2 px-4">
-                        {shorten(entry.wallet_address)}
-                        {isUser && <span className="ml-2 text-yellow-400">← You</span>}
+                      <td className="px-4 py-3 text-left">
+                        <div className="font-black text-white">
+                          {label}
+                          {isUser && <span className="ml-2 text-yellow-400">← You</span>}
+                        </div>
+
+                        <div className="mt-1 font-mono text-[11px] text-zinc-500">
+                          {entry.identity_id
+                            ? 'Personal Value Currency identity'
+                            : shorten(entry.wallet_address)}
+                        </div>
                       </td>
 
-                      <td className="py-2 px-4">{Number(entry.core_point).toFixed(3)}</td>
+                      <td className="px-4 py-3">
+                        <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-200">
+                          {Number(entry.linked_wallet_count || 1)} wallet
+                          {Number(entry.linked_wallet_count || 1) > 1 ? 's' : ''}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-3 font-black text-emerald-300">
+                        {Number(entry.core_point || 0).toFixed(3)}
+                      </td>
                     </tr>
                   );
                 })}
@@ -164,10 +221,10 @@ export default function Leaderboard({ referralCode }: Props) {
             </table>
 
             {!showAll && data.length > 10 && (
-              <div className="text-center mt-4">
+              <div className="mt-4 text-center">
                 <button
                   onClick={() => setShowAll(true)}
-                  className="text-sm text-pink-400 hover:text-pink-300 underline transition"
+                  className="text-sm text-pink-400 underline transition hover:text-pink-300"
                 >
                   Show All
                 </button>
@@ -175,16 +232,16 @@ export default function Leaderboard({ referralCode }: Props) {
             )}
 
             {userRank && (
-              <div className="text-center mt-6 space-y-3">
+              <div className="mt-6 space-y-3 text-center">
                 <p className="text-sm text-zinc-400">
-                  You are currently ranked{' '}
-                  <span className="text-white font-bold">#{userRank}</span> in the ecosystem.
+                  Your Coincarnation Identity is currently ranked{' '}
+                  <span className="font-bold text-white">#{userRank}</span> in the ecosystem.
                 </p>
 
                 <button
                   onClick={handleShareClick}
                   disabled={!sharePayload}
-                  className="inline-block text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md transition"
+                  className="inline-block rounded-md bg-blue-600 px-3 py-1 text-sm text-white transition hover:bg-blue-700"
                 >
                   Share…
                 </button>
@@ -194,7 +251,6 @@ export default function Leaderboard({ referralCode }: Props) {
         </div>
       )}
 
-      {/* Share modal */}
       {shareOpen && sharePayload && (
         <ShareCenter
           open={shareOpen}
@@ -203,7 +259,7 @@ export default function Leaderboard({ referralCode }: Props) {
           context="leaderboard"
           walletBase58={publicKey?.toBase58() ?? null}
           anchor={shareAnchor}
-          txId={shareTxId}   // 🔥 BURASI ÖNEMLİ: TX BRANCH
+          txId={shareTxId}
         />
       )}
     </div>
