@@ -3317,7 +3317,7 @@ export default function ClaimPanel() {
                     </div>
                   </div>
 
-                  <div className="mt-5 min-h-[78px]">
+                  <div className="mt-5 min-h-[92px]">
                     <p className="text-3xl font-black text-fuchsia-200">
                       {Number(data.core_point_breakdown.coincarnations || 0).toFixed(1)}
                     </p>
@@ -3327,7 +3327,7 @@ export default function ClaimPanel() {
                     </p>
                   </div>
 
-                  <p className="mb-5 min-h-[56px] text-sm leading-6 text-zinc-400">
+                  <p className="mb-5 min-h-[72px] text-sm leading-6 text-zinc-400">
                     Value revived through Coincarnation.
                   </p>
 
@@ -3388,7 +3388,7 @@ export default function ClaimPanel() {
                           setShareAnchor(`profile:${data.wallet_address}`);
                           setShareOpen(true);
                         }}
-                        className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm text-white shadow-[0_0_22px_rgba(37,99,235,0.28)] transition hover:bg-blue-500"
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-300/10 text-sm text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.10)] transition hover:bg-cyan-300/20"
                       >
                         ↗
                       </button>
@@ -3406,7 +3406,7 @@ export default function ClaimPanel() {
                     </div>
                   </div>
 
-                  <div className="mt-5 min-h-[78px]">
+                  <div className="mt-5 min-h-[92px]">
                     <p className="text-3xl font-black text-amber-200">
                       {Number(data.core_point_breakdown.referrals || 0).toFixed(1)}
                     </p>
@@ -3416,7 +3416,7 @@ export default function ClaimPanel() {
                     </p>
                   </div>
 
-                  <p className="mb-5 min-h-[56px] text-sm leading-6 text-zinc-400">
+                  <p className="mb-5 min-h-[72px] text-sm leading-6 text-zinc-400">
                     Value created through network growth.
                   </p>
 
@@ -3452,7 +3452,7 @@ export default function ClaimPanel() {
                     </div>
                   </div>
 
-                  <div className="mt-5 min-h-[78px]">
+                  <div className="mt-5 min-h-[92px]">
                     <p className="text-3xl font-black text-cyan-200">
                       {Number(data.core_point_breakdown.shares || 0).toFixed(1)}
                     </p>
@@ -3462,7 +3462,7 @@ export default function ClaimPanel() {
                     </p>
                   </div>
 
-                  <p className="mb-5 min-h-[56px] text-sm leading-6 text-zinc-400">
+                  <p className="mb-5 min-h-[72px] text-sm leading-6 text-zinc-400">
                     Value created through visibility.
                   </p>
 
@@ -3494,7 +3494,7 @@ export default function ClaimPanel() {
                     </div>
                   </div>
 
-                  <div className="mt-5 min-h-[78px]">
+                  <div className="mt-5 min-h-[92px]">
                     <p className="text-3xl font-black text-violet-200">
                       {Number(data.core_point_breakdown.deadcoins || 0).toFixed(1)}
                     </p>
@@ -3504,7 +3504,7 @@ export default function ClaimPanel() {
                     </p>
                   </div>
 
-                  <p className="mb-5 min-h-[56px] text-sm leading-6 text-zinc-400">
+                  <p className="mb-5 min-h-[72px] text-sm leading-6 text-zinc-400">
                     Value unlocked from deadcoins.
                   </p>
 
