@@ -3630,7 +3630,7 @@ export default function ClaimPanel() {
                           key={`${ev.type || 'event'}-${dateStr || i}-${i}`}
                           className="group rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-emerald-300/25 hover:bg-emerald-300/[0.03]"
                         >
-                          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[0.8fr_1fr_1.4fr_0.9fr] lg:items-center lg:gap-5">
+                          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[0.7fr_0.9fr_1.2fr_0.8fr_0.9fr] lg:items-center lg:gap-5">
                             <div>
                               <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                                 Points
@@ -3673,6 +3673,16 @@ export default function ClaimPanel() {
 
                               <p className="mt-1 font-semibold text-zinc-200">
                                 {dateStr ? formatDate(dateStr) : '-'}
+                              </p>
+                            </div>
+
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                                Wallet
+                              </p>
+
+                              <p className="mt-1 font-mono text-xs font-semibold text-zinc-300">
+                                {ev.wallet_address ? shorten(ev.wallet_address) : '-'}
                               </p>
                             </div>
                           </div>
