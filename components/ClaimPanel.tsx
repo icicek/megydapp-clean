@@ -3298,7 +3298,7 @@ export default function ClaimPanel() {
                   </h4>
                 </div>
 
-                <div className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[11px] font-semibold leading-5 text-zinc-400">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2 text-[11px] font-semibold leading-5 text-zinc-400">
                   Rates are protocol-defined and may evolve through community decision.
                 </div>
               </div>
@@ -3331,7 +3331,7 @@ export default function ClaimPanel() {
                     Value revived through Coincarnation.
                   </p>
 
-                  <div className="mt-auto min-h-[118px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
+                  <div className="mt-auto min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-fuchsia-200/60">
                       Earning Logic
                     </p>
@@ -3420,7 +3420,7 @@ export default function ClaimPanel() {
                     Value created through network growth.
                   </p>
 
-                  <div className="mt-auto min-h-[118px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
+                  <div className="mt-auto min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-200/60">
                       Earning Logic
                     </p>
@@ -3466,7 +3466,7 @@ export default function ClaimPanel() {
                     Value created through visibility.
                   </p>
 
-                  <div className="mt-auto min-h-[118px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
+                  <div className="mt-auto min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-200/60">
                       Earning Logic
                     </p>
@@ -3512,7 +3512,7 @@ export default function ClaimPanel() {
                     Value unlocked from deadcoins.
                   </p>
 
-                  <div className="mt-auto min-h-[118px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
+                  <div className="mt-auto min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-200/60">
                       Earning Logic
                     </p>
