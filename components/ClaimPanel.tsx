@@ -3327,7 +3327,7 @@ export default function ClaimPanel() {
                     </p>
                   </div>
 
-                  <p className="min-h-[48px] text-sm leading-6 text-zinc-400">
+                  <p className="mb-5 min-h-[56px] text-sm leading-6 text-zinc-400">
                     Value revived through Coincarnation.
                   </p>
 
@@ -3347,7 +3347,7 @@ export default function ClaimPanel() {
                 {/* Referrals */}
                 <div className="relative flex h-full flex-col rounded-3xl border border-amber-400/15 bg-amber-400/[0.05] p-5">
                   {data.referral_code && (
-                    <div className="absolute right-4 top-4 z-10 flex gap-2">
+                    <div className="absolute right-4 top-4 z-10 flex flex-col gap-2">
                       <button
                         type="button"
                         title="Copy referral link"
@@ -3395,7 +3395,7 @@ export default function ClaimPanel() {
                     </div>
                   )}
 
-                  <div className="flex min-h-[56px] items-center gap-3 pr-24">
+                  <div className="flex min-h-[72px] items-center gap-3 pr-14">
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-amber-300/20 bg-amber-400/10 text-2xl">
                       📣
                     </span>
@@ -3416,7 +3416,7 @@ export default function ClaimPanel() {
                     </p>
                   </div>
 
-                  <p className="min-h-[48px] text-sm leading-6 text-zinc-400">
+                  <p className="mb-5 min-h-[56px] text-sm leading-6 text-zinc-400">
                     Value created through network growth.
                   </p>
 
@@ -3462,7 +3462,7 @@ export default function ClaimPanel() {
                     </p>
                   </div>
 
-                  <p className="min-h-[48px] text-sm leading-6 text-zinc-400">
+                  <p className="mb-5 min-h-[56px] text-sm leading-6 text-zinc-400">
                     Value created through visibility.
                   </p>
 
@@ -3504,7 +3504,7 @@ export default function ClaimPanel() {
                     </p>
                   </div>
 
-                  <p className="min-h-[48px] text-sm leading-6 text-zinc-400">
+                  <p className="mb-5 min-h-[56px] text-sm leading-6 text-zinc-400">
                     Value unlocked from deadcoins.
                   </p>
 
