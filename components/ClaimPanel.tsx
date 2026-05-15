@@ -3681,6 +3681,170 @@ export default function ClaimPanel() {
             </div>
           )}
 
+          {/* PROOF LEDGER */}
+          <div className="relative z-10 mt-6 rounded-[28px] border border-emerald-400/20 bg-black/20 p-4 sm:p-5">
+            <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.3em] text-emerald-300/80">
+                  Proof Ledger
+                </p>
+
+                <h4 className="mt-2 text-2xl font-black text-white">
+                  CorePoint records behind your PVC
+                </h4>
+              </div>
+
+              <p className="max-w-xl text-xs leading-5 text-zinc-500">
+                Every CorePoint that builds your Personal Value Currency is recorded here as a proof-of-value event.
+              </p>
+            </div>
+
+            {loadingHistory && (
+              <div className="relative rounded-2xl border border-white/10 bg-black/20 px-4 py-8 text-center">
+                <p className="text-sm font-semibold text-zinc-300">
+                  Loading CorePoint activity...
+                </p>
+              </div>
+            )}
+
+            {!loadingHistory && cpHistory.length === 0 && (
+              <div className="relative rounded-2xl border border-white/10 bg-black/20 px-4 py-8 text-center">
+                <p className="text-sm font-semibold text-zinc-300">
+                  No CorePoint activity yet.
+                </p>
+
+                <p className="mt-2 text-xs text-zinc-500">
+                  Your value signals will appear here after Coincarnations, shares, referrals, and deadcoin revivals.
+                </p>
+              </div>
+            )}
+
+            {!loadingHistory && cpHistory.length > 0 && (
+              <>
+                <div className="relative grid max-h-[620px] gap-3 overflow-y-auto pr-1">
+                  {[...cpHistory]
+                    .sort((a: any, b: any) => {
+                      const aDate = a?.created_at || a?.day || null;
+                      const bDate = b?.created_at || b?.day || null;
+
+                      const aTime = aDate ? new Date(aDate).getTime() : 0;
+                      const bTime = bDate ? new Date(bDate).getTime() : 0;
+
+                      return bTime - aTime;
+                    })
+                    .map((ev: any, i: number) => {
+                      const typeLabel =
+                        ev.type === 'usd'
+                          ? 'Contribution'
+                          : ev.type === 'deadcoin_first'
+                            ? 'Deadcoin Revival'
+                            : ev.type === 'share'
+                              ? 'Share Signal'
+                              : ev.type === 'referral_signup'
+                                ? 'Referral Signup'
+                                : ev.type || 'Other';
+
+                      let detail = '';
+
+                      if (ev.type === 'usd') {
+                        detail = `$${Number(ev.value || 0).toFixed(2)} Coincarnation`;
+                      } else if (ev.type === 'share') {
+                        detail = ev.channel
+                          ? `${String(ev.channel).toUpperCase()} share`
+                          : 'Share activity';
+                      } else if (ev.type === 'deadcoin_first') {
+                        detail = ev.token_contract
+                          ? `Contract: ${shorten(ev.token_contract)}`
+                          : 'First deadcoin signal';
+                      } else if (ev.type === 'referral_signup') {
+                        detail = ev.ref_wallet
+                          ? `Referee: ${shorten(ev.ref_wallet)}`
+                          : 'New referred wallet';
+                      } else {
+                        detail = ev.detail || '-';
+                      }
+
+                      const dateStr = ev.created_at || ev.day || null;
+                      const points = Number(ev.points || 0);
+
+                      const badgeClass =
+                        ev.type === 'usd'
+                          ? 'border-cyan-400/25 bg-cyan-400/10 text-cyan-200'
+                          : ev.type === 'deadcoin_first'
+                            ? 'border-amber-400/25 bg-amber-400/10 text-amber-200'
+                            : ev.type === 'share'
+                              ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200'
+                              : ev.type === 'referral_signup'
+                                ? 'border-fuchsia-400/25 bg-fuchsia-400/10 text-fuchsia-200'
+                                : 'border-white/10 bg-white/[0.04] text-zinc-300';
+
+                      return (
+                        <div
+                          key={`${ev.type || 'event'}-${dateStr || i}-${i}`}
+                          className="group rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-emerald-300/25 hover:bg-emerald-300/[0.03]"
+                        >
+                          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[0.8fr_1fr_1.4fr_0.9fr] lg:items-center lg:gap-5">
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                                Points
+                              </p>
+
+                              <p className="mt-1 text-xl font-black text-emerald-300">
+                                +{points.toFixed(1)} CP
+                              </p>
+                            </div>
+
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                                Type
+                              </p>
+
+                              <span
+                                className={[
+                                  'mt-1 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide',
+                                  badgeClass,
+                                ].join(' ')}
+                              >
+                                {typeLabel}
+                              </span>
+                            </div>
+
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                                Detail
+                              </p>
+
+                              <p className="mt-1 truncate font-semibold text-zinc-200">
+                                {detail || '-'}
+                              </p>
+                            </div>
+
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                                Date
+                              </p>
+
+                              <p className="mt-1 font-semibold text-zinc-200">
+                                {dateStr ? formatDate(dateStr) : '-'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+
+                {cpHistory.length > 6 && (
+                  <div className="mt-2 flex items-center justify-center sm:hidden">
+                    <span className="animate-pulse text-[11px] font-semibold tracking-wide text-cyan-300/70">
+                      Scroll for more ↓
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
           {/* CHART + FUTURE */}
           {data.core_point_breakdown && (
             <div className="relative z-10 mt-6 grid gap-6 lg:grid-cols-[1fr_0.9fr]">
