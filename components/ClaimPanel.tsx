@@ -3306,7 +3306,7 @@ export default function ClaimPanel() {
               <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {/* Coincarnations */}
                 <div className="flex h-full flex-col rounded-3xl border border-fuchsia-400/15 bg-fuchsia-400/[0.05] p-5">
-                  <div className="flex min-h-[56px] items-center gap-3">
+                  <div className="flex min-h-[76px] items-center gap-3">
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 text-2xl">
                       🪙
                     </span>
@@ -3317,7 +3317,7 @@ export default function ClaimPanel() {
                     </div>
                   </div>
 
-                  <div className="mt-5 min-h-[92px]">
+                  <div className="mt-4 min-h-[76px]">
                     <p className="text-3xl font-black text-fuchsia-200">
                       {Number(data.core_point_breakdown.coincarnations || 0).toFixed(1)}
                     </p>
@@ -3327,11 +3327,11 @@ export default function ClaimPanel() {
                     </p>
                   </div>
 
-                  <p className="mb-5 min-h-[72px] text-sm leading-6 text-zinc-400">
+                  <p className="mb-6 min-h-[64px] text-sm leading-6 text-zinc-400">
                     Value revived through Coincarnation.
                   </p>
 
-                  <div className="mt-auto rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
+                  <div className="mt-auto min-h-[118px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-fuchsia-200/60">
                       Earning Logic
                     </p>
@@ -3359,9 +3359,9 @@ export default function ClaimPanel() {
                           setCopiedTarget('referral');
                           setTimeout(() => setCopiedTarget(null), 2000);
                         }}
-                        className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/10 text-sm text-amber-100 shadow-[0_0_20px_rgba(251,191,36,0.08)] transition hover:bg-amber-300/20"
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/10 text-sm font-black text-amber-100 shadow-[0_0_20px_rgba(251,191,36,0.08)] transition hover:bg-amber-300/20"
                       >
-                        🔗
+                        ⧉
                       </button>
 
                       <button
@@ -3388,14 +3388,14 @@ export default function ClaimPanel() {
                           setShareAnchor(`profile:${data.wallet_address}`);
                           setShareOpen(true);
                         }}
-                        className="flex h-9 w-9 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-300/10 text-sm text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.10)] transition hover:bg-cyan-300/20"
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/10 text-sm font-black text-amber-100 shadow-[0_0_20px_rgba(251,191,36,0.08)] transition hover:bg-amber-300/20"
                       >
                         ↗
                       </button>
                     </div>
                   )}
 
-                  <div className="flex min-h-[72px] items-center gap-3 pr-14">
+                  <div className="flex min-h-[76px] items-center gap-3 pr-14">
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-amber-300/20 bg-amber-400/10 text-2xl">
                       📣
                     </span>
@@ -3406,7 +3406,7 @@ export default function ClaimPanel() {
                     </div>
                   </div>
 
-                  <div className="mt-5 min-h-[92px]">
+                  <div className="mt-4 min-h-[76px]">
                     <p className="text-3xl font-black text-amber-200">
                       {Number(data.core_point_breakdown.referrals || 0).toFixed(1)}
                     </p>
@@ -3416,11 +3416,11 @@ export default function ClaimPanel() {
                     </p>
                   </div>
 
-                  <p className="mb-5 min-h-[72px] text-sm leading-6 text-zinc-400">
+                  <p className="mb-6 min-h-[64px] text-sm leading-6 text-zinc-400">
                     Value created through network growth.
                   </p>
 
-                  <div className="mt-auto rounded-2xl border border-amber-300/15 bg-black/25 px-4 py-3">
+                  <div className="mt-auto min-h-[118px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-200/60">
                       Earning Logic
                     </p>
@@ -3441,7 +3441,7 @@ export default function ClaimPanel() {
 
                 {/* Social Shares */}
                 <div className="flex h-full flex-col rounded-3xl border border-cyan-400/15 bg-cyan-400/[0.05] p-5">
-                  <div className="flex min-h-[56px] items-center gap-3">
+                  <div className="flex min-h-[76px] items-center gap-3">
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/10 text-2xl">
                       🐦
                     </span>
@@ -3452,7 +3452,7 @@ export default function ClaimPanel() {
                     </div>
                   </div>
 
-                  <div className="mt-5 min-h-[92px]">
+                  <div className="mt-4 min-h-[76px]">
                     <p className="text-3xl font-black text-cyan-200">
                       {Number(data.core_point_breakdown.shares || 0).toFixed(1)}
                     </p>
@@ -3462,28 +3462,32 @@ export default function ClaimPanel() {
                     </p>
                   </div>
 
-                  <p className="mb-5 min-h-[72px] text-sm leading-6 text-zinc-400">
+                  <p className="mb-6 min-h-[64px] text-sm leading-6 text-zinc-400">
                     Value created through visibility.
                   </p>
 
-                  <div className="mt-auto rounded-2xl border border-cyan-300/15 bg-black/25 px-4 py-3">
+                  <div className="mt-auto min-h-[118px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-200/60">
                       Earning Logic
                     </p>
 
                     <p className="mt-2 text-xs leading-5 text-cyan-100/80">
-                      {cpConfig
-                        ? `X share: ~${Math.round(cpConfig.shareTwitter * cpConfig.multShare)} CP. Other: ~${Math.round(
-                            cpConfig.shareOther * cpConfig.multShare
-                          )} CP.`
-                        : 'CorePoints from sharing Coincarnation.'}
+                      {cpConfig ? (
+                        <>
+                          X share: ~{Math.round(cpConfig.shareTwitter * cpConfig.multShare)} CP.
+                          <br />
+                          Other channels: ~{Math.round(cpConfig.shareOther * cpConfig.multShare)} CP.
+                        </>
+                      ) : (
+                        'CorePoints from sharing Coincarnation.'
+                      )}
                     </p>
                   </div>
                 </div>
 
                 {/* Deadcoins Bonus */}
                 <div className="flex h-full flex-col rounded-3xl border border-violet-400/15 bg-violet-400/[0.05] p-5">
-                  <div className="flex min-h-[56px] items-center gap-3">
+                  <div className="flex min-h-[76px] items-center gap-3">
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-violet-300/20 bg-violet-400/10 text-2xl">
                       💀
                     </span>
@@ -3494,7 +3498,7 @@ export default function ClaimPanel() {
                     </div>
                   </div>
 
-                  <div className="mt-5 min-h-[92px]">
+                  <div className="mt-4 min-h-[76px]">
                     <p className="text-3xl font-black text-violet-200">
                       {Number(data.core_point_breakdown.deadcoins || 0).toFixed(1)}
                     </p>
@@ -3504,11 +3508,11 @@ export default function ClaimPanel() {
                     </p>
                   </div>
 
-                  <p className="mb-5 min-h-[72px] text-sm leading-6 text-zinc-400">
+                  <p className="mb-6 min-h-[64px] text-sm leading-6 text-zinc-400">
                     Value unlocked from deadcoins.
                   </p>
 
-                  <div className="mt-auto rounded-2xl border border-violet-300/15 bg-black/25 px-4 py-3">
+                  <div className="mt-auto min-h-[118px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-200/60">
                       Earning Logic
                     </p>
