@@ -13,6 +13,7 @@ import type { SharePayload } from '@/components/share/intent';
 import ShareCenter from '@/components/share/ShareCenter';
 import { buildPayload } from '@/components/share/intent';
 import { toNum, toPct01 } from '@/app/lib/num';
+import { ArrowUpRight } from 'lucide-react';
 import {
   PublicKey,
   Transaction,
@@ -3390,7 +3391,7 @@ export default function ClaimPanel() {
                         }}
                         className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/10 text-sm font-black text-amber-100 shadow-[0_0_20px_rgba(251,191,36,0.08)] transition hover:bg-amber-300/20"
                       >
-                        ↗
+                        <ArrowUpRight className="h-4 w-4" />
                       </button>
                     </div>
                   )}
