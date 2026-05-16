@@ -172,6 +172,7 @@ export default function ClaimPanel() {
   const [identityCodeCreating, setIdentityCodeCreating] = useState(false);
   const [walletHasNoLinkedIdentity, setWalletHasNoLinkedIdentity] = useState(false);
   const [identityLinkMessage, setIdentityLinkMessage] = useState<string | null>(null);
+  const [identityCodeCopied, setIdentityCodeCopied] = useState(false);
 
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
   const [copiedTarget, setCopiedTarget] = useState<'wallet' | 'referral' | null>(null);
@@ -2019,11 +2020,26 @@ export default function ClaimPanel() {
 
                       <button
                         type="button"
-                        onClick={() => navigator.clipboard.writeText(identityLinkCode)}
+                        onClick={() => {
+                          if (!identityLinkCode) return;
+
+                          navigator.clipboard.writeText(identityLinkCode);
+
+                          setIdentityCodeCopied(true);
+
+                          setTimeout(() => {
+                            setIdentityCodeCopied(false);
+                          }, 2000);
+                        }}
                         className="mt-3 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-white/[0.08]"
                       >
                         Copy Code
                       </button>
+                      {identityCodeCopied && (
+                        <p className="mt-2 text-xs font-semibold text-emerald-300">
+                          ✅ Code copied successfully.
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
