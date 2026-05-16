@@ -13,7 +13,14 @@ import type { SharePayload } from '@/components/share/intent';
 import ShareCenter from '@/components/share/ShareCenter';
 import { buildPayload } from '@/components/share/intent';
 import { toNum, toPct01 } from '@/app/lib/num';
-import { ArrowUpRight } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Copy,
+  Coins,
+  Megaphone,
+  Share2,
+  Skull,
+} from 'lucide-react';
 import {
   PublicKey,
   Transaction,
@@ -2124,7 +2131,7 @@ export default function ClaimPanel() {
               }}
             >
               <span className="absolute right-4 top-4 text-white/30 transition group-hover:text-cyan-200">
-                ⧉
+                <Copy className="h-4 w-4" />
               </span>
 
               <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
@@ -2161,7 +2168,7 @@ export default function ClaimPanel() {
               </div>
 
               <span className="absolute right-4 top-4 text-white/30 transition group-hover:text-fuchsia-100">
-                ⧉
+                <Copy className="h-4 w-4" />
               </span>
 
               <p className="relative text-xs font-bold uppercase tracking-wide text-fuchsia-200/70">
@@ -3309,7 +3316,7 @@ export default function ClaimPanel() {
                 <div className="flex h-full flex-col rounded-3xl border border-fuchsia-400/15 bg-fuchsia-400/[0.05] p-5">
                   <div className="flex min-h-[76px] items-center gap-3">
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 text-2xl">
-                      🪙
+                      <Coins className="h-5 w-5" />
                     </span>
 
                     <div className="min-w-0">
@@ -3362,7 +3369,7 @@ export default function ClaimPanel() {
                         }}
                         className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/10 text-sm font-black text-amber-100 shadow-[0_0_20px_rgba(251,191,36,0.08)] transition hover:bg-amber-300/20"
                       >
-                        ⧉
+                        <Copy className="h-4 w-4" />
                       </button>
 
                       <button
@@ -3398,7 +3405,7 @@ export default function ClaimPanel() {
 
                   <div className="flex min-h-[76px] items-center gap-3 pr-14">
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-amber-300/20 bg-amber-400/10 text-2xl">
-                      📣
+                      <Megaphone className="h-5 w-5" />
                     </span>
 
                     <div className="min-w-0">
@@ -3444,7 +3451,7 @@ export default function ClaimPanel() {
                 <div className="flex h-full flex-col rounded-3xl border border-cyan-400/15 bg-cyan-400/[0.05] p-5">
                   <div className="flex min-h-[76px] items-center gap-3">
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/10 text-2xl">
-                      🐦
+                      <Share2 className="h-5 w-5" />
                     </span>
 
                     <div className="min-w-0">
@@ -3490,7 +3497,7 @@ export default function ClaimPanel() {
                 <div className="flex h-full flex-col rounded-3xl border border-violet-400/15 bg-violet-400/[0.05] p-5">
                   <div className="flex min-h-[76px] items-center gap-3">
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-violet-300/20 bg-violet-400/10 text-2xl">
-                      💀
+                      <Skull className="h-5 w-5" />
                     </span>
 
                     <div className="min-w-0">
