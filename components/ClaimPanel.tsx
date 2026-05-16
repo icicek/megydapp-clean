@@ -3750,7 +3750,7 @@ export default function ClaimPanel() {
             </p>
           </div>
 
-          <div className="relative rounded-[24px] border border-white/10 bg-black/20 p-4">
+          <div className="relative">
             <Leaderboard referralCode={data.referral_code ?? undefined} />
           </div>
         </motion.section>
