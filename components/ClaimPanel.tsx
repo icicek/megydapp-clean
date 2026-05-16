@@ -171,6 +171,7 @@ export default function ClaimPanel() {
   const [identityLinkingByCode, setIdentityLinkingByCode] = useState(false);
   const [identityCodeCreating, setIdentityCodeCreating] = useState(false);
   const [walletHasNoLinkedIdentity, setWalletHasNoLinkedIdentity] = useState(false);
+  const [identityLinkMessage, setIdentityLinkMessage] = useState<string | null>(null);
 
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
   const [copiedTarget, setCopiedTarget] = useState<'wallet' | 'referral' | null>(null);
@@ -820,23 +821,23 @@ export default function ClaimPanel() {
   async function handleCreateIdentityLinkCode() {
     try {
       if (!identityStatus.authenticated || !identityStatus.identity) {
-        setMessage('❌ Please verify your Coincarnation Identity first.');
+        setIdentityLinkMessage('❌ Please verify your Coincarnation Identity first.');
         return;
       }
   
       setIdentityCodeCreating(true);
-      setMessage('⏳ Creating identity link code...');
+      setIdentityLinkMessage('⏳ Creating identity link code...');
   
       const result = await createIdentityLinkCode();
   
       setIdentityLinkCode(result.code);
       setIdentityLinkCodeExpiresAt(result.expiresAt);
-      setMessage('✅ Identity link code created.');
+      setIdentityLinkMessage('✅ Identity link code created.');
     } catch (error) {
       const msg =
         error instanceof Error ? error.message : 'Failed to create identity link code.';
   
-      setMessage(`❌ ${msg}`);
+      setIdentityLinkMessage(`❌ ${msg}`);
     } finally {
       setIdentityCodeCreating(false);
     }
@@ -1993,6 +1994,12 @@ export default function ClaimPanel() {
                   >
                     {identityCodeCreating ? 'Creating...' : 'Generate Link Code'}
                   </button>
+
+                  {identityLinkMessage && (
+                    <p className="mt-3 text-sm font-semibold text-emerald-300">
+                      {identityLinkMessage}
+                    </p>
+                  )}
 
                   {identityLinkCode && (
                     <div className="mt-3 rounded-lg border border-violet-400/20 bg-violet-400/10 p-3">
