@@ -121,7 +121,7 @@ export default function Leaderboard({ referralCode }: Props) {
   };
 
   return (
-    <div className="mt-10 rounded-2xl border border-pink-500/20 bg-gradient-to-br from-zinc-900/70 to-black/80 p-6 shadow-xl backdrop-blur-lg">
+    <div className="rounded-2xl border border-pink-500/20 bg-gradient-to-br from-zinc-900/70 to-black/80 p-6 shadow-xl backdrop-blur-lg">
       <h2 className="mb-2 text-xl font-bold text-white">🌍 Global Leaderboard</h2>
 
       <p className="mb-4 text-sm leading-6 text-zinc-400">
@@ -132,96 +132,95 @@ export default function Leaderboard({ referralCode }: Props) {
       {loading ? (
         <p className="text-white">Loading...</p>
       ) : (
-        <div className="w-full overflow-x-auto">
-          <div className="mx-auto w-full min-w-[420px] max-w-4xl">
-            <table className="w-full table-auto text-center text-sm text-white">
-              <thead>
-                <tr className="border-b border-white/10 bg-zinc-800/60 text-center backdrop-blur-sm">
-                  <th className="w-[80px] px-2 py-2">Rank</th>
-                  <th className="px-4 py-2">Identity</th>
-                  <th className="px-4 py-2">Wallets</th>
-                  <th className="px-4 py-2">CorePoint</th>
-                </tr>
-              </thead>
+        <>
+          {/* Mobile Leaderboard */}
+          <div className="space-y-2 md:hidden">
+            {visible.map((entry) => {
+              const realIndex = data.indexOf(entry);
+              const myWallet = publicKey?.toBase58() ?? null;
 
-              <tbody>
-                {visible.map((entry) => {
-                  const realIndex = data.indexOf(entry);
-                  const myWallet = publicKey?.toBase58() ?? null;
+              const wallets = Array.isArray(entry.wallet_addresses)
+                ? entry.wallet_addresses
+                : [entry.wallet_address];
 
-                  const wallets = Array.isArray(entry.wallet_addresses)
-                    ? entry.wallet_addresses
-                    : [entry.wallet_address];
+              const isUser = Boolean(
+                myWallet &&
+                  wallets.some(
+                    (w) => String(w).toLowerCase() === myWallet.toLowerCase()
+                  )
+              );
 
-                  const isUser = Boolean(
-                    myWallet &&
-                      wallets.some(
-                        (w) => String(w).toLowerCase() === myWallet.toLowerCase()
-                      )
-                  );
+              const label =
+                entry.identity_label ||
+                (entry.identity_id
+                  ? `Identity #${entry.identity_id.slice(0, 6)}`
+                  : shorten(entry.wallet_address));
 
-                  const label =
-                    entry.identity_label ||
-                    (entry.identity_id
-                      ? `Identity #${entry.identity_id.slice(0, 6)}`
-                      : shorten(entry.wallet_address));
+              const rankLabel =
+                realIndex === 0
+                  ? '🥇'
+                  : realIndex === 1
+                    ? '🥈'
+                    : realIndex === 2
+                      ? '🥉'
+                      : `#${realIndex + 1}`;
 
-                  return (
-                    <tr
-                      key={entry.scope_key || entry.identity_id || entry.wallet_address}
-                      className={`border-b border-white/5 transition duration-200 ${
-                        isUser
-                          ? 'bg-yellow-500/10 font-bold'
-                          : realIndex === 0
-                            ? 'bg-amber-800/20'
-                            : realIndex === 1
-                              ? 'bg-gray-700/20'
-                              : realIndex === 2
-                                ? 'bg-orange-600/10'
-                                : 'hover:bg-white/5'
-                      }`}
-                    >
-                      <td className="px-2 py-3">
-                        {realIndex === 0
-                          ? '🥇'
-                          : realIndex === 1
-                            ? '🥈'
-                            : realIndex === 2
-                              ? '🥉'
-                              : realIndex + 1}
-                      </td>
+              return (
+                <div
+                  key={`mobile-${entry.scope_key || entry.identity_id || entry.wallet_address}`}
+                  className={[
+                    'rounded-2xl border px-3 py-3',
+                    isUser
+                      ? 'border-yellow-400/25 bg-yellow-400/[0.08]'
+                      : realIndex === 0
+                        ? 'border-amber-400/20 bg-amber-400/[0.06]'
+                        : realIndex === 1
+                          ? 'border-zinc-400/15 bg-zinc-400/[0.04]'
+                          : realIndex === 2
+                            ? 'border-orange-400/15 bg-orange-400/[0.04]'
+                            : 'border-white/10 bg-black/20',
+                  ].join(' ')}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="shrink-0 text-sm">{rankLabel}</span>
 
-                      <td className="px-4 py-3 text-left">
-                        <div className="font-black text-white">
+                        <p className="truncate text-sm font-black text-white">
                           {label}
-                          {isUser && <span className="ml-2 text-yellow-400">← You</span>}
-                        </div>
+                        </p>
 
-                        <div className="mt-1 font-mono text-[11px] text-zinc-500">
-                          {entry.identity_id
-                            ? 'Personal Value Currency identity'
-                            : shorten(entry.wallet_address)}
-                        </div>
-                      </td>
+                        {isUser && (
+                          <span className="shrink-0 rounded-full bg-yellow-400/15 px-2 py-0.5 text-[10px] font-black text-yellow-300">
+                            You
+                          </span>
+                        )}
+                      </div>
 
-                      <td className="px-4 py-3">
-                        <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-200">
-                          {Number(entry.linked_wallet_count || 1)} wallet
-                          {Number(entry.linked_wallet_count || 1) > 1 ? 's' : ''}
-                        </span>
-                      </td>
+                      <p className="mt-1 text-xs font-semibold text-zinc-500">
+                        {Number(entry.linked_wallet_count || 1)} wallet
+                        {Number(entry.linked_wallet_count || 1) > 1 ? 's' : ''}
+                      </p>
+                    </div>
 
-                      <td className="px-4 py-3 font-black text-emerald-300">
-                        {Number(entry.core_point || 0).toFixed(3)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm font-black text-emerald-300">
+                        {Number(entry.core_point || 0).toLocaleString(undefined, {
+                          maximumFractionDigits: 1,
+                        })}
+                      </p>
+
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+                        CP
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
 
             {!showAll && data.length > 10 && (
-              <div className="mt-4 text-center">
+              <div className="pt-2 text-center">
                 <button
                   onClick={() => setShowAll(true)}
                   className="text-sm text-pink-400 underline transition hover:text-pink-300"
@@ -232,23 +231,141 @@ export default function Leaderboard({ referralCode }: Props) {
             )}
 
             {userRank && (
-              <div className="mt-6 space-y-3 text-center">
-                <p className="text-sm text-zinc-400">
-                  Your Coincarnation Identity is currently ranked{' '}
-                  <span className="font-bold text-white">#{userRank}</span> in the ecosystem.
+              <div className="pt-3 text-center">
+                <p className="text-xs leading-5 text-zinc-400">
+                  Your Coincarnation Identity is ranked{' '}
+                  <span className="font-bold text-white">#{userRank}</span>.
                 </p>
 
                 <button
                   onClick={handleShareClick}
                   disabled={!sharePayload}
-                  className="inline-block rounded-md bg-blue-600 px-3 py-1 text-sm text-white transition hover:bg-blue-700"
+                  className="mt-3 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-blue-700"
                 >
                   Share…
                 </button>
               </div>
             )}
           </div>
-        </div>
+
+          <div className="hidden w-full overflow-x-auto md:block">
+            <div className="mx-auto w-full min-w-[420px] max-w-4xl">
+              <table className="w-full table-auto text-center text-sm text-white">
+                <thead>
+                  <tr className="border-b border-white/10 bg-zinc-800/60 text-center backdrop-blur-sm">
+                    <th className="w-[80px] px-2 py-2">Rank</th>
+                    <th className="px-4 py-2">Identity</th>
+                    <th className="px-4 py-2">Wallets</th>
+                    <th className="px-4 py-2">CorePoint</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {visible.map((entry) => {
+                    const realIndex = data.indexOf(entry);
+                    const myWallet = publicKey?.toBase58() ?? null;
+
+                    const wallets = Array.isArray(entry.wallet_addresses)
+                      ? entry.wallet_addresses
+                      : [entry.wallet_address];
+
+                    const isUser = Boolean(
+                      myWallet &&
+                        wallets.some(
+                          (w) => String(w).toLowerCase() === myWallet.toLowerCase()
+                        )
+                    );
+
+                    const label =
+                      entry.identity_label ||
+                      (entry.identity_id
+                        ? `Identity #${entry.identity_id.slice(0, 6)}`
+                        : shorten(entry.wallet_address));
+
+                    return (
+                      <tr
+                        key={entry.scope_key || entry.identity_id || entry.wallet_address}
+                        className={`border-b border-white/5 transition duration-200 ${
+                          isUser
+                            ? 'bg-yellow-500/10 font-bold'
+                            : realIndex === 0
+                              ? 'bg-amber-800/20'
+                              : realIndex === 1
+                                ? 'bg-gray-700/20'
+                                : realIndex === 2
+                                  ? 'bg-orange-600/10'
+                                  : 'hover:bg-white/5'
+                        }`}
+                      >
+                        <td className="px-2 py-3">
+                          {realIndex === 0
+                            ? '🥇'
+                            : realIndex === 1
+                              ? '🥈'
+                              : realIndex === 2
+                                ? '🥉'
+                                : realIndex + 1}
+                        </td>
+
+                        <td className="px-4 py-3 text-left">
+                          <div className="font-black text-white">
+                            {label}
+                            {isUser && <span className="ml-2 text-yellow-400">← You</span>}
+                          </div>
+
+                          <div className="mt-1 font-mono text-[11px] text-zinc-500">
+                            {entry.identity_id
+                              ? 'Personal Value Currency identity'
+                              : shorten(entry.wallet_address)}
+                          </div>
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-200">
+                            {Number(entry.linked_wallet_count || 1)} wallet
+                            {Number(entry.linked_wallet_count || 1) > 1 ? 's' : ''}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-3 font-black text-emerald-300">
+                          {Number(entry.core_point || 0).toFixed(3)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {!showAll && data.length > 10 && (
+                <div className="mt-4 text-center">
+                  <button
+                    onClick={() => setShowAll(true)}
+                    className="text-sm text-pink-400 underline transition hover:text-pink-300"
+                  >
+                    Show All
+                  </button>
+                </div>
+              )}
+
+              {userRank && (
+                <div className="mt-6 space-y-3 text-center">
+                  <p className="text-sm text-zinc-400">
+                    Your Coincarnation Identity is currently ranked{' '}
+                    <span className="font-bold text-white">#{userRank}</span> in the ecosystem.
+                  </p>
+
+                  <button
+                    onClick={handleShareClick}
+                    disabled={!sharePayload}
+                    className="inline-block rounded-md bg-blue-600 px-3 py-1 text-sm text-white transition hover:bg-blue-700"
+                  >
+                    Share…
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
 
       {shareOpen && sharePayload && (
