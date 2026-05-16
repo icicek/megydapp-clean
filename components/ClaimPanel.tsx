@@ -3702,50 +3702,27 @@ export default function ClaimPanel() {
             )}
           </div>
 
-          {/* CHART + FUTURE */}
+          {/* PVC Composition */}
           {data.core_point_breakdown && (
-            <div className="relative z-10 mt-6 grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-              <div className="rounded-[28px] border border-white/10 bg-black/20 p-5">
-                <p className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-300/80">
-                  PVC Composition
-                </p>
+            <div className="relative z-10 mt-6 rounded-[28px] border border-white/10 bg-black/15 px-4 py-5 sm:px-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-300/80">
+                    PVC Composition
+                  </p>
 
-                <div className="mt-5">
-                  <CorePointChart data={data.core_point_breakdown} />
+                  <h4 className="mt-2 text-xl font-black text-white sm:text-2xl">
+                    CorePoint distribution
+                  </h4>
                 </div>
+
+                <p className="max-w-md text-sm leading-6 text-zinc-500 sm:text-right">
+                  Visual breakdown of the contribution sources building your Personal Value Currency.
+                </p>
               </div>
 
-              <div className="rounded-[28px] border border-fuchsia-400/15 bg-gradient-to-br from-fuchsia-500/[0.08] via-black/20 to-cyan-400/[0.06] p-6">
-                <p className="text-[11px] font-black uppercase tracking-[0.3em] text-fuchsia-300/80">
-                  Early Economic Identity
-                </p>
-
-                <h4 className="mt-4 text-3xl font-black leading-tight text-white">
-                  Start early.
-                  <span className="block bg-gradient-to-r from-fuchsia-300 to-cyan-200 bg-clip-text text-transparent">
-                    Build your value before the world arrives.
-                  </span>
-                </h4>
-
-                <p className="mt-5 text-sm leading-7 text-zinc-400">
-                  PVC connects personal contribution with future reputation, access,
-                  influence, Fair Future Fund participation, and new economic utility.
-                </p>
-
-                <div className="mt-6 flex flex-wrap gap-2">
-                  <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-2 text-[11px] font-bold text-zinc-300">
-                    Reputation
-                  </span>
-                  <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-2 text-[11px] font-bold text-zinc-300">
-                    Access
-                  </span>
-                  <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-2 text-[11px] font-bold text-zinc-300">
-                    Influence
-                  </span>
-                  <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-[11px] font-black text-cyan-200">
-                    Fair Future Economy
-                  </span>
-                </div>
+              <div className="mt-5">
+                <CorePointChart data={data.core_point_breakdown} />
               </div>
             </div>
           )}
