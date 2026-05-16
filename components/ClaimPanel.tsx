@@ -3732,27 +3732,9 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.45 }}
-          className="relative mb-5 w-full overflow-hidden rounded-2xl border border-indigo-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 py-5 shadow-[0_0_35px_rgba(129,140,248,0.06)] sm:px-6 sm:py-6"
+          className="relative mb-5 w-full"
         >
-          <div className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-indigo-500/10 blur-3xl" />
-
-          <div className="relative mb-5">
-            <p className="text-[11px] font-black uppercase tracking-[0.28em] text-indigo-300/80">
-              Global Leaderboard
-            </p>
-
-            <h3 className="mt-2 text-2xl font-black tracking-tight text-white">
-              Value Builders Ranking
-            </h3>
-
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
-              See how your Coincarnation identity compares across the emerging Personal Value Currency economy.
-            </p>
-          </div>
-
-          <div className="relative">
-            <Leaderboard referralCode={data.referral_code ?? undefined} />
-          </div>
+          <Leaderboard referralCode={data.referral_code ?? undefined} />
         </motion.section>
       </motion.div>
       {shareOpen && sharePayload && (
