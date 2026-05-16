@@ -49,10 +49,13 @@ export default function CorePointChart({ data }: { data: CorePointBreakdown }) {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full [&_svg_*]:outline-none [&_svg_*:focus]:outline-none [&_svg_*:focus-visible]:outline-none">
       <div className="h-[260px] w-full sm:h-[360px] lg:h-[420px]">
         <ResponsiveContainer width="100%" height="100%">
-          <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+        <PieChart
+          margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+          className="[&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
+        >
             <Pie
               data={chartData}
               dataKey="value"
@@ -64,6 +67,7 @@ export default function CorePointChart({ data }: { data: CorePointBreakdown }) {
               paddingAngle={3}
               stroke="#18181b"
               strokeWidth={2}
+              rootTabIndex={-1}
             >
               {chartData.map((entry) => (
                 <Cell key={entry.name} fill={entry.color} />
