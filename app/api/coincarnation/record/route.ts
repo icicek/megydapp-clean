@@ -21,7 +21,7 @@ import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID 
 import {
   awardUsdPoints,
   awardDeadcoinFirst,
-  awardReferralSignup,
+  awardReferralSignupIdentityAware,
 } from '@/app/api/_lib/corepoints';
 
 // ✅ Destination wallet must exist (server-side guard)
@@ -738,16 +738,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 🔥 Referral CP: sadece YENİ gelen cüzdan için, ve referrer varsa
+    // 🔥 Identity-aware referral reward
     if (isNewParticipant && referrerWallet) {
       try {
-        await awardReferralSignup({
-          referrer: referrerWallet,
-          referee: wallet_address,
-        });
+        const referralResult =
+          await awardReferralSignupIdentityAware({
+            referrer: referrerWallet,
+            referee: wallet_address,
+            referralCode: inboundReferral,
+          });
+
+        console.log(
+          '🎯 referral identity award result:',
+          referralResult
+        );
       } catch (e) {
         console.warn(
-          '⚠️ referral_signup award failed:',
+          '⚠️ referral identity award failed:',
           (e as any)?.message || e,
         );
       }

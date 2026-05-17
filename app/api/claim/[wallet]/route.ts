@@ -2,6 +2,7 @@
 import { neon } from '@neondatabase/serverless';
 import { NextRequest, NextResponse } from 'next/server';
 import { getStatusRow, type TokenStatus } from '@/app/api/_lib/registry';
+import { generateReferralCode } from '@/app/api/utils/generateReferralCode';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
@@ -101,6 +102,7 @@ export async function GET(req: NextRequest) {
     };
     // Identity-aware wallet scope for Personal Value Currency / CorePoint
     // Claim/refund/transaction data remains active-wallet based.
+    let activeIdentityId: string | null = null;
     let corePointWallets: string[] = [wallet];
 
     try {
@@ -113,6 +115,7 @@ export async function GET(req: NextRequest) {
       `) as any[];
 
       const identityId = identityRows?.[0]?.identity_id ?? null;
+      activeIdentityId = identityId ? String(identityId) : null;
 
       if (identityId) {
         const linkedRows = (await sql/* sql */`
@@ -401,6 +404,46 @@ export async function GET(req: NextRequest) {
 
     // Ecosystem-wide share denominator.
     const pvc_share = global_core_point > 0 ? core_point / global_core_point : 0;
+    let identity_referral_code: string | null = null;
+
+    if (activeIdentityId) {
+      const existingIdentityCode = (await sql/* sql */`
+        SELECT referral_code
+        FROM identity_referral_codes
+        WHERE identity_id = ${activeIdentityId}
+        LIMIT 1
+      `) as any[];
+
+      if (existingIdentityCode.length > 0 && existingIdentityCode[0]?.referral_code) {
+        identity_referral_code = String(existingIdentityCode[0].referral_code);
+      } else {
+        identity_referral_code = generateReferralCode();
+
+        await sql/* sql */`
+          INSERT INTO identity_referral_codes (
+            identity_id,
+            referral_code
+          )
+          VALUES (
+            ${activeIdentityId},
+            ${identity_referral_code}
+          )
+          ON CONFLICT (identity_id) DO NOTHING
+        `;
+
+        const insertedIdentityCode = (await sql/* sql */`
+          SELECT referral_code
+          FROM identity_referral_codes
+          WHERE identity_id = ${activeIdentityId}
+          LIMIT 1
+        `) as any[];
+
+        identity_referral_code =
+          insertedIdentityCode?.[0]?.referral_code
+            ? String(insertedIdentityCode[0].referral_code)
+            : identity_referral_code;
+      }
+    }
 
     // -----------------------------
     // Claim truth (snapshot + claims)
@@ -486,7 +529,9 @@ export async function GET(req: NextRequest) {
       data: {
         id: participant.id,
         wallet_address: participant.wallet_address,
-        referral_code: participant.referral_code || null,
+        referral_code: identity_referral_code,
+        legacy_referral_code: participant.referral_code || null,
+        has_identity_referral_code: Boolean(identity_referral_code),
 
         // Keep legacy field but make it meaningful
         claimed: claimed_bool,

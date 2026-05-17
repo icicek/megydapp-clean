@@ -165,6 +165,126 @@ export async function awardReferralSignup({
   return { awarded: pts };
 }
 
+export async function getWalletIdentityScope(wallet: string): Promise<string> {
+  const w = String(wallet || '').trim();
+
+  if (!w) {
+    return 'wallet:unknown';
+  }
+
+  try {
+    const rows = await sql/* sql */`
+      SELECT identity_id
+      FROM identity_wallets
+      WHERE chain = 'solana'
+        AND LOWER(wallet_address) = LOWER(${w})
+      LIMIT 1
+    ` as unknown as { identity_id: string | null }[];
+
+    const identityId = rows?.[0]?.identity_id ?? null;
+
+    if (identityId) {
+      return `identity:${identityId}`;
+    }
+  } catch (e) {
+    console.warn(
+      '[corepoints] getWalletIdentityScope failed, using wallet scope:',
+      (e as any)?.message || e
+    );
+  }
+
+  return `wallet:${w.toLowerCase()}`;
+}
+
+export async function awardReferralSignupIdentityAware({
+  referrer,
+  referee,
+  referralCode,
+}: {
+  referrer: string;
+  referee: string;
+  referralCode?: string | null;
+}) {
+  const referrerWallet = String(referrer || '').trim();
+  const refereeWallet = String(referee || '').trim();
+
+  if (!referrerWallet || !refereeWallet) {
+    return { awarded: 0, reason: 'missing_wallet' };
+  }
+
+  if (referrerWallet.toLowerCase() === refereeWallet.toLowerCase()) {
+    return { awarded: 0, reason: 'self_referral' };
+  }
+
+  const { refSign, mRef } = await getCorepointWeights();
+  const pts = Math.floor(refSign * mRef);
+
+  if (pts <= 0) {
+    return { awarded: 0, reason: 'zero_points' };
+  }
+
+  const referrerScope = await getWalletIdentityScope(referrerWallet);
+  const referredScope = await getWalletIdentityScope(refereeWallet);
+
+  if (referrerScope === referredScope) {
+    return { awarded: 0, reason: 'same_identity' };
+  }
+
+  const existing = await sql/* sql */`
+    SELECT id
+    FROM referral_identity_awards
+    WHERE referrer_scope = ${referrerScope}
+      AND referred_scope = ${referredScope}
+    LIMIT 1
+  ` as unknown as { id: number }[];
+
+  if (existing.length > 0) {
+    return { awarded: 0, reason: 'identity_pair_already_awarded' };
+  }
+
+  const eventRows = await sql/* sql */`
+    INSERT INTO corepoint_events (wallet_address, type, points, ref_wallet, context)
+    VALUES (
+      ${referrerWallet},
+      'referral_signup',
+      ${pts},
+      ${refereeWallet},
+      ${`referral_scope:${referrerScope}->${referredScope}`}
+    )
+    RETURNING id
+  ` as unknown as { id: number }[];
+
+  const corepointEventId = eventRows?.[0]?.id ?? null;
+
+  await sql/* sql */`
+    INSERT INTO referral_identity_awards (
+      referrer_wallet,
+      referrer_scope,
+      referred_wallet,
+      referred_scope,
+      referral_code,
+      corepoint_event_id
+    )
+    VALUES (
+      ${referrerWallet},
+      ${referrerScope},
+      ${refereeWallet},
+      ${referredScope},
+      ${referralCode ?? null},
+      ${corepointEventId}
+    )
+    ON CONFLICT (referrer_scope, referred_scope) DO NOTHING
+  `;
+
+  return {
+    awarded: pts,
+    reason: 'awarded',
+    referrerScope,
+    referredScope,
+    corepointEventId,
+  };
+}
+
 /**
  * Share CorePoint ödülü
  *
