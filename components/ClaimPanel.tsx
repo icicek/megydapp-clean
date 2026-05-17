@@ -2145,27 +2145,34 @@ export default function ClaimPanel() {
 
           <div className="relative grid grid-cols-1 items-stretch gap-4 md:grid-cols-3">
             <div
-              className="group relative flex h-[130px] cursor-pointer flex-col overflow-hidden rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4 transition hover:border-cyan-300/40 hover:bg-cyan-400/15"
+              className="group relative flex h-[130px] cursor-pointer flex-col overflow-hidden rounded-2xl border border-blue-400/20 bg-blue-500/[0.08] p-4 transition hover:border-blue-300/40 hover:bg-blue-500/[0.14]"
               onClick={() => {
                 if (!data?.wallet_address) return;
+
                 navigator.clipboard.writeText(data.wallet_address);
+
                 setCopiedTarget('wallet');
+
                 setTimeout(() => setCopiedTarget(null), 2000);
               }}
             >
-              <span className="absolute right-4 top-4 text-white/30 transition group-hover:text-cyan-200">
+              <div className="absolute inset-0 opacity-0 transition group-hover:opacity-100">
+                <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-blue-300/20 blur-2xl" />
+              </div>
+
+              <span className="absolute right-4 top-4 text-white/30 transition group-hover:text-blue-100">
                 <Copy className="h-4 w-4" />
               </span>
 
-              <p className="text-xs font-bold uppercase tracking-wide text-cyan-200/70">
+              <p className="relative text-xs font-bold uppercase tracking-wide text-blue-200/70">
                 Wallet Address
               </p>
 
-              <p className="mt-2 truncate pr-8 font-mono text-sm font-black text-cyan-100">
+              <p className="relative mt-2 truncate pr-8 font-mono text-sm font-black text-blue-100">
                 {shorten(data.wallet_address)}
               </p>
 
-              <p className="mt-auto line-clamp-2 text-xs leading-5 text-cyan-100/60">
+              <p className="relative mt-auto line-clamp-2 text-xs leading-5 text-blue-100/60">
                 Click to copy your active wallet.
               </p>
 
