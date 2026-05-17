@@ -2184,12 +2184,21 @@ export default function ClaimPanel() {
             </div>
 
             <div
-              className="group relative flex h-[130px] cursor-pointer flex-col overflow-hidden rounded-2xl border border-fuchsia-400/20 bg-fuchsia-400/10 p-4 transition hover:border-fuchsia-300/40 hover:bg-fuchsia-400/15"
+              className={[
+                'group relative flex h-[130px] flex-col overflow-hidden rounded-2xl border p-4 transition',
+                data?.referral_code
+                  ? 'cursor-pointer border-fuchsia-400/20 bg-fuchsia-400/10 hover:border-fuchsia-300/40 hover:bg-fuchsia-400/15'
+                  : 'cursor-default border-zinc-700/60 bg-zinc-900/60',
+              ].join(' ')}
               onClick={() => {
                 if (!data?.referral_code) return;
+
                 const url = buildReferralUrl(data.referral_code ?? '');
+
                 navigator.clipboard.writeText(url);
+
                 setCopiedTarget('referral');
+
                 setTimeout(() => setCopiedTarget(null), 2000);
               }}
             >
@@ -2197,23 +2206,48 @@ export default function ClaimPanel() {
                 <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-fuchsia-300/20 blur-2xl" />
               </div>
 
-              <span className="absolute right-4 top-4 text-white/30 transition group-hover:text-fuchsia-100">
-                <Copy className="h-4 w-4" />
-              </span>
+              {data?.referral_code ? (
+                <span className="absolute right-4 top-4 text-white/30 transition group-hover:text-fuchsia-100">
+                  <Copy className="h-4 w-4" />
+                </span>
+              ) : (
+                <span className="absolute right-4 top-4 rounded-full border border-zinc-700 bg-black/20 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                  Locked
+                </span>
+              )}
 
-              <p className="relative text-xs font-bold uppercase tracking-wide text-fuchsia-200/70">
+              <p
+                className={[
+                  'relative text-xs font-bold uppercase tracking-wide',
+                  data?.referral_code ? 'text-fuchsia-200/70' : 'text-zinc-500',
+                ].join(' ')}
+              >
                 Referral Code
               </p>
 
-              <p className="relative mt-2 truncate pr-8 font-mono text-lg font-black text-fuchsia-100">
-                {data.referral_code || '-'}
+              <p
+                className={[
+                  'relative mt-2 truncate pr-8 font-mono font-black',
+                  data?.referral_code
+                    ? 'text-lg text-fuchsia-100'
+                    : 'text-sm text-zinc-300',
+                ].join(' ')}
+              >
+                {data?.referral_code || 'Identity required'}
               </p>
 
-              <p className="relative mt-auto line-clamp-2 text-xs leading-5 text-fuchsia-100/60">
-                Copy your invite link.
+              <p
+                className={[
+                  'relative mt-auto line-clamp-2 text-xs leading-5',
+                  data?.referral_code ? 'text-fuchsia-100/60' : 'text-zinc-500',
+                ].join(' ')}
+              >
+                {data?.referral_code
+                  ? 'Copy your identity referral link.'
+                  : 'Activate your Coincarnation Identity to unlock your referral code.'}
               </p>
 
-              {copiedTarget === 'referral' && (
+              {copiedTarget === 'referral' && data?.referral_code && (
                 <p className="absolute right-4 top-10 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300 backdrop-blur-sm">
                   ✅ Copied
                 </p>
