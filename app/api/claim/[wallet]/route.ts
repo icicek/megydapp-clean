@@ -276,23 +276,29 @@ export async function GET(req: NextRequest) {
     `;
     const total_coins_contributed = parseInt((totalCoinsResult[0] as any).total_coins_contributed || '0', 10);
 
-    // Distinct deadcoin contracts revived (display)
-    const deadcoinRows = (await sql/* sql */`
-      SELECT DISTINCT token_contract, usd_value
-      FROM contributions
-      WHERE wallet_address = ${wallet}
-        AND token_contract IS NOT NULL;
-    `) as any[];
+    // Distinct deadcoin contracts revived (identity-aware)
+    let deadcoins_revived = 0;
 
-    const deadcoinSet = new Set<string>();
-    for (const row of deadcoinRows) {
-      const usd = Number(row.usd_value ?? 0);
-      const mint = row.token_contract as string | null;
-      if (!mint) continue;
-      const isDead = await isDeadcoinForMegy(mint, usd, statusCacheSelf);
-      if (isDead) deadcoinSet.add(mint);
+    try {
+      const deadcoinScope = activeIdentityId
+        ? `identity:${activeIdentityId}`
+        : `wallet:${wallet.toLowerCase()}`;
+
+      const deadcoinAwardRows = await sql/* sql */`
+        SELECT COUNT(DISTINCT token_contract)::int AS count
+        FROM deadcoin_identity_awards
+        WHERE identity_scope = ${deadcoinScope}
+      `;
+
+      deadcoins_revived = Number(deadcoinAwardRows?.[0]?.count || 0);
+    } catch (e) {
+      console.warn(
+        '[claim] deadcoin identity count failed:',
+        (e as any)?.message || e
+      );
+
+      deadcoins_revived = 0;
     }
-    const deadcoins_revived = deadcoinSet.size;
 
     // Transactions history
     const transactionsRaw = await sql`

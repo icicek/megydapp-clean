@@ -104,40 +104,84 @@ export async function awardDeadcoinFirst({
   tokenContract: string;
   txId?: string | null;
 }) {
+  const walletAddress = String(wallet || '').trim();
+  const contract = String(tokenContract || '').trim();
+
+  if (!walletAddress || !contract) {
+    return { awarded: 0, reason: 'missing_wallet_or_token' };
+  }
+
   const { deadFirst, mDead } = await getCorepointWeights();
   const pts = Math.floor(deadFirst * mDead);
+
   if (pts <= 0) {
-    return { awarded: 0 };
+    return { awarded: 0, reason: 'zero_points' };
   }
 
-  // 1) İdempotent kontrol:
-  //    Aynı (wallet, type='deadcoin_first', token_contract) zaten varsa
-  //    tekrar puan VERME.
-  const seen = (await sql/* sql */ `
-    SELECT 1
-    FROM corepoint_events
-    WHERE wallet_address = ${wallet}
-      AND type           = 'deadcoin_first'
-      AND token_contract = ${tokenContract}
+  const identityScope = await getWalletIdentityScope(walletAddress);
+
+  const existing = (await sql/* sql */`
+    SELECT id
+    FROM deadcoin_identity_awards
+    WHERE identity_scope = ${identityScope}
+      AND token_contract = ${contract}
     LIMIT 1
-  `) as unknown as any[];
+  `) as unknown as { id: number }[];
 
-  if (seen.length > 0) {
-    // Daha önce bu cüzdan + bu deadcoin kontratı için bonus verilmiş
-    return { awarded: 0 };
+  if (existing.length > 0) {
+    return {
+      awarded: 0,
+      reason: 'identity_token_already_awarded',
+      identityScope,
+      tokenContract: contract,
+    };
   }
 
-  // 2) Sadece corepoint_events'e kayıt aç
-  await sql/* sql */ `
-    INSERT INTO corepoint_events (wallet_address, type, points, token_contract, tx_id)
-    VALUES (${wallet}, 'deadcoin_first', ${pts}, ${tokenContract}, ${txId ?? null})
+  const eventRows = (await sql/* sql */`
+    INSERT INTO corepoint_events (
+      wallet_address,
+      type,
+      points,
+      token_contract,
+      tx_id,
+      context
+    )
+    VALUES (
+      ${walletAddress},
+      'deadcoin_first',
+      ${pts},
+      ${contract},
+      ${txId ?? null},
+      ${`deadcoin_scope:${identityScope}`}
+    )
+    RETURNING id
+  `) as unknown as { id: number }[];
+
+  const corepointEventId = eventRows?.[0]?.id ?? null;
+
+  await sql/* sql */`
+    INSERT INTO deadcoin_identity_awards (
+      identity_scope,
+      wallet_address,
+      token_contract,
+      corepoint_event_id
+    )
+    VALUES (
+      ${identityScope},
+      ${walletAddress},
+      ${contract},
+      ${corepointEventId}
+    )
+    ON CONFLICT (identity_scope, token_contract) DO NOTHING
   `;
 
-  // ❗ participants.core_point artık "source of truth" değil.
-  //    Tüm toplamlar corepoint_events üzerinden hesaplanıyor.
-  //    Bu yüzden burada participants.core_point'i güncellemiyoruz.
-
-  return { awarded: pts };
+  return {
+    awarded: pts,
+    reason: 'awarded',
+    identityScope,
+    tokenContract: contract,
+    corepointEventId,
+  };
 }
 
 export async function awardReferralSignup({
