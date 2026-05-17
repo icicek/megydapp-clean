@@ -2621,174 +2621,6 @@ export default function ClaimPanel() {
               <p className="mt-1 text-xs text-zinc-500">
                 Select a finalized phase, choose destination, and claim your MEGY.
               </p>
-
-              {/* 🧬 Snapshot Timeline */}
-              {Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 0 && (() => {
-                const phases = finalizedClaim.finalized_by_phase
-                  .slice()
-                  .map((p: any) => ({
-                    pid: Number(p?.phase_id ?? p?.phaseId ?? 0),
-                    phaseNo: Number(p?.phase_no ?? p?.phaseNo ?? 0) || null,
-                    phaseName: p?.phase_name ?? p?.phaseName ?? null,
-                    created: p?.created_at ?? p?.snapshot_taken_at ?? p?.createdAt ?? null,
-                    claimable: Number(p?.claimable_megy ?? p?.claimable ?? p?.claimableMegy ?? 0),
-                    claimed: Number(p?.claimed_megy ?? p?.claimed ?? p?.claimedMegy ?? 0),
-                  }))
-                  .filter((x: any) => Number.isFinite(x.pid) && x.pid > 0)
-                  .sort((a: any, b: any) => b.pid - a.pid);
-
-                const options: number[] = Array.from(new Set(phases.map((x: any) => x.pid)));
-
-                const activePid =
-                  (selectedPhaseId != null && options.includes(selectedPhaseId))
-                    ? selectedPhaseId
-                    : (options[0] ?? null);
-
-                const ordered =
-                  activePid
-                    ? [
-                        ...phases.filter((x: any) => x.pid === activePid),
-                        ...phases.filter((x: any) => x.pid !== activePid),
-                      ]
-                    : phases;
-
-                return (
-                  <div className="border-b border-white/10 pb-5 mb-5 text-sm">
-                    <div className="flex flex-col gap-3 mb-3 min-w-0">
-                      <div>
-                        <p className="text-[11px] font-black uppercase tracking-[0.28em] text-violet-300/80">
-                          Select Phase
-                        </p>
-                        <p className="mt-1 text-xs text-zinc-500">
-                          Select the finalized snapshot you want to claim from.
-                        </p>
-                      </div>
-
-                      <div className="w-full sm:w-auto flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
-                        <span className="text-xs font-semibold text-violet-200/70 shrink-0">Select phase</span>
-
-                        <select
-                          value={activePid ? String(activePid) : ''}
-                          onChange={(e) => {
-                            const raw = e.target.value;
-                            const v = Number(raw);
-                            setSelectedPhaseId(raw === '' ? null : (Number.isFinite(v) ? v : null));
-                          }}
-                          disabled={options.length === 0}
-                          className="w-full sm:w-44 bg-zinc-900 border border-zinc-600 text-white text-xs rounded-md px-2 py-2 sm:py-1 disabled:opacity-50"
-                        >
-                          <option value="">Latest finalized snapshot</option>
-                          {options.map((pid) => {
-                            const row = phases.find((x: any) => x.pid === pid);
-                            const label =
-                              row?.phaseName
-                                ? String(row.phaseName)
-                                : row?.phaseNo
-                                  ? `Phase ${row.phaseNo}`
-                                  : `Phase`;
-
-                            return (
-                              <option key={pid} value={String(pid)}>
-                                {label}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
-                      {ordered.map((p: any) => {
-                        const isSelected = activePid != null && p.pid === activePid;
-
-                        return (
-                          <button
-                            type="button"
-                            key={p.pid}
-                            onClick={() => setSelectedPhaseId(p.pid)}
-                            aria-pressed={isSelected}
-                            className={[
-                              "w-full text-left rounded-2xl border px-4 py-3 flex flex-col gap-3 transition min-w-0 focus:outline-none focus:ring-2 focus:ring-violet-300/40 sm:flex-row sm:items-start sm:justify-between",
-                              isSelected
-                                ? "border-emerald-400/40 bg-emerald-400/10 shadow-[0_0_0_1px_rgba(52,211,153,0.25)]"
-                                : "border-zinc-700 bg-zinc-900/20 hover:bg-zinc-800/40",
-                            ].join(" ")}
-                          >
-                            <div className="text-gray-300 min-w-0 w-full sm:w-auto">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="text-white font-semibold truncate">
-                                  {p.phaseName ? String(p.phaseName) : (p.phaseNo ? `Phase ${p.phaseNo}` : `Phase`)}
-                                </span>
-
-                                {isSelected && (
-                                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300 shrink-0">
-                                    Selected
-                                  </span>
-                                )}
-
-                                {(() => {
-                                  const phaseClaimable = Number(p.claimable || 0);
-                                  const phaseClaimed = Number(p.claimed || 0);
-
-                                  if (phaseClaimable <= 0 && phaseClaimed > 0) {
-                                    return (
-                                      <span className="rounded-full border border-zinc-400/20 bg-zinc-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-zinc-300 shrink-0">
-                                        Fully Claimed
-                                      </span>
-                                    );
-                                  }
-
-                                  if (phaseClaimed > 0 && phaseClaimable > 0) {
-                                    return (
-                                      <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-200 shrink-0">
-                                        Partial
-                                      </span>
-                                    );
-                                  }
-
-                                  return (
-                                    <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-cyan-200 shrink-0">
-                                      Ready
-                                    </span>
-                                  );
-                                })()}
-                              </div>
-
-                              {p.created ? (
-                                <div className="text-xs text-gray-500">{formatDate(String(p.created))}</div>
-                              ) : null}
-                            </div>
-
-                            <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:block sm:text-right sm:shrink-0">
-                              <div className="text-xs text-gray-400 flex items-center justify-end gap-1">
-                                Claimable
-                                {isSelected && (
-                                  <span
-                                    className="ml-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-gray-300 border border-white/10"
-                                    title="This claimable value belongs to the selected finalized snapshot phase."
-                                  >
-                                    info
-                                  </span>
-                                )}
-                              </div>
-                              <div className="font-semibold text-purple-300">
-                                {Math.floor(p.claimable).toLocaleString()}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {ordered.length > 4 && (
-                      <div className="mt-2 flex items-center justify-center sm:hidden">
-                        <span className="animate-pulse text-[11px] font-semibold tracking-wide text-cyan-300/70">
-                          Scroll for more ↓
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
             </div>
 
             <p className="relative text-sm font-semibold text-gray-300">
@@ -3016,7 +2848,173 @@ export default function ClaimPanel() {
             )}
           </div>
 
-          
+          {/* 🧬 Snapshot Timeline */}
+          {Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 0 && (() => {
+            const phases = finalizedClaim.finalized_by_phase
+              .slice()
+              .map((p: any) => ({
+                pid: Number(p?.phase_id ?? p?.phaseId ?? 0),
+                phaseNo: Number(p?.phase_no ?? p?.phaseNo ?? 0) || null,
+                phaseName: p?.phase_name ?? p?.phaseName ?? null,
+                created: p?.created_at ?? p?.snapshot_taken_at ?? p?.createdAt ?? null,
+                claimable: Number(p?.claimable_megy ?? p?.claimable ?? p?.claimableMegy ?? 0),
+                claimed: Number(p?.claimed_megy ?? p?.claimed ?? p?.claimedMegy ?? 0),
+              }))
+              .filter((x: any) => Number.isFinite(x.pid) && x.pid > 0)
+              .sort((a: any, b: any) => b.pid - a.pid);
+
+            const options: number[] = Array.from(new Set(phases.map((x: any) => x.pid)));
+
+            const activePid =
+              (selectedPhaseId != null && options.includes(selectedPhaseId))
+                ? selectedPhaseId
+                : (options[0] ?? null);
+
+            const ordered =
+              activePid
+                ? [
+                    ...phases.filter((x: any) => x.pid === activePid),
+                    ...phases.filter((x: any) => x.pid !== activePid),
+                  ]
+                : phases;
+
+            return (
+              <div className="border-b border-white/10 pb-5 mb-5 text-sm">
+                <div className="flex flex-col gap-3 mb-3 min-w-0">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.28em] text-violet-300/80">
+                      Snapshot Timeline
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Select the finalized snapshot you want to claim from.
+                    </p>
+                  </div>
+
+                  <div className="w-full sm:w-auto flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
+                    <span className="text-xs font-semibold text-violet-200/70 shrink-0">Select phase</span>
+
+                    <select
+                      value={activePid ? String(activePid) : ''}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const v = Number(raw);
+                        setSelectedPhaseId(raw === '' ? null : (Number.isFinite(v) ? v : null));
+                      }}
+                      disabled={options.length === 0}
+                      className="w-full sm:w-44 bg-zinc-900 border border-zinc-600 text-white text-xs rounded-md px-2 py-2 sm:py-1 disabled:opacity-50"
+                    >
+                      <option value="">Latest finalized snapshot</option>
+                      {options.map((pid) => {
+                        const row = phases.find((x: any) => x.pid === pid);
+                        const label =
+                          row?.phaseName
+                            ? String(row.phaseName)
+                            : row?.phaseNo
+                              ? `Phase ${row.phaseNo}`
+                              : `Phase`;
+
+                        return (
+                          <option key={pid} value={String(pid)}>
+                            {label}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
+                  {ordered.map((p: any) => {
+                    const isSelected = activePid != null && p.pid === activePid;
+
+                    return (
+                      <button
+                        type="button"
+                        key={p.pid}
+                        onClick={() => setSelectedPhaseId(p.pid)}
+                        aria-pressed={isSelected}
+                        className={[
+                          "w-full text-left rounded-2xl border px-4 py-3 flex flex-col gap-3 transition min-w-0 focus:outline-none focus:ring-2 focus:ring-violet-300/40 sm:flex-row sm:items-start sm:justify-between",
+                          isSelected
+                            ? "border-emerald-400/40 bg-emerald-400/10 shadow-[0_0_0_1px_rgba(52,211,153,0.25)]"
+                            : "border-zinc-700 bg-zinc-900/20 hover:bg-zinc-800/40",
+                        ].join(" ")}
+                      >
+                        <div className="text-gray-300 min-w-0 w-full sm:w-auto">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-white font-semibold truncate">
+                              {p.phaseName ? String(p.phaseName) : (p.phaseNo ? `Phase ${p.phaseNo}` : `Phase`)}
+                            </span>
+
+                            {isSelected && (
+                              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300 shrink-0">
+                                Selected
+                              </span>
+                            )}
+
+                            {(() => {
+                              const phaseClaimable = Number(p.claimable || 0);
+                              const phaseClaimed = Number(p.claimed || 0);
+
+                              if (phaseClaimable <= 0 && phaseClaimed > 0) {
+                                return (
+                                  <span className="rounded-full border border-zinc-400/20 bg-zinc-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-zinc-300 shrink-0">
+                                    Fully Claimed
+                                  </span>
+                                );
+                              }
+
+                              if (phaseClaimed > 0 && phaseClaimable > 0) {
+                                return (
+                                  <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-200 shrink-0">
+                                    Partial
+                                  </span>
+                                );
+                              }
+
+                              return (
+                                <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-cyan-200 shrink-0">
+                                  Ready
+                                </span>
+                              );
+                            })()}
+                          </div>
+
+                          {p.created ? (
+                            <div className="text-xs text-gray-500">{formatDate(String(p.created))}</div>
+                          ) : null}
+                        </div>
+
+                        <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:block sm:text-right sm:shrink-0">
+                          <div className="text-xs text-gray-400 flex items-center justify-end gap-1">
+                            Claimable
+                            {isSelected && (
+                              <span
+                                className="ml-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-gray-300 border border-white/10"
+                                title="This claimable value belongs to the selected finalized snapshot phase."
+                              >
+                                info
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-semibold text-purple-300">
+                            {Math.floor(p.claimable).toLocaleString()}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                {ordered.length > 4 && (
+                  <div className="mt-2 flex items-center justify-center sm:hidden">
+                    <span className="animate-pulse text-[11px] font-semibold tracking-wide text-cyan-300/70">
+                      Scroll for more ↓
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           <motion.div
             className="mt-8 flex flex-col items-center justify-center"
