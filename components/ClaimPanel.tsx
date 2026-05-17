@@ -2145,7 +2145,7 @@ export default function ClaimPanel() {
 
           <div className="relative grid grid-cols-1 items-stretch gap-4 md:grid-cols-3">
             <div
-              className="group relative flex h-[130px] cursor-pointer flex-col rounded-2xl border border-white/10 bg-black/25 p-4 transition hover:border-cyan-300/30 hover:bg-cyan-400/10"
+              className="group relative flex h-[130px] cursor-pointer flex-col overflow-hidden rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4 transition hover:border-cyan-300/40 hover:bg-cyan-400/15"
               onClick={() => {
                 if (!data?.wallet_address) return;
                 navigator.clipboard.writeText(data.wallet_address);
@@ -2157,15 +2157,15 @@ export default function ClaimPanel() {
                 <Copy className="h-4 w-4" />
               </span>
 
-              <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
+              <p className="text-xs font-bold uppercase tracking-wide text-cyan-200/70">
                 Wallet Address
               </p>
 
-              <p className="mt-2 truncate pr-8 font-mono text-sm font-semibold text-white">
+              <p className="mt-2 truncate pr-8 font-mono text-sm font-black text-cyan-100">
                 {shorten(data.wallet_address)}
               </p>
 
-              <p className="mt-auto line-clamp-2 text-xs leading-5 text-zinc-500">
+              <p className="mt-auto line-clamp-2 text-xs leading-5 text-cyan-100/60">
                 Click to copy your active wallet.
               </p>
 
