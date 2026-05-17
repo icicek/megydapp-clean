@@ -2256,13 +2256,15 @@ export default function ClaimPanel() {
 
             <div className="flex h-[130px] flex-col rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
               <p className="text-xs font-bold uppercase tracking-wide text-emerald-200/70">
-                Referrals Brought
+                Referred Identities
               </p>
+
               <p className="mt-2 text-3xl font-black text-emerald-200">
                 {String(data.referral_count ?? 0)}
               </p>
+
               <p className="mt-auto line-clamp-2 text-xs leading-5 text-emerald-100/60">
-                Coincarne actions through your referral.
+                Unique new identities activated through your referral.
               </p>
             </div>
 

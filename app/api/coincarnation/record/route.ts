@@ -21,7 +21,6 @@ import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID 
 import {
   awardUsdPoints,
   awardDeadcoinFirst,
-  awardReferralSignupIdentityAware,
 } from '@/app/api/_lib/corepoints';
 
 // ✅ Destination wallet must exist (server-side guard)
@@ -667,19 +666,44 @@ export async function POST(req: NextRequest) {
       if (existing.length === 0) {
         isNewParticipant = true;
 
-        // inboundReferral varsa referrer wallet'ı bul
+        // inboundReferral varsa referrer wallet'ı identity-first çöz
         if (inboundReferral) {
-          const ref = await sql`
-            SELECT wallet_address
-            FROM participants
-            WHERE referral_code = ${inboundReferral}
+          // 1) Identity referral codes — new system
+          const identityReferralRows = await sql/* sql */`
+            SELECT
+              irc.identity_id,
+              iw.wallet_address
+            FROM identity_referral_codes irc
+            JOIN identity_wallets iw
+              ON iw.identity_id = irc.identity_id
+            AND iw.is_primary = true
+            AND iw.chain = 'solana'
+            WHERE LOWER(irc.referral_code) = LOWER(${inboundReferral})
             LIMIT 1
           `;
+
           if (
-            ref.length > 0 &&
-            ref[0].wallet_address !== wallet_address
+            identityReferralRows.length > 0 &&
+            String(identityReferralRows[0].wallet_address).toLowerCase() !==
+              String(wallet_address).toLowerCase()
           ) {
-            referrerWallet = ref[0].wallet_address;
+            referrerWallet = String(identityReferralRows[0].wallet_address);
+          } else {
+            // 2) Legacy participant referral codes — fallback
+            const legacyReferralRows = await sql/* sql */`
+              SELECT wallet_address
+              FROM participants
+              WHERE LOWER(referral_code) = LOWER(${inboundReferral})
+              LIMIT 1
+            `;
+
+            if (
+              legacyReferralRows.length > 0 &&
+              String(legacyReferralRows[0].wallet_address).toLowerCase() !==
+                String(wallet_address).toLowerCase()
+            ) {
+              referrerWallet = String(legacyReferralRows[0].wallet_address);
+            }
           }
         }
 
@@ -738,26 +762,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 🔥 Identity-aware referral reward
+    // Referral CP is awarded only after the referred wallet creates a NEW identity.
+    // Transaction recording only stores referral metadata on participants/contributions.
     if (isNewParticipant && referrerWallet) {
-      try {
-        const referralResult =
-          await awardReferralSignupIdentityAware({
-            referrer: referrerWallet,
-            referee: wallet_address,
-            referralCode: inboundReferral,
-          });
-
-        console.log(
-          '🎯 referral identity award result:',
-          referralResult
-        );
-      } catch (e) {
-        console.warn(
-          '⚠️ referral identity award failed:',
-          (e as any)?.message || e,
-        );
-      }
+      console.log('🧭 referral metadata stored; identity reward pending:', {
+        referrerWallet,
+        refereeWallet: wallet_address,
+        referralCode: inboundReferral,
+      });
     }
 
     // ——— Contributions için referral metadata ———

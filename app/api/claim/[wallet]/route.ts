@@ -187,11 +187,29 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 2) Referrals count
-    const referralResult = await sql`
-      SELECT COUNT(*) FROM contributions WHERE referrer_wallet = ${wallet};
-    `;
-    const referral_count = parseInt((referralResult[0] as any).count || '0', 10);
+    // 2) Referred identities count (identity-aware)
+    let referral_count = 0;
+
+    try {
+      const referralScope = activeIdentityId
+        ? `identity:${activeIdentityId}`
+        : `wallet:${wallet.toLowerCase()}`;
+
+      const referralResult = await sql/* sql */`
+        SELECT COUNT(*)::int AS count
+        FROM referral_identity_awards
+        WHERE referrer_scope = ${referralScope}
+      `;
+
+      referral_count = Number(referralResult?.[0]?.count || 0);
+    } catch (e) {
+      console.warn(
+        '[claim] referral identity count failed:',
+        (e as any)?.message || e
+      );
+
+      referral_count = 0;
+    }
 
     // Referral USD contributions (exclude deadcoin for MEGY)
     const referralRows = (await sql/* sql */`

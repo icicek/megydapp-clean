@@ -10,6 +10,7 @@ import {
     USER_AUTH_COOKIE,
 } from '@/app/api/_lib/user-auth';
 import { recalculateIdentityScores } from '@/app/api/_lib/identity-score';
+import { awardReferralSignupIdentityAware } from '@/app/api/_lib/corepoints';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,6 +91,7 @@ export async function POST(req: NextRequest) {
     `;
 
         let identityId: string;
+        let wasNewIdentity = false;
 
         if (walletRows.length > 0) {
             identityId = walletRows[0].identity_id;
@@ -103,6 +105,8 @@ export async function POST(req: NextRequest) {
           AND chain = 'solana'
       `;
         } else {
+            wasNewIdentity = true;
+
             const identityRows = await sql`
         INSERT INTO identities (
           primary_wallet_address,
@@ -156,6 +160,40 @@ export async function POST(req: NextRequest) {
           ${JSON.stringify({ chain: 'solana' })}::jsonb
         )
       `;
+        }
+
+        if (wasNewIdentity) {
+            try {
+                const pendingReferralRows = await sql`
+                SELECT
+                  referrer_wallet,
+                  referral_code
+                FROM contributions
+                WHERE LOWER(wallet_address) = LOWER(${walletAddress})
+                  AND referrer_wallet IS NOT NULL
+                ORDER BY "timestamp" ASC
+                LIMIT 1
+              `;
+
+                const pendingReferral = pendingReferralRows?.[0];
+
+                if (pendingReferral?.referrer_wallet) {
+                    const referralResult = await awardReferralSignupIdentityAware({
+                        referrer: String(pendingReferral.referrer_wallet),
+                        referee: walletAddress,
+                        referralCode: pendingReferral.referral_code
+                            ? String(pendingReferral.referral_code)
+                            : null,
+                    });
+
+                    console.log('[auth/verify] referral identity award result:', referralResult);
+                }
+            } catch (e) {
+                console.warn(
+                    '[auth/verify] referral identity award failed:',
+                    (e as any)?.message || e
+                );
+            }
         }
 
         try {
