@@ -2876,7 +2876,7 @@ export default function ClaimPanel() {
                 <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-pink-300/80">
                   Claim Amount
                 </p>
-                <div className="mb-4 grid grid-cols-3 gap-3 text-xs">
+                <div className="mb-4 grid grid-cols-1 gap-3 text-xs sm:grid-cols-3">
                   <div className="rounded-xl border border-white/10 bg-black/20 p-3">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                       Already Claimed
@@ -3015,14 +3015,14 @@ export default function ClaimPanel() {
             )}
 
             {claimOpen && claimAmountNumber > 0 && !claimAmountInvalid && !claimAmountExceeds && (
-              <div className="rounded-2xl border border-purple-400/15 bg-purple-400/[0.05] px-4 py-3 text-xs">
-                <p className="font-black uppercase tracking-[0.22em] text-purple-200/70">
+              <div className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.07] px-4 py-3 text-xs shadow-[0_0_25px_rgba(251,191,36,0.08)]">
+                <p className="font-black uppercase tracking-[0.22em] text-amber-200/80">
                   Claim Summary
                 </p>
 
                 <p className="mt-2 leading-6 text-zinc-300">
                   You are about to claim{' '}
-                  <span className="font-black text-purple-200">
+                  <span className="font-black text-amber-200">
                     {Math.floor(claimAmountNumber).toLocaleString()} MEGY
                   </span>{' '}
                   from{' '}
