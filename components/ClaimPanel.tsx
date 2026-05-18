@@ -2614,12 +2614,13 @@ export default function ClaimPanel() {
 
           {/* 💳 Claim controls */}
           <div className="relative space-y-3">
-            <div className="relative">
+            <div className="relative rounded-2xl border border-pink-400/15 bg-pink-400/[0.04] px-4 py-4">
               <p className="text-[11px] font-black uppercase tracking-[0.28em] text-pink-300/80">
                 Claim Execution
               </p>
-              <p className="mt-1 text-xs text-zinc-500">
-                Select a finalized phase, choose destination, and claim your MEGY.
+
+              <p className="mt-1 text-xs leading-5 text-zinc-400">
+                Choose a finalized phase below, then confirm destination and claim amount.
               </p>
             </div>
 
@@ -2848,7 +2849,7 @@ export default function ClaimPanel() {
             )}
           </div>
 
-          {/* 🧬 Snapshot Timeline */}
+          {/* 🧬 Select Phase */}
           {Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 0 && (() => {
             const phases = finalizedClaim.finalized_by_phase
               .slice()
@@ -2883,10 +2884,10 @@ export default function ClaimPanel() {
                 <div className="flex flex-col gap-3 mb-3 min-w-0">
                   <div>
                     <p className="text-[11px] font-black uppercase tracking-[0.28em] text-violet-300/80">
-                      Snapshot Timeline
+                      Select Phase
                     </p>
                     <p className="mt-1 text-xs text-zinc-500">
-                      Select the finalized snapshot you want to claim from.
+                      Choose the finalized phase you want to claim from.
                     </p>
                   </div>
 
