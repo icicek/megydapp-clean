@@ -2806,6 +2806,10 @@ export default function ClaimPanel() {
                                   Selected
                                 </span>
                               )}
+                              
+                              <span className="rounded-full border border-violet-400/20 bg-violet-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-violet-200 shrink-0">
+                                Finalized
+                              </span>
 
                               {(() => {
                                 const phaseClaimable = Number(p.claimable || 0);
