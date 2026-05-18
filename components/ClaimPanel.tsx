@@ -2614,13 +2614,13 @@ export default function ClaimPanel() {
 
           {/* 💳 Claim controls */}
           <div className="relative space-y-3">
-            <div className="relative rounded-2xl border border-pink-400/15 bg-pink-400/[0.04] px-4 py-4">
+            <div className="relative border-b border-white/10 pb-4">
               <p className="text-[11px] font-black uppercase tracking-[0.28em] text-pink-300/80">
                 Claim Execution
               </p>
 
               <p className="mt-1 text-xs leading-5 text-zinc-400">
-                Choose a finalized phase below, then confirm destination and claim amount.
+                Choose destination, select phase, confirm amount, and claim your MEGY.
               </p>
             </div>
 
@@ -2691,7 +2691,7 @@ export default function ClaimPanel() {
                 <div className="mb-4 grid grid-cols-2 gap-3 text-xs">
                   <div className="rounded-xl border border-white/10 bg-black/20 p-3">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                      Selected Phase
+                      Claim Amount
                     </p>
 
                     <p className="mt-1 font-black text-purple-200">
@@ -2701,7 +2701,7 @@ export default function ClaimPanel() {
 
                   <div className="rounded-xl border border-white/10 bg-black/20 p-3">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                      Total Available
+                      Phase Total
                     </p>
 
                     <p className="mt-1 font-black text-purple-200">
