@@ -2692,13 +2692,19 @@ export default function ClaimPanel() {
                     )}
                   </button>
                 ) : (
-                  <input
-                    type="text"
-                    value={altAddress}
-                    onChange={(e) => setAltAddress(e.target.value)}
-                    placeholder="Enter custom wallet address"
-                    className="relative w-full rounded-xl border border-pink-400/20 bg-black/30 p-3 font-mono text-sm text-white outline-none transition focus:border-pink-300/60"
-                  />
+                  <>
+                    <input
+                      type="text"
+                      value={altAddress}
+                      onChange={(e) => setAltAddress(e.target.value)}
+                      placeholder="Enter custom wallet address"
+                      className="relative w-full rounded-xl border border-pink-400/20 bg-black/30 p-3 font-mono text-sm text-white outline-none transition focus:border-pink-300/60"
+                    />
+                
+                    <p className="mt-2 text-[11px] leading-5 text-amber-200/70">
+                      Funds sent to a custom wallet cannot be reversed. Please verify the address carefully.
+                    </p>
+                  </>
                 )}
               </div>
             </div>
@@ -2806,7 +2812,6 @@ export default function ClaimPanel() {
                                   Selected
                                 </span>
                               )}
-                              
                               <span className="rounded-full border border-violet-400/20 bg-violet-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-violet-200 shrink-0">
                                 Finalized
                               </span>
