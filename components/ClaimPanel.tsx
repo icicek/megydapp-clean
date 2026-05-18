@@ -2802,8 +2802,8 @@ export default function ClaimPanel() {
                           ].join(" ")}
                         >
                           <div className="text-gray-300 min-w-0 w-full sm:w-auto">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-white font-semibold truncate">
+                            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+                              <span className="max-w-full truncate text-white font-semibold sm:max-w-[220px]">
                                 {p.phaseName ? String(p.phaseName) : (p.phaseNo ? `Phase ${p.phaseNo}` : `Phase`)}
                               </span>
 
