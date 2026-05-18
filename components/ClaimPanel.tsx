@@ -2926,6 +2926,51 @@ export default function ClaimPanel() {
                   </div>
                 </div>
 
+                {selectedPhaseTotal > 0 && (
+                  <div className="mb-4 rounded-xl border border-white/10 bg-black/20 p-3">
+                    {(() => {
+                      const alreadyClaimed = Number(
+                        selectedPhaseSnapshot?.claimed_megy ??
+                          selectedPhaseSnapshot?.claimed ??
+                          0
+                      );
+
+                      const progress = Math.min(
+                        100,
+                        Math.max(0, (alreadyClaimed / selectedPhaseTotal) * 100)
+                      );
+
+                      return (
+                        <>
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                              Claim Progress
+                            </p>
+
+                            <p className="text-xs font-black text-zinc-300">
+                              {progress.toFixed(1)}% claimed
+                            </p>
+                          </div>
+
+                          <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                            <div
+                              className={[
+                                'h-full rounded-full transition-all duration-500',
+                                progress >= 90
+                                  ? 'bg-red-400'
+                                  : progress >= 50
+                                    ? 'bg-amber-300'
+                                    : 'bg-emerald-300',
+                              ].join(' ')}
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+
                 {selectedClaimable > 0 && (
                   <div className="space-y-2">
                     <div className="grid grid-cols-3 gap-2 text-xs font-black">
