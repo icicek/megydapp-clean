@@ -707,6 +707,21 @@ export default function ClaimPanel() {
   selectedPhaseRow?.phaseName ||
   'Selected snapshot';
 
+  const selectedPhaseSnapshot = Array.isArray(finalizedClaim?.finalized_by_phase)
+    ? finalizedClaim.finalized_by_phase.find((p: any) => {
+        const pid = Number(p?.phase_id ?? p?.phaseId ?? 0);
+        return effectivePhaseId ? pid === Number(effectivePhaseId) : false;
+      })
+    : null;
+
+  const selectedPhaseTotal =
+    Number(selectedPhaseSnapshot?.finalized_megy ?? 0) ||
+    Number(selectedPhaseSnapshot?.finalizedMegy ?? 0) ||
+    (
+      Number(selectedPhaseSnapshot?.claimed_megy ?? selectedPhaseSnapshot?.claimed ?? 0) +
+      Number(selectedPhaseSnapshot?.claimable_megy ?? selectedPhaseSnapshot?.claimable ?? selectedClaimable ?? 0)
+    );
+
   async function tryStartSessionWithoutFee(wallet: string, destination: string) {
     const r = await fetch('/api/claim/session/start', {
       method: 'POST',
@@ -2614,7 +2629,7 @@ export default function ClaimPanel() {
 
           {/* 💳 Claim controls */}
           <div className="relative space-y-3">
-            <div className="relative border-b border-white/10 pb-4">
+            <div className="relative pb-2">
               <p className="text-[11px] font-black uppercase tracking-[0.28em] text-pink-300/80">
                 Claim Execution
               </p>
@@ -2876,7 +2891,7 @@ export default function ClaimPanel() {
                     </p>
 
                     <p className="mt-1 font-black text-purple-200">
-                      {Math.floor(Number(finalizedClaim?.claimable_megy_total ?? 0)).toLocaleString()} MEGY
+                      {Math.floor(Number(selectedPhaseTotal ?? 0)).toLocaleString()} MEGY
                     </p>
                   </div>
                 </div>
