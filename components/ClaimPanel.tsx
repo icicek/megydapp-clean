@@ -1745,6 +1745,8 @@ export default function ClaimPanel() {
   const claimAmountInvalid =
     !isClaimAmountEmpty && (!Number.isFinite(amtNum) || amtNum <= 0);
 
+  const claimAmountNumber = Number(claimAmount || 0);
+
   const claimAmountExceeds =
     Number.isFinite(amtNum) && amtNum > selectedClaimable;
 
@@ -2874,7 +2876,7 @@ export default function ClaimPanel() {
                 <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-pink-300/80">
                   Claim Amount
                 </p>
-                <div className="mb-4 grid grid-cols-2 gap-3 text-xs">
+                <div className="mb-4 grid grid-cols-3 gap-3 text-xs">
                   <div className="rounded-xl border border-white/10 bg-black/20 p-3">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                       Already Claimed
@@ -2899,6 +2901,28 @@ export default function ClaimPanel() {
                     <p className="mt-1 font-black text-purple-200">
                       {Math.floor(Number(selectedPhaseTotal ?? 0)).toLocaleString()} MEGY
                     </p>
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                      Available To Claim
+                    </p>
+
+                    <p className="mt-1 font-black text-emerald-200">
+                      {Math.floor(selectedClaimable).toLocaleString()} MEGY
+                    </p>
+
+                    {claimAmountNumber > 0 && (
+                      <p className="mt-1 text-[10px] text-zinc-500">
+                        Remaining after claim:{' '}
+                        <span className="font-semibold text-zinc-300">
+                          {Math.max(
+                            0,
+                            Math.floor(selectedClaimable - claimAmountNumber)
+                          ).toLocaleString()} MEGY
+                        </span>
+                      </p>
+                    )}
                   </div>
                 </div>
 
