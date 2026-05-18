@@ -2905,7 +2905,7 @@ export default function ClaimPanel() {
 
                   <div className="rounded-xl border border-white/10 bg-black/20 p-3">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                      Available To Claim
+                      Still Claimable
                     </p>
 
                     <p className="mt-1 font-black text-emerald-200">
@@ -2996,17 +2996,46 @@ export default function ClaimPanel() {
                     {claimDisabledReason && selectedClaimable > 0 && (
                       <p
                         className={[
-                          'text-center text-xs',
+                          'text-center text-xs transition',
                           claimAmountExceeds || claimAmountInvalid || destinationAddressInvalid
                             ? 'text-red-300'
+                            : isClaimAmountEmpty
+                            ? 'text-zinc-500'
                             : 'text-yellow-300',
                         ].join(' ')}
                       >
-                        ⚠️ {claimDisabledReason}
+                        {isClaimAmountEmpty
+                          ? 'Select how much MEGY you want to claim.'
+                          : `⚠️ ${claimDisabledReason}`}
                       </p>
                     )}
                   </div>
                 )}
+              </div>
+            )}
+
+            {claimOpen && claimAmountNumber > 0 && !claimAmountInvalid && !claimAmountExceeds && (
+              <div className="rounded-2xl border border-purple-400/15 bg-purple-400/[0.05] px-4 py-3 text-xs">
+                <p className="font-black uppercase tracking-[0.22em] text-purple-200/70">
+                  Claim Summary
+                </p>
+
+                <p className="mt-2 leading-6 text-zinc-300">
+                  You are about to claim{' '}
+                  <span className="font-black text-purple-200">
+                    {Math.floor(claimAmountNumber).toLocaleString()} MEGY
+                  </span>{' '}
+                  from{' '}
+                  <span className="font-semibold text-white">
+                    {selectedPhaseSnapshot?.phase_name ||
+                      selectedPhaseSnapshot?.phaseName ||
+                      'selected phase'}
+                  </span>{' '}
+                  to{' '}
+                  <span className="font-mono font-semibold text-emerald-200">
+                    {useAltAddress ? shorten(altAddress) : publicKey ? shorten(publicKey.toBase58()) : '-'}
+                  </span>.
+                </p>
               </div>
             )}
 
