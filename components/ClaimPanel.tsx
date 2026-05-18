@@ -2982,7 +2982,7 @@ export default function ClaimPanel() {
 
                 {selectedClaimable > 0 && (
                   <div className="space-y-2">
-                    <div className="grid grid-cols-3 gap-2 text-xs font-black">
+                    <div className="grid grid-cols-3 gap-3 text-xs font-black">
                       <button
                         type="button"
                         disabled={!claimOpen || isClaiming || selectedClaimable <= 0}
@@ -3014,7 +3014,7 @@ export default function ClaimPanel() {
                           setClaimAmount(String(Math.floor(selectedClaimable * 0.5)));
                         }}
                       >
-                        50%
+                        HALF
                       </button>
 
                       <button
@@ -3031,7 +3031,7 @@ export default function ClaimPanel() {
                           setClaimAmount(String(Math.floor(selectedClaimable)));
                         }}
                       >
-                        100%
+                        MAX
                       </button>
                     </div>
                     <input
@@ -3107,7 +3107,15 @@ export default function ClaimPanel() {
                     disabled={claimDisabled}
                     className="w-full rounded-2xl border border-pink-300/30 bg-gradient-to-r from-purple-600 via-fuchsia-500 to-pink-500 py-3.5 text-sm font-black text-white shadow-[0_0_30px_rgba(236,72,153,0.18)] transition-all hover:scale-[1.01] hover:shadow-[0_0_40px_rgba(236,72,153,0.28)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
                   >
-                    {claimButtonLabel}
+                    <div className="flex items-center justify-center gap-2">
+                      {isClaiming && (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      )}
+
+                      <span>
+                        {claimButtonLabel}
+                      </span>
+                    </div>
                   </button>
 
                   {claimOpen && effectivePhaseId && selectedClaimable > 0 && (
