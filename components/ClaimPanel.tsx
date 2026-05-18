@@ -3039,9 +3039,17 @@ export default function ClaimPanel() {
                       inputMode="numeric"
                       value={claimAmount}
                       onChange={(e) => {
-                        const v = e.target.value.replace(/[^\d]/g, '');
+                        const raw = e.target.value.replace(/[^\d]/g, '');
+                      
+                        const numeric = Number(raw || 0);
+                      
+                        const capped = Math.min(
+                          numeric,
+                          Math.floor(selectedClaimable)
+                        );
+                      
                         setSelectedClaimPercent(null);
-                        setClaimAmount(v);
+                        setClaimAmount(capped > 0 ? String(capped) : '');
                       }}
                       placeholder="Enter amount to claim"
                       className="w-full rounded-xl border border-pink-400/20 bg-black/30 p-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60"
