@@ -2877,11 +2877,17 @@ export default function ClaimPanel() {
                 <div className="mb-4 grid grid-cols-2 gap-3 text-xs">
                   <div className="rounded-xl border border-white/10 bg-black/20 p-3">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                      Claim Amount
+                      Already Claimed
                     </p>
 
                     <p className="mt-1 font-black text-purple-200">
-                      {Math.floor(selectedClaimable).toLocaleString()} MEGY
+                      {Math.floor(
+                        Number(
+                          selectedPhaseSnapshot?.claimed_megy ??
+                          selectedPhaseSnapshot?.claimed ??
+                          0
+                        )
+                      ).toLocaleString()} MEGY
                     </p>
                   </div>
 
@@ -3057,8 +3063,6 @@ export default function ClaimPanel() {
               </div>
             )}
           </div>
-
-          
 
           <motion.div
             className="mt-8 flex flex-col items-center justify-center"
