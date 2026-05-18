@@ -2624,67 +2624,90 @@ export default function ClaimPanel() {
               </p>
             </div>
 
-            <p className="relative text-sm font-semibold text-gray-300">
-              Claim To Address
-            </p>
+            <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.04] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-200/70">
+                    Destination Wallet
+                  </p>
 
-            {!useAltAddress ? (
-              <button
-                type="button"
-                onClick={() => {
-                  const address = publicKey?.toBase58();
-                  if (!address) return;
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Select where your claimed MEGY will be sent.
+                  </p>
+                </div>
 
-                  navigator.clipboard.writeText(address);
-                  setCopiedTarget('wallet');
-                  setTimeout(() => setCopiedTarget(null), 2000);
-                }}
-                className="relative w-full rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-left font-mono text-sm text-emerald-200 break-all transition hover:border-emerald-300/40 hover:bg-emerald-400/15"
-                title="Click to copy destination address"
-              >
-                {publicKey?.toBase58()}
+                <label className="flex items-center gap-2 text-[11px] font-semibold text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={useAltAddress}
+                    onChange={(e) => {
+                      setUseAltAddress(e.target.checked);
+                      setAltAddress('');
+                    }}
+                    className="accent-pink-500"
+                  />
 
-                {copiedTarget === 'wallet' && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300 backdrop-blur-sm">
-                    ✅ Copied
-                  </span>
+                  <span>Custom</span>
+                </label>
+              </div>
+
+              <div className="mt-4">
+                {!useAltAddress ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const address = publicKey?.toBase58();
+                      if (!address) return;
+
+                      navigator.clipboard.writeText(address);
+                      setCopiedTarget('wallet');
+                      setTimeout(() => setCopiedTarget(null), 2000);
+                    }}
+                    className="relative w-full rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-left font-mono text-sm text-emerald-200 break-all transition hover:border-emerald-300/40 hover:bg-emerald-400/15"
+                    title="Click to copy destination address"
+                  >
+                    {publicKey?.toBase58()}
+
+                    {copiedTarget === 'wallet' && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300 backdrop-blur-sm">
+                        ✅ Copied
+                      </span>
+                    )}
+                  </button>
+                ) : (
+                  <input
+                    type="text"
+                    value={altAddress}
+                    onChange={(e) => setAltAddress(e.target.value)}
+                    placeholder="Enter custom wallet address"
+                    className="relative w-full rounded-xl border border-pink-400/20 bg-black/30 p-3 font-mono text-sm text-white outline-none transition focus:border-pink-300/60"
+                  />
                 )}
-              </button>
-            ) : (
-              <input
-                type="text"
-                value={altAddress}
-                onChange={(e) => setAltAddress(e.target.value)}
-                placeholder="Enter custom wallet address"
-                className="relative w-full rounded-xl border border-pink-400/20 bg-black/30 p-3 font-mono text-sm text-white outline-none transition focus:border-pink-300/60"
-              />
-            )}
-
-            <label className="flex items-center space-x-2 text-sm text-gray-300 mt-1">
-              <input
-                type="checkbox"
-                checked={useAltAddress}
-                onChange={(e) => {
-                  setUseAltAddress(e.target.checked);
-                  setAltAddress('');
-                }}
-                className="accent-pink-500"
-              />
-              <span>I want to claim to a different address</span>
-            </label>
+              </div>
+            </div>
 
             {claimOpen && (
-              <div className="space-y-2">
-                <div className="text-xs text-gray-400 text-center -mt-1">
-                  Claiming is <span className="text-white/80 font-semibold">per-phase</span>.{' '}
-                  Selected:{' '}
-                  <span className="text-purple-300 font-semibold">
-                    {Math.floor(selectedClaimable).toLocaleString()}
-                  </span>{' '}
-                  — Total:{' '}
-                  <span className="text-purple-300 font-semibold">
-                    {Math.floor(Number(finalizedClaim?.claimable_megy_total ?? 0)).toLocaleString()}
-                  </span>
+              <div className="rounded-2xl border border-pink-400/15 bg-pink-400/[0.04] p-4">
+                <div className="mb-4 grid grid-cols-2 gap-3 text-xs">
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                      Selected Phase
+                    </p>
+
+                    <p className="mt-1 font-black text-purple-200">
+                      {Math.floor(selectedClaimable).toLocaleString()} MEGY
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                      Total Available
+                    </p>
+
+                    <p className="mt-1 font-black text-purple-200">
+                      {Math.floor(Number(finalizedClaim?.claimable_megy_total ?? 0)).toLocaleString()} MEGY
+                    </p>
+                  </div>
                 </div>
 
                 {selectedClaimable > 0 && (
