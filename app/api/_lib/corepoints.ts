@@ -593,3 +593,93 @@ export async function reverseContributionCorepoints(opts: {
     reversedDeadcoin: deadPts,
   };
 }
+
+export async function reverseDeadcoinIdentityAwardsForBlacklist({
+  mint,
+  changedBy,
+  reason,
+}: {
+  mint: string;
+  changedBy?: string | null;
+  reason?: string | null;
+}) {
+  const tokenContract = String(mint || '').trim();
+
+  if (!tokenContract) {
+    return {
+      reversedCount: 0,
+      reversedPoints: 0,
+      reason: 'missing_mint',
+    };
+  }
+
+  const awards = (await sql/* sql */`
+    SELECT
+      dia.id,
+      dia.identity_scope,
+      dia.wallet_address,
+      dia.token_contract,
+      dia.corepoint_event_id,
+      COALESCE(cpe.points, 0)::int AS original_points,
+      cpe.tx_id
+    FROM deadcoin_identity_awards dia
+    LEFT JOIN corepoint_events cpe
+      ON cpe.id = dia.corepoint_event_id
+    WHERE dia.token_contract = ${tokenContract}
+  `) as unknown as {
+    id: number;
+    identity_scope: string;
+    wallet_address: string;
+    token_contract: string;
+    corepoint_event_id: number | null;
+    original_points: number;
+    tx_id: string | null;
+  }[];
+
+  let reversedCount = 0;
+  let reversedPoints = 0;
+
+  for (const award of awards) {
+    const pts = Math.max(0, Number(award.original_points || 0));
+    if (pts <= 0) continue;
+
+    const context = `deadcoin_blacklist:${award.identity_scope}:${tokenContract}`;
+
+    const inserted = (await sql/* sql */`
+      INSERT INTO corepoint_events (
+        wallet_address,
+        type,
+        points,
+        token_contract,
+        tx_id,
+        context
+      )
+      SELECT
+        ${award.wallet_address},
+        'deadcoin_blacklist_reversal',
+        ${-pts},
+        ${tokenContract},
+        ${award.tx_id ?? null},
+        ${context}
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM corepoint_events
+        WHERE type = 'deadcoin_blacklist_reversal'
+          AND token_contract = ${tokenContract}
+          AND context = ${context}
+      )
+      RETURNING id
+    `) as unknown as { id: number }[];
+
+    if (inserted.length > 0) {
+      reversedCount += 1;
+      reversedPoints += pts;
+    }
+  }
+
+  return {
+    reversedCount,
+    reversedPoints,
+    tokenContract,
+  };
+}

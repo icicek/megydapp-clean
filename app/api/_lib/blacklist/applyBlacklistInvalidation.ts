@@ -1,6 +1,9 @@
 //app/api/_lib/blacklist/applyBlacklistInvalidation.ts
 import { sql } from '@/app/api/_lib/db';
-import { reverseContributionCorepoints } from '@/app/api/_lib/corepoints';
+import {
+  reverseContributionCorepoints,
+  reverseDeadcoinIdentityAwardsForBlacklist,
+} from '@/app/api/_lib/corepoints';
 
 type ApplyBlacklistInvalidationArgs = {
   mint: string;
@@ -16,6 +19,12 @@ type ApplyBlacklistInvalidationResult = {
   touchedPhaseIds: number[];
   invalidatedContributionCount: number;
   invalidationRowsUpserted: number;
+  deadcoinReversal?: {
+    reversedCount: number;
+    reversedPoints: number;
+    tokenContract?: string;
+    reason?: string;
+  };
 };
 
 function num(v: unknown, def = 0): number {
@@ -37,6 +46,11 @@ export async function applyBlacklistInvalidation(
 
   try {
     await sql`BEGIN`;
+    const deadcoinReversal = await reverseDeadcoinIdentityAwardsForBlacklist({
+      mint,
+      changedBy,
+      reason,
+    });
 
     /**
      * 1) Open-phase allocations for this mint
@@ -122,6 +136,7 @@ export async function applyBlacklistInvalidation(
         touchedPhaseIds: [],
         invalidatedContributionCount: 0,
         invalidationRowsUpserted: 0,
+        deadcoinReversal,
       };
     }
 
@@ -343,6 +358,7 @@ export async function applyBlacklistInvalidation(
       touchedPhaseIds,
       invalidatedContributionCount: touchedContributionIds.length,
       invalidationRowsUpserted,
+      deadcoinReversal,
     };
   } catch (e) {
     try {

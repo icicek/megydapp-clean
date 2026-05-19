@@ -25,6 +25,7 @@ function asNum(v: any, d = 0) {
 }
 
 export async function POST(req: NextRequest) {
+  return bad('CLAIM_RECORD_BATCH_LEGACY_DISABLED', 410);
   const sql = neon(process.env.DATABASE_URL!);
 
   let body: Body;

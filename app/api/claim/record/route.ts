@@ -18,6 +18,13 @@ type Body = {
 
 export async function POST(req: NextRequest) {
   try {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'CLAIM_RECORD_LEGACY_DISABLED',
+      },
+      { status: 410 }
+    );
     await requireAppEnabled();
     await requireClaimOpen();
 

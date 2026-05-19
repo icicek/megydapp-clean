@@ -132,7 +132,12 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const identityId = String((identityGuard as any).identityId || '').trim();
+  const identityId = String(
+    (identityGuard as any).identityId ||
+    (identityGuard as any).identity_id ||
+    (identityGuard as any).identity?.id ||
+    ''
+  ).trim();
 
   if (!identityId) {
     return json(403, {
@@ -257,6 +262,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const sessionFeeSignature = hasPhaseFeeCredit && !sig ? null : sig;
+  const sessionFeeAmount = hasPhaseFeeCredit && !sig ? 0 : EXPECTED_FEE_LAMPORTS;
+
   // 5) Create session
   try {
     const rows = await sql`
@@ -275,8 +283,8 @@ export async function POST(req: NextRequest) {
         ${destination},
         ${phaseId},
         'open',
-        ${sig},
-        ${EXPECTED_FEE_LAMPORTS},
+        ${sessionFeeSignature},
+        ${sessionFeeAmount},
         now(),
         0
       )

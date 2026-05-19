@@ -1666,7 +1666,7 @@ export default function ClaimPanel() {
         body: JSON.stringify({
           wallet_address: wallet,
           destination,
-          phase_id: effectivePhaseId,
+          phase_id: phaseId,
           fee_tx_signature: feeSig,
           fee_amount: FEE_LAMPORTS,
         }),
@@ -4285,6 +4285,9 @@ function userFriendlyError(msg: string) {
   }
   if (m === 'SESSION_DESTINATION_MISMATCH') {
     return 'Claim destination changed during the session. Please start the claim again.';
+  }
+  if (m === 'SESSION_PHASE_MISMATCH') {
+    return 'Selected claim phase changed during the session. Please start the claim again.';
   }
   if (m === 'SESSION_NOT_OPEN') {
     return 'Your claim session is no longer active. Please start again.';

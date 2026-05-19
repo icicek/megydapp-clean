@@ -74,6 +74,9 @@ export async function GET(req: NextRequest) {
 
     // -----------------------------
     // ESTIMATE (legacy) — katkılardan hesap
+    // NOTE:
+    // This estimate is informational only.
+    // Actual claim truth comes from claim_snapshots + claims.
     // (UI kırılmasın diye aynen korunuyor)
     // -----------------------------
     const [userTotalRes, userEligibleRes, globalEligibleRes] = await Promise.all([
