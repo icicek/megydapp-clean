@@ -203,7 +203,7 @@ export async function GET(req: NextRequest) {
         : `wallet:${wallet.toLowerCase()}`;
 
       const referralResult = await sql/* sql */`
-        SELECT COUNT(*)::int AS count
+        SELECT COUNT(DISTINCT referred_scope)::int AS count
         FROM referral_identity_awards
         WHERE referrer_scope = ${referralScope}
       `;
