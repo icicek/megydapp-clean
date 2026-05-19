@@ -727,7 +727,11 @@ export default function ClaimPanel() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ wallet_address: wallet, destination }),
+      body: JSON.stringify({
+        wallet_address: wallet,
+        destination,
+        phase_id: effectivePhaseId,
+      }),
     });
 
     const j: any = await r.json().catch(() => ({}));
@@ -1662,6 +1666,7 @@ export default function ClaimPanel() {
         body: JSON.stringify({
           wallet_address: wallet,
           destination,
+          phase_id: effectivePhaseId,
           fee_tx_signature: feeSig,
           fee_amount: FEE_LAMPORTS,
         }),

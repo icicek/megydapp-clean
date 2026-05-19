@@ -29,8 +29,9 @@ const SESSION_MAX_AGE_MINUTES = Number(process.env.CLAIM_SESSION_MAX_AGE_MINUTES
 type Body = {
   wallet_address: string;
   destination: string;
+  phase_id?: number;
   fee_tx_signature?: string;
-  fee_amount?: number; // optional / informational only
+  fee_amount?: number;
 };
 
 function json(status: number, data: any) {
@@ -110,6 +111,12 @@ export async function POST(req: NextRequest) {
   const destination = String(body.destination ?? '').trim();
   const sig = String(body.fee_tx_signature ?? '').trim();
 
+  const phaseId = Number(body.phase_id ?? 0);
+
+  if (!Number.isInteger(phaseId) || phaseId <= 0) {
+    return json(400, { success: false, error: 'BAD_PHASE_ID' });
+  }
+
   if (!wallet || !destination) return json(400, { success: false, error: 'MISSING_FIELDS' });
 
   if (!isBase58Pubkey(wallet) || !isBase58Pubkey(destination) || !isBase58Pubkey(TREASURY.toBase58())) {
@@ -125,6 +132,15 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const identityId = String((identityGuard as any).identityId || '').trim();
+
+  if (!identityId) {
+    return json(403, {
+      success: false,
+      error: 'IDENTITY_REQUIRED',
+    });
+  }
+
   const MEGY_MINT = String(process.env.MEGY_MINT || '').trim();
 
   if (!MEGY_MINT) {
@@ -135,12 +151,31 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // 0) If this identity already paid the fee for this phase, no new fee is required.
+  let hasPhaseFeeCredit = false;
+
+  try {
+    const creditRows = await sql`
+      SELECT id
+      FROM claim_fee_credits
+      WHERE identity_id = ${identityId}
+        AND phase_id = ${phaseId}
+      LIMIT 1
+    `;
+
+    hasPhaseFeeCredit = creditRows.length > 0;
+  } catch (e) {
+    console.error('claim fee credit check failed:', e);
+    return json(500, { success: false, error: 'DB_ERROR_FEE_CREDIT_CHECK' });
+  }
+
   // 1) Reuse open session (wallet-based)
   try {
     const open = await sql`
       SELECT id, destination, opened_at
       FROM claim_sessions
       WHERE wallet_address = ${wallet}
+        AND phase_id = ${phaseId}
         AND status = 'open'
         AND opened_at > now() - (${SESSION_MAX_AGE_MINUTES} || ' minutes')::interval
       ORDER BY opened_at DESC
@@ -164,8 +199,10 @@ export async function POST(req: NextRequest) {
     return json(500, { success: false, error: 'DB_ERROR_SELECT_OPEN_SESSION' });
   }
 
-  // 2) No open session => fee required
-  if (!sig) return json(400, { success: false, error: 'MISSING_FEE_SIGNATURE' });
+  // 2) No open session => fee required only if identity has no phase fee credit
+  if (!hasPhaseFeeCredit && !sig) {
+    return json(400, { success: false, error: 'MISSING_FEE_SIGNATURE' });
+  }
 
   // 3) Fee signature must be unique (prevent replay)
   try {
@@ -181,17 +218,41 @@ export async function POST(req: NextRequest) {
     return json(500, { success: false, error: 'DB_ERROR_SIGNATURE_CHECK' });
   }
 
-  // 4) Verify fee transfer on-chain (server expected amount)
-  try {
-    await verifyFeeTransfer({
-      signature: sig,
-      payer: wallet,
-      treasury: TREASURY,
-      expectedLamports: EXPECTED_FEE_LAMPORTS,
-    });
-  } catch (e: any) {
-    const msg = String(e?.message ?? 'FEE_VERIFY_FAILED');
-    return json(400, { success: false, error: msg });
+  // 4) Verify fee transfer on-chain and create identity-phase fee credit if needed
+  if (!hasPhaseFeeCredit) {
+    try {
+      await verifyFeeTransfer({
+        signature: sig,
+        payer: wallet,
+        treasury: TREASURY,
+        expectedLamports: EXPECTED_FEE_LAMPORTS,
+      });
+
+      await sql`
+        INSERT INTO claim_fee_credits (
+          identity_id,
+          phase_id,
+          payer_wallet,
+          destination,
+          fee_tx_signature,
+          fee_amount
+        )
+        VALUES (
+          ${identityId},
+          ${phaseId},
+          ${wallet},
+          ${destination},
+          ${sig},
+          ${EXPECTED_FEE_LAMPORTS}
+        )
+        ON CONFLICT (identity_id, phase_id) DO NOTHING
+      `;
+
+      hasPhaseFeeCredit = true;
+    } catch (e: any) {
+      const msg = String(e?.message ?? 'FEE_VERIFY_FAILED');
+      return json(400, { success: false, error: msg });
+    }
   }
 
   // 5) Create session
@@ -200,6 +261,7 @@ export async function POST(req: NextRequest) {
       INSERT INTO claim_sessions (
         wallet_address,
         destination,
+        phase_id,
         status,
         fee_tx_signature,
         fee_amount,
@@ -209,6 +271,7 @@ export async function POST(req: NextRequest) {
       VALUES (
         ${wallet},
         ${destination},
+        ${phaseId},
         'open',
         ${sig},
         ${EXPECTED_FEE_LAMPORTS},
@@ -232,6 +295,7 @@ export async function POST(req: NextRequest) {
           SELECT id
           FROM claim_sessions
           WHERE wallet_address = ${wallet}
+            AND phase_id = ${phaseId}
             AND status = 'open'
           ORDER BY opened_at DESC
           LIMIT 1
