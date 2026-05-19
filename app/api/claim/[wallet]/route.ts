@@ -218,42 +218,71 @@ export async function GET(req: NextRequest) {
       referral_count = 0;
     }
 
-    // Referral USD contributions (exclude deadcoin for MEGY)
+    // Referral USD contributions (identity-wide; exclude deadcoin for MEGY)
+    // Reward logic is NOT changed here. This only affects profile/stat aggregation.
     const referralRows = (await sql/* sql */`
-      SELECT id, token_contract, usd_value
-      FROM contributions
-      WHERE referrer_wallet = ${wallet};
+      SELECT
+        c.id,
+        c.token_contract,
+        c.usd_value,
+        COALESCE(inv.invalidated_usd, 0)::float AS invalidated_usd
+      FROM contributions c
+      LEFT JOIN (
+        SELECT
+          contribution_id,
+          COALESCE(SUM(invalidated_usd), 0)::float AS invalidated_usd
+        FROM contribution_invalidations
+        GROUP BY contribution_id
+      ) inv
+        ON inv.contribution_id = c.id
+      WHERE c.referrer_wallet = ANY(${corePointWallets});
     `) as any[];
 
     const statusCacheRef = new Map<string, TokenStatus | null>();
     let referral_usd_contributions = 0;
+
     for (const row of referralRows) {
-      const contributionId = Number(row.id);
-      const inv = invalidationMap.get(contributionId);
       const rawUsd = Number(row.usd_value ?? 0);
-      const effectiveUsd = Math.max(rawUsd - Number(inv?.invalidated_usd ?? 0), 0);
+      const effectiveUsd = Math.max(rawUsd - Number(row.invalidated_usd ?? 0), 0);
 
       const mint = row.token_contract as string | null;
       const isDead = await isDeadcoinForMegy(mint, effectiveUsd, statusCacheRef);
+
       if (!isDead) referral_usd_contributions += effectiveUsd;
     }
 
-    // Referral deadcoin distinct count
+    // Referral deadcoin distinct count (identity-wide)
     const referralDeadcoinRows = (await sql/* sql */`
-      SELECT DISTINCT c.token_contract, c.usd_value
+      SELECT
+        c.token_contract,
+        c.usd_value,
+        COALESCE(inv.invalidated_usd, 0)::float AS invalidated_usd
       FROM contributions c
-      WHERE c.referrer_wallet = ${wallet}
+      LEFT JOIN (
+        SELECT
+          contribution_id,
+          COALESCE(SUM(invalidated_usd), 0)::float AS invalidated_usd
+        FROM contribution_invalidations
+        GROUP BY contribution_id
+      ) inv
+        ON inv.contribution_id = c.id
+      WHERE c.referrer_wallet = ANY(${corePointWallets})
         AND c.token_contract IS NOT NULL;
     `) as any[];
 
     const referralDeadcoinSet = new Set<string>();
+
     for (const row of referralDeadcoinRows) {
-      const usd = Number(row.usd_value ?? 0);
+      const rawUsd = Number(row.usd_value ?? 0);
+      const effectiveUsd = Math.max(rawUsd - Number(row.invalidated_usd ?? 0), 0);
+
       const mint = row.token_contract as string | null;
       if (!mint) continue;
-      const isDead = await isDeadcoinForMegy(mint, usd, statusCacheRef);
+
+      const isDead = await isDeadcoinForMegy(mint, effectiveUsd, statusCacheRef);
       if (isDead) referralDeadcoinSet.add(mint);
     }
+
     const referral_deadcoin_count = referralDeadcoinSet.size;
 
     // Self contributions eligible USD (exclude deadcoin)
