@@ -104,18 +104,25 @@ export async function GET(req: NextRequest) {
     // Claim/refund/transaction data remains active-wallet based.
     let activeIdentityId: string | null = null;
     let corePointWallets: string[] = [wallet];
+    let identityCoincarnatorNo: number | null = null;
 
     try {
       const identityRows = (await sql/* sql */`
-        SELECT identity_id
-        FROM identity_wallets
-        WHERE chain = 'solana'
+        SELECT iw.identity_id, i.coincarnator_no
+        FROM identity_wallets iw
+        JOIN identities i
+          ON i.id = iw.identity_id
+        WHERE iw.chain = 'solana'
           AND LOWER(wallet_address) = LOWER(${wallet})
         LIMIT 1;
       `) as any[];
 
       const identityId = identityRows?.[0]?.identity_id ?? null;
       activeIdentityId = identityId ? String(identityId) : null;
+      identityCoincarnatorNo =
+        identityRows?.[0]?.coincarnator_no != null
+          ? Number(identityRows[0].coincarnator_no)
+          : null;
 
       if (identityId) {
         const linkedRows = (await sql/* sql */`
@@ -551,7 +558,8 @@ export async function GET(req: NextRequest) {
       success: true,
       phase_id: requestedPhaseId ?? null,
       data: {
-        id: participant.id,
+        id: identityCoincarnatorNo ?? '-',
+        legacy_participant_id: participant.id,
         wallet_address: participant.wallet_address,
         referral_code: identity_referral_code,
         legacy_referral_code: participant.referral_code || null,
