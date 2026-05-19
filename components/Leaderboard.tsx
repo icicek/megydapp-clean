@@ -254,7 +254,7 @@ export default function Leaderboard({ referralCode }: Props) {
                 <thead>
                   <tr className="border-b border-white/10 bg-zinc-800/60 text-center backdrop-blur-sm">
                     <th className="w-[80px] px-2 py-2">Rank</th>
-                    <th className="px-4 py-2">Identity</th>
+                    <th className="px-4 py-2 text-left">Identity</th>
                     <th className="px-4 py-2">Wallets</th>
                     <th className="px-4 py-2">CorePoint</th>
                   </tr>

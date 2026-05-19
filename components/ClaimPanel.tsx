@@ -84,6 +84,41 @@ const asBool = (v: unknown): boolean => {
   return false;
 };
 
+const MEGY_DECIMALS = 6;
+
+function formatMegyAmount(value: unknown): string {
+  const n = Number(value ?? 0);
+
+  if (!Number.isFinite(n) || n <= 0) return '0';
+
+  if (n > 0 && n < 0.000001) return '<0.000001';
+
+  return n.toLocaleString(undefined, {
+    maximumFractionDigits: MEGY_DECIMALS,
+  });
+}
+
+function normalizeClaimInput(rawValue: string, max: number): string {
+  const cleaned = rawValue
+    .replace(/[^\d.]/g, '')
+    .replace(/(\..*)\./g, '$1');
+
+  const [whole = '', decimal = ''] = cleaned.split('.');
+  const normalized =
+    cleaned.includes('.')
+      ? `${whole}.${decimal.slice(0, MEGY_DECIMALS)}`
+      : whole;
+
+  const numeric = Number(normalized || 0);
+  if (!Number.isFinite(numeric) || numeric <= 0) return '';
+
+  const capped = Math.min(numeric, Math.max(0, max));
+
+  return capped > 0
+    ? String(Number(capped.toFixed(MEGY_DECIMALS)))
+    : '';
+}
+
 function getRefundUiState(tx: any): {
   badge: string | null;
   showRefundButton: boolean;
@@ -674,7 +709,7 @@ export default function ClaimPanel() {
 
   const claimableMegy =
     claimableFromFinalized != null
-      ? Math.floor(claimableFromFinalized)
+      ? claimableFromFinalized
       : 0;
 
   const finalizedTotal = Number(finalizedClaim?.finalized_megy_total ?? 0);
@@ -1776,7 +1811,7 @@ export default function ClaimPanel() {
     if (isClaimAmountEmpty) return 'Enter an amount to continue.';
     if (claimAmountInvalid) return 'Enter a valid positive amount.';
     if (claimAmountExceeds) {
-      return `Amount exceeds selected snapshot balance. Max: ${Math.floor(selectedClaimable).toLocaleString()} MEGY.`;
+      return `Amount exceeds selected snapshot balance. Max: ${formatMegyAmount(selectedClaimable)} MEGY.`;
     }
     if (useAltAddress && !altAddressRaw) return 'Enter destination wallet address.';
     if (destinationAddressInvalid) return 'Destination address is not a valid Solana wallet.';
@@ -2913,7 +2948,7 @@ export default function ClaimPanel() {
                     </p>
 
                     <p className="mt-1 font-black text-purple-200">
-                      {Math.floor(Number(selectedPhaseTotal ?? 0)).toLocaleString()} MEGY
+                      {formatMegyAmount(selectedPhaseTotal)} MEGY
                     </p>
                   </div>
 
@@ -2923,7 +2958,7 @@ export default function ClaimPanel() {
                     </p>
 
                     <p className="mt-1 font-black text-emerald-200">
-                      {Math.floor(selectedClaimable).toLocaleString()} MEGY
+                      {formatMegyAmount(selectedClaimable)} MEGY
                     </p>
 
                     {claimAmountNumber > 0 && (
@@ -3016,7 +3051,7 @@ export default function ClaimPanel() {
                         ].join(' ')}
                         onClick={() => {
                           setSelectedClaimPercent(50);
-                          setClaimAmount(String(Math.floor(selectedClaimable * 0.5)));
+                          setClaimAmount(normalizeClaimInput(String(selectedClaimable * 0.5), selectedClaimable));
                         }}
                       >
                         HALF
@@ -3033,7 +3068,7 @@ export default function ClaimPanel() {
                         ].join(' ')}
                         onClick={() => {
                           setSelectedClaimPercent(100);
-                          setClaimAmount(String(Math.floor(selectedClaimable)));
+                          setClaimAmount(normalizeClaimInput(String(selectedClaimable), selectedClaimable));
                         }}
                       >
                         MAX
@@ -3041,20 +3076,11 @@ export default function ClaimPanel() {
                     </div>
                     <input
                       type="text"
-                      inputMode="numeric"
+                      inputMode="decimal"
                       value={claimAmount}
                       onChange={(e) => {
-                        const raw = e.target.value.replace(/[^\d]/g, '');
-                      
-                        const numeric = Number(raw || 0);
-                      
-                        const capped = Math.min(
-                          numeric,
-                          Math.floor(selectedClaimable)
-                        );
-                      
                         setSelectedClaimPercent(null);
-                        setClaimAmount(capped > 0 ? String(capped) : '');
+                        setClaimAmount(normalizeClaimInput(e.target.value, selectedClaimable));
                       }}
                       placeholder="Enter amount to claim"
                       className="w-full rounded-xl border border-pink-400/20 bg-black/30 p-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60"
@@ -3090,7 +3116,7 @@ export default function ClaimPanel() {
                 <p className="mt-2 leading-6 text-zinc-300">
                   You are about to claim{' '}
                   <span className="font-black text-amber-200">
-                    {Math.floor(claimAmountNumber).toLocaleString()} MEGY
+                    {formatMegyAmount(claimAmountNumber)} MEGY
                   </span>{' '}
                   from{' '}
                   <span className="font-semibold text-white">
