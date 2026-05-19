@@ -2550,7 +2550,7 @@ export default function ClaimPanel() {
                     <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-4 shadow-[0_0_25px_rgba(250,204,21,0.06)]">
                       <p className="text-xs text-yellow-100/60">Estimated MEGY</p>
                       <p className="font-extrabold text-yellow-300 text-lg">
-                        {Math.floor(activeEstimate.me.estimatedMegy).toLocaleString()}
+                        {formatMegyAmount(activeEstimate.me.estimatedMegy)}
                       </p>
                     </div>
                   </div>
@@ -2588,7 +2588,7 @@ export default function ClaimPanel() {
 
                 <div className="mt-3 flex items-end gap-3">
                   <p className="text-4xl sm:text-5xl font-black tracking-tight text-white">
-                    {claimableMegy.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    {formatMegyAmount(claimableMegy)}
                   </p>
 
                   {(() => {
@@ -2642,7 +2642,7 @@ export default function ClaimPanel() {
                   </p>
 
                   <p className="mt-2 text-xl font-black text-white">
-                    {Math.floor(Number(finalizedClaim?.finalized_megy_total ?? 0)).toLocaleString()}
+                    {formatMegyAmount(finalizedClaim?.finalized_megy_total)}
                   </p>
                 </div>
 
@@ -2652,7 +2652,7 @@ export default function ClaimPanel() {
                   </p>
 
                   <p className="mt-2 text-xl font-black text-white">
-                    {Math.floor(Number(finalizedClaim?.claimed_megy_total ?? 0)).toLocaleString()}
+                    {formatMegyAmount(finalizedClaim?.claimed_megy_total)}
                   </p>
                 </div>
 
@@ -2662,7 +2662,7 @@ export default function ClaimPanel() {
                   </p>
 
                   <p className="mt-2 text-xl font-black text-purple-100">
-                    {Math.floor(Number(selectedClaimable ?? 0)).toLocaleString()}
+                    {formatMegyAmount(selectedClaimable)}
                   </p>
                 </div>
               </div>
@@ -2932,13 +2932,11 @@ export default function ClaimPanel() {
                     </p>
 
                     <p className="mt-1 font-black text-purple-200">
-                      {Math.floor(
-                        Number(
-                          selectedPhaseSnapshot?.claimed_megy ??
-                          selectedPhaseSnapshot?.claimed ??
-                          0
-                        )
-                      ).toLocaleString()} MEGY
+                      {formatMegyAmount(
+                        selectedPhaseSnapshot?.claimed_megy ??
+                        selectedPhaseSnapshot?.claimed ??
+                        0
+                      )} MEGY
                     </p>
                   </div>
 
@@ -2965,10 +2963,7 @@ export default function ClaimPanel() {
                       <p className="mt-1 text-[10px] text-zinc-500">
                         Remaining after claim:{' '}
                         <span className="font-semibold text-zinc-300">
-                          {Math.max(
-                            0,
-                            Math.floor(selectedClaimable - claimAmountNumber)
-                          ).toLocaleString()} MEGY
+                          {formatMegyAmount(Math.max(0, selectedClaimable - claimAmountNumber))} MEGY
                         </span>
                       </p>
                     )}
@@ -3034,7 +3029,12 @@ export default function ClaimPanel() {
                         ].join(' ')}
                         onClick={() => {
                           setSelectedClaimPercent(25);
-                          setClaimAmount(String(Math.floor(selectedClaimable * 0.25)));
+                          setClaimAmount(
+                            normalizeClaimInput(
+                              String(selectedClaimable * 0.25),
+                              selectedClaimable
+                            )
+                          );
                         }}
                       >
                         25%
@@ -3051,7 +3051,12 @@ export default function ClaimPanel() {
                         ].join(' ')}
                         onClick={() => {
                           setSelectedClaimPercent(50);
-                          setClaimAmount(normalizeClaimInput(String(selectedClaimable * 0.5), selectedClaimable));
+                          setClaimAmount(
+                            normalizeClaimInput(
+                              String(selectedClaimable * 0.5),
+                              selectedClaimable
+                            )
+                          );
                         }}
                       >
                         HALF
@@ -3068,7 +3073,12 @@ export default function ClaimPanel() {
                         ].join(' ')}
                         onClick={() => {
                           setSelectedClaimPercent(100);
-                          setClaimAmount(normalizeClaimInput(String(selectedClaimable), selectedClaimable));
+                          setClaimAmount(
+                            normalizeClaimInput(
+                              String(selectedClaimable),
+                              selectedClaimable
+                            )
+                          );
                         }}
                       >
                         MAX
@@ -3173,7 +3183,7 @@ export default function ClaimPanel() {
                         <>
                           You can claim up to{" "}
                           <span className="text-purple-300 font-semibold">
-                            {Math.floor(selectedClaimable).toLocaleString()}
+                            {formatMegyAmount(selectedClaimable)}
                           </span>{" "}
                           MEGY in this phase.
                         </>
