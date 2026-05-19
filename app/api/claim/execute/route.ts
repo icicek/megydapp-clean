@@ -230,7 +230,7 @@ export async function POST(req: NextRequest) {
     await sql`BEGIN`;
 
     const s = await sql`
-      SELECT id, wallet_address, destination, status, opened_at
+      SELECT id, wallet_address, destination, phase_id, status, opened_at
       FROM claim_sessions
       WHERE id = ${sessionId}
         AND opened_at > now() - (${SESSION_MAX_AGE_MINUTES} || ' minutes')::interval
@@ -253,6 +253,11 @@ export async function POST(req: NextRequest) {
     if (String(s[0].destination) !== destination) {
       await sql`ROLLBACK`;
       return json(409, { success: false, error: 'SESSION_DESTINATION_MISMATCH' });
+    }
+
+    if (!isAllPhases && Number(s[0].phase_id) !== Number(phaseIdRaw)) {
+      await sql`ROLLBACK`;
+      return json(409, { success: false, error: 'SESSION_PHASE_MISMATCH' });
     }
 
     await sql`

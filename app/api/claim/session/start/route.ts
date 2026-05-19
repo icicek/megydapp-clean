@@ -204,18 +204,20 @@ export async function POST(req: NextRequest) {
     return json(400, { success: false, error: 'MISSING_FEE_SIGNATURE' });
   }
 
-  // 3) Fee signature must be unique (prevent replay)
-  try {
-    const used = await sql`
-      SELECT id
-      FROM claim_sessions
-      WHERE fee_tx_signature = ${sig}
-      LIMIT 1
-    `;
-    if (used?.length) return json(409, { success: false, error: 'FEE_SIGNATURE_ALREADY_USED' });
-  } catch (e) {
-    console.error('fee signature check failed:', e);
-    return json(500, { success: false, error: 'DB_ERROR_SIGNATURE_CHECK' });
+  // 3) Fee signature must be unique only when a new fee is required
+  if (!hasPhaseFeeCredit) {
+    try {
+      const used = await sql`
+        SELECT id
+        FROM claim_sessions
+        WHERE fee_tx_signature = ${sig}
+        LIMIT 1
+      `;
+      if (used?.length) return json(409, { success: false, error: 'FEE_SIGNATURE_ALREADY_USED' });
+    } catch (e) {
+      console.error('fee signature check failed:', e);
+      return json(500, { success: false, error: 'DB_ERROR_SIGNATURE_CHECK' });
+    }
   }
 
   // 4) Verify fee transfer on-chain and create identity-phase fee credit if needed
