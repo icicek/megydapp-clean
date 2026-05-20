@@ -525,6 +525,7 @@ export async function GET(req: NextRequest) {
     // -----------------------------
     const snaps = (await sql/* sql */`
       SELECT
+        cs.wallet_address,  
         cs.phase_id,
         p.phase_no,
         p.name AS phase_name,
@@ -536,7 +537,7 @@ export async function GET(req: NextRequest) {
         cs.coincarnator_no
       FROM claim_snapshots cs
       JOIN phases p ON p.id = cs.phase_id
-      WHERE cs.wallet_address = ${wallet}
+      WHERE cs.wallet_address = ANY(${claimWallets})
       ORDER BY p.phase_no DESC, cs.created_at DESC;
     `) as any[];    
 
@@ -545,7 +546,7 @@ export async function GET(req: NextRequest) {
         phase_id,
         COALESCE(SUM(claim_amount),0)::float AS claimed
       FROM claims
-      WHERE wallet_address = ${wallet}
+      WHERE wallet_address = ANY(${claimWallets})
       GROUP BY phase_id
       ORDER BY phase_id DESC;
     `) as any[];
