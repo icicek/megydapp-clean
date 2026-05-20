@@ -3853,7 +3853,7 @@ export default function ClaimPanel() {
               </p>
             </div>
 
-            <div className="mb-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <div className="mb-5 flex flex-wrap gap-2">
               {[
                 { key: 'all', label: 'All', mobileLabel: 'All' },
                 { key: 'contributions', label: 'Contributions', mobileLabel: 'Contrib.' },
@@ -3869,7 +3869,7 @@ export default function ClaimPanel() {
                     type="button"
                     onClick={() => setLedgerFilter(item.key as typeof ledgerFilter)}
                     className={[
-                      'w-full rounded-full border px-3 py-1.5 sm:min-w-[140px] sm:min-w-[150px] text-[11px] font-black uppercase tracking-wide transition',
+                      'min-w-[150px] rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-wide transition',
                       active
                         ? 'border-emerald-300/50 bg-emerald-300/15 text-emerald-100'
                         : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:border-emerald-300/30 hover:text-emerald-200',
