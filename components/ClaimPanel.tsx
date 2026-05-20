@@ -2035,58 +2035,7 @@ export default function ClaimPanel() {
             </div>
           )}
           
-          <div className="mt-5 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">
-                  Identity View
-                </p>
-
-                <p className="mt-1 text-sm text-gray-300">
-                  Currently viewing claim data for your active wallet.
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={() => setClaimScope('wallet')}
-                  className={[
-                    'rounded-full px-4 py-2 text-xs font-black transition',
-                    claimScope === 'wallet'
-                      ? 'bg-cyan-300 text-black'
-                      : 'border border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/[0.08] hover:text-white',
-                  ].join(' ')}
-                >
-                  Current Wallet
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setClaimScope('identity')}
-                  disabled={!identityStatus.authenticated || !identityStatus.identity}
-                  className={[
-                    'rounded-full px-4 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-40',
-                    claimScope === 'identity'
-                      ? 'bg-emerald-300 text-black'
-                      : 'border border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/[0.08] hover:text-white',
-                  ].join(' ')}
-                  title={
-                    identityStatus.authenticated && identityStatus.identity
-                      ? 'View claim data across all linked wallets.'
-                      : 'Verify your Coincarnation Identity to view all linked wallets.'
-                  }
-                >
-                  All Linked Wallets
-                </button>
-              </div>
-              <p className="mt-3 text-xs leading-5 text-cyan-100/60">
-                {claimScopeMeta.isIdentityClaimScope
-                  ? `Viewing ${claimScopeMeta.claimWalletsCount} linked wallets under this identity.`
-                  : 'Viewing the connected wallet only.'}
-              </p>
-            </div>
-          </div>
+          
 
           {walletBase58 && !identityStatus.authenticated && (
             <div className="mt-5 rounded-xl border border-amber-400/25 bg-amber-400/10 p-4">
@@ -2753,6 +2702,60 @@ export default function ClaimPanel() {
               <p className="mt-1 text-xs leading-5 text-zinc-400">
                 Choose destination, select phase, confirm amount, and claim your MEGY.
               </p>
+            </div>
+
+            <div className="rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.04] p-4">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-300/90">
+                    Claim Scope
+                  </p>
+
+                  <p className="mt-1 text-sm text-gray-300">
+                    Choose whether to claim from only this wallet or all wallets linked to your Coincarnation Identity.
+                  </p>
+
+                  <p className="mt-2 text-xs leading-5 text-cyan-100/60">
+                    {claimScopeMeta.isIdentityClaimScope
+                      ? `Viewing ${claimScopeMeta.claimWalletsCount} linked wallets under this identity.`
+                      : 'Viewing the connected wallet only.'}
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => setClaimScope('wallet')}
+                    className={[
+                      'rounded-full px-4 py-2 text-xs font-black transition',
+                      claimScope === 'wallet'
+                        ? 'bg-cyan-300 text-black'
+                        : 'border border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/[0.08] hover:text-white',
+                    ].join(' ')}
+                  >
+                    Current Wallet
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setClaimScope('identity')}
+                    disabled={!identityStatus.authenticated || !identityStatus.identity}
+                    className={[
+                      'rounded-full px-4 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-40',
+                      claimScope === 'identity'
+                        ? 'bg-emerald-300 text-black'
+                        : 'border border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/[0.08] hover:text-white',
+                    ].join(' ')}
+                    title={
+                      identityStatus.authenticated && identityStatus.identity
+                        ? 'Claim across all linked wallets.'
+                        : 'Verify your Coincarnation Identity to use linked wallet claims.'
+                    }
+                  >
+                    All Linked Wallets
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.04] p-4">
