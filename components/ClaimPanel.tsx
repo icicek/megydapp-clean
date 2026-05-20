@@ -223,6 +223,9 @@ export default function ClaimPanel() {
   const [shareTxId, setShareTxId] = useState<string|undefined>(undefined);
   const [cpHistory, setCpHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
+  const [ledgerFilter, setLedgerFilter] = useState<
+    'all' | 'contributions' | 'referrals' | 'shares' | 'deadcoins'
+  >('all');
   const [shareAnchor, setShareAnchor] = useState<string | undefined>(undefined);
   const [refundingContributionId, setRefundingContributionId] = useState<number | null>(null);
   const [refundErrors, setRefundErrors] = useState<Record<number, string>>({});
@@ -1858,6 +1861,18 @@ export default function ClaimPanel() {
     : refundFeeSigForSupport
       ? 'refund fee tx'
       : 'fee tx';
+  
+  const filteredCpHistory = [...cpHistory].filter((ev: any) => {
+    const type = String(ev?.type || '').toLowerCase();
+
+    if (ledgerFilter === 'all') return true;
+    if (ledgerFilter === 'contributions') return type === 'usd';
+    if (ledgerFilter === 'referrals') return type === 'referral_signup';
+    if (ledgerFilter === 'shares') return type === 'share';
+    if (ledgerFilter === 'deadcoins') return type === 'deadcoin_first';
+
+    return true;
+  });
   return (
     <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
       <div className="max-w-6xl w-full mx-auto space-y-6">
@@ -3838,6 +3853,34 @@ export default function ClaimPanel() {
               </p>
             </div>
 
+            <div className="mb-5 flex flex-wrap gap-2">
+              {[
+                { key: 'all', label: 'All' },
+                { key: 'contributions', label: 'Contributions' },
+                { key: 'referrals', label: 'Referrals' },
+                { key: 'shares', label: 'Shares' },
+                { key: 'deadcoins', label: 'Deadcoins' },
+              ].map((item) => {
+                const active = ledgerFilter === item.key;
+
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setLedgerFilter(item.key as typeof ledgerFilter)}
+                    className={[
+                      'rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-wide transition',
+                      active
+                        ? 'border-emerald-300/50 bg-emerald-300/15 text-emerald-100'
+                        : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:border-emerald-300/30 hover:text-emerald-200',
+                    ].join(' ')}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+
             {loadingHistory && (
               <div className="relative rounded-2xl border border-white/10 bg-black/20 px-4 py-8 text-center">
                 <p className="text-sm font-semibold text-zinc-300">
@@ -3858,10 +3901,22 @@ export default function ClaimPanel() {
               </div>
             )}
 
-            {!loadingHistory && cpHistory.length > 0 && (
+            {!loadingHistory && cpHistory.length > 0 && filteredCpHistory.length === 0 && (
+              <div className="relative rounded-2xl border border-white/10 bg-black/20 px-4 py-8 text-center">
+                <p className="text-sm font-semibold text-zinc-300">
+                  No records in this filter.
+                </p>
+
+                <p className="mt-2 text-xs text-zinc-500">
+                  Try another CorePoint category.
+                </p>
+              </div>
+            )}
+
+            {!loadingHistory && filteredCpHistory.length > 0 && (
               <>
                 <div className="relative grid max-h-[620px] gap-3 overflow-y-auto pr-1">
-                  {[...cpHistory]
+                  {[...filteredCpHistory]
                     .sort((a: any, b: any) => {
                       const aDate = a?.created_at || a?.day || null;
                       const bDate = b?.created_at || b?.day || null;
@@ -4016,7 +4071,7 @@ export default function ClaimPanel() {
                     })}
                 </div>
 
-                {cpHistory.length > 6 && (
+                {filteredCpHistory.length > 6 && (
                   <div className="mt-2 flex items-center justify-center sm:hidden">
                     <span className="animate-pulse text-[11px] font-semibold tracking-wide text-cyan-300/70">
                       Scroll for more ↓
