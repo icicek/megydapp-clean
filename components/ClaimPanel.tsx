@@ -3578,7 +3578,7 @@ export default function ClaimPanel() {
 
           {/* BUILD SOURCES */}
           {data.core_point_breakdown && (
-            <div className="relative z-10 mt-10 rounded-[28px] border border-white/10 bg-black/20 p-4 sm:p-5">
+            <div className="relative z-10 mt-10 sm:rounded-[28px] sm:border sm:border-white/10 sm:bg-black/20 sm:p-5">
               <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-[0.3em] text-cyan-300/80">
