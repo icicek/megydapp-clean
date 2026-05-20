@@ -43,6 +43,11 @@ function parsePhaseId(req: NextRequest): number | null {
   return n;
 }
 
+function parseScope(req: NextRequest): 'wallet' | 'identity' {
+  const raw = req.nextUrl.searchParams.get('scope');
+  return raw === 'identity' ? 'identity' : 'wallet';
+}
+
 function emptyClaimData(wallet: string) {
   return {
     success: true,
@@ -86,6 +91,7 @@ export async function GET(req: NextRequest) {
     }
 
     const requestedPhaseId = parsePhaseId(req);
+    const requestedScope = parseScope(req);
 
     // 1) Participant
     // A wallet may belong to an identity even if it has no direct Coincarnation record.
@@ -147,6 +153,13 @@ export async function GET(req: NextRequest) {
       );
       corePointWallets = [wallet];
     }
+    const claimWallets =
+      requestedScope === 'identity' && activeIdentityId
+        ? corePointWallets
+        : [wallet];
+
+    const isIdentityClaimScope =
+      requestedScope === 'identity' && activeIdentityId && claimWallets.length > 1;
     // Blacklist invalidation ledger for this wallet
     const invalidationRows = (await sql/* sql */`
       SELECT
@@ -586,6 +599,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       phase_id: requestedPhaseId ?? null,
+      scope: requestedScope,
+      active_identity_id: activeIdentityId,
+      claim_wallets: claimWallets,
+      claim_wallets_count: claimWallets.length,
+      is_identity_claim_scope: Boolean(isIdentityClaimScope),
       data: {
         id: identityCoincarnatorNo ?? '-',
         legacy_participant_id: participant.id,
