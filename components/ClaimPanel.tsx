@@ -4127,7 +4127,7 @@ export default function ClaimPanel() {
                 </div>
 
                 <p className="max-w-md text-sm leading-6 text-zinc-500 sm:text-right">
-                  Visual breakdown of the contribution sources building your Personal Value Currency.
+                  Net breakdown of the value signals building your Personal Value Currency.
                 </p>
               </div>
 

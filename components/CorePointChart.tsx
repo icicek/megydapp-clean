@@ -17,23 +17,59 @@ type CorePointBreakdown = {
   deadcoins?: number;
 };
 
+const COLORS = {
+  coincarnations: '#a855f7',
+  referrals: '#f59e0b',
+  shares: '#22d3ee',
+  deadcoins: '#8b5cf6',
+};
+
+function formatCp(value: number) {
+  return Number(value || 0).toLocaleString('en-US', {
+    maximumFractionDigits: 1,
+  });
+}
+
 export default function CorePointChart({ data }: { data: CorePointBreakdown }) {
   if (!data) return null;
 
-  const c = Number(data.coincarnations) || 0;
-  const r = Number(data.referrals) || 0;
-  const s = Number(data.shares) || 0;
-  const d = Number(data.deadcoins) || 0;
+  const raw = {
+    coincarnations: Number(data.coincarnations) || 0,
+    referrals: Number(data.referrals) || 0,
+    shares: Number(data.shares) || 0,
+    deadcoins: Number(data.deadcoins) || 0,
+  };
 
-  const total = c + r + s + d;
-  const hasData = total > 0;
-
+  // Chart is visual composition. Negative/net-reversed categories should not create broken pie slices.
   const chartData = [
-    { name: 'Coincarnation', value: c, color: '#a855f7' },
-    { name: 'Referrals', value: r, color: '#3b82f6' },
-    { name: 'Shares', value: s, color: '#10b981' },
-    { name: 'Deadcoins', value: d, color: '#ef4444' },
+    {
+      key: 'coincarnations',
+      name: 'Coincarnations',
+      value: Math.max(0, raw.coincarnations),
+      color: COLORS.coincarnations,
+    },
+    {
+      key: 'referrals',
+      name: 'Referrals',
+      value: Math.max(0, raw.referrals),
+      color: COLORS.referrals,
+    },
+    {
+      key: 'shares',
+      name: 'Shares',
+      value: Math.max(0, raw.shares),
+      color: COLORS.shares,
+    },
+    {
+      key: 'deadcoins',
+      name: 'Deadcoins',
+      value: Math.max(0, raw.deadcoins),
+      color: COLORS.deadcoins,
+    },
   ].filter((item) => item.value > 0);
+
+  const total = chartData.reduce((sum, item) => sum + item.value, 0);
+  const hasData = total > 0;
 
   if (!hasData) {
     return (
@@ -42,7 +78,7 @@ export default function CorePointChart({ data }: { data: CorePointBreakdown }) {
           No CorePoint composition yet.
         </p>
         <p className="mt-2 text-xs text-zinc-500">
-          Your contribution mix will appear after Coincarnations, shares, referrals, or deadcoin revivals.
+          Your value mix will appear after Coincarnations, shares, referrals, or deadcoin revivals.
         </p>
       </div>
     );
@@ -50,19 +86,19 @@ export default function CorePointChart({ data }: { data: CorePointBreakdown }) {
 
   return (
     <div className="w-full [&_svg_*]:outline-none [&_svg_*:focus]:outline-none [&_svg_*:focus-visible]:outline-none">
-      <div className="h-[260px] w-full sm:h-[360px] lg:h-[420px]">
+      <div className="relative h-[280px] w-full sm:h-[340px] lg:h-[380px]">
         <ResponsiveContainer width="100%" height="100%">
-        <PieChart
-          margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
-          className="[&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
-        >
+          <PieChart
+            margin={{ top: 6, right: 6, bottom: 6, left: 6 }}
+            className="[&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
+          >
             <Pie
               data={chartData}
               dataKey="value"
               nameKey="name"
               cx="50%"
               cy="50%"
-              innerRadius="48%"
+              innerRadius="56%"
               outerRadius="82%"
               paddingAngle={3}
               stroke="#18181b"
@@ -70,7 +106,7 @@ export default function CorePointChart({ data }: { data: CorePointBreakdown }) {
               rootTabIndex={-1}
             >
               {chartData.map((entry) => (
-                <Cell key={entry.name} fill={entry.color} />
+                <Cell key={entry.key} fill={entry.color} />
               ))}
             </Pie>
 
@@ -92,31 +128,58 @@ export default function CorePointChart({ data }: { data: CorePointBreakdown }) {
                 fontWeight: 800,
               }}
               formatter={(value: number, name: string) => [
-                `${Number(value).toFixed(1)} CP (${((Number(value) / total) * 100).toFixed(1)}%)`,
+                `${formatCp(Number(value))} CP · ${((Number(value) / total) * 100).toFixed(1)}%`,
                 name,
               ]}
             />
           </PieChart>
         </ResponsiveContainer>
+
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500">
+              Total
+            </p>
+            <p className="mt-1 text-2xl font-black text-white sm:text-3xl">
+              {formatCp(total)}
+            </p>
+            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+              CorePoint
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-2 text-sm text-zinc-300 sm:grid-cols-2 lg:grid-cols-4">
         {chartData.map((item) => (
           <div
-            key={item.name}
+            key={item.key}
             className="flex min-w-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2"
           >
             <span
               className="h-3 w-3 shrink-0 rounded-full"
               style={{ backgroundColor: item.color }}
             />
-            <span className="truncate font-semibold">{item.name}</span>
-            <span className="ml-auto shrink-0 text-xs font-bold text-zinc-500">
+
+            <div className="min-w-0">
+              <p className="truncate text-xs font-black text-zinc-200">
+                {item.name}
+              </p>
+              <p className="text-[10px] font-semibold text-zinc-500">
+                {formatCp(item.value)} CP
+              </p>
+            </div>
+
+            <span className="ml-auto shrink-0 text-xs font-black text-zinc-400">
               {((item.value / total) * 100).toFixed(1)}%
             </span>
           </div>
         ))}
       </div>
+
+      <p className="mt-3 text-center text-[11px] leading-5 text-zinc-500">
+        Net view. Reversals and blacklist adjustments are reflected in CorePoint totals.
+      </p>
     </div>
   );
 }
