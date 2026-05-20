@@ -3934,18 +3934,24 @@ export default function ClaimPanel() {
                       const typeLabel =
                         ev.type === 'usd'
                           ? 'Contribution'
-                          : ev.type === 'deadcoin_first'
-                            ? 'Deadcoin Revival'
-                            : ev.type === 'share'
-                              ? 'Share Signal'
-                              : ev.type === 'referral_signup'
-                                ? 'Referral Signup'
-                                : ev.type || 'Other';
+                          : ev.type === 'usd_blacklist_reversal'
+                            ? 'USD Reversal'
+                            : ev.type === 'deadcoin_first'
+                              ? 'Deadcoin Revival'
+                              : ev.type === 'deadcoin_blacklist_reversal'
+                                ? 'Deadcoin Reversal'
+                                : ev.type === 'share'
+                                  ? 'Share Signal'
+                                  : ev.type === 'referral_signup'
+                                    ? 'Referral Signup'
+                                    : ev.type || 'Other';
 
                       let detail = '';
 
                       if (ev.type === 'usd') {
                         detail = `Capital revived · $${Number(ev.value || 0).toFixed(2)}`;
+                      } else if (ev.type === 'usd_blacklist_reversal') {
+                        detail = 'Value adjusted after blacklist';
                       } else if (ev.type === 'share') {
                         detail = ev.channel
                           ? `Visibility generated · ${String(ev.channel).toUpperCase()}`
@@ -3954,6 +3960,10 @@ export default function ClaimPanel() {
                         detail = ev.token_contract
                           ? `Deadcoin discovered · ${shorten(ev.token_contract)}`
                           : 'Deadcoin discovered';
+                      } else if (ev.type === 'deadcoin_blacklist_reversal') {
+                        detail = ev.token_contract
+                          ? `Deadcoin bonus reversed · ${shorten(ev.token_contract)}`
+                          : 'Deadcoin bonus reversed';
                       } else if (ev.type === 'referral_signup') {
                         detail = ev.ref_wallet
                           ? `Network expanded · ${shorten(ev.ref_wallet)}`
@@ -3968,13 +3978,17 @@ export default function ClaimPanel() {
                       const badgeClass =
                         ev.type === 'usd'
                           ? 'border-cyan-400/25 bg-cyan-400/10 text-cyan-200'
-                          : ev.type === 'deadcoin_first'
-                            ? 'border-amber-400/25 bg-amber-400/10 text-amber-200'
-                            : ev.type === 'share'
-                              ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200'
-                              : ev.type === 'referral_signup'
-                                ? 'border-fuchsia-400/25 bg-fuchsia-400/10 text-fuchsia-200'
-                                : 'border-white/10 bg-white/[0.04] text-zinc-300';
+                          : ev.type === 'usd_blacklist_reversal'
+                            ? 'border-red-400/25 bg-red-400/10 text-red-200'
+                            : ev.type === 'deadcoin_first'
+                              ? 'border-amber-400/25 bg-amber-400/10 text-amber-200'
+                              : ev.type === 'deadcoin_blacklist_reversal'
+                                ? 'border-red-400/25 bg-red-400/10 text-red-200'
+                                : ev.type === 'share'
+                                  ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200'
+                                  : ev.type === 'referral_signup'
+                                    ? 'border-fuchsia-400/25 bg-fuchsia-400/10 text-fuchsia-200'
+                                    : 'border-white/10 bg-white/[0.04] text-zinc-300';
 
                       return (
                         <div
