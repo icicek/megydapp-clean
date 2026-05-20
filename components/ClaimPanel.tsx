@@ -3855,11 +3855,11 @@ export default function ClaimPanel() {
 
             <div className="mb-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               {[
-                { key: 'all', label: 'All' },
-                { key: 'contributions', label: 'Contributions' },
-                { key: 'referrals', label: 'Referrals' },
-                { key: 'shares', label: 'Shares' },
-                { key: 'deadcoins', label: 'Deadcoins' },
+                { key: 'all', label: 'All', mobileLabel: 'All' },
+                { key: 'contributions', label: 'Contributions', mobileLabel: 'Contrib.' },
+                { key: 'referrals', label: 'Referrals', mobileLabel: 'Refs' },
+                { key: 'shares', label: 'Shares', mobileLabel: 'Shares' },
+                { key: 'deadcoins', label: 'Deadcoins', mobileLabel: 'Dead' },
               ].map((item) => {
                 const active = ledgerFilter === item.key;
 
@@ -3875,7 +3875,8 @@ export default function ClaimPanel() {
                         : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:border-emerald-300/30 hover:text-emerald-200',
                     ].join(' ')}
                   >
-                    {item.label}
+                    <span className="sm:hidden">{item.mobileLabel}</span>
+                    <span className="hidden sm:inline">{item.label}</span>
                   </button>
                 );
               })}
