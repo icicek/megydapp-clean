@@ -2035,8 +2035,6 @@ export default function ClaimPanel() {
             </div>
           )}
           
-          
-
           {walletBase58 && !identityStatus.authenticated && (
             <div className="mt-5 rounded-xl border border-amber-400/25 bg-amber-400/10 p-4">
               <p className="text-sm font-black text-amber-200">
@@ -2843,18 +2841,28 @@ export default function ClaimPanel() {
 
               const options: number[] = Array.from(new Set(phases.map((x: any) => x.pid)));
 
+              const isAllLinkedWalletsMode = claimScope === 'identity';
+
               const activePid =
-                (selectedPhaseId != null && options.includes(selectedPhaseId))
-                  ? selectedPhaseId
-                  : (options[0] ?? null);
+                isAllLinkedWalletsMode
+                  ? null
+                  : (selectedPhaseId != null && options.includes(selectedPhaseId))
+                    ? selectedPhaseId
+                    : (options[0] ?? null);
 
               const ordered =
-                activePid
-                  ? [
-                      ...phases.filter((x: any) => x.pid === activePid),
-                      ...phases.filter((x: any) => x.pid !== activePid),
-                    ]
-                  : phases;
+                isAllLinkedWalletsMode
+                  ? phases.sort((a: any, b: any) => {
+                      const phaseNoDiff = Number(b.phaseNo || 0) - Number(a.phaseNo || 0);
+                      if (phaseNoDiff !== 0) return phaseNoDiff;
+                      return Number(b.pid || 0) - Number(a.pid || 0);
+                    })
+                  : activePid
+                    ? [
+                        ...phases.filter((x: any) => x.pid === activePid),
+                        ...phases.filter((x: any) => x.pid !== activePid),
+                      ]
+                    : phases;
 
               return (
                 <div className="border-b border-white/10 pb-5 mb-5 text-sm">
@@ -2864,12 +2872,14 @@ export default function ClaimPanel() {
                         Select Phase
                       </p>
                       <p className="mt-1 text-xs text-zinc-500">
-                        Choose the finalized phase you want to claim from.
+                        {isAllLinkedWalletsMode
+                          ? 'All finalized phases are included. Partial claims are processed FIFO across linked wallet balances.'
+                          : 'Choose the finalized phase you want to claim from.'}
                       </p>
                     </div>
 
                     <div className="w-full sm:w-auto flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
-                      <span className="text-xs font-semibold text-violet-200/70 shrink-0">Select phase</span>
+                      <span className="text-xs font-semibold text-violet-200/70 shrink-0">{isAllLinkedWalletsMode ? 'All phases selected' : 'Select phase'}</span>
 
                       <select
                         value={activePid ? String(activePid) : ''}
@@ -2878,7 +2888,7 @@ export default function ClaimPanel() {
                           const v = Number(raw);
                           setSelectedPhaseId(raw === '' ? null : (Number.isFinite(v) ? v : null));
                         }}
-                        disabled={options.length === 0}
+                        disabled={options.length === 0 || isAllLinkedWalletsMode}
                         className="w-full sm:w-44 bg-zinc-900 border border-zinc-600 text-white text-xs rounded-md px-2 py-2 sm:py-1 disabled:opacity-50"
                       >
                         <option value="">Latest finalized snapshot</option>
@@ -2903,19 +2913,23 @@ export default function ClaimPanel() {
 
                   <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
                     {ordered.map((p: any) => {
-                      const isSelected = activePid != null && p.pid === activePid;
+                      const isSelected = isAllLinkedWalletsMode || (activePid != null && p.pid === activePid);
 
                       return (
                         <button
                           type="button"
                           key={p.pid}
-                          onClick={() => setSelectedPhaseId(p.pid)}
+                          onClick={() => {
+                            if (isAllLinkedWalletsMode) return;
+                            setSelectedPhaseId(p.pid);
+                          }}
                           aria-pressed={isSelected}
                           className={[
                             "w-full text-left rounded-2xl border px-4 py-3 flex flex-col gap-3 transition min-w-0 focus:outline-none focus:ring-2 focus:ring-violet-300/40 sm:flex-row sm:items-start sm:justify-between",
                             isSelected
                               ? "border-emerald-400/40 bg-emerald-400/10 shadow-[0_0_0_1px_rgba(52,211,153,0.25)]"
                               : "border-zinc-700 bg-zinc-900/20 hover:bg-zinc-800/40",
+                            isAllLinkedWalletsMode ? "cursor-default" : "cursor-pointer",
                           ].join(" ")}
                         >
                           <div className="text-gray-300 min-w-0 w-full sm:w-auto">
@@ -2926,7 +2940,7 @@ export default function ClaimPanel() {
 
                               {isSelected && (
                                 <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300 shrink-0">
-                                  Selected
+                                  {isAllLinkedWalletsMode ? 'Included' : 'Selected'}
                                 </span>
                               )}
                               <span className="rounded-full border border-violet-400/20 bg-violet-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-violet-200 shrink-0">
