@@ -3870,9 +3870,9 @@ export default function ClaimPanel() {
                     onClick={() => setLedgerFilter(item.key as typeof ledgerFilter)}
                     className={[
                       item.key === 'all'
-                        ? 'col-span-2 sm:col-span-1 w-full'
-                        : 'w-full sm:w-auto',
-                      'rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-wide transition sm:min-w-[150px]',
+                        ? 'col-span-2 w-full lg:col-span-1 lg:w-auto'
+                        : 'w-full lg:w-auto',
+                      'rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-wide transition lg:min-w-[150px]',
                       active
                         ? 'border-emerald-300/50 bg-emerald-300/15 text-emerald-100'
                         : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:border-emerald-300/30 hover:text-emerald-200',
