@@ -566,35 +566,77 @@ export async function GET(req: NextRequest) {
     let finalized_megy_total = 0;
     let claimed_megy_total = 0;
 
-    const finalized_by_phase = snapsFiltered.map((s) => {
+    const phaseMap = new Map<number, any>();
+
+    for (const s of snapsFiltered) {
       const pid = Number(s.phase_id);
+      if (!Number.isFinite(pid)) continue;
+
       const finalized = Number(s.megy_amount ?? 0);
       const claimedRaw = Number(claimedMap.get(pid) ?? 0);
 
-      // clamp
-      const claimed = Math.min(Math.max(claimedRaw, 0), finalized);
-      const claimable = Math.max(finalized - claimed, 0);
+      // Important:
+      // claimedMap is phase-level. When multiple wallet snapshots are merged,
+      // we should not subtract the full phase claimed amount from every row.
+      // For now, claims are summed by phase, then clamped after phase merge.
+      const contributionUsd = Number(s.contribution_usd ?? 0);
+      const shareRatio = Number(s.share_ratio ?? 0);
 
-      finalized_megy_total += finalized;
-      claimed_megy_total += claimed;
-
-      return {
+      const existing = phaseMap.get(pid) ?? {
         phase_id: pid,
-      
-        // ✅ NEW
         phase_no: Number(s.phase_no ?? 0) || null,
         phase_name: s.phase_name ? String(s.phase_name) : null,
-      
-        finalized_megy: finalized,
-        contribution_usd: Number(s.contribution_usd ?? 0),
-        share_ratio: Number(s.share_ratio ?? 0),
-        claim_status: s.claim_status ?? null,
+        finalized_megy: 0,
+        contribution_usd: 0,
+        share_ratio: 0,
+        claim_status: null,
         created_at: s.created_at ?? null,
-        coincarnator_no: s.coincarnator_no ?? null,
-        claimed_megy: claimed,
-        claimable_megy: claimable,
-      };      
-    });
+        coincarnator_no: null,
+        coincarnator_nos: [] as number[],
+        wallet_count: 0,
+        claimed_megy: 0,
+        claimable_megy: 0,
+      };
+
+      existing.finalized_megy += finalized;
+      existing.contribution_usd += contributionUsd;
+      existing.share_ratio += shareRatio;
+      existing.wallet_count += 1;
+
+      const cno = Number(s.coincarnator_no ?? 0);
+      if (Number.isFinite(cno) && cno > 0 && !existing.coincarnator_nos.includes(cno)) {
+        existing.coincarnator_nos.push(cno);
+      }
+
+      if (!existing.created_at || (s.created_at && new Date(s.created_at).getTime() > new Date(existing.created_at).getTime())) {
+        existing.created_at = s.created_at;
+      }
+
+      phaseMap.set(pid, existing);
+    }
+
+    const finalized_by_phase = Array.from(phaseMap.values())
+      .map((phase) => {
+        const claimedRaw = Number(claimedMap.get(Number(phase.phase_id)) ?? 0);
+        const claimed = Math.min(Math.max(claimedRaw, 0), Number(phase.finalized_megy || 0));
+        const claimable = Math.max(Number(phase.finalized_megy || 0) - claimed, 0);
+
+        finalized_megy_total += Number(phase.finalized_megy || 0);
+        claimed_megy_total += claimed;
+
+        return {
+          ...phase,
+          coincarnator_no: phase.coincarnator_nos.length === 1 ? phase.coincarnator_nos[0] : null,
+          claimed_megy: claimed,
+          claimable_megy: claimable,
+          claim_status: claimable <= 0 && Number(phase.finalized_megy || 0) > 0,
+        };
+      })
+      .sort((a, b) => {
+        const phaseNoDiff = Number(b.phase_no || 0) - Number(a.phase_no || 0);
+        if (phaseNoDiff !== 0) return phaseNoDiff;
+        return Number(b.phase_id || 0) - Number(a.phase_id || 0);
+      });
 
     const claimable_megy_total = Math.max(finalized_megy_total - claimed_megy_total, 0);
     const claimed_bool = claimed_megy_total > 0;
