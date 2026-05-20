@@ -3853,7 +3853,7 @@ export default function ClaimPanel() {
               </p>
             </div>
 
-            <div className="mb-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <div className="mb-5 grid grid-cols-2 gap-2 lg:flex lg:flex-wrap">
               {[
                 { key: 'all', label: 'All', mobileLabel: 'All' },
                 { key: 'contributions', label: 'Contributions', mobileLabel: 'Contrib.' },
