@@ -3945,21 +3945,21 @@ export default function ClaimPanel() {
                       let detail = '';
 
                       if (ev.type === 'usd') {
-                        detail = `$${Number(ev.value || 0).toFixed(2)} Coincarnation`;
+                        detail = `Capital revived · $${Number(ev.value || 0).toFixed(2)}`;
                       } else if (ev.type === 'share') {
                         detail = ev.channel
-                          ? `${String(ev.channel).toUpperCase()} share`
-                          : 'Share activity';
+                          ? `Visibility generated · ${String(ev.channel).toUpperCase()}`
+                          : 'Visibility generated';
                       } else if (ev.type === 'deadcoin_first') {
                         detail = ev.token_contract
-                          ? `Contract: ${shorten(ev.token_contract)}`
-                          : 'First deadcoin signal';
+                          ? `Deadcoin discovered · ${shorten(ev.token_contract)}`
+                          : 'Deadcoin discovered';
                       } else if (ev.type === 'referral_signup') {
                         detail = ev.ref_wallet
-                          ? `Referee: ${shorten(ev.ref_wallet)}`
-                          : 'New referred wallet';
+                          ? `Network expanded · ${shorten(ev.ref_wallet)}`
+                          : 'Network expanded';
                       } else {
-                        detail = ev.detail || '-';
+                        detail = ev.detail || 'Value signal recorded';
                       }
 
                       const dateStr = ev.created_at || ev.day || null;
