@@ -187,6 +187,16 @@ export default function ClaimPanel() {
 
   const [cpConfig, setCpConfig] = useState<CpConfig | null>(null);
   const [data, setData] = useState<any>(null);
+  const [claimScope, setClaimScope] = useState<'wallet' | 'identity'>('wallet');
+  const [claimScopeMeta, setClaimScopeMeta] = useState<{
+    scope: 'wallet' | 'identity';
+    claimWalletsCount: number;
+    isIdentityClaimScope: boolean;
+  }>({
+    scope: 'wallet',
+    claimWalletsCount: 1,
+    isIdentityClaimScope: false,
+  });
   const [claimAmount, setClaimAmount] = useState<string>('');
   const [selectedClaimPercent, setSelectedClaimPercent] = useState<25 | 50 | 100 | null>(null);
   const [loading, setLoading] = useState(false);
@@ -300,7 +310,11 @@ export default function ClaimPanel() {
       try {
         const [claimStatusRes, userRes, globalRes] = await Promise.all([
           fetch('/api/admin/config/claim_open'),
-          fetch(`/api/claim/${publicKey.toBase58()}`),
+          fetch(
+            `/api/claim/${publicKey.toBase58()}${
+              claimScope === 'identity' ? '?scope=identity' : ''
+            }`
+          ),
           fetch('/api/coincarnation/stats'),
         ]);
   
@@ -316,6 +330,12 @@ export default function ClaimPanel() {
   
         if (userData?.success) {
           setData(userData.data);
+        
+          setClaimScopeMeta({
+            scope: userData.scope === 'identity' ? 'identity' : 'wallet',
+            claimWalletsCount: Number(userData.claim_wallets_count ?? 1),
+            isIdentityClaimScope: Boolean(userData.is_identity_claim_scope),
+          });
         } else {
           setData({
             id: '-',
@@ -368,7 +388,7 @@ export default function ClaimPanel() {
     return () => {
       alive = false;
     };
-  }, [publicKey]);  
+  }, [publicKey, claimScope]);
 
   // CorePoint config (server-side weights → UI descriptions)
   useEffect(() => {
@@ -2030,20 +2050,41 @@ export default function ClaimPanel() {
               <div className="flex flex-col gap-2 sm:flex-row">
                 <button
                   type="button"
-                  className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-black"
+                  onClick={() => setClaimScope('wallet')}
+                  className={[
+                    'rounded-full px-4 py-2 text-xs font-black transition',
+                    claimScope === 'wallet'
+                      ? 'bg-cyan-300 text-black'
+                      : 'border border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/[0.08] hover:text-white',
+                  ].join(' ')}
                 >
                   Current Wallet
                 </button>
 
                 <button
                   type="button"
-                  disabled
-                  className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-bold text-white/40"
-                  title="Identity-wide claim aggregation will be enabled in a later version."
+                  onClick={() => setClaimScope('identity')}
+                  disabled={!identityStatus.authenticated || !identityStatus.identity}
+                  className={[
+                    'rounded-full px-4 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-40',
+                    claimScope === 'identity'
+                      ? 'bg-emerald-300 text-black'
+                      : 'border border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/[0.08] hover:text-white',
+                  ].join(' ')}
+                  title={
+                    identityStatus.authenticated && identityStatus.identity
+                      ? 'View claim data across all linked wallets.'
+                      : 'Verify your Coincarnation Identity to view all linked wallets.'
+                  }
                 >
-                  All Linked Wallets · Soon
+                  All Linked Wallets
                 </button>
               </div>
+              <p className="mt-3 text-xs leading-5 text-cyan-100/60">
+                {claimScopeMeta.isIdentityClaimScope
+                  ? `Viewing ${claimScopeMeta.claimWalletsCount} linked wallets under this identity.`
+                  : 'Viewing the connected wallet only.'}
+              </p>
             </div>
           </div>
 
