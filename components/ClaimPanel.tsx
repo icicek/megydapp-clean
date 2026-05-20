@@ -3719,7 +3719,7 @@ export default function ClaimPanel() {
 
                     <p className="mt-2 text-xs leading-5 text-amber-100/80">
                       {cpConfig
-                        ? `~${Math.round(cpConfig.refSignup * cpConfig.multReferral)} CP per referred wallet.`
+                        ? `~${Math.round(cpConfig.refSignup * cpConfig.multReferral)} CP per referred identity.`
                         : `${data.referral_count} wallet joined with your link.`}
                     </p>
                   </div>
@@ -3922,60 +3922,93 @@ export default function ClaimPanel() {
                           key={`${ev.type || 'event'}-${dateStr || i}-${i}`}
                           className="group rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-emerald-300/25 hover:bg-emerald-300/[0.03]"
                         >
-                          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[0.7fr_0.9fr_1.2fr_0.8fr_0.9fr] lg:items-center lg:gap-5">
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                                Points
-                              </p>
+                          <div>
+                            {/* Mobile Compact View */}
+                            <div className="lg:hidden">
+                              <div className="flex items-center gap-2">
+                                <p className="text-base font-black text-emerald-300">
+                                  {points > 0 ? '+' : ''}
+                                  {points.toFixed(1)} CP
+                                </p>
 
-                              <p className="mt-1 text-xl font-black text-emerald-300">
-                                +{points.toFixed(1)} CP
-                              </p>
-                            </div>
+                                <span className="text-xs text-zinc-500">·</span>
 
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                                Type
-                              </p>
+                                <span
+                                  className={[
+                                    'inline-flex rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide',
+                                    badgeClass,
+                                  ].join(' ')}
+                                >
+                                  {typeLabel}
+                                </span>
+                              </div>
 
-                              <span
-                                className={[
-                                  'mt-1 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide',
-                                  badgeClass,
-                                ].join(' ')}
-                              >
-                                {typeLabel}
-                              </span>
-                            </div>
-
-                            <div className="min-w-0">
-                              <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                                Detail
-                              </p>
-
-                              <p className="mt-1 truncate font-semibold text-zinc-200">
+                              <p className="mt-2 truncate text-sm font-semibold text-zinc-200">
                                 {detail || '-'}
                               </p>
-                            </div>
 
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                                Date
-                              </p>
-
-                              <p className="mt-1 font-semibold text-zinc-200">
-                                {dateStr ? formatDate(dateStr) : '-'}
-                              </p>
-                            </div>
-
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                                Wallet
-                              </p>
-
-                              <p className="mt-1 font-mono text-xs font-semibold text-zinc-300">
+                              <p className="mt-1 text-[11px] font-medium text-zinc-500">
+                                {dateStr ? formatDate(dateStr) : '-'} ·{' '}
                                 {ev.wallet_address ? shorten(ev.wallet_address) : '-'}
                               </p>
+                            </div>
+
+                            {/* Desktop Detailed View */}
+                            <div className="hidden lg:grid lg:grid-cols-[0.7fr_0.9fr_1.2fr_0.8fr_0.9fr] lg:items-center lg:gap-5">
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                                  Points
+                                </p>
+
+                                <p className="mt-1 text-xl font-black text-emerald-300">
+                                  +{points.toFixed(1)} CP
+                                </p>
+                              </div>
+
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                                  Type
+                                </p>
+
+                                <span
+                                  className={[
+                                    'mt-1 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide',
+                                    badgeClass,
+                                  ].join(' ')}
+                                >
+                                  {typeLabel}
+                                </span>
+                              </div>
+
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                                  Detail
+                                </p>
+
+                                <p className="mt-1 truncate font-semibold text-zinc-200">
+                                  {detail || '-'}
+                                </p>
+                              </div>
+
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                                  Date
+                                </p>
+
+                                <p className="mt-1 font-semibold text-zinc-200">
+                                  {dateStr ? formatDate(dateStr) : '-'}
+                                </p>
+                              </div>
+
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                                  Wallet
+                                </p>
+
+                                <p className="mt-1 font-mono text-xs font-semibold text-zinc-300">
+                                  {ev.wallet_address ? shorten(ev.wallet_address) : '-'}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         </div>
