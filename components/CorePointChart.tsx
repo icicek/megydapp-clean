@@ -9,6 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { useEffect, useState } from 'react';
 
 type CorePointBreakdown = {
   coincarnations?: number;
@@ -32,6 +33,16 @@ function formatCp(value: number) {
 
 export default function CorePointChart({ data }: { data: CorePointBreakdown }) {
   if (!data) return null;
+
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 768);
+    check();
+
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   const raw = {
     coincarnations: Number(data.coincarnations) || 0,
@@ -110,28 +121,30 @@ export default function CorePointChart({ data }: { data: CorePointBreakdown }) {
               ))}
             </Pie>
 
-            <Tooltip
-              cursor={false}
-              contentStyle={{
-                backgroundColor: '#020617',
-                border: '1px solid rgba(148, 163, 184, 0.35)',
-                borderRadius: '14px',
-                color: '#f8fafc',
-                boxShadow: '0 18px 45px rgba(0,0,0,0.45)',
-              }}
-              itemStyle={{
-                color: '#f8fafc',
-                fontWeight: 700,
-              }}
-              labelStyle={{
-                color: '#cbd5e1',
-                fontWeight: 800,
-              }}
-              formatter={(value: number, name: string) => [
-                `${formatCp(Number(value))} CP · ${((Number(value) / total) * 100).toFixed(1)}%`,
-                name,
-              ]}
-            />
+            {isDesktop && (
+              <Tooltip
+                cursor={false}
+                contentStyle={{
+                  backgroundColor: '#020617',
+                  border: '1px solid rgba(148, 163, 184, 0.35)',
+                  borderRadius: '14px',
+                  color: '#f8fafc',
+                  boxShadow: '0 18px 45px rgba(0,0,0,0.45)',
+                }}
+                itemStyle={{
+                  color: '#f8fafc',
+                  fontWeight: 700,
+                }}
+                labelStyle={{
+                  color: '#cbd5e1',
+                  fontWeight: 800,
+                }}
+                formatter={(value: number, name: string) => [
+                  `${formatCp(Number(value))} CP · ${((Number(value) / total) * 100).toFixed(1)}%`,
+                  name,
+                ]}
+              />
+            )}
           </PieChart>
         </ResponsiveContainer>
 
