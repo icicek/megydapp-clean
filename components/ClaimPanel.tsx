@@ -1866,10 +1866,22 @@ export default function ClaimPanel() {
     const type = String(ev?.type || '').toLowerCase();
 
     if (ledgerFilter === 'all') return true;
-    if (ledgerFilter === 'contributions') return type === 'usd';
-    if (ledgerFilter === 'referrals') return type === 'referral_signup';
-    if (ledgerFilter === 'shares') return type === 'share';
-    if (ledgerFilter === 'deadcoins') return type === 'deadcoin_first';
+
+    if (ledgerFilter === 'contributions') {
+      return type === 'usd' || type === 'usd_blacklist_reversal';
+    }
+
+    if (ledgerFilter === 'referrals') {
+      return type === 'referral_signup';
+    }
+
+    if (ledgerFilter === 'shares') {
+      return type === 'share';
+    }
+
+    if (ledgerFilter === 'deadcoins') {
+      return type === 'deadcoin_first' || type === 'deadcoin_blacklist_reversal';
+    }
 
     return true;
   });
@@ -3635,7 +3647,7 @@ export default function ClaimPanel() {
                   </div>
 
                   <p className="mb-6 min-h-[64px] text-sm leading-6 text-zinc-400">
-                    Value revived through Coincarnation.
+                    Capital revived into future value.
                   </p>
 
                   <div className="mt-auto min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
@@ -3724,7 +3736,7 @@ export default function ClaimPanel() {
                   </div>
 
                   <p className="mb-6 min-h-[64px] text-sm leading-6 text-zinc-400">
-                    Value created through network growth.
+                    Network growth turned into value.
                   </p>
 
                   <div className="mt-auto min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
@@ -3735,7 +3747,7 @@ export default function ClaimPanel() {
                     <p className="mt-2 text-xs leading-5 text-amber-100/80">
                       {cpConfig
                         ? `~${Math.round(cpConfig.refSignup * cpConfig.multReferral)} CP per referred identity.`
-                        : `${data.referral_count} wallet joined with your link.`}
+                        : `${data.referral_count} identities joined through your link.`}
                     </p>
                   </div>
 
@@ -3770,7 +3782,7 @@ export default function ClaimPanel() {
                   </div>
 
                   <p className="mb-6 min-h-[64px] text-sm leading-6 text-zinc-400">
-                    Value created through visibility.
+                    Visibility converted into value.
                   </p>
 
                   <div className="mt-auto min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
@@ -3816,7 +3828,7 @@ export default function ClaimPanel() {
                   </div>
 
                   <p className="mb-6 min-h-[64px] text-sm leading-6 text-zinc-400">
-                    Value unlocked from deadcoins.
+                    Forgotten value discovered.
                   </p>
 
                   <div className="mt-auto min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
@@ -3826,7 +3838,7 @@ export default function ClaimPanel() {
 
                     <p className="mt-2 text-xs leading-5 text-violet-100/80">
                       {cpConfig
-                        ? `~${Math.round(cpConfig.deadcoinFirst * cpConfig.multDeadcoin)} CP per deadcoin contract.`
+                        ? `~${Math.round(cpConfig.deadcoinFirst * cpConfig.multDeadcoin)} CP per unique deadcoin.`
                         : 'Extra CorePoints for reviving true deadcoins.'}
                     </p>
                   </div>
