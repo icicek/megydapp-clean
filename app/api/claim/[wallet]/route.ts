@@ -173,7 +173,7 @@ export async function GET(req: NextRequest) {
         MAX(requested_at) AS requested_at,
         MAX(refunded_at) AS refunded_at
       FROM contribution_invalidations
-      WHERE wallet_address = ${wallet}
+      WHERE wallet_address = ANY(${claimWallets})
       GROUP BY contribution_id
     `) as any[];
 
@@ -300,9 +300,9 @@ export async function GET(req: NextRequest) {
 
     // Self contributions eligible USD (exclude deadcoin)
     const contribRows = (await sql/* sql */`
-      SELECT id, token_contract, usd_value
+      SELECT id, wallet_address, token_contract, usd_value
       FROM contributions
-      WHERE wallet_address = ${wallet};
+      WHERE wallet_address = ANY(${claimWallets});
     `) as any[];
 
     const statusCacheSelf = new Map<string, TokenStatus | null>();
@@ -321,7 +321,7 @@ export async function GET(req: NextRequest) {
     const totalCoinsResult = await sql/* sql */`
       SELECT COUNT(*) AS total_coins_contributed
       FROM contributions
-      WHERE wallet_address = ${wallet};
+      WHERE wallet_address = ANY(${claimWallets});
     `;
     const total_coins_contributed = parseInt((totalCoinsResult[0] as any).total_coins_contributed || '0', 10);
 
@@ -353,6 +353,7 @@ export async function GET(req: NextRequest) {
     const transactionsRaw = await sql`
     SELECT
       c.id,
+      c.wallet_address,
       c.token_symbol,
       c.token_amount,
       c.usd_value,
@@ -364,7 +365,7 @@ export async function GET(req: NextRequest) {
     FROM contributions c
     LEFT JOIN token_registry tr
       ON tr.mint = c.token_contract
-    WHERE c.wallet_address = ${wallet}
+    WHERE c.wallet_address = ANY(${claimWallets})
     ORDER BY c.timestamp DESC;
   `;
 
@@ -400,6 +401,7 @@ export async function GET(req: NextRequest) {
 
       return {
         contribution_id: contributionId,
+        wallet_address: row.wallet_address,
         invalidation_id: inv?.invalidation_id ?? null,
         token_symbol: row.token_symbol,
         token_amount: row.token_amount,
