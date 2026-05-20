@@ -86,15 +86,21 @@ const asBool = (v: unknown): boolean => {
 
 const MEGY_DECIMALS = 6;
 
-function formatMegyAmount(value: unknown): string {
+function formatMegyAmount(value: unknown, decimals = 3): string {
   const n = Number(value ?? 0);
 
   if (!Number.isFinite(n) || n <= 0) return '0';
 
-  if (n > 0 && n < 0.000001) return '<0.000001';
+  const minVisible = 1 / 10 ** decimals;
 
-  return n.toLocaleString(undefined, {
-    maximumFractionDigits: MEGY_DECIMALS,
+  if (n > 0 && n < minVisible) {
+    return `<${minVisible.toLocaleString('en-US', {
+      maximumFractionDigits: decimals,
+    })}`;
+  }
+
+  return n.toLocaleString('en-US', {
+    maximumFractionDigits: decimals,
   });
 }
 
