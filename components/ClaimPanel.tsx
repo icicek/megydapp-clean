@@ -1817,7 +1817,7 @@ export default function ClaimPanel() {
     if (isClaimAmountEmpty) return 'Enter an amount to continue.';
     if (claimAmountInvalid) return 'Enter a valid positive amount.';
     if (claimAmountExceeds) {
-      return `Amount exceeds selected snapshot balance. Max: ${formatMegyAmount(selectedClaimable)} MEGY.`;
+      return `Amount exceeds selected snapshot balance. Max: ${formatMegyAmount(selectedClaimable, 6)} MEGY.`;
     }
     if (useAltAddress && !altAddressRaw) return 'Enter destination wallet address.';
     if (destinationAddressInvalid) return 'Destination address is not a valid Solana wallet.';
@@ -2962,14 +2962,14 @@ export default function ClaimPanel() {
                     </p>
 
                     <p className="mt-1 font-black text-emerald-200">
-                      {formatMegyAmount(selectedClaimable)} MEGY
+                      {formatMegyAmount(selectedClaimable, 6)}
                     </p>
 
                     {claimAmountNumber > 0 && (
                       <p className="mt-1 text-[10px] text-zinc-500">
                         Remaining after claim:{' '}
                         <span className="font-semibold text-zinc-300">
-                          {formatMegyAmount(Math.max(0, selectedClaimable - claimAmountNumber))} MEGY
+                          {formatMegyAmount(Math.max(0, selectedClaimable - claimAmountNumber), 6)} MEGY
                         </span>
                       </p>
                     )}
@@ -3132,7 +3132,7 @@ export default function ClaimPanel() {
                 <p className="mt-2 leading-6 text-zinc-300">
                   You are about to claim{' '}
                   <span className="font-black text-amber-200">
-                    {formatMegyAmount(claimAmountNumber)} MEGY
+                    {formatMegyAmount(claimAmountNumber, 6)} MEGY
                   </span>{' '}
                   from{' '}
                   <span className="font-semibold text-white">
@@ -3189,7 +3189,7 @@ export default function ClaimPanel() {
                         <>
                           You can claim up to{" "}
                           <span className="text-purple-300 font-semibold">
-                            {formatMegyAmount(selectedClaimable)}
+                            {formatMegyAmount(selectedClaimable, 6)}
                           </span>{" "}
                           MEGY in this phase.
                         </>
