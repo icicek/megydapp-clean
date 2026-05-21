@@ -757,9 +757,18 @@ export default function ClaimPanel() {
       ? finalizedClaim.finalized_by_phase.find((p: any) => Number(p.phase_id) === Number(effectivePhaseId))
       : null;
 
-  const selectedClaimable = selectedPhaseRow
-    ? Math.max(0, Number(selectedPhaseRow.claimable_megy ?? 0))
-    : 0;
+  const selectedClaimable =
+    claimScope === 'identity'
+      ? Math.max(
+          0,
+          Number(finalizedClaim?.claimable_megy_total ?? 0)
+        )
+      : selectedPhaseRow
+        ? Math.max(
+            0,
+            Number(selectedPhaseRow.claimable_megy ?? 0)
+          )
+        : 0;
 
   const effectivePhaseLabel =
   selectedPhaseRow?.phase_name ||
@@ -2710,7 +2719,7 @@ export default function ClaimPanel() {
                   </p>
 
                   <p className="mt-1 text-sm text-gray-300">
-                    Choose whether to claim from only this wallet or all wallets linked to your Coincarnation Identity.
+                    Choose whether to claim from only this wallet or all wallets linked to your Identity.
                   </p>
 
                   <p className="mt-2 text-xs leading-5 text-cyan-100/60">
