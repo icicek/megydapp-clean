@@ -570,7 +570,7 @@ export default function ClaimPanel() {
 
   useEffect(() => {
     setSessionId(null);
-  }, [publicKey]);
+  }, [publicKey, claimScope]);
 
   useEffect(() => {
     setWalletHasNoLinkedIdentity(false);
@@ -656,12 +656,12 @@ export default function ClaimPanel() {
 
   useEffect(() => {
     attemptIdemKeyRef.current = null;
-  }, [claimAmount, altAddress, useAltAddress, selectedPhaseId]);
+  }, [claimAmount, altAddress, useAltAddress, selectedPhaseId, claimScope]);
 
   useEffect(() => {
     setClaimAmount('');
     setSelectedClaimPercent(null);
-  }, [selectedPhaseId, phaseId]);
+  }, [selectedPhaseId, phaseId, claimScope]);
   
   useEffect(() => {
   (async () => {
@@ -795,6 +795,9 @@ export default function ClaimPanel() {
       Number(selectedPhaseSnapshot?.claimable_megy ?? selectedPhaseSnapshot?.claimable ?? selectedClaimable ?? 0)
     );
 
+  const claimExecutionPhaseId =
+    claimScope === 'identity' ? 0 : Number(effectivePhaseId ?? 0);
+
   async function tryStartSessionWithoutFee(wallet: string, destination: string) {
     const r = await fetch('/api/claim/session/start', {
       method: 'POST',
@@ -803,7 +806,8 @@ export default function ClaimPanel() {
       body: JSON.stringify({
         wallet_address: wallet,
         destination,
-        phase_id: effectivePhaseId,
+        phase_id: claimExecutionPhaseId,
+        claim_scope: claimScope,
       }),
     });
 
@@ -1138,7 +1142,7 @@ export default function ClaimPanel() {
       return;
     }
   
-    if (!effectivePhaseId) {
+    if (claimScope !== 'identity' && !effectivePhaseId) {
       setMessage('❌ No finalized phase found. Claims are not ready yet.');
       return;
     }
@@ -1207,7 +1211,7 @@ export default function ClaimPanel() {
             session_id: sid,
             wallet_address: walletBase58,
             destination,
-            phase_id: effectivePhaseId, // 0 allowed for all phases (when we add toggle)
+            phase_id: claimExecutionPhaseId,
             claim_amount: raw,
             idempotency_key: idemKey,
           }),
@@ -1234,7 +1238,10 @@ export default function ClaimPanel() {
         if (execJson?.session_closed === true) setSessionId(null);
     
         // Refresh profile
-        const refreshed = await fetch(`/api/claim/${walletBase58}`, { cache: 'no-store' });
+        const refreshed = await fetch(
+          `/api/claim/${walletBase58}${claimScope === 'identity' ? '?scope=identity' : ''}`,
+          { cache: 'no-store' }
+        );
         const refreshedJson: any = await refreshed.json().catch(() => ({}));
         if (refreshed.ok && refreshedJson?.success) setData(refreshedJson.data);
     
@@ -1248,7 +1255,7 @@ export default function ClaimPanel() {
         setPendingClaim({
           wallet: walletBase58,
           destination,
-          phaseId: effectivePhaseId, // can be 0 when "all phases" enabled
+          phaseId: claimExecutionPhaseId, // can be 0 when "all phases" enabled
           claimAmountRaw: raw,
           idemKey,
         });
@@ -1740,6 +1747,7 @@ export default function ClaimPanel() {
           wallet_address: wallet,
           destination,
           phase_id: phaseId,
+          claim_scope: claimScope,
           fee_tx_signature: feeSig,
           fee_amount: FEE_LAMPORTS,
         }),
@@ -1791,7 +1799,10 @@ export default function ClaimPanel() {
       if (execJson?.session_closed === true) setSessionId(null);
   
       // 4) Refresh profile
-      const refreshed = await fetch(`/api/claim/${wallet}`, { cache: 'no-store' });
+      const refreshed = await fetch(
+        `/api/claim/${wallet}${claimScope === 'identity' ? '?scope=identity' : ''}`,
+        { cache: 'no-store' }
+      );
       const refreshedJson: any = await refreshed.json().catch(() => ({}));
       if (refreshed.ok && refreshedJson?.success) setData(refreshedJson.data);
     } catch (e: any) {
@@ -1842,7 +1853,7 @@ export default function ClaimPanel() {
 
   const claimDisabledReason = (() => {
     if (phaseLoading) return 'Loading finalized phase...';
-    if (!effectivePhaseId) return 'No finalized phase found yet.';
+    if (claimScope !== 'identity' && !effectivePhaseId) return 'No finalized phase found yet.';
     if (!claimOpen) return 'Claim window is currently closed.';
     if (isClaiming) return 'Claim is already in progress.';
     if (selectedClaimable <= 0) return 'No claimable balance for the selected snapshot.';
@@ -1866,13 +1877,15 @@ export default function ClaimPanel() {
 
   const claimButtonLabel = phaseLoading
     ? '⏳ Loading phase...'
-    : !effectivePhaseId
+    : claimScope !== 'identity' && !effectivePhaseId
       ? '❌ No finalized phase'
       : isClaiming
         ? '🚀 Claiming...'
         : selectedClaimable <= 0
           ? '✅ Nothing to claim'
-          : `🎉 Claim from ${effectivePhaseName ? String(effectivePhaseName) : String(effectivePhaseLabel)}`;
+          : claimScope === 'identity'
+            ? '🎉 Claim from All Linked Wallets'
+            : `🎉 Claim from ${effectivePhaseName ? String(effectivePhaseName) : String(effectivePhaseLabel)}`;
 
   const protectedActionIssue = getProtectedActionIssue();
 
@@ -3230,9 +3243,11 @@ export default function ClaimPanel() {
                   </span>{' '}
                   from{' '}
                   <span className="font-semibold text-white">
-                    {selectedPhaseSnapshot?.phase_name ||
-                      selectedPhaseSnapshot?.phaseName ||
-                      'selected phase'}
+                    {claimScope === 'identity'
+                      ? 'All Linked Wallets · FIFO'
+                      : selectedPhaseSnapshot?.phase_name ||
+                        selectedPhaseSnapshot?.phaseName ||
+                        'selected phase'}
                   </span>{' '}
                   to{' '}
                   <span className="font-mono font-semibold text-emerald-200">

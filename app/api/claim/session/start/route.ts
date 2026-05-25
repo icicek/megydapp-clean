@@ -29,7 +29,8 @@ const SESSION_MAX_AGE_MINUTES = Number(process.env.CLAIM_SESSION_MAX_AGE_MINUTES
 type Body = {
   wallet_address: string;
   destination: string;
-  phase_id?: number;
+  phase_id?: number; // 0 => all linked wallet phases
+  claim_scope?: 'wallet' | 'identity';
   fee_tx_signature?: string;
   fee_amount?: number;
 };
@@ -112,8 +113,14 @@ export async function POST(req: NextRequest) {
   const sig = String(body.fee_tx_signature ?? '').trim();
 
   const phaseId = Number(body.phase_id ?? 0);
+  const claimScope = body.claim_scope === 'identity' ? 'identity' : 'wallet';
+  const isAllPhases = claimScope === 'identity' && phaseId === 0;
 
-  if (!Number.isInteger(phaseId) || phaseId <= 0) {
+  if (!Number.isInteger(phaseId) || phaseId < 0) {
+    return json(400, { success: false, error: 'BAD_PHASE_ID' });
+  }
+
+  if (claimScope === 'wallet' && phaseId <= 0) {
     return json(400, { success: false, error: 'BAD_PHASE_ID' });
   }
 
@@ -197,7 +204,14 @@ export async function POST(req: NextRequest) {
         });
       }
     
-      return json(200, { success: true, session_id: open[0].id, reused: true });
+      return json(200, {
+        success: true,
+        session_id: open[0].id,
+        reused: true,
+        claim_scope: claimScope,
+        phase_id: phaseId,
+        is_all_phases: isAllPhases,
+      });
     }
   } catch (e) {
     console.error('open session select failed:', e);
@@ -294,7 +308,14 @@ export async function POST(req: NextRequest) {
     const sessionId = rows?.[0]?.id ?? null;
     if (!sessionId) return json(500, { success: false, error: 'SESSION_CREATE_FAILED' });
 
-    return json(200, { success: true, session_id: sessionId, reused: false });
+    return json(200, {
+      success: true,
+      session_id: sessionId,
+      reused: false,
+      claim_scope: claimScope,
+      phase_id: phaseId,
+      is_all_phases: isAllPhases,
+    });
   } catch (e: any) {
     console.error('claim_sessions insert failed:', e);
 
