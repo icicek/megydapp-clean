@@ -16,6 +16,7 @@ import {
 const sql = neon(process.env.DATABASE_URL!);
 
 const SESSION_MAX_AGE_MINUTES = Number(process.env.CLAIM_SESSION_MAX_AGE_MINUTES ?? 30);
+const CLAIM_DRY_RUN = String(process.env.CLAIM_DRY_RUN ?? '').toLowerCase() === 'true';
 
 const RPC_URL =
   process.env.SOLANA_RPC_URL ||
@@ -466,6 +467,26 @@ export async function POST(req: NextRequest) {
     return json(500, { success: false, error: 'DB_RESERVATION_FAILED' });
   }
 
+  if (CLAIM_DRY_RUN) {
+    try {
+      await sql`ROLLBACK`;
+    } catch {}
+  
+    return json(200, {
+      success: true,
+      dry_run: true,
+      scope: isAllPhases ? 'all' : 'phase',
+      status: 'simulated',
+      message: 'Dry run only. No MEGY transfer was sent and no claim was finalized.',
+      requested_amount: baseToDecimalString(amountBaseTotal, MEGY_DECIMALS),
+      megy_decimals: MEGY_DECIMALS,
+      splits: splits.map((s) => ({
+        phase_id: s.phase_id,
+        amount: s.amount_human,
+      })),
+    });
+  }
+  
   // --- Step 2: On-chain transfer (single tx: total amount) ---
   let sig = '';
   try {
