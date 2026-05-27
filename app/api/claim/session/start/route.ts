@@ -220,6 +220,10 @@ export async function POST(req: NextRequest) {
   }
 
   // 2) No open session => fee required only if identity has no phase fee credit
+  if (CLAIM_DRY_RUN) {
+    hasPhaseFeeCredit = true;
+  }
+  
   if (!hasPhaseFeeCredit && !sig) {
     return json(400, { success: false, error: 'MISSING_FEE_SIGNATURE' });
   }
