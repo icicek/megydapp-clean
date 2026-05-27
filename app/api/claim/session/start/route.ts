@@ -10,6 +10,7 @@ import { requireIdentityWalletAccess } from '@/app/api/_lib/identity-guard';
 const sql = neon(process.env.DATABASE_URL!);
 
 const EXPECTED_FEE_LAMPORTS = Number(process.env.CLAIM_FEE_LAMPORTS ?? 3_000_000);
+const CLAIM_DRY_RUN = String(process.env.CLAIM_DRY_RUN ?? '').toLowerCase() === 'true';
 
 const RPC_URL =
   process.env.SOLANA_RPC_URL ||
@@ -155,7 +156,7 @@ export async function POST(req: NextRequest) {
 
   const MEGY_MINT = String(process.env.MEGY_MINT || '').trim();
 
-  if (!MEGY_MINT) {
+  if (!MEGY_MINT && !CLAIM_DRY_RUN) {
     return json(503, {
       success: false,
       code: 'CLAIM_NOT_LIVE',
