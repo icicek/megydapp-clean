@@ -1247,8 +1247,12 @@ if (isDryRun) {
                 : 'simulation complete'
             }`
           );
-        } else {
+        } else if (execJson?.tx_signature) {
           setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
+        } else if (execJson?.deduped) {
+          setMessage('⚠️ Duplicate claim attempt detected. Please refresh and try again.');
+        } else {
+          setMessage('❌ Claim execution failed.');
         }
 
         setClaimAmount('');
@@ -1824,8 +1828,12 @@ if (isDryRun) {
               : 'simulation complete'
           }`
         );
-      } else {
+      } else if (execJson?.tx_signature) {
         setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
+      } else if (execJson?.deduped) {
+        setMessage('⚠️ Duplicate claim attempt detected. Please refresh and try again.');
+      } else {
+        setMessage('❌ Claim execution failed.');
       }
 
       setClaimAmount('');
