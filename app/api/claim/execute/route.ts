@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
   let scopedWallets = [wallet];
 
   if (isAllPhases) {
-    const identityId = (identityGuard as any)?.identity?.id;
+    const identityId = identityGuard.identityId;
 
     if (!identityId) {
       return json(401, {
