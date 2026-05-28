@@ -93,6 +93,7 @@ type Body = {
 };
 
 type Split = {
+  wallet_address?: string;
   phase_id: number;
   amount_base: bigint;
   amount_human: string;
@@ -139,6 +140,39 @@ export async function POST(req: NextRequest) {
       success: false,
       error: identityGuard.error,
     });
+  }
+
+  let scopedWallets = [wallet];
+
+  if (isAllPhases) {
+    const identityId = (identityGuard as any)?.identity?.id;
+
+    if (!identityId) {
+      return json(401, {
+        success: false,
+        error: 'IDENTITY_SESSION_REQUIRED',
+      });
+    }
+
+    const linked = await sql`
+      SELECT wallet_address
+      FROM identity_wallets
+      WHERE identity_id = ${identityId}
+        AND chain = 'solana'
+      ORDER BY created_at ASC
+    `;
+
+    scopedWallets = Array.from(
+      new Set(
+        (linked ?? [])
+          .map((r: any) => String(r.wallet_address || '').trim())
+          .filter(Boolean)
+      )
+    );
+
+    if (!scopedWallets.includes(wallet)) {
+      scopedWallets.push(wallet);
+    }
   }
 
   const MEGY_MINT = asStr(process.env.MEGY_MINT || '');
@@ -342,30 +376,45 @@ export async function POST(req: NextRequest) {
       }];
     } else {
       const rem = await sql`
-        WITH snaps AS (
-          SELECT phase_id, COALESCE(SUM(megy_amount_base), 0) AS snap_base
-          FROM claim_snapshots
-          WHERE wallet_address = ${wallet}
-          GROUP BY phase_id
+        WITH scoped_wallets AS (
+          SELECT unnest(${scopedWallets}::text[]) AS wallet_address
+        ),
+        snaps AS (
+          SELECT
+            cs.wallet_address,
+            cs.phase_id,
+            COALESCE(SUM(cs.megy_amount_base), 0) AS snap_base
+          FROM claim_snapshots cs
+          JOIN scoped_wallets sw
+            ON LOWER(sw.wallet_address) = LOWER(cs.wallet_address)
+          GROUP BY cs.wallet_address, cs.phase_id
         ),
         cls AS (
-          SELECT phase_id, COALESCE(SUM(claim_amount_base), 0) AS claimed_base
-          FROM claims
-          WHERE wallet_address = ${wallet}
-            AND status IN ('created','succeeded')
-          GROUP BY phase_id
+          SELECT
+            c.wallet_address,
+            c.phase_id,
+            COALESCE(SUM(c.claim_amount_base), 0) AS claimed_base
+          FROM claims c
+          JOIN scoped_wallets sw
+            ON LOWER(sw.wallet_address) = LOWER(c.wallet_address)
+          WHERE c.status IN ('created','succeeded')
+          GROUP BY c.wallet_address, c.phase_id
         )
         SELECT
+          s.wallet_address,
           s.phase_id,
           (s.snap_base - COALESCE(c.claimed_base, 0)) AS remaining_base
         FROM snaps s
-        LEFT JOIN cls c ON c.phase_id = s.phase_id
+        LEFT JOIN cls c
+          ON LOWER(c.wallet_address) = LOWER(s.wallet_address)
+        AND c.phase_id = s.phase_id
         WHERE (s.snap_base - COALESCE(c.claimed_base, 0)) > 0
-        ORDER BY s.phase_id ASC
+        ORDER BY s.phase_id ASC, s.wallet_address ASC
       `;
 
       const list = (rem ?? [])
         .map((r: any) => ({
+          wallet_address: String(r.wallet_address || wallet),
           phase_id: Number(r.phase_id),
           remaining_base: BigInt(String(r.remaining_base ?? '0')),
         }))
@@ -383,13 +432,17 @@ export async function POST(req: NextRequest) {
       }
 
       let left = amountBaseTotal;
-      const alloc: { phase_id: number; amount_base: bigint }[] = [];
+      const alloc: { wallet_address: string; phase_id: number; amount_base: bigint }[] = [];
 
       for (const p of list) {
         if (left <= 0n) break;
         const take = left <= p.remaining_base ? left : p.remaining_base;
         if (take > 0n) {
-          alloc.push({ phase_id: p.phase_id, amount_base: take });
+          alloc.push({
+            wallet_address: p.wallet_address,
+            phase_id: p.phase_id,
+            amount_base: take,
+          });
           left -= take;
         }
       }
@@ -403,7 +456,7 @@ export async function POST(req: NextRequest) {
       const sp: Split[] = [];
 
       for (const a of alloc) {
-        const childKey = `${idemKeyRoot}#${a.phase_id}`;
+        const childKey = `${idemKeyRoot}#${a.wallet_address}#${a.phase_id}`;
         const amountHuman = baseToDecimalString(a.amount_base, MEGY_DECIMALS);
 
         const ins = await sql`
@@ -424,7 +477,7 @@ export async function POST(req: NextRequest) {
             error
           )
           VALUES (
-            ${wallet},
+            ${a.wallet_address},
             ${amountHuman},
             ${a.amount_base.toString()},
             ${destination},
@@ -447,6 +500,7 @@ export async function POST(req: NextRequest) {
         ids.push(id);
 
         sp.push({
+          wallet_address: a.wallet_address,
           phase_id: a.phase_id,
           amount_base: a.amount_base,
           amount_human: amountHuman,
@@ -456,6 +510,25 @@ export async function POST(req: NextRequest) {
 
       claimRowIds = ids;
       splits = sp;
+    }
+
+    if (CLAIM_DRY_RUN) {
+      await sql`ROLLBACK`;
+    
+      return json(200, {
+        success: true,
+        dry_run: true,
+        scope: isAllPhases ? 'all' : 'phase',
+        status: 'simulated',
+        message: 'Dry run only. No MEGY transfer was sent and no claim was finalized.',
+        requested_amount: baseToDecimalString(amountBaseTotal, MEGY_DECIMALS),
+        megy_decimals: MEGY_DECIMALS,
+        splits: splits.map((s) => ({
+          wallet_address: s.wallet_address ?? wallet,
+          phase_id: s.phase_id,
+          amount: s.amount_human,
+        })),
+      });
     }
 
     await sql`COMMIT`;
@@ -588,26 +661,6 @@ export async function POST(req: NextRequest) {
 
     const totalClaimableRemaining = baseToDecimalString(totalClaimableBase, MEGY_DECIMALS);
 
-    if (CLAIM_DRY_RUN) {
-      try {
-        await sql`ROLLBACK`;
-      } catch {}
-    
-      return json(200, {
-        success: true,
-        dry_run: true,
-        scope: isAllPhases ? 'all' : 'phase',
-        status: 'simulated',
-        message: 'Dry run only. No MEGY transfer was sent and no claim was finalized.',
-        requested_amount: baseToDecimalString(amountBaseTotal, MEGY_DECIMALS),
-        megy_decimals: MEGY_DECIMALS,
-        splits: splits.map((s) => ({
-          phase_id: s.phase_id,
-          amount: s.amount_human,
-        })),
-      });
-    }
-
     await sql`COMMIT`;
 
     return json(200, {
@@ -618,7 +671,11 @@ export async function POST(req: NextRequest) {
       session_closed: closed,
       total_claimable_remaining: totalClaimableRemaining,
       megy_decimals: MEGY_DECIMALS,
-      splits: splits.map(s => ({ phase_id: s.phase_id, amount: s.amount_human })),
+      splits: splits.map((s) => ({
+        wallet_address: s.wallet_address ?? wallet,
+        phase_id: s.phase_id,
+        amount: s.amount_human,
+      })),
     });
   } catch (e: any) {
     try { await sql`ROLLBACK`; } catch {}
