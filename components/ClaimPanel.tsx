@@ -1236,7 +1236,17 @@ export default function ClaimPanel() {
             }`
           );
         } else {
-          setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
+          if (execJson?.dry_run === true) {
+            setMessage(
+              `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${
+                Array.isArray(execJson.splits)
+                  ? execJson.splits.map((s: any) => `Phase ${s.phase_id}: ${s.amount}`).join(' · ')
+                  : 'simulation complete'
+              }`
+            );
+          } else {
+            setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
+          }
         }
 
         setClaimAmount('');
@@ -1808,7 +1818,17 @@ export default function ClaimPanel() {
           }`
         );
       } else {
-        setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
+        if (execJson?.dry_run === true) {
+          setMessage(
+            `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${
+              Array.isArray(execJson.splits)
+                ? execJson.splits.map((s: any) => `Phase ${s.phase_id}: ${s.amount}`).join(' · ')
+                : 'simulation complete'
+            }`
+          );
+        } else {
+          setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
+        }
       }
 
       setClaimAmount('');
