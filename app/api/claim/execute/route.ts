@@ -16,7 +16,7 @@ import {
 const sql = neon(process.env.DATABASE_URL!);
 
 const SESSION_MAX_AGE_MINUTES = Number(process.env.CLAIM_SESSION_MAX_AGE_MINUTES ?? 30);
-const CLAIM_DRY_RUN = String(process.env.CLAIM_DRY_RUN ?? '').toLowerCase() === 'true';
+const CLAIM_DRY_RUN = String(process.env.CLAIM_DRY_RUN ?? '').trim().toLowerCase() === 'true';
 
 const RPC_URL =
   process.env.SOLANA_RPC_URL ||
