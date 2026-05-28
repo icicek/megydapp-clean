@@ -1234,7 +1234,12 @@ export default function ClaimPanel() {
     
         setClaimFeeSigForSupport(null);
 
-        if (execJson?.dry_run === true) {
+        const isDryRun =
+  execJson?.dry_run === true ||
+  execJson?.dryRun === true ||
+  String(execJson?.dry_run ?? '').toLowerCase() === 'true';
+
+if (isDryRun) {
           setMessage(
             `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${
               Array.isArray(execJson.splits)
@@ -1806,7 +1811,12 @@ export default function ClaimPanel() {
   
       setClaimFeeSigForSupport(null);
 
-      if (execJson?.dry_run === true) {
+      const isDryRun =
+        execJson?.dry_run === true ||
+        execJson?.dryRun === true ||
+        String(execJson?.dry_run ?? '').toLowerCase() === 'true';
+
+      if (isDryRun) {
         setMessage(
           `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${
             Array.isArray(execJson.splits)
