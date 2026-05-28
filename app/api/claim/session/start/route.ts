@@ -281,8 +281,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const sessionFeeSignature = hasPhaseFeeCredit && !sig ? null : sig;
-  const sessionFeeAmount = hasPhaseFeeCredit && !sig ? 0 : EXPECTED_FEE_LAMPORTS;
+  const sessionFeeSignature =
+    CLAIM_DRY_RUN && !sig
+      ? `DRY_RUN_${identityId}_${phaseId}_${Date.now()}`
+      : hasPhaseFeeCredit && !sig
+        ? `FEE_CREDIT_${identityId}_${phaseId}_${Date.now()}`
+        : sig;
+
+  const sessionFeeAmount =
+    hasPhaseFeeCredit && !sig ? 0 : EXPECTED_FEE_LAMPORTS;
 
   // 5) Create session
   try {
