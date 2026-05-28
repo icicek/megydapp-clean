@@ -1221,6 +1221,13 @@ export default function ClaimPanel() {
     
         if (!execRes.ok || !execJson?.success) {
           const rawErr = String(execJson?.error || `CLAIM_EXECUTE_FAILED (${execRes.status})`);
+
+          if (rawErr === 'SESSION_NOT_FOUND') {
+            setSessionId(null);
+            setPendingClaim(null);
+            attemptIdemKeyRef.current = null;
+          }
+
           setMessage(`❌ ${userFriendlyError(rawErr)}`);
           return;
         }
@@ -1236,17 +1243,7 @@ export default function ClaimPanel() {
             }`
           );
         } else {
-          if (execJson?.dry_run === true) {
-            setMessage(
-              `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${
-                Array.isArray(execJson.splits)
-                  ? execJson.splits.map((s: any) => `Phase ${s.phase_id}: ${s.amount}`).join(' · ')
-                  : 'simulation complete'
-              }`
-            );
-          } else {
-            setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
-          }
+          setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
         }
 
         setClaimAmount('');
@@ -1818,17 +1815,7 @@ export default function ClaimPanel() {
           }`
         );
       } else {
-        if (execJson?.dry_run === true) {
-          setMessage(
-            `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${
-              Array.isArray(execJson.splits)
-                ? execJson.splits.map((s: any) => `Phase ${s.phase_id}: ${s.amount}`).join(' · ')
-                : 'simulation complete'
-            }`
-          );
-        } else {
-          setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
-        }
+        setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
       }
 
       setClaimAmount('');

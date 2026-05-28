@@ -10,7 +10,7 @@ import { requireIdentityWalletAccess } from '@/app/api/_lib/identity-guard';
 const sql = neon(process.env.DATABASE_URL!);
 
 const EXPECTED_FEE_LAMPORTS = Number(process.env.CLAIM_FEE_LAMPORTS ?? 3_000_000);
-const CLAIM_DRY_RUN = String(process.env.CLAIM_DRY_RUN ?? '').toLowerCase() === 'true';
+const CLAIM_DRY_RUN = String(process.env.CLAIM_DRY_RUN ?? '').trim().toLowerCase() === 'true';
 
 const RPC_URL =
   process.env.SOLANA_RPC_URL ||
@@ -182,6 +182,19 @@ export async function POST(req: NextRequest) {
     return json(500, { success: false, error: 'DB_ERROR_FEE_CREDIT_CHECK' });
   }
 
+  await sql`
+    UPDATE claim_sessions
+    SET status = 'closed',
+        closed_at = now()
+    WHERE wallet_address = ${wallet}
+      AND status = 'open'
+      AND (
+        opened_at <= now() - (${SESSION_MAX_AGE_MINUTES} || ' minutes')::interval
+        OR phase_id IS DISTINCT FROM ${phaseId}
+        OR destination IS DISTINCT FROM ${destination}
+      )
+  `;
+
   // 1) Reuse open session (wallet-based)
   try {
     const open = await sql`
@@ -344,7 +357,14 @@ export async function POST(req: NextRequest) {
           LIMIT 1
         `;
         if (open2?.length && open2[0]?.id) {
-          return json(200, { success: true, session_id: open2[0].id, reused: true });
+          return json(200, {
+            success: true,
+            session_id: open2[0].id,
+            reused: true,
+            claim_scope: claimScope,
+            phase_id: phaseId,
+            is_all_phases: isAllPhases,
+          });
         }
       } catch {}
       return json(409, { success: false, error: 'SESSION_ALREADY_OPEN' });
