@@ -328,6 +328,32 @@ export async function POST(req: NextRequest) {
 
       const amountHuman = baseToDecimalString(amountBaseTotal, MEGY_DECIMALS);
 
+      if (CLAIM_DRY_RUN) {
+        splits = [{
+          wallet_address: wallet,
+          phase_id: phaseId,
+          amount_base: amountBaseTotal,
+          amount_human: amountHuman,
+          idem_key: idemKeyRoot,
+        }];
+      
+        await sql`ROLLBACK`;
+        return json(200, {
+          success: true,
+          dry_run: true,
+          scope: 'phase',
+          status: 'simulated',
+          message: 'Dry run only. No MEGY transfer was sent and no claim was finalized.',
+          requested_amount: baseToDecimalString(amountBaseTotal, MEGY_DECIMALS),
+          megy_decimals: MEGY_DECIMALS,
+          splits: splits.map((s) => ({
+            wallet_address: s.wallet_address ?? wallet,
+            phase_id: s.phase_id,
+            amount: s.amount_human,
+          })),
+        });
+      }
+
       const ins = await sql`
         INSERT INTO claims (
           wallet_address,
@@ -455,6 +481,32 @@ export async function POST(req: NextRequest) {
       const ids: number[] = [];
       const sp: Split[] = [];
 
+      if (CLAIM_DRY_RUN) {
+        splits = alloc.map((a) => ({
+          wallet_address: a.wallet_address,
+          phase_id: a.phase_id,
+          amount_base: a.amount_base,
+          amount_human: baseToDecimalString(a.amount_base, MEGY_DECIMALS),
+          idem_key: `${idemKeyRoot}#${a.wallet_address}#${a.phase_id}`,
+        }));
+      
+        await sql`ROLLBACK`;
+        return json(200, {
+          success: true,
+          dry_run: true,
+          scope: 'all',
+          status: 'simulated',
+          message: 'Dry run only. No MEGY transfer was sent and no claim was finalized.',
+          requested_amount: baseToDecimalString(amountBaseTotal, MEGY_DECIMALS),
+          megy_decimals: MEGY_DECIMALS,
+          splits: splits.map((s) => ({
+            wallet_address: s.wallet_address ?? wallet,
+            phase_id: s.phase_id,
+            amount: s.amount_human,
+          })),
+        });
+      }
+
       for (const a of alloc) {
         const childKey = `${idemKeyRoot}#${a.wallet_address}#${a.phase_id}`;
         const amountHuman = baseToDecimalString(a.amount_base, MEGY_DECIMALS);
@@ -510,25 +562,6 @@ export async function POST(req: NextRequest) {
 
       claimRowIds = ids;
       splits = sp;
-    }
-
-    if (CLAIM_DRY_RUN) {
-      await sql`ROLLBACK`;
-    
-      return json(200, {
-        success: true,
-        dry_run: true,
-        scope: isAllPhases ? 'all' : 'phase',
-        status: 'simulated',
-        message: 'Dry run only. No MEGY transfer was sent and no claim was finalized.',
-        requested_amount: baseToDecimalString(amountBaseTotal, MEGY_DECIMALS),
-        megy_decimals: MEGY_DECIMALS,
-        splits: splits.map((s) => ({
-          wallet_address: s.wallet_address ?? wallet,
-          phase_id: s.phase_id,
-          amount: s.amount_human,
-        })),
-      });
     }
 
     await sql`COMMIT`;
