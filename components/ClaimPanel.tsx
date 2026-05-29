@@ -1235,11 +1235,19 @@ export default function ClaimPanel() {
         setClaimFeeSigForSupport(null);
 
         const isDryRun =
-  execJson?.dry_run === true ||
-  execJson?.dryRun === true ||
-  String(execJson?.dry_run ?? '').toLowerCase() === 'true';
+          execJson?.dry_run === true ||
+          execJson?.dryRun === true ||
+          String(execJson?.dry_run ?? '').trim().toLowerCase() === 'true';
 
-if (isDryRun) {
+        if (execJson?.deduped && execJson?.status !== 'succeeded') {
+          setSessionId(null);
+          setPendingClaim(null);
+          attemptIdemKeyRef.current = null;
+          setMessage('⚠️ Duplicate claim attempt detected. Please try again.');
+          return;
+        }
+
+        if (isDryRun) {
           setMessage(
             `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${
               Array.isArray(execJson.splits)
@@ -1250,7 +1258,7 @@ if (isDryRun) {
         } else if (execJson?.tx_signature) {
           setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
         } else if (execJson?.deduped) {
-          setMessage('⚠️ Duplicate claim attempt detected. Please refresh and try again.');
+          setMessage('⚠️ Duplicate claim attempt detected. Please try again.');
         } else {
           setMessage('❌ Claim execution failed.');
         }
@@ -1818,7 +1826,15 @@ if (isDryRun) {
       const isDryRun =
         execJson?.dry_run === true ||
         execJson?.dryRun === true ||
-        String(execJson?.dry_run ?? '').toLowerCase() === 'true';
+        String(execJson?.dry_run ?? '').trim().toLowerCase() === 'true';
+
+      if (execJson?.deduped && execJson?.status !== 'succeeded') {
+        setSessionId(null);
+        setPendingClaim(null);
+        attemptIdemKeyRef.current = null;
+        setMessage('⚠️ Duplicate claim attempt detected. Please try again.');
+        return;
+      }
 
       if (isDryRun) {
         setMessage(
@@ -1831,7 +1847,7 @@ if (isDryRun) {
       } else if (execJson?.tx_signature) {
         setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
       } else if (execJson?.deduped) {
-        setMessage('⚠️ Duplicate claim attempt detected. Please refresh and try again.');
+        setMessage('⚠️ Duplicate claim attempt detected. Please try again.');
       } else {
         setMessage('❌ Claim execution failed.');
       }
