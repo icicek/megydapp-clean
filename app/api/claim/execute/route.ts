@@ -215,6 +215,7 @@ export async function POST(req: NextRequest) {
       WHERE wallet_address = ${wallet}
         AND phase_id = ${phaseIdRaw}
         AND idempotency_key = ${idemKeyRoot}
+        AND status IN ('created', 'succeeded')
       LIMIT 1
     `;
 
@@ -239,6 +240,7 @@ export async function POST(req: NextRequest) {
       FROM claims
       WHERE wallet_address = ${wallet}
         AND request_hash = ${requestHashRoot}
+        AND status IN ('created', 'succeeded')
       ORDER BY id ASC
       LIMIT 1
     `;
