@@ -140,12 +140,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const identityId = String(
-    (identityGuard as any).identityId ||
-    (identityGuard as any).identity_id ||
-    (identityGuard as any).identity?.id ||
-    ''
-  ).trim();
+  const identityId = identityGuard.identityId;
 
   if (!identityId) {
     return json(403, {
@@ -353,6 +348,7 @@ export async function POST(req: NextRequest) {
           WHERE wallet_address = ${wallet}
             AND phase_id = ${phaseId}
             AND status = 'open'
+            AND opened_at > now() - (${SESSION_MAX_AGE_MINUTES} || ' minutes')::interval
           ORDER BY opened_at DESC
           LIMIT 1
         `;

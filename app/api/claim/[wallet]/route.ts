@@ -547,6 +547,7 @@ export async function GET(req: NextRequest) {
         COALESCE(SUM(claim_amount),0)::float AS claimed
       FROM claims
       WHERE wallet_address = ANY(${claimWallets})
+        AND status IN ('created', 'succeeded')
       GROUP BY phase_id
       ORDER BY phase_id DESC;
     `) as any[];

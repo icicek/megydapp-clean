@@ -84,7 +84,7 @@ const asBool = (v: unknown): boolean => {
   return false;
 };
 
-const MEGY_DECIMALS = 6;
+const MEGY_DECIMALS = 9;
 
 function formatMegyAmount(value: unknown, decimals = 3): string {
   const n = Number(value ?? 0);
@@ -3322,7 +3322,7 @@ export default function ClaimPanel() {
 
             {claimOpen ? (
               <>
-                {effectivePhaseId && selectedClaimable <= 0 && (
+                {(claimScope === 'identity' || effectivePhaseId) && selectedClaimable <= 0 && (
                   <p className="text-center text-xs text-yellow-300 mb-2">
                     ⚠️ No claimable balance found for the selected phase. Please select another finalized phase.
                   </p>

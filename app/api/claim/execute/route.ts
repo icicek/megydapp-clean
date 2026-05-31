@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
       )
     );
 
-    if (!scopedWallets.includes(wallet)) {
+    if (!scopedWallets.some((w) => w.toLowerCase() === wallet.toLowerCase())) {
       scopedWallets.push(wallet);
     }
   }
@@ -663,22 +663,44 @@ export async function POST(req: NextRequest) {
       `;
     }
 
-    const totals = await sql`
-      WITH snaps AS (
-        SELECT COALESCE(SUM(megy_amount_base), 0) AS snap_base
-        FROM claim_snapshots
-        WHERE wallet_address = ${wallet}
-      ),
-      cls AS (
-        SELECT COALESCE(SUM(claim_amount_base), 0) AS claimed_base
-        FROM claims
-        WHERE wallet_address = ${wallet}
-          AND status IN ('created','succeeded')
-      )
-      SELECT
-        (SELECT snap_base FROM snaps) AS snap_base,
-        (SELECT claimed_base FROM cls) AS claimed_base
-    `;
+    const totals = isAllPhases
+      ? await sql`
+          WITH scoped_wallets AS (
+            SELECT unnest(${scopedWallets}::text[]) AS wallet_address
+          ),
+          snaps AS (
+            SELECT COALESCE(SUM(cs.megy_amount_base), 0) AS snap_base
+            FROM claim_snapshots cs
+            JOIN scoped_wallets sw
+              ON LOWER(sw.wallet_address) = LOWER(cs.wallet_address)
+          ),
+          cls AS (
+            SELECT COALESCE(SUM(c.claim_amount_base), 0) AS claimed_base
+            FROM claims c
+            JOIN scoped_wallets sw
+              ON LOWER(sw.wallet_address) = LOWER(c.wallet_address)
+            WHERE c.status IN ('created','succeeded')
+          )
+          SELECT
+            (SELECT snap_base FROM snaps) AS snap_base,
+            (SELECT claimed_base FROM cls) AS claimed_base
+        `
+      : await sql`
+          WITH snaps AS (
+            SELECT COALESCE(SUM(megy_amount_base), 0) AS snap_base
+            FROM claim_snapshots
+            WHERE wallet_address = ${wallet}
+          ),
+          cls AS (
+            SELECT COALESCE(SUM(claim_amount_base), 0) AS claimed_base
+            FROM claims
+            WHERE wallet_address = ${wallet}
+              AND status IN ('created','succeeded')
+          )
+          SELECT
+            (SELECT snap_base FROM snaps) AS snap_base,
+            (SELECT claimed_base FROM cls) AS claimed_base
+        `;
 
     const snapBaseAll = BigInt(String(totals?.[0]?.snap_base ?? '0'));
     const claimedBaseAll = BigInt(String(totals?.[0]?.claimed_base ?? '0'));
