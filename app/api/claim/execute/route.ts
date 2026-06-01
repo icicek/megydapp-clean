@@ -95,6 +95,8 @@ type Body = {
 type Split = {
   wallet_address?: string;
   phase_id: number;
+  phase_no?: number | null;
+  phase_name?: string | null;
   amount_base: bigint;
   amount_human: string;
   idem_key: string;
@@ -316,7 +318,12 @@ export async function POST(req: NextRequest) {
         )
         SELECT
           (SELECT snap_base FROM snap) AS snap_base,
-          (SELECT claimed_base FROM cl) AS claimed_base
+          (SELECT claimed_base FROM cl) AS claimed_base,
+          p.phase_no,
+          p.name AS phase_name
+        FROM phases p
+        WHERE p.id = ${phaseId}
+        LIMIT 1
       `;
 
       const snapBase = BigInt(String(rows?.[0]?.snap_base ?? '0'));
@@ -334,6 +341,8 @@ export async function POST(req: NextRequest) {
         splits = [{
           wallet_address: wallet,
           phase_id: phaseId,
+          phase_no: rows?.[0]?.phase_no ? Number(rows[0].phase_no) : null,
+          phase_name: rows?.[0]?.phase_name ? String(rows[0].phase_name) : null,
           amount_base: amountBaseTotal,
           amount_human: amountHuman,
           idem_key: idemKeyRoot,
@@ -351,6 +360,13 @@ export async function POST(req: NextRequest) {
           splits: splits.map((s) => ({
             wallet_address: s.wallet_address ?? wallet,
             phase_id: s.phase_id,
+            phase_no: s.phase_no ?? null,
+            phase_name: s.phase_name ?? null,
+            phase_label: s.phase_name
+              ? String(s.phase_name)
+              : s.phase_no
+                ? `Phase ${s.phase_no}`
+                : `Phase ${s.phase_id}`,
             amount: s.amount_human,
           })),
         });
@@ -431,17 +447,23 @@ export async function POST(req: NextRequest) {
         SELECT
           s.wallet_address,
           s.phase_id,
+          p.phase_no,
+          p.name AS phase_name,
           (s.snap_base - COALESCE(c.claimed_base, 0)) AS remaining_base
         FROM snaps s
         LEFT JOIN cls c
           ON LOWER(c.wallet_address) = LOWER(s.wallet_address)
         AND c.phase_id = s.phase_id
+        JOIN phases p
+          ON p.id = s.phase_id
         WHERE (s.snap_base - COALESCE(c.claimed_base, 0)) > 0
         ORDER BY s.phase_id ASC, s.wallet_address ASC
       `;
 
       const list = (rem ?? [])
         .map((r: any) => ({
+          phase_no: r.phase_no != null ? Number(r.phase_no) : null,
+          phase_name: r.phase_name ? String(r.phase_name) : null,
           wallet_address: String(r.wallet_address || wallet),
           phase_id: Number(r.phase_id),
           remaining_base: BigInt(String(r.remaining_base ?? '0')),
@@ -460,13 +482,21 @@ export async function POST(req: NextRequest) {
       }
 
       let left = amountBaseTotal;
-      const alloc: { wallet_address: string; phase_id: number; amount_base: bigint }[] = [];
+      const alloc: {
+        wallet_address: string;
+        phase_id: number;
+        phase_no?: number | null;
+        phase_name?: string | null;
+        amount_base: bigint;
+      }[] = [];
 
       for (const p of list) {
         if (left <= 0n) break;
         const take = left <= p.remaining_base ? left : p.remaining_base;
         if (take > 0n) {
           alloc.push({
+            phase_no: p.phase_no,
+            phase_name: p.phase_name,
             wallet_address: p.wallet_address,
             phase_id: p.phase_id,
             amount_base: take,
@@ -487,6 +517,8 @@ export async function POST(req: NextRequest) {
         splits = alloc.map((a) => ({
           wallet_address: a.wallet_address,
           phase_id: a.phase_id,
+          phase_no: a.phase_no ?? null,
+          phase_name: a.phase_name ?? null,
           amount_base: a.amount_base,
           amount_human: baseToDecimalString(a.amount_base, MEGY_DECIMALS),
           idem_key: `${idemKeyRoot}#${a.wallet_address}#${a.phase_id}`,
@@ -504,6 +536,13 @@ export async function POST(req: NextRequest) {
           splits: splits.map((s) => ({
             wallet_address: s.wallet_address ?? wallet,
             phase_id: s.phase_id,
+            phase_no: s.phase_no ?? null,
+            phase_name: s.phase_name ?? null,
+            phase_label: s.phase_name
+              ? String(s.phase_name)
+              : s.phase_no
+                ? `Phase ${s.phase_no}`
+                : `Phase ${s.phase_id}`,
             amount: s.amount_human,
           })),
         });
@@ -556,6 +595,8 @@ export async function POST(req: NextRequest) {
         sp.push({
           wallet_address: a.wallet_address,
           phase_id: a.phase_id,
+          phase_no: a.phase_no ?? null,
+          phase_name: a.phase_name ?? null,
           amount_base: a.amount_base,
           amount_human: amountHuman,
           idem_key: childKey,
@@ -731,6 +772,13 @@ export async function POST(req: NextRequest) {
       splits: splits.map((s) => ({
         wallet_address: s.wallet_address ?? wallet,
         phase_id: s.phase_id,
+        phase_no: s.phase_no ?? null,
+        phase_name: s.phase_name ?? null,
+        phase_label: s.phase_name
+          ? String(s.phase_name)
+          : s.phase_no
+            ? `Phase ${s.phase_no}`
+            : `Phase ${s.phase_id}`,
         amount: s.amount_human,
       })),
     });
