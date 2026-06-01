@@ -2057,9 +2057,12 @@ export default function ClaimPanel() {
           transition={{ duration: 0.6, ease: 'easeOut' }}
           className="bg-zinc-900 text-white p-6 rounded-2xl w-full border border-zinc-700 shadow-lg space-y-10"
         >
-        <h2 className="text-center text-3xl font-extrabold tracking-tight">
-          Coincarnator Profile
-        </h2>
+        <div className="flex items-center justify-center gap-3">
+          <SectionIcon>PF</SectionIcon>
+          <h2 className="text-3xl font-extrabold tracking-tight">
+            Coincarnator Profile
+          </h2>
+        </div>
 
         <p className="mx-auto max-w-2xl text-center text-sm text-zinc-400">
           Your Coincarnation Identity, claims, contributions, and Personal Value Currency.
