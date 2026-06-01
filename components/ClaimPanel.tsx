@@ -2077,12 +2077,9 @@ export default function ClaimPanel() {
           transition={{ duration: 0.6, ease: 'easeOut' }}
           className="bg-zinc-900 text-white p-6 rounded-2xl w-full border border-zinc-700 shadow-lg space-y-10"
         >
-        <div className="flex items-center justify-center gap-3">
-          <SectionIcon color="violet">PF</SectionIcon>
-          <h2 className={`${sectionTitleClass} text-violet-300`}>
-            Coincarnator Profile
-          </h2>
-        </div>
+        <h2 className="text-center text-2xl font-bold tracking-tight text-white sm:text-3xl">
+          Coincarnator Profile
+        </h2>
 
         <p className="mx-auto max-w-2xl text-center text-sm text-zinc-400">
           Your Coincarnation Identity, claims, contributions, and Personal Value Currency.
@@ -2423,9 +2420,13 @@ export default function ClaimPanel() {
 
           <div className="relative mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-cyan-300/80">
-                Coincarnator Profile
-              </p>
+              <div className="flex items-center gap-3">
+                <SectionIcon color="violet">PF</SectionIcon>
+
+                <h3 className={`${sectionTitleClass} text-violet-300`}>
+                  Coincarnator Profile
+                </h3>
+              </div>
 
               <h3 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
                 Your Revival Signature

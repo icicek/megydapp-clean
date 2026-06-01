@@ -7,6 +7,20 @@ import { APP_URL } from '@/app/lib/origin';
 import ShareCenter from '@/components/share/ShareCenter';
 import { buildPayload } from '@/components/share/intent';
 
+function SectionIcon({
+  children,
+  color = 'rose',
+}: {
+  children: React.ReactNode;
+  color?: 'rose';
+}) {
+  return (
+    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-rose-400/20 bg-rose-400/10 text-sm font-black text-rose-300 shadow-sm">
+      {children}
+    </span>
+  );
+}
+
 type Props = { referralCode?: string };
 
 type LeaderboardEntry = {
@@ -122,7 +136,13 @@ export default function Leaderboard({ referralCode }: Props) {
 
   return (
     <div className="rounded-2xl border border-pink-500/20 bg-gradient-to-br from-zinc-900/70 to-black/80 p-6 shadow-xl backdrop-blur-lg">
-      <h2 className="mb-2 text-xl font-bold text-white">🌍 Global Leaderboard</h2>
+      <div className="mb-2 flex items-center gap-3">
+        <SectionIcon color="rose">LB</SectionIcon>
+
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-rose-300">
+          Global Leaderboard
+        </h2>
+      </div>
 
       <p className="mb-4 text-sm leading-6 text-zinc-400">
         Ranking is based on Coincarnation Identity, not individual wallets.
