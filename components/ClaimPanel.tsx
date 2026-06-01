@@ -1251,10 +1251,12 @@ export default function ClaimPanel() {
           setMessage(
             `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${
               Array.isArray(execJson.splits)
-                ? execJson.splits.map(
-                  (s: any) =>
-                    `${s.phase_label || s.phase_name || `Phase ${s.phase_no || s.phase_id}`}: ${s.amount}`
-                ).join(' · ')
+                ? execJson.splits
+                    .map(
+                      (s: any) =>
+                        `${s.phase_label || s.phase_name || `Phase ${s.phase_no || s.phase_id}`}: ${s.amount}`
+                    )
+                    .join(' · ')
                 : 'simulation complete'
             }`
           );
@@ -1843,10 +1845,12 @@ export default function ClaimPanel() {
         setMessage(
           `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${
             Array.isArray(execJson.splits)
-              ? execJson.splits.map(
-                (s: any) =>
-                  `${s.phase_label || s.phase_name || `Phase ${s.phase_no || s.phase_id}`}: ${s.amount}`
-              ).join(' · ')
+              ? execJson.splits
+                  .map(
+                    (s: any) =>
+                      `${s.phase_label || s.phase_name || `Phase ${s.phase_no || s.phase_id}`}: ${s.amount}`
+                  )
+                  .join(' · ')
               : 'simulation complete'
           }`
         );
