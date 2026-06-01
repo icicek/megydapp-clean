@@ -2100,9 +2100,13 @@ export default function ClaimPanel() {
         >
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <SectionIcon color="cyan">ID</SectionIcon>
-            <h3 className={`${sectionTitleClass} text-cyan-300`}>
-              Identity Overview
-            </h3>
+            <div className="mb-4 flex items-center gap-3">
+              <SectionIcon color="cyan">ID</SectionIcon>
+
+              <h3 className={`${sectionTitleClass} text-cyan-300`}>
+                Identity Overview
+              </h3>
+            </div>
 
             {identityStatus.authenticated ? (
               <button
@@ -2619,8 +2623,9 @@ export default function ClaimPanel() {
           transition={{ duration: 0.5, delay: 0.15 }}
           className="relative overflow-hidden w-full rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 sm:px-6 py-5 sm:py-6 mb-5 shadow-[0_0_35px_rgba(16,185,129,0.06)]"
         >
-          <div className="flex items-center gap-3">
+          <div className="mb-6 flex items-center gap-3">
             <SectionIcon color="emerald">PM</SectionIcon>
+
             <h3 className={`${sectionTitleClass} text-emerald-300`}>
               Protocol Momentum
             </h3>
@@ -2824,8 +2829,9 @@ export default function ClaimPanel() {
           <div className="pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full bg-purple-500/10 blur-3xl" />
           <div className="pointer-events-none absolute -left-24 top-10 h-44 w-44 rounded-full bg-pink-500/10 blur-3xl" />
           
-          <div className="flex items-center gap-3">
+          <div className="mb-6 flex items-center gap-3">
             <SectionIcon color="purple">CL</SectionIcon>
+
             <h3 className={`${sectionTitleClass} text-purple-300`}>
               MEGY Claim Center
             </h3>
@@ -3594,8 +3600,9 @@ export default function ClaimPanel() {
 
           <div className="relative mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <div className="flex items-center gap-3">
+              <div className="mb-6 flex items-center gap-3">
                 <SectionIcon color="amber">CH</SectionIcon>
+
                 <h3 className={`${sectionTitleClass} text-amber-300`}>
                   Contribution History
                 </h3>
@@ -3817,8 +3824,9 @@ export default function ClaimPanel() {
           {/* HERO */}
           <div className="relative z-10 grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] lg:items-center">
             <div className="min-w-0">
-              <div className="flex items-center gap-3">
+              <div className="mb-6 flex items-center gap-3">
                 <SectionIcon color="orange">PV</SectionIcon>
+
                 <h3 className={`${sectionTitleClass} text-orange-300`}>
                   Personal Value Currency
                 </h3>
