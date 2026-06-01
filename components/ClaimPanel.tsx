@@ -2057,12 +2057,9 @@ export default function ClaimPanel() {
           transition={{ duration: 0.6, ease: 'easeOut' }}
           className="bg-zinc-900 text-white p-6 rounded-2xl w-full border border-zinc-700 shadow-lg space-y-10"
         >
-        <div className="flex items-center justify-center gap-3">
-          <SectionIcon>CP</SectionIcon>
-          <h2 className="text-3xl font-extrabold tracking-tight">
-            Coincarnator Profile
-          </h2>
-        </div>
+        <h2 className="text-center text-3xl font-extrabold tracking-tight">
+          Coincarnator Profile
+        </h2>
 
         <p className="mx-auto max-w-2xl text-center text-sm text-zinc-400">
           Your Coincarnation Identity, claims, contributions, and Personal Value Currency.
@@ -2359,10 +2356,16 @@ export default function ClaimPanel() {
                         <button
                           type="button"
                           onClick={() => copyLinkedWallet(item.walletAddress)}
-                          className="min-w-0 flex-1 truncate rounded-full border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-left font-mono text-xs text-gray-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10"
+                          className="min-w-0 flex-1 overflow-hidden rounded-full border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-left font-mono text-xs text-gray-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10"
                           title={item.walletAddress}
                         >
-                          {isCopied ? 'Copied' : shorten(item.walletAddress)}
+                          <span className="sm:hidden">
+                            {isCopied ? 'Copied' : shorten(item.walletAddress)}
+                          </span>
+
+                          <span className="hidden sm:inline">
+                            {isCopied ? 'Copied' : item.walletAddress}
+                          </span>
                         </button>
 
                         {item.isPrimary && (
