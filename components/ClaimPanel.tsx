@@ -2416,7 +2416,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="relative overflow-hidden w-full rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 py-5 sm:px-6 sm:py-6 mb-5 shadow-[0_0_35px_rgba(34,211,238,0.06)]"
+          className="relative overflow-hidden w-full rounded-2xl border border-violet-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 py-5 sm:px-6 sm:py-6 mb-5 shadow-[0_0_35px_rgba(34,211,238,0.06)]"
         >
           <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-cyan-400/10 blur-3xl" />
           <div className="pointer-events-none absolute -left-24 bottom-0 h-48 w-48 rounded-full bg-fuchsia-500/10 blur-3xl" />
@@ -3815,7 +3815,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
-          className="relative mb-5 w-full overflow-hidden rounded-[28px] border border-fuchsia-400/20 bg-gradient-to-br from-zinc-950 via-[#120817] to-zinc-950 px-4 py-6 shadow-[0_0_45px_rgba(217,70,239,0.08)] sm:px-6 sm:py-7"
+          className="relative mb-5 w-full overflow-hidden rounded-[28px] border border-orange-400/20 bg-gradient-to-br from-zinc-950 via-[#120817] to-zinc-950 px-4 py-6 shadow-[0_0_45px_rgba(217,70,239,0.08)] sm:px-6 sm:py-7"
         >
           <div className="pointer-events-none absolute -left-24 top-10 h-72 w-72 rounded-full bg-fuchsia-500/10 blur-3xl" />
           <div className="pointer-events-none absolute -right-24 bottom-0 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
