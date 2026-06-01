@@ -225,6 +225,7 @@ export default function ClaimPanel() {
   const [identityLinkMessage, setIdentityLinkMessage] = useState<string | null>(null);
   const [identityCodeCopied, setIdentityCodeCopied] = useState(false);
   const [showIdentityTools, setShowIdentityTools] = useState(false);
+  const [showAllLinkedWallets, setShowAllLinkedWallets] = useState(false);
 
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
   const [copiedTarget, setCopiedTarget] = useState<'wallet' | 'referral' | null>(null);
@@ -665,29 +666,33 @@ export default function ClaimPanel() {
   }, [selectedPhaseId, phaseId, claimScope]);
   
   useEffect(() => {
-  (async () => {
-    try {
-      setPhaseLoading(true);
-      const r = await fetch('/api/phases/finalized/latest', { cache: 'no-store' });
-      const j = await r.json().catch(() => ({}));
-
-      const pid = Number(j?.phase_id);
-      if (r.ok && j?.success && Number.isFinite(pid) && pid > 0) {
-        setPhaseId(pid);
-        setSelectedPhaseId(pid); // default: latest finalized
-      } else {
+    (async () => {
+      try {
+        setPhaseLoading(true);
+  
+        const r = await fetch('/api/phases/finalized/latest', {
+          cache: 'no-store',
+        });
+  
+        const j = await r.json().catch(() => ({}));
+        const pid = Number(j?.phase_id);
+  
+        if (r.ok && j?.success && Number.isFinite(pid) && pid > 0) {
+          setPhaseId(pid);
+          setSelectedPhaseId(pid);
+        } else {
+          setPhaseId(null);
+          setSelectedPhaseId(null);
+        }
+      } catch (e) {
+        console.warn('phase fetch failed:', e);
         setPhaseId(null);
         setSelectedPhaseId(null);
+      } finally {
+        setPhaseLoading(false);
       }
-    } catch (e) {
-      console.warn('phase fetch failed:', e);
-      setPhaseId(null);
-      setSelectedPhaseId(null);
-    } finally {
-      setPhaseLoading(false);
-    }
-  })();
-}, []);
+    })();
+  }, []);
 
   // ⛑️ İlk kare guard’ları (render içinde setState YOK!)
   if (!publicKey) {
@@ -1032,6 +1037,30 @@ export default function ClaimPanel() {
       delete next[contributionId];
       return next;
     });
+  }
+
+  function SectionIcon({ children }: { children: React.ReactNode }) {
+    return (
+      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-sm font-black text-cyan-200 shadow-sm">
+        {children}
+      </span>
+    );
+  }
+
+  function getClaimStatusLabel(identity: any, protectedIssue: any) {
+    if (!identity) return 'Verification Required';
+  
+    if (identity.claimReady) return 'Claim Ready';
+  
+    if (Number(identity.riskScore ?? 0) >= 50) return 'Risk Review';
+  
+    if (!identity.walletVerified) return 'Wallet Linking Required';
+  
+    if (!identity.fingerprintRecorded) return 'Verification Required';
+  
+    if (protectedIssue?.action === 'signIn') return 'Session Expired';
+  
+    return 'Verification Required';
   }
 
   function getProtectedActionIssue(): ProtectedActionIssue | null {
@@ -2013,9 +2042,12 @@ export default function ClaimPanel() {
           transition={{ duration: 0.6, ease: 'easeOut' }}
           className="bg-zinc-900 text-white p-6 rounded-2xl w-full border border-zinc-700 shadow-lg space-y-10"
         >
-        <h2 className="text-3xl font-extrabold text-center tracking-tight mb-2">
-          👤 Coincarnator Profile
-        </h2>
+        <div className="flex items-center justify-center gap-3">
+          <SectionIcon>CP</SectionIcon>
+          <h2 className="text-3xl font-extrabold tracking-tight">
+            Coincarnator Profile
+          </h2>
+        </div>
 
         <p className="mx-auto max-w-2xl text-center text-sm text-zinc-400">
           Your Coincarnation Identity, claims, contributions, and Personal Value Currency.
@@ -2035,9 +2067,12 @@ export default function ClaimPanel() {
           className="w-full bg-zinc-900 border border-cyan-500/30 rounded-xl px-4 py-4 sm:px-6 sm:py-5 mb-5 shadow-md"
         >
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-cyan-300 text-sm font-semibold uppercase tracking-wide">
-              🧬 Identity Overview
-            </h3>
+            <div className="flex items-center gap-3">
+              <SectionIcon>ID</SectionIcon>
+              <h3 className="text-cyan-300 text-sm font-semibold uppercase tracking-wide">
+                Identity Overview
+              </h3>
+            </div>
 
             {identityStatus.authenticated ? (
               <button
@@ -2061,10 +2096,10 @@ export default function ClaimPanel() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
-            <Info
-              label="Identity Status"
-              value={identityStatus.identity?.claimReady ? 'Claim Ready' : 'Not Ready'}
-            />
+          <Info
+            label="Claim Status"
+            value={getClaimStatusLabel(identityStatus.identity, protectedActionIssue)}
+          />
 
             <Info
               label="Linked Wallets"
@@ -2272,38 +2307,57 @@ export default function ClaimPanel() {
             )}
           </div>
 
-          {linkedWallets.length > 0 && (
-            <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-4">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-cyan-300">
-                Linked Wallets
-              </p>
+          {linkedWallets.length > 0 && (() => {
+            const visibleWallets = showAllLinkedWallets
+              ? linkedWallets
+              : linkedWallets.slice(0, 3);
 
-              <div className="grid gap-2">
-                {linkedWallets.map((item) => (
-                  <div
-                    key={`${item.chain}-${item.walletAddress}`}
-                    className="flex flex-col gap-2 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <span className="font-mono text-xs text-gray-300 break-all">
-                      {shorten(item.walletAddress)}
-                    </span>
+            const hiddenCount = Math.max(linkedWallets.length - 3, 0);
 
-                    <div className="flex gap-2 text-[10px] font-bold uppercase tracking-wide">
+            return (
+              <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">
+                    Linked Wallets ({linkedWallets.length})
+                  </p>
+
+                  {hiddenCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllLinkedWallets((v) => !v)}
+                      className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-bold text-white/70 transition hover:bg-white/[0.08] hover:text-white"
+                    >
+                      {showAllLinkedWallets ? 'Show Less' : `+${hiddenCount} More`}
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {visibleWallets.map((item) => (
+                    <div
+                      key={`${item.chain}-${item.walletAddress}`}
+                      className="inline-flex max-w-full items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-xs text-gray-300"
+                      title={item.walletAddress}
+                    >
+                      <span className="font-mono">
+                        {shorten(item.walletAddress)}
+                      </span>
+
                       {item.isPrimary && (
-                        <span className="rounded-full bg-emerald-400/20 px-2 py-1 text-emerald-300">
+                        <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-300">
                           Primary
                         </span>
                       )}
 
-                      <span className="rounded-full bg-cyan-400/10 px-2 py-1 text-cyan-300">
+                      <span className="rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-cyan-300">
                         {item.chain}
                       </span>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           <p className="mt-3 text-xs text-gray-400 italic text-center">
             Your profile is protected by your Coincarnation Identity. Multiple wallets can belong to one identity.
