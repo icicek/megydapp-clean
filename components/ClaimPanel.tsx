@@ -2419,7 +2419,7 @@ export default function ClaimPanel() {
           className="relative overflow-hidden w-full rounded-2xl border border-violet-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 py-5 sm:px-6 sm:py-6 mb-5 shadow-[0_0_35px_rgba(34,211,238,0.06)]"
         >
           <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-cyan-400/10 blur-3xl" />
-          <div className="pointer-events-none absolute -left-24 bottom-0 h-48 w-48 rounded-full bg-fuchsia-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -left-24 bottom-0 h-48 w-48 rounded-full bg-purple-500/10 blur-3xl" />
 
           <div className="relative mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -3877,7 +3877,7 @@ export default function ClaimPanel() {
               </div>
             </div>
 
-            <div className="relative min-w-0 rounded-[28px] border border-fuchsia-400/20 bg-black/30 px-4 py-8 text-center backdrop-blur-xl sm:px-6 sm:py-10">
+            <div className="relative min-w-0 rounded-[28px] border border-orange-400/20 bg-black/30 px-4 py-8 text-center backdrop-blur-xl sm:px-6 sm:py-10">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(217,70,239,0.16),transparent_68%)]" />
 
               <div className="relative">
