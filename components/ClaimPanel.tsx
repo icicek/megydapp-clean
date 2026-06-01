@@ -226,6 +226,7 @@ export default function ClaimPanel() {
   const [identityCodeCopied, setIdentityCodeCopied] = useState(false);
   const [showIdentityTools, setShowIdentityTools] = useState(false);
   const [showAllLinkedWallets, setShowAllLinkedWallets] = useState(false);
+  const [copiedLinkedWallet, setCopiedLinkedWallet] = useState<string | null>(null);
 
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
   const [copiedTarget, setCopiedTarget] = useState<'wallet' | 'referral' | null>(null);
@@ -1061,6 +1062,20 @@ export default function ClaimPanel() {
     if (protectedIssue?.action === 'signIn') return 'Session Expired';
   
     return 'Verification Required';
+  }
+
+  async function copyLinkedWallet(walletAddress: string) {
+    try {
+      await navigator.clipboard.writeText(walletAddress);
+  
+      setCopiedLinkedWallet(walletAddress);
+  
+      window.setTimeout(() => {
+        setCopiedLinkedWallet(null);
+      }, 1600);
+    } catch {
+      setMessage('❌ Failed to copy wallet address.');
+    }
   }
 
   function getProtectedActionIssue(): ProtectedActionIssue | null {
@@ -2096,10 +2111,10 @@ export default function ClaimPanel() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
-          <Info
-            label="Claim Status"
-            value={getClaimStatusLabel(identityStatus.identity, protectedActionIssue)}
-          />
+            <Info
+              label="Claim Status"
+              value={getClaimStatusLabel(identityStatus.identity, protectedActionIssue)}
+            />
 
             <Info
               label="Linked Wallets"
@@ -2332,28 +2347,36 @@ export default function ClaimPanel() {
                   )}
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {visibleWallets.map((item) => (
-                    <div
-                      key={`${item.chain}-${item.walletAddress}`}
-                      className="inline-flex max-w-full items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-xs text-gray-300"
-                      title={item.walletAddress}
-                    >
-                      <span className="font-mono">
-                        {shorten(item.walletAddress)}
-                      </span>
+                <div className="grid gap-2">
+                  {visibleWallets.map((item) => {
+                    const isCopied = copiedLinkedWallet === item.walletAddress;
 
-                      {item.isPrimary && (
-                        <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-300">
-                          Primary
+                    return (
+                      <div
+                        key={`${item.chain}-${item.walletAddress}`}
+                        className="flex min-w-0 items-center gap-2"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => copyLinkedWallet(item.walletAddress)}
+                          className="min-w-0 flex-1 truncate rounded-full border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-left font-mono text-xs text-gray-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10"
+                          title={item.walletAddress}
+                        >
+                          {isCopied ? 'Copied' : shorten(item.walletAddress)}
+                        </button>
+
+                        {item.isPrimary && (
+                          <span className="shrink-0 rounded-full bg-emerald-400/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-300">
+                            Primary
+                          </span>
+                        )}
+
+                        <span className="shrink-0 rounded-full bg-cyan-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-cyan-300">
+                          {item.chain}
                         </span>
-                      )}
-
-                      <span className="rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-cyan-300">
-                        {item.chain}
-                      </span>
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
