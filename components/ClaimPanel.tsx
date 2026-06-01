@@ -2012,11 +2012,17 @@ export default function ClaimPanel() {
           transition={{ duration: 0.6, ease: 'easeOut' }}
           className="bg-zinc-900 text-white p-6 rounded-2xl w-full border border-zinc-700 shadow-lg space-y-10"
         >
-        <h2 className="text-3xl font-extrabold text-center tracking-tight mb-2">🎁 Claim Panel</h2>
+        <h2 className="text-3xl font-extrabold text-center tracking-tight mb-2">
+          👤 Coincarnator Profile
+        </h2>
+
+        <p className="mx-auto max-w-2xl text-center text-sm text-zinc-400">
+          Your Coincarnation Identity, claims, contributions, and Personal Value Currency.
+        </p>
 
         {identityStatus.identity && (
           <div className="text-center text-xs text-cyan-400 mb-2">
-            Identity #{identityStatus.identity.id.slice(0, 6)} · {identityStatus.identity.linkedWalletCount} wallets linked
+            Identity #{identityStatus.identity.id.slice(0, 6)} · {identityStatus.identity.linkedWalletCount} linked wallets
           </div>
         )}
 
@@ -2029,7 +2035,7 @@ export default function ClaimPanel() {
         >
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-cyan-300 text-sm font-semibold uppercase tracking-wide">
-              🧬 Coincarnation Identity
+              🧬 Identity Overview
             </h3>
 
             {identityStatus.authenticated ? (
@@ -2277,7 +2283,7 @@ export default function ClaimPanel() {
           )}
 
           <p className="mt-3 text-xs text-gray-400 italic text-center">
-            Your Claim Panel is now protected by your Coincarnation Identity. Multiple wallets can belong to one identity.
+            Your profile is protected by your Coincarnation Identity. Multiple wallets can belong to one identity.
           </p>
         </motion.section>
 
