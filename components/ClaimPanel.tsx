@@ -1040,13 +1040,33 @@ export default function ClaimPanel() {
     });
   }
 
-  function SectionIcon({ children }: { children: React.ReactNode }) {
+  function SectionIcon({
+    children,
+    color = 'cyan',
+  }: {
+    children: React.ReactNode;
+    color?: 'cyan' | 'violet' | 'purple' | 'amber' | 'orange' | 'rose' | 'emerald';
+  }) {
+    const styles = {
+      cyan: 'border-cyan-400/20 bg-cyan-400/10 text-cyan-300',
+      violet: 'border-violet-400/20 bg-violet-400/10 text-violet-300',
+      purple: 'border-purple-400/20 bg-purple-400/10 text-purple-300',
+      amber: 'border-amber-400/20 bg-amber-400/10 text-amber-300',
+      orange: 'border-orange-400/20 bg-orange-400/10 text-orange-300',
+      rose: 'border-rose-400/20 bg-rose-400/10 text-rose-300',
+      emerald: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
+    };
+  
     return (
-      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-sm font-black text-cyan-200 shadow-sm">
+      <span
+        className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-sm font-black shadow-sm ${styles[color]}`}
+      >
         {children}
       </span>
     );
   }
+
+  const sectionTitleClass = 'text-sm font-semibold uppercase tracking-wide';
 
   function getClaimStatusLabel(identity: any, protectedIssue: any) {
     if (!identity) return 'Verification Required';
@@ -2058,8 +2078,8 @@ export default function ClaimPanel() {
           className="bg-zinc-900 text-white p-6 rounded-2xl w-full border border-zinc-700 shadow-lg space-y-10"
         >
         <div className="flex items-center justify-center gap-3">
-          <SectionIcon>PF</SectionIcon>
-          <h2 className="text-3xl font-extrabold tracking-tight">
+          <SectionIcon color="violet">PF</SectionIcon>
+          <h2 className={`${sectionTitleClass} text-violet-300`}>
             Coincarnator Profile
           </h2>
         </div>
