@@ -224,6 +224,7 @@ export default function ClaimPanel() {
   const [walletHasNoLinkedIdentity, setWalletHasNoLinkedIdentity] = useState(false);
   const [identityLinkMessage, setIdentityLinkMessage] = useState<string | null>(null);
   const [identityCodeCopied, setIdentityCodeCopied] = useState(false);
+  const [showIdentityTools, setShowIdentityTools] = useState(false);
 
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
   const [copiedTarget, setCopiedTarget] = useState<'wallet' | 'referral' | null>(null);
@@ -2149,104 +2150,126 @@ export default function ClaimPanel() {
           )}
 
           <div className="mt-5 rounded-xl border border-violet-400/20 bg-violet-400/5 p-4">
-            <div className="flex flex-col gap-4 lg:flex-1">
+            <button
+              type="button"
+              onClick={() => setShowIdentityTools((v) => !v)}
+              className="flex w-full items-center justify-between gap-3 text-left"
+              aria-expanded={showIdentityTools}
+            >
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-violet-300">
-                  Identity Recovery / Link Code
+                  Advanced Identity Tools
                 </p>
-
-                <p className="mt-1 text-sm text-gray-300">
-                  Use a temporary code to link wallets from another device, browser, or wallet app.
+                <p className="mt-1 text-xs text-gray-400">
+                  Generate a link code or connect this wallet to an existing identity.
                 </p>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                    Create code from this identity
+              <span className="rounded-full border border-violet-300/20 bg-violet-300/10 px-3 py-1 text-[11px] font-black text-violet-200">
+                {showIdentityTools ? 'Hide' : 'Show'}
+              </span>
+            </button>
+
+            {showIdentityTools && (
+              <div className="flex flex-col gap-4 lg:flex-1">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-violet-300">
+                    Identity Recovery / Link Code
                   </p>
 
-                  <button
-                    type="button"
-                    onClick={handleCreateIdentityLinkCode}
-                    disabled={identityCodeCreating || !identityStatus.authenticated}
-                    className="mt-3 rounded-full bg-violet-300 px-4 py-2 text-xs font-black text-black transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {identityCodeCreating ? 'Creating...' : 'Generate Link Code'}
-                  </button>
+                  <p className="mt-1 text-sm text-gray-300">
+                    Use a temporary code to link wallets from another device, browser, or wallet app.
+                  </p>
+                </div>
 
-                  {identityLinkMessage && (
-                    <p className="mt-3 text-sm font-semibold text-emerald-300">
-                      {identityLinkMessage}
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      Create code from this identity
                     </p>
-                  )}
 
-                  {identityLinkCode && (
-                    <div className="mt-3 rounded-lg border border-violet-400/20 bg-violet-400/10 p-3">
-                      <p className="text-[11px] uppercase tracking-wide text-violet-200/70">
-                        Your temporary code
+                    <button
+                      type="button"
+                      onClick={handleCreateIdentityLinkCode}
+                      disabled={identityCodeCreating || !identityStatus.authenticated}
+                      className="mt-3 rounded-full bg-violet-300 px-4 py-2 text-xs font-black text-black transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {identityCodeCreating ? 'Creating...' : 'Generate Link Code'}
+                    </button>
+
+                    {identityLinkMessage && (
+                      <p className="mt-3 text-sm font-semibold text-emerald-300">
+                        {identityLinkMessage}
                       </p>
+                    )}
 
-                      <p className="mt-1 font-mono text-lg font-black text-violet-100">
-                        {identityLinkCode}
-                      </p>
-
-                      {identityLinkCodeExpiresAt && (
-                        <p className="mt-1 text-[11px] text-gray-400">
-                          Expires: {new Date(identityLinkCodeExpiresAt).toLocaleString()}
+                    {identityLinkCode && (
+                      <div className="mt-3 rounded-lg border border-violet-400/20 bg-violet-400/10 p-3">
+                        <p className="text-[11px] uppercase tracking-wide text-violet-200/70">
+                          Your temporary code
                         </p>
-                      )}
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!identityLinkCode) return;
-
-                          navigator.clipboard.writeText(identityLinkCode);
-
-                          setIdentityCodeCopied(true);
-
-                          setTimeout(() => {
-                            setIdentityCodeCopied(false);
-                          }, 2000);
-                        }}
-                        className="mt-3 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-white/[0.08]"
-                      >
-                        Copy Code
-                      </button>
-                      {identityCodeCopied && (
-                        <p className="mt-2 text-xs font-semibold text-emerald-300">
-                          ✅ Code copied successfully.
+                        <p className="mt-1 font-mono text-lg font-black text-violet-100">
+                          {identityLinkCode}
                         </p>
-                      )}
-                    </div>
-                  )}
-                </div>
 
-                <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                    Link this wallet with a code
-                  </p>
+                        {identityLinkCodeExpiresAt && (
+                          <p className="mt-1 text-[11px] text-gray-400">
+                            Expires: {new Date(identityLinkCodeExpiresAt).toLocaleString()}
+                          </p>
+                        )}
 
-                  <input
-                    type="text"
-                    value={identityLinkCodeInput}
-                    onChange={(e) => setIdentityLinkCodeInput(e.target.value.toUpperCase())}
-                    placeholder="MEGY-123456"
-                    className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-white outline-none transition focus:border-violet-300"
-                  />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!identityLinkCode) return;
 
-                  <button
-                    type="button"
-                    onClick={handleLinkWalletWithCode}
-                    disabled={identityLinkingByCode || !walletBase58 || !identityLinkCodeInput.trim()}
-                    className="mt-3 rounded-full bg-violet-300 px-4 py-2 text-xs font-black text-black transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {identityLinkingByCode ? 'Linking...' : 'Link Wallet With Code'}
-                  </button>
+                            navigator.clipboard.writeText(identityLinkCode);
+
+                            setIdentityCodeCopied(true);
+
+                            setTimeout(() => {
+                              setIdentityCodeCopied(false);
+                            }, 2000);
+                          }}
+                          className="mt-3 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-white/[0.08]"
+                        >
+                          Copy Code
+                        </button>
+                        {identityCodeCopied && (
+                          <p className="mt-2 text-xs font-semibold text-emerald-300">
+                            ✅ Code copied successfully.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      Link this wallet with a code
+                    </p>
+
+                    <input
+                      type="text"
+                      value={identityLinkCodeInput}
+                      onChange={(e) => setIdentityLinkCodeInput(e.target.value.toUpperCase())}
+                      placeholder="MEGY-123456"
+                      className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-white outline-none transition focus:border-violet-300"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={handleLinkWalletWithCode}
+                      disabled={identityLinkingByCode || !walletBase58 || !identityLinkCodeInput.trim()}
+                      className="mt-3 rounded-full bg-violet-300 px-4 py-2 text-xs font-black text-black transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {identityLinkingByCode ? 'Linking...' : 'Link Wallet With Code'}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           {linkedWallets.length > 0 && (
