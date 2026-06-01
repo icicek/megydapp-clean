@@ -2098,9 +2098,8 @@ export default function ClaimPanel() {
           transition={{ duration: 0.5, delay: 0.05 }}
           className="w-full bg-zinc-900 border border-cyan-500/30 rounded-xl px-4 py-4 sm:px-6 sm:py-5 mb-5 shadow-md"
         >
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <SectionIcon color="cyan">ID</SectionIcon>
-            <div className="mb-4 flex items-center gap-3">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
               <SectionIcon color="cyan">ID</SectionIcon>
 
               <h3 className={`${sectionTitleClass} text-cyan-300`}>
