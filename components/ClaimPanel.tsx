@@ -2102,12 +2102,10 @@ export default function ClaimPanel() {
           className="w-full bg-zinc-900 border border-cyan-500/30 rounded-xl px-4 py-4 sm:px-6 sm:py-5 mb-5 shadow-md"
         >
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <SectionIcon>ID</SectionIcon>
-              <h3 className="text-cyan-300 text-sm font-semibold uppercase tracking-wide">
-                Identity Overview
-              </h3>
-            </div>
+            <SectionIcon color="cyan">ID</SectionIcon>
+            <h3 className={`${sectionTitleClass} text-cyan-300`}>
+              Identity Overview
+            </h3>
 
             {identityStatus.authenticated ? (
               <button
