@@ -2690,35 +2690,38 @@ export default function ClaimPanel() {
                   : "border-zinc-700",
               ].join(" ")}
             >
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 min-w-0">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <p className="text-gray-400 text-xs uppercase tracking-wide">Current Phase</p>
-                  <p className="text-white font-semibold truncate">
+                  <p className="truncate text-xl font-black text-white">
                     {phasesLoading ? 'Loading…' : currentPhase ? `${currentPhase.name || 'Current Phase'}` : 'No phase'}
                   </p>
 
                   <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
                     {currentPhase ? (
-                      <span className="px-2 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300">
-                        active
+                      <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 font-bold uppercase tracking-wide text-emerald-200">
+                        Active
                       </span>
                     ) : null}
+
                     {currentPhase?.snapshot_taken_at && (
-                      <span className="px-2 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-200">
-                        snapshot taken
+                      <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 font-bold uppercase tracking-wide text-blue-200">
+                        Snapshot Taken
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <p className="text-gray-400 text-xs">Fill</p>
-                  <p className="text-white font-semibold">
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-left sm:text-right">
+                  <p className="text-2xl font-black text-emerald-200">
                     {(() => {
-                      const ratio = toPct01(currentPhase?.fill_pct); // 0..1
+                      const ratio = toPct01(currentPhase?.fill_pct);
                       const pct = ratio * 100;
                       return `${pct.toFixed(ratio >= 1 ? 0 : 1)}%`;
                     })()}
+                  </p>
+
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-100/60">
+                    Filled
                   </p>
                 </div>
               </div>
@@ -2805,9 +2808,12 @@ export default function ClaimPanel() {
                       </p>
                     </div>
 
-                    <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-4 shadow-[0_0_25px_rgba(250,204,21,0.06)]">
-                      <p className="text-xs text-yellow-100/60">Estimated MEGY</p>
-                      <p className="font-extrabold text-yellow-300 text-lg">
+                    <div className="rounded-2xl border border-yellow-400/25 bg-yellow-400/10 p-4 shadow-[0_0_30px_rgba(250,204,21,0.08)]">
+                      <p className="text-xs font-bold uppercase tracking-wide text-yellow-100/60">
+                        Estimated MEGY
+                      </p>
+
+                      <p className="mt-2 text-3xl font-black text-yellow-300">
                         {formatMegyAmount(activeEstimate.me.estimatedMegy)}
                       </p>
                     </div>
