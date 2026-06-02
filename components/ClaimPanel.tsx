@@ -2715,8 +2715,8 @@ export default function ClaimPanel() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-left sm:text-right">
-                  <p className="text-2xl font-black text-emerald-200">
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-left sm:text-right">
+                  <p className="text-xl font-black text-emerald-200">
                     {(() => {
                       const ratio = toPct01(currentPhase?.fill_pct);
                       const pct = ratio * 100;
@@ -2747,10 +2747,14 @@ export default function ClaimPanel() {
                 );
               })()}
                 <div className="mt-3 text-center text-xs text-gray-400">
-                  ${Number(currentPhase?.used_usd ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}{' '}
-                  of{' '}
-                  ${Number(currentPhase?.target_usd ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}{' '}
-                  revived
+                  ${Number(currentPhase?.used_usd ?? 0).toLocaleString(undefined, {
+                    maximumFractionDigits: 2,
+                  })}{' '}
+                  revived of{' '}
+                  ${Number(currentPhase?.target_usd ?? 0).toLocaleString(undefined, {
+                    maximumFractionDigits: 2,
+                  })}{' '}
+                  target
                 </div>
 
                 {(() => {
