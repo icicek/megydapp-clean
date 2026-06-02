@@ -2416,12 +2416,12 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="relative overflow-hidden w-full rounded-2xl border border-violet-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 py-5 sm:px-6 sm:py-6 mb-5 shadow-[0_0_35px_rgba(34,211,238,0.06)]"
+          className="relative overflow-hidden w-full rounded-[1.75rem] border border-violet-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900/95 to-zinc-950 px-4 py-6 sm:px-7 sm:py-7 mb-5 shadow-[0_0_35px_rgba(167,139,250,0.07)]"
         >
-          <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-cyan-400/10 blur-3xl" />
+          <div className="pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full bg-violet-400/10 blur-3xl" />
           <div className="pointer-events-none absolute -left-24 bottom-0 h-48 w-48 rounded-full bg-purple-500/10 blur-3xl" />
 
-          <div className="relative mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="relative mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <div className="flex items-center gap-3">
                 <SectionIcon color="violet">PF</SectionIcon>
@@ -2436,7 +2436,7 @@ export default function ClaimPanel() {
               </h3>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
-                Track your Coincarnation journey, your impact, and the value you are building.
+                Your identity, impact, and personal value — gathered in one place.
               </p>
             </div>
 
