@@ -2075,7 +2075,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
-          className="bg-zinc-900 text-white p-6 rounded-2xl w-full border border-zinc-700 shadow-lg space-y-10"
+          className="bg-zinc-900 text-white p-6 rounded-2xl w-full border border-zinc-700 shadow-lg space-y-8"
         >
         <h2 className="text-center text-2xl font-bold tracking-tight text-white sm:text-3xl">
           Coincarnator Profile
@@ -2096,7 +2096,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.05 }}
-          className="w-full bg-zinc-900 border border-cyan-500/30 rounded-xl px-4 py-4 sm:px-6 sm:py-5 mb-5 shadow-md"
+          className="w-full bg-zinc-900 border border-cyan-500/30 rounded-xl px-4 py-4 sm:px-6 sm:py-5 mb-0 shadow-md"
         >
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
@@ -2416,7 +2416,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="relative overflow-hidden w-full rounded-2xl border border-violet-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 py-5 sm:px-6 sm:py-6 mb-5 shadow-[0_0_35px_rgba(34,211,238,0.06)]"
+          className="relative overflow-hidden w-full rounded-2xl border border-violet-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 py-5 sm:px-6 sm:py-6 mb-0 shadow-[0_0_35px_rgba(34,211,238,0.06)]"
         >
           <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-cyan-400/10 blur-3xl" />
           <div className="pointer-events-none absolute -left-24 bottom-0 h-48 w-48 rounded-full bg-purple-500/10 blur-3xl" />
@@ -2620,7 +2620,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.15 }}
-          className="relative overflow-hidden w-full rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 sm:px-6 py-5 sm:py-6 mb-5 shadow-[0_0_35px_rgba(16,185,129,0.06)]"
+          className="relative overflow-hidden w-full rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 sm:px-6 py-5 sm:py-6 mb-0 shadow-[0_0_35px_rgba(16,185,129,0.06)]"
         >
           <div className="mb-6 flex items-center gap-3">
             <SectionIcon color="emerald">PM</SectionIcon>
@@ -2823,7 +2823,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="relative overflow-hidden w-full rounded-2xl border border-purple-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 sm:px-6 py-5 sm:py-6 mb-5 shadow-[0_0_35px_rgba(168,85,247,0.06)]"
+          className="relative overflow-hidden w-full rounded-2xl border border-purple-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 sm:px-6 py-5 sm:py-6 mb-0 shadow-[0_0_35px_rgba(168,85,247,0.06)]"
         >
           <div className="pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full bg-purple-500/10 blur-3xl" />
           <div className="pointer-events-none absolute -left-24 top-10 h-44 w-44 rounded-full bg-pink-500/10 blur-3xl" />
@@ -3592,7 +3592,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          className="relative overflow-hidden w-full rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 py-5 sm:px-6 sm:py-6 mb-5 shadow-[0_0_35px_rgba(250,204,21,0.06)]"
+          className="relative overflow-hidden w-full rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 py-5 sm:px-6 sm:py-6 mb-0 shadow-[0_0_35px_rgba(250,204,21,0.06)]"
         >
           <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-yellow-400/10 blur-3xl" />
           <div className="pointer-events-none absolute -left-24 bottom-0 h-48 w-48 rounded-full bg-orange-500/10 blur-3xl" />
@@ -3815,7 +3815,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
-          className="relative mb-5 w-full overflow-hidden rounded-[28px] border border-orange-400/20 bg-gradient-to-br from-zinc-950 via-[#120817] to-zinc-950 px-4 py-6 shadow-[0_0_45px_rgba(217,70,239,0.08)] sm:px-6 sm:py-7"
+          className="relative mb-0 w-full overflow-hidden rounded-[28px] border border-orange-400/20 bg-gradient-to-br from-zinc-950 via-[#120817] to-zinc-950 px-4 py-6 shadow-[0_0_45px_rgba(217,70,239,0.08)] sm:px-6 sm:py-7"
         >
           <div className="pointer-events-none absolute -left-24 top-10 h-72 w-72 rounded-full bg-fuchsia-500/10 blur-3xl" />
           <div className="pointer-events-none absolute -right-24 bottom-0 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
@@ -3831,7 +3831,7 @@ export default function ClaimPanel() {
                 </h3>
               </div>
 
-              <h3 className="mt-4 text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl">
+              <h3 className="mt-2 text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl">
                 Your value.
                 <span className="block bg-gradient-to-r from-fuchsia-300 via-pink-200 to-cyan-200 bg-clip-text text-transparent">
                   Your currency.
@@ -4447,7 +4447,7 @@ export default function ClaimPanel() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.45 }}
-          className="relative mb-5 w-full"
+          className="relative mb-0 w-full"
         >
           <Leaderboard referralCode={data.referral_code ?? undefined} />
         </motion.section>
