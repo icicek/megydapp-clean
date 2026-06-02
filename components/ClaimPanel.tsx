@@ -2622,12 +2622,18 @@ export default function ClaimPanel() {
           transition={{ duration: 0.5, delay: 0.15 }}
           className="relative overflow-hidden w-full rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-4 sm:px-6 py-5 sm:py-6 mb-5 shadow-[0_0_35px_rgba(16,185,129,0.06)]"
         >
-          <div className="mb-6 flex items-center gap-3">
-            <SectionIcon color="emerald">PM</SectionIcon>
+          <div className="mb-6">
+            <div className="flex items-center gap-3">
+              <SectionIcon color="emerald">PM</SectionIcon>
 
-            <h3 className={`${sectionTitleClass} text-emerald-300`}>
-              Protocol Momentum
-            </h3>
+              <h3 className={`${sectionTitleClass} text-emerald-300`}>
+                Protocol Momentum
+              </h3>
+            </div>
+
+            <p className="mt-3 max-w-2xl text-sm text-zinc-400">
+              The heartbeat of the Fair Future Fund.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -2648,7 +2654,7 @@ export default function ClaimPanel() {
             />
           </div>
 
-          <div className="mt-5 flex justify-center">
+          <div className="mt-6 flex justify-center">
             <button
               type="button"
               onClick={() => {
@@ -2670,10 +2676,10 @@ export default function ClaimPanel() {
           <div className="mt-6">
             <div className="mb-3">
               <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-300/80">
-                Phase Engine
+                Current Phase
               </p>
               <p className="mt-1 text-xs text-zinc-500">
-                Track the growth of the Fair Future Fund and your place within it.
+                Track the race before the snapshot.
               </p>
             </div>
             <div
@@ -2733,13 +2739,11 @@ export default function ClaimPanel() {
                   </div>
                 );
               })()}
-                <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
-                  <span>
-                    Used: ${Number(currentPhase?.used_usd ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                  </span>
-                  <span>
-                    Cap: ${Number(currentPhase?.target_usd ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                  </span>
+                <div className="mt-3 text-center text-xs text-gray-400">
+                  ${Number(currentPhase?.used_usd ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}{' '}
+                  of{' '}
+                  ${Number(currentPhase?.target_usd ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}{' '}
+                  revived
                 </div>
 
                 {(() => {
