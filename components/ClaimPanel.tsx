@@ -2436,7 +2436,7 @@ export default function ClaimPanel() {
               </h3>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
-                Your identity, impact, and personal value — gathered in one place.
+                Everything your identity has revived, earned, and built.
               </p>
             </div>
 
@@ -2632,12 +2632,12 @@ export default function ClaimPanel() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <StatBox
-              label="Total Contribution Size"
+              label="Revived Capital"
               value={`$${globalStats.totalUsd.toLocaleString()}`}
               color="green"
             />
             <StatBox
-              label="Total Participants"
+              label="Coincarnators"
               value={`${globalStats.totalParticipants}`}
               color="blue"
             />
@@ -2673,7 +2673,7 @@ export default function ClaimPanel() {
                 Phase Engine
               </p>
               <p className="mt-1 text-xs text-zinc-500">
-                See how the current phase is filling and how your live estimate evolves.
+                Track the growth of the Fair Future Fund and your place within it.
               </p>
             </div>
             <div
