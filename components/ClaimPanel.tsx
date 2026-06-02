@@ -2684,13 +2684,17 @@ export default function ClaimPanel() {
             </div>
             <div
               className={[
-                "relative overflow-hidden rounded-2xl border bg-gradient-to-br from-zinc-950 via-emerald-950/10 to-zinc-950 p-4 shadow-[0_0_30px_rgba(16,185,129,0.06)]",
+                "relative overflow-hidden rounded-2xl border bg-gradient-to-br from-emerald-950/20 via-zinc-950 to-lime-950/10 p-4 shadow-[0_0_40px_rgba(16,185,129,0.10)]",
                 currentPhase && !currentPhase?.snapshot_taken_at && !currentPhase?.finalized_at
-                  ? "border-emerald-400/40 ring-1 ring-emerald-400/25"
+                  ? "border-emerald-300/40 ring-1 ring-emerald-400/25"
                   : "border-zinc-700",
               ].join(" ")}
             >
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="pointer-events-none absolute -left-24 -top-24 h-48 w-48 rounded-full bg-emerald-400/10 blur-3xl" />
+              <div className="pointer-events-none absolute -right-24 bottom-0 h-48 w-48 rounded-full bg-lime-400/10 blur-3xl" />
+
+              <div className="relative">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="truncate text-xl font-black text-white">
@@ -2762,7 +2766,7 @@ export default function ClaimPanel() {
 
               {/* Your estimate (inside the same card) */}
               {activeEstimate?.active?.id && !currentPhase?.snapshot_taken_at && (
-                <div className="mt-4 pt-4 border-t border-zinc-700">
+                <div className="mt-4 border-t border-zinc-700 pt-4">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="text-gray-400 text-xs uppercase tracking-wide">
@@ -2770,31 +2774,34 @@ export default function ClaimPanel() {
                       </p>
 
                       <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                        <span className="px-2 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/30 text-yellow-200">
+                        <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2 py-1 text-yellow-200">
                           ⏳ live estimate
                         </span>
 
                         {estimateLoading && (
-                          <span className="px-2 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-200">
+                          <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-cyan-200">
                             refreshing…
                           </span>
                         )}
 
-                        <span className="px-2 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300">
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-gray-300">
                           changes until snapshot
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                  <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
                     <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
                       <p className="text-xs font-bold uppercase tracking-wide text-emerald-100/60">
                         Your Contribution
                       </p>
 
                       <p className="mt-2 text-2xl font-black text-white">
-                        ${Number(activeEstimate.me.userUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        $
+                        {Number(activeEstimate.me.userUsd).toLocaleString(undefined, {
+                          maximumFractionDigits: 2,
+                        })}
                       </p>
                     </div>
 
@@ -2819,12 +2826,18 @@ export default function ClaimPanel() {
                     </div>
                   </div>
 
-                  <p className="mt-3 text-xs text-gray-400 italic text-center">
-                    ⚠️ This is a <span className="text-yellow-300 font-medium">live estimate</span>. Final MEGY amount will be locked at snapshot.
+                  <p className="mt-3 text-center text-xs italic text-gray-400">
+                    ⚠️ This is a{' '}
+                    <span className="font-medium text-yellow-300">
+                      live estimate
+                    </span>
+                    . Final MEGY amount will be locked at snapshot.
                   </p>
                 </div>
               )}
-            </div>
+
+              </div> {/* relative wrapper */}
+              </div> {/* current phase card */}
           </div>
         </motion.section>
 
