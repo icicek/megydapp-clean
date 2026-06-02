@@ -2785,30 +2785,26 @@ export default function ClaimPanel() {
                         </span>
                       </div>
                     </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left sm:text-right">
-                      <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">
-                        Your Share
-                      </p>
-
-                      <p className="mt-1 text-2xl font-black text-white">
-                        {(activeEstimate.me.shareRatio * 100).toFixed(3)}%
-                      </p>
-                    </div>
                   </div>
 
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
                     <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
-                      <p className="text-xs text-emerald-100/60">Your USD</p>
-                      <p className="font-semibold text-white">
+                      <p className="text-xs font-bold uppercase tracking-wide text-emerald-100/60">
+                        Your Contribution
+                      </p>
+
+                      <p className="mt-2 text-2xl font-black text-white">
                         ${Number(activeEstimate.me.userUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                       </p>
                     </div>
 
                     <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4">
-                      <p className="text-xs text-cyan-100/60">Phase Total</p>
-                      <p className="font-semibold text-white">
-                        ${Number(activeEstimate.totals.totalUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      <p className="text-xs font-bold uppercase tracking-wide text-cyan-100/60">
+                        Your Share
+                      </p>
+
+                      <p className="mt-2 text-2xl font-black text-white">
+                        {(activeEstimate.me.shareRatio * 100).toFixed(3)}%
                       </p>
                     </div>
 
