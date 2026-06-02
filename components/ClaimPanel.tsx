@@ -2692,19 +2692,19 @@ export default function ClaimPanel() {
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <p className="truncate text-xl font-black text-white">
-                    {phasesLoading ? 'Loading…' : currentPhase ? `${currentPhase.name || 'Current Phase'}` : 'No phase'}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-xl font-black text-white">
+                      {phasesLoading ? 'Loading…' : currentPhase ? `${currentPhase.name || 'Current Phase'}` : 'No phase'}
+                    </p>
 
-                  <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
                     {currentPhase ? (
-                      <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 font-bold uppercase tracking-wide text-emerald-200">
+                      <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-200">
                         Active
                       </span>
                     ) : null}
 
                     {currentPhase?.snapshot_taken_at && (
-                      <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 font-bold uppercase tracking-wide text-blue-200">
+                      <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-blue-200">
                         Snapshot Taken
                       </span>
                     )}
@@ -2763,11 +2763,12 @@ export default function ClaimPanel() {
               {/* Your estimate (inside the same card) */}
               {activeEstimate?.active?.id && !currentPhase?.snapshot_taken_at && (
                 <div className="mt-4 pt-4 border-t border-zinc-700">
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="text-gray-400 text-xs uppercase tracking-wide">
                         Your live estimate
                       </p>
+
                       <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
                         <span className="px-2 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/30 text-yellow-200">
                           ⏳ live estimate
@@ -2785,9 +2786,12 @@ export default function ClaimPanel() {
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <p className="text-gray-400 text-xs">Your Share</p>
-                      <p className="text-white font-semibold">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left sm:text-right">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">
+                        Your Share
+                      </p>
+
+                      <p className="mt-1 text-2xl font-black text-white">
                         {(activeEstimate.me.shareRatio * 100).toFixed(3)}%
                       </p>
                     </div>
