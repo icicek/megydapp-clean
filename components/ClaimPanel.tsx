@@ -2022,8 +2022,8 @@ export default function ClaimPanel() {
         : selectedClaimable <= 0
           ? '✅ Nothing to claim'
           : claimScope === 'identity'
-            ? '🎉 Claim from All Linked Wallets'
-            : `🎉 Claim from ${effectivePhaseName ? String(effectivePhaseName) : String(effectivePhaseLabel)}`;
+            ? `🎉 Claim ${formatMegyAmount(claimAmountNumber || selectedClaimable, 6)} MEGY`
+            : `🎉 Claim ${formatMegyAmount(claimAmountNumber || selectedClaimable, 6)} MEGY`;
 
   const protectedActionIssue = getProtectedActionIssue();
 
@@ -2939,11 +2939,11 @@ export default function ClaimPanel() {
 
                 <div className="rounded-2xl border border-purple-400/20 bg-purple-400/10 p-4">
                   <p className="text-[11px] uppercase tracking-wide text-purple-200/70">
-                    Selected Phase
+                    Remaining
                   </p>
 
                   <p className="mt-2 text-xl font-black text-purple-100">
-                    {formatMegyAmount(selectedClaimable)}
+                    {formatMegyAmount(claimableMegy)}
                   </p>
                 </div>
               </div>
@@ -2966,11 +2966,11 @@ export default function ClaimPanel() {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-300/90">
-                    Claim Scope
+                    Claim Source
                   </p>
 
                   <p className="mt-1 text-sm text-gray-300">
-                    Choose whether to claim from only this wallet or all wallets linked to your Identity.
+                    Choose current wallet or your entire identity.
                   </p>
 
                   <p className="mt-2 text-xs leading-5 text-cyan-100/60">
@@ -3020,11 +3020,11 @@ export default function ClaimPanel() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-200/70">
-                    Destination Wallet
+                    Receive MEGY At
                   </p>
 
                   <p className="mt-1 text-xs text-zinc-500">
-                    Select where your claimed MEGY will be sent.
+                    Choose the wallet that will receive your claim.
                   </p>
                 </div>
 
@@ -3443,7 +3443,7 @@ export default function ClaimPanel() {
                         setSelectedClaimPercent(null);
                         setClaimAmount(normalizeClaimInput(e.target.value, selectedClaimable));
                       }}
-                      placeholder="Enter amount to claim"
+                      placeholder="How much would you like to claim?"
                       className="w-full rounded-xl border border-pink-400/20 bg-black/30 p-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60"
                     />
 
