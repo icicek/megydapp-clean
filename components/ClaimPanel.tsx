@@ -3139,7 +3139,7 @@ export default function ClaimPanel() {
                     </div>
 
                     <div className="w-full sm:w-auto flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
-                      <span className="text-xs font-semibold text-violet-200/70 shrink-0">{isAllLinkedWalletsMode ? 'All phases selected' : 'Select phase'}</span>
+                      <span className="text-xs font-semibold text-zinc-500 shrink-0">{isAllLinkedWalletsMode ? 'All phases selected' : 'Quick Select'}</span>
 
                       <select
                         value={activePid ? String(activePid) : ''}
@@ -3242,17 +3242,9 @@ export default function ClaimPanel() {
 
                           <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:block sm:text-right sm:shrink-0">
                             <div className="text-xs text-gray-400 flex items-center justify-end gap-1">
-                              Claimable
-                              {isSelected && (
-                                <span
-                                  className="ml-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-gray-300 border border-white/10"
-                                  title="This claimable value belongs to the selected finalized snapshot phase."
-                                >
-                                  info
-                                </span>
-                              )}
+                              Available
                             </div>
-                            <div className="font-semibold text-purple-300">
+                            <div className="text-xl font-black text-purple-300">
                               {Math.floor(p.claimable).toLocaleString()}
                             </div>
                           </div>
@@ -3469,17 +3461,17 @@ export default function ClaimPanel() {
             )}
 
             {claimOpen && claimAmountNumber > 0 && !claimAmountInvalid && !claimAmountExceeds && (
-              <div className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.07] px-4 py-3 text-xs shadow-[0_0_25px_rgba(251,191,36,0.08)]">
+              <div className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.07] px-4 py-4 text-xs shadow-[0_0_25px_rgba(251,191,36,0.08)]">
                 <p className="font-black uppercase tracking-[0.22em] text-amber-200/80">
-                  Claim Summary
+                  You are about to receive
                 </p>
 
-                <p className="mt-2 leading-6 text-zinc-300">
-                  You are about to claim{' '}
-                  <span className="font-black text-amber-200">
-                    {formatMegyAmount(claimAmountNumber, 6)} MEGY
-                  </span>{' '}
-                  from{' '}
+                <p className="mt-3 text-3xl font-black text-amber-200">
+                  {formatMegyAmount(claimAmountNumber, 6)} MEGY
+                </p>
+
+                <p className="mt-3 leading-6 text-zinc-300">
+                  From{' '}
                   <span className="font-semibold text-white">
                     {claimScope === 'identity'
                       ? 'All Linked Wallets · FIFO'
