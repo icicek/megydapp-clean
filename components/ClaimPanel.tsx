@@ -2694,41 +2694,37 @@ export default function ClaimPanel() {
               <div className="pointer-events-none absolute -right-24 bottom-0 h-48 w-48 rounded-full bg-lime-400/10 blur-3xl" />
 
               <div className="relative">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="truncate text-xl font-black text-white">
-                      {phasesLoading ? 'Loading…' : currentPhase ? `${currentPhase.name || 'Current Phase'}` : 'No phase'}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-xl font-black text-white">
+                        {phasesLoading ? 'Loading…' : currentPhase ? `${currentPhase.name || 'Current Phase'}` : 'No phase'}
+                      </p>
+
+                      {currentPhase ? (
+                        <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-200">
+                          Active
+                        </span>
+                      ) : null}
+
+                      {currentPhase?.snapshot_taken_at && (
+                        <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-blue-200">
+                          Snapshot Taken
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="text-left sm:text-right">
+                    <p className="text-sm font-black text-emerald-200 sm:text-base">
+                      {(() => {
+                        const ratio = toPct01(currentPhase?.fill_pct);
+                        const pct = ratio * 100;
+                        return `${pct.toFixed(ratio >= 1 ? 0 : 1)}% Filled`;
+                      })()}
                     </p>
-
-                    {currentPhase ? (
-                      <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-200">
-                        Active
-                      </span>
-                    ) : null}
-
-                    {currentPhase?.snapshot_taken_at && (
-                      <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-blue-200">
-                        Snapshot Taken
-                      </span>
-                    )}
                   </div>
                 </div>
-
-                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-left sm:text-right">
-                  <p className="text-xl font-black text-emerald-200">
-                    {(() => {
-                      const ratio = toPct01(currentPhase?.fill_pct);
-                      const pct = ratio * 100;
-                      return `${pct.toFixed(ratio >= 1 ? 0 : 1)}%`;
-                    })()}
-                  </p>
-
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-100/60">
-                    Filled
-                  </p>
-                </div>
-              </div>
 
               {/* Progress bar */}
               <div className="mt-3">
@@ -2841,7 +2837,7 @@ export default function ClaimPanel() {
               )}
 
               </div> {/* relative wrapper */}
-              </div> {/* current phase card */}
+            </div> {/* current phase card */}
           </div>
         </motion.section>
 
