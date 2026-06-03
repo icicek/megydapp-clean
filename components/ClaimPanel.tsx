@@ -2912,7 +2912,7 @@ export default function ClaimPanel() {
                 </div>
 
                 <p className="mt-3 max-w-xl text-sm text-zinc-400">
-                  Your finalized MEGY balance across Coincarnation snapshots.
+                  Ready MEGY from finalized Coincarnation snapshots.
                 </p>
               </div>
 
@@ -2937,12 +2937,12 @@ export default function ClaimPanel() {
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-purple-400/20 bg-purple-400/10 p-4">
-                  <p className="text-[11px] uppercase tracking-wide text-purple-200/70">
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-emerald-200/70">
                     Remaining
                   </p>
 
-                  <p className="mt-2 text-xl font-black text-purple-100">
+                  <p className="mt-2 text-xl font-black text-emerald-100">
                     {formatMegyAmount(claimableMegy)}
                   </p>
                 </div>
@@ -3266,7 +3266,7 @@ export default function ClaimPanel() {
             {claimOpen && (
               <div className="rounded-2xl border border-pink-400/15 bg-pink-400/[0.04] p-4">
                 <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-pink-300/80">
-                  Claim Amount
+                  Choose Amount
                 </p>
                 <div className="mb-4 grid grid-cols-1 gap-3 text-xs sm:grid-cols-3">
                   <div className="rounded-xl border border-white/10 bg-black/20 p-3">
@@ -3295,7 +3295,7 @@ export default function ClaimPanel() {
 
                   <div className="rounded-xl border border-white/10 bg-black/20 p-3">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                      Still Claimable
+                      Available Now
                     </p>
 
                     <p className="mt-1 font-black text-emerald-200">
