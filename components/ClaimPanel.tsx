@@ -3268,7 +3268,14 @@ export default function ClaimPanel() {
                 <p className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-pink-300/80">
                   Choose Amount
                 </p>
-                <div className="mb-4 grid grid-cols-1 gap-3 text-xs sm:grid-cols-3">
+                <div
+                  className={[
+                    'mb-4 grid grid-cols-1 gap-3 text-xs',
+                    claimScope === 'identity'
+                      ? 'sm:grid-cols-2'
+                      : 'sm:grid-cols-3',
+                  ].join(' ')}
+                >
                   <div className="rounded-xl border border-white/10 bg-black/20 p-3">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                       Already Claimed
@@ -3283,15 +3290,17 @@ export default function ClaimPanel() {
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                      Phase Total
-                    </p>
+                  {claimScope !== 'identity' && (
+                    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                        Phase Total
+                      </p>
 
-                    <p className="mt-1 font-black text-purple-200">
-                      {formatMegyAmount(selectedPhaseTotal)} MEGY
-                    </p>
-                  </div>
+                      <p className="mt-1 font-black text-purple-200">
+                        {formatMegyAmount(selectedPhaseTotal)} MEGY
+                      </p>
+                    </div>
+                  )}
 
                   <div className="rounded-xl border border-white/10 bg-black/20 p-3">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
