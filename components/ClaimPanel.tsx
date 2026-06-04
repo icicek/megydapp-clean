@@ -3670,6 +3670,8 @@ export default function ClaimPanel() {
 
                 const refundState = getRefundUiState(tx);
 
+                console.log('history tx', tx);
+
                 const rawTxId =
                   (tx.tx_id && String(tx.tx_id)) ||
                   (tx.txId && String(tx.txId)) ||
