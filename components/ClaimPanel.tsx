@@ -3212,7 +3212,7 @@ export default function ClaimPanel() {
                       </div>
                     </div>
 
-                    <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
+                    <div className="max-h-[360px] space-y-2 overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-violet-300/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/10">
                       {ordered.map((p: any) => {
                         const isSelected = isAllLinkedWalletsMode || (activePid != null && p.pid === activePid);
 
@@ -3296,7 +3296,7 @@ export default function ClaimPanel() {
                     {ordered.length > 4 && (
                       <div className="mt-2 flex items-center justify-center sm:hidden">
                         <span className="animate-pulse text-[11px] font-semibold tracking-wide text-cyan-300/70">
-                          Scroll for more ↓
+                          Swipe inside the list ↓
                         </span>
                       </div>
                     )}
@@ -3732,14 +3732,15 @@ export default function ClaimPanel() {
                           <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[1.35fr_0.75fr_0.9fr_0.9fr_1fr_auto] lg:items-center lg:gap-5">
                             {/* ASSET */}
                             <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="truncate text-lg font-black text-white">
+                              <div className="flex w-full items-center justify-between gap-3 lg:block">
+                                <p className="min-w-0 truncate text-lg font-black text-white">
                                   {assetLabel}
                                 </p>
+
                                 {showInlineTokenStatus && (
                                   <span
                                     className={[
-                                      'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide lg:hidden',
+                                      'shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide lg:hidden',
                                       tokenStatus.className,
                                     ].join(' ')}
                                   >
@@ -4320,7 +4321,7 @@ export default function ClaimPanel() {
 
               {!loadingHistory && filteredCpHistory.length > 0 && (
                 <>
-                  <div className="relative grid max-h-[620px] gap-3 overflow-y-auto pr-1">
+                  <div className="relative grid max-h-[620px] gap-3 overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-emerald-300/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/10">
                     {[...filteredCpHistory]
                       .sort((a: any, b: any) => {
                         const aDate = a?.created_at || a?.day || null;
@@ -4492,8 +4493,8 @@ export default function ClaimPanel() {
 
                   {filteredCpHistory.length > 6 && (
                     <div className="mt-2 flex items-center justify-center sm:hidden">
-                      <span className="animate-pulse text-[11px] font-semibold tracking-wide text-cyan-300/70">
-                        Scroll for more ↓
+                      <span className="animate-pulse text-[11px] font-semibold tracking-wide text-emerald-300/70">
+                        Swipe inside the list ↓
                       </span>
                     </div>
                   )}
