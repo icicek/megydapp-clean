@@ -3680,7 +3680,7 @@ export default function ClaimPanel() {
               </h3>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
-                Every Coincarnation you made, every revived asset, and every shareable proof of impact.
+                Every asset you revived and every proof of impact you created.
               </p>
             </div>
 
@@ -3696,7 +3696,13 @@ export default function ClaimPanel() {
 
           {txs.length > 0 ? (
             <div className="relative">
-            <div className="relative grid max-h-[72vh] gap-3 overflow-y-auto pr-1 sm:max-h-[620px]">
+              {txs.length > 6 && (
+                <div className="pointer-events-none absolute right-1 top-3 bottom-10 z-10 w-1 rounded-full bg-white/10 sm:hidden">
+                  <div className="h-16 w-full rounded-full bg-amber-300/60 shadow-[0_0_12px_rgba(251,191,36,0.35)]" />
+                </div>
+              )}
+            
+              <div className="relative grid max-h-[72vh] gap-3 overflow-y-auto pr-3 sm:max-h-[620px] sm:pr-1">
               {[...txs]
                 .sort((a: any, b: any) => {
                   const aTime = a?.timestamp ? new Date(a.timestamp).getTime() : 0;
