@@ -1098,6 +1098,50 @@ export default function ClaimPanel() {
     }
   }
 
+  function getTokenStatusBadge(statusRaw: unknown) {
+    const status = String(statusRaw || '').toLowerCase().trim();
+  
+    if (status === 'healthy') {
+      return {
+        label: 'Healthy',
+        className: 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200',
+      };
+    }
+  
+    if (status === 'walking_dead') {
+      return {
+        label: 'Walking Dead',
+        className: 'border-amber-400/25 bg-amber-400/10 text-amber-200',
+      };
+    }
+  
+    if (status === 'deadcoin') {
+      return {
+        label: 'Deadcoin',
+        className: 'border-red-400/25 bg-red-400/10 text-red-200',
+      };
+    }
+  
+    if (status === 'redlist') {
+      return {
+        label: 'Redlist',
+        className: 'border-orange-400/25 bg-orange-400/10 text-orange-200',
+      };
+    }
+  
+    if (status === 'blacklist') {
+      return {
+        label: 'Blacklist',
+        className: 'border-red-400/25 bg-red-400/10 text-red-200',
+      };
+    }
+  
+    return {
+      label: 'Unclassified',
+      className: 'border-zinc-400/20 bg-zinc-400/10 text-zinc-300',
+    };
+  }
+
   function getProtectedActionIssue(): ProtectedActionIssue | null {
     if (!walletBase58) return null;
   
@@ -3670,8 +3714,6 @@ export default function ClaimPanel() {
 
                 const refundState = getRefundUiState(tx);
 
-                console.log('history tx', tx);
-
                 const rawTxId =
                   (tx.tx_id && String(tx.tx_id)) ||
                   (tx.txId && String(tx.txId)) ||
@@ -3730,13 +3772,28 @@ export default function ClaimPanel() {
 
                       {/* STATUS */}
                       <div className="flex flex-wrap items-center gap-2">
-                        {tx?.blacklisted && (
+                        {tx?.blacklisted ? (
                           <span className="rounded-full border border-red-400/25 bg-red-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-red-200">
                             Blacklist
                           </span>
+                        ) : (
+                          (() => {
+                            const tokenStatus = getTokenStatusBadge(tx?.current_token_status);
+
+                            return (
+                              <span
+                                className={[
+                                  'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide',
+                                  tokenStatus.className,
+                                ].join(' ')}
+                              >
+                                {tokenStatus.label}
+                              </span>
+                            );
+                          })()
                         )}
 
-                        {refundState.badge ? (
+                        {refundState.badge && (
                           <span
                             className={[
                               'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide',
@@ -3751,8 +3808,6 @@ export default function ClaimPanel() {
                           >
                             {refundState.badge}
                           </span>
-                        ) : (
-                          <span className="hidden text-zinc-600 lg:inline">—</span>
                         )}
                       </div>
 
