@@ -4228,7 +4228,7 @@ export default function ClaimPanel() {
                 </div>
 
                 <p className="max-w-xl text-xs leading-5 text-zinc-500">
-                  Every CorePoint that builds your Personal Value Currency is recorded here across your linked Coincarnation Identity wallets.
+                  Every CorePoint that built your PVC.
                 </p>
               </div>
 
@@ -4494,7 +4494,7 @@ export default function ClaimPanel() {
                   </div>
 
                   <p className="max-w-md text-sm leading-6 text-zinc-500 sm:text-right">
-                    Net breakdown of the value signals building your Personal Value Currency.
+                    What powers your PVC?
                   </p>
                 </div>
 
