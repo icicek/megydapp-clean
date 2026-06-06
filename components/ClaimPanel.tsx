@@ -3929,10 +3929,6 @@ export default function ClaimPanel() {
                   Personal Value Currency turns it into an economic identity.
                 </p>
 
-                <p className="mt-4 text-sm font-semibold tracking-wide text-fuchsia-200/70">
-                  CorePoint powers your Personal Value Currency.
-                </p>
-
                 <div className="mt-8 rounded-3xl border border-fuchsia-400/15 bg-white/[0.03] p-5">
                   <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-center">
                     <div>
