@@ -4017,7 +4017,7 @@ export default function ClaimPanel() {
                       Capital revived into future value.
                     </p>
 
-                    <div className="mt-auto min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
+                    <div className="mt-4 min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
                       <p className="text-[10px] font-black uppercase tracking-[0.22em] text-fuchsia-200/60">
                         Earning Logic
                       </p>
@@ -4106,7 +4106,7 @@ export default function ClaimPanel() {
                       Network growth turned into value.
                     </p>
 
-                    <div className="mt-auto min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
+                    <div className="mt-4 min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
                       <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-200/60">
                         Earning Logic
                       </p>
@@ -4152,7 +4152,7 @@ export default function ClaimPanel() {
                       Visibility converted into value.
                     </p>
 
-                    <div className="mt-auto min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
+                    <div className="mt-4 min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
                       <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-200/60">
                         Earning Logic
                       </p>
@@ -4198,7 +4198,7 @@ export default function ClaimPanel() {
                       Forgotten value discovered.
                     </p>
 
-                    <div className="mt-auto min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
+                    <div className="mt-4 min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
                       <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-200/60">
                         Earning Logic
                       </p>
