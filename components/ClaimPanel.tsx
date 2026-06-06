@@ -4014,7 +4014,7 @@ export default function ClaimPanel() {
                     </div>
 
                     <p className="mb-6 min-h-[64px] text-sm leading-6 text-zinc-400">
-                      Capital revived into future value.
+                      Revived capital becomes future value.
                     </p>
 
                     <div className="mt-auto min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
