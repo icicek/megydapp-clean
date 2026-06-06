@@ -3936,16 +3936,19 @@ export default function ClaimPanel() {
                     Personal Value Currency
                   </p>
 
-                  <p className="mt-3 text-sm text-fuchsia-100/70">
-                    CorePoint is the accounting unit of Personal Value Currency.
-                  </p>
-
                   <p className="mt-5 break-words text-5xl font-black tracking-tight text-white sm:text-7xl">
-                    {Number(data.core_point || 0).toFixed(1)}
+                    {Number(data.core_point || 0).toLocaleString('en-US', {
+                      maximumFractionDigits: 0,
+                    })}{' '}
+                    <span className="text-3xl text-fuchsia-200/70 sm:text-4xl">CP</span>
                   </p>
 
-                  <p className="mt-4 text-[10px] font-black uppercase tracking-[0.42em] text-fuchsia-200/70">
+                  <p className="mt-4 text-[10px] font-black uppercase tracking-[0.36em] text-fuchsia-200/70">
                     Current Economic Identity
+                  </p>
+
+                  <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-fuchsia-100/65">
+                    CorePoint is the accounting unit of Personal Value Currency.
                   </p>
 
                   {typeof data.pvc_share === 'number' && (
@@ -3959,7 +3962,7 @@ export default function ClaimPanel() {
                       </p>
 
                       <p className="mt-2 text-xs text-fuchsia-200/60">
-                        Percentage of all PVC value currently represented by your identity.
+                        Your identity’s share of total PVC value.
                       </p>
                     </div>
                   )}
