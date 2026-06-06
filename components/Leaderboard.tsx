@@ -137,7 +137,7 @@ export default function Leaderboard({ referralCode }: Props) {
   return (
     <div className="rounded-2xl border border-pink-500/20 bg-gradient-to-br from-zinc-900/70 to-black/80 p-6 shadow-xl backdrop-blur-lg">
       <div className="mb-2 flex items-center gap-3">
-        <SectionIcon color="rose">LB</SectionIcon>
+        <SectionIcon color="rose">GLB</SectionIcon>
 
         <h2 className="text-sm font-semibold uppercase tracking-wide text-rose-300">
           Global Leaderboard

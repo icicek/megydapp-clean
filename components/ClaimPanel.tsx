@@ -2465,7 +2465,7 @@ export default function ClaimPanel() {
             <div className="relative mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <div className="flex items-center gap-3">
-                  <SectionIcon color="violet">CPF</SectionIcon>
+                  <SectionIcon color="violet">CPR</SectionIcon>
 
                   <h3 className={`${sectionTitleClass} text-violet-300`}>
                     Coincarnator Profile
@@ -3665,7 +3665,7 @@ export default function ClaimPanel() {
             <div className="relative mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <div className="mb-6 flex items-center gap-3">
-                  <SectionIcon color="amber">CHS</SectionIcon>
+                  <SectionIcon color="amber">CH</SectionIcon>
 
                   <h3 className={`${sectionTitleClass} text-amber-300`}>
                     Contribution History
@@ -4013,7 +4013,7 @@ export default function ClaimPanel() {
                       </p>
                     </div>
 
-                    <p className="mb-6 min-h-[64px] text-sm leading-6 text-zinc-400">
+                    <p className="mt-4 text-sm leading-6 text-zinc-400">
                       Capital revived into future value.
                     </p>
 
@@ -4102,7 +4102,7 @@ export default function ClaimPanel() {
                       </p>
                     </div>
 
-                    <p className="mb-6 min-h-[64px] text-sm leading-6 text-zinc-400">
+                    <p className="mt-4 text-sm leading-6 text-zinc-400">
                       Network growth turned into value.
                     </p>
 
@@ -4148,7 +4148,7 @@ export default function ClaimPanel() {
                       </p>
                     </div>
 
-                    <p className="mb-6 min-h-[64px] text-sm leading-6 text-zinc-400">
+                    <p className="mt-4 text-sm leading-6 text-zinc-400">
                       Visibility converted into value.
                     </p>
 
@@ -4194,7 +4194,7 @@ export default function ClaimPanel() {
                       </p>
                     </div>
 
-                    <p className="mb-6 min-h-[64px] text-sm leading-6 text-zinc-400">
+                    <p className="mt-4 text-sm leading-6 text-zinc-400">
                       Forgotten value discovered.
                     </p>
 
