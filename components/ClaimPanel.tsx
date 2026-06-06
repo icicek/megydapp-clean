@@ -3917,47 +3917,58 @@ export default function ClaimPanel() {
                 </div>
 
                 <h3 className="mt-4 text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl">
-                  Your value.
-                  <span className="block bg-gradient-to-r from-fuchsia-300 via-pink-200 to-cyan-200 bg-clip-text text-transparent">
-                    Your currency.
+                  The first currency
+                  <span className="block bg-gradient-to-r from-fuchsia-300 via-pink-200 to-violet-200 bg-clip-text text-transparent">
+                    built from personal value.
                   </span>
                 </h3>
 
                 <p className="mt-6 max-w-2xl text-base leading-8 text-zinc-400">
-                  Turn contribution into currency.
-                  Build the economic layer of your future identity.
+                  Your actions create value.
+                  CorePoints measure that value.
+                  Personal Value Currency turns it into an economic identity.
                 </p>
 
                 <p className="mt-4 text-sm font-semibold tracking-wide text-fuchsia-200/70">
                   CorePoint powers your Personal Value Currency.
                 </p>
 
-                <div className="mt-7 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-fuchsia-300/70">
-                      Contribution
-                    </p>
-                    <p className="mt-2 text-sm font-bold text-white">
-                      Your actions create value.
-                    </p>
-                  </div>
+                <div className="mt-8 rounded-3xl border border-fuchsia-400/15 bg-white/[0.03] p-5">
+                  <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-center">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.22em] text-fuchsia-300/70">
+                        Contribution
+                      </p>
+                      <p className="mt-2 text-sm font-bold text-white">
+                        Actions create value
+                      </p>
+                    </div>
 
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300/70">
-                      CorePoint
-                    </p>
-                    <p className="mt-2 text-sm font-bold text-white">
-                      Value becomes signal.
-                    </p>
-                  </div>
+                    <div className="text-fuchsia-300/50 text-2xl font-black">
+                      →
+                    </div>
 
-                  <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-200/70">
-                      PVC
-                    </p>
-                    <p className="mt-2 text-sm font-black text-cyan-100">
-                      Signal becomes currency.
-                    </p>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.22em] text-violet-300/70">
+                        CorePoint
+                      </p>
+                      <p className="mt-2 text-sm font-bold text-white">
+                        Value becomes signal
+                      </p>
+                    </div>
+
+                    <div className="text-fuchsia-300/50 text-2xl font-black">
+                      →
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300/70">
+                        PVC
+                      </p>
+                      <p className="mt-2 text-sm font-bold text-white">
+                        Signal becomes currency
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3967,7 +3978,7 @@ export default function ClaimPanel() {
 
                 <div className="relative">
                   <p className="text-[10px] font-black uppercase tracking-[0.3em] text-fuchsia-200/70">
-                    Your Value Core
+                    Personal Value Currency
                   </p>
 
                   <p className="mt-5 break-words text-5xl font-black tracking-tight text-white sm:text-7xl">
@@ -3975,13 +3986,13 @@ export default function ClaimPanel() {
                   </p>
 
                   <p className="mt-4 text-[10px] font-black uppercase tracking-[0.42em] text-fuchsia-200/70">
-                    CorePoint
+                    Current Economic Identity
                   </p>
 
                   {typeof data.pvc_share === 'number' && (
                     <div className="mt-8 rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.06] px-4 py-4">
                       <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-200/70">
-                        PVC Economy Share
+                        Your Share of Total PVC Value
                       </p>
 
                       <p className="mt-1 text-4xl font-black text-emerald-200">
