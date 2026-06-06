@@ -3924,15 +3924,39 @@ export default function ClaimPanel() {
                 </h3>
 
                 <p className="mt-6 max-w-2xl text-base leading-8 text-zinc-400">
-                  Your actions create value.
-                  CorePoints measure that value.
-                  Personal Value Currency turns it into an economic identity.
+                  Your actions create value. CorePoints measure that value. Personal Value Currency turns it into an economic identity.
                 </p>
 
-                <div className="mt-8 rounded-3xl border border-fuchsia-400/15 bg-white/[0.03] px-6 py-5">
-                  <p className="text-center text-sm font-semibold tracking-wide text-fuchsia-200/80">
-                    Actions create value • CorePoint records value • PVC monetizes value
-                  </p>
+                <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-fuchsia-400/15 bg-fuchsia-400/[0.04] px-4 py-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-fuchsia-300/70">
+                      Value Creation
+                    </p>
+
+                    <p className="mt-2 text-sm font-bold leading-6 text-white">
+                      Actions create value.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-violet-400/15 bg-violet-400/[0.04] px-4 py-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-300/70">
+                      CorePoint
+                    </p>
+
+                    <p className="mt-2 text-sm font-bold leading-6 text-white">
+                      The accounting unit of PVC.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-pink-400/15 bg-pink-400/[0.04] px-4 py-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-pink-300/70">
+                      Economic Identity
+                    </p>
+
+                    <p className="mt-2 text-sm font-bold leading-6 text-white">
+                      Value becomes currency.
+                    </p>
+                  </div>
                 </div>
               </div>
 
