@@ -3929,42 +3929,47 @@ export default function ClaimPanel() {
                   Personal Value Currency turns it into an economic identity.
                 </p>
 
-                <div className="mt-8 rounded-3xl border border-fuchsia-400/15 bg-white/[0.03] p-5">
-                  <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-center">
+                <div className="mt-8 rounded-3xl border border-fuchsia-400/15 bg-white/[0.03] px-6 py-7">
+                  <p className="text-[11px] font-black uppercase tracking-[0.3em] text-fuchsia-300/70">
+                    How PVC Works
+                  </p>
+
+                  <div className="mt-5 space-y-4">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-[0.22em] text-fuchsia-300/70">
-                        Contribution
-                      </p>
-                      <p className="mt-2 text-sm font-bold text-white">
-                        Actions create value
+                      <p className="text-xl font-black text-white">
+                        Actions create value.
                       </p>
                     </div>
 
-                    <div className="text-fuchsia-300/50 text-2xl font-black">
-                      →
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.22em] text-violet-300/70">
-                        CorePoint
-                      </p>
-                      <p className="mt-2 text-sm font-bold text-white">
-                        Value becomes signal
-                      </p>
-                    </div>
-
-                    <div className="text-fuchsia-300/50 text-2xl font-black">
-                      →
+                    <div className="flex justify-center">
+                      <span className="text-2xl text-fuchsia-300/50">↓</span>
                     </div>
 
                     <div>
-                      <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300/70">
-                        PVC
-                      </p>
-                      <p className="mt-2 text-sm font-bold text-white">
-                        Signal becomes currency
+                      <p className="text-xl font-black text-white">
+                        CorePoint measures and records that value.
                       </p>
                     </div>
+
+                    <div className="flex justify-center">
+                      <span className="text-2xl text-fuchsia-300/50">↓</span>
+                    </div>
+
+                    <div>
+                      <p className="text-xl font-black text-white">
+                        Personal Value Currency transforms value into economic identity.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 border-t border-white/10 pt-5">
+                    <p className="text-sm font-semibold text-fuchsia-200">
+                      CorePoint is the accounting unit of Personal Value Currency.
+                    </p>
+
+                    <p className="mt-2 text-sm text-zinc-400">
+                      Every contribution increases your economic signal inside the Levershare ecosystem.
+                    </p>
                   </div>
                 </div>
               </div>
