@@ -2465,7 +2465,7 @@ export default function ClaimPanel() {
             <div className="relative mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <div className="flex items-center gap-3">
-                  <SectionIcon color="violet">PF</SectionIcon>
+                  <SectionIcon color="violet">CPF</SectionIcon>
 
                   <h3 className={`${sectionTitleClass} text-violet-300`}>
                     Coincarnator Profile
@@ -2893,7 +2893,7 @@ export default function ClaimPanel() {
             <div className="pointer-events-none absolute -left-24 top-10 h-44 w-44 rounded-full bg-pink-500/10 blur-3xl" />
 
             <div className="mb-6 flex items-center gap-3">
-              <SectionIcon color="purple">CL</SectionIcon>
+              <SectionIcon color="purple">MCC</SectionIcon>
 
               <h3 className={`${sectionTitleClass} text-purple-300`}>
                 MEGY Claim Center
@@ -3665,7 +3665,7 @@ export default function ClaimPanel() {
             <div className="relative mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <div className="mb-6 flex items-center gap-3">
-                  <SectionIcon color="amber">CH</SectionIcon>
+                  <SectionIcon color="amber">CHS</SectionIcon>
 
                   <h3 className={`${sectionTitleClass} text-amber-300`}>
                     Contribution History
