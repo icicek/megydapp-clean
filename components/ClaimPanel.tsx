@@ -4013,11 +4013,11 @@ export default function ClaimPanel() {
                       </p>
                     </div>
 
-                    <p className="mt-4 text-sm leading-6 text-zinc-400">
+                    <p className="mb-6 min-h-[64px] text-sm leading-6 text-zinc-400">
                       Capital revived into future value.
                     </p>
 
-                    <div className="mt-4 min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
+                    <div className="mt-auto min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
                       <p className="text-[10px] font-black uppercase tracking-[0.22em] text-fuchsia-200/60">
                         Earning Logic
                       </p>
@@ -4102,11 +4102,11 @@ export default function ClaimPanel() {
                       </p>
                     </div>
 
-                    <p className="mt-4 text-sm leading-6 text-zinc-400">
-                      Network growth turned into value.
+                    <p className="mb-6 min-h-[64px] text-sm leading-6 text-zinc-400">
+                      Network value revived into future value.
                     </p>
 
-                    <div className="mt-4 min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
+                    <div className="mt-auto min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
                       <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-200/60">
                         Earning Logic
                       </p>
@@ -4148,11 +4148,11 @@ export default function ClaimPanel() {
                       </p>
                     </div>
 
-                    <p className="mt-4 text-sm leading-6 text-zinc-400">
-                      Visibility converted into value.
+                    <p className="mb-6 min-h-[64px] text-sm leading-6 text-zinc-400">
+                      Visibility revived into future value.
                     </p>
 
-                    <div className="mt-4 min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
+                    <div className="mt-auto min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
                       <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-200/60">
                         Earning Logic
                       </p>
@@ -4194,11 +4194,11 @@ export default function ClaimPanel() {
                       </p>
                     </div>
 
-                    <p className="mt-4 text-sm leading-6 text-zinc-400">
-                      Forgotten value discovered.
+                    <p className="mb-6 min-h-[64px] text-sm leading-6 text-zinc-400">
+                      Forgotten value revived into future value.
                     </p>
 
-                    <div className="mt-4 min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
+                    <div className="mt-auto min-h-[92px] rounded-2xl border border-fuchsia-300/15 bg-black/25 px-4 py-3">
                       <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-200/60">
                         Earning Logic
                       </p>
