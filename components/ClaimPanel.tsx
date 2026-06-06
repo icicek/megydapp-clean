@@ -3973,7 +3973,7 @@ export default function ClaimPanel() {
                 </div>
               </div>
 
-              <div className="relative min-w-0 rounded-[28px] border border-orange-400/20 bg-black/30 px-4 py-8 text-center backdrop-blur-xl sm:px-6 sm:py-10">
+              <div className="relative min-w-0 rounded-[28px] border border-fuchsia-400/15 bg-black/30 px-4 py-8 text-center backdrop-blur-xl sm:px-6 sm:py-10">
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(217,70,239,0.16),transparent_68%)]" />
 
                 <div className="relative">
@@ -3990,13 +3990,17 @@ export default function ClaimPanel() {
                   </p>
 
                   {typeof data.pvc_share === 'number' && (
-                    <div className="mt-8 rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.06] px-4 py-4">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-200/70">
+                    <div className="mt-8 rounded-2xl border border-fuchsia-400/15 bg-fuchsia-400/[0.06] px-4 py-4">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-fuchsia-200/70">
                         Your Share of Total PVC Value
                       </p>
 
-                      <p className="mt-1 text-4xl font-black text-emerald-200">
+                      <p className="mt-1 text-4xl font-black text-fuchsia-200">
                         {(Number(data.pvc_share) * 100).toFixed(2)}%
+                      </p>
+
+                      <p className="mt-2 text-xs text-fuchsia-200/60">
+                        Percentage of all PVC value currently represented by your identity.
                       </p>
                     </div>
                   )}
