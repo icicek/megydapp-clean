@@ -3909,7 +3909,7 @@ export default function ClaimPanel() {
             <div className="relative z-10 grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] lg:items-center">
               <div className="min-w-0">
                 <div className="mb-6 flex items-center gap-3">
-                  <SectionIcon color="orange">PV</SectionIcon>
+                  <SectionIcon color="orange">PVC</SectionIcon>
 
                   <h3 className={`${sectionTitleClass} text-orange-300`}>
                     Personal Value Currency
