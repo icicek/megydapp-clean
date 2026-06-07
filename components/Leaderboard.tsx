@@ -135,7 +135,7 @@ export default function Leaderboard({ referralCode }: Props) {
   };
 
   return (
-    <div className="rounded-2xl border border-pink-500/20 bg-gradient-to-br from-zinc-900/70 to-black/80 p-6 shadow-xl backdrop-blur-lg">
+    <div className="rounded-2xl border border-rose-400/25 bg-gradient-to-br from-zinc-900/70 to-black/80 p-6 shadow-[0_0_40px_rgba(244,114,182,0.08)] backdrop-blur-lg">
       <div className="mb-2 flex items-center gap-3">
         <SectionIcon color="rose">GLB</SectionIcon>
 
@@ -145,8 +145,7 @@ export default function Leaderboard({ referralCode }: Props) {
       </div>
 
       <p className="mb-4 text-sm leading-6 text-zinc-400">
-        Ranking is based on Coincarnation Identity, not individual wallets.
-        One person, one identity, one Personal Value Currency.
+        Ranks are based on Coincarnation Identities, not wallets.
       </p>
 
       {loading ? (
@@ -309,15 +308,26 @@ export default function Leaderboard({ referralCode }: Props) {
                           isUser
                             ? 'bg-yellow-500/10 font-bold'
                             : realIndex === 0
-                              ? 'bg-amber-800/20'
+                              ? 'bg-amber-800/20 shadow-[0_0_20px_rgba(251,191,36,0.10)]'
                               : realIndex === 1
-                                ? 'bg-gray-700/20'
+                                ? 'bg-zinc-400/10'
                                 : realIndex === 2
-                                  ? 'bg-orange-600/10'
+                                  ? 'bg-orange-500/10'
                                   : 'hover:bg-white/5'
                         }`}
                       >
-                        <td className="px-2 py-3">
+                        <td
+                          className={[
+                            'px-2 py-3 text-lg',
+                            realIndex === 0
+                              ? 'text-amber-300'
+                              : realIndex === 1
+                                ? 'text-zinc-200'
+                                : realIndex === 2
+                                  ? 'text-orange-300'
+                                  : '',
+                          ].join(' ')}
+                        >
                           {realIndex === 0
                             ? '🥇'
                             : realIndex === 1
