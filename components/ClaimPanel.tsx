@@ -2155,7 +2155,8 @@ export default function ClaimPanel() {
                   className="self-start rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-white/70 transition hover:bg-white/[0.08] hover:text-white sm:self-auto"
                   title="Only signs out this browser. Your linked wallets remain connected to your identity."
                 >
-                  Sign out Identity
+                  <span className="sm:hidden">Sign out</span>
+                  <span className="hidden sm:inline">Sign out Identity</span>
                 </button>
               ) : walletBase58 ? (
                 <button
@@ -2173,21 +2174,25 @@ export default function ClaimPanel() {
               <Info
                 label="Claim Status"
                 value={getClaimStatusLabel(identityStatus.identity, protectedActionIssue)}
+                tone="emerald"
               />
 
               <Info
                 label="Linked Wallets"
                 value={String(identityStatus.identity?.linkedWalletCount ?? 0)}
+                tone="cyan"
               />
 
               <Info
                 label="Human Confidence"
                 value={String(identityStatus.identity?.humanConfidenceScore ?? 0)}
+                tone="violet"
               />
 
               <Info
                 label="Risk Score"
                 value={String(identityStatus.identity?.riskScore ?? 0)}
+                tone="amber"
               />
             </div>
 
@@ -4699,11 +4704,37 @@ export default function ClaimPanel() {
   );
 }
 
-function Info({ label, value }: { label: string; value: string }) {
+function Info({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string;
+  value: string;
+  tone?: 'emerald' | 'cyan' | 'violet' | 'amber' | 'default';
+}) {
+  const toneClasses = {
+    emerald:
+      'border-emerald-400/20 bg-emerald-400/[0.05]',
+    cyan:
+      'border-cyan-400/20 bg-cyan-400/[0.05]',
+    violet:
+      'border-violet-400/20 bg-violet-400/[0.05]',
+    amber:
+      'border-amber-400/20 bg-amber-400/[0.05]',
+    default:
+      'border-zinc-700 bg-zinc-800',
+  };
+
   return (
-    <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 min-h-[100px] flex flex-col justify-between">
+    <div
+      className={`rounded-lg border p-4 min-h-[100px] flex flex-col justify-between transition-all ${toneClasses[tone]}`}
+    >
       <p className="text-gray-400 text-sm mb-1">{label}</p>
-      <p className="text-white font-medium text-sm break-words">{value}</p>
+
+      <p className="text-white font-semibold text-lg break-words">
+        {value}
+      </p>
     </div>
   );
 }
