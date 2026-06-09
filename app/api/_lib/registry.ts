@@ -247,75 +247,59 @@ function computeMetricsZone(
   metricsCategory?: EffectiveStatusInput['metricsCategory']
 ): { baseStatus: TokenStatus; zone: EffectiveZone; highLiq: boolean; voteEligible: boolean } {
   const usd = num(usdValue);
-  const L = liq ?? 0;
-  const V = vol ?? 0;
+  const L = num(liq ?? 0);
+  const V = num(vol ?? 0);
 
   const t = thresholds ?? null;
 
-  // Varsayılanlar (thresholds yoksa eski davranış)
-  if (!t || (!Number.isFinite(L) && !Number.isFinite(V))) {
-    // Eski basit mantık:
-    if (usd === 0) {
+  if (!t) {
+    if (usd <= 0 || metricsCategory === 'deadcoin') {
       return { baseStatus: 'deadcoin', zone: 'deadzone', highLiq: false, voteEligible: false };
     }
-    if (metricsCategory === 'deadcoin') {
-      return { baseStatus: 'deadcoin', zone: 'deadzone', highLiq: false, voteEligible: false };
-    }
+
     if (metricsCategory === 'walking_dead') {
       return { baseStatus: 'walking_dead', zone: 'wd_gray', highLiq: false, voteEligible: false };
     }
-    if (metricsCategory === 'healthy') {
-      return { baseStatus: 'healthy', zone: 'healthy', highLiq: false, voteEligible: false };
-    }
-    // fallback
+
     return { baseStatus: 'healthy', zone: 'healthy', highLiq: false, voteEligible: false };
   }
 
   const HLiq = num(t.healthyMinLiq);
   const HVol = num(t.healthyMinVol);
   const WDLiq = num(t.walkingDeadMinLiq);
-  const WDVol = num(t.walkingDeadMinVol);
 
-  // 1) DEADZONE: tam mezarlık
-  if (usd === 0 || (L < WDLiq && V < WDVol)) {
+  // 1) Absolute deadcoin conditions
+  if (usd <= 0 || L <= 0) {
     return { baseStatus: 'deadcoin', zone: 'deadzone', highLiq: false, voteEligible: false };
   }
 
-  // 2) HEALTHY: en az bir metrik çok iyi
-  if (L >= HLiq || V >= HVol) {
-    return { baseStatus: 'healthy', zone: 'healthy', highLiq: false, voteEligible: false };
-  }
+  // 2) Low liquidity zone: Walking Deadcoin, vote can open
+  // Exception: if volume is exactly zero, it becomes deadcoin.
+  if (L < WDLiq) {
+    if (V <= 0) {
+      return { baseStatus: 'deadcoin', zone: 'deadzone', highLiq: false, voteEligible: false };
+    }
 
-  // 3) WD_GRAY: ikisi de gri bölgede
-  const inWDLiqBand = L >= WDLiq && L < HLiq;
-  const inWDVolBand = V >= WDVol && V < HVol;
-
-  if (usd > 0 && inWDLiqBand && inWDVolBand) {
-    return { baseStatus: 'walking_dead', zone: 'wd_gray', highLiq: false, voteEligible: false };
-  }
-
-  // 4) WD_VOTE: biri WD alt sınırının altında, diğeri değil
-  const liqBelowWDL = L < WDLiq;
-  const volBelowWDV = V < WDVol;
-  const deadzoneLike = liqBelowWDL && volBelowWDV;
-  const oneSideBroken = liqBelowWDL !== volBelowWDV; // XOR
-
-  if (usd > 0 && !deadzoneLike && oneSideBroken) {
     return { baseStatus: 'walking_dead', zone: 'wd_vote', highLiq: false, voteEligible: true };
   }
 
-  // 5) Hiçbirine girmiyorsa metricsCategory’ye saygılı küçük fallback
-  if (metricsCategory === 'deadcoin') {
-    return { baseStatus: 'deadcoin', zone: 'deadzone', highLiq: false, voteEligible: false };
-  }
-  if (metricsCategory === 'walking_dead') {
+  // 3) Middle liquidity zone: Walking Deadcoin, no vote
+  if (L >= WDLiq && L < HLiq) {
     return { baseStatus: 'walking_dead', zone: 'wd_gray', highLiq: false, voteEligible: false };
   }
-  if (metricsCategory === 'healthy') {
-    return { baseStatus: 'healthy', zone: 'healthy', highLiq: false, voteEligible: false };
+
+  // 4) High liquidity zone
+  // Healthy only if volume is also healthy.
+  if (L >= HLiq && V >= HVol) {
+    return { baseStatus: 'healthy', zone: 'healthy', highLiq: true, voteEligible: false };
   }
 
-  return { baseStatus: 'healthy', zone: 'healthy', highLiq: false, voteEligible: false };
+  // High liquidity but weak volume = Walking Deadcoin, no vote
+  if (L >= HLiq) {
+    return { baseStatus: 'walking_dead', zone: 'wd_gray', highLiq: true, voteEligible: false };
+  }
+
+  return { baseStatus: 'walking_dead', zone: 'wd_gray', highLiq: false, voteEligible: false };
 }
 
 // -------------------- Reward karar helper'ı --------------------
