@@ -57,7 +57,7 @@ type ConfirmModalProps = {
   usdValue: number;
   tokenSymbol: string;
   amount: number;
-  tokenCategory: 'healthy' | 'deadcoin' | 'unknown';
+  tokenCategory: 'healthy' | 'walking_dead' | 'deadcoin' | 'unknown';
   priceSources: { price: number; source: string }[];
   fetchStatus: 'loading' | 'found' | 'not_found' | 'error';
   tokenMint?: string;
@@ -114,7 +114,7 @@ function resolveLatestStatus(data: StatusApiResponse | null | undefined): TokenS
 /* -------- Local types & consts -------- */
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
-type TokenCategory = 'healthy' | 'deadcoin' | 'unknown';
+type TokenCategory = 'healthy' | 'walking_dead' | 'deadcoin' | 'unknown';
 
 interface TokenInfo {
   mint: string;
@@ -1271,8 +1271,10 @@ export default function CoincarneModal({
       const finalTokenCategory: TokenCategory =
         latestStatus === 'deadcoin'
           ? 'deadcoin'
-          : latestStatus === 'healthy' || latestStatus === 'walking_dead'
+          : latestStatus === 'healthy'
           ? 'healthy'
+          : latestStatus === 'walking_dead'
+          ? 'walking_dead'
           : tokenCategory ?? 'unknown';
 
       setTxStage('recording');
