@@ -41,7 +41,7 @@ export default function DeadcoinVoteButton({
   label?: string;
   className?: string;
 }) {
-  const { publicKey, signMessage } = useWallet();
+  const { publicKey, signMessage, wallet } = useWallet();
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<VoteResponse | null>(null);
 
@@ -97,9 +97,16 @@ export default function DeadcoinVoteButton({
       return;
     }
 
-    const wallet = publicKey.toBase58();
+    const voterWallet = publicKey.toBase58();
+
+    console.log('[vote wallet debug]', {
+      adapterName: wallet?.adapter?.name,
+      publicKey: voterWallet,
+      mint,
+    });
+
     const ts = Math.floor(Date.now() / 1000);
-    const message = buildMessage(mint, wallet, ts);
+    const message = buildMessage(mint, voterWallet, ts);
 
     try {
       setLoading(true);
@@ -115,7 +122,7 @@ export default function DeadcoinVoteButton({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mint,
-          voterWallet: wallet,
+          voterWallet,
           voteYes: true, // bu buton "YES" oy verir
           ts,
           message,
