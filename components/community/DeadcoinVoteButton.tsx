@@ -99,12 +99,6 @@ export default function DeadcoinVoteButton({
 
     const voterWallet = publicKey.toBase58();
 
-    console.log('[vote wallet debug]', {
-      adapterName: wallet?.adapter?.name,
-      publicKey: voterWallet,
-      mint,
-    });
-
     const ts = Math.floor(Date.now() / 1000);
     const message = buildMessage(mint, voterWallet, ts);
 
@@ -145,7 +139,11 @@ export default function DeadcoinVoteButton({
       }
 
       onVoted?.(j);
-      setStatus(j);
+      setStatus({
+        ...j,
+        alreadyVoted: true,
+        myVote: true,
+      });
 
       if (j.blocked) {
         alert(
@@ -180,6 +178,12 @@ export default function DeadcoinVoteButton({
 
   return (
     <>
+      {publicKey && (
+        <p className="mb-2 text-[11px] text-zinc-400">
+          Voting with {wallet?.adapter?.name ?? 'wallet'} · {publicKey.toBase58().slice(0, 6)}…{publicKey.toBase58().slice(-4)}
+        </p>
+      )}
+
       <button
         onClick={handleVote}
         disabled={loading || alreadyVoted}
