@@ -154,10 +154,11 @@ async function computeVoteEligibility(mint: string): Promise<{
   });
 
   const status = (resolved as any).status as TokenStatus;
-  const decision = (resolved as any).decision ?? {
-    zone: 'wd_gray' as const,
-    highLiq: false,
-    voteEligible: false,
+
+  const decision = {
+    zone: (resolved as any).zone ?? 'wd_gray',
+    highLiq: Boolean((resolved as any).highLiq),
+    voteEligible: Boolean((resolved as any).voteEligible),
   };
 
   return { status, decision };
