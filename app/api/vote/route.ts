@@ -18,6 +18,10 @@ import classifyToken from '@/app/api/utils/classifyToken';
 
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
+import {
+  requireIdentityWalletAccess,
+  identityGuardErrorResponse,
+} from '@/app/api/_lib/identity-guard';
 
 function buildMessage(mint: string, wallet: string, ts: number) {
   return `coincarnation:vote:deadcoin\nmint:${mint}\nwallet:${wallet}\nts:${ts}`;
@@ -184,6 +188,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const identityGuard = await requireIdentityWalletAccess(voterWallet);
+
+    if (!identityGuard.ok) {
+      return identityGuardErrorResponse(identityGuard);
+    }
+
+    const identityId = identityGuard.identityId;
+    const identityScope = `identity:${identityId}`;
+
     // ✅ Yeni: vote eligibility kontrolü
     let eligibility;
     try {
@@ -213,17 +226,36 @@ export async function POST(req: NextRequest) {
 
     // ✅ Upsert vote (supports changing YES/NO)
     await sql`
-      INSERT INTO deadcoin_votes (mint, wallet_address, vote_yes)
-      VALUES (${mint}, ${voterWallet}, ${voteYes})
-      ON CONFLICT (mint, wallet_address) DO UPDATE
-      SET vote_yes = EXCLUDED.vote_yes, updated_at = NOW()
+      INSERT INTO deadcoin_votes (
+        mint,
+        identity_scope,
+        identity_id,
+        wallet_address,
+        signed_wallet_address,
+        vote_yes
+      )
+      VALUES (
+        ${mint},
+        ${identityScope},
+        ${identityId},
+        ${voterWallet},
+        ${voterWallet},
+        ${voteYes}
+      )
+      ON CONFLICT (mint, identity_scope) DO UPDATE
+      SET
+        vote_yes = EXCLUDED.vote_yes,
+        signed_wallet_address = EXCLUDED.signed_wallet_address,
+        updated_at = NOW()
     `;
 
     // ✅ Count YES votes (live)
     const yesRows = (await sql`
-      SELECT COUNT(*)::int AS c
+      SELECT COUNT(DISTINCT identity_scope)::int AS c
       FROM deadcoin_votes
-      WHERE mint = ${mint} AND vote_yes = TRUE
+      WHERE mint = ${mint}
+        AND vote_yes = TRUE
+        AND identity_scope IS NOT NULL
     `) as unknown as { c: number }[];
     const yesCount = yesRows[0]?.c ?? 0;
 
