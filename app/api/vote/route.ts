@@ -18,6 +18,7 @@ import classifyToken from '@/app/api/utils/classifyToken';
 
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
+import { Connection, PublicKey } from '@solana/web3.js';
 import {
   requireIdentityWalletAccess,
   identityGuardErrorResponse,
@@ -36,6 +37,37 @@ function verifySig(wallet: string, message: string, signature: string) {
   } catch {
     return false;
   }
+}
+
+function getSolanaConnection() {
+  const rpc =
+    process.env.SOLANA_RPC_URL ||
+    process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+    process.env.NEXT_PUBLIC_RPC_URL;
+
+  if (!rpc) {
+    throw new Error('SOLANA_RPC_URL_MISSING');
+  }
+
+  return new Connection(rpc, 'confirmed');
+}
+
+async function walletHoldsMint(walletAddress: string, mintAddress: string) {
+  const connection = getSolanaConnection();
+
+  const owner = new PublicKey(walletAddress);
+  const mint = new PublicKey(mintAddress);
+
+  const accounts = await connection.getParsedTokenAccountsByOwner(owner, {
+    mint,
+  });
+
+  return accounts.value.some((item) => {
+    const amount =
+      item.account.data.parsed?.info?.tokenAmount?.uiAmount ?? 0;
+
+    return Number(amount) > 0;
+  });
 }
 
 /**
@@ -196,6 +228,31 @@ export async function POST(req: NextRequest) {
 
     const identityId = identityGuard.identityId;
     const identityScope = `identity:${identityId}`;
+
+    let holderOk = false;
+
+    try {
+      holderOk = await walletHoldsMint(voterWallet, mint);
+    } catch (err: any) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'holder_check_unavailable',
+          detail: err?.message || null,
+        },
+        { status: 503 },
+      );
+    }
+
+    if (!holderOk) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'token_holder_required',
+        },
+        { status: 403 },
+      );
+    }
 
     // ✅ Yeni: vote eligibility kontrolü
     let eligibility;

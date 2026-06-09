@@ -1,7 +1,7 @@
 // components/community/DeadcoinVoteButton.tsx
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 
 /**
@@ -18,9 +18,11 @@ type VoteResponse = {
   threshold?: number;
   applied?: boolean;
   blocked?: boolean;
-  blockedBy?: string;
+  blockedBy?: string | null;
+  alreadyVoted?: boolean;
+  myVote?: boolean | null;
   error?: string;
-  status?: string;
+  status?: string | null;
   decision?: {
     zone?: string;
     highLiq?: boolean;
@@ -41,7 +43,50 @@ export default function DeadcoinVoteButton({
 }) {
   const { publicKey, signMessage } = useWallet();
   const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<VoteResponse | null>(null);
 
+  useEffect(() => {
+    let alive = true;
+  
+    async function fetchVoteStatus() {
+      if (!mint || !publicKey) {
+        setStatus(null);
+        return;
+      }
+  
+      try {
+        const wallet = publicKey.toBase58();
+  
+        const res = await fetch(
+          `/api/vote/status?mint=${encodeURIComponent(mint)}&wallet=${encodeURIComponent(wallet)}`,
+          { cache: 'no-store' }
+        );
+  
+        const json: VoteResponse = await res.json().catch(() => ({
+          success: false,
+          error: 'status_parse_failed',
+        }));
+  
+        if (!alive) return;
+  
+        if (res.ok && json?.success) {
+          setStatus(json);
+        } else {
+          setStatus(null);
+        }
+      } catch {
+        if (!alive) return;
+        setStatus(null);
+      }
+    }
+  
+    void fetchVoteStatus();
+  
+    return () => {
+      alive = false;
+    };
+  }, [mint, publicKey]);
+  
   async function handleVote() {
     if (!publicKey) {
       alert('Please connect your wallet first.');
@@ -93,6 +138,7 @@ export default function DeadcoinVoteButton({
       }
 
       onVoted?.(j);
+      setStatus(j);
 
       if (j.blocked) {
         alert(
@@ -115,17 +161,35 @@ export default function DeadcoinVoteButton({
     }
   }
 
+  const alreadyVoted = Boolean(status?.alreadyVoted);
+  const votesYes = status?.votesYes ?? 0;
+  const threshold = status?.threshold ?? '?';
+
+  const buttonText = loading
+    ? 'Voting…'
+    : alreadyVoted
+      ? `Voted (${votesYes}/${threshold})`
+      : label;
+
   return (
-    <button
-      onClick={handleVote}
-      disabled={loading}
-      className={[
-        'bg-rose-600 hover:bg-rose-700 text-white rounded px-3 py-2 text-sm disabled:opacity-60',
-        className,
-      ].join(' ')}
-      title="Vote as deadcoin"
-    >
-      {loading ? 'Voting…' : label}
-    </button>
+    <>
+      <button
+        onClick={handleVote}
+        disabled={loading || alreadyVoted}
+        className={[
+          'bg-rose-600 hover:bg-rose-700 text-white rounded px-3 py-2 text-sm disabled:opacity-60',
+          className,
+        ].join(' ')}
+        title="Vote as deadcoin"
+      >
+        {buttonText}
+      </button>
+
+      {status?.success && !status.alreadyVoted && typeof status.votesYes === 'number' && (
+        <p className="mt-2 text-xs text-zinc-400">
+          Community votes: {status.votesYes}/{status.threshold}
+        </p>
+      )}
+    </>
   );
 }
