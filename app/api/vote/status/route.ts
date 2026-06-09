@@ -38,13 +38,14 @@ export async function GET(req: NextRequest) {
     let alreadyVoted = false;
     let myVote: boolean | null = null;
     let identityScope: string | null = null;
+    let identityError: string | null = null;
 
     if (wallet) {
       const identityGuard = await requireIdentityWalletAccess(wallet);
 
       if (identityGuard.ok) {
         identityScope = `identity:${identityGuard.identityId}`;
-
+      
         const voteRows = (await sql`
           SELECT vote_yes
           FROM deadcoin_votes
@@ -52,11 +53,13 @@ export async function GET(req: NextRequest) {
             AND identity_scope = ${identityScope}
           LIMIT 1
         `) as unknown as { vote_yes: boolean }[];
-
+      
         if (voteRows.length > 0) {
           alreadyVoted = true;
           myVote = Boolean(voteRows[0].vote_yes);
         }
+      } else {
+        identityError = identityGuard.error;
       }
     }
 
@@ -77,6 +80,7 @@ export async function GET(req: NextRequest) {
       alreadyVoted,
       myVote,
       identityScope,
+      identityError,
     });
   } catch (e: any) {
     return NextResponse.json(

@@ -22,7 +22,6 @@ import { PublicKey, Transaction, SystemProgram, ComputeBudgetProgram } from '@so
 import { useInternalBalance, quantize } from '@/hooks/useInternalBalance';
 import { getDestAddress, __dest_debug__ } from '@/lib/chain/env';
 import { getTokenMeta } from '@/lib/solana/tokenMeta';
-import DeadcoinVoteButton from '@/components/community/DeadcoinVoteButton';
 
 type TokenStatusApi =
   | 'healthy'
@@ -391,7 +390,6 @@ export default function CoincarneModal({
 
   const displaySymbol = resolvedMeta.symbol;
   const displayName = resolvedMeta.name;
-  const voteEligible = Boolean(statusInfo?.decision?.voteEligible);
 
   /* ------------------ SOL CHECK & BALANCE ------------------ */
   const isSOLToken = useMemo(() => {
@@ -1661,31 +1659,6 @@ export default function CoincarneModal({
               {precheckMsg && (
                 <div className="mt-3 rounded-2xl border border-amber-400/20 bg-amber-500/[0.07] px-4 py-3 text-center text-xs text-amber-200">
                   {precheckMsg}
-                </div>
-              )}
-
-              {voteEligible && !isSOLToken && (
-                <div className="mt-3 rounded-2xl border border-rose-400/25 bg-rose-500/[0.08] px-4 py-3 text-center">
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-rose-200/70">
-                    Community Deadcoin Vote
-                  </p>
-
-                  <p className="mt-2 text-xs leading-5 text-rose-100/80">
-                    This token is in the community vote zone. Your Coincarnation Identity can vote once.
-                  </p>
-
-                  <div className="mt-3">
-                    <DeadcoinVoteButton
-                      mint={isSOLToken ? WSOL_MINT : token.mint}
-                      label="Vote as Deadcoin"
-                      className="w-full rounded-full bg-rose-500/90 px-4 py-2.5 text-xs font-black text-white transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-50"
-                      onVoted={() => {
-                        void fetchLatestTokenStatus(isSOLToken ? WSOL_MINT : token.mint)
-                          .then((next) => setStatusInfo(next))
-                          .catch(() => null);
-                      }}
-                    />
-                  </div>
                 </div>
               )}
 
