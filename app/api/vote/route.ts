@@ -11,7 +11,7 @@ import {
 } from '@/app/api/_lib/token-registry';
 import { getVoteThreshold } from '@/app/api/_lib/settings';
 
-import { getStatusRow, resolveEffectiveStatus } from '@/app/api/_lib/registry';
+import { getStatusRow, computeEffectiveDecision } from '@/app/api/_lib/registry';
 import type { TokenStatus } from '@/app/api/_lib/types';
 import { getTokenThresholds } from '@/app/api/_lib/token-thresholds';
 import classifyToken from '@/app/api/utils/classifyToken';
@@ -143,7 +143,7 @@ async function computeVoteEligibility(mint: string): Promise<{
   const volumeUSD = Number(cls.volume ?? 0) || 0;
 
   // 4) Effective decision → resolveEffectiveStatus zaten { status, decision } dönüyor
-  const resolved = resolveEffectiveStatus({
+  const resolved = computeEffectiveDecision({
     registryStatus,
     registrySource,
     metricsCategory,
