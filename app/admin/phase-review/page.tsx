@@ -478,13 +478,47 @@ function PhaseReviewContent() {
                                                 </td>
 
                                                 <td className="px-4 py-3 font-mono text-xs">
-                                                    <button
-                                                        onClick={() => navigator.clipboard?.writeText(row.mint)}
-                                                        className="text-sky-200 hover:underline"
-                                                        title={row.mint}
-                                                    >
-                                                        {shortMint(row.mint)}
-                                                    </button>
+                                                    <div className="space-y-2">
+                                                        <button
+                                                            onClick={async () => {
+                                                                await navigator.clipboard?.writeText(row.mint);
+                                                                setMsg(`✅ Mint copied: ${shortMint(row.mint)}`);
+                                                            }}
+                                                            className="text-sky-200 hover:underline"
+                                                            title="Copy mint address"
+                                                        >
+                                                            {shortMint(row.mint)}
+                                                        </button>
+
+                                                        <div className="flex flex-wrap gap-2">
+                                                            <a
+                                                                href={`https://dexscreener.com/solana/${row.mint}`}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/70 hover:bg-white/10"
+                                                            >
+                                                                Dex
+                                                            </a>
+
+                                                            <a
+                                                                href={`https://www.coingecko.com/en/search?query=${row.mint}`}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/70 hover:bg-white/10"
+                                                            >
+                                                                Gecko
+                                                            </a>
+
+                                                            <a
+                                                                href={`https://solscan.io/token/${row.mint}`}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/70 hover:bg-white/10"
+                                                            >
+                                                                Solscan
+                                                            </a>
+                                                        </div>
+                                                    </div>
                                                 </td>
 
                                                 <td className="px-4 py-3">{row.contribution_count}</td>

@@ -1,7 +1,6 @@
 //AdminSectionNav.tsx
 'use client';
 
-import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import DevNotesButton from '@/components/admin/DevNotesButton';
 
@@ -46,9 +45,14 @@ export default function AdminSectionNav() {
             const active = isActive(pathname, item.href);
 
             return (
-              <Link
+              <button
                 key={item.href}
-                href={item.href}
+                type="button"
+                onClick={() => {
+                  if (pathname !== item.href) {
+                    router.push(item.href);
+                  }
+                }}
                 className={[
                   navBtn,
                   active
@@ -57,19 +61,20 @@ export default function AdminSectionNav() {
                 ].join(' ')}
               >
                 {item.label}
-              </Link>
+              </button>
             );
           })}
         </div>
 
         <div className="flex flex-wrap gap-2">
           {pathname === '/admin' && (
-            <Link
-              href="/admin/audit"
+            <button
+              type="button"
+              onClick={() => router.push('/admin/audit')}
               className={`${navBtn} bg-white/5 text-white hover:bg-white/10 border border-white/10`}
             >
               Audit Log
-            </Link>
+            </button>
           )}
 
           <DevNotesButton />
