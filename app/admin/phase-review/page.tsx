@@ -1,7 +1,7 @@
 //app/admin/phase-review/page.tsx
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useAdminWalletGuard from '@/hooks/useAdminWalletGuard';
 
@@ -96,7 +96,7 @@ function statusClass(status: string) {
   return 'border-white/10 bg-white/5 text-white/70';
 }
 
-export default function PhaseReviewPage() {
+function PhaseReviewContent() {
   const searchParams = useSearchParams();
   const initialPhaseId = searchParams.get('phaseId') || '';
 
@@ -471,5 +471,22 @@ export default function PhaseReviewPage() {
         </section>
       </div>
     </main>
+  );
+}
+export default function PhaseReviewPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#090d15] text-white">
+          <div className="mx-auto max-w-7xl px-6 py-8">
+            <div className="rounded-2xl border border-white/10 bg-[#0b0f18] p-5 text-sm text-white/70">
+              Loading phase review…
+            </div>
+          </div>
+        </main>
+      }
+    >
+      <PhaseReviewContent />
+    </Suspense>
   );
 }
