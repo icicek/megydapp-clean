@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import useAdminWalletGuard from '@/hooks/useAdminWalletGuard';
 
 function getCookie(name: string): string | null {
@@ -844,6 +845,15 @@ export default function AdminPhasesPage() {
 
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
+                        {(isReviewing || isCompleted || isActive) && (
+                          <Link
+                            href={`/admin/phase-review?phaseId=${p.phase_id}`}
+                            className="px-3 py-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/15 text-xs text-violet-100"
+                            title="Review tokens coincarned in this phase"
+                          >
+                            Review Tokens
+                          </Link>
+                        )}
                           {isPlanned && !isCompleted && (
                             <>
                               <button
