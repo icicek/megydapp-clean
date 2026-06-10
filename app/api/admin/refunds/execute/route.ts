@@ -98,11 +98,7 @@ export async function POST(req: NextRequest) {
 
     if (!isBlacklistRefundReason(reason)) {
       return NextResponse.json(
-        {
-            success: false,
-            error: 'REFUND_ONLY_FOR_BLACKLIST',
-            debug_reason: reason || null,
-        },
+        { success: false, error: 'REFUND_ONLY_FOR_BLACKLIST' },
         { status: 409 }
       );
     }

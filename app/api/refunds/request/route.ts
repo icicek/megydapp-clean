@@ -51,14 +51,15 @@ export async function POST(req: NextRequest) {
     const challengeRows = (await sql/* sql */`
       SELECT
         id,
+        invalidation_id,
+        wallet_address,
+        contribution_id,
+        mint,
         message,
         expires_at,
         used_at
       FROM refund_request_challenges
-      WHERE wallet_address = ${wallet}
-        AND contribution_id = ${contributionId}
-        AND mint = ${mint}
-        AND nonce = ${nonce}
+      WHERE nonce = ${nonce}
       ORDER BY created_at DESC, id DESC
       LIMIT 1
     `) as any[];
@@ -86,7 +87,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const signatureOk = verifySignature(String(challenge.message || ''), wallet, signatureBase64);
+    const challengeWallet = String(challenge.wallet_address || '').trim();
+    const challengeContributionId = Number(challenge.contribution_id);
+    const challengeMint = String(challenge.mint || '').trim();
+
+    const signatureOk = verifySignature(
+      String(challenge.message || ''),
+      challengeWallet,
+      signatureBase64
+    );
     if (!signatureOk) {
       return NextResponse.json(
         { success: false, error: 'INVALID_SIGNATURE' },
@@ -94,7 +103,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const identityGuard = await requireIdentityWalletAccess(wallet);
+    if (wallet && wallet !== challengeWallet) {
+      return NextResponse.json(
+        { success: false, error: 'CHALLENGE_WALLET_MISMATCH' },
+        { status: 409 }
+      );
+    }
+
+    if (hasContributionId && contributionId !== challengeContributionId) {
+      return NextResponse.json(
+        { success: false, error: 'CHALLENGE_CONTRIBUTION_MISMATCH' },
+        { status: 409 }
+      );
+    }
+    
+    if (mint && mint !== challengeMint) {
+      return NextResponse.json(
+        { success: false, error: 'CHALLENGE_MINT_MISMATCH' },
+        { status: 409 }
+      );
+    }
+
+    const identityGuard = await requireIdentityWalletAccess(challengeWallet);
 
     if (!identityGuard.ok) {
       return NextResponse.json(
@@ -150,6 +180,12 @@ export async function POST(req: NextRequest) {
     const rowWallet = String(row.wallet_address || '').trim();
     const rowContributionId = Number(row.contribution_id);
     const rowMint = String(row.mint || '').trim();
+    if (Number(challenge.invalidation_id) !== rowId) {
+      return NextResponse.json(
+        { success: false, error: 'CHALLENGE_INVALIDATION_MISMATCH' },
+        { status: 409 }
+      );
+    }
     const current = String(row.refund_status || '').trim().toLowerCase();
     const reason = String(row.reason || '').trim().toLowerCase();
 
@@ -195,6 +231,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const consumed = (await sql/* sql */`
+      UPDATE refund_request_challenges
+      SET used_at = NOW()
+      WHERE id = ${challenge.id}
+        AND used_at IS NULL
+        AND expires_at > NOW()
+      RETURNING id
+    `) as any[];
+    
+    if (!consumed?.length) {
+      return NextResponse.json(
+        { success: false, error: 'CHALLENGE_ALREADY_USED_OR_EXPIRED' },
+        { status: 409 }
+      );
+    }
+
     if (current === 'available') {
       await sql/* sql */`
         UPDATE contribution_invalidations
@@ -206,13 +258,6 @@ export async function POST(req: NextRequest) {
           AND refund_status = 'available'
       `;
     }
-
-    await sql/* sql */`
-      UPDATE refund_request_challenges
-      SET used_at = NOW()
-      WHERE id = ${challenge.id}
-        AND used_at IS NULL
-    `;
 
     try {
       await recalculateIdentityScores(identityGuard.identityId);

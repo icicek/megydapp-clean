@@ -105,27 +105,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (!hasInvalidationId && wallet && wallet !== dbWallet) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'WALLET_MISMATCH',
-            debug_sent_wallet: wallet,
-            debug_db_wallet: dbWallet,
-          },
-          { status: 409 }
-        );
+      return NextResponse.json(
+        { success: false, error: 'WALLET_MISMATCH' },
+        { status: 409 }
+      );
     }
       
     if (!hasInvalidationId && mint && mint !== dbMint) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'MINT_MISMATCH',
-            debug_sent_mint: mint,
-            debug_db_mint: dbMint,
-          },
-          { status: 409 }
-        );
+      return NextResponse.json(
+        { success: false, error: 'MINT_MISMATCH' },
+        { status: 409 }
+      );
     }
 
     if (refundStatus === 'refunded') {
@@ -137,11 +127,7 @@ export async function POST(req: NextRequest) {
 
     if (!isBlacklistRefundReason(reason)) {
       return NextResponse.json(
-        { 
-            success: false,
-            error: 'REFUND_ONLY_FOR_BLACKLIST',
-            debug_reason: reason || null,
-        },
+        { success: false, error: 'REFUND_ONLY_FOR_BLACKLIST' },
         { status: 409 }
       );
     }

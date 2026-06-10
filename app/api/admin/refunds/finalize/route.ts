@@ -54,6 +54,32 @@ function isSignerKey(k: any): boolean {
   return Boolean(k?.signer);
 }
 
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function getParsedTransactionWithRetry(
+  connection: Connection,
+  signature: string,
+  attempts = 6,
+  delayMs = 1500
+) {
+  for (let i = 0; i < attempts; i++) {
+    const parsed = await connection.getParsedTransaction(signature, {
+      maxSupportedTransactionVersion: 0,
+      commitment: 'confirmed',
+    });
+
+    if (parsed) return parsed;
+
+    if (i < attempts - 1) {
+      await sleep(delayMs);
+    }
+  }
+
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     await requireAdmin(req);
@@ -152,11 +178,7 @@ export async function POST(req: NextRequest) {
 
     if (!isBlacklistRefundReason(reason)) {
       return NextResponse.json(
-        {
-            success: false,
-            error: 'REFUND_ONLY_FOR_BLACKLIST',
-            debug_reason: reason || null,
-        },
+        { success: false, error: 'REFUND_ONLY_FOR_BLACKLIST' },
         { status: 409 }
       );
     }
@@ -223,10 +245,12 @@ export async function POST(req: NextRequest) {
 
     const connection = getConnection();
 
-    const parsed = await connection.getParsedTransaction(refundTxSignature, {
-      maxSupportedTransactionVersion: 0,
-      commitment: 'confirmed',
-    });
+    const parsed = await getParsedTransactionWithRetry(
+      connection,
+      refundTxSignature,
+      10,
+      2000
+    );
 
     if (!parsed) {
       return NextResponse.json(

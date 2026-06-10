@@ -84,7 +84,7 @@ export async function requireIdentityWalletAccess(
   return {
     ok: true,
     identityId: session.identityId,
-    walletAddress: session.walletAddress,
+    walletAddress: wallet,
     riskScore,
     status,
   };

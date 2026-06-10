@@ -126,20 +126,6 @@ export async function POST(req: NextRequest) {
     }
 
     const row = rows?.[0];
-    console.log('[REFUND_FEE_CONFIRM] selected row:', {
-        rowId: row?.id,
-        contributionId: row?.contribution_id,
-        wallet: row?.wallet_address,
-        mint: row?.mint,
-        refundStatus: row?.refund_status,
-        refundFeePaid: row?.refund_fee_paid,
-        refundFeeTxSignature: row?.refund_fee_tx_signature,
-        hasInvalidationId,
-        bodyInvalidationId: invalidationId,
-        bodyContributionId: contributionId,
-        bodyWallet: wallet,
-        bodyMint: mint,
-    });
     if (!row) {
       return NextResponse.json(
         { success: false, error: 'REFUND_NOT_AVAILABLE' },
@@ -358,11 +344,6 @@ export async function POST(req: NextRequest) {
         refund_fee_tx_signature,
         refund_status
     `) as any[];
-    console.log('[REFUND_FEE_CONFIRM] update result:', {
-        rowId,
-        updatedCount: updated?.length || 0,
-        updated,
-    });
 
     if (updated?.length) {
       const saved = updated[0];
@@ -395,7 +376,6 @@ export async function POST(req: NextRequest) {
     `) as any[];
 
     const after = reread?.[0];
-    console.log('[REFUND_FEE_CONFIRM] reread row:', after);
 
     if (after?.refund_fee_paid && after?.refund_fee_tx_signature) {
       return NextResponse.json({
@@ -406,9 +386,6 @@ export async function POST(req: NextRequest) {
         refund_fee_lamports: Number(after.refund_fee_lamports || 0),
         refund_fee_tx_signature: String(after.refund_fee_tx_signature || ''),
         refund_status: String(after.refund_status || ''),
-        debug_refund_status_before: refundStatus,
-        debug_row_wallet: rowWallet,
-        debug_row_mint: rowMint,
       });
     }
 
@@ -416,10 +393,6 @@ export async function POST(req: NextRequest) {
       {
         success: false,
         error: 'REFUND_FEE_DB_UPDATE_FAILED',
-        debug_refund_status_before: refundStatus,
-        debug_row_id: rowId,
-        debug_row_wallet: rowWallet,
-        debug_row_mint: rowMint,
       },
       { status: 409 }
     );

@@ -118,6 +118,7 @@ export async function POST(req: NextRequest) {
 
     await sql/* sql */`
       INSERT INTO refund_request_challenges (
+        invalidation_id,
         wallet_address,
         contribution_id,
         mint,
@@ -127,6 +128,7 @@ export async function POST(req: NextRequest) {
         created_at
       )
       VALUES (
+        ${Number(row.id)},
         ${resolvedWallet},
         ${resolvedContributionId},
         ${resolvedMint},
