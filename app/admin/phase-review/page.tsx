@@ -158,7 +158,7 @@ function PhaseReviewContent() {
             const data = await api<{
                 success: boolean;
                 phases: PhaseOption[];
-            }>('/api/phases/list');
+            }>('/api/admin/phase-review/phases');
 
             const phases = Array.isArray(data.phases) ? data.phases : [];
 
@@ -337,7 +337,7 @@ function PhaseReviewContent() {
 
                                 {phaseOptions.map((p) => (
                                     <option key={p.phase_id} value={String(p.phase_id)}>
-                                        #{p.phase_no} — {p.name || '(unnamed)'} [{p.status || 'planned'}] · ID {p.phase_id}
+                                        #{p.phase_no} — {p.name || '(unnamed)'} [{p.status || 'planned'}]
                                     </option>
                                 ))}
                             </select>
