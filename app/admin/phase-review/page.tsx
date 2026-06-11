@@ -437,7 +437,7 @@ function PhaseReviewContent() {
                         <div className="text-sm text-white/60">No phase token records found.</div>
                     ) : (
                         <div className="overflow-x-auto rounded-xl border border-white/10">
-                            <table className="min-w-[1280px] w-full text-left text-sm">
+                            <table className="min-w-[1120px] w-full text-left text-sm">
                                 <thead className="bg-white/5 text-white/60">
                                     <tr>
                                         <th className="px-4 py-3">Review</th>
@@ -450,7 +450,6 @@ function PhaseReviewContent() {
                                         <th className="px-4 py-3">Votes</th>
                                         <th className="px-4 py-3">Current Status</th>
                                         <th className="px-4 py-3">Note</th>
-                                        <th className="px-4 py-3">Actions</th>
                                     </tr>
                                 </thead>
 
@@ -573,9 +572,24 @@ function PhaseReviewContent() {
                                                 </td>
 
                                                 <td className="px-4 py-3">
-                                                    <span className={`rounded-md border px-2 py-1 text-xs ${statusClass(row.status)}`}>
-                                                        {row.status}
-                                                    </span>
+                                                    <div className="space-y-2">
+                                                        <span className={`inline-flex rounded-md border px-2 py-1 text-xs ${statusClass(row.status)}`}>
+                                                            {row.status}
+                                                        </span>
+
+                                                        <div className="flex flex-wrap gap-1.5 max-w-[220px]">
+                                                            {STATUSES.map((s) => (
+                                                                <button
+                                                                    key={s}
+                                                                    disabled={busy || row.status === s}
+                                                                    onClick={() => updateStatus(row.mint, s)}
+                                                                    className={`rounded-md border px-2 py-1 text-[10px] hover:opacity-90 disabled:opacity-40 ${statusClass(s)}`}
+                                                                >
+                                                                    {s}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
                                                 </td>
 
                                                 <td className="px-4 py-3">
@@ -588,7 +602,7 @@ function PhaseReviewContent() {
                                                             }))
                                                         }
                                                         placeholder="Liquidity weak, suspicious holders, fake volume..."
-                                                        className="min-h-[72px] w-64 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-white/80 outline-none focus:border-violet-400/50"
+                                                        className="min-h-[72px] w-56 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-white/80 outline-none focus:border-violet-400/50"
                                                     />
 
                                                     <div className="mt-2 flex gap-2">
@@ -609,21 +623,6 @@ function PhaseReviewContent() {
                                                                 Save Note
                                                             </button>
                                                         )}
-                                                    </div>
-                                                </td>
-
-                                                <td className="px-4 py-3">
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {STATUSES.map((s) => (
-                                                            <button
-                                                                key={s}
-                                                                disabled={busy || row.status === s}
-                                                                onClick={() => updateStatus(row.mint, s)}
-                                                                className={`rounded-md border px-2 py-1 text-[11px] hover:opacity-90 disabled:opacity-40 ${statusClass(s)}`}
-                                                            >
-                                                                {s}
-                                                            </button>
-                                                        ))}
                                                     </div>
                                                 </td>
                                             </tr>
