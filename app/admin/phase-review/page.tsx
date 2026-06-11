@@ -535,16 +535,18 @@ function PhaseReviewContent() {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => {
-                                                                    const urls = [
-                                                                      `https://dexscreener.com/search?q=${row.mint}`,
-                                                                      `https://birdeye.so/token/${row.mint}?chain=solana`,
-                                                                      `https://solscan.io/token/${row.mint}`,
-                                                                    ];
-                                                                  
-                                                                    for (const url of urls) {
-                                                                      window.open(url, '_blank', 'noopener,noreferrer');
+                                                                    const dex = window.open('', '_blank', 'noopener,noreferrer');
+                                                                    const birdeye = window.open('', '_blank', 'noopener,noreferrer');
+                                                                    const solscan = window.open('', '_blank', 'noopener,noreferrer');
+
+                                                                    if (dex) dex.location.href = `https://dexscreener.com/search?q=${row.mint}`;
+                                                                    if (birdeye) birdeye.location.href = `https://birdeye.so/token/${row.mint}?chain=solana`;
+                                                                    if (solscan) solscan.location.href = `https://solscan.io/token/${row.mint}`;
+
+                                                                    if (!dex || !birdeye || !solscan) {
+                                                                        setMsg('⚠️ Browser blocked some tabs. Please allow pop-ups for this site or use the individual links.');
                                                                     }
-                                                                  }}
+                                                                }}
                                                                 className="rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-[11px] text-violet-100 hover:bg-violet-500/15"
                                                             >
                                                                 Open All
