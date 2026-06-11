@@ -535,17 +535,24 @@ function PhaseReviewContent() {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => {
-                                                                    const dex = window.open('', '_blank', 'noopener,noreferrer');
-                                                                    const birdeye = window.open('', '_blank', 'noopener,noreferrer');
-                                                                    const solscan = window.open('', '_blank', 'noopener,noreferrer');
+                                                                    window.open(
+                                                                        `https://dexscreener.com/search?q=${row.mint}`,
+                                                                        '_blank'
+                                                                    );
 
-                                                                    if (dex) dex.location.href = `https://dexscreener.com/search?q=${row.mint}`;
-                                                                    if (birdeye) birdeye.location.href = `https://birdeye.so/token/${row.mint}?chain=solana`;
-                                                                    if (solscan) solscan.location.href = `https://solscan.io/token/${row.mint}`;
+                                                                    setTimeout(() => {
+                                                                        window.open(
+                                                                            `https://birdeye.so/token/${row.mint}?chain=solana`,
+                                                                            '_blank'
+                                                                        );
+                                                                    }, 50);
 
-                                                                    if (!dex || !birdeye || !solscan) {
-                                                                        setMsg('⚠️ Browser blocked some tabs. Please allow pop-ups for this site or use the individual links.');
-                                                                    }
+                                                                    setTimeout(() => {
+                                                                        window.open(
+                                                                            `https://solscan.io/token/${row.mint}`,
+                                                                            '_blank'
+                                                                        );
+                                                                    }, 100);
                                                                 }}
                                                                 className="rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-[11px] text-violet-100 hover:bg-violet-500/15"
                                                             >
