@@ -492,21 +492,21 @@ function PhaseReviewContent() {
 
                                                         <div className="flex flex-wrap gap-2">
                                                             <a
-                                                                href={`https://dexscreener.com/solana/${row.mint}`}
+                                                                href={`https://dexscreener.com/search?q=${row.mint}`}
                                                                 target="_blank"
                                                                 rel="noreferrer"
                                                                 className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/70 hover:bg-white/10"
                                                             >
-                                                                Dex
+                                                                Dex Search
                                                             </a>
 
                                                             <a
-                                                                href={`https://www.coingecko.com/en/search?query=${row.mint}`}
+                                                                href={`https://birdeye.so/token/${row.mint}?chain=solana`}
                                                                 target="_blank"
                                                                 rel="noreferrer"
                                                                 className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/70 hover:bg-white/10"
                                                             >
-                                                                Gecko
+                                                                Birdeye
                                                             </a>
 
                                                             <a
