@@ -127,6 +127,7 @@ function PhaseReviewContent() {
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState<string | null>(null);
     const [busyMint, setBusyMint] = useState<string | null>(null);
+    const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
 
     const params = useMemo(() => {
         const sp = new URLSearchParams();
@@ -200,7 +201,20 @@ function PhaseReviewContent() {
                 items: PhaseTokenRow[];
             }>(`/api/admin/phases/${id}/tokens?${params}`);
 
-            setItems(Array.isArray(data.items) ? data.items : []);
+            const nextItems = Array.isArray(data.items) ? data.items : [];
+            setItems(nextItems);
+
+            setReviewNotes((prev) => {
+                const copy = { ...prev };
+
+                for (const item of nextItems) {
+                    if (copy[item.mint] === undefined) {
+                        copy[item.mint] = item.review_note || '';
+                    }
+                }
+
+                return copy;
+            });
         } catch (e: any) {
             setItems([]);
             setMsg(`❌ ${e?.message || 'Load failed'}`);
@@ -264,7 +278,7 @@ function PhaseReviewContent() {
                 body: JSON.stringify({
                     mint,
                     reviewed,
-                    note: reviewed ? 'reviewed from phase review panel' : 'unreviewed from phase review panel',
+                    note: reviewNotes[mint] || '',
                 }),
             });
 
@@ -435,6 +449,7 @@ function PhaseReviewContent() {
                                         <th className="px-4 py-3">MEGY</th>
                                         <th className="px-4 py-3">Votes</th>
                                         <th className="px-4 py-3">Current Status</th>
+                                        <th className="px-4 py-3">Note</th>
                                         <th className="px-4 py-3">Actions</th>
                                     </tr>
                                 </thead>
@@ -517,6 +532,23 @@ function PhaseReviewContent() {
                                                             >
                                                                 Solscan
                                                             </a>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const urls = [
+                                                                      `https://dexscreener.com/search?q=${row.mint}`,
+                                                                      `https://birdeye.so/token/${row.mint}?chain=solana`,
+                                                                      `https://solscan.io/token/${row.mint}`,
+                                                                    ];
+                                                                  
+                                                                    for (const url of urls) {
+                                                                      window.open(url, '_blank', 'noopener,noreferrer');
+                                                                    }
+                                                                  }}
+                                                                className="rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-[11px] text-violet-100 hover:bg-violet-500/15"
+                                                            >
+                                                                Open All
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 </td>
@@ -535,6 +567,40 @@ function PhaseReviewContent() {
                                                     <span className={`rounded-md border px-2 py-1 text-xs ${statusClass(row.status)}`}>
                                                         {row.status}
                                                     </span>
+                                                </td>
+
+                                                <td className="px-4 py-3">
+                                                    <textarea
+                                                        value={reviewNotes[row.mint] || ''}
+                                                        onChange={(e) =>
+                                                            setReviewNotes((prev) => ({
+                                                                ...prev,
+                                                                [row.mint]: e.target.value,
+                                                            }))
+                                                        }
+                                                        placeholder="Liquidity weak, suspicious holders, fake volume..."
+                                                        className="min-h-[72px] w-64 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-white/80 outline-none focus:border-violet-400/50"
+                                                    />
+
+                                                    <div className="mt-2 flex gap-2">
+                                                        <button
+                                                            disabled={busy}
+                                                            onClick={() => markReviewed(row.mint, true)}
+                                                            className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200 hover:bg-emerald-500/15 disabled:opacity-50"
+                                                        >
+                                                            Save & Reviewed
+                                                        </button>
+
+                                                        {row.reviewed && (
+                                                            <button
+                                                                disabled={busy}
+                                                                onClick={() => markReviewed(row.mint, true)}
+                                                                className="rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-1 text-[11px] text-sky-200 hover:bg-sky-500/15 disabled:opacity-50"
+                                                            >
+                                                                Save Note
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </td>
 
                                                 <td className="px-4 py-3">
