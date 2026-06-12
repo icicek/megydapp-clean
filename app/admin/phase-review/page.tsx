@@ -32,6 +32,9 @@ type PhaseOption = {
     phase_no: number;
     name: string;
     status?: string;
+    token_count?: number;
+    reviewed_count?: number;
+    unreviewed_count?: number;
 };
 
 const CARD =
@@ -351,7 +354,7 @@ function PhaseReviewContent() {
 
                                 {phaseOptions.map((p) => (
                                     <option key={p.phase_id} value={String(p.phase_id)}>
-                                        #{p.phase_no} — {p.name || '(unnamed)'} [{p.status || 'planned'}]
+                                        #{p.phase_no} — {p.name || '(unnamed)'} [{p.status || 'planned'}] · {p.unreviewed_count ?? 0}/{p.token_count ?? 0} left
                                     </option>
                                 ))}
                             </select>
