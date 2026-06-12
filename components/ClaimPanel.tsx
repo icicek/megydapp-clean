@@ -4418,7 +4418,8 @@ export default function ClaimPanel() {
                                   </p>
 
                                   <p className="mt-1 text-xl font-black text-emerald-300">
-                                    +{points.toFixed(1)} CP
+                                    {points > 0 ? '+' : ''}
+                                    {points.toFixed(1)} CP
                                   </p>
                                 </div>
 

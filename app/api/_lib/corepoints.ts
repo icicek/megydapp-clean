@@ -554,43 +554,9 @@ export async function reverseContributionCorepoints(opts: {
     `;
   }
 
-  // 2) Deadcoin bonus reversal (only if that bonus was tied to this tx)
-  const deadRows = await sql/* sql */ `
-    SELECT COALESCE(SUM(points), 0)::int AS pts
-    FROM corepoint_events
-    WHERE wallet_address = ${wallet}
-      AND type = 'deadcoin_first'
-      AND tx_id = ${txId}
-      AND token_contract = ${tokenContract}
-  `;
-  const deadPts = Number(deadRows?.[0]?.pts ?? 0);
-
-  if (deadPts > 0) {
-    await sql/* sql */ `
-      INSERT INTO corepoint_events
-        (wallet_address, type, points, tx_id, token_contract, context)
-      SELECT
-        ${wallet},
-        'deadcoin_blacklist_reversal',
-        ${-deadPts},
-        ${txId},
-        ${tokenContract},
-        ${`invalidation:${invalidationId}`}
-      WHERE NOT EXISTS (
-        SELECT 1
-        FROM corepoint_events
-        WHERE wallet_address = ${wallet}
-          AND type = 'deadcoin_blacklist_reversal'
-          AND tx_id = ${txId}
-          AND token_contract = ${tokenContract}
-          AND context = ${`invalidation:${invalidationId}`}
-      )
-    `;
-  }
-
   return {
     reversedUsd: usdPts,
-    reversedDeadcoin: deadPts,
+    reversedDeadcoin: 0,
   };
 }
 
