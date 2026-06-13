@@ -75,7 +75,10 @@ export async function awardUsdPoints({
 }) {
   const { usdPer1, mUsd } = await getCorepointWeights();
   const usd = Number(usdValue ?? 0);
-  const pts = Math.max(0, Math.floor(usd * usdPer1 * mUsd));
+
+  const rawPts = usd * usdPer1 * mUsd;
+  const pts = rawPts > 0 ? Math.max(1, Math.floor(rawPts)) : 0;
+
   if (pts <= 0) return { awarded: 0 };
 
   // ❗ Aynı tx_id için ikinci kez yazmamak için idempotent insert
