@@ -162,6 +162,14 @@ function getRefundUiState(tx: any): {
     };
   }
 
+  if (tx.refund_status === 'available' && tx.refund_fee_paid) {
+    return {
+      badge: 'Fee Paid · Signature Required',
+      showRefundButton: true,
+      buttonLabel: 'Complete Refund Request',
+    };
+  }
+
   return {
     badge: 'Refund Available',
     showRefundButton: true,
@@ -2083,6 +2091,23 @@ export default function ClaimPanel() {
       ? 'refund fee tx'
       : 'fee tx';
 
+  function getLedgerTokenLabel(ev: any): string | null {
+    const symbol =
+      ev?.token_symbol ||
+      ev?.symbol ||
+      ev?.tokenSymbol ||
+      ev?.token_name ||
+      ev?.name ||
+      null;
+
+    if (symbol) return String(symbol).trim();
+
+    const mint = String(ev?.token_contract || ev?.mint || '').trim();
+    if (mint) return shorten(mint);
+
+    return null;
+  }
+  
   const filteredCpHistory = [...cpHistory].filter((ev: any) => {
     const type = String(ev?.type || '').toLowerCase();
 
@@ -4341,13 +4366,15 @@ export default function ClaimPanel() {
                             ? `Visibility generated · ${String(ev.channel).toUpperCase()}`
                             : 'Visibility generated';
                         } else if (ev.type === 'deadcoin_first') {
-                          detail = ev.token_contract
-                            ? `Deadcoin discovered · ${shorten(ev.token_contract)}`
-                            : 'Deadcoin discovered';
+                          const tokenLabel = getLedgerTokenLabel(ev);
+                          detail = tokenLabel
+                            ? `${tokenLabel} · Deadcoin bonus earned`
+                            : 'Deadcoin bonus earned';
                         } else if (ev.type === 'deadcoin_blacklist_reversal') {
-                          detail = ev.token_contract
-                            ? `Deadcoin bonus reversed · ${shorten(ev.token_contract)}`
-                            : 'Deadcoin bonus reversed';
+                          const tokenLabel = getLedgerTokenLabel(ev);
+                          detail = tokenLabel
+                            ? `${tokenLabel} · Deadcoin bonus reversed after blacklist`
+                            : 'Deadcoin bonus reversed after blacklist';
                         } else if (ev.type === 'referral_signup') {
                           detail = ev.ref_wallet
                             ? `Network expanded · ${shorten(ev.ref_wallet)}`
@@ -4400,7 +4427,10 @@ export default function ClaimPanel() {
                                   </span>
                                 </div>
 
-                                <p className="mt-2 truncate text-sm font-semibold text-zinc-200">
+                                <p
+                                  className="mt-2 truncate text-sm font-semibold text-zinc-200"
+                                  title={ev.token_contract || detail || '-'}
+                                >
                                   {detail || '-'}
                                 </p>
 
@@ -4443,7 +4473,10 @@ export default function ClaimPanel() {
                                     Detail
                                   </p>
 
-                                  <p className="mt-1 truncate font-semibold text-zinc-200">
+                                  <p
+                                    className="mt-1 truncate font-semibold text-zinc-200"
+                                    title={ev.token_contract || detail || '-'}
+                                  >
                                     {detail || '-'}
                                   </p>
                                 </div>

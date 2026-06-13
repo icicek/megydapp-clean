@@ -63,20 +63,44 @@ export async function GET(req: NextRequest) {
 
     const rows = (await sql/*sql*/`
       SELECT
-        id,
-        wallet_address,
-        type,
-        points,
-        value,
-        tx_id,
-        token_contract,
-        ref_wallet,
-        context,
-        day,
-        created_at
-      FROM corepoint_events
-      WHERE wallet_address = ANY(${scopedWallets})
-      ORDER BY created_at DESC
+        cpe.id,
+        cpe.wallet_address,
+        cpe.type,
+        cpe.points,
+        cpe.value,
+        cpe.tx_id,
+        cpe.token_contract,
+        COALESCE(
+          NULLIF(MAX(c.token_symbol), ''),
+          NULLIF(MAX(tmc.symbol), '')
+        ) AS token_symbol,
+        COALESCE(
+          NULLIF(MAX(tmc.name), ''),
+          NULLIF(MAX(c.token_name), '')
+        ) AS token_name,
+        cpe.ref_wallet,
+        cpe.context,
+        cpe.day,
+        cpe.created_at
+      FROM corepoint_events cpe
+      LEFT JOIN contributions c
+        ON c.token_contract = cpe.token_contract
+      LEFT JOIN token_metadata_cache tmc
+        ON tmc.mint = cpe.token_contract
+      WHERE cpe.wallet_address = ANY(${scopedWallets})
+      GROUP BY
+        cpe.id,
+        cpe.wallet_address,
+        cpe.type,
+        cpe.points,
+        cpe.value,
+        cpe.tx_id,
+        cpe.token_contract,
+        cpe.ref_wallet,
+        cpe.context,
+        cpe.day,
+        cpe.created_at
+      ORDER BY cpe.created_at DESC
       LIMIT 200
     `) as unknown as {
       id: number;
@@ -86,6 +110,8 @@ export async function GET(req: NextRequest) {
       value: number | null;
       tx_id: string | null;
       token_contract: string | null;
+      token_symbol: string | null;
+      token_name: string | null;
       ref_wallet: string | null;
       context: string | null;
       day: string | null;
