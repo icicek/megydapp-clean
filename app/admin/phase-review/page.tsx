@@ -25,6 +25,8 @@ type PhaseTokenRow = {
     reviewed_at: string | null;
     reviewed_by: string | null;
     review_note: string | null;
+    global_review_rule?: string | null;
+    global_review_note?: string | null;
 };
 
 type PhaseOption = {
@@ -289,6 +291,33 @@ function PhaseReviewContent() {
             await load();
         } catch (e: any) {
             setMsg(`❌ ${e?.message || 'Review update failed'}`);
+        } finally {
+            setBusyMint(null);
+        }
+    }
+
+    async function skipFutureReviews(mint: string) {
+        if (!ensureCriticalAdminAccess()) return;
+
+        try {
+            setBusyMint(mint);
+            setMsg(null);
+
+            await api(`/api/admin/phases/${Number(phaseId)}/tokens`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mint,
+                    skip_future_reviews: true,
+                    note: reviewNotes[mint] || 'Trusted mint · skip future phase reviews',
+                }),
+            });
+
+            setMsg(`✅ Future reviews skipped for: ${shortMint(mint)}`);
+            await load();
+            await loadPhaseOptions();
+        } catch (e: any) {
+            setMsg(`❌ ${e?.message || 'Skip future reviews failed'}`);
         } finally {
             setBusyMint(null);
         }
@@ -608,7 +637,7 @@ function PhaseReviewContent() {
                                                         className="min-h-[72px] w-56 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-white/80 outline-none focus:border-violet-400/50"
                                                     />
 
-                                                    <div className="mt-2 flex gap-2">
+                                                    <div className="mt-2 flex flex-wrap gap-2">
                                                         <button
                                                             disabled={busy}
                                                             onClick={() => markReviewed(row.mint, true)}
@@ -626,6 +655,14 @@ function PhaseReviewContent() {
                                                                 Save Note
                                                             </button>
                                                         )}
+                                                        <button
+                                                            disabled={busy}
+                                                            onClick={() => skipFutureReviews(row.mint)}
+                                                            className="rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-[11px] text-violet-200 hover:bg-violet-500/15 disabled:opacity-50"
+                                                            title="Hide this mint from future phase review lists"
+                                                        >
+                                                            Skip Future
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>

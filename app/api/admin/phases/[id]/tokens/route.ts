@@ -84,7 +84,9 @@ export async function GET(
         ptr.reviewed_at,
         ptr.reviewed_by,
         ptr.review_note,
-        CASE WHEN ptr.reviewed_at IS NULL THEN false ELSE true END AS reviewed
+        CASE WHEN ptr.reviewed_at IS NULL THEN false ELSE true END AS reviewed,
+        trr.rule_type AS global_review_rule,
+        trr.note AS global_review_note
 
       FROM grouped g
       JOIN phases p
@@ -97,6 +99,9 @@ export async function GET(
         ON ptr.phase_id = g.phase_id
        AND ptr.mint = g.mint
 
+      LEFT JOIN token_review_rules trr
+        ON trr.mint = g.mint
+
       LEFT JOIN LATERAL (
         SELECT COUNT(*)::int AS yes_count
         FROM deadcoin_votes dv
@@ -105,7 +110,8 @@ export async function GET(
       ) v ON TRUE
 
       WHERE
-        (${status || null}::text IS NULL OR COALESCE(tr.status::text, 'healthy') = ${status || null})
+        trr.mint IS NULL
+        AND (${status || null}::text IS NULL OR COALESCE(tr.status::text, 'healthy') = ${status || null})
         AND (
           ${review} = 'all'
           OR (${review} = 'reviewed' AND ptr.reviewed_at IS NOT NULL)
@@ -170,12 +176,45 @@ export async function POST(
     const mint = String(body?.mint || '').trim();
     const reviewed = Boolean(body?.reviewed);
     const note = String(body?.note || '').trim();
+    const skipFutureReviews = Boolean(body?.skip_future_reviews);
 
     if (!mint) {
       return NextResponse.json(
         { success: false, error: 'MINT_REQUIRED' },
         { status: 400 }
       );
+    }
+
+    if (skipFutureReviews) {
+        const rows = (await sql/* sql */`
+          INSERT INTO token_review_rules (
+            mint,
+            rule_type,
+            note,
+            created_by,
+            created_at,
+            updated_at
+          )
+          VALUES (
+            ${mint},
+            'trusted',
+            ${note || null},
+            'admin_ui',
+            NOW(),
+            NOW()
+          )
+          ON CONFLICT (mint)
+          DO UPDATE SET
+            rule_type = 'trusted',
+            note = EXCLUDED.note,
+            updated_at = NOW()
+          RETURNING *
+        `) as any[];
+      
+        return NextResponse.json({
+          success: true,
+          global_rule: rows?.[0] ?? null,
+        });
     }
 
     if (reviewed) {
