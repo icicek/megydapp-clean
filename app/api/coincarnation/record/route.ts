@@ -26,10 +26,8 @@ import {
 // ✅ Destination wallet must exist (server-side guard)
 // (env names you already use on Vercel)
 const COINCARNE_DEST_WALLET =
-  process.env.DEST_SOLANA ||
-  process.env.NEXT_PUBLIC_DEST_SOL ||
-  process.env.COINCARNE_DEST_WALLET ||
-  process.env.NEXT_PUBLIC_COINCARNE_DEST_WALLET ||
+  process.env.COINCARNE_TREASURY_SOL ||
+  process.env.NEXT_PUBLIC_COINCARNE_TREASURY_SOL ||
   '';
 if (!process.env.NEON_DATABASE_URL && !process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL_MISSING');

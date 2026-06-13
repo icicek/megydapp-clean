@@ -52,10 +52,14 @@ type ProtectedActionIssue = {
   action?: 'signIn' | 'verifyNew' | 'verifyBrowser' | 'linkWallet';
 };
 
-const TREASURY_PUBKEY = new PublicKey(
-  process.env.NEXT_PUBLIC_CLAIM_FEE_TREASURY ??
-  'D7iqkQmY3ryNFtc9qseUv6kPeVjxsSD98hKN5q3rkYTd'
-);
+const CLAIM_FEE_TREASURY_RAW =
+  process.env.NEXT_PUBLIC_CLAIM_FEE_TREASURY ?? '';
+
+if (!CLAIM_FEE_TREASURY_RAW) {
+  throw new Error('NEXT_PUBLIC_CLAIM_FEE_TREASURY_MISSING');
+}
+
+const TREASURY_PUBKEY = new PublicKey(CLAIM_FEE_TREASURY_RAW);
 
 const ESTIMATE_POLL_MS = 30_000;
 const PHASE_POLL_MS = 60_000;

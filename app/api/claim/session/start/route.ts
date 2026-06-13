@@ -17,11 +17,16 @@ const RPC_URL =
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
   'https://api.mainnet-beta.solana.com';
 
-const TREASURY = new PublicKey(
+const CLAIM_FEE_TREASURY_RAW =
   process.env.CLAIM_FEE_TREASURY ??
-    process.env.NEXT_PUBLIC_CLAIM_FEE_TREASURY ??
-    'D7iqkQmY3ryNFtc9qseUv6kPeVjxsSD98hKN5q3rkYTd'
-);
+  process.env.NEXT_PUBLIC_CLAIM_FEE_TREASURY ??
+  '';
+
+if (!CLAIM_FEE_TREASURY_RAW) {
+  throw new Error('CLAIM_FEE_TREASURY_MISSING');
+}
+
+const TREASURY = new PublicKey(CLAIM_FEE_TREASURY_RAW);
 
 const AMOUNT_TOLERANCE_PCT = Number(process.env.CLAIM_FEE_TOLERANCE_PCT ?? 0.02); // 2%
 const MAX_TX_AGE_MINUTES = Number(process.env.CLAIM_FEE_MAX_TX_AGE_MINUTES ?? 30);
