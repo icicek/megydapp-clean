@@ -39,6 +39,16 @@ type PhaseOption = {
     unreviewed_count?: number;
 };
 
+type ReviewRule = {
+    id: number;
+    mint: string;
+    rule_type: string;
+    note: string | null;
+    created_by: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
 const CARD =
     'rounded-2xl border border-white/10 bg-[#0b0f18] p-5 shadow-sm';
 
@@ -133,6 +143,9 @@ function PhaseReviewContent() {
     const [msg, setMsg] = useState<string | null>(null);
     const [busyMint, setBusyMint] = useState<string | null>(null);
     const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+    const [trustedOpen, setTrustedOpen] = useState(false);
+    const [trustedRules, setTrustedRules] = useState<ReviewRule[]>([]);
+    const [trustedLoading, setTrustedLoading] = useState(false);
 
     const params = useMemo(() => {
         const sp = new URLSearchParams();
@@ -323,6 +336,51 @@ function PhaseReviewContent() {
         }
     }
 
+    async function loadTrustedRules() {
+        try {
+            setTrustedLoading(true);
+
+            const data = await api<{
+                success: boolean;
+                rules: ReviewRule[];
+            }>('/api/admin/phase-review/rules');
+
+            setTrustedRules(Array.isArray(data.rules) ? data.rules : []);
+        } catch (e: any) {
+            setMsg(`❌ ${e?.message || 'Trusted mints load failed'}`);
+        } finally {
+            setTrustedLoading(false);
+        }
+    }
+
+    async function removeTrustedRule(mint: string) {
+        if (!ensureCriticalAdminAccess()) return;
+
+        try {
+            setBusyMint(mint);
+            setMsg(null);
+
+            await api(`/api/admin/phase-review/rules?mint=${encodeURIComponent(mint)}`, {
+                method: 'DELETE',
+            });
+
+            setMsg(`↩️ Future reviews restored for: ${shortMint(mint)}`);
+
+            await loadTrustedRules();
+            await load();
+            await loadPhaseOptions();
+        } catch (e: any) {
+            setMsg(`❌ ${e?.message || 'Restore reviews failed'}`);
+        } finally {
+            setBusyMint(null);
+        }
+    }
+
+    async function openTrustedMints() {
+        setTrustedOpen(true);
+        await loadTrustedRules();
+    }
+
     const summary = useMemo(() => {
         const total = items.length;
         const reviewedCount = items.filter((x) => x.reviewed).length;
@@ -343,13 +401,22 @@ function PhaseReviewContent() {
                         </p>
                     </div>
 
-                    <button
-                        onClick={() => void load()}
-                        disabled={loading}
-                        className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm hover:bg-blue-700 disabled:opacity-50"
-                    >
-                        {loading ? 'Loading…' : 'Refresh'}
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={() => void openTrustedMints()}
+                            className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-sm text-violet-100 hover:bg-violet-500/15"
+                        >
+                            Manage Trusted Mints
+                        </button>
+
+                        <button
+                            onClick={() => void load()}
+                            disabled={loading}
+                            className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm hover:bg-blue-700 disabled:opacity-50"
+                        >
+                            {loading ? 'Loading…' : 'Refresh'}
+                        </button>
+                    </div>
                 </div>
 
                 {!adminGuardLoading && !walletMatches && (
@@ -674,6 +741,86 @@ function PhaseReviewContent() {
                     )}
                 </section>
             </div>
+            {trustedOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+                    <div className="max-h-[80vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-white/10 bg-[#0b0f18] shadow-xl">
+                        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+                            <div>
+                                <h2 className="text-lg font-semibold">Trusted Mints</h2>
+                                <p className="mt-1 text-xs text-white/50">
+                                    These mint addresses are hidden from future phase review lists.
+                                </p>
+                            </div>
+
+                            <button
+                                onClick={() => setTrustedOpen(false)}
+                                className="rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/15"
+                            >
+                                Close
+                            </button>
+                        </div>
+
+                        <div className="max-h-[60vh] overflow-auto p-5">
+                            {trustedLoading ? (
+                                <div className="text-sm text-white/60">Loading trusted mints…</div>
+                            ) : trustedRules.length === 0 ? (
+                                <div className="text-sm text-white/60">No trusted mints yet.</div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {trustedRules.map((rule) => (
+                                        <div
+                                            key={rule.id}
+                                            className="rounded-xl border border-white/10 bg-white/[0.03] p-4"
+                                        >
+                                            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                                <div className="min-w-0">
+                                                    <div className="font-mono text-xs text-sky-200">
+                                                        {rule.mint}
+                                                    </div>
+
+                                                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-white/60">
+                                                        <span className="rounded-full bg-violet-500/10 px-2 py-1 text-violet-200">
+                                                            {rule.rule_type}
+                                                        </span>
+                                                        <span>by {rule.created_by || 'unknown'}</span>
+                                                        <span>{new Date(rule.created_at).toLocaleString()}</span>
+                                                    </div>
+
+                                                    {rule.note && (
+                                                        <div className="mt-2 text-xs text-white/70">
+                                                            {rule.note}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex shrink-0 gap-2">
+                                                    <button
+                                                        onClick={async () => {
+                                                            await navigator.clipboard?.writeText(rule.mint);
+                                                            setMsg(`✅ Mint copied: ${shortMint(rule.mint)}`);
+                                                        }}
+                                                        className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/70 hover:bg-white/10"
+                                                    >
+                                                        Copy
+                                                    </button>
+
+                                                    <button
+                                                        disabled={busyMint === rule.mint}
+                                                        onClick={() => removeTrustedRule(rule.mint)}
+                                                        className="rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-[11px] text-rose-200 hover:bg-rose-500/15 disabled:opacity-50"
+                                                    >
+                                                        Restore Reviews
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </main>
     );
 }
