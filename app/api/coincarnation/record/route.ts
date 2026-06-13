@@ -23,9 +23,8 @@ import {
   awardDeadcoinFirst,
 } from '@/app/api/_lib/corepoints';
 
-// ✅ Destination wallet must exist (server-side guard)
-// (env names you already use on Vercel)
-const COINCARNE_DEST_WALLET =
+// ✅ Coincarnation treasury wallet must exist (server-side guard)
+const COINCARNE_TREASURY_WALLET =
   process.env.COINCARNE_TREASURY_SOL ||
   process.env.NEXT_PUBLIC_COINCARNE_TREASURY_SOL ||
   '';
@@ -468,9 +467,9 @@ export async function POST(req: NextRequest) {
     const idemKey = (idempotency_key || idemHeader || '').trim() || null;
 
     // ✅ Guard: Solana record requires a destination wallet env
-    if (networkNorm === 'solana' && !COINCARNE_DEST_WALLET) {
+    if (networkNorm === 'solana' && !COINCARNE_TREASURY_WALLET) {
       return NextResponse.json(
-        { success: false, error: 'MISSING_DEST_WALLET' },
+        { success: false, error: 'COINCARNE_TREASURY_WALLET_MISSING' },
         { status: 500 }
       );
     }
@@ -529,14 +528,14 @@ export async function POST(req: NextRequest) {
     // ✅ On-chain transfer verification (dest’e gerçekten gitti mi?)
     if (networkNorm === 'solana') {
       const fromWallet = String(wallet_address).trim();
-      const destWallet = String(COINCARNE_DEST_WALLET).trim();
+      const destWallet = String(COINCARNE_TREASURY_WALLET).trim();
 
       console.log('🔎 verifying transfer:', {
         sig: String(transaction_signature).trim(),
         kind: assetKindFinal,
         mint: tokenContractFinal,
         amount: tokenAmountNum,
-        dest: COINCARNE_DEST_WALLET,
+        dest: COINCARNE_TREASURY_WALLET,
       });
       
       try {

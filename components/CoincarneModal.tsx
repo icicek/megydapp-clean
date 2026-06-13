@@ -20,7 +20,7 @@ import {
 } from '@solana/spl-token';
 import { PublicKey, Transaction, SystemProgram, ComputeBudgetProgram } from '@solana/web3.js';
 import { useInternalBalance, quantize } from '@/hooks/useInternalBalance';
-import { getDestAddress, __dest_debug__ } from '@/lib/chain/env';
+import { getDestAddress } from '@/lib/chain/env';
 import { getTokenMeta } from '@/lib/solana/tokenMeta';
 
 type TokenStatusApi =
@@ -290,13 +290,6 @@ export default function CoincarneModal({
   const [destSol, setDestSol] = useState<PublicKey | null>(null);
   const [destErr, setDestErr] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line no-console
-      console.log('[DEST DEBUG]', __dest_debug__());
-    }
-  }, []);
-
   /* ------------------ LOCAL UI STATE ------------------ */
   const [loading, setLoading] = useState(false);
   const [amountInput, setAmountInput] = useState('');
@@ -458,8 +451,10 @@ export default function CoincarneModal({
       setDestErr(null);
     } catch (e: any) {
       setDestSol(null);
-      setDestErr('Destination address is not configured. Please set NEXT_PUBLIC_DEST_SOL.');
-      console.warn('NEXT_PUBLIC_DEST_SOL error:', e?.message || e);
+      setDestErr(
+        'Coincarnation treasury address is not configured. Please set NEXT_PUBLIC_COINCARNE_TREASURY_SOL.'
+      );
+      console.warn('NEXT_PUBLIC_COINCARNE_TREASURY_SOL error:', e?.message || e);
     }
   }, []);
 
@@ -504,7 +499,9 @@ export default function CoincarneModal({
       } else {
         // SPL: may need ATA creation on destination
         if (!destSol) {
-          setPrecheckMsg('Destination address is missing. Please set NEXT_PUBLIC_DEST_SOL.');
+          setPrecheckMsg(
+            'Coincarnation treasury address is missing. Please set NEXT_PUBLIC_COINCARNE_TREASURY_SOL.'
+          );
           setTxStage('idle');
           return;
         }
@@ -1076,7 +1073,7 @@ export default function CoincarneModal({
       if (!destSol) {
         setUiNotice({
           type: 'error',
-          message: 'Destination address missing. Please set NEXT_PUBLIC_DEST_SOL.',
+          message: 'Coincarnation treasury address missing. Please set NEXT_PUBLIC_COINCARNE_TREASURY_SOL.',
         });
         setTxStage('idle');
         return;

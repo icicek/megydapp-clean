@@ -15,11 +15,6 @@ function readEnv() {
   return { solana: sol, ethereum: eth, bsc, polygon, base, arbitrum } as const;
 }
 
-/** Dışa açık debug: konsola basmak için kullanışlı */
-export function __dest_debug__() {
-  return readEnv();
-}
-
 export function getDestAddress(chain: Chain): string {
   const env = readEnv();
   const v = env[chain as keyof typeof env] || '';
@@ -29,18 +24,18 @@ export function getDestAddress(chain: Chain): string {
       chain === 'solana'
         ? 'NEXT_PUBLIC_COINCARNE_TREASURY_SOL'
         : `NEXT_PUBLIC_DEST_${chain.toUpperCase()}`;
-    throw new Error(`Destination address is not configured. Please set ${key}.`);
+    throw new Error(`Treasury wallet is not configured. Please set ${key}.`);
   }
 
   if (chain === 'solana') {
     if (!SOL_BASE58_RE.test(v)) {
-      throw new Error('Invalid Solana destination address format (base58, ~44 chars).');
+      throw new Error('Invalid Solana treasury wallet format (base58, ~44 chars).');
     }
     return v;
   }
 
   if (!EVM_ADDR_RE.test(v)) {
-    throw new Error(`Invalid EVM destination address for ${chain} (0x…40 hex).`);
+    throw new Error(`Invalid treasury wallet address for ${chain} (0x…40 hex).`);
   }
   return v;
 }

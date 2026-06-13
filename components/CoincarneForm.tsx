@@ -29,8 +29,8 @@ const TOKEN_LIST_URL =
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 const MIN_LAMPORT_BUFFER = 300_000n;
 
-// Hazine adresi: mevcut isim -> fallback
-const DEST_SOLANA =
+// Coincarnation treasury wallet
+const COINCARNE_TREASURY_SOL =
   process.env.NEXT_PUBLIC_COINCARNE_TREASURY_SOL || '';
 
 export default function CoincarneForm() {
@@ -68,7 +68,7 @@ export default function CoincarneForm() {
 
   const destKey = useMemo(() => {
     try {
-      return DEST_SOLANA ? new PublicKey(DEST_SOLANA) : null;
+      return COINCARNE_TREASURY_SOL ? new PublicKey(COINCARNE_TREASURY_SOL) : null;
     } catch {
       return null;
     }
