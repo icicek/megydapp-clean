@@ -31,8 +31,7 @@ const MIN_LAMPORT_BUFFER = 300_000n;
 
 // Hazine adresi: mevcut isim -> fallback
 const DEST_SOLANA =
-  (process.env.NEXT_PUBLIC_DEST_SOL as string | undefined) ||
-  (process.env.NEXT_PUBLIC_DEST_SOLANA as string | undefined);
+  process.env.NEXT_PUBLIC_COINCARNE_TREASURY_SOL || '';
 
 export default function CoincarneForm() {
   const { publicKey, sendTransaction } = useWallet();
@@ -267,7 +266,7 @@ export default function CoincarneForm() {
     if (!amount || !selectedToken || !publicKey) return;
 
     if (!destKey) {
-      alert('Destination wallet not configured. Set NEXT_PUBLIC_DEST_SOL.');
+      alert('Destination wallet not configured. Set NEXT_PUBLIC_COINCARNE_TREASURY_SOL.');
       return;
     }
 

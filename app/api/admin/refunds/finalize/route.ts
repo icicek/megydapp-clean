@@ -29,8 +29,7 @@ function getConnection() {
 function getCoincarnationTreasuryWallet() {
   return (
     process.env.COINCARNE_TREASURY_SOL ||
-    process.env.DEST_SOLANA ||
-    process.env.NEXT_PUBLIC_DEST_SOL ||
+    process.env.NEXT_PUBLIC_COINCARNE_TREASURY_SOL ||
     ''
   ).trim();
 }

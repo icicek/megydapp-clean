@@ -6,7 +6,7 @@ const EVM_ADDR_RE = /^0x[a-fA-F0-9]{40}$/;
 
 /** Env'i her çağrıda oku (build-time const yerine) */
 function readEnv() {
-  const sol = (process.env.NEXT_PUBLIC_DEST_SOL ?? '').toString().trim();
+  const sol = (process.env.NEXT_PUBLIC_COINCARNE_TREASURY_SOL ?? '').toString().trim();
   const eth = (process.env.NEXT_PUBLIC_DEST_ETH ?? '').toString().trim();
   const bsc = (process.env.NEXT_PUBLIC_DEST_BSC ?? '').toString().trim();
   const polygon = (process.env.NEXT_PUBLIC_DEST_POLYGON ?? '').toString().trim();
@@ -25,7 +25,10 @@ export function getDestAddress(chain: Chain): string {
   const v = env[chain as keyof typeof env] || '';
 
   if (!v) {
-    const key = chain === 'solana' ? 'NEXT_PUBLIC_DEST_SOL' : `NEXT_PUBLIC_DEST_${chain.toUpperCase()}`;
+    const key =
+      chain === 'solana'
+        ? 'NEXT_PUBLIC_COINCARNE_TREASURY_SOL'
+        : `NEXT_PUBLIC_DEST_${chain.toUpperCase()}`;
     throw new Error(`Destination address is not configured. Please set ${key}.`);
   }
 
