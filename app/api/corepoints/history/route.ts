@@ -74,10 +74,7 @@ export async function GET(req: NextRequest) {
           NULLIF(MAX(c.token_symbol), ''),
           NULLIF(MAX(tmc.symbol), '')
         ) AS token_symbol,
-        COALESCE(
-          NULLIF(MAX(tmc.name), ''),
-          NULLIF(MAX(c.token_name), '')
-        ) AS token_name,
+        NULLIF(MAX(tmc.name), '') AS token_name,
         cpe.ref_wallet,
         cpe.context,
         cpe.day,
