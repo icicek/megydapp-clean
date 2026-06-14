@@ -12,7 +12,7 @@ export default function AdminLink({ className }: Props) {
   const wallet = useMemo(() => publicKey?.toBase58() ?? '', [publicKey]);
 
   const [isAllowedWallet, setIsAllowedWallet] = useState(false);
-  const [hasAdminSession, setHasAdminSession] = useState(false);
+  const [sessionWallet, setSessionWallet] = useState<string | null>(null);
 
   const checkState = useCallback(async () => {
     try {
@@ -27,6 +27,7 @@ export default function AdminLink({ className }: Props) {
             credentials: 'include',
           }
         );
+
         const allowData = await allowRes.json().catch(() => ({}));
         setIsAllowedWallet(Boolean(allowData?.allowed));
       }
@@ -36,11 +37,19 @@ export default function AdminLink({ className }: Props) {
         cache: 'no-store',
         credentials: 'include',
       });
+
       const whoamiData = await whoamiRes.json().catch(() => ({}));
-      setHasAdminSession(Boolean(whoamiData?.ok));
+      const sw =
+        typeof whoamiData?.wallet === 'string'
+          ? whoamiData.wallet
+          : typeof whoamiData?.sub === 'string'
+            ? whoamiData.sub
+            : null;
+
+      setSessionWallet(sw);
     } catch {
       setIsAllowedWallet(false);
-      setHasAdminSession(false);
+      setSessionWallet(null);
     }
   }, [wallet]);
 
@@ -54,11 +63,18 @@ export default function AdminLink({ className }: Props) {
         checkState();
       }
     };
+
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [checkState]);
 
-  const showAdminLink = connected && (isAllowedWallet || hasAdminSession);
+  const sessionMatchesConnectedWallet =
+    Boolean(wallet) &&
+    Boolean(sessionWallet) &&
+    wallet.toLowerCase() === String(sessionWallet).toLowerCase();
+
+  const showAdminLink =
+    connected && (isAllowedWallet || sessionMatchesConnectedWallet);
 
   if (!showAdminLink) return null;
 
@@ -66,12 +82,14 @@ export default function AdminLink({ className }: Props) {
     <div className={className ?? ''}>
       <div className="w-full flex justify-center">
         <Link
-          href="/admin/login"
+          href={sessionMatchesConnectedWallet ? '/admin' : '/admin/login'}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10
                      bg-white/5 hover:bg-white/10 transition-colors text-sm"
         >
           <span>🛠️</span>
-          <span>{hasAdminSession ? 'Go to Admin Panel' : 'Admin Login'}</span>
+          <span>
+            {sessionMatchesConnectedWallet ? 'Go to Admin Panel' : 'Admin Login'}
+          </span>
         </Link>
       </div>
     </div>
