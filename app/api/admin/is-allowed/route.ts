@@ -1,13 +1,17 @@
 // app/api/admin/is-allowed/route.ts
-// app/api/admin/is-allowed/route.ts
+
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 
 function parseAllowlist(): Set<string> {
-  const one = (process.env.ADMIN_WALLET || '').trim();
   const many = (process.env.ADMIN_WALLETS || '').trim();
-  const arr = [one, ...many.split(',')].map((s) => s.trim()).filter(Boolean);
+
+  const arr = many
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   return new Set(arr.map((s) => s.toLowerCase()));
 }
 
@@ -34,7 +38,7 @@ export async function GET(req: NextRequest) {
       allowed,
       via: allowed ? 'allowlist' : null,
       reason: allowed
-        ? 'Wallet is on ADMIN_WALLET(S)'
+        ? 'Wallet is on ADMIN_WALLETS'
         : allow.size === 0
         ? 'No allowlist configured'
         : 'Wallet not on allowlist',

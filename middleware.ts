@@ -25,10 +25,7 @@ function isPublicAdminApiRoute(pathname: string): boolean {
 }
 
 function isEnvAdmin(wallet: string): boolean {
-  const listRaw =
-    process.env.ADMIN_WALLETS ||
-    process.env.ADMIN_WALLET ||
-    '';
+  const listRaw = process.env.ADMIN_WALLETS || '';
 
   const allowed = listRaw
     .split(',')

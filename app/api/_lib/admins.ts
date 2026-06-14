@@ -11,7 +11,7 @@ export function isValidBase58Wallet(w: string): boolean {
 
 export function isEnvAdmin(wallet: string): boolean {
   const w = (wallet || '').trim();
-  const allowed = (process.env.ADMIN_WALLET || '')
+  const allowed = (process.env.ADMIN_WALLETS || '')
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
@@ -28,7 +28,7 @@ export async function listAdmins(): Promise<string[]> {
     const rows = await sql`SELECT wallet FROM admin_wallets ORDER BY added_at ASC`;
     return (rows as any[]).map(r => String(r.wallet));
   } catch {
-    return (process.env.ADMIN_WALLET || '')
+    return (process.env.ADMIN_WALLETS || '')
       .split(',').map(s => s.trim()).filter(Boolean);
   }
 }
@@ -40,7 +40,7 @@ export async function isAdminAllowed(wallet: string): Promise<boolean> {
     const hit = await sql`SELECT 1 FROM admin_wallets WHERE wallet = ${w} LIMIT 1`;
     if ((hit as any[]).length > 0) return true;
   } catch { /* ignore */ }
-  const env = (process.env.ADMIN_WALLET || '')
+  const env = (process.env.ADMIN_WALLETS || '')
     .split(',').map(s => s.trim()).filter(Boolean);
   return env.includes(w);
 }
