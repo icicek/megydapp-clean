@@ -68,9 +68,6 @@ async function getConfigNumberFromDB(key: string, def: number): Promise<number> 
  * -----------------------------------------------------*/
 
 export async function isAppEnabled(): Promise<boolean> {
-  if (typeof process.env.APP_ENABLED === 'string') {
-    return parseBoolLoose(process.env.APP_ENABLED, true);
-  }
   return await getConfigBooleanFromDB('app_enabled', true);
 }
 
