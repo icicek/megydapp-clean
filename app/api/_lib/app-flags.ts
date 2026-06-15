@@ -1,3 +1,5 @@
+//app/api/_lib_app-flags.ts
+
 import { sql } from '@/app/api/_lib/db';
 
 export async function getFlag(key: 'app_enabled'|'claim_open'): Promise<boolean> {

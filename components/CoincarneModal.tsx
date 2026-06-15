@@ -704,6 +704,12 @@ export default function CoincarneModal({
   function humanizeTxError(e: any) {
     const msg = String(e?.message || e);
   
+    if (
+      msg.includes('APP_DISABLED') ||
+      msg.includes('Coincarnation is temporarily paused')
+    ) {
+      return 'Coincarnation is temporarily paused for maintenance. Please try again later.';
+    }
     if (msg.includes('STATUS_NON_JSON_OR_HTTP_')) {
       return 'Token status endpoint returned invalid JSON/HTML. Please retry and check server response.';
     }
@@ -1298,6 +1304,17 @@ export default function CoincarneModal({
       const parsedRecord = await readJsonSafe(res);
 
       if (!parsedRecord.ok || !parsedRecord.data) {
+        const backendError = String(parsedRecord.data?.error || parsedRecord.raw || '');
+      
+        if (
+          parsedRecord.status === 503 &&
+          backendError.includes('APP_DISABLED')
+        ) {
+          throw new Error(
+            '[record-post] APP_DISABLED: Coincarnation is temporarily paused for maintenance. Please try again later.'
+          );
+        }
+      
         throw new Error(
           `[record-post] RECORD_NON_JSON_OR_HTTP_${parsedRecord.status}: ${parsedRecord.raw.slice(0, 160)}`
         );
@@ -1409,7 +1426,16 @@ export default function CoincarneModal({
       setTxStage('error');
       setTxError(humanizeTxError(err));
     
-      if (rawMsg.includes('[record-post]')) {
+      if (rawMsg.includes('APP_DISABLED')) {
+        const friendly = humanizeTxError(err);
+      
+        setUiNotice({
+          type: 'info',
+          message: friendly,
+        });
+      
+        setTxError(friendly);
+      } else if (rawMsg.includes('[record-post]')) {
         setUiNotice({
           type: 'warning',
           message:
