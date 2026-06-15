@@ -227,6 +227,38 @@ async function readJsonSafe(res: Response) {
   };
 }
 
+function parseBoolLoose(v: unknown, def = true): boolean {
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'number') return v === 1;
+
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase();
+    if (s === 'true' || s === '1' || s === 'yes' || s === 'on') return true;
+    if (s === 'false' || s === '0' || s === 'no' || s === 'off') return false;
+  }
+
+  return def;
+}
+
+async function assertCoincarnationAppEnabled() {
+  const res = await fetch('/api/admin/config/app_enabled', {
+    cache: 'no-store',
+    credentials: 'include',
+  });
+
+  const parsed = await readJsonSafe(res);
+
+  if (!parsed.ok || !parsed.data) {
+    throw new Error('APP_STATUS_CHECK_FAILED');
+  }
+
+  const enabled = parseBoolLoose(parsed.data?.value, true);
+
+  if (!enabled) {
+    throw new Error('APP_DISABLED');
+  }
+}
+
 async function fetchLatestTokenStatus(mint: string): Promise<StatusApiResponse | null> {
   const url = `/api/status?mint=${encodeURIComponent(mint)}&includeMetrics=1&_ts=${Date.now()}`;
 
@@ -704,6 +736,9 @@ export default function CoincarneModal({
   function humanizeTxError(e: any) {
     const msg = String(e?.message || e);
   
+    if (msg.includes('APP_DISABLED')) {
+      return 'Coincarnation is temporarily paused for maintenance. Please try again later.';
+    }
     if (
       msg.includes('APP_DISABLED') ||
       msg.includes('Coincarnation is temporarily paused')
@@ -1023,9 +1058,12 @@ export default function CoincarneModal({
     setLoading(true);
     setTxError(null);
     setUiNotice(null);
-    setTxStage('awaiting_wallet');
+    setTxStage('preparing');
 
     try {
+      await assertCoincarnationAppEnabled();
+
+      setTxStage('awaiting_wallet');
       const mintForStatus = isSOLToken ? WSOL_MINT : token.mint;
 
       // Final guard: always re-check latest token status before building/sending tx
