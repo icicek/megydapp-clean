@@ -103,6 +103,13 @@ jobs:
           STAGE=$(jq -r '.stage // empty' /tmp/body.json)
           PROCESSED=$(jq -r '.processed // 0' /tmp/body.json)
 
+          ERROR_CODE=$(jq -r '.error // empty' /tmp/body.json)
+
+          if [ "$ERROR_CODE" = "CRON_DISABLED" ]; then
+            echo "Cron disabled — skipping"
+            exit 0
+          fi
+
           if [ "$STATUS" -ge 400 ]; then
             echo "❌ HTTP error"
             exit 1
