@@ -33,7 +33,11 @@ export async function POST(req: Request) {
     await requireCronEnabled();
 
     // 🔐 Auth with X-CRON-SECRET
-    const header = req.headers.get('x-cron-secret') ?? '';
+    const header =
+      req.headers.get('x-cron-secret') ||
+      req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
+      '';
+
     const expected = process.env.CRON_SECRET ?? '';
     if (!expected) {
       return NextResponse.json(

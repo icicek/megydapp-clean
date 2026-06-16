@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
-    { "source": "/_crons/reclassify", "destination": "/api/crons/reclassify" },
+    { "source": "/_crons/reclassify", "destination": "/api/admin/reclassify" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/((?!api|_next|favicon.ico).*)", "destination": "/" }
   ]
