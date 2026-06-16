@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     const deletedTokenAudit = await sql`
       DELETE FROM token_audit
-      WHERE ran_at < NOW() - INTERVAL '90 days'
+      WHERE ran_at < NOW() - INTERVAL '365 days'
       RETURNING id
     `;
 

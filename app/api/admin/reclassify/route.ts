@@ -29,8 +29,16 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    // 🚦 Global cron guard (ENV/DB toggle)
-    await requireCronEnabled();
+    const u = new URL(req.url);
+    const force =
+      req.headers.get('x-cron-force') === '1' || u.searchParams.get('force') === '1';
+
+    // 🚦 Global cron guard
+    // Scheduled jobs are blocked when cron_enabled=false.
+    // Manual force=1 can bypass this intentionally.
+    if (!force) {
+      await requireCronEnabled();
+    }
 
     // 🔐 Auth with X-CRON-SECRET
     const header =
@@ -67,11 +75,6 @@ export async function POST(req: Request) {
       );
     }
     const sql = neon(url) as unknown as Sql;
-
-    // ⚙️ Optional force flag (header or query)
-    const u = new URL(req.url);
-    const force =
-      req.headers.get('x-cron-force') === '1' || u.searchParams.get('force') === '1';
 
     // 🧠 Business logic (dynamic import keeps cold start low if unused)
     const reclassifyAll = await tryImportReclassifyAll();
