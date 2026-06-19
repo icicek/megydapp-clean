@@ -24,18 +24,57 @@ export const DOC_SECTIONS: DocSection[] = [
       "A concise overview of Coincarnation, Fair Future Fund, Proof of Value, PVC, and MEGY.",
     Content: () => (
       <>
+
         <p>
-          Coincarnation is not designed to build another token economy. It is
-          designed to explore whether access to capital formation, value
-          recognition, and economic opportunity can become more broadly
-          distributed.
+          Coincarnation is a capital formation framework designed to transform
+          existing digital assets into productive capital while recognizing
+          meaningful participation through the Proof of Value system.
         </p>
+
         <p>
-          Coincarnation creates capital. The Fair Future Fund manages and grows
-          it. Proof of Value recognizes contribution. Personal Value Currency
-          distributes opportunity.
+          The project explores a simple idea:
+          economic opportunity should not be limited by existing capital ownership.
+        </p>
+
+        <p>
+          Rather than relying on traditional fundraising mechanisms, Coincarnation
+          enables participants to contribute eligible digital assets that can be
+          transformed into capital for long-term ecosystem development.
+        </p>
+
+        <p>
+          Capital accumulated through Coincarnation may support the development of
+          the Fair Future Fund (FFF), a long-term opportunity fund designed to
+          preserve, manage, and grow capital through diversified investment
+          activities.
+        </p>
+
+        <p>
+          Participation within the ecosystem is recognized through the Proof of
+          Value (PoV) framework. PoV measures recognized forms of contribution and
+          records them as CorePoints (CP).
+        </p>
+
+        <p>
+          CorePoints collectively form Personal Value Currency (PVC), a framework
+          designed to make contribution visible and to support future governance,
+          opportunity access, ecosystem benefits, and economic participation.
+        </p>
+
+        <p>
+          MEGY serves as the primary economic asset of the ecosystem.
+          Unlike traditional fixed-release models, MEGY enters circulation only
+          when Proof of Value conditions are satisfied.
+        </p>
+
+        <p>
+          Coincarnation creates capital.
+          The Fair Future Fund manages and grows it.
+          Proof of Value recognizes contribution.
+          Personal Value Currency distributes opportunity.
         </p>
       </>
+
     ),
   },
 
@@ -48,18 +87,82 @@ export const DOC_SECTIONS: DocSection[] = [
       "Why access to capital formation matters for economic opportunity.",
     Content: () => (
       <>
+
         <p>
-          Economic opportunity should not be limited by existing capital
-          ownership. Coincarnation begins from the observation that many people
-          create value, yet remain excluded from the systems that generate
-          long-term capital growth.
+          Over the past century, economic development has generated unprecedented
+          levels of wealth, technological progress, and productivity.
+          Yet access to economic opportunity remains unevenly distributed across
+          societies and regions.
         </p>
+
         <p>
-          The project does not claim to solve global inequality. Instead, it
-          explores whether broader participation in capital formation can create
-          new pathways toward opportunity.
+          While many factors contribute to inequality, access to capital remains one
+          of the most significant.
+          Individuals who own productive assets often benefit from investment
+          returns, ownership structures, and long-term appreciation.
+          Those without capital frequently face barriers to participating in these
+          same opportunities.
         </p>
+
+        <p>
+          As a result, economic growth does not always translate into equal access
+          to wealth creation.
+        </p>
+
+        <p>
+          Coincarnation begins with a simple question:
+        </p>
+
+        <blockquote>
+          What if access to capital formation could become more broadly distributed?
+        </blockquote>
+
+        <p>
+          The project does not claim to solve global inequality.
+          Nor does it suggest that capital formation alone can eliminate economic
+          disparities.
+        </p>
+
+        <p>
+          Instead, Coincarnation explores whether participation itself can become a
+          pathway toward future economic opportunity.
+        </p>
+
+        <p>
+          The project is built on the belief that economic opportunity should not be
+          limited solely by existing capital ownership.
+          It seeks to create additional mechanisms through which individuals can
+          participate in future value creation regardless of their starting point.
+        </p>
+
+        <p>
+          This objective serves as the foundation for the broader Coincarnation
+          ecosystem, the Fair Future Fund, the Proof of Value framework, and the
+          Personal Value Currency system.
+        </p>
+
+        <pre>
+      {`Global Inequality
+              ↓
+      Capital Access Problem
+              ↓
+      Need for Capital Formation
+              ↓
+      Coincarnation
+              ↓
+      Fair Future Fund
+              ↓
+      Global Capital Returns
+              ↓
+      Proof of Value
+              ↓
+      PVC
+              ↓
+      Opportunity Distribution`}
+        </pre>
+
       </>
+
     ),
   },
 
@@ -180,7 +283,7 @@ export const DOC_SECTIONS: DocSection[] = [
         </p>
 
         <pre className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm overflow-x-auto">
-{`Asset Discovery
+          {`Asset Discovery
        ↓
 Classification
        ↓
