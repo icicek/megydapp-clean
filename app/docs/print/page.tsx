@@ -1,4 +1,5 @@
 // app/docs/print/page.tsx
+
 import Link from "next/link";
 import { DOC_SECTIONS } from "../config";
 import PrintToolbar from "./PrintToolbar";

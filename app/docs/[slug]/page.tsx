@@ -1,3 +1,5 @@
+//app/docs/[slug]/page.tsx
+
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { DOC_SECTIONS } from "../config";
