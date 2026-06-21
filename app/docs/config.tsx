@@ -472,12 +472,61 @@ export const DOC_SECTIONS: DocSection[] = [
       "How Coincarnation transforms existing digital assets into productive capital.",
     Content: () => (
       <>
+
         <p>
-          Most token projects begin by asking participants to commit new capital.
+          Most blockchain projects begin with a fundraising event.
+        </p>
+
+        <p>
+          Whether through token sales, private rounds, venture capital financing,
+          launchpads, or other allocation mechanisms, the objective is typically the
+          same: collect new capital from participants in exchange for future
+          expectations.
+        </p>
+
+        <p>
           Coincarnation follows a different path.
         </p>
 
-        <div className="overflow-x-auto my-4">
+        <blockquote>
+          Coincarnation does not seek to create value from promises.
+          It seeks to transform existing value into future opportunity.
+        </blockquote>
+
+        <h3>Rethinking Capital Formation</h3>
+
+        <p>
+          Traditional fundraising models depend upon participants allocating new
+          capital into a project.
+        </p>
+
+        <p>
+          Coincarnation explores whether capital formation can occur through the
+          transformation of digital assets that already exist.
+        </p>
+
+        <p>
+          Instead of asking participants to commit entirely new resources,
+          Coincarnation allows eligible digital assets to become part of a broader
+          capital formation process.
+        </p>
+
+        <p>
+          These assets may range from highly active digital assets to assets that
+          have lost most of their practical utility over time.
+        </p>
+
+        <p>
+          The objective is not capital collection.
+        </p>
+
+        <p>
+          The objective is capital transformation.
+        </p>
+
+        <h3>Traditional Fundraising vs Coincarnation</h3>
+
+        <div className="overflow-x-auto my-6">
           <table className="w-full border-collapse border border-white/10 text-sm">
             <thead className="bg-white/5">
               <tr>
@@ -506,11 +555,88 @@ export const DOC_SECTIONS: DocSection[] = [
           </table>
         </div>
 
+        <h3>Recovery-Oriented Participation</h3>
+
         <p>
-          Coincarnation does not seek to create value from promises. It seeks to
-          transform existing value into future opportunity.
+          A distinctive characteristic of Coincarnation is that participation often
+          begins with assets that participants already own.
+        </p>
+
+        <p>
+          Traditional fundraising asks participants to commit additional capital and
+          build entirely new expectations.
+        </p>
+
+        <p>
+          Coincarnation allows participants to re-evaluate assets that already exist
+          within their portfolios and transform them into participation within a
+          broader economic ecosystem.
+        </p>
+
+        <p>
+          In many cases, this creates a fundamentally different psychological
+          dynamic.
+        </p>
+
+        <p>
+          Rather than beginning from a new speculative position, participants may
+          begin from assets that were acquired long before Coincarnation existed.
+        </p>
+
+        <p>
+          Some participants may view this process as an opportunity to reconnect
+          with value that had previously been considered inactive, forgotten, or
+          economically irrelevant.
+        </p>
+
+        <h3>From Digital Assets to Productive Capital</h3>
+
+        <p>
+          Coincarnation accepts that digital assets exist across a wide spectrum of
+          economic activity.
+        </p>
+
+        <p>
+          Some remain highly active.
+          Some continue to trade despite declining relevance.
+          Others have effectively ceased meaningful economic participation.
+        </p>
+
+        <p>
+          Rather than evaluating assets exclusively through the lens of market
+          speculation, Coincarnation evaluates whether they can contribute to
+          capital formation within the ecosystem.
+        </p>
+
+        <pre className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm overflow-x-auto my-6">
+      {`Digital Assets
+              ↓
+      Coincarnation
+              ↓
+      Productive Capital
+              ↓
+      Fair Future Fund
+              ↓
+      Investment Returns
+              ↓
+      Opportunity Distribution`}
+        </pre>
+
+        <p>
+          Coincarnation therefore functions as a bridge between existing digital
+          assets and future opportunity creation.
+        </p>
+
+        <p>
+          The long-term objective is not simply to collect assets.
+        </p>
+
+        <p>
+          The objective is to create the foundations of a growing opportunity
+          ecosystem.
         </p>
       </>
+
     ),
   },
 
