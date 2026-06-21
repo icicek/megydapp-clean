@@ -312,16 +312,150 @@ export const DOC_SECTIONS: DocSection[] = [
       "The idea that value creation and economic participation can be reconnected.",
     Content: () => (
       <>
+
         <p>
-          Coincarnation explores a simple question: can value creation and
-          economic participation be brought closer together again?
+          Coincarnation began with a simple observation:
+          access to capital often determines access to opportunity.
         </p>
+
         <p>
-          The project does not reject existing financial systems. It seeks to
-          complement them by creating additional pathways through which
+          Throughout history, individuals have created value through labor,
+          knowledge, creativity, entrepreneurship, cooperation, and innovation.
+          Yet participation in long-term capital growth has frequently remained
+          concentrated among those who already possess capital.
+        </p>
+
+        <p>
+          Coincarnation explores whether this relationship can evolve.
+        </p>
+
+        <blockquote>
+          Can value creation and economic participation be brought closer together again?
+        </blockquote>
+
+        <p>
+          The project does not seek to replace existing economic systems.
+          Nor does it claim that capital formation alone can solve complex social and
+          economic challenges.
+        </p>
+
+        <p>
+          Instead, Coincarnation seeks to create an additional pathway through which
           individuals may participate in future opportunity creation.
         </p>
+
+        <p>
+          At its core, Coincarnation is not merely a token project.
+          It is a framework designed to explore new relationships between
+          participation, contribution, capital formation, and opportunity.
+        </p>
+
+        <h3>Capital Formation as a Starting Point</h3>
+
+        <p>
+          Coincarnation views capital formation not as an end goal, but as a starting
+          point.
+        </p>
+
+        <p>
+          The project recognizes that long-term opportunity often depends upon the
+          existence of productive capital.
+          Without capital, investment opportunities remain limited.
+          Without investment opportunities, future value creation becomes more
+          difficult.
+        </p>
+
+        <p>
+          For this reason, Coincarnation focuses first on capital formation.
+        </p>
+
+        <h3>From Capital Formation to Opportunity</h3>
+
+        <p>
+          Capital accumulated through Coincarnation may contribute to the development
+          of the Fair Future Fund (FFF).
+        </p>
+
+        <p>
+          The Fair Future Fund is designed to preserve, manage, and grow capital
+          through diversified long-term allocation strategies.
+        </p>
+
+        <p>
+          As capital grows, new forms of opportunity may emerge.
+        </p>
+
+        <p>
+          These opportunities may take many forms, including future distributions,
+          ecosystem benefits, governance participation, collaborative initiatives,
+          and additional value-generating activities that may emerge over time.
+        </p>
+
+        <h3>The Role of Proof of Value</h3>
+
+        <p>
+          Opportunity alone does not determine how participation should be recognized.
+        </p>
+
+        <p>
+          Coincarnation therefore introduces the Proof of Value framework.
+        </p>
+
+        <p>
+          Proof of Value seeks to recognize measurable forms of contribution and make
+          them visible within the ecosystem.
+        </p>
+
+        <p>
+          Rather than focusing exclusively on capital ownership, the framework seeks
+          to acknowledge participation and contribution as meaningful components of
+          economic activity.
+        </p>
+
+        <h3>The Role of Personal Value Currency</h3>
+
+        <p>
+          Contributions recognized through the Proof of Value framework accumulate as
+          Personal Value Currency (PVC).
+        </p>
+
+        <p>
+          PVC is not designed to represent the total worth of an individual.
+          Instead, it represents contribution that has been recognized within the
+          ecosystem.
+        </p>
+
+        <p>
+          Over time, PVC may become a foundation for governance participation,
+          opportunity access, ecosystem benefits, and future economic rights.
+        </p>
+
+        <h3>A Long-Term Economic Experiment</h3>
+
+        <p>
+          Coincarnation is designed as a long-term economic experiment rather than a
+          short-term product launch.
+        </p>
+
+        <p>
+          The project seeks to explore whether capital formation, value recognition,
+          and opportunity distribution can become more broadly accessible without
+          sacrificing transparency, accountability, or economic sustainability.
+        </p>
+
+        <blockquote>
+          Coincarnation creates capital.
+          The Fair Future Fund manages and grows it.
+          Proof of Value recognizes contribution.
+          Personal Value Currency distributes opportunity.
+        </blockquote>
+
+        <p>
+          Together, these components form a single framework designed to connect
+          participation, contribution, capital formation, and future opportunity.
+        </p>
       </>
+
     ),
   },
 
