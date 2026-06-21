@@ -649,27 +649,223 @@ export const DOC_SECTIONS: DocSection[] = [
       "The lifecycle from asset discovery to classification, contribution, recognition, and distribution.",
     Content: () => (
       <>
-        <p>
-          The Coincarnation Protocol begins when a participant brings an eligible
-          digital asset into the ecosystem. The asset is classified, contributed,
-          recorded, and recognized through the Proof of Value framework.
-        </p>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-indigo-400/20 bg-gradient-to-br from-indigo-500/10 via-cyan-500/10 to-purple-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-indigo-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
 
-        <pre className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm overflow-x-auto">
-          {`Asset Discovery
-       ↓
-Classification
-       ↓
-Coincarnation
-       ↓
-Treasury Allocation
-       ↓
-Proof of Value Recognition
-       ↓
-PVC Generation
-       ↓
-MEGY Distribution`}
-        </pre>
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-200/80">
+                Coincarnation Protocol
+              </p>
+
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                Coincarnation transforms asset participation into recognized contribution.
+              </h3>
+
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                The protocol connects eligible digital assets, classification, treasury
+                logic, Proof of Value recognition, CorePoints, PVC, and MEGY distribution
+                into a single participation lifecycle.
+              </p>
+
+              <div className="mt-5 inline-flex rounded-full border border-indigo-300/20 bg-black/20 px-4 py-2 text-xs font-semibold text-indigo-100">
+                Copyable idea: Participation becomes recognition.
+              </div>
+            </div>
+          </div>
+
+          {/* Lifecycle diagram */}
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+              Protocol lifecycle
+            </p>
+            <h3 className="mt-1 text-lg font-semibold">From asset submission to future opportunity</h3>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-4">
+              {[
+                ["1", "Asset Submission", "A Coincarnator brings an eligible digital asset."],
+                ["2", "Classification", "The asset is evaluated by economic condition."],
+                ["3", "Coincarnation", "The asset enters the contribution process."],
+                ["4", "Recognition", "Contribution is recorded through Proof of Value."],
+              ].map(([step, title, desc]) => (
+                <div key={step} className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-300/10 text-xs font-bold text-cyan-100">
+                    {step}
+                  </div>
+                  <div className="mt-3 text-sm font-bold">{title}</div>
+                  <p className="mt-2 text-xs leading-relaxed text-white/60">{desc}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-4">
+              <pre className="overflow-x-auto text-xs leading-relaxed text-white/70">
+    {`Asset
+      ↓
+    Classification
+      ↓
+    Coincarnation
+      ↓
+    Proof of Value Recognition
+      ↓
+    CorePoints
+      ↓
+    PVC
+      ↓
+    Future Opportunity`}
+              </pre>
+            </div>
+          </div>
+
+          {/* Key idea + reward architecture */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+                Key idea
+              </p>
+              <blockquote className="mt-4 text-xl font-bold leading-snug">
+                Coincarnation is not merely an asset transfer process. It is a participation recognition process.
+              </blockquote>
+              <p className="mt-4 text-sm leading-relaxed text-white/65">
+                The protocol recognizes what the participant contributes, not merely
+                what the asset used to represent.
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Recognition architecture
+              </p>
+
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="text-center text-sm font-bold">Coincarnation</div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-indigo-400/20 bg-indigo-400/10 p-4 text-center">
+                    <div className="text-sm font-bold text-indigo-100">MEGY</div>
+                    <p className="mt-2 text-xs text-white/60">
+                      Participation reward
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4 text-center">
+                    <div className="text-sm font-bold text-cyan-100">CorePoints</div>
+                    <p className="mt-2 text-xs text-white/60">
+                      Contribution recognition
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 text-center text-xl text-white/30">↓</div>
+
+                <div className="mx-auto mt-2 max-w-xs rounded-2xl border border-purple-400/20 bg-purple-400/10 p-4 text-center">
+                  <div className="text-sm font-bold text-purple-100">PVC</div>
+                  <p className="mt-2 text-xs text-white/60">
+                    Accumulated recognized contribution
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Protocol outcome table */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Protocol outcomes
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">What Coincarnation may produce</h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Output</th>
+                    <th className="px-4 py-3 text-left">Function</th>
+                    <th className="px-4 py-3 text-left">Layer</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["MEGY", "Economic asset distributed under active rules", "Ecosystem economy"],
+                    ["CorePoints", "Accounting unit for recognized contribution", "Proof of Value"],
+                    ["PVC", "Accumulated recognized contribution", "Economic identity"],
+                    ["Treasury Assets", "Capital base for future allocation", "Fair Future Fund"],
+                  ].map(([a, b, c]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 font-semibold">{a}</td>
+                      <td className="px-4 py-3 text-white/70">{b}</td>
+                      <td className="px-4 py-3 text-white/70">{c}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Phase-based distribution */}
+          <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+              Phase-based distribution
+            </p>
+            <h3 className="mt-1 text-lg font-semibold">
+              MEGY is released through participation, not a fixed calendar.
+            </h3>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {[
+                ["Phase 1", "Initial allocation", "First live participation data"],
+                ["Phase 2", "Adjusted allocation", "Conversion rate evolves"],
+                ["Future phases", "Dynamic allocation", "Participation-driven sustainability"],
+              ].map(([phase, allocation, note]) => (
+                <div key={phase} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <div className="text-sm font-bold">{phase}</div>
+                  <div className="mt-2 text-xs font-semibold text-cyan-100/80">{allocation}</div>
+                  <p className="mt-3 text-xs leading-relaxed text-white/60">{note}</p>
+                </div>
+              ))}
+            </div>
+
+            <blockquote className="mt-5 rounded-2xl border-l-4 border-cyan-300 bg-white/[0.04] p-5 text-lg font-semibold">
+              MEGY is not released according to a fixed schedule. It is released according to recognized participation.
+            </blockquote>
+          </div>
+
+          {/* Capital flow */}
+          <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+              Capital flow
+            </p>
+            <h3 className="mt-2 text-xl font-bold">
+              From digital assets to future opportunity
+            </h3>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-5">
+              {[
+                ["Digital Assets", "Existing value"],
+                ["Coincarnation", "Transformation"],
+                ["Productive Capital", "Capital base"],
+                ["Fair Future Fund", "Management & growth"],
+                ["Opportunity", "Distribution layer"],
+              ].map(([title, subtitle]) => (
+                <div key={title} className="rounded-2xl border border-white/10 bg-black/20 p-4 text-center">
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+              <blockquote className="text-xl font-black leading-tight">
+                Coincarnation transforms existing value into productive capital,
+                and participation into recognized contribution.
+              </blockquote>
+            </div>
+          </div>
+        </section>
       </>
     ),
   },
