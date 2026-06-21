@@ -179,14 +179,127 @@ export const DOC_SECTIONS: DocSection[] = [
       "The core beliefs behind Coincarnation’s economic design.",
     Content: () => (
       <>
-        <ul className="list-disc pl-5 space-y-2">
-          <li>Value creation should matter.</li>
-          <li>Capital formation can become more inclusive.</li>
-          <li>Contribution should become economically visible.</li>
-          <li>Recognition and accountability must coexist.</li>
-          <li>Opportunity can generate more opportunity.</li>
-        </ul>
+
+        <p>
+          Coincarnation is built upon a set of foundational beliefs that guide its
+          long-term development.
+        </p>
+
+        <p>
+          These beliefs are not intended to describe the world as it is.
+          They describe the direction in which the project seeks to explore and
+          evolve.
+        </p>
+
+        <h3>Economic Opportunity Should Not Be Limited by Existing Capital Ownership</h3>
+
+        <p>
+          Access to economic opportunity is often influenced by access to capital.
+          Individuals who already possess productive assets frequently benefit from
+          ownership and investment returns, while others face substantial barriers
+          to participation.
+        </p>
+
+        <p>
+          Coincarnation explores whether additional pathways toward economic
+          opportunity can emerge through participation, contribution, and capital
+          formation.
+        </p>
+
+        <blockquote>
+          Economic opportunity should not be limited by existing capital ownership.
+        </blockquote>
+
+        <h3>Capital Formation Can Become More Inclusive</h3>
+
+        <p>
+          Traditional capital formation mechanisms often depend upon concentrated
+          pools of capital, institutional access, or private investment networks.
+        </p>
+
+        <p>
+          Coincarnation explores whether capital formation can occur through a
+          broader and more globally distributed participation model.
+        </p>
+
+        <blockquote>
+          Capital formation can become more inclusive.
+        </blockquote>
+
+        <h3>Contribution Matters</h3>
+
+        <p>
+          Economic systems recognize many forms of capital.
+          Coincarnation proposes that measurable forms of contribution should also
+          become visible within economic systems.
+        </p>
+
+        <p>
+          This principle serves as the foundation of the Proof of Value framework.
+        </p>
+
+        <blockquote>
+          Contribution matters.
+        </blockquote>
+
+        <h3>Recognition and Accountability Must Coexist</h3>
+
+        <p>
+          Contribution recognition should never be unconditional.
+        </p>
+
+        <p>
+          Participation must remain transparent, verifiable, and subject to review
+          when manipulation, abuse, fraud, or other harmful behaviors are detected.
+        </p>
+
+        <p>
+          For this reason, recognized contributions may be adjusted, reversed, or
+          removed when necessary to preserve ecosystem integrity.
+        </p>
+
+        <blockquote>
+          Recognition and accountability must coexist.
+        </blockquote>
+
+        <h3>Value Creation and Economic Participation Can Be Reconnected</h3>
+
+        <p>
+          Throughout history, value creation and economic participation have evolved
+          through many different systems and institutions.
+        </p>
+
+        <p>
+          Coincarnation explores whether measurable contribution can once again play
+          a more visible role in determining access to future opportunity.
+        </p>
+
+        <blockquote>
+          Value creation and economic participation can be brought closer together.
+        </blockquote>
+
+        <h3>Economic Systems Should Continue to Evolve</h3>
+
+        <p>
+          Coincarnation does not assume that every meaningful contribution can be
+          measured today.
+        </p>
+
+        <p>
+          The project begins with contribution types that can be objectively
+          recognized and verified.
+        </p>
+
+        <p>
+          As measurement systems improve, additional forms of contribution may
+          become eligible for recognition through the Proof of Value framework.
+        </p>
+
+        <blockquote>
+          The future may recognize more forms of value than the present.
+        </blockquote>
       </>
+
     ),
   },
 
