@@ -472,171 +472,196 @@ export const DOC_SECTIONS: DocSection[] = [
       "How Coincarnation transforms existing digital assets into productive capital.",
     Content: () => (
       <>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-indigo-500/10 to-purple-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
 
-        <p>
-          Most blockchain projects begin with a fundraising event.
-        </p>
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/80">
+                Capital Formation
+              </p>
 
-        <p>
-          Whether through token sales, private rounds, venture capital financing,
-          launchpads, or other allocation mechanisms, the objective is typically the
-          same: collect new capital from participants in exchange for future
-          expectations.
-        </p>
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                Capital formation without traditional fundraising.
+              </h3>
 
-        <p>
-          Coincarnation follows a different path.
-        </p>
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                Coincarnation does not begin by asking participants to commit new
+                capital. It begins by transforming existing digital assets into
+                recognized participation and future opportunity.
+              </p>
 
-        <blockquote>
-          Coincarnation does not seek to create value from promises.
-          It seeks to transform existing value into future opportunity.
-        </blockquote>
+              <div className="mt-5 inline-flex rounded-full border border-cyan-300/20 bg-black/20 px-4 py-2 text-xs font-semibold text-cyan-100">
+                Copyable idea: Existing value can become future opportunity.
+              </div>
+            </div>
+          </div>
 
-        <h3>Rethinking Capital Formation</h3>
+          {/* Transformation map */}
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+              Transformation map
+            </p>
+            <h3 className="mt-1 text-lg font-semibold">
+              From existing assets to future opportunity
+            </h3>
 
-        <p>
-          Traditional fundraising models depend upon participants allocating new
-          capital into a project.
-        </p>
-
-        <p>
-          Coincarnation explores whether capital formation can occur through the
-          transformation of digital assets that already exist.
-        </p>
-
-        <p>
-          Instead of asking participants to commit entirely new resources,
-          Coincarnation allows eligible digital assets to become part of a broader
-          capital formation process.
-        </p>
-
-        <p>
-          These assets may range from highly active digital assets to assets that
-          have lost most of their practical utility over time.
-        </p>
-
-        <p>
-          The objective is not capital collection.
-        </p>
-
-        <p>
-          The objective is capital transformation.
-        </p>
-
-        <h3>Traditional Fundraising vs Coincarnation</h3>
-
-        <div className="overflow-x-auto my-6">
-          <table className="w-full border-collapse border border-white/10 text-sm">
-            <thead className="bg-white/5">
-              <tr>
-                <th className="border border-white/10 px-3 py-2 text-left">
-                  Traditional Token Sale
-                </th>
-                <th className="border border-white/10 px-3 py-2 text-left">
-                  Coincarnation
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+            <div className="mt-5 grid gap-3 md:grid-cols-5">
               {[
-                ["Requires New Capital", "Utilizes Existing Capital"],
-                ["Speculative Entry", "Recovery-Oriented Participation"],
-                ["One-Time Purchase", "Ongoing Participation"],
-                ["Investor Acquisition", "Community Formation"],
-                ["Capital Collection", "Capital Transformation"],
-              ].map(([a, b]) => (
-                <tr key={a}>
-                  <td className="border border-white/10 px-3 py-2">{a}</td>
-                  <td className="border border-white/10 px-3 py-2">{b}</td>
-                </tr>
+                ["Existing Digital Assets", "Previously held value"],
+                ["Coincarnation", "Transformation process"],
+                ["Productive Capital", "Capital formation"],
+                ["Fair Future Fund", "Management & growth"],
+                ["Future Opportunity", "Distribution potential"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/25 p-4 text-center"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </div>
 
-        <h3>Recovery-Oriented Participation</h3>
+          {/* Main quote */}
+          <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+              Key idea
+            </p>
+            <blockquote className="mt-3 text-2xl font-black leading-tight">
+              Coincarnation does not seek to create value from promises.
+              It seeks to transform existing value into future opportunity.
+            </blockquote>
+          </div>
 
-        <p>
-          A distinctive characteristic of Coincarnation is that participation often
-          begins with assets that participants already own.
-        </p>
+          {/* Traditional vs Coincarnation */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Structural difference
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                Traditional token sale vs Coincarnation
+              </h3>
+            </div>
 
-        <p>
-          Traditional fundraising asks participants to commit additional capital and
-          build entirely new expectations.
-        </p>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Traditional Token Sale</th>
+                    <th className="px-4 py-3 text-left">Coincarnation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["Requires New Capital", "Utilizes Existing Capital"],
+                    ["Speculative Entry", "Recovery-Oriented Participation"],
+                    ["One-Time Purchase", "Ongoing Participation"],
+                    ["Investor Acquisition", "Community Formation"],
+                    ["Capital Collection", "Capital Transformation"],
+                  ].map(([a, b]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 text-white/70">{a}</td>
+                      <td className="px-4 py-3 font-semibold">{b}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-        <p>
-          Coincarnation allows participants to re-evaluate assets that already exist
-          within their portfolios and transform them into participation within a
-          broader economic ecosystem.
-        </p>
+          {/* Capital collection vs formation */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Common model
+              </p>
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="text-center text-xl font-black">New capital</div>
+                <div className="my-3 text-center text-2xl text-white/30">↓</div>
+                <div className="text-center text-xl font-black">New risk</div>
+                <div className="my-3 text-center text-2xl text-white/30">↓</div>
+                <div className="text-center text-xl font-black">New expectations</div>
+              </div>
+            </div>
 
-        <p>
-          In many cases, this creates a fundamentally different psychological
-          dynamic.
-        </p>
+            <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+                Coincarnation model
+              </p>
+              <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-black/20 p-5">
+                <div className="text-center text-xl font-black">Existing asset</div>
+                <div className="my-3 text-center text-2xl text-cyan-200/50">↓</div>
+                <div className="text-center text-xl font-black">Recognition</div>
+                <div className="my-3 text-center text-2xl text-cyan-200/50">↓</div>
+                <div className="text-center text-xl font-black">
+                  Recovery-oriented participation
+                </div>
+              </div>
+            </div>
+          </div>
 
-        <p>
-          Rather than beginning from a new speculative position, participants may
-          begin from assets that were acquired long before Coincarnation existed.
-        </p>
+          {/* Key idea */}
+          <blockquote className="rounded-3xl border-l-4 border-cyan-300 bg-white/[0.04] p-5 text-xl font-bold">
+            Capital collection and capital formation are not the same thing.
+          </blockquote>
 
-        <p>
-          Some participants may view this process as an opportunity to reconnect
-          with value that had previously been considered inactive, forgotten, or
-          economically irrelevant.
-        </p>
+          {/* Augmented Airdrop */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/30">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Investor recovery
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                Traditional airdrop vs Coincarnation Augmented Airdrop
+              </h3>
+            </div>
 
-        <h3>From Digital Assets to Productive Capital</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Traditional Airdrop</th>
+                    <th className="px-4 py-3 text-left">
+                      Coincarnation Augmented Airdrop
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["Immediate Token Distribution", "Long-Term Participation Rights"],
+                    ["Sell and Exit", "Accumulate and Grow"],
+                    ["Temporary Engagement", "Persistent Alignment"],
+                    ["Speculative Reward", "Value Recognition"],
+                    ["User Acquisition", "Community Formation"],
+                  ].map(([a, b]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 text-white/70">{a}</td>
+                      <td className="px-4 py-3 font-semibold">{b}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-        <p>
-          Coincarnation accepts that digital assets exist across a wide spectrum of
-          economic activity.
-        </p>
-
-        <p>
-          Some remain highly active.
-          Some continue to trade despite declining relevance.
-          Others have effectively ceased meaningful economic participation.
-        </p>
-
-        <p>
-          Rather than evaluating assets exclusively through the lens of market
-          speculation, Coincarnation evaluates whether they can contribute to
-          capital formation within the ecosystem.
-        </p>
-
-        <pre className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm overflow-x-auto my-6">
-      {`Digital Assets
-              ↓
-      Coincarnation
-              ↓
-      Productive Capital
-              ↓
-      Fair Future Fund
-              ↓
-      Investment Returns
-              ↓
-      Opportunity Distribution`}
-        </pre>
-
-        <p>
-          Coincarnation therefore functions as a bridge between existing digital
-          assets and future opportunity creation.
-        </p>
-
-        <p>
-          The long-term objective is not simply to collect assets.
-        </p>
-
-        <p>
-          The objective is to create the foundations of a growing opportunity
-          ecosystem.
-        </p>
+          {/* Final quote */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-indigo-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              Final idea
+            </p>
+            <blockquote className="mt-3 text-2xl font-black leading-tight">
+              Coincarnation transforms existing value into productive capital,
+              and participation into recognized contribution.
+            </blockquote>
+          </div>
+        </section>
       </>
-
     ),
   },
 
