@@ -687,38 +687,114 @@ MEGY Distribution`}
       "Healthy assets, Walking Deadcoins, Deadcoins, and Community Deadcoins.",
     Content: () => (
       <>
-        <p>
-          Classification is intended to recognize economic reality rather than
-          project popularity.
-        </p>
+        <section className="space-y-6">
+          <div className="rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-indigo-500/10 to-purple-500/10 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/80">
+              Key idea
+            </p>
+            <h3 className="mt-2 text-xl font-bold">
+              Classification recognizes economic reality, not project popularity.
+            </h3>
+            <p className="mt-3 text-sm text-white/70">
+              Coincarnation evaluates assets by their observable economic condition:
+              activity, liquidity, treasury relevance, and community classification.
+            </p>
+          </div>
 
-        <div className="overflow-x-auto my-4">
-          <table className="w-full border-collapse border border-white/10 text-sm">
-            <thead className="bg-white/5">
-              <tr>
-                <th className="border border-white/10 px-3 py-2 text-left">Classification</th>
-                <th className="border border-white/10 px-3 py-2 text-left">Economic Activity</th>
-                <th className="border border-white/10 px-3 py-2 text-left">Treasury Eligibility</th>
-                <th className="border border-white/10 px-3 py-2 text-left">Reward</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                ["Healthy", "High", "Eligible", "MEGY + CP"],
-                ["Walking Deadcoin", "Moderate", "Conditional", "MEGY + CP"],
-                ["Deadcoin", "None", "No", "CP Only"],
-                ["Community Deadcoin", "Community Determined", "No", "CP Only"],
-              ].map(([a, b, c, d]) => (
-                <tr key={a}>
-                  <td className="border border-white/10 px-3 py-2">{a}</td>
-                  <td className="border border-white/10 px-3 py-2">{b}</td>
-                  <td className="border border-white/10 px-3 py-2">{c}</td>
-                  <td className="border border-white/10 px-3 py-2">{d}</td>
+          <div className="grid gap-3 md:grid-cols-4">
+            {[
+              ["Healthy", "High activity", "MEGY + CP", "Treasury eligible"],
+              ["Walking Deadcoin", "Declining activity", "MEGY + CP", "Conditional"],
+              ["Deadcoin", "No activity", "CP only", "No treasury value"],
+              ["Community Deadcoin", "Community classified", "CP only", "Recognition only"],
+            ].map(([title, activity, reward, treasury]) => (
+              <div
+                key={title}
+                className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
+              >
+                <div className="text-sm font-bold">{title}</div>
+                <div className="mt-3 space-y-2 text-xs text-white/65">
+                  <p>
+                    <span className="text-white/40">Activity:</span> {activity}
+                  </p>
+                  <p>
+                    <span className="text-white/40">Reward:</span> {reward}
+                  </p>
+                  <p>
+                    <span className="text-white/40">Treasury:</span> {treasury}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-white/10">
+            <table className="w-full border-collapse text-sm">
+              <thead className="bg-white/5">
+                <tr>
+                  <th className="px-4 py-3 text-left">Classification</th>
+                  <th className="px-4 py-3 text-left">Economic Activity</th>
+                  <th className="px-4 py-3 text-left">Treasury Eligibility</th>
+                  <th className="px-4 py-3 text-left">Reward</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {[
+                  ["Healthy", "High", "Eligible", "MEGY + CP"],
+                  ["Walking Deadcoin", "Moderate", "Conditional", "MEGY + CP"],
+                  ["Deadcoin", "None", "No", "CP Only"],
+                  ["Community Deadcoin", "Community Determined", "No", "CP Only"],
+                ].map(([a, b, c, d]) => (
+                  <tr key={a} className="border-t border-white/10">
+                    <td className="px-4 py-3 font-semibold">{a}</td>
+                    <td className="px-4 py-3 text-white/70">{b}</td>
+                    <td className="px-4 py-3 text-white/70">{c}</td>
+                    <td className="px-4 py-3 text-white/70">{d}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-black/30 p-5">
+            <h3 className="text-lg font-semibold">Treasury decision flow</h3>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4">
+                <div className="font-semibold text-emerald-100">Healthy</div>
+                <p className="mt-2 text-sm text-white/70">
+                  May be retained, allocated, or converted as a treasury-relevant asset.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-orange-400/20 bg-orange-400/10 p-4">
+                <div className="font-semibold text-orange-100">Walking Deadcoin</div>
+                <p className="mt-2 text-sm text-white/70">
+                  Evaluated conditionally. Weak or inefficient assets may be converted
+                  into stronger reserves.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-zinc-400/20 bg-zinc-400/10 p-4">
+                <div className="font-semibold text-zinc-100">Deadcoin</div>
+                <p className="mt-2 text-sm text-white/70">
+                  No treasury value. Recognized through CorePoints only.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 p-4">
+                <div className="font-semibold text-purple-100">Community Deadcoin</div>
+                <p className="mt-2 text-sm text-white/70">
+                  Classified through community participation and recognized through CP only.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <blockquote className="rounded-2xl border-l-4 border-cyan-300 bg-white/[0.04] p-5 text-lg font-semibold">
+            Economic reality matters more than popularity.
+          </blockquote>
+        </section>
       </>
     ),
   },
