@@ -180,127 +180,214 @@ export const DOC_SECTIONS: DocSection[] = [
       "The core beliefs behind Coincarnation’s economic design.",
     Content: () => (
       <>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-indigo-500/10 to-purple-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
 
-        <p>
-          Coincarnation is built upon a set of foundational beliefs that guide its
-          long-term development.
-        </p>
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/80">
+                Foundational Beliefs
+              </p>
 
-        <p>
-          These beliefs are not intended to describe the world as it is.
-          They describe the direction in which the project seeks to explore and
-          evolve.
-        </p>
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                Coincarnation begins with a different view of economic opportunity.
+              </h3>
 
-        <h3>Economic Opportunity Should Not Be Limited by Existing Capital Ownership</h3>
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                These beliefs do not describe the world as it is. They describe the
+                direction Coincarnation seeks to explore: broader access to capital
+                formation, contribution recognition, and future opportunity.
+              </p>
 
-        <p>
-          Access to economic opportunity is often influenced by access to capital.
-          Individuals who already possess productive assets frequently benefit from
-          ownership and investment returns, while others face substantial barriers
-          to participation.
-        </p>
+              <div className="mt-5">
+                <InsightQuote>
+                  Economic opportunity should not be limited by existing capital ownership.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
 
-        <p>
-          Coincarnation explores whether additional pathways toward economic
-          opportunity can emerge through participation, contribution, and capital
-          formation.
-        </p>
+          {/* Belief cards */}
+          <div className="grid gap-4 md:grid-cols-3">
+            {[
+              [
+                "Opportunity",
+                "Economic opportunity should be more accessible.",
+                "Capital ownership should not be the only pathway toward future participation.",
+              ],
+              [
+                "Contribution",
+                "Value creation should become visible.",
+                "Measurable forms of contribution deserve recognition within the ecosystem.",
+              ],
+              [
+                "Accountability",
+                "Recognition must be protected from abuse.",
+                "Fraud, manipulation, and harmful behavior may lead to reversal or removal.",
+              ],
+            ].map(([label, title, desc]) => (
+              <div
+                key={label}
+                className="rounded-3xl border border-white/10 bg-white/[0.03] p-5"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                  {label}
+                </p>
+                <h3 className="mt-3 text-lg font-bold">{title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
+              </div>
+            ))}
+          </div>
 
-        <blockquote>
-          Economic opportunity should not be limited by existing capital ownership.
-        </blockquote>
+          {/* Core beliefs matrix */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Core belief matrix
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                The principles behind Coincarnation
+              </h3>
+            </div>
 
-        <h3>Capital Formation Can Become More Inclusive</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Belief</th>
+                    <th className="px-4 py-3 text-left">Meaning</th>
+                    <th className="px-4 py-3 text-left">System Layer</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    [
+                      "Capital formation can become more inclusive",
+                      "Participation can help create access to future opportunity",
+                      "Coincarnation",
+                    ],
+                    [
+                      "Contribution matters",
+                      "Measurable value creation should be recognized",
+                      "Proof of Value",
+                    ],
+                    [
+                      "Recognition and accountability must coexist",
+                      "Recognized contribution must remain reviewable",
+                      "Proof Ledger",
+                    ],
+                    [
+                      "Opportunity can generate more opportunity",
+                      "Economic access can lead to new forms of value creation",
+                      "PVC / FFF",
+                    ],
+                  ].map(([a, b, c]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 font-semibold">{a}</td>
+                      <td className="px-4 py-3 text-white/70">{b}</td>
+                      <td className="px-4 py-3 text-white/70">{c}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-        <p>
-          Traditional capital formation mechanisms often depend upon concentrated
-          pools of capital, institutional access, or private investment networks.
-        </p>
+          {/* Visual equation */}
+          <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+              Belief flow
+            </p>
 
-        <p>
-          Coincarnation explores whether capital formation can occur through a
-          broader and more globally distributed participation model.
-        </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-5">
+              {[
+                ["Value Creation", "People create value"],
+                ["Recognition", "Contribution becomes visible"],
+                ["Capital Formation", "Participation builds capital"],
+                ["Opportunity", "Capital creates access"],
+                ["More Value Creation", "Opportunity expands participation"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4 text-center"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+                </div>
+              ))}
+            </div>
 
-        <blockquote>
-          Capital formation can become more inclusive.
-        </blockquote>
+            <div className="mt-5">
+              <InsightQuote>
+                Value creation and economic participation can be brought closer together.
+              </InsightQuote>
+            </div>
+          </div>
 
-        <h3>Contribution Matters</h3>
+          {/* What this does not mean */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                What this means
+              </p>
 
-        <p>
-          Economic systems recognize many forms of capital.
-          Coincarnation proposes that measurable forms of contribution should also
-          become visible within economic systems.
-        </p>
+              <div className="mt-4 space-y-2">
+                {[
+                  "Participation can create economic visibility.",
+                  "Contribution can become part of future opportunity.",
+                  "Capital formation can be explored through distributed participation.",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/75"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
 
-        <p>
-          This principle serves as the foundation of the Proof of Value framework.
-        </p>
+            <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-200/70">
+                What this does not mean
+              </p>
 
-        <blockquote>
-          Contribution matters.
-        </blockquote>
+              <div className="mt-4 space-y-2">
+                {[
+                  "It does not promise equal outcomes.",
+                  "It does not claim to measure the total worth of a human being.",
+                  "It does not remove the need for accountability.",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-red-300/20 bg-black/20 px-4 py-3 text-sm text-white/75"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
 
-        <h3>Recognition and Accountability Must Coexist</h3>
-
-        <p>
-          Contribution recognition should never be unconditional.
-        </p>
-
-        <p>
-          Participation must remain transparent, verifiable, and subject to review
-          when manipulation, abuse, fraud, or other harmful behaviors are detected.
-        </p>
-
-        <p>
-          For this reason, recognized contributions may be adjusted, reversed, or
-          removed when necessary to preserve ecosystem integrity.
-        </p>
-
-        <blockquote>
-          Recognition and accountability must coexist.
-        </blockquote>
-
-        <h3>Value Creation and Economic Participation Can Be Reconnected</h3>
-
-        <p>
-          Throughout history, value creation and economic participation have evolved
-          through many different systems and institutions.
-        </p>
-
-        <p>
-          Coincarnation explores whether measurable contribution can once again play
-          a more visible role in determining access to future opportunity.
-        </p>
-
-        <blockquote>
-          Value creation and economic participation can be brought closer together.
-        </blockquote>
-
-        <h3>Economic Systems Should Continue to Evolve</h3>
-
-        <p>
-          Coincarnation does not assume that every meaningful contribution can be
-          measured today.
-        </p>
-
-        <p>
-          The project begins with contribution types that can be objectively
-          recognized and verified.
-        </p>
-
-        <p>
-          As measurement systems improve, additional forms of contribution may
-          become eligible for recognition through the Proof of Value framework.
-        </p>
-
-        <blockquote>
-          The future may recognize more forms of value than the present.
-        </blockquote>
+          {/* Final quote */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-black/30 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              Foundational principle
+            </p>
+            <blockquote className="mt-3 text-2xl font-black leading-tight">
+              The future may recognize more forms of value than the present.
+            </blockquote>
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              Coincarnation begins with contribution types that can be objectively
+              recognized and verified. As measurement systems improve, additional
+              forms of contribution may become eligible for recognition through the
+              Proof of Value framework.
+            </p>
+          </div>
+        </section>
       </>
-
     ),
   },
 
