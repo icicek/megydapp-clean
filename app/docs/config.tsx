@@ -25,57 +25,200 @@ export const DOC_SECTIONS: DocSection[] = [
       "A concise overview of Coincarnation, Fair Future Fund, Proof of Value, PVC, and MEGY.",
     Content: () => (
       <>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-indigo-500/10 to-purple-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
 
-        <p>
-          Coincarnation is a capital formation framework designed to transform
-          existing digital assets into productive capital while recognizing
-          meaningful participation through the Proof of Value system.
-        </p>
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/80">
+                Executive Summary
+              </p>
 
-        <p>
-          The project explores a simple idea:
-          economic opportunity should not be limited by existing capital ownership.
-        </p>
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                Coincarnation is a capital formation framework for broader economic participation.
+              </h3>
 
-        <p>
-          Rather than relying on traditional fundraising mechanisms, Coincarnation
-          enables participants to contribute eligible digital assets that can be
-          transformed into capital for long-term ecosystem development.
-        </p>
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                Coincarnation transforms eligible digital assets into productive
+                capital, recognizes contribution through Proof of Value, and connects
+                that recognition to future opportunity through Personal Value Currency.
+              </p>
 
-        <p>
-          Capital accumulated through Coincarnation may support the development of
-          the Fair Future Fund (FFF), a long-term opportunity fund designed to
-          preserve, manage, and grow capital through diversified investment
-          activities.
-        </p>
+              <div className="mt-5">
+                <InsightQuote>
+                  Coincarnation was not created to build another token economy.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
 
-        <p>
-          Participation within the ecosystem is recognized through the Proof of
-          Value (PoV) framework. PoV measures recognized forms of contribution and
-          records them as CorePoints (CP).
-        </p>
+          {/* Core system map */}
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+              System map
+            </p>
+            <h3 className="mt-1 text-lg font-semibold">
+              One framework, four core layers
+            </h3>
 
-        <p>
-          CorePoints collectively form Personal Value Currency (PVC), a framework
-          designed to make contribution visible and to support future governance,
-          opportunity access, ecosystem benefits, and economic participation.
-        </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-4">
+              {[
+                ["Coincarnation", "Creates capital", "Transforms eligible assets into productive capital"],
+                ["Fair Future Fund", "Manages and grows it", "Allocates capital through long-term strategies"],
+                ["Proof of Value", "Recognizes contribution", "Makes measurable participation visible"],
+                ["PVC", "Distributes opportunity", "Connects contribution to future rights and access"],
+              ].map(([title, role, desc]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/25 p-4"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs font-semibold text-cyan-100/80">
+                    {role}
+                  </div>
+                  <p className="mt-3 text-xs leading-relaxed text-white/60">
+                    {desc}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
 
-        <p>
-          MEGY serves as the primary economic asset of the ecosystem.
-          Unlike traditional fixed-release models, MEGY enters circulation only
-          when Proof of Value conditions are satisfied.
-        </p>
+          {/* Main thesis */}
+          <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+              Core thesis
+            </p>
 
-        <p>
-          Coincarnation creates capital.
-          The Fair Future Fund manages and grows it.
-          Proof of Value recognizes contribution.
-          Personal Value Currency distributes opportunity.
-        </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-5">
+              {[
+                ["Digital Assets", "Existing value"],
+                ["Coincarnation", "Capital formation"],
+                ["FFF", "Capital growth"],
+                ["PoV", "Contribution recognition"],
+                ["PVC", "Opportunity distribution"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4 text-center"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5">
+              <InsightQuote>
+                Coincarnation creates capital. Fair Future Fund manages and grows it. Proof of Value recognizes contribution. Personal Value Currency distributes opportunity.
+              </InsightQuote>
+            </div>
+          </div>
+
+          {/* What it is / what it is not */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+                What Coincarnation is
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  "A capital formation framework",
+                  "A Proof of Value recognition system",
+                  "A pathway from participation to future opportunity",
+                  "A long-term economic experiment",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-cyan-300/20 bg-black/20 px-4 py-3 text-sm text-white/80"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-200/70">
+                What Coincarnation is not
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  "Not a traditional token sale",
+                  "Not a promise-based value machine",
+                  "Not a claim to solve inequality alone",
+                  "Not a short-term product launch",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-red-300/20 bg-black/20 px-4 py-3 text-sm text-white/80"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* MEGY / PVC / FFF quick distinction */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Quick distinction
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                MEGY, PVC, and FFF are different layers
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Layer</th>
+                    <th className="px-4 py-3 text-left">Role</th>
+                    <th className="px-4 py-3 text-left">Purpose</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["MEGY", "Ecosystem asset", "Supports ecosystem-wide economic activity"],
+                    ["PVC", "Personal value framework", "Represents accumulated recognized contribution"],
+                    ["FFF", "Capital management layer", "Preserves, manages, and grows capital"],
+                    ["PoV", "Recognition framework", "Defines how contribution becomes visible"],
+                  ].map(([a, b, c]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 font-semibold">{a}</td>
+                      <td className="px-4 py-3 text-white/70">{b}</td>
+                      <td className="px-4 py-3 text-white/70">{c}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Final positioning */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-black/30 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              Positioning
+            </p>
+            <blockquote className="mt-3 text-2xl font-black leading-tight">
+              The objective is not merely to distribute value, but to enable new
+              forms of value creation.
+            </blockquote>
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              Coincarnation begins with digital assets, but its long-term direction
+              is broader: capital formation, value recognition, governance
+              participation, and opportunity expansion.
+            </p>
+          </div>
+        </section>
       </>
-
     ),
   },
 
