@@ -1865,29 +1865,237 @@ export const DOC_SECTIONS: DocSection[] = [
       "Why Coincarnation recognizes people rather than isolated wallet addresses.",
     Content: () => (
       <>
-        <p>
-          Coincarnation is designed to recognize people rather than wallet
-          addresses.
-        </p>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-indigo-500/10 to-purple-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
 
-        <div className="overflow-x-auto my-4">
-          <table className="w-full border-collapse border border-white/10 text-sm">
-            <tbody>
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/80">
+                Identity Layer
+              </p>
+
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                Coincarnation recognizes people, not isolated wallet addresses.
+              </h3>
+
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                Wallets remain essential in Web3, but long-term contribution,
+                governance, CorePoints, and PVC require a persistent identity context.
+              </p>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  Coincarnation is designed to recognize people rather than wallet addresses.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
+
+          {/* Identity flow */}
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+              Identity flow
+            </p>
+            <h3 className="mt-1 text-lg font-semibold">
+              From multiple wallets to one participation record
+            </h3>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-5">
               {[
-                ["Traditional Web3", "Coincarnation"],
-                ["Wallet-Centric", "Identity-Centric"],
-                ["Isolated Addresses", "Unified Participation"],
-                ["Fragmented Reputation", "Persistent Reputation"],
-                ["Wallet-Based Rewards", "Identity-Based Recognition"],
-              ].map(([a, b], i) => (
-                <tr key={a} className={i === 0 ? "bg-white/5 font-semibold" : ""}>
-                  <td className="border border-white/10 px-3 py-2">{a}</td>
-                  <td className="border border-white/10 px-3 py-2">{b}</td>
-                </tr>
+                ["Identity", "The participant context"],
+                ["Multiple Wallets", "Different connected addresses"],
+                ["Unified Record", "Participation is aggregated"],
+                ["CorePoints", "Contribution is accounted"],
+                ["PVC", "Recognized contribution accumulates"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/25 p-4 text-center"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </div>
+
+          {/* Traditional Web3 vs Coincarnation */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Design shift
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                From wallet-centric to identity-centric participation
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Traditional Web3</th>
+                    <th className="px-4 py-3 text-left">Coincarnation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["Wallet-Centric", "Identity-Centric"],
+                    ["Isolated Addresses", "Unified Participation"],
+                    ["Fragmented Reputation", "Persistent Reputation"],
+                    ["Wallet-Based Rewards", "Identity-Based Recognition"],
+                    ["Easy Multi-Wallet Farming", "Identity-Level Abuse Resistance"],
+                  ].map(([a, b]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 text-white/70">{a}</td>
+                      <td className="px-4 py-3 font-semibold">{b}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Why it matters */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+                Key idea
+              </p>
+
+              <blockquote className="mt-4 text-xl font-bold leading-snug">
+                Identity does not replace wallets. It gives participation a persistent context.
+              </blockquote>
+
+              <p className="mt-4 text-sm leading-relaxed text-white/65">
+                The identity layer allows contribution, referral activity, deadcoin
+                recognition, CorePoints, and future governance participation to be
+                understood across connected wallets.
+              </p>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  Identity does not replace wallets. It gives participation a persistent context.
+                </InsightQuote>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Abuse resistance
+              </p>
+
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="text-center text-xl font-black">Multiple Wallets</div>
+                <div className="my-3 text-center text-2xl text-cyan-200/50">↓</div>
+                <div className="text-center text-xl font-black">Same Identity</div>
+                <div className="my-3 text-center text-2xl text-cyan-200/50">↓</div>
+                <div className="text-center text-xl font-black">Unified Limits</div>
+                <div className="my-3 text-center text-2xl text-cyan-200/50">↓</div>
+                <div className="text-center text-xl font-black">Fair Recognition</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Support matrix */}
+          <div className="overflow-hidden rounded-3xl border border-purple-400/20 bg-purple-400/5">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+                Identity supports
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                Why identity matters across the ecosystem
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Layer</th>
+                    <th className="px-4 py-3 text-left">Why It Matters</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    [
+                      "CorePoint Accounting",
+                      "Contributions accumulate under one identity rather than scattered wallets.",
+                    ],
+                    [
+                      "PVC Formation",
+                      "PVC reflects recognized participation over time.",
+                    ],
+                    [
+                      "Referral Integrity",
+                      "Referral rewards can be evaluated at the identity level.",
+                    ],
+                    [
+                      "Deadcoin Bonus Control",
+                      "One identity cannot repeatedly claim the same recognition for the same asset.",
+                    ],
+                    [
+                      "Governance Participation",
+                      "Future voting can combine base identity and PVC-based weight.",
+                    ],
+                  ].map(([a, b]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 font-semibold">{a}</td>
+                      <td className="px-4 py-3 text-white/70">{b}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Identity architecture */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-indigo-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              Architecture principle
+            </p>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-4">
+              {[
+                ["Wallets", "Execution layer"],
+                ["Identity", "Participation layer"],
+                ["Proof of Value", "Recognition layer"],
+                ["PVC", "Economic identity layer"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4 text-center"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5">
+              <InsightQuote>
+                Fair contribution recognition requires more than isolated wallet addresses.
+              </InsightQuote>
+            </div>
+          </div>
+
+          {/* Final */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-black/30 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              Final idea
+            </p>
+            <blockquote className="mt-3 text-2xl font-black leading-tight">
+              A durable contribution system needs a durable participant context.
+            </blockquote>
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              By connecting multiple wallets to a persistent identity layer,
+              Coincarnation creates a foundation for fairer recognition, stronger
+              abuse resistance, and long-term PVC formation.
+            </p>
+          </div>
+        </section>
       </>
     ),
   },
