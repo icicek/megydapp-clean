@@ -313,150 +313,189 @@ export const DOC_SECTIONS: DocSection[] = [
       "The idea that value creation and economic participation can be reconnected.",
     Content: () => (
       <>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 via-indigo-500/10 to-cyan-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
 
-        <p>
-          Coincarnation began with a simple observation:
-          access to capital often determines access to opportunity.
-        </p>
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-200/80">
+                Coincarnation Philosophy
+              </p>
 
-        <p>
-          Throughout history, individuals have created value through labor,
-          knowledge, creativity, entrepreneurship, cooperation, and innovation.
-          Yet participation in long-term capital growth has frequently remained
-          concentrated among those who already possess capital.
-        </p>
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                Can value creation and economic participation be brought closer together again?
+              </h3>
 
-        <p>
-          Coincarnation explores whether this relationship can evolve.
-        </p>
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                Coincarnation is designed as a long-term economic experiment that
+                connects participation, contribution, capital formation, and future
+                opportunity.
+              </p>
 
-        <blockquote>
-          Can value creation and economic participation be brought closer together again?
-        </blockquote>
+              <div className="mt-5">
+                <InsightQuote>
+                  Coincarnation was not created to build another token economy.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
 
-        <p>
-          The project does not seek to replace existing economic systems.
-          Nor does it claim that capital formation alone can solve complex social and
-          economic challenges.
-        </p>
+          {/* Philosophy map */}
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+              Philosophy map
+            </p>
+            <h3 className="mt-1 text-lg font-semibold">
+              From participation to opportunity
+            </h3>
 
-        <p>
-          Instead, Coincarnation seeks to create an additional pathway through which
-          individuals may participate in future opportunity creation.
-        </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-5">
+              {[
+                ["Participation", "People enter through action"],
+                ["Contribution", "Measurable value is recognized"],
+                ["Capital Formation", "Existing value becomes productive"],
+                ["Capital Growth", "FFF manages and grows capital"],
+                ["Opportunity", "PVC helps distribute access"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/25 p-4 text-center"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+                </div>
+              ))}
+            </div>
+          </div>
 
-        <p>
-          At its core, Coincarnation is not merely a token project.
-          It is a framework designed to explore new relationships between
-          participation, contribution, capital formation, and opportunity.
-        </p>
+          {/* Key idea + contrast */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+                Core question
+              </p>
+              <blockquote className="mt-4 text-xl font-bold leading-snug">
+                What if participation could become a pathway toward future economic opportunity?
+              </blockquote>
+              <p className="mt-4 text-sm leading-relaxed text-white/65">
+                Coincarnation does not claim that every economic problem can be
+                solved through capital formation. It explores whether broader access
+                to capital formation can create new pathways toward opportunity.
+              </p>
+            </div>
 
-        <h3>Capital Formation as a Starting Point</h3>
+            <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                What Coincarnation is not
+              </p>
 
-        <p>
-          Coincarnation views capital formation not as an end goal, but as a starting
-          point.
-        </p>
+              <div className="mt-4 space-y-2">
+                {[
+                  ["Not a promise machine", "It does not create value from hype."],
+                  ["Not a short-term launch", "It is designed as a long-term economic experiment."],
+                  ["Not only a token economy", "MEGY is important, but it is not the whole system."],
+                ].map(([title, desc]) => (
+                  <div
+                    key={title}
+                    className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+                  >
+                    <div className="text-sm font-bold">{title}</div>
+                    <p className="mt-2 text-xs leading-relaxed text-white/60">
+                      {desc}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
 
-        <p>
-          The project recognizes that long-term opportunity often depends upon the
-          existence of productive capital.
-          Without capital, investment opportunities remain limited.
-          Without investment opportunities, future value creation becomes more
-          difficult.
-        </p>
+          {/* System components */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                System logic
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                Four components, one economic framework
+              </h3>
+            </div>
 
-        <p>
-          For this reason, Coincarnation focuses first on capital formation.
-        </p>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Component</th>
+                    <th className="px-4 py-3 text-left">Role</th>
+                    <th className="px-4 py-3 text-left">Purpose</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["Coincarnation", "Creates capital", "Transforms eligible digital assets into productive capital"],
+                    ["Fair Future Fund", "Manages and grows capital", "Allocates capital through disciplined long-term strategies"],
+                    ["Proof of Value", "Recognizes contribution", "Makes measurable participation visible"],
+                    ["PVC", "Distributes opportunity", "Connects recognized contribution to future rights and access"],
+                  ].map(([a, b, c]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 font-semibold">{a}</td>
+                      <td className="px-4 py-3 text-white/70">{b}</td>
+                      <td className="px-4 py-3 text-white/70">{c}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-        <h3>From Capital Formation to Opportunity</h3>
+          {/* Main equation */}
+          <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+              Core equation
+            </p>
 
-        <p>
-          Capital accumulated through Coincarnation may contribute to the development
-          of the Fair Future Fund (FFF).
-        </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-4">
+              {[
+                ["Coincarnation", "creates capital"],
+                ["FFF", "manages and grows it"],
+                ["PoV", "recognizes contribution"],
+                ["PVC", "distributes opportunity"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4 text-center"
+                >
+                  <div className="text-sm font-black">{title}</div>
+                  <div className="mt-2 text-xs text-white/60">{subtitle}</div>
+                </div>
+              ))}
+            </div>
 
-        <p>
-          The Fair Future Fund is designed to preserve, manage, and grow capital
-          through diversified long-term allocation strategies.
-        </p>
+            <div className="mt-5">
+              <InsightQuote>
+                Coincarnation creates capital. Fair Future Fund manages and grows it. Proof of Value recognizes contribution. Personal Value Currency distributes opportunity.
+              </InsightQuote>
+            </div>
+          </div>
 
-        <p>
-          As capital grows, new forms of opportunity may emerge.
-        </p>
-
-        <p>
-          These opportunities may take many forms, including future distributions,
-          ecosystem benefits, governance participation, collaborative initiatives,
-          and additional value-generating activities that may emerge over time.
-        </p>
-
-        <h3>The Role of Proof of Value</h3>
-
-        <p>
-          Opportunity alone does not determine how participation should be recognized.
-        </p>
-
-        <p>
-          Coincarnation therefore introduces the Proof of Value framework.
-        </p>
-
-        <p>
-          Proof of Value seeks to recognize measurable forms of contribution and make
-          them visible within the ecosystem.
-        </p>
-
-        <p>
-          Rather than focusing exclusively on capital ownership, the framework seeks
-          to acknowledge participation and contribution as meaningful components of
-          economic activity.
-        </p>
-
-        <h3>The Role of Personal Value Currency</h3>
-
-        <p>
-          Contributions recognized through the Proof of Value framework accumulate as
-          Personal Value Currency (PVC).
-        </p>
-
-        <p>
-          PVC is not designed to represent the total worth of an individual.
-          Instead, it represents contribution that has been recognized within the
-          ecosystem.
-        </p>
-
-        <p>
-          Over time, PVC may become a foundation for governance participation,
-          opportunity access, ecosystem benefits, and future economic rights.
-        </p>
-
-        <h3>A Long-Term Economic Experiment</h3>
-
-        <p>
-          Coincarnation is designed as a long-term economic experiment rather than a
-          short-term product launch.
-        </p>
-
-        <p>
-          The project seeks to explore whether capital formation, value recognition,
-          and opportunity distribution can become more broadly accessible without
-          sacrificing transparency, accountability, or economic sustainability.
-        </p>
-
-        <blockquote>
-          Coincarnation creates capital.
-          The Fair Future Fund manages and grows it.
-          Proof of Value recognizes contribution.
-          Personal Value Currency distributes opportunity.
-        </blockquote>
-
-        <p>
-          Together, these components form a single framework designed to connect
-          participation, contribution, capital formation, and future opportunity.
-        </p>
+          {/* Final note */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-black/30 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              Long-term orientation
+            </p>
+            <blockquote className="mt-3 text-2xl font-black leading-tight">
+              Coincarnation is designed as a long-term economic experiment rather than a short-term product launch.
+            </blockquote>
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              The project seeks to explore whether capital formation, value
+              recognition, and opportunity distribution can become more broadly
+              accessible without sacrificing transparency, accountability, or
+              economic sustainability.
+            </p>
+          </div>
+        </section>
       </>
-
     ),
   },
 
