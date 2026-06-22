@@ -1557,14 +1557,297 @@ export const DOC_SECTIONS: DocSection[] = [
       "How the community can participate in classification and threshold evolution.",
     Content: () => (
       <>
-        <p>
-          Liquidity thresholds, trading activity requirements, and classification
-          parameters may evolve through governance as the ecosystem matures.
-        </p>
-        <p>
-          Community voting allows Walking Deadcoins to be evaluated and, when
-          appropriate, classified as Community Deadcoins.
-        </p>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 via-indigo-500/10 to-cyan-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-200/80">
+                Community Classification & Governance
+              </p>
+
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                The community helps shape how economic reality is recognized.
+              </h3>
+
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                Coincarnation governance is designed to let the community participate
+                in classification rules, asset status decisions, Proof of Value
+                evolution, and future PVC usage areas.
+              </p>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  Communities should not merely follow economic systems. They should help shape them.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
+
+          {/* Governance flow */}
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+              Governance flow
+            </p>
+            <h3 className="mt-1 text-lg font-semibold">
+              From community input to ecosystem evolution
+            </h3>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-5">
+              {[
+                ["Community", "Participants provide input"],
+                ["Classification Rules", "Metrics and thresholds evolve"],
+                ["Asset Status", "Assets may be reclassified"],
+                ["Recognition", "PoV and CP outcomes follow rules"],
+                ["Governance Evolution", "The system adapts over time"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/25 p-4 text-center"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Dynamic classification */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+                Dynamic classification
+              </p>
+
+              <blockquote className="mt-4 text-xl font-bold leading-snug">
+                Classification reflects economic reality as it evolves.
+              </blockquote>
+
+              <p className="mt-4 text-sm leading-relaxed text-white/65">
+                A Community Deadcoin status is not necessarily permanent. If a
+                status is created through community voting, it can also be reversed
+                through the same community decision path.
+              </p>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  Classification reflects economic reality as it evolves.
+                </InsightQuote>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Reclassification path
+              </p>
+
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="text-center text-xl font-black">Healthy</div>
+                <div className="my-3 text-center text-2xl text-cyan-200/50">↕</div>
+                <div className="text-center text-xl font-black">Walking Deadcoin</div>
+                <div className="my-3 text-center text-2xl text-cyan-200/50">↕</div>
+                <div className="text-center text-xl font-black">Community Deadcoin</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Classification metrics */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Classification metrics
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                The community helps define the boundaries
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Governance Area</th>
+                    <th className="px-4 py-3 text-left">Community Role</th>
+                    <th className="px-4 py-3 text-left">Why It Matters</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    [
+                      "Liquidity Thresholds",
+                      "Define / update",
+                      "Separates active assets from weak market structures",
+                    ],
+                    [
+                      "Volume Thresholds",
+                      "Define / update",
+                      "Helps distinguish activity from inactivity",
+                    ],
+                    [
+                      "Community Deadcoin Status",
+                      "Vote",
+                      "Allows the ecosystem to classify economically inactive assets",
+                    ],
+                    [
+                      "Reclassification",
+                      "Vote",
+                      "Allows status reversal when economic conditions change",
+                    ],
+                    [
+                      "Classification Framework Updates",
+                      "Participate",
+                      "Keeps classification aligned with market reality",
+                    ],
+                  ].map(([a, b, c]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 font-semibold">{a}</td>
+                      <td className="px-4 py-3 text-white/70">{b}</td>
+                      <td className="px-4 py-3 text-white/70">{c}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Governance authority table */}
+          <div className="overflow-hidden rounded-3xl border border-purple-400/20 bg-purple-400/5">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+                Decision authority
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                Different decisions require different authority layers
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Topic</th>
+                    <th className="px-4 py-3 text-left">Decision Authority</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["Community Deadcoin Status", "Community"],
+                    ["Classification Metrics", "Community"],
+                    ["PoV Categories", "Governance"],
+                    ["PVC Usage Areas", "Governance"],
+                    ["Blacklist Recommendation", "Community"],
+                    ["Blacklist Enforcement", "Administration"],
+                    ["FFF Investments", "Fund Management"],
+                  ].map(([a, b]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 font-semibold">{a}</td>
+                      <td className="px-4 py-3 text-white/70">{b}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* PVC representation model */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-indigo-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              Representation model
+            </p>
+            <h3 className="mt-1 text-lg font-semibold">
+              One participant, one base voice — plus recognized contribution weight
+            </h3>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-4">
+              {[
+                ["Identity", "The participant is recognized beyond isolated wallets"],
+                ["Base Vote", "Every participant has a voice"],
+                ["PVC Weight", "Recognized contribution may increase representation"],
+                ["Governance Influence", "Voice and contribution combine"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4 text-center"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5">
+              <InsightQuote>
+                Every participant has a voice. Recognized contribution increases representation.
+              </InsightQuote>
+            </div>
+          </div>
+
+          {/* Blacklist process */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-200/70">
+                Blacklist process
+              </p>
+
+              <div className="mt-4 rounded-2xl border border-red-300/20 bg-black/20 p-5">
+                <div className="text-center text-xl font-black">Community</div>
+                <div className="my-3 text-center text-2xl text-red-200/50">↓</div>
+                <div className="text-center text-xl font-black">Recommendation</div>
+                <div className="my-3 text-center text-2xl text-red-200/50">↓</div>
+                <div className="text-center text-xl font-black">Administrative Review</div>
+                <div className="my-3 text-center text-2xl text-red-200/50">↓</div>
+                <div className="text-center text-xl font-black">Blacklist Decision</div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Why blacklist is different
+              </p>
+
+              <p className="mt-4 text-sm leading-relaxed text-white/65">
+                Blacklisting is intentionally separated from ordinary governance
+                because it may affect past recognition, future participation, and
+                potential reversal logic.
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  "Ordinary classification can be community-driven.",
+                  "Blacklist can be community-recommended.",
+                  "Final blacklist enforcement remains administrative.",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/75"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Final quote */}
+          <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+              Governance principle
+            </p>
+
+            <blockquote className="mt-3 text-2xl font-black leading-tight">
+              Coincarnation is not designed to create a community around a protocol.
+              It is designed to allow the community to participate in shaping the protocol itself.
+            </blockquote>
+
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              Governance begins with classification, but its long-term scope may
+              expand into Proof of Value categories, PVC usage areas, and future
+              ecosystem rules.
+            </p>
+          </div>
+        </section>
       </>
     ),
   },
