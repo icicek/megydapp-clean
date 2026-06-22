@@ -88,82 +88,230 @@ export const DOC_SECTIONS: DocSection[] = [
       "Why access to capital formation matters for economic opportunity.",
     Content: () => (
       <>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 via-indigo-500/10 to-cyan-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-amber-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
 
-        <p>
-          Over the past century, economic development has generated unprecedented
-          levels of wealth, technological progress, and productivity.
-          Yet access to economic opportunity remains unevenly distributed across
-          societies and regions.
-        </p>
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-200/80">
+                Global Inequality & Capital Formation
+              </p>
 
-        <p>
-          While many factors contribute to inequality, access to capital remains one
-          of the most significant.
-          Individuals who own productive assets often benefit from investment
-          returns, ownership structures, and long-term appreciation.
-          Those without capital frequently face barriers to participating in these
-          same opportunities.
-        </p>
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                The problem is not only income. It is access to capital formation.
+              </h3>
 
-        <p>
-          As a result, economic growth does not always translate into equal access
-          to wealth creation.
-        </p>
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                Many people create value every day, yet remain outside the systems
+                that generate long-term capital growth. Coincarnation begins from
+                this gap between value creation and capital participation.
+              </p>
 
-        <p>
-          Coincarnation begins with a simple question:
-        </p>
+              <div className="mt-5">
+                <InsightQuote>
+                  Economic opportunity should not be limited by existing capital ownership.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
 
-        <blockquote>
-          What if access to capital formation could become more broadly distributed?
-        </blockquote>
+          {/* Main problem flow */}
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+              Problem flow
+            </p>
+            <h3 className="mt-1 text-lg font-semibold">
+              From inequality to opportunity distribution
+            </h3>
 
-        <p>
-          The project does not claim to solve global inequality.
-          Nor does it suggest that capital formation alone can eliminate economic
-          disparities.
-        </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-5">
+              {[
+                ["Global Inequality", "Uneven access to opportunity"],
+                ["Capital Access Problem", "Capital returns remain concentrated"],
+                ["Need for Capital Formation", "Opportunity requires productive capital"],
+                ["Coincarnation", "Participation creates capital"],
+                ["PVC-Based Distribution", "Recognized contribution guides access"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/25 p-4 text-center"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+                </div>
+              ))}
+            </div>
+          </div>
 
-        <p>
-          Instead, Coincarnation explores whether participation itself can become a
-          pathway toward future economic opportunity.
-        </p>
+          {/* Capital access contrast */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Traditional pattern
+              </p>
 
-        <p>
-          The project is built on the belief that economic opportunity should not be
-          limited solely by existing capital ownership.
-          It seeks to create additional mechanisms through which individuals can
-          participate in future value creation regardless of their starting point.
-        </p>
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="text-center text-xl font-black">Existing Capital</div>
+                <div className="my-3 text-center text-2xl text-white/30">↓</div>
+                <div className="text-center text-xl font-black">Investment Access</div>
+                <div className="my-3 text-center text-2xl text-white/30">↓</div>
+                <div className="text-center text-xl font-black">More Capital</div>
+              </div>
 
-        <p>
-          This objective serves as the foundation for the broader Coincarnation
-          ecosystem, the Fair Future Fund, the Proof of Value framework, and the
-          Personal Value Currency system.
-        </p>
+              <p className="mt-4 text-sm leading-relaxed text-white/60">
+                Individuals who already possess productive assets often gain access
+                to additional ownership, returns, and long-term appreciation.
+              </p>
+            </div>
 
-        <pre>
-      {`Global Inequality
-              ↓
-      Capital Access Problem
-              ↓
-      Need for Capital Formation
-              ↓
-      Coincarnation
-              ↓
-      Fair Future Fund
-              ↓
-      Global Capital Returns
-              ↓
-      Proof of Value
-              ↓
-      PVC
-              ↓
-      Opportunity Distribution`}
-        </pre>
+            <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+                Coincarnation approach
+              </p>
 
+              <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-black/20 p-5">
+                <div className="text-center text-xl font-black">Participation</div>
+                <div className="my-3 text-center text-2xl text-cyan-200/50">↓</div>
+                <div className="text-center text-xl font-black">Capital Formation</div>
+                <div className="my-3 text-center text-2xl text-cyan-200/50">↓</div>
+                <div className="text-center text-xl font-black">Future Opportunity</div>
+              </div>
+
+              <p className="mt-4 text-sm leading-relaxed text-white/60">
+                Coincarnation explores whether participation itself can become a
+                pathway toward future economic opportunity.
+              </p>
+            </div>
+          </div>
+
+          {/* Framing table */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Economic framing
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                Why capital formation matters
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Economic factor</th>
+                    <th className="px-4 py-3 text-left">Common reality</th>
+                    <th className="px-4 py-3 text-left">Coincarnation question</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    [
+                      "Labor income",
+                      "Primary income source for most people",
+                      "Can participation create access beyond labor income?",
+                    ],
+                    [
+                      "Capital ownership",
+                      "Often concentrated among those already holding assets",
+                      "Can capital formation become more broadly accessible?",
+                    ],
+                    [
+                      "Investment returns",
+                      "Usually easier to access with existing capital",
+                      "Can collectively formed capital support wider opportunity?",
+                    ],
+                    [
+                      "Contribution",
+                      "Often economically invisible",
+                      "Can measurable contribution become recognized?",
+                    ],
+                  ].map(([a, b, c]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 font-semibold">{a}</td>
+                      <td className="px-4 py-3 text-white/70">{b}</td>
+                      <td className="px-4 py-3 text-white/70">{c}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Key distinction */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-purple-400/20 bg-purple-400/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+                Important distinction
+              </p>
+              <blockquote className="mt-4 text-xl font-bold leading-snug">
+                Coincarnation does not promise equal outcomes. It explores broader
+                access to opportunity formation.
+              </blockquote>
+              <p className="mt-4 text-sm leading-relaxed text-white/65">
+                The objective is not to erase differences between individuals, but
+                to create additional pathways for participation, contribution, and
+                capital access.
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                What the project asks
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  "Can dormant and active digital assets support capital formation?",
+                  "Can participation become economically visible?",
+                  "Can recognized contribution guide future opportunity access?",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/75"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Full ecosystem flow */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-indigo-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              System thesis
+            </p>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {[
+                ["Capital Access Problem", "The starting challenge"],
+                ["Coincarnation", "The capital formation mechanism"],
+                ["Fair Future Fund", "The capital management layer"],
+                ["Global Capital Returns", "The growth source"],
+                ["Proof of Value", "The contribution recognition layer"],
+                ["PVC", "The opportunity distribution framework"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4 text-center"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5">
+              <InsightQuote>
+                Participation can become a pathway toward capital formation.
+              </InsightQuote>
+            </div>
+          </div>
+        </section>
       </>
-
     ),
   },
 
