@@ -1,5 +1,6 @@
 // app/docs/config.tsx
 import React from "react";
+import InsightQuote from "./components/InsightQuote";
 
 export type DocSection = {
   slug: string;
@@ -493,8 +494,10 @@ export const DOC_SECTIONS: DocSection[] = [
                 recognized participation and future opportunity.
               </p>
 
-              <div className="mt-5 inline-flex rounded-full border border-cyan-300/20 bg-black/20 px-4 py-2 text-xs font-semibold text-cyan-100">
-                Copyable idea: Existing value can become future opportunity.
+              <div className="mt-5">
+                <InsightQuote>
+                  Existing value can become future opportunity.
+                </InsightQuote>
               </div>
             </div>
           </div>
@@ -695,8 +698,10 @@ export const DOC_SECTIONS: DocSection[] = [
                 into a single participation lifecycle.
               </p>
 
-              <div className="mt-5 inline-flex rounded-full border border-indigo-300/20 bg-black/20 px-4 py-2 text-xs font-semibold text-indigo-100">
-                Copyable idea: Participation becomes recognition.
+              <div className="mt-5">
+                <InsightQuote>
+                  Participation becomes recognition.
+                </InsightQuote>
               </div>
             </div>
           </div>
@@ -930,8 +935,10 @@ export const DOC_SECTIONS: DocSection[] = [
                 ecosystem today.
               </p>
 
-              <div className="mt-5 inline-flex rounded-full border border-cyan-300/20 bg-black/20 px-4 py-2 text-xs font-semibold text-cyan-100">
-                Copyable idea: Economic reality matters more than popularity.
+              <div className="mt-5">
+                <InsightQuote>
+                  Economic reality matters more than popularity.
+                </InsightQuote>
               </div>
             </div>
           </div>
