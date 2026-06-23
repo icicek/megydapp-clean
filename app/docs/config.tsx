@@ -3405,19 +3405,19 @@ export const DOC_SECTIONS: DocSection[] = [
               The majority of MEGY supply is reserved for Coincarnation participants.
             </h3>
 
-            <div className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+            <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
               <div className="mx-auto flex flex-col items-center">
                 <div
-                  className="relative flex h-72 w-72 items-center justify-center rounded-full shadow-[0_0_70px_rgba(251,191,36,0.16)]"
+                  className="relative flex h-56 w-56 items-center justify-center rounded-full shadow-[0_0_70px_rgba(251,191,36,0.16)] sm:h-64 sm:w-64 lg:h-72 lg:w-72"
                   style={{
                     background:
                       "conic-gradient(#fbbf24 0deg 270deg, #a855f7 270deg 306deg, #22d3ee 306deg 324deg, #2dd4bf 324deg 342deg, #fb923c 342deg 360deg)",
                   }}
                 >
                   <div className="absolute inset-3 rounded-full border border-white/10" />
-                  <div className="flex h-36 w-36 items-center justify-center rounded-full border border-white/10 bg-zinc-950 text-center">
+                  <div className="flex h-28 w-28 items-center justify-center rounded-full border border-white/10 bg-zinc-950 text-center sm:h-32 sm:w-32 lg:h-36 lg:w-36">
                     <div>
-                      <div className="text-4xl font-black text-white">8B</div>
+                      <div className="text-3xl font-black text-white sm:text-4xl">8B</div>
                       <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
                         Total MEGY
                       </div>
