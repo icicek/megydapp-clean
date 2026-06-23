@@ -2109,11 +2109,225 @@ export const DOC_SECTIONS: DocSection[] = [
       "A transparent record of recognized contributions and reversals.",
     Content: () => (
       <>
-        <p>
-          The Proof Ledger records recognized ecosystem activity such as
-          Coincarnation contributions, referrals, sharing activity, deadcoin
-          recognition, and future contribution categories.
-        </p>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-indigo-500/10 to-purple-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/80">
+                Proof Ledger
+              </p>
+
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                Recognition should be visible, traceable, and accountable.
+              </h3>
+
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                Proof Ledger records recognized contributions and their impact on
+                CorePoints. It provides transparency, auditability, and the ability
+                to correct or reverse recognition when necessary.
+              </p>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  Recognition should be visible, traceable, and reversible when necessary.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
+
+          {/* Ledger Flow */}
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+              Recognition flow
+            </p>
+
+            <h3 className="mt-1 text-lg font-semibold">
+              From contribution to opportunity
+            </h3>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-5">
+              {[
+                ["Contribution", "An eligible activity occurs"],
+                ["Proof Ledger Entry", "Activity is recorded"],
+                ["CorePoints", "Recognition is quantified"],
+                ["PVC", "Contribution accumulates"],
+                ["Opportunity", "Participation may unlock future access"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/25 p-4 text-center"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* What gets recorded */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Ledger events
+              </p>
+
+              <h3 className="mt-1 text-lg font-semibold">
+                Activities that may affect CorePoints
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Activity</th>
+                    <th className="px-4 py-3 text-left">Ledger Effect</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {[
+                    ["Coincarnation", "CP Added"],
+                    ["Referral", "CP Added"],
+                    ["Sharing Activity", "CP Added"],
+                    ["Deadcoin Recognition", "CP Added"],
+                    ["Blacklisted Contribution", "CP Reversed"],
+                    ["Confirmed Manipulation", "CP Removed"],
+                  ].map(([a, b]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 font-semibold">{a}</td>
+                      <td className="px-4 py-3 text-white/70">{b}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Accountability Layer */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+                Accountability layer
+              </p>
+
+              <blockquote className="mt-4 text-xl font-bold leading-snug">
+                Recognition without accountability eventually loses credibility.
+              </blockquote>
+
+              <p className="mt-4 text-sm leading-relaxed text-white/65">
+                Proof Ledger is not only a record of earned recognition. It is also
+                a framework for maintaining integrity across the ecosystem.
+              </p>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  Recognition + Transparency + Reversal Logic = Proof Ledger
+                </InsightQuote>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Integrity process
+              </p>
+
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="text-center text-xl font-black">
+                  Valid Contribution
+                </div>
+
+                <div className="my-3 text-center text-2xl text-cyan-200/50">
+                  ↓
+                </div>
+
+                <div className="text-center text-xl font-black">Recorded</div>
+
+                <div className="my-3 text-center text-2xl text-white/20">
+                  ···
+                </div>
+
+                <div className="text-center text-xl font-black">
+                  Invalid Activity
+                </div>
+
+                <div className="my-3 text-center text-2xl text-red-200/50">
+                  ↓
+                </div>
+
+                <div className="text-center text-xl font-black">Reviewed</div>
+
+                <div className="my-3 text-center text-2xl text-red-200/50">
+                  ↓
+                </div>
+
+                <div className="text-center text-xl font-black">
+                  Adjusted or Reversed
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Why it matters */}
+          <div className="overflow-hidden rounded-3xl border border-purple-400/20 bg-purple-400/5">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+                Why it matters
+              </p>
+
+              <h3 className="mt-1 text-lg font-semibold">
+                Trust requires an auditable recognition history
+              </h3>
+            </div>
+
+            <div className="grid gap-4 p-5 md:grid-cols-3">
+              {[
+                [
+                  "Transparency",
+                  "Participants can understand how recognition was created.",
+                ],
+                [
+                  "Auditability",
+                  "Recognition events remain visible and reviewable.",
+                ],
+                [
+                  "Correction",
+                  "Improper recognition can be adjusted when necessary.",
+                ],
+              ].map(([title, desc]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <p className="mt-2 text-xs leading-relaxed text-white/60">
+                    {desc}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Final */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-indigo-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              Trust principle
+            </p>
+
+            <blockquote className="mt-3 text-2xl font-black leading-tight">
+              Proof Ledger protects both recognition and trust.
+            </blockquote>
+
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              The purpose of the ledger is not merely to track activity. Its purpose
+              is to ensure that recognized contribution remains transparent,
+              reviewable, and credible over time.
+            </p>
+          </div>
+        </section>
       </>
     ),
   },
