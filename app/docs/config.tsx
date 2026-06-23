@@ -3333,33 +3333,35 @@ export const DOC_SECTIONS: DocSection[] = [
             </h3>
 
             <div className="mt-6 grid gap-5 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
-              <div className="relative mx-auto flex h-64 w-64 items-center justify-center rounded-full border border-amber-300/20 bg-black/30">
-                <div className="absolute inset-4 rounded-full border border-purple-300/20" />
-                <div className="absolute inset-10 rounded-full border border-cyan-300/20" />
-                <div className="absolute h-28 w-28 rounded-full bg-gradient-to-br from-amber-400/25 to-purple-400/20 blur-xl" />
+              <div className="flex justify-center">
+                <div className="relative mx-auto flex h-64 w-64 shrink-0 items-center justify-center rounded-full border border-amber-300/20 bg-black/30">
+                  <div className="absolute inset-4 rounded-full border border-purple-300/20" />
+                  <div className="absolute inset-10 rounded-full border border-cyan-300/20" />
+                  <div className="absolute h-28 w-28 rounded-full bg-gradient-to-br from-amber-400/25 to-purple-400/20 blur-xl" />
 
-                <div className="relative flex h-32 w-32 items-center justify-center rounded-full border border-amber-300/30 bg-black/60 text-center shadow-[0_0_50px_rgba(251,191,36,0.18)]">
-                  <div>
-                    <div className="text-2xl font-black text-amber-100">MEGY</div>
-                    <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/45">
-                      Economy
+                  <div className="relative flex h-32 w-32 items-center justify-center rounded-full border border-amber-300/30 bg-black/60 text-center shadow-[0_0_50px_rgba(251,191,36,0.18)]">
+                    <div>
+                      <div className="text-2xl font-black text-amber-100">MEGY</div>
+                      <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/45">
+                        Economy
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {[
-                  ["Incentives", "top-2 left-1/2 -translate-x-1/2"],
-                  ["Liquidity", "right-0 top-1/2 -translate-y-1/2"],
-                  ["Access", "bottom-2 left-1/2 -translate-x-1/2"],
-                  ["Governance", "left-0 top-1/2 -translate-y-1/2"],
-                ].map(([label, pos]) => (
-                  <div
-                    key={label}
-                    className={`absolute ${pos} rounded-full border border-white/10 bg-black/60 px-3 py-2 text-[11px] font-semibold text-white/70`}
-                  >
-                    {label}
-                  </div>
-                ))}
+                  {[
+                    ["Incentives", "top-2 left-1/2 -translate-x-1/2"],
+                    ["Liquidity", "right-0 top-1/2 -translate-y-1/2"],
+                    ["Access", "bottom-2 left-1/2 -translate-x-1/2"],
+                    ["Governance", "left-0 top-1/2 -translate-y-1/2"],
+                  ].map(([label, pos]) => (
+                    <div
+                      key={label}
+                      className={`absolute ${pos} rounded-full border border-white/10 bg-black/60 px-3 py-2 text-[10px] font-semibold text-white/70 sm:text-[11px]`}
+                    >
+                      {label}
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
