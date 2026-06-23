@@ -3903,11 +3903,266 @@ export const DOC_SECTIONS: DocSection[] = [
       "PVC-weighted participation, fund decisions, distribution policy, and ecosystem governance.",
     Content: () => (
       <>
-        <p>
-          Influence within the ecosystem should not emerge solely from capital
-          ownership. Participation, contribution, and value creation may also
-          deserve representation.
-        </p>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 via-indigo-500/10 to-cyan-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-200/80">
+                Governance
+              </p>
+
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                Governance turns community participation into accountable system evolution.
+              </h3>
+
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                Coincarnation governance is designed to guide classification rules,
+                Proof of Value evolution, PVC usage, MEGY economics, and Fair Future
+                Fund oversight through transparent, reviewable, and rule-based processes.
+              </p>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  Governance should expand participation without weakening accountability.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
+
+          {/* Governance pillars */}
+          <div className="grid gap-4 md:grid-cols-3">
+            {[
+              [
+                "Participation",
+                "The community should have meaningful channels to shape ecosystem evolution.",
+              ],
+              [
+                "Accountability",
+                "Governance decisions must remain visible, reviewable, and protected from abuse.",
+              ],
+              [
+                "Adaptability",
+                "Rules should evolve as Coincarnation learns from real participation data.",
+              ],
+            ].map(([title, desc]) => (
+              <div
+                key={title}
+                className="rounded-3xl border border-white/10 bg-white/[0.03] p-5"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                  Governance pillar
+                </p>
+                <h3 className="mt-3 text-lg font-bold">{title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Governance scope */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Governance scope
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                What governance may influence over time
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Area</th>
+                    <th className="px-4 py-3 text-left">Governance role</th>
+                    <th className="px-4 py-3 text-left">Why it matters</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    [
+                      "Asset Classification",
+                      "Thresholds, review rules, and community classification paths",
+                      "Classification determines what can enter the ecosystem.",
+                    ],
+                    [
+                      "Proof of Value",
+                      "Contribution categories, recognition rules, and abuse safeguards",
+                      "PoV defines what the ecosystem chooses to recognize.",
+                    ],
+                    [
+                      "PVC Usage",
+                      "Future access, eligibility, governance weight, and opportunity logic",
+                      "PVC connects contribution history to future participation.",
+                    ],
+                    [
+                      "MEGY Economics",
+                      "Release logic, incentives, utility areas, and long-term alignment",
+                      "MEGY powers economic activity and must avoid extraction incentives.",
+                    ],
+                    [
+                      "Fair Future Fund",
+                      "Capital stewardship rules, risk limits, transparency, and oversight",
+                      "FFF manages the capital base behind future opportunity.",
+                    ],
+                  ].map(([a, b, c]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 font-semibold">{a}</td>
+                      <td className="px-4 py-3 text-white/70">{b}</td>
+                      <td className="px-4 py-3 text-white/70">{c}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Governance flow */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-purple-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              Governance flow
+            </p>
+
+            <h3 className="mt-1 text-lg font-semibold">
+              From proposal to accountable implementation
+            </h3>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {[
+                ["Proposal", "A change is suggested"],
+                ["Discussion", "Community evaluates impact"],
+                ["Decision", "Governance path is applied"],
+                ["Implementation", "Rules or parameters evolve"],
+                ["Review", "Outcomes remain observable"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs leading-relaxed text-white/55">
+                    {subtitle}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <blockquote className="mt-5 rounded-2xl border-l-4 border-cyan-300 bg-white/[0.04] p-5 text-lg font-semibold">
+              Governance is not only the right to change the system. It is the
+              responsibility to protect what the system recognizes.
+            </blockquote>
+          </div>
+
+          {/* What governance is / is not */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+                What governance should enable
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  "Community participation in protocol evolution",
+                  "Transparent rule changes",
+                  "Adaptive recognition and classification systems",
+                  "Oversight of long-term economic mechanisms",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-cyan-300/20 bg-black/20 px-4 py-3 text-sm text-white/80"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-200/70">
+                What governance should avoid
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  "Short-term voting pressure",
+                  "Opaque decision-making",
+                  "Manipulated participation",
+                  "Rule changes that weaken ecosystem trust",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-red-300/20 bg-black/20 px-4 py-3 text-sm text-white/75"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Progressive decentralization */}
+          <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+              Progressive decentralization
+            </p>
+
+            <h3 className="mt-1 text-lg font-semibold">
+              Governance should mature with the ecosystem.
+            </h3>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {[
+                [
+                  "Early Stage",
+                  "Core rules prioritize security, abuse prevention, and operational clarity.",
+                ],
+                [
+                  "Growth Stage",
+                  "More parameters may open to community review, voting, and structured feedback.",
+                ],
+                [
+                  "Mature Stage",
+                  "Governance may expand across classification, PoV, PVC, MEGY, and FFF oversight.",
+                ],
+              ].map(([title, desc]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-5"
+                >
+                  <div className="text-sm font-bold text-cyan-100">{title}</div>
+                  <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5">
+              <InsightQuote>
+                Decentralization should be earned through reliability, not rushed through slogans.
+              </InsightQuote>
+            </div>
+          </div>
+
+          {/* Final */}
+          <div className="rounded-3xl border border-purple-400/20 bg-black/30 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+              Governance principle
+            </p>
+
+            <blockquote className="mt-3 text-2xl font-black leading-tight">
+              The community should help shape Coincarnation, but the system must protect
+              itself from manipulation, capture, and short-term extraction.
+            </blockquote>
+
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              Coincarnation governance is therefore designed as a balance between
+              participation and protection: broad enough to evolve, but disciplined
+              enough to preserve trust.
+            </p>
+          </div>
+        </section>
       </>
     ),
   },
@@ -3925,30 +4180,263 @@ export const DOC_SECTIONS: DocSection[] = [
       "Classification safeguards, redlist/blacklist controls, transparency, and abuse prevention.",
     Content: () => (
       <>
-        <div className="overflow-x-auto my-4">
-          <table className="w-full border-collapse border border-white/10 text-sm">
-            <thead className="bg-white/5">
-              <tr>
-                <th className="border border-white/10 px-3 py-2 text-left">Risk</th>
-                <th className="border border-white/10 px-3 py-2 text-left">Safeguard</th>
-              </tr>
-            </thead>
-            <tbody>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-red-400/20 bg-gradient-to-br from-red-500/10 via-purple-500/10 to-cyan-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-red-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-red-200/80">
+                Risk Management & Safeguards
+              </p>
+
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                Coincarnation must recognize contribution without rewarding abuse.
+              </h3>
+
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                Risk management protects the credibility of Coincarnation, Proof of
+                Value, PVC, MEGY, and Fair Future Fund. The system is designed to be
+                participatory, but participation must remain accountable, reviewable,
+                and protected from manipulation.
+              </p>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  Recognition without safeguards becomes an invitation to manipulation.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
+
+          {/* Risk pillars */}
+          <div className="grid gap-4 md:grid-cols-3">
+            {[
+              [
+                "Participation Risk",
+                "Users may attempt to manipulate contribution signals, referrals, voting, or reward mechanisms.",
+              ],
+              [
+                "Economic Risk",
+                "Liquidity, incentives, emissions, and treasury decisions may create instability if poorly managed.",
+              ],
+              [
+                "Governance Risk",
+                "Community processes may be captured, rushed, or used to weaken system integrity.",
+              ],
+            ].map(([title, desc]) => (
+              <div
+                key={title}
+                className="rounded-3xl border border-white/10 bg-white/[0.03] p-5"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                  Risk category
+                </p>
+                <h3 className="mt-3 text-lg font-bold">{title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Safeguard architecture */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-red-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              Safeguard architecture
+            </p>
+
+            <h3 className="mt-1 text-lg font-semibold">
+              Every recognition layer needs a protection layer.
+            </h3>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               {[
-                ["Asset Misclassification", "Community Classification"],
-                ["Malicious Participation", "Redlist / Blacklist"],
-                ["Governance Concentration", "PVC-Based Participation"],
-                ["Treasury Mismanagement", "Transparency & Reporting"],
-                ["Ecosystem Manipulation", "Community Oversight"],
-              ].map(([a, b]) => (
-                <tr key={a}>
-                  <td className="border border-white/10 px-3 py-2">{a}</td>
-                  <td className="border border-white/10 px-3 py-2">{b}</td>
-                </tr>
+                ["Identity Layer", "Limits duplicate abuse"],
+                ["Proof Ledger", "Creates auditability"],
+                ["Classification", "Controls asset eligibility"],
+                ["Governance", "Reviews rule changes"],
+                ["Risk Controls", "Protects capital and trust"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs leading-relaxed text-white/55">
+                    {subtitle}
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+
+            <blockquote className="mt-5 rounded-2xl border-l-4 border-cyan-300 bg-white/[0.04] p-5 text-lg font-semibold">
+              The system should make honest participation easier than manipulation.
+            </blockquote>
+          </div>
+
+          {/* Risk matrix */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Risk matrix
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                Key risks and safeguard responses
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Risk</th>
+                    <th className="px-4 py-3 text-left">Potential harm</th>
+                    <th className="px-4 py-3 text-left">Safeguard</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    [
+                      "Sybil behavior",
+                      "Multiple accounts may attempt to multiply rewards or influence.",
+                      "Identity-based participation limits and reviewable activity records.",
+                    ],
+                    [
+                      "Referral abuse",
+                      "Users may create artificial referral loops.",
+                      "Identity-wide referral logic, validation, and suspicious pattern review.",
+                    ],
+                    [
+                      "Fake contribution",
+                      "Low-quality or manipulated actions may seek recognition.",
+                      "Proof Ledger auditability, rule-based recognition, and correction paths.",
+                    ],
+                    [
+                      "Asset manipulation",
+                      "Weak assets may be presented as economically meaningful.",
+                      "Classification rules, deadcoin logic, redlist, blacklist, and review systems.",
+                    ],
+                    [
+                      "Governance capture",
+                      "Short-term actors may push harmful rule changes.",
+                      "Progressive decentralization, thresholds, review periods, and safeguards.",
+                    ],
+                    [
+                      "Treasury risk",
+                      "Capital may be exposed to poor allocation or unmanaged volatility.",
+                      "Fair Future Fund risk limits, transparency, and governance oversight.",
+                    ],
+                  ].map(([a, b, c]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 font-semibold">{a}</td>
+                      <td className="px-4 py-3 text-white/70">{b}</td>
+                      <td className="px-4 py-3 text-white/70">{c}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Redlist / Blacklist */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-orange-400/20 bg-orange-400/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-200/70">
+                Redlist
+              </p>
+
+              <h3 className="mt-3 text-lg font-bold">
+                Restricts future participation without necessarily reversing history.
+              </h3>
+
+              <p className="mt-3 text-sm leading-relaxed text-white/65">
+                Redlist status may prevent future Coincarnation of an asset or actor
+                while preserving valid historical records when reversal is not justified.
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-200/70">
+                Blacklist
+              </p>
+
+              <h3 className="mt-3 text-lg font-bold">
+                Enables stronger restriction and potential recognition reversal.
+              </h3>
+
+              <p className="mt-3 text-sm leading-relaxed text-white/65">
+                Blacklist status may block future participation and may also trigger
+                reversal of past recognition when contribution is proven invalid,
+                harmful, or abusive.
+              </p>
+            </div>
+          </div>
+
+          {/* What safeguards protect */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+                Safeguards should protect
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  "Credibility of Proof of Value",
+                  "Integrity of PVC history",
+                  "Fairness of MEGY distribution",
+                  "Capital stewardship of Fair Future Fund",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-cyan-300/20 bg-black/20 px-4 py-3 text-sm text-white/80"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-200/70">
+                Safeguards should prevent
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  "Reward farming",
+                  "Manipulated governance",
+                  "Artificial contribution loops",
+                  "Capital and reputation abuse",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-red-300/20 bg-black/20 px-4 py-3 text-sm text-white/75"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Final */}
+          <div className="rounded-3xl border border-red-400/20 bg-black/30 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-100/70">
+              Risk principle
+            </p>
+
+            <blockquote className="mt-3 text-2xl font-black leading-tight">
+              Coincarnation can only recognize value credibly if it can also reject,
+              restrict, or reverse what violates the system.
+            </blockquote>
+
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              Risk management is therefore not a separate layer from the economic
+              design. It is part of the design itself: protecting participants, capital,
+              reputation, governance, and the long-term legitimacy of the ecosystem.
+            </p>
+          </div>
+        </section>
       </>
     ),
   },
@@ -3966,10 +4454,275 @@ export const DOC_SECTIONS: DocSection[] = [
       "Near-term launch phases and long-term capability-based development.",
     Content: () => (
       <>
-        <p>
-          Coincarnation is designed as a long-term economic experiment rather
-          than a short-term product launch.
-        </p>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-amber-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/80">
+                Roadmap
+              </p>
+
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                Coincarnation does not end with a token launch.
+              </h3>
+
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                The roadmap is divided into two layers: a near-term Coincarnation
+                Roadmap that validates the full user cycle, and a long-term Vision
+                Roadmap that expands Coincarnation into a broader value economy.
+              </p>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  The token launch is not the destination. It is the beginning of a larger economic system.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
+
+          {/* Two roadmap layers */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+                Roadmap I
+              </p>
+              <h3 className="mt-3 text-lg font-bold">Coincarnation Roadmap</h3>
+              <p className="mt-3 text-sm leading-relaxed text-white/65">
+                The near-term roadmap focuses on launching the first real phases,
+                validating the complete user journey, minting MEGY, enabling claims,
+                and preparing public market access.
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-purple-300/20 bg-purple-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-200/70">
+                Roadmap II
+              </p>
+              <h3 className="mt-3 text-lg font-bold">Long-Term Vision Roadmap</h3>
+              <p className="mt-3 text-sm leading-relaxed text-white/65">
+                The long-term roadmap focuses on global participation, Fair Future
+                Fund formation, PVC utility expansion, and Proof of Value adoption
+                beyond Coincarnation itself.
+              </p>
+            </div>
+          </div>
+
+          {/* Short-term roadmap */}
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+            <div className="absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Coincarnation Roadmap
+              </p>
+
+              <h3 className="mt-1 text-lg font-semibold">
+                From first real participation to public MEGY access
+              </h3>
+
+              <div className="mt-6 space-y-4">
+                {[
+                  [
+                    "01",
+                    "Genesis Phase",
+                    "The first real Coincarnation phase opens. Early participants test the live experience, identity layer, Proof Ledger, CorePoints, and PVC formation.",
+                  ],
+                  [
+                    "02",
+                    "Expansion Phase",
+                    "The second phase increases participation, tests broader community behavior, validates referral flows, and strengthens operational reliability.",
+                  ],
+                  [
+                    "03",
+                    "MEGY Genesis",
+                    "After the second phase is successfully completed, MEGY is minted and the economic asset layer of Coincarnation formally begins.",
+                  ],
+                  [
+                    "04",
+                    "Full Cycle Validation",
+                    "The third phase opens. Initial claim flows are activated, allowing the system to test the complete user journey from contribution to claim.",
+                  ],
+                  [
+                    "05",
+                    "Public Market Access",
+                    "After the full cycle is validated, MEGY is prepared for DEX listing so the ecosystem asset can become publicly accessible.",
+                  ],
+                ].map(([step, title, desc]) => (
+                  <div
+                    key={step}
+                    className="grid gap-4 rounded-2xl border border-white/10 bg-black/25 p-4 sm:grid-cols-[auto_1fr]"
+                  >
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-sm font-black text-cyan-100">
+                      {step}
+                    </div>
+
+                    <div>
+                      <h4 className="text-base font-bold">{title}</h4>
+                      <p className="mt-2 text-sm leading-relaxed text-white/65">
+                        {desc}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 rounded-2xl border-l-4 border-cyan-300 bg-white/[0.04] p-5">
+                <blockquote className="text-lg font-semibold leading-relaxed">
+                  The near-term goal is not only to launch MEGY, but to prove that
+                  Coincarnation can operate as a complete, end-to-end participation
+                  system.
+                </blockquote>
+              </div>
+            </div>
+          </div>
+
+          {/* Long-term roadmap */}
+          <div className="relative overflow-hidden rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 via-black/30 to-cyan-500/10 p-6">
+            <div className="absolute -left-24 top-1/3 h-64 w-64 rounded-full bg-purple-400/10 blur-3xl" />
+            <div className="absolute -right-24 bottom-0 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+                Long-Term Vision Roadmap
+              </p>
+
+              <h3 className="mt-1 text-lg font-semibold">
+                From a working protocol to a global value economy
+              </h3>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                {[
+                  [
+                    "Global Participation Expansion",
+                    "Coincarnation expands beyond early users through education, community building, marketing, partnerships, and broader crypto investor participation.",
+                  ],
+                  [
+                    "Fair Future Fund Formation",
+                    "After meaningful participation and significant Coincarnated value, the Fair Future Fund is formed with professional capital stewardship and governance oversight.",
+                  ],
+                  [
+                    "First Fund Distribution",
+                    "FFF reaches its first major validation point when capital management produces a distributable result under transparent rules.",
+                  ],
+                  [
+                    "PVC Utility Network",
+                    "PVC evolves from contribution history into a practical utility layer for access, transactions, services, and third-party ecosystem opportunities.",
+                  ],
+                  [
+                    "Open Proof of Value Ecosystem",
+                    "Proof of Value expands beyond Coincarnation, allowing new verified contribution sources to generate PVC under governed recognition rules.",
+                  ],
+                  [
+                    "Global Value Economy",
+                    "Coincarnation matures into a broader economic system where capital formation, contribution recognition, and opportunity distribution reinforce each other.",
+                  ],
+                ].map(([title, desc]) => (
+                  <div
+                    key={title}
+                    className="rounded-2xl border border-white/10 bg-black/25 p-5"
+                  >
+                    <div className="text-sm font-bold text-cyan-100">{title}</div>
+                    <p className="mt-3 text-sm leading-relaxed text-white/65">
+                      {desc}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6">
+                <InsightQuote>
+                  Coincarnation is designed as an expanding economic framework, not a project with a final endpoint.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
+
+          {/* Milestone logic */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Milestone logic
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                Roadmap stages should be unlocked by validation, not arbitrary dates
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Stage</th>
+                    <th className="px-4 py-3 text-left">Validation signal</th>
+                    <th className="px-4 py-3 text-left">Why it matters</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    [
+                      "Early phases",
+                      "Real users complete Coincarnation flows",
+                      "The protocol proves that participation can be recognized in practice.",
+                    ],
+                    [
+                      "MEGY mint",
+                      "Phase 2 is successfully completed",
+                      "The economic asset layer begins after initial system validation.",
+                    ],
+                    [
+                      "Claim activation",
+                      "Full cycle testing becomes possible",
+                      "Contribution, PVC, MEGY, and claims can be tested end-to-end.",
+                    ],
+                    [
+                      "DEX listing",
+                      "System reliability and claim mechanics are validated",
+                      "MEGY becomes publicly accessible after the core loop works.",
+                    ],
+                    [
+                      "FFF formation",
+                      "Meaningful participation and significant Coincarnated value exist",
+                      "Capital stewardship begins when there is enough capital and responsibility.",
+                    ],
+                    [
+                      "PVC expansion",
+                      "Governed utility partners and verified use cases emerge",
+                      "PVC moves from recognition history toward practical ecosystem utility.",
+                    ],
+                  ].map(([a, b, c]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 font-semibold">{a}</td>
+                      <td className="px-4 py-3 text-white/70">{b}</td>
+                      <td className="px-4 py-3 text-white/70">{c}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Final */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-black/30 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              Roadmap principle
+            </p>
+
+            <blockquote className="mt-3 text-2xl font-black leading-tight">
+              Coincarnation should advance when the system is ready, not when a date
+              demands it.
+            </blockquote>
+
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              This roadmap is intentionally milestone-based. The objective is to build
+              a system that can earn trust through validation, expand through real
+              participation, and evolve through governance rather than short-term launch
+              pressure.
+            </p>
+          </div>
+        </section>
       </>
     ),
   },
