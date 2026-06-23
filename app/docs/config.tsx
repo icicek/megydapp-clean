@@ -4590,23 +4590,34 @@ export const DOC_SECTIONS: DocSection[] = [
                         "relative flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full border text-center",
                         stage.active
                           ? "border-cyan-300/60 bg-cyan-300/10 shadow-[0_0_35px_rgba(34,211,238,0.35)]"
-                          : "border-white/10 bg-black/30",
+                          : stage.status === "Next"
+                            ? "border-purple-300/50 bg-purple-300/10 shadow-[0_0_28px_rgba(168,85,247,0.25)]"
+                            : "border-white/10 bg-black/30",
                       ].join(" ")}
                     >
                       <div
                         className={[
                           "text-2xl font-black",
-                        
+
                           stage.active
                             ? "text-cyan-100"
                             : stage.status === "Next"
-                            ? "text-purple-100"
-                            : "text-white/45",
+                              ? "text-purple-100"
+                              : "text-white/45",
                         ].join(" ")}
                       >
                         {stage.no}
                       </div>
-                      <div className="mt-1 text-[9px] font-bold uppercase leading-tight tracking-wide text-white/45">
+                      <div
+                        className={[
+                          "mt-1 text-[9px] font-bold uppercase leading-tight tracking-wide",
+                          stage.active
+                            ? "text-cyan-100/70"
+                            : stage.status === "Next"
+                              ? "text-purple-100/70"
+                              : "text-white/35",
+                        ].join(" ")}
+                      >
                         {stage.status}
                       </div>
                     </div>
@@ -4617,7 +4628,9 @@ export const DOC_SECTIONS: DocSection[] = [
                       "relative overflow-hidden rounded-3xl border p-5",
                       stage.active
                         ? "border-cyan-300/30 bg-gradient-to-br from-cyan-500/10 via-black/30 to-emerald-500/10"
-                        : "border-white/10 bg-black/25",
+                        : stage.status === "Next"
+                          ? "border-purple-300/25 bg-gradient-to-br from-purple-500/10 via-black/25 to-black/30"
+                          : "border-white/10 bg-black/25",
                     ].join(" ")}
                   >
                     {stage.active && (
@@ -4625,6 +4638,9 @@ export const DOC_SECTIONS: DocSection[] = [
                         <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
                         <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-emerald-400/10 blur-3xl" />
                       </>
+                    )}
+                    {stage.status === "Next" && (
+                      <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
                     )}
 
                     <div className="relative">
