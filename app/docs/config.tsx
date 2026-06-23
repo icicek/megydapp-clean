@@ -4628,9 +4628,14 @@ export const DOC_SECTIONS: DocSection[] = [
                         <p
                           className={[
                             "rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]",
+
                             stage.active
                               ? "border-cyan-300/30 bg-cyan-300/10 text-cyan-100"
-                              : "border-white/10 bg-white/[0.03] text-white/35",
+
+                              : stage.status === "Next"
+                                ? "border-purple-300/30 bg-purple-300/10 text-purple-100"
+
+                                : "border-white/10 bg-white/[0.03] text-white/35",
                           ].join(" ")}
                         >
                           {stage.status}
