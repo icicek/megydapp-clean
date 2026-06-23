@@ -2540,13 +2540,223 @@ export const DOC_SECTIONS: DocSection[] = [
       "PVC as accumulated recognized contribution, economic identity, and future rights framework.",
     Content: () => (
       <>
-        <p>
-          Personal Value Currency (PVC) represents an individual&apos;s
-          accumulated and recognized contribution within the Proof of Value
-          framework. Over time, PVC may serve as a foundation for governance
-          participation, opportunity access, ecosystem benefits, and future
-          economic rights.
-        </p>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 via-indigo-500/10 to-cyan-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-200/80">
+                Personal Value Currency
+              </p>
+
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                PVC is accumulated recognized contribution.
+              </h3>
+
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                Personal Value Currency represents the contribution history recognized
+                through Proof of Value. It is not a replacement for money, not a market
+                token, and not a measure of human worth. It is a personal economic layer
+                built from verified participation.
+              </p>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  PVC does not define who a person is. It records what the ecosystem has recognized.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
+
+          {/* Definition cards */}
+          <div className="grid gap-4 md:grid-cols-3">
+            {[
+              [
+                "Accumulation",
+                "PVC grows through recognized contribution recorded by the Proof Ledger.",
+              ],
+              [
+                "Identity",
+                "PVC belongs to an economic identity rather than a single wallet address.",
+              ],
+              [
+                "Opportunity",
+                "PVC may support future access, governance, benefits, and economic rights.",
+              ],
+            ].map(([title, desc]) => (
+              <div
+                key={title}
+                className="rounded-3xl border border-white/10 bg-white/[0.03] p-5"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                  PVC Layer
+                </p>
+                <h3 className="mt-3 text-lg font-bold">{title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* PVC flow */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-purple-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              PVC formation flow
+            </p>
+
+            <h3 className="mt-1 text-lg font-semibold">
+              From contribution recognition to personal value history
+            </h3>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-5">
+              {[
+                ["Action", "A participant contributes"],
+                ["Proof Ledger", "Contribution is recorded"],
+                ["CorePoints", "Recognition is quantified"],
+                ["PVC", "Recognized value accumulates"],
+                ["Future Access", "Opportunity may expand"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4 text-center"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* What PVC is / is not */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+                What PVC is
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  "A record of accumulated recognized contribution",
+                  "A personal value history inside the ecosystem",
+                  "A possible basis for future rights and access",
+                  "A bridge between contribution and opportunity",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-cyan-300/20 bg-black/20 px-4 py-3 text-sm text-white/80"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-200/70">
+                What PVC is not
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  "Not a measurement of human worth",
+                  "Not a traditional currency",
+                  "Not a guaranteed claim on future returns",
+                  "Not a substitute for accountability",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-red-300/20 bg-black/20 px-4 py-3 text-sm text-white/75"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* PVC utility table */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Potential utility
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                What PVC may support over time
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Area</th>
+                    <th className="px-4 py-3 text-left">Possible Role</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["Governance", "Contribution-weighted participation", "Future design area"],
+                    ["Opportunity Access", "Eligibility signal for ecosystem benefits", "Future design area"],
+                    ["Reputation", "Visible history of recognized contribution", "Core concept"],
+                    ["Economic Rights", "Potential basis for future distribution logic", "Subject to governance"],
+                  ].map(([a, b, c]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 font-semibold">{a}</td>
+                      <td className="px-4 py-3 text-white/70">{b}</td>
+                      <td className="px-4 py-3 text-white/70">{c}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* PVC vs MEGY */}
+          <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+              Important distinction
+            </p>
+
+            <h3 className="mt-1 text-lg font-semibold">
+              PVC and MEGY are complementary layers
+            </h3>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-purple-400/20 bg-purple-400/10 p-5">
+                <div className="text-sm font-bold text-purple-100">PVC</div>
+                <p className="mt-3 text-sm leading-relaxed text-white/65">
+                  Personal Value Currency reflects accumulated recognized contribution.
+                  It is personal, identity-based, and contribution-oriented.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-5">
+                <div className="text-sm font-bold text-cyan-100">MEGY</div>
+                <p className="mt-3 text-sm leading-relaxed text-white/65">
+                  MEGY is the ecosystem asset that supports broader economic activity,
+                  exchange, incentives, and participation across the network.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Final principle */}
+          <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+              Core principle
+            </p>
+            <blockquote className="mt-3 text-2xl font-black leading-tight">
+              PVC turns recognized contribution into a durable personal value history.
+            </blockquote>
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              The long-term purpose of PVC is to help the ecosystem remember who
+              contributed, how contribution was recognized, and how that recognition may
+              connect to future opportunity.
+            </p>
+          </div>
+        </section>
       </>
     ),
   },
@@ -2560,11 +2770,239 @@ export const DOC_SECTIONS: DocSection[] = [
       "How Proof of Value may expand into new measurable contribution categories.",
     Content: () => (
       <>
-        <p>
-          Coincarnation does not assume that value originates from a single
-          source. Therefore, the Proof of Value framework is designed to evolve as
-          new forms of contribution become measurable.
-        </p>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-indigo-500/10 to-purple-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/80">
+                Future PVC Sources
+              </p>
+
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                Proof of Value can evolve as new forms of contribution become measurable.
+              </h3>
+
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                Coincarnation does not assume that value originates from a single source.
+                Future PVC sources may expand beyond initial Coincarnation activity as
+                new forms of contribution become verifiable, accountable, and useful to
+                the ecosystem.
+              </p>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  The future may recognize more forms of value than the present.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
+
+          {/* Source categories */}
+          <div className="grid gap-4 md:grid-cols-3">
+            {[
+              [
+                "Current Sources",
+                "Already measurable",
+                "Coincarnation activity, referrals, sharing, and recognized deadcoin contribution.",
+              ],
+              [
+                "Emerging Sources",
+                "Under design",
+                "Useful ecosystem actions that can be verified without creating abuse incentives.",
+              ],
+              [
+                "Future Sources",
+                "Governance-dependent",
+                "New contribution categories that may be added through community and protocol evolution.",
+              ],
+            ].map(([label, title, desc]) => (
+              <div
+                key={label}
+                className="rounded-3xl border border-white/10 bg-white/[0.03] p-5"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                  {label}
+                </p>
+                <h3 className="mt-3 text-lg font-bold">{title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Evolution flow */}
+          <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+              Expansion logic
+            </p>
+
+            <h3 className="mt-1 text-lg font-semibold">
+              A contribution type should mature before becoming a PVC source
+            </h3>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-5">
+              {[
+                ["Observed Action", "A useful behavior appears"],
+                ["Measurement", "The action becomes measurable"],
+                ["Verification", "Abuse resistance is tested"],
+                ["Recognition", "PoV rules define value"],
+                ["PVC Source", "Contribution may accumulate"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4 text-center"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Future source matrix */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Future source matrix
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                Possible future contribution categories
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Source</th>
+                    <th className="px-4 py-3 text-left">What it may recognize</th>
+                    <th className="px-4 py-3 text-left">Requirement</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    [
+                      "Ecosystem Building",
+                      "Useful actions that expand adoption, education, or participation",
+                      "Measurable impact",
+                    ],
+                    [
+                      "Governance Participation",
+                      "Constructive voting, review, and protocol improvement activity",
+                      "Identity-based accountability",
+                    ],
+                    [
+                      "Knowledge Contribution",
+                      "Documentation, analysis, research, or educational contribution",
+                      "Quality validation",
+                    ],
+                    [
+                      "Community Support",
+                      "Helping users understand, participate, and avoid harmful behavior",
+                      "Abuse-resistant tracking",
+                    ],
+                    [
+                      "Capital Stewardship",
+                      "Actions that support long-term ecosystem sustainability",
+                      "Transparent verification",
+                    ],
+                  ].map(([a, b, c]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 font-semibold">{a}</td>
+                      <td className="px-4 py-3 text-white/70">{b}</td>
+                      <td className="px-4 py-3 text-white/70">{c}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Guardrails */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+                Expansion principle
+              </p>
+
+              <blockquote className="mt-4 text-xl font-bold leading-snug">
+                A new PVC source should be useful, measurable, verifiable, and aligned
+                with long-term ecosystem value.
+              </blockquote>
+
+              <p className="mt-4 text-sm leading-relaxed text-white/65">
+                The goal is not to reward every action. The goal is to recognize
+                contribution types that strengthen the ecosystem without weakening trust.
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-200/70">
+                What should not become a PVC source
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  "Pure noise or spam",
+                  "Unverified claims of contribution",
+                  "Manipulated activity loops",
+                  "Actions that create short-term metrics but long-term harm",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-red-300/20 bg-black/20 px-4 py-3 text-sm text-white/75"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Governance note */}
+          <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+              Governance dependency
+            </p>
+
+            <h3 className="mt-1 text-lg font-semibold">
+              Future PVC sources should not be added casually.
+            </h3>
+
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              Each new source changes the meaning of PVC. For that reason, future
+              categories should pass through protocol review, abuse testing, community
+              discussion, and governance approval before becoming part of the official
+              Proof of Value framework.
+            </p>
+
+            <div className="mt-5">
+              <InsightQuote>
+                Expanding recognition also expands responsibility.
+              </InsightQuote>
+            </div>
+          </div>
+
+          {/* Final principle */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-black/30 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              Future principle
+            </p>
+
+            <blockquote className="mt-3 text-2xl font-black leading-tight">
+              PVC should evolve carefully, because what a system recognizes will shape
+              what people are incentivized to do.
+            </blockquote>
+
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              Future PVC sources are therefore not merely feature additions. They are
+              incentive design decisions that determine which forms of contribution the
+              ecosystem chooses to remember.
+            </p>
+          </div>
+        </section>
       </>
     ),
   },
