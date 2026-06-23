@@ -3293,35 +3293,283 @@ export const DOC_SECTIONS: DocSection[] = [
       "MEGY supply, allocation philosophy, and Proof-of-Value-based release.",
     Content: () => (
       <>
-        <p>
-          MEGY enters circulation gradually as Proof of Value conditions are
-          satisfied across the ecosystem.
-        </p>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 via-purple-500/10 to-cyan-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-amber-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
 
-        <div className="overflow-x-auto my-4">
-          <table className="w-full border-collapse border border-white/10 text-sm">
-            <thead className="bg-white/5">
-              <tr>
-                <th className="border border-white/10 px-3 py-2 text-left">Allocation</th>
-                <th className="border border-white/10 px-3 py-2 text-right">%</th>
-              </tr>
-            </thead>
-            <tbody>
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-200/80">
+                Tokenomics
+              </p>
+
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                MEGY tokenomics is designed around participation, sustainability, and long-term ecosystem growth.
+              </h3>
+
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                Tokenomics defines how MEGY enters circulation, supports incentives,
+                enables liquidity, aligns participants, and protects the long-term
+                economic health of Coincarnation.
+              </p>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  Tokenomics is not only about supply. It is about economic behavior.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
+
+          {/* Tokenomics engine */}
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+              Economic engine
+            </p>
+
+            <h3 className="mt-1 text-lg font-semibold">
+              MEGY moves through a participation-driven system
+            </h3>
+
+            <div className="mt-6 grid gap-5 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+              <div className="relative mx-auto flex h-64 w-64 items-center justify-center rounded-full border border-amber-300/20 bg-black/30">
+                <div className="absolute inset-4 rounded-full border border-purple-300/20" />
+                <div className="absolute inset-10 rounded-full border border-cyan-300/20" />
+                <div className="absolute h-28 w-28 rounded-full bg-gradient-to-br from-amber-400/25 to-purple-400/20 blur-xl" />
+
+                <div className="relative flex h-32 w-32 items-center justify-center rounded-full border border-amber-300/30 bg-black/60 text-center shadow-[0_0_50px_rgba(251,191,36,0.18)]">
+                  <div>
+                    <div className="text-2xl font-black text-amber-100">MEGY</div>
+                    <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/45">
+                      Economy
+                    </div>
+                  </div>
+                </div>
+
+                {[
+                  ["Incentives", "top-2 left-1/2 -translate-x-1/2"],
+                  ["Liquidity", "right-0 top-1/2 -translate-y-1/2"],
+                  ["Access", "bottom-2 left-1/2 -translate-x-1/2"],
+                  ["Governance", "left-0 top-1/2 -translate-y-1/2"],
+                ].map(([label, pos]) => (
+                  <div
+                    key={label}
+                    className={`absolute ${pos} rounded-full border border-white/10 bg-black/60 px-3 py-2 text-[11px] font-semibold text-white/70`}
+                  >
+                    {label}
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  [
+                    "Participation",
+                    "MEGY enters the ecosystem through contribution, activity, and protocol-defined participation mechanisms.",
+                  ],
+                  [
+                    "Circulation",
+                    "MEGY supports economic movement across incentives, liquidity, access, and future utility areas.",
+                  ],
+                  [
+                    "Alignment",
+                    "The model should reward long-term ecosystem contribution rather than short-term extraction.",
+                  ],
+                  [
+                    "Sustainability",
+                    "Emission, incentives, and allocation should evolve with ecosystem health and governance.",
+                  ],
+                ].map(([title, desc]) => (
+                  <div
+                    key={title}
+                    className="rounded-2xl border border-white/10 bg-black/25 p-4"
+                  >
+                    <div className="text-sm font-bold">{title}</div>
+                    <p className="mt-3 text-xs leading-relaxed text-white/60">
+                      {desc}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Supply logic */}
+          <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+              Supply logic
+            </p>
+
+            <h3 className="mt-1 text-lg font-semibold">
+              MEGY supply should support ecosystem maturity, not short-term hype.
+            </h3>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
               {[
-                ["Coincarnation Rewards", "75"],
-                ["Fair Future Fund Reserve", "5"],
-                ["Liquidity", "5"],
-                ["Partnerships & Ecosystem Growth", "10"],
-                ["Team & Contributors", "5"],
-              ].map(([a, b]) => (
-                <tr key={a}>
-                  <td className="border border-white/10 px-3 py-2">{a}</td>
-                  <td className="border border-white/10 px-3 py-2 text-right">{b}</td>
-                </tr>
+                [
+                  "Reserved Capacity",
+                  "Supply reserved for ecosystem growth, future participation, and long-term strategic needs.",
+                ],
+                [
+                  "Active Circulation",
+                  "MEGY that moves through incentives, liquidity, campaigns, access, and participation.",
+                ],
+                [
+                  "Governance Control",
+                  "Future changes should be transparent, rule-based, and subject to ecosystem governance.",
+                ],
+              ].map(([title, desc]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-5"
+                >
+                  <div className="text-sm font-bold text-cyan-100">{title}</div>
+                  <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+
+            <div className="mt-5">
+              <InsightQuote>
+                A healthy token economy does not only ask how tokens are distributed. It asks why they should circulate.
+              </InsightQuote>
+            </div>
+          </div>
+
+          {/* Allocation architecture */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Allocation architecture
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                Core allocation areas
+              </h3>
+            </div>
+
+            <div className="grid gap-0 md:grid-cols-2">
+              {[
+                [
+                  "Community & Participation",
+                  "Rewards, campaigns, contribution incentives, and participation-based distribution.",
+                ],
+                [
+                  "Liquidity & Market Support",
+                  "Liquidity provisioning, market depth, and smoother ecosystem-level economic flow.",
+                ],
+                [
+                  "Ecosystem Growth",
+                  "Partnerships, integrations, product expansion, and adoption-oriented initiatives.",
+                ],
+                [
+                  "Treasury & Sustainability",
+                  "Long-term reserves designed to support future resilience and strategic flexibility.",
+                ],
+              ].map(([title, desc]) => (
+                <div
+                  key={title}
+                  className="border-t border-white/10 p-5 md:odd:border-r"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Release model */}
+          <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+              Release model
+            </p>
+
+            <h3 className="mt-1 text-lg font-semibold">
+              MEGY should be released through ecosystem logic, not arbitrary pressure.
+            </h3>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-4">
+              {[
+                ["Phase", "Distribution rules evolve through defined ecosystem phases."],
+                ["Participation", "Activity and contribution influence how MEGY enters use."],
+                ["Liquidity", "Circulation should be supported without destabilizing the system."],
+                ["Governance", "Future adjustments should remain transparent and accountable."],
+              ].map(([title, desc]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <p className="mt-3 text-xs leading-relaxed text-white/60">{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Tokenomics is not */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+                Tokenomics should create
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  "Useful circulation",
+                  "Long-term alignment",
+                  "Sustainable incentives",
+                  "Transparent economic rules",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-cyan-300/20 bg-black/20 px-4 py-3 text-sm text-white/80"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-200/70">
+                Tokenomics should avoid
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  "Unsustainable emissions",
+                  "Short-term extraction",
+                  "Opaque allocation logic",
+                  "Incentives that reward manipulation",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-red-300/20 bg-black/20 px-4 py-3 text-sm text-white/75"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Final */}
+          <div className="rounded-3xl border border-amber-400/20 bg-black/30 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-100/70">
+              Tokenomics principle
+            </p>
+
+            <blockquote className="mt-3 text-2xl font-black leading-tight">
+              MEGY tokenomics should make useful participation more valuable than passive speculation.
+            </blockquote>
+
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              The long-term purpose of MEGY tokenomics is to support an economy where
+              incentives, liquidity, access, and governance reinforce the broader
+              Coincarnation mission.
+            </p>
+          </div>
+        </section>
       </>
     ),
   },
