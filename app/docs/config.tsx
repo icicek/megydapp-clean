@@ -4455,271 +4455,286 @@ export const DOC_SECTIONS: DocSection[] = [
     Content: () => (
       <>
         <section className="space-y-8">
-          {/* Hero */}
-          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-amber-500/10 p-6">
-            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
-            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
+          {/* Roadmap hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-black p-6">
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
+            <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-purple-500/10 blur-3xl" />
 
-            <div className="relative">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/80">
-                Roadmap
-              </p>
+            <div className="relative grid gap-6 md:grid-cols-[1.1fr_0.9fr] md:items-center">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200/80">
+                  Roadmap
+                </p>
 
-              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
-                Coincarnation does not end with a token launch.
-              </h3>
+                <h3 className="mt-4 text-3xl font-black leading-tight md:text-5xl">
+                  A long-term journey built in stages.
+                </h3>
 
-              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
-                The roadmap is divided into two layers: a near-term Coincarnation
-                Roadmap that validates the full user cycle, and a long-term Vision
-                Roadmap that expands Coincarnation into a broader value economy.
-              </p>
+                <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                  Coincarnation evolves step by step. Each stage builds the foundation
+                  for the next one and expands the impact of the entire ecosystem.
+                </p>
+              </div>
 
-              <div className="mt-5">
+              <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
                 <InsightQuote>
-                  The token launch is not the destination. It is the beginning of a larger economic system.
+                  The roadmap is not a promise of dates. It is a commitment to build
+                  responsibly, validate thoroughly, and grow together.
                 </InsightQuote>
               </div>
             </div>
           </div>
 
-          {/* Two roadmap layers */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
-                Roadmap I
-              </p>
-              <h3 className="mt-3 text-lg font-bold">Coincarnation Roadmap</h3>
-              <p className="mt-3 text-sm leading-relaxed text-white/65">
-                The near-term roadmap focuses on launching the first real phases,
-                validating the complete user journey, minting MEGY, enabling claims,
-                and preparing public market access.
-              </p>
-            </div>
+          {/* Vertical roadmap */}
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-6">
+            <div className="absolute left-[45px] top-8 hidden h-[calc(100%-4rem)] w-px bg-gradient-to-b from-cyan-300 via-purple-300/40 to-white/10 md:block" />
 
-            <div className="rounded-3xl border border-purple-300/20 bg-purple-300/5 p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-200/70">
-                Roadmap II
-              </p>
-              <h3 className="mt-3 text-lg font-bold">Long-Term Vision Roadmap</h3>
-              <p className="mt-3 text-sm leading-relaxed text-white/65">
-                The long-term roadmap focuses on global participation, Fair Future
-                Fund formation, PVC utility expansion, and Proof of Value adoption
-                beyond Coincarnation itself.
-              </p>
-            </div>
-          </div>
-
-          {/* Short-term roadmap */}
-          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-            <div className="absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
-
-            <div className="relative">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
-                Coincarnation Roadmap
-              </p>
-
-              <h3 className="mt-1 text-lg font-semibold">
-                From first real participation to public MEGY access
-              </h3>
-
-              <div className="mt-6 space-y-4">
-                {[
-                  [
-                    "01",
-                    "Genesis Phase",
-                    "The first real Coincarnation phase opens. Early participants test the live experience, identity layer, Proof Ledger, CorePoints, and PVC formation.",
+            <div className="space-y-5">
+              {[
+                {
+                  no: "01",
+                  title: "Genesis Phase",
+                  status: "Active Stage",
+                  active: true,
+                  desc:
+                    "The first real phase of Coincarnation. Early participants experience the system, contribute, and help shape the foundation.",
+                  focus: [
+                    "Real users onboarding",
+                    "Identity activation",
+                    "Proof Ledger validation",
+                    "PVC formation",
+                    "CorePoints recognition",
                   ],
-                  [
-                    "02",
-                    "Expansion Phase",
-                    "The second phase increases participation, tests broader community behavior, validates referral flows, and strengthens operational reliability.",
+                  signals: [
+                    "Real Coincarnations completed",
+                    "PVCs are being generated",
+                    "Community engagement grows",
+                    "System runs reliably",
                   ],
-                  [
-                    "03",
-                    "MEGY Genesis",
-                    "After the second phase is successfully completed, MEGY is minted and the economic asset layer of Coincarnation formally begins.",
+                },
+                {
+                  no: "02",
+                  title: "Expansion Phase",
+                  status: "Locked",
+                  desc:
+                    "Broader participation begins. Referral flows, asset classification, community behavior, and governance tests strengthen the system.",
+                  focus: [
+                    "Broader participation",
+                    "Referral and community testing",
+                    "System resilience tests",
                   ],
-                  [
-                    "04",
-                    "Full Cycle Validation",
-                    "The third phase opens. Initial claim flows are activated, allowing the system to test the complete user journey from contribution to claim.",
-                  ],
-                  [
-                    "05",
-                    "Public Market Access",
-                    "After the full cycle is validated, MEGY is prepared for DEX listing so the ecosystem asset can become publicly accessible.",
-                  ],
-                ].map(([step, title, desc]) => (
-                  <div
-                    key={step}
-                    className="grid gap-4 rounded-2xl border border-white/10 bg-black/25 p-4 sm:grid-cols-[auto_1fr]"
-                  >
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-sm font-black text-cyan-100">
-                      {step}
+                },
+                {
+                  no: "03",
+                  title: "MEGY Genesis",
+                  status: "Locked",
+                  desc:
+                    "After successful completion of Phase 2, MEGY is minted and the economic asset layer of Coincarnation begins.",
+                  focus: ["MEGY minting", "Economic layer activation", "Tokenomics go live"],
+                },
+                {
+                  no: "04",
+                  title: "Full Cycle Validation",
+                  status: "Locked",
+                  desc:
+                    "Phase 3 opens. Claim flows are activated and the complete journey from contribution to claim is tested in real conditions.",
+                  focus: ["Claims activation", "End-to-end testing", "Cycle validation"],
+                },
+                {
+                  no: "05",
+                  title: "Public Market Access",
+                  status: "Locked",
+                  desc:
+                    "After full validation, MEGY becomes publicly accessible through DEX listings.",
+                  focus: ["DEX preparation", "Liquidity bootstrapping", "Market access"],
+                },
+                {
+                  no: "06",
+                  title: "Global Participation Expansion",
+                  status: "Locked",
+                  desc:
+                    "Coincarnation expands through education, marketing, partnerships, and global community growth.",
+                  focus: ["Global marketing", "Strategic partnerships", "Mass adoption"],
+                },
+                {
+                  no: "07",
+                  title: "Fair Future Fund Formation",
+                  status: "Locked",
+                  desc:
+                    "After meaningful participation and significant Coincarnated value, Fair Future Fund is established with professional governance.",
+                  focus: ["FFF establishment", "Capital stewardship", "First fund distribution"],
+                },
+                {
+                  no: "08",
+                  title: "PVC Utility Network",
+                  status: "Locked",
+                  desc:
+                    "PVC evolves into a practical utility layer for payments, access, services, subscriptions, and real-world transactions.",
+                  focus: ["Utility integrations", "Third-party adoption", "Real-world usage"],
+                },
+                {
+                  no: "09",
+                  title: "Proof of Value Ecosystem",
+                  status: "Locked",
+                  desc:
+                    "Proof of Value expands beyond Coincarnation. New verified contribution sources may generate PVC under governed recognition rules.",
+                  focus: ["External PoV sources", "Ecosystem expansion", "Global recognition layer"],
+                },
+              ].map((stage) => (
+                <div
+                  key={stage.no}
+                  className="grid gap-4 md:grid-cols-[90px_1fr] md:items-start"
+                >
+                  <div className="flex md:justify-center">
+                    <div
+                      className={[
+                        "relative flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full border text-center",
+                        stage.active
+                          ? "border-cyan-300/60 bg-cyan-300/10 shadow-[0_0_35px_rgba(34,211,238,0.35)]"
+                          : "border-white/10 bg-black/30",
+                      ].join(" ")}
+                    >
+                      <div
+                        className={[
+                          "text-2xl font-black",
+                          stage.active ? "text-cyan-100" : "text-white/45",
+                        ].join(" ")}
+                      >
+                        {stage.no}
+                      </div>
+                      <div className="mt-1 text-[9px] font-bold uppercase leading-tight tracking-wide text-white/45">
+                        {stage.status}
+                      </div>
                     </div>
+                  </div>
 
-                    <div>
-                      <h4 className="text-base font-bold">{title}</h4>
-                      <p className="mt-2 text-sm leading-relaxed text-white/65">
-                        {desc}
+                  <div
+                    className={[
+                      "relative overflow-hidden rounded-3xl border p-5",
+                      stage.active
+                        ? "border-cyan-300/30 bg-gradient-to-br from-cyan-500/10 via-black/30 to-emerald-500/10"
+                        : "border-white/10 bg-black/25",
+                    ].join(" ")}
+                  >
+                    {stage.active && (
+                      <>
+                        <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+                        <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-emerald-400/10 blur-3xl" />
+                      </>
+                    )}
+
+                    <div className="relative">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p
+                          className={[
+                            "rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]",
+                            stage.active
+                              ? "border-cyan-300/30 bg-cyan-300/10 text-cyan-100"
+                              : "border-white/10 bg-white/[0.03] text-white/35",
+                          ].join(" ")}
+                        >
+                          {stage.status}
+                        </p>
+                      </div>
+
+                      <h3 className="mt-3 text-xl font-black md:text-2xl">
+                        {stage.title}
+                      </h3>
+
+                      <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/65">
+                        {stage.desc}
                       </p>
+
+                      {stage.active ? (
+                        <div className="mt-5 space-y-4">
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                            {stage.focus.map((item) => (
+                              <div
+                                key={item}
+                                className="rounded-2xl border border-white/10 bg-black/25 p-4 text-center"
+                              >
+                                <div className="text-xs font-bold text-white/80">
+                                  {item}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                              <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-100/80">
+                                What we focus on
+                              </p>
+                              <div className="mt-3 space-y-2">
+                                {[
+                                  "Deliver seamless user experience",
+                                  "Validate core mechanics in a live environment",
+                                  "Build initial contribution and recognition data",
+                                  "Ensure system stability and security",
+                                ].map((x) => (
+                                  <div key={x} className="text-sm text-white/65">
+                                    ✓ {x}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                              <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-100/80">
+                                Success signals
+                              </p>
+                              <div className="mt-3 space-y-2">
+                                {stage.signals?.map((x) => (
+                                  <div key={x} className="text-sm text-white/65">
+                                    ✓ {x}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-3">
+                            <div className="h-2 min-w-[180px] flex-1 overflow-hidden rounded-full bg-white/10">
+                              <div className="h-full w-1/4 rounded-full bg-gradient-to-r from-cyan-300 to-emerald-300" />
+                            </div>
+                            <div className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-bold text-cyan-100">
+                              In Progress
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                          {stage.focus.map((item) => (
+                            <div
+                              key={item}
+                              className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-white/55"
+                            >
+                              {item}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
-                ))}
-              </div>
-
-              <div className="mt-6 rounded-2xl border-l-4 border-cyan-300 bg-white/[0.04] p-5">
-                <blockquote className="text-lg font-semibold leading-relaxed">
-                  The near-term goal is not only to launch MEGY, but to prove that
-                  Coincarnation can operate as a complete, end-to-end participation
-                  system.
-                </blockquote>
-              </div>
-            </div>
-          </div>
-
-          {/* Long-term roadmap */}
-          <div className="relative overflow-hidden rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 via-black/30 to-cyan-500/10 p-6">
-            <div className="absolute -left-24 top-1/3 h-64 w-64 rounded-full bg-purple-400/10 blur-3xl" />
-            <div className="absolute -right-24 bottom-0 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
-
-            <div className="relative">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
-                Long-Term Vision Roadmap
-              </p>
-
-              <h3 className="mt-1 text-lg font-semibold">
-                From a working protocol to a global value economy
-              </h3>
-
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                {[
-                  [
-                    "Global Participation Expansion",
-                    "Coincarnation expands beyond early users through education, community building, marketing, partnerships, and broader crypto investor participation.",
-                  ],
-                  [
-                    "Fair Future Fund Formation",
-                    "After meaningful participation and significant Coincarnated value, the Fair Future Fund is formed with professional capital stewardship and governance oversight.",
-                  ],
-                  [
-                    "First Fund Distribution",
-                    "FFF reaches its first major validation point when capital management produces a distributable result under transparent rules.",
-                  ],
-                  [
-                    "PVC Utility Network",
-                    "PVC evolves from contribution history into a practical utility layer for access, transactions, services, and third-party ecosystem opportunities.",
-                  ],
-                  [
-                    "Open Proof of Value Ecosystem",
-                    "Proof of Value expands beyond Coincarnation, allowing new verified contribution sources to generate PVC under governed recognition rules.",
-                  ],
-                  [
-                    "Global Value Economy",
-                    "Coincarnation matures into a broader economic system where capital formation, contribution recognition, and opportunity distribution reinforce each other.",
-                  ],
-                ].map(([title, desc]) => (
-                  <div
-                    key={title}
-                    className="rounded-2xl border border-white/10 bg-black/25 p-5"
-                  >
-                    <div className="text-sm font-bold text-cyan-100">{title}</div>
-                    <p className="mt-3 text-sm leading-relaxed text-white/65">
-                      {desc}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-6">
-                <InsightQuote>
-                  Coincarnation is designed as an expanding economic framework, not a project with a final endpoint.
-                </InsightQuote>
-              </div>
-            </div>
-          </div>
-
-          {/* Milestone logic */}
-          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
-            <div className="border-b border-white/10 p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
-                Milestone logic
-              </p>
-              <h3 className="mt-1 text-lg font-semibold">
-                Roadmap stages should be unlocked by validation, not arbitrary dates
-              </h3>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
-                <thead className="bg-white/5">
-                  <tr>
-                    <th className="px-4 py-3 text-left">Stage</th>
-                    <th className="px-4 py-3 text-left">Validation signal</th>
-                    <th className="px-4 py-3 text-left">Why it matters</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    [
-                      "Early phases",
-                      "Real users complete Coincarnation flows",
-                      "The protocol proves that participation can be recognized in practice.",
-                    ],
-                    [
-                      "MEGY mint",
-                      "Phase 2 is successfully completed",
-                      "The economic asset layer begins after initial system validation.",
-                    ],
-                    [
-                      "Claim activation",
-                      "Full cycle testing becomes possible",
-                      "Contribution, PVC, MEGY, and claims can be tested end-to-end.",
-                    ],
-                    [
-                      "DEX listing",
-                      "System reliability and claim mechanics are validated",
-                      "MEGY becomes publicly accessible after the core loop works.",
-                    ],
-                    [
-                      "FFF formation",
-                      "Meaningful participation and significant Coincarnated value exist",
-                      "Capital stewardship begins when there is enough capital and responsibility.",
-                    ],
-                    [
-                      "PVC expansion",
-                      "Governed utility partners and verified use cases emerge",
-                      "PVC moves from recognition history toward practical ecosystem utility.",
-                    ],
-                  ].map(([a, b, c]) => (
-                    <tr key={a} className="border-t border-white/10">
-                      <td className="px-4 py-3 font-semibold">{a}</td>
-                      <td className="px-4 py-3 text-white/70">{b}</td>
-                      <td className="px-4 py-3 text-white/70">{c}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                </div>
+              ))}
             </div>
           </div>
 
           {/* Final */}
-          <div className="rounded-3xl border border-cyan-400/20 bg-black/30 p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+          <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
               Roadmap principle
             </p>
 
             <blockquote className="mt-3 text-2xl font-black leading-tight">
-              Coincarnation should advance when the system is ready, not when a date
-              demands it.
+              This is not a race. It is a responsibility.
             </blockquote>
 
             <p className="mt-4 text-sm leading-relaxed text-white/65">
-              This roadmap is intentionally milestone-based. The objective is to build
-              a system that can earn trust through validation, expand through real
-              participation, and evolve through governance rather than short-term launch
-              pressure.
+              Each stage is unlocked by validation, trust, and real participation. As
+              Coincarnation matures, future stages can be expanded with deeper detail
+              and stronger governance.
             </p>
           </div>
         </section>
