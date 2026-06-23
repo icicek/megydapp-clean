@@ -3021,155 +3021,139 @@ export const DOC_SECTIONS: DocSection[] = [
     Content: () => (
       <>
         <section className="space-y-8">
-          {/* Premium Hero */}
-          <div className="relative overflow-hidden rounded-[2rem] border border-purple-400/20 bg-[radial-gradient(circle_at_70%_30%,rgba(168,85,247,0.24),transparent_34%),radial-gradient(circle_at_20%_80%,rgba(34,211,238,0.16),transparent_32%),linear-gradient(135deg,rgba(3,7,18,1),rgba(15,23,42,0.96),rgba(3,7,18,1))] p-6 md:p-8">
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:44px_44px] opacity-20" />
-            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-purple-500/20 blur-3xl" />
-            <div className="absolute -bottom-24 left-1/3 h-72 w-72 rounded-full bg-cyan-500/20 blur-3xl" />
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 via-indigo-500/10 to-cyan-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
 
-            <div className="relative grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-center">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-purple-200/80">
-                  MEGY | The Economic Engine of Coincarnation
-                </p>
+            <div className="relative">
+              <img
+                src="/megy-symbol.png"
+                alt="MEGY"
+                className="absolute right-0 top-0 h-20 w-20 opacity-20 md:h-24 md:w-24"
+              />
 
-                <h3 className="mt-5 text-6xl font-black leading-none tracking-tight text-white md:text-8xl">
-                  MEGY
-                </h3>
-
-                <p className="mt-4 max-w-xl text-2xl font-bold leading-tight text-white md:text-3xl">
-                  The economic asset that powers the ecosystem.
-                </p>
-
-                <p className="mt-5 max-w-2xl text-sm leading-relaxed text-white/70">
-                  MEGY powers participation, incentives, liquidity, and long-term
-                  economic activity across Coincarnation. While PVC records recognized
-                  contribution, MEGY enables economic interaction.
-                </p>
-
-                <div className="mt-6 rounded-2xl border border-purple-300/30 bg-black/30 p-5">
-                  <InsightQuote>
-                    PVC remembers contribution. MEGY powers the economy around it.
-                  </InsightQuote>
-                </div>
-              </div>
-
-              <div className="relative mx-auto flex h-72 w-72 items-center justify-center md:h-96 md:w-96">
-                <div className="absolute inset-0 rounded-full border border-purple-300/20 bg-purple-500/10 blur-sm" />
-                <div className="absolute inset-8 rounded-full border border-cyan-300/20" />
-                <div className="absolute inset-16 rounded-full border border-purple-300/30" />
-                <div className="absolute h-56 w-56 rounded-full bg-gradient-to-br from-purple-500/30 to-cyan-500/20 blur-2xl" />
-
-                <div className="relative flex h-48 w-48 items-center justify-center rounded-full border border-purple-300/30 bg-black/70 shadow-[0_0_70px_rgba(168,85,247,0.35)] md:h-60 md:w-60">
-                  <img
-                    src="/megy-symbol.png"
-                    alt="MEGY symbol"
-                    className="h-28 w-28 object-contain md:h-36 md:w-36"
-                  />
-                </div>
-
-                {[
-                  ["Utility", "Activity"],
-                  ["Liquidity", "Flow"],
-                  ["Incentives", "Alignment"],
-                  ["Longevity", "Sustainability"],
-                ].map(([title, subtitle], index) => (
-                  <div
-                    key={title}
-                    className={[
-                      "absolute rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-center backdrop-blur",
-                      index === 0 ? "left-0 top-8" : "",
-                      index === 1 ? "bottom-10 left-0" : "",
-                      index === 2 ? "right-0 top-8" : "",
-                      index === 3 ? "bottom-10 right-0" : "",
-                    ].join(" ")}
-                  >
-                    <div className="text-xs font-bold uppercase tracking-wide text-cyan-100">
-                      {title}
-                    </div>
-                    <div className="mt-1 text-[11px] text-white/50">{subtitle}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Why MEGY exists */}
-          <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-            <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
-              <div className="border-b border-white/10 p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-200/70">
-                  Why MEGY exists
-                </p>
-                <h3 className="mt-1 text-lg font-semibold">
-                  Coincarnation needs two different value layers.
-                </h3>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
-                  <thead className="bg-white/5">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Layer</th>
-                      <th className="px-4 py-3 text-left">PVC</th>
-                      <th className="px-4 py-3 text-left">MEGY</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      ["Purpose", "Records recognized contribution", "Enables economic activity"],
-                      ["Nature", "Identity-based", "Ecosystem-based"],
-                      ["Transferability", "Non-transferable", "Transferable"],
-                      ["Role", "Recognition layer", "Economic layer"],
-                      ["Focus", "Personal value history", "Ecosystem utility"],
-                    ].map(([a, b, c]) => (
-                      <tr key={a} className="border-t border-white/10">
-                        <td className="px-4 py-3 font-semibold">{a}</td>
-                        <td className="px-4 py-3 text-white/70">{b}</td>
-                        <td className="px-4 py-3 text-white/70">{c}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-purple-500/10 p-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
-                The two-layer economy
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-200/80">
+                MEGY
               </p>
 
-              <h3 className="mt-1 text-lg font-semibold">
-                From contribution to economic activity
+              <h3 className="mt-3 max-w-3xl text-2xl font-bold leading-tight md:text-3xl">
+                MEGY is the economic asset of the Coincarnation ecosystem.
               </h3>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                {[
-                  ["Contribution", "Action"],
-                  ["Proof of Value", "Recognition"],
-                  ["PVC", "Memory"],
-                  ["Economic Participation", "Access"],
-                  ["MEGY Economy", "Activity"],
-                ].map(([title, subtitle]) => (
-                  <div
-                    key={title}
-                    className="min-w-0 rounded-2xl border border-white/10 bg-black/20 p-4 text-center"
-                  >
-                    <div className="break-words text-sm font-bold leading-snug">{title}</div>
-                    <div className="mt-2 text-xs leading-snug text-white/55">{subtitle}</div>
-                  </div>
-                ))}
-              </div>
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                MEGY powers participation, incentives, liquidity, and long-term
+                economic activity across Coincarnation. While PVC records recognized
+                contribution, MEGY enables economic interaction.
+              </p>
 
-              <blockquote className="mt-5 rounded-2xl border border-white/10 bg-black/25 p-5 text-xl font-black leading-tight">
-                PVC determines where recognized contribution exists. MEGY enables what
-                can happen around it.
-              </blockquote>
+              <div className="mt-5 max-w-2xl">
+                <InsightQuote>
+                  PVC remembers contribution. MEGY powers the economy around it.
+                </InsightQuote>
+              </div>
             </div>
           </div>
 
-          {/* What MEGY is not + Core functions */}
-          <div className="grid gap-4 lg:grid-cols-[0.75fr_1.25fr]">
+          {/* Two-layer distinction */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Two-layer economy
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                PVC and MEGY serve different roles
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Layer</th>
+                    <th className="px-4 py-3 text-left">PVC</th>
+                    <th className="px-4 py-3 text-left">MEGY</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["Purpose", "Records recognized contribution", "Enables economic activity"],
+                    ["Nature", "Identity-based", "Ecosystem-based"],
+                    ["Transferability", "Non-transferable", "Transferable"],
+                    ["Role", "Recognition layer", "Economic layer"],
+                    ["Focus", "Personal value history", "Ecosystem utility"],
+                  ].map(([a, b, c]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 font-semibold">{a}</td>
+                      <td className="px-4 py-3 text-white/70">{b}</td>
+                      <td className="px-4 py-3 text-white/70">{c}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Flow */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-purple-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              Economic flow
+            </p>
+
+            <h3 className="mt-1 text-lg font-semibold">
+              From contribution to ecosystem activity
+            </h3>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                ["Contribution", "A participant creates measurable value"],
+                ["Proof of Value", "The contribution is recognized"],
+                ["PVC", "Recognized value accumulates"],
+                ["Economic Participation", "Future access may emerge"],
+                ["MEGY Economy", "Economic activity is enabled"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs leading-relaxed text-white/55">
+                    {subtitle}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <blockquote className="mt-5 rounded-2xl border-l-4 border-cyan-300 bg-white/[0.04] p-5 text-lg font-semibold">
+              PVC determines where recognized contribution exists. MEGY enables what
+              can happen around it.
+            </blockquote>
+          </div>
+
+          {/* What MEGY is / is not */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+                What MEGY is
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  "The ecosystem asset of Coincarnation",
+                  "A medium for economic activity and incentives",
+                  "A liquidity and participation layer",
+                  "A long-term coordination tool for the ecosystem",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-cyan-300/20 bg-black/20 px-4 py-3 text-sm text-white/80"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-200/70">
                 What MEGY is not
@@ -3177,50 +3161,54 @@ export const DOC_SECTIONS: DocSection[] = [
 
               <div className="mt-4 space-y-2">
                 {[
-                  ["Not a fundraising token", "MEGY was not created to raise capital."],
-                  ["Not a speculative promise", "Future value is not guaranteed."],
-                  ["Not a shortcut to PVC", "MEGY cannot replace contribution."],
-                  ["Not the entire ecosystem", "MEGY is one layer of Coincarnation."],
-                ].map(([title, desc]) => (
+                  "Not a fundraising token",
+                  "Not a speculative promise",
+                  "Not a shortcut to PVC",
+                  "Not the entire Coincarnation ecosystem",
+                ].map((x) => (
                   <div
-                    key={title}
-                    className="rounded-2xl border border-red-300/20 bg-black/20 p-4"
+                    key={x}
+                    className="rounded-2xl border border-red-300/20 bg-black/20 px-4 py-3 text-sm text-white/75"
                   >
-                    <div className="text-sm font-bold">{title}</div>
-                    <p className="mt-2 text-xs leading-relaxed text-white/60">{desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
-                Core functions of MEGY
-              </p>
-
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {[
-                  ["Incentives", "Rewards and motivates useful participation."],
-                  ["Liquidity", "Supports trading, depth, and economic flow."],
-                  ["Governance", "Enables future coordination and ecosystem decisions."],
-                  ["Access", "Powers participation mechanisms and opportunity design."],
-                  ["Alignment", "Connects long-term stakeholders with shared goals."],
-                  ["Sustainability", "Supports long-term growth and ecosystem health."],
-                ].map(([title, desc]) => (
-                  <div
-                    key={title}
-                    className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
-                  >
-                    <div className="text-sm font-bold text-purple-100">{title}</div>
-                    <p className="mt-3 text-xs leading-relaxed text-white/60">{desc}</p>
+                    {x}
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
+          {/* Core functions */}
+          <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+              Core functions
+            </p>
+
+            <h3 className="mt-1 text-lg font-semibold">
+              What MEGY enables inside the ecosystem
+            </h3>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {[
+                ["Incentives", "Rewards and motivates useful participation."],
+                ["Liquidity", "Supports trading, depth, and economic circulation."],
+                ["Governance", "May support future coordination and ecosystem decisions."],
+                ["Access", "Powers participation mechanisms and opportunity design."],
+                ["Alignment", "Connects long-term stakeholders around shared goals."],
+                ["Sustainability", "Supports long-term ecosystem growth and health."],
+              ].map(([title, desc]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <p className="mt-3 text-xs leading-relaxed text-white/60">{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Why both exist */}
-          <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 via-black/30 to-cyan-500/10 p-6">
+          <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
               Why PVC and MEGY both exist
             </p>
@@ -3240,13 +3228,13 @@ export const DOC_SECTIONS: DocSection[] = [
                   "Recognition lacks economic activity. Value cannot move, circulate, or grow.",
                 ],
                 [
-                  "With Both",
-                  "Contribution is remembered. Economic activity is enabled. The ecosystem can mature.",
+                  "With both",
+                  "Contribution is remembered, economic activity is enabled, and the ecosystem can mature.",
                 ],
               ].map(([title, desc]) => (
                 <div
                   key={title}
-                  className="rounded-2xl border border-white/10 bg-black/25 p-5"
+                  className="rounded-2xl border border-white/10 bg-black/20 p-5"
                 >
                   <div className="text-sm font-bold text-cyan-100">{title}</div>
                   <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
@@ -3261,58 +3249,31 @@ export const DOC_SECTIONS: DocSection[] = [
             </div>
           </div>
 
-          {/* Long-term vision */}
-          <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
-                The long-term vision
-              </p>
+          {/* Final positioning */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-black/30 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              Long-term positioning
+            </p>
 
-              <h3 className="mt-1 text-lg font-semibold">
-                MEGY is the economic engine of broader participation.
-              </h3>
+            <div className="mt-4 flex items-start gap-4">
+              <img
+                src="/megy-symbol.png"
+                alt="MEGY"
+                className="mt-1 h-10 w-10 shrink-0 opacity-80"
+              />
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                {[
-                  ["Coincarnation", "Capital formation"],
-                  ["Proof of Value", "Recognition"],
-                  ["PVC", "Contribution memory"],
-                  ["MEGY Economy", "Economic activity"],
-                  ["Opportunity", "Future access"],
-                ].map(([title, subtitle]) => (
-                  <div
-                    key={title}
-                    className="min-w-0 rounded-2xl border border-white/10 bg-black/25 p-4 text-center"
-                  >
-                    <div className="break-words text-sm font-bold leading-snug">{title}</div>
-                    <div className="mt-2 text-xs leading-snug text-white/55">{subtitle}</div>
-                  </div>
-                ))}
-              </div>
-
-              <p className="mt-5 text-sm leading-relaxed text-white/65">
-                MEGY is not designed to be the destination. It is designed to be the
-                economic engine that helps the broader Coincarnation ecosystem function.
-              </p>
+              <blockquote className="text-2xl font-black leading-tight">
+                MEGY creates the economic field.
+                <br />
+                PVC reflects your place within it.
+              </blockquote>
             </div>
 
-            <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-black/40 p-6">
-              <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-cyan-400/15 blur-3xl" />
-              <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-purple-400/15 blur-3xl" />
-
-              <div className="relative flex items-center gap-5">
-                <img
-                  src="/megy-symbol.png"
-                  alt="MEGY symbol"
-                  className="h-20 w-20 object-contain"
-                />
-                <blockquote className="text-xl font-black leading-tight md:text-2xl">
-                  <span className="text-cyan-200">MEGY</span> creates the economic
-                  field. <span className="text-purple-200">PVC</span> reflects your
-                  place within it.
-                </blockquote>
-              </div>
-            </div>
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              MEGY is not designed to be the destination. It is designed to be the
+              economic asset that helps the broader Coincarnation ecosystem function,
+              circulate, coordinate, and grow over time.
+            </p>
           </div>
         </section>
       </>
