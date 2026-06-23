@@ -4487,7 +4487,7 @@ export const DOC_SECTIONS: DocSection[] = [
 
           {/* Vertical roadmap */}
           <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-6">
-            <div className="absolute left-[45px] top-8 hidden h-[calc(100%-4rem)] w-px bg-gradient-to-b from-cyan-300 via-purple-300/40 to-white/10 md:block" />
+            <div className="absolute left-[72px] top-8 hidden h-[calc(100%-4rem)] w-px bg-gradient-to-b from-cyan-300 via-purple-300/40 to-white/10 md:block" />
 
             <div className="space-y-5">
               {[
@@ -4515,7 +4515,7 @@ export const DOC_SECTIONS: DocSection[] = [
                 {
                   no: "02",
                   title: "Expansion Phase",
-                  status: "Locked",
+                  status: "Next",
                   desc:
                     "Broader participation begins. Referral flows, asset classification, community behavior, and governance tests strengthen the system.",
                   focus: [
@@ -4527,7 +4527,7 @@ export const DOC_SECTIONS: DocSection[] = [
                 {
                   no: "03",
                   title: "MEGY Genesis",
-                  status: "Locked",
+                  status: "Future",
                   desc:
                     "After successful completion of Phase 2, MEGY is minted and the economic asset layer of Coincarnation begins.",
                   focus: ["MEGY minting", "Economic layer activation", "Tokenomics go live"],
@@ -4535,7 +4535,7 @@ export const DOC_SECTIONS: DocSection[] = [
                 {
                   no: "04",
                   title: "Full Cycle Validation",
-                  status: "Locked",
+                  status: "Future",
                   desc:
                     "Phase 3 opens. Claim flows are activated and the complete journey from contribution to claim is tested in real conditions.",
                   focus: ["Claims activation", "End-to-end testing", "Cycle validation"],
@@ -4543,7 +4543,7 @@ export const DOC_SECTIONS: DocSection[] = [
                 {
                   no: "05",
                   title: "Public Market Access",
-                  status: "Locked",
+                  status: "Future",
                   desc:
                     "After full validation, MEGY becomes publicly accessible through DEX listings.",
                   focus: ["DEX preparation", "Liquidity bootstrapping", "Market access"],
@@ -4551,7 +4551,7 @@ export const DOC_SECTIONS: DocSection[] = [
                 {
                   no: "06",
                   title: "Global Participation Expansion",
-                  status: "Locked",
+                  status: "Future",
                   desc:
                     "Coincarnation expands through education, marketing, partnerships, and global community growth.",
                   focus: ["Global marketing", "Strategic partnerships", "Mass adoption"],
@@ -4559,7 +4559,7 @@ export const DOC_SECTIONS: DocSection[] = [
                 {
                   no: "07",
                   title: "Fair Future Fund Formation",
-                  status: "Locked",
+                  status: "Future",
                   desc:
                     "After meaningful participation and significant Coincarnated value, Fair Future Fund is established with professional governance.",
                   focus: ["FFF establishment", "Capital stewardship", "First fund distribution"],
@@ -4567,7 +4567,7 @@ export const DOC_SECTIONS: DocSection[] = [
                 {
                   no: "08",
                   title: "PVC Utility Network",
-                  status: "Locked",
+                  status: "Future",
                   desc:
                     "PVC evolves into a practical utility layer for payments, access, services, subscriptions, and real-world transactions.",
                   focus: ["Utility integrations", "Third-party adoption", "Real-world usage"],
@@ -4575,7 +4575,7 @@ export const DOC_SECTIONS: DocSection[] = [
                 {
                   no: "09",
                   title: "Proof of Value Ecosystem",
-                  status: "Locked",
+                  status: "Future",
                   desc:
                     "Proof of Value expands beyond Coincarnation. New verified contribution sources may generate PVC under governed recognition rules.",
                   focus: ["External PoV sources", "Ecosystem expansion", "Global recognition layer"],
