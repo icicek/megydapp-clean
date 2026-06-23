@@ -3398,105 +3398,153 @@ export const DOC_SECTIONS: DocSection[] = [
           </div>
 
           {/* Total supply distribution */}
-          <div className="rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 via-black/30 to-purple-500/10 p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-100/70">
-              Total supply distribution
-            </p>
+          <div className="relative overflow-hidden rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 via-black/30 to-purple-500/10 p-6">
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-amber-400/10 blur-3xl" />
+            <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-purple-500/10 blur-3xl" />
 
-            <h3 className="mt-1 text-lg font-semibold">
-              The majority of MEGY supply is reserved for Coincarnation participants.
-            </h3>
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-100/70">
+                Total supply distribution
+              </p>
 
-            <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-              <div className="mx-auto flex flex-col items-center">
-                <div
-                  className="relative flex h-56 w-56 items-center justify-center rounded-full shadow-[0_0_70px_rgba(251,191,36,0.16)] sm:h-64 sm:w-64 lg:h-72 lg:w-72"
-                  style={{
-                    background:
-                      "conic-gradient(#fbbf24 0deg 270deg, #a855f7 270deg 306deg, #22d3ee 306deg 324deg, #2dd4bf 324deg 342deg, #fb923c 342deg 360deg)",
-                  }}
-                >
-                  <div className="absolute inset-3 rounded-full border border-white/10" />
-                  <div className="flex h-28 w-28 items-center justify-center rounded-full border border-white/10 bg-zinc-950 text-center sm:h-32 sm:w-32 lg:h-36 lg:w-36">
-                    <div>
-                      <div className="text-3xl font-black text-white sm:text-4xl">8B</div>
-                      <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
-                        Total MEGY
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <h3 className="mt-2 max-w-3xl text-2xl font-black leading-tight">
+                The majority of MEGY supply is reserved for participants.
+              </h3>
 
-                <div className="mt-5 rounded-2xl border border-amber-300/20 bg-black/25 px-4 py-3 text-center">
-                  <div className="text-2xl font-black text-amber-100">75%</div>
-                  <p className="mt-1 text-xs leading-relaxed text-white/60">
-                    Reserved for Coincarnation Rewards
-                  </p>
-                </div>
-              </div>
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/65">
+                MEGY is designed for long-term sustainable growth, where the largest
+                allocation belongs to the community that creates value through
+                Coincarnation.
+              </p>
 
-              <div className="grid gap-3">
-                {[
-                  [
-                    "Coincarnation Rewards",
-                    "75%",
-                    "The primary allocation for participants who enter through Coincarnation and recognized ecosystem participation.",
-                    "#fbbf24",
-                  ],
-                  [
-                    "Partnerships & Ecosystem Growth",
-                    "10%",
-                    "Reserved for integrations, ecosystem expansion, adoption initiatives, and strategic growth.",
-                    "#a855f7",
-                  ],
-                  [
-                    "Fair Future Fund Reserve",
-                    "5%",
-                    "A reserve layer connected to long-term capital formation, resilience, and future opportunity design.",
-                    "#22d3ee",
-                  ],
-                  [
-                    "Liquidity",
-                    "5%",
-                    "Supports market depth, circulation, and smoother economic movement across the MEGY economy.",
-                    "#2dd4bf",
-                  ],
-                  [
-                    "Team & Contributors",
-                    "5%",
-                    "Reserved for long-term builders and contributors, subject to alignment and vesting logic.",
-                    "#fb923c",
-                  ],
-                ].map(([title, percent, desc, color]) => (
+              <div className="mt-7 grid gap-7 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+                <div className="flex flex-col items-center">
                   <div
-                    key={title}
-                    className="flex gap-4 rounded-2xl border border-white/10 bg-black/25 p-4"
+                    className="relative flex h-56 w-56 items-center justify-center rounded-full shadow-[0_0_70px_rgba(251,191,36,0.18)] sm:h-64 sm:w-64 lg:h-72 lg:w-72"
+                    style={{
+                      background:
+                        "conic-gradient(#fbbf24 0deg 270deg, #a855f7 270deg 306deg, #22d3ee 306deg 324deg, #2dd4bf 324deg 342deg, #fb923c 342deg 360deg)",
+                    }}
                   >
-                    <div
-                      className="mt-1 h-3 w-3 shrink-0 rounded-full"
-                      style={{ backgroundColor: color }}
-                    />
+                    <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,transparent_52%,rgba(255,255,255,0.18)_53%,transparent_54%)]" />
+                    <div className="absolute inset-3 rounded-full border border-white/10" />
+                    <div className="absolute inset-6 rounded-full border border-amber-200/10" />
 
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                        <span className="text-lg font-black text-white">{percent}</span>
-                        <span className="text-sm font-bold">{title}</span>
+                    <div className="flex h-28 w-28 items-center justify-center rounded-full border border-amber-300/20 bg-zinc-950 text-center shadow-[inset_0_0_30px_rgba(0,0,0,0.7)] sm:h-32 sm:w-32 lg:h-36 lg:w-36">
+                      <div>
+                        <div className="text-3xl font-black text-white sm:text-4xl">
+                          8B
+                        </div>
+                        <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                          MEGY
+                        </div>
                       </div>
+                    </div>
 
-                      <p className="mt-2 text-xs leading-relaxed text-white/60">
-                        {desc}
-                      </p>
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2 text-xl font-black text-white sm:text-2xl">
+                      75%
+                    </div>
+
+                    <div className="absolute left-8 top-10 text-sm font-black text-white sm:text-base">
+                      10%
+                    </div>
+
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-white sm:text-sm">
+                      5%
+                    </div>
+
+                    <div className="absolute bottom-14 left-7 text-xs font-black text-white sm:text-sm">
+                      5%
+                    </div>
+
+                    <div className="absolute bottom-8 left-20 text-xs font-black text-white sm:text-sm">
+                      5%
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            <div className="mt-6">
-              <InsightQuote>
-                Most token economies reserve the majority of supply for insiders.
-                Coincarnation reserves the majority of supply for participants.
-              </InsightQuote>
+                  <div className="mt-5 rounded-2xl border border-amber-300/25 bg-black/30 px-5 py-4 text-center">
+                    <div className="text-3xl font-black text-amber-100">75%</div>
+                    <p className="mt-1 text-xs leading-relaxed text-white/60">
+                      Reserved for Coincarnation Rewards
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3">
+                  {[
+                    [
+                      "Coincarnation Rewards",
+                      "75%",
+                      "The primary allocation for participants who enter through Coincarnation and recognized ecosystem participation.",
+                      "#fbbf24",
+                    ],
+                    [
+                      "Partnerships & Ecosystem Growth",
+                      "10%",
+                      "Reserved for integrations, ecosystem expansion, adoption initiatives, and strategic growth.",
+                      "#a855f7",
+                    ],
+                    [
+                      "Fair Future Fund Reserve",
+                      "5%",
+                      "A reserve layer connected to long-term capital formation, resilience, and future opportunity design.",
+                      "#22d3ee",
+                    ],
+                    [
+                      "Liquidity",
+                      "5%",
+                      "Supports market depth, circulation, and smoother economic movement across the MEGY economy.",
+                      "#2dd4bf",
+                    ],
+                    [
+                      "Team & Contributors",
+                      "5%",
+                      "Reserved for long-term builders and contributors, subject to alignment and vesting logic.",
+                      "#fb923c",
+                    ],
+                  ].map(([title, percent, desc, color]) => (
+                    <div
+                      key={title}
+                      className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/25 p-4"
+                    >
+                      <div
+                        className="absolute right-0 top-0 h-full w-1"
+                        style={{ backgroundColor: color }}
+                      />
+
+                      <div className="flex gap-4">
+                        <div
+                          className="mt-1 h-10 w-10 shrink-0 rounded-full border bg-black/30"
+                          style={{ borderColor: color }}
+                        />
+
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                            <span
+                              className="text-2xl font-black"
+                              style={{ color }}
+                            >
+                              {percent}
+                            </span>
+                            <span className="text-sm font-bold">{title}</span>
+                          </div>
+
+                          <p className="mt-2 text-xs leading-relaxed text-white/60">
+                            {desc}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-7">
+                <InsightQuote>
+                  Most token economies reserve the majority of supply for insiders.
+                  Coincarnation reserves the majority of supply for participants.
+                </InsightQuote>
+              </div>
             </div>
           </div>
 
