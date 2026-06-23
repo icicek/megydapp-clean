@@ -3334,7 +3334,7 @@ export const DOC_SECTIONS: DocSection[] = [
 
             <div className="mt-6 grid gap-5 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
               <div className="flex justify-center">
-                <div className="relative mx-auto flex h-64 w-64 shrink-0 items-center justify-center rounded-full border border-amber-300/20 bg-black/30">
+                <div className="relative mx-auto flex h-56 w-56 shrink-0 items-center justify-center rounded-full border border-amber-300/20 bg-black/30 sm:h-64 sm:w-64">
                   <div className="absolute inset-4 rounded-full border border-purple-300/20" />
                   <div className="absolute inset-10 rounded-full border border-cyan-300/20" />
                   <div className="absolute h-28 w-28 rounded-full bg-gradient-to-br from-amber-400/25 to-purple-400/20 blur-xl" />
@@ -3413,20 +3413,19 @@ export const DOC_SECTIONS: DocSection[] = [
 
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/65">
                 MEGY is designed for long-term sustainable growth, where the largest
-                allocation belongs to the community that creates value through
-                Coincarnation.
+                allocation belongs to the community that creates value through Coincarnation.
               </p>
 
-              <div className="mt-7 grid gap-7 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+              <div className="mt-7 grid gap-7 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
                 <div className="flex flex-col items-center">
                   <div
-                    className="relative flex h-56 w-56 items-center justify-center rounded-full shadow-[0_0_70px_rgba(251,191,36,0.18)] sm:h-64 sm:w-64 lg:h-72 lg:w-72"
+                    className="relative flex h-52 w-52 items-center justify-center rounded-full shadow-[0_0_70px_rgba(251,191,36,0.16)] sm:h-64 sm:w-64 lg:h-72 lg:w-72"
                     style={{
                       background:
                         "conic-gradient(#fbbf24 0deg 270deg, #a855f7 270deg 306deg, #22d3ee 306deg 324deg, #2dd4bf 324deg 342deg, #fb923c 342deg 360deg)",
                     }}
                   >
-                    <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,transparent_52%,rgba(255,255,255,0.18)_53%,transparent_54%)]" />
+                    <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,transparent_52%,rgba(255,255,255,0.14)_53%,transparent_54%)]" />
                     <div className="absolute inset-3 rounded-full border border-white/10" />
                     <div className="absolute inset-6 rounded-full border border-amber-200/10" />
 
@@ -3440,30 +3439,10 @@ export const DOC_SECTIONS: DocSection[] = [
                         </div>
                       </div>
                     </div>
-
-                    <div className="absolute right-6 top-1/2 -translate-y-1/2 text-xl font-black text-white sm:text-2xl">
-                      75%
-                    </div>
-
-                    <div className="absolute left-8 top-10 text-sm font-black text-white sm:text-base">
-                      10%
-                    </div>
-
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-white sm:text-sm">
-                      5%
-                    </div>
-
-                    <div className="absolute bottom-14 left-7 text-xs font-black text-white sm:text-sm">
-                      5%
-                    </div>
-
-                    <div className="absolute bottom-8 left-20 text-xs font-black text-white sm:text-sm">
-                      5%
-                    </div>
                   </div>
 
                   <div className="mt-5 rounded-2xl border border-amber-300/25 bg-black/30 px-5 py-4 text-center">
-                    <div className="text-3xl font-black text-amber-100">75%</div>
+                    <div className="text-2xl font-black text-amber-100">75%</div>
                     <p className="mt-1 text-xs leading-relaxed text-white/60">
                       Reserved for Coincarnation Rewards
                     </p>
@@ -3472,36 +3451,11 @@ export const DOC_SECTIONS: DocSection[] = [
 
                 <div className="grid gap-3">
                   {[
-                    [
-                      "Coincarnation Rewards",
-                      "75%",
-                      "The primary allocation for participants who enter through Coincarnation and recognized ecosystem participation.",
-                      "#fbbf24",
-                    ],
-                    [
-                      "Partnerships & Ecosystem Growth",
-                      "10%",
-                      "Reserved for integrations, ecosystem expansion, adoption initiatives, and strategic growth.",
-                      "#a855f7",
-                    ],
-                    [
-                      "Fair Future Fund Reserve",
-                      "5%",
-                      "A reserve layer connected to long-term capital formation, resilience, and future opportunity design.",
-                      "#22d3ee",
-                    ],
-                    [
-                      "Liquidity",
-                      "5%",
-                      "Supports market depth, circulation, and smoother economic movement across the MEGY economy.",
-                      "#2dd4bf",
-                    ],
-                    [
-                      "Team & Contributors",
-                      "5%",
-                      "Reserved for long-term builders and contributors, subject to alignment and vesting logic.",
-                      "#fb923c",
-                    ],
+                    ["Coincarnation Rewards", "75%", "Participant rewards and recognized ecosystem participation.", "#fbbf24"],
+                    ["Partnerships & Ecosystem Growth", "10%", "Integrations, adoption initiatives, and ecosystem expansion.", "#a855f7"],
+                    ["Fair Future Fund Reserve", "5%", "Long-term resilience and future opportunity design.", "#22d3ee"],
+                    ["Liquidity", "5%", "Market depth, circulation, and smoother economic movement.", "#2dd4bf"],
+                    ["Team & Contributors", "5%", "Long-term builders and contributors under alignment logic.", "#fb923c"],
                   ].map(([title, percent, desc, color]) => (
                     <div
                       key={title}
@@ -3512,24 +3466,21 @@ export const DOC_SECTIONS: DocSection[] = [
                         style={{ backgroundColor: color }}
                       />
 
-                      <div className="flex gap-4">
+                      <div className="flex gap-3">
                         <div
-                          className="mt-1 h-10 w-10 shrink-0 rounded-full border bg-black/30"
-                          style={{ borderColor: color }}
+                          className="mt-1 h-3 w-3 shrink-0 rounded-full"
+                          style={{ backgroundColor: color }}
                         />
 
                         <div className="min-w-0">
-                          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                            <span
-                              className="text-2xl font-black"
-                              style={{ color }}
-                            >
+                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                            <span className="text-lg font-black" style={{ color }}>
                               {percent}
                             </span>
                             <span className="text-sm font-bold">{title}</span>
                           </div>
 
-                          <p className="mt-2 text-xs leading-relaxed text-white/60">
+                          <p className="mt-1.5 text-xs leading-relaxed text-white/55">
                             {desc}
                           </p>
                         </div>
