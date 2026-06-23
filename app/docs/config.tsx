@@ -1149,7 +1149,7 @@ export const DOC_SECTIONS: DocSection[] = [
 
             <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-4">
               <pre className="overflow-x-auto text-xs leading-relaxed text-white/70">
-    {`Asset
+                {`Asset
       ↓
     Classification
       ↓
@@ -3143,7 +3143,7 @@ export const DOC_SECTIONS: DocSection[] = [
                 From contribution to economic activity
               </h3>
 
-              <div className="mt-5 grid gap-3 md:grid-cols-5">
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 {[
                   ["Contribution", "Action"],
                   ["Proof of Value", "Recognition"],
@@ -3153,10 +3153,10 @@ export const DOC_SECTIONS: DocSection[] = [
                 ].map(([title, subtitle]) => (
                   <div
                     key={title}
-                    className="rounded-2xl border border-white/10 bg-black/20 p-4 text-center"
+                    className="min-w-0 rounded-2xl border border-white/10 bg-black/20 p-4 text-center"
                   >
-                    <div className="text-sm font-bold">{title}</div>
-                    <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+                    <div className="break-words text-sm font-bold leading-snug">{title}</div>
+                    <div className="mt-2 text-xs leading-snug text-white/55">{subtitle}</div>
                   </div>
                 ))}
               </div>
@@ -3272,7 +3272,7 @@ export const DOC_SECTIONS: DocSection[] = [
                 MEGY is the economic engine of broader participation.
               </h3>
 
-              <div className="mt-5 grid gap-3 md:grid-cols-5">
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 {[
                   ["Coincarnation", "Capital formation"],
                   ["Proof of Value", "Recognition"],
@@ -3282,10 +3282,10 @@ export const DOC_SECTIONS: DocSection[] = [
                 ].map(([title, subtitle]) => (
                   <div
                     key={title}
-                    className="rounded-2xl border border-white/10 bg-black/25 p-4 text-center"
+                    className="min-w-0 rounded-2xl border border-white/10 bg-black/25 p-4 text-center"
                   >
-                    <div className="text-sm font-bold">{title}</div>
-                    <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+                    <div className="break-words text-sm font-bold leading-snug">{title}</div>
+                    <div className="mt-2 text-xs leading-snug text-white/55">{subtitle}</div>
                   </div>
                 ))}
               </div>
@@ -3306,7 +3306,7 @@ export const DOC_SECTIONS: DocSection[] = [
                   alt="MEGY symbol"
                   className="h-20 w-20 object-contain"
                 />
-                <blockquote className="text-2xl font-black leading-tight md:text-3xl">
+                <blockquote className="text-xl font-black leading-tight md:text-2xl">
                   <span className="text-cyan-200">MEGY</span> creates the economic
                   field. <span className="text-purple-200">PVC</span> reflects your
                   place within it.
