@@ -4487,7 +4487,6 @@ export const DOC_SECTIONS: DocSection[] = [
 
           {/* Vertical roadmap */}
           <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-6">
-            <div className="absolute left-[72px] top-8 hidden h-[calc(100%-4rem)] w-px bg-gradient-to-b from-cyan-300 via-purple-300/40 to-white/10 md:block" />
 
             <div className="space-y-5">
               {[
@@ -4597,7 +4596,12 @@ export const DOC_SECTIONS: DocSection[] = [
                       <div
                         className={[
                           "text-2xl font-black",
-                          stage.active ? "text-cyan-100" : "text-white/45",
+                        
+                          stage.active
+                            ? "text-cyan-100"
+                            : stage.status === "Next"
+                            ? "text-purple-100"
+                            : "text-white/45",
                         ].join(" ")}
                       >
                         {stage.no}
