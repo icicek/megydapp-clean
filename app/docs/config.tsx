@@ -4640,7 +4640,10 @@ export const DOC_SECTIONS: DocSection[] = [
                       </>
                     )}
                     {stage.status === "Next" && (
-                      <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
+                      <>
+                        <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
+                        <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-fuchsia-400/10 blur-3xl" />
+                      </>
                     )}
 
                     <div className="relative">
