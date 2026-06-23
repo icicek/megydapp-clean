@@ -2345,36 +2345,184 @@ export const DOC_SECTIONS: DocSection[] = [
       "A framework for recognizing measurable forms of contribution.",
     Content: () => (
       <>
-        <p>
-          Proof of Value does not attempt to measure the total worth of a human
-          being. It attempts to recognize measurable forms of contribution.
-        </p>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-indigo-500/10 to-purple-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
 
-        <div className="overflow-x-auto my-4">
-          <table className="w-full border-collapse border border-white/10 text-sm">
-            <thead className="bg-white/5">
-              <tr>
-                <th className="border border-white/10 px-3 py-2 text-left">Consensus System</th>
-                <th className="border border-white/10 px-3 py-2 text-left">Recognizes</th>
-              </tr>
-            </thead>
-            <tbody>
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/80">
+                Proof of Value Framework
+              </p>
+
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                Proof of Value recognizes contribution, not human worth.
+              </h3>
+
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                Proof of Value defines how measurable participation becomes recognized
+                contribution inside Coincarnation. It connects Proof Ledger entries,
+                CorePoints, PVC, and future economic participation into one accountable
+                recognition framework.
+              </p>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  Proof of Value does not attempt to measure the total worth of a human being. It attempts to recognize measurable forms of contribution.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
+
+          {/* Core distinction */}
+          <div className="grid gap-4 md:grid-cols-3">
+            {[
+              [
+                "Human worth",
+                "Not measured",
+                "PoV does not rank people, lives, identity, dignity, or personal value.",
+              ],
+              [
+                "Contribution",
+                "Recognized",
+                "PoV recognizes actions that can be observed, verified, and recorded.",
+              ],
+              [
+                "Accountability",
+                "Required",
+                "Recognition must remain reviewable, reversible, and protected from abuse.",
+              ],
+            ].map(([label, title, desc]) => (
+              <div
+                key={label}
+                className="rounded-3xl border border-white/10 bg-white/[0.03] p-5"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                  {label}
+                </p>
+                <h3 className="mt-3 text-lg font-bold">{title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Comparison table */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Proof systems
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                What different proof models recognize
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Proof Model</th>
+                    <th className="px-4 py-3 text-left">Recognizes</th>
+                    <th className="px-4 py-3 text-left">Primary Logic</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["Proof of Work", "Computation", "Energy and hardware secure the network"],
+                    ["Proof of Stake", "Capital", "Token ownership secures participation"],
+                    ["Proof of Authority", "Authority", "Trusted actors validate the system"],
+                    ["Proof of History", "Time", "Cryptographic ordering creates coordination"],
+                    ["Proof of Liquidity", "Liquidity", "Market depth supports economic access"],
+                    ["Proof of Value", "Contribution", "Verified participation becomes recognized value"],
+                  ].map(([a, b, c]) => (
+                    <tr key={a} className="border-t border-white/10">
+                      <td className="px-4 py-3 font-semibold">{a}</td>
+                      <td className="px-4 py-3 text-white/70">{b}</td>
+                      <td className="px-4 py-3 text-white/70">{c}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Flow */}
+          <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+              Recognition flow
+            </p>
+
+            <h3 className="mt-1 text-lg font-semibold">
+              From measurable action to economic participation
+            </h3>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-5">
               {[
-                ["Proof of Work", "Computation"],
-                ["Proof of Stake", "Capital"],
-                ["Proof of Authority", "Authority"],
-                ["Proof of History", "Time"],
-                ["Proof of Liquidity", "Liquidity"],
-                ["Proof of Value", "Contribution"],
-              ].map(([a, b]) => (
-                <tr key={a}>
-                  <td className="border border-white/10 px-3 py-2">{a}</td>
-                  <td className="border border-white/10 px-3 py-2">{b}</td>
-                </tr>
+                ["Contribution", "An eligible action occurs"],
+                ["Proof Ledger", "The action is recorded"],
+                ["CorePoints", "Recognition is quantified"],
+                ["PVC", "Contribution accumulates"],
+                ["Economic Participation", "Future access may emerge"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4 text-center"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </div>
+
+          {/* Evolution */}
+          <div className="grid gap-4 md:grid-cols-3">
+            {[
+              [
+                "Phase 1",
+                "Initial recognition",
+                "Coincarnation, referrals, sharing activity, and deadcoin recognition create the first measurable contribution signals.",
+              ],
+              [
+                "Phase 2",
+                "Expanded participation",
+                "PoV may evolve through additional verified contribution categories and refined recognition rules.",
+              ],
+              [
+                "Future",
+                "Broader value layer",
+                "As measurement improves, PVC may become a stronger foundation for access, governance, and opportunity.",
+              ],
+            ].map(([phase, title, desc]) => (
+              <div
+                key={phase}
+                className="rounded-3xl border border-white/10 bg-black/30 p-5"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+                  {phase}
+                </p>
+                <h3 className="mt-3 text-lg font-bold">{title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Final */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-black/30 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              Accountability principle
+            </p>
+            <blockquote className="mt-3 text-2xl font-black leading-tight">
+              Recognition within Proof of Value is earned, not guaranteed.
+            </blockquote>
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              Proof of Value only works if recognition remains credible. Contributions
+              may be recorded, reviewed, corrected, or reversed when the underlying
+              activity no longer satisfies the rules of the ecosystem.
+            </p>
+          </div>
+        </section>
       </>
     ),
   },
