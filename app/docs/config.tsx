@@ -3395,6 +3395,109 @@ export const DOC_SECTIONS: DocSection[] = [
             </div>
           </div>
 
+          {/* Total supply distribution */}
+          <div className="rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 via-black/30 to-purple-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-100/70">
+              Total supply distribution
+            </p>
+
+            <h3 className="mt-1 text-lg font-semibold">
+              The majority of MEGY supply is reserved for Coincarnation participants.
+            </h3>
+
+            <div className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+              <div className="mx-auto flex flex-col items-center">
+                <div
+                  className="relative flex h-72 w-72 items-center justify-center rounded-full shadow-[0_0_70px_rgba(251,191,36,0.16)]"
+                  style={{
+                    background:
+                      "conic-gradient(#fbbf24 0deg 270deg, #a855f7 270deg 306deg, #22d3ee 306deg 324deg, #2dd4bf 324deg 342deg, #fb923c 342deg 360deg)",
+                  }}
+                >
+                  <div className="absolute inset-3 rounded-full border border-white/10" />
+                  <div className="flex h-36 w-36 items-center justify-center rounded-full border border-white/10 bg-zinc-950 text-center">
+                    <div>
+                      <div className="text-4xl font-black text-white">8B</div>
+                      <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                        Total MEGY
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-amber-300/20 bg-black/25 px-4 py-3 text-center">
+                  <div className="text-2xl font-black text-amber-100">75%</div>
+                  <p className="mt-1 text-xs leading-relaxed text-white/60">
+                    Reserved for Coincarnation Rewards
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-3">
+                {[
+                  [
+                    "Coincarnation Rewards",
+                    "75%",
+                    "The primary allocation for participants who enter through Coincarnation and recognized ecosystem participation.",
+                    "#fbbf24",
+                  ],
+                  [
+                    "Partnerships & Ecosystem Growth",
+                    "10%",
+                    "Reserved for integrations, ecosystem expansion, adoption initiatives, and strategic growth.",
+                    "#a855f7",
+                  ],
+                  [
+                    "Fair Future Fund Reserve",
+                    "5%",
+                    "A reserve layer connected to long-term capital formation, resilience, and future opportunity design.",
+                    "#22d3ee",
+                  ],
+                  [
+                    "Liquidity",
+                    "5%",
+                    "Supports market depth, circulation, and smoother economic movement across the MEGY economy.",
+                    "#2dd4bf",
+                  ],
+                  [
+                    "Team & Contributors",
+                    "5%",
+                    "Reserved for long-term builders and contributors, subject to alignment and vesting logic.",
+                    "#fb923c",
+                  ],
+                ].map(([title, percent, desc, color]) => (
+                  <div
+                    key={title}
+                    className="flex gap-4 rounded-2xl border border-white/10 bg-black/25 p-4"
+                  >
+                    <div
+                      className="mt-1 h-3 w-3 shrink-0 rounded-full"
+                      style={{ backgroundColor: color }}
+                    />
+
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <span className="text-lg font-black text-white">{percent}</span>
+                        <span className="text-sm font-bold">{title}</span>
+                      </div>
+
+                      <p className="mt-2 text-xs leading-relaxed text-white/60">
+                        {desc}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <InsightQuote>
+                Most token economies reserve the majority of supply for insiders.
+                Coincarnation reserves the majority of supply for participants.
+              </InsightQuote>
+            </div>
+          </div>
+
           {/* Supply logic */}
           <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
@@ -3408,15 +3511,15 @@ export const DOC_SECTIONS: DocSection[] = [
             <div className="mt-5 grid gap-4 md:grid-cols-3">
               {[
                 [
-                  "Reserved Capacity",
-                  "Supply reserved for ecosystem growth, future participation, and long-term strategic needs.",
+                  "Participant-first allocation",
+                  "Coincarnation Rewards should never fall below 75% of total supply.",
                 ],
                 [
-                  "Active Circulation",
-                  "MEGY that moves through incentives, liquidity, campaigns, access, and participation.",
+                  "Active circulation",
+                  "MEGY moves through incentives, liquidity, campaigns, access, and participation.",
                 ],
                 [
-                  "Governance Control",
+                  "Governance control",
                   "Future changes should be transparent, rule-based, and subject to ecosystem governance.",
                 ],
               ].map(([title, desc]) => (
@@ -3432,49 +3535,9 @@ export const DOC_SECTIONS: DocSection[] = [
 
             <div className="mt-5">
               <InsightQuote>
-                A healthy token economy does not only ask how tokens are distributed. It asks why they should circulate.
+                A healthy token economy does not only ask how tokens are distributed.
+                It asks why they should circulate.
               </InsightQuote>
-            </div>
-          </div>
-
-          {/* Allocation architecture */}
-          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
-            <div className="border-b border-white/10 p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
-                Allocation architecture
-              </p>
-              <h3 className="mt-1 text-lg font-semibold">
-                Core allocation areas
-              </h3>
-            </div>
-
-            <div className="grid gap-0 md:grid-cols-2">
-              {[
-                [
-                  "Community & Participation",
-                  "Rewards, campaigns, contribution incentives, and participation-based distribution.",
-                ],
-                [
-                  "Liquidity & Market Support",
-                  "Liquidity provisioning, market depth, and smoother ecosystem-level economic flow.",
-                ],
-                [
-                  "Ecosystem Growth",
-                  "Partnerships, integrations, product expansion, and adoption-oriented initiatives.",
-                ],
-                [
-                  "Treasury & Sustainability",
-                  "Long-term reserves designed to support future resilience and strategic flexibility.",
-                ],
-              ].map(([title, desc]) => (
-                <div
-                  key={title}
-                  className="border-t border-white/10 p-5 md:odd:border-r"
-                >
-                  <div className="text-sm font-bold">{title}</div>
-                  <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
-                </div>
-              ))}
             </div>
           </div>
 
@@ -3506,7 +3569,7 @@ export const DOC_SECTIONS: DocSection[] = [
             </div>
           </div>
 
-          {/* Tokenomics is not */}
+          {/* Tokenomics should create / avoid */}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
