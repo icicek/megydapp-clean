@@ -3651,16 +3651,241 @@ export const DOC_SECTIONS: DocSection[] = [
       "A global opportunity fund designed to manage and grow collectively accumulated capital.",
     Content: () => (
       <>
-        <p>
-          The Fair Future Fund is designed to transform collectively accumulated
-          capital into long-term opportunity through professional capital
-          allocation.
-        </p>
-        <p>
-          At least 25% of realized fund returns must be reinvested into the Fair
-          Future Fund. The allocation of the remaining portion may be determined
-          through governance mechanisms active at the time.
-        </p>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 via-cyan-500/10 to-purple-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-emerald-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200/80">
+                Fair Future Fund
+              </p>
+
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                Fair Future Fund is the capital stewardship layer of Coincarnation.
+              </h3>
+
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                Fair Future Fund preserves, manages, and grows the capital base created
+                through Coincarnation. Its purpose is not short-term extraction, but
+                long-term resilience, disciplined capital allocation, and future
+                opportunity formation.
+              </p>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  Fair Future Fund is not where capital ends. It is where capital becomes responsibility.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
+
+          {/* Why FFF exists */}
+          <div className="grid gap-4 md:grid-cols-3">
+            {[
+              [
+                "Preservation",
+                "Capital must be protected before it can create durable opportunity.",
+              ],
+              [
+                "Growth",
+                "Capital should be managed through disciplined, long-term strategies.",
+              ],
+              [
+                "Opportunity",
+                "Future value may support broader access, participation, and ecosystem resilience.",
+              ],
+            ].map(([title, desc]) => (
+              <div
+                key={title}
+                className="rounded-3xl border border-white/10 bg-white/[0.03] p-5"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                  Fund purpose
+                </p>
+                <h3 className="mt-3 text-lg font-bold">{title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Capital stewardship flow */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-emerald-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              Capital stewardship flow
+            </p>
+
+            <h3 className="mt-1 text-lg font-semibold">
+              From created capital to future opportunity
+            </h3>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {[
+                ["Coincarnation", "Capital is created"],
+                ["Treasury Assets", "Capital is collected"],
+                ["Fair Future Fund", "Capital is managed"],
+                ["Capital Strategies", "Capital is allocated"],
+                ["Future Opportunity", "Capital may expand access"],
+              ].map(([title, subtitle]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <div className="mt-2 text-xs leading-relaxed text-white/55">
+                    {subtitle}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <blockquote className="mt-5 rounded-2xl border-l-4 border-emerald-300 bg-white/[0.04] p-5 text-lg font-semibold">
+              Capital formation only matters if capital can be preserved, governed,
+              and directed toward long-term opportunity.
+            </blockquote>
+          </div>
+
+          {/* What FFF does / does not */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-emerald-300/20 bg-emerald-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200/70">
+                What Fair Future Fund does
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  "Preserves ecosystem capital",
+                  "Supports long-term capital strategies",
+                  "Connects capital growth to future opportunity",
+                  "Operates under governance and risk rules",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-emerald-300/20 bg-black/20 px-4 py-3 text-sm text-white/80"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-200/70">
+                What Fair Future Fund does not do
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  "Does not guarantee returns",
+                  "Does not promise fixed payouts",
+                  "Does not replace governance",
+                  "Does not operate without risk controls",
+                ].map((x) => (
+                  <div
+                    key={x}
+                    className="rounded-2xl border border-red-300/20 bg-black/20 px-4 py-3 text-sm text-white/75"
+                  >
+                    {x}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Strategy architecture */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                Strategy architecture
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                How capital may be managed over time
+              </h3>
+            </div>
+
+            <div className="grid gap-0 md:grid-cols-2">
+              {[
+                [
+                  "Treasury Preservation",
+                  "Protecting the capital base against unnecessary risk, leakage, and short-term extraction.",
+                ],
+                [
+                  "Liquidity Management",
+                  "Maintaining flexibility so the ecosystem can operate, respond, and adapt.",
+                ],
+                [
+                  "Diversified Capital Strategies",
+                  "Allocating capital through disciplined approaches rather than relying on a single path.",
+                ],
+                [
+                  "Opportunity Reserve",
+                  "Keeping capacity for future access, ecosystem support, and long-term mission alignment.",
+                ],
+              ].map(([title, desc]) => (
+                <div
+                  key={title}
+                  className="border-t border-white/10 p-5 md:odd:border-r"
+                >
+                  <div className="text-sm font-bold">{title}</div>
+                  <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Governance and risk */}
+          <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-emerald-500/10 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+              Governance and risk
+            </p>
+
+            <h3 className="mt-1 text-lg font-semibold">
+              FFF must be transparent, rule-based, reviewable, and governed.
+            </h3>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-4">
+              {[
+                ["Transparency", "Capital rules should be visible and understandable."],
+                ["Reviewability", "Decisions should remain auditable over time."],
+                ["Risk Controls", "Capital strategies must avoid reckless exposure."],
+                ["Governance", "Major changes should be subject to ecosystem oversight."],
+              ].map(([title, desc]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                >
+                  <div className="text-sm font-bold text-emerald-100">{title}</div>
+                  <p className="mt-3 text-xs leading-relaxed text-white/60">{desc}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5">
+              <InsightQuote>
+                The credibility of Fair Future Fund depends on disciplined capital stewardship.
+              </InsightQuote>
+            </div>
+          </div>
+
+          {/* Final positioning */}
+          <div className="rounded-3xl border border-emerald-400/20 bg-black/30 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100/70">
+              Long-term positioning
+            </p>
+
+            <blockquote className="mt-3 text-2xl font-black leading-tight">
+              Coincarnation creates capital. MEGY moves economic activity. Fair Future
+              Fund protects the future that capital is meant to serve.
+            </blockquote>
+
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              Fair Future Fund is the long-term capital layer that connects today’s
+              participation with tomorrow’s opportunity. Its purpose is to make the
+              capital formed by Coincarnation durable, accountable, and useful over time.
+            </p>
+          </div>
+        </section>
       </>
     ),
   },
