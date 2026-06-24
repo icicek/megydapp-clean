@@ -74,7 +74,7 @@ export const DOC_SECTIONS: DocSection[] = [
                 opportunity is expanded.
               </p>
 
-              <div className="mt-8 grid gap-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+              <div className="mt-8 space-y-7">
                 {/* Orbit visual */}
                 <div className="relative mx-auto flex w-full max-w-[620px] items-center justify-center">
                   <div className="relative hidden h-[520px] w-[620px] lg:block">
@@ -129,10 +129,7 @@ export const DOC_SECTIONS: DocSection[] = [
                       ["5", "Proof of Value", "Recognition engine", "border-fuchsia-300/40 bg-fuchsia-300/10 text-fuchsia-100"],
                       ["6", "MEGY", "Economic asset", "border-orange-300/40 bg-orange-300/10 text-orange-100"],
                     ].map(([no, title, subtitle, color]) => (
-                      <div
-                        key={title}
-                        className={`rounded-2xl border p-4 ${color}`}
-                      >
+                      <div key={title} className={`rounded-2xl border p-4 ${color}`}>
                         <div className="flex items-center gap-3">
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/30 text-sm font-black">
                             {no}
@@ -150,7 +147,7 @@ export const DOC_SECTIONS: DocSection[] = [
                 </div>
 
                 {/* Explanation cards */}
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {[
                     ["Coincarnation", "A new capital formation model powered by digital asset participation."],
                     ["Personal Value Currency", "A personal, non-transferable value layer built from recognized contribution."],
