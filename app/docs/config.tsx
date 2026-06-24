@@ -265,18 +265,19 @@ export const DOC_SECTIONS: DocSection[] = [
               </p>
 
               <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
-                Coincarnation is a capital formation framework for broader economic participation.
+                Levershare transforms forgotten capital into renewed opportunity.
               </h3>
 
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
-                Coincarnation transforms eligible digital assets into productive
-                capital, recognizes contribution through Proof of Value, and connects
-                that recognition to future opportunity through Personal Value Currency.
+                Levershare begins with dormant capital and transforms it into productive
+                economic activity through Coincarnation. Capital formation, stewardship,
+                contribution recognition, and opportunity creation are connected through an
+                integrated participation economy designed for long-term value creation.
               </p>
 
               <div className="mt-5">
                 <InsightQuote>
-                  Coincarnation was not created to build another token economy.
+                  What if abandoned capital could have a second life?
                 </InsightQuote>
               </div>
             </div>
