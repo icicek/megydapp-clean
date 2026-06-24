@@ -330,14 +330,14 @@ export const DOC_SECTIONS: DocSection[] = [
             </div>
           </div>
 
-          {/* MEGY / PVC / FFF quick distinction */}
+          {/* Concept boundaries */}
           <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
             <div className="border-b border-white/10 p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
-                Quick distinction
+                Concept boundaries
               </p>
               <h3 className="mt-1 text-lg font-semibold">
-                MEGY, PVC, and FFF are different layers
+                Similar concepts, different responsibilities
               </h3>
             </div>
 
@@ -345,17 +345,38 @@ export const DOC_SECTIONS: DocSection[] = [
               <table className="w-full border-collapse text-sm">
                 <thead className="bg-white/5">
                   <tr>
-                    <th className="px-4 py-3 text-left">Layer</th>
-                    <th className="px-4 py-3 text-left">Role</th>
-                    <th className="px-4 py-3 text-left">Purpose</th>
+                    <th className="px-4 py-3 text-left">Concept</th>
+                    <th className="px-4 py-3 text-left">What it is</th>
+                    <th className="px-4 py-3 text-left">What it is not</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[
-                    ["MEGY", "Ecosystem asset", "Supports ecosystem-wide economic activity"],
-                    ["PVC", "Personal value framework", "Represents accumulated recognized contribution"],
-                    ["FFF", "Capital management layer", "Preserves, manages, and grows capital"],
-                    ["PoV", "Recognition framework", "Defines how contribution becomes visible"],
+                    [
+                      "MEGY",
+                      "A transferable ecosystem asset for economic activity",
+                      "Not a measure of personal worth or contribution history",
+                    ],
+                    [
+                      "PVC",
+                      "A non-transferable personal value layer built from recognized contribution",
+                      "Not a tradable token or speculative asset",
+                    ],
+                    [
+                      "CorePoint",
+                      "An accounting unit for recognized contribution",
+                      "Not money, not equity, and not a claim on returns",
+                    ],
+                    [
+                      "Fair Future Fund",
+                      "A capital stewardship structure for long-term opportunity",
+                      "Not a guaranteed return mechanism",
+                    ],
+                    [
+                      "Proof of Value",
+                      "A recognition framework for measurable contribution",
+                      "Not a system that measures total human worth",
+                    ],
                   ].map(([a, b, c]) => (
                     <tr key={a} className="border-t border-white/10">
                       <td className="px-4 py-3 font-semibold">{a}</td>
@@ -373,14 +394,17 @@ export const DOC_SECTIONS: DocSection[] = [
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
               Positioning
             </p>
+
             <blockquote className="mt-3 text-2xl font-black leading-tight">
-              The objective is not merely to distribute value, but to enable new
-              forms of value creation.
+              Levershare is not designed merely to recover value. It is designed to expand
+              how value can be created, recognized, and shared.
             </blockquote>
+
             <p className="mt-4 text-sm leading-relaxed text-white/65">
-              Coincarnation begins with digital assets, but its long-term direction
-              is broader: capital formation, value recognition, governance
-              participation, and opportunity expansion.
+              Coincarnation begins with forgotten digital assets, but Levershare points
+              toward a broader participation economy: capital formation, contribution
+              recognition, economic activity, governance, stewardship, and opportunity
+              expansion working as one integrated system.
             </p>
           </div>
         </section>
