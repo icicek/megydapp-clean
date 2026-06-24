@@ -283,19 +283,19 @@ export const DOC_SECTIONS: DocSection[] = [
             </div>
           </div>
 
-          {/* What it is / what it is not */}
+          {/* What Levershare is / is not */}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
-                What Coincarnation is
+                What Levershare is
               </p>
 
               <div className="mt-4 space-y-2">
                 {[
-                  "A capital formation framework",
-                  "A Proof of Value recognition system",
-                  "A pathway from participation to future opportunity",
-                  "A long-term economic experiment",
+                  "A participation economy built around forgotten capital",
+                  "A capital formation framework powered by Coincarnation",
+                  "A recognition system built through Proof of Value, CorePoints, and PVC",
+                  "A long-term Web3 infrastructure for broader economic opportunity",
                 ].map((x) => (
                   <div
                     key={x}
@@ -309,15 +309,15 @@ export const DOC_SECTIONS: DocSection[] = [
 
             <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-200/70">
-                What Coincarnation is not
+                What Levershare is not
               </p>
 
               <div className="mt-4 space-y-2">
                 {[
                   "Not a traditional token sale",
-                  "Not a promise-based value machine",
+                  "Not a promise of guaranteed recovery or returns",
                   "Not a claim to solve inequality alone",
-                  "Not a short-term product launch",
+                  "Not a short-term crypto product launch",
                 ].map((x) => (
                   <div
                     key={x}
