@@ -215,7 +215,7 @@ export const DOC_SECTIONS: DocSection[] = [
               ].map(([no, title, subtitle], index) => (
                 <div
                   key={title}
-                  className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/25 p-5"
+                  className="relative min-h-[190px] overflow-hidden rounded-2xl border border-white/10 bg-black/25 p-5 pb-14"
                 >
                   <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-cyan-400/10 blur-2xl" />
 
@@ -235,9 +235,8 @@ export const DOC_SECTIONS: DocSection[] = [
                   </div>
 
                   {index < 5 && (
-                    <div className="absolute bottom-4 right-4 flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200/40">
-                      <span>Next</span>
-                      <span>→</span>
+                    <div className="pointer-events-none absolute bottom-4 right-5 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200/35">
+                      Next →
                     </div>
                   )}
                 </div>
