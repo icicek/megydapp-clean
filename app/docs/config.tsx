@@ -60,56 +60,91 @@ export const DOC_SECTIONS: DocSection[] = [
             <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-purple-400/10 blur-3xl" />
 
             <div className="relative">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200/80">
                 Levershare Ecosystem Map
               </p>
 
-              <h3 className="mt-2 text-2xl font-black leading-tight">
-                One vision, multiple economic layers.
+              <h3 className="mt-3 max-w-3xl text-3xl font-black leading-tight md:text-4xl">
+                One ecosystem. Six innovations. Infinite opportunity.
               </h3>
 
-              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/65">
-                Levershare connects Coincarnation, Proof of Value, CorePoints, PVC, MEGY,
-                Fair Future Fund, and governance into a broader participation economy.
+              <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/65">
+                Levershare connects six core innovations into a unified Web3 economy where
+                contribution is recognized, value is accumulated, capital is formed, and
+                opportunity is expanded.
               </p>
 
-              <div className="mt-7 grid gap-5 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
-                <div className="mx-auto flex h-52 w-52 items-center justify-center rounded-full border border-cyan-300/25 bg-black/35 text-center shadow-[0_0_60px_rgba(34,211,238,0.18)]">
-                  <div>
-                    <div className="text-2xl font-black text-white">
-                      Levershare
-                    </div>
-                    <div className="mt-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">
-                      Participation Economy
+              <div className="mt-8 grid gap-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+                {/* Orbit visual */}
+                <div className="relative mx-auto flex h-[360px] w-full max-w-[520px] items-center justify-center">
+                  <div className="absolute h-52 w-52 rounded-full border border-cyan-300/30 bg-black/40 shadow-[0_0_60px_rgba(34,211,238,0.18)]" />
+                  <div className="absolute h-72 w-72 rounded-full border border-purple-300/15" />
+                  <div className="absolute h-80 w-80 rounded-full border border-cyan-300/10" />
+
+                  <div className="relative z-10 flex h-44 w-44 items-center justify-center rounded-full border border-cyan-300/30 bg-zinc-950/90 text-center shadow-[0_0_70px_rgba(34,211,238,0.22)]">
+                    <div>
+                      <div className="text-2xl font-black text-white">Levershare</div>
+                      <div className="mt-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-200/70">
+                        Participation Economy
+                      </div>
                     </div>
                   </div>
+
+                  {[
+                    ["1", "Coincarnation", "Capital formation", "left-1/2 top-0 -translate-x-1/2", "border-cyan-300/40 bg-cyan-300/10 text-cyan-100"],
+                    ["2", "PVC", "Personal value currency", "right-0 top-20", "border-purple-300/40 bg-purple-300/10 text-purple-100"],
+                    ["3", "CorePoint", "Contribution unit", "right-4 bottom-16", "border-emerald-300/40 bg-emerald-300/10 text-emerald-100"],
+                    ["4", "Fair Future Fund", "Capital stewardship", "left-1/2 bottom-0 -translate-x-1/2", "border-amber-300/40 bg-amber-300/10 text-amber-100"],
+                    ["5", "Proof of Value", "Recognition engine", "left-4 bottom-16", "border-fuchsia-300/40 bg-fuchsia-300/10 text-fuchsia-100"],
+                    ["6", "MEGY", "Economic asset", "left-0 top-20", "border-orange-300/40 bg-orange-300/10 text-orange-100"],
+                  ].map(([no, title, subtitle, pos, color]) => (
+                    <div
+                      key={title}
+                      className={`absolute ${pos} z-20 w-32 rounded-2xl border p-3 text-center backdrop-blur ${color}`}
+                    >
+                      <div className="text-lg font-black">{no}</div>
+                      <div className="mt-1 text-xs font-bold leading-tight">{title}</div>
+                      <div className="mt-1 text-[10px] leading-tight text-white/55">
+                        {subtitle}
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
+                {/* Explanation cards */}
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[
-                    ["Coincarnation", "Capital formation through digital asset participation"],
-                    ["Proof of Value", "Recognition framework for measurable contribution"],
-                    ["CorePoints", "Accounting unit for recognized contribution"],
-                    ["PVC", "Personal Value Currency built from recognized contribution"],
-                    ["MEGY", "Ecosystem asset powering economic activity"],
-                    ["Fair Future Fund", "Capital stewardship and long-term opportunity layer"],
-                    ["Governance", "Rule evolution, oversight, and accountability"],
-                    ["Risk Safeguards", "Protection against abuse, manipulation, and capture"],
+                    ["Coincarnation", "A new capital formation model powered by digital asset participation."],
+                    ["Personal Value Currency", "A personal, non-transferable value layer built from recognized contribution."],
+                    ["CorePoint", "The accounting unit of recognized contribution inside the ecosystem."],
+                    ["Fair Future Fund", "A capital stewardship layer for long-term resilience and opportunity."],
+                    ["Proof of Value", "The recognition framework that validates measurable contribution."],
+                    ["MEGY", "The ecosystem asset that powers economic activity and incentives."],
                   ].map(([title, desc]) => (
                     <div
                       key={title}
                       className="rounded-2xl border border-white/10 bg-black/25 p-4"
                     >
                       <div className="text-sm font-bold text-cyan-100">{title}</div>
-                      <p className="mt-2 text-xs leading-relaxed text-white/60">
-                        {desc}
-                      </p>
+                      <p className="mt-2 text-xs leading-relaxed text-white/60">{desc}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="mt-6">
+              <div className="mt-7 rounded-3xl border border-white/10 bg-black/25 p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/70">
+                  Built for all humanity
+                </p>
+
+                <p className="mt-3 text-sm leading-relaxed text-white/65">
+                  Levershare is not designed only for crypto users or investors. Its long-term
+                  vision is to create a fairer, more inclusive economic system that can serve
+                  people regardless of geography, background, or starting point.
+                </p>
+              </div>
+
+              <div className="mt-5">
                 <InsightQuote>
                   Coincarnation begins the system. Levershare is the larger economic vision.
                 </InsightQuote>
