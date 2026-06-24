@@ -233,12 +233,6 @@ export const DOC_SECTIONS: DocSection[] = [
                       </div>
                     </div>
                   </div>
-
-                  {index < 5 && (
-                    <div className="absolute right-4 top-4 rounded-full border border-cyan-300/15 bg-cyan-300/5 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-cyan-200/35">
-                      Next →
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
