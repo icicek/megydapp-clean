@@ -235,8 +235,9 @@ export const DOC_SECTIONS: DocSection[] = [
                   </div>
 
                   {index < 5 && (
-                    <div className="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-cyan-200/45">
-                      Next layer →
+                    <div className="absolute bottom-4 right-4 flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200/40">
+                      <span>Next</span>
+                      <span>→</span>
                     </div>
                   )}
                 </div>
