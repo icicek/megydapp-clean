@@ -26,34 +26,6 @@ export const DOC_SECTIONS: DocSection[] = [
     Content: () => (
       <>
         <section className="space-y-8">
-          {/* Hero */}
-          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-indigo-500/10 to-purple-500/10 p-6">
-            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
-            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
-
-            <div className="relative">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/80">
-                Executive Summary
-              </p>
-
-              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
-                Coincarnation is a capital formation framework for broader economic participation.
-              </h3>
-
-              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
-                Coincarnation transforms eligible digital assets into productive
-                capital, recognizes contribution through Proof of Value, and connects
-                that recognition to future opportunity through Personal Value Currency.
-              </p>
-
-              <div className="mt-5">
-                <InsightQuote>
-                  Coincarnation was not created to build another token economy.
-                </InsightQuote>
-              </div>
-            </div>
-          </div>
-
           {/* Levershare Ecosystem Map */}
           <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-black p-6">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
@@ -162,6 +134,34 @@ export const DOC_SECTIONS: DocSection[] = [
               <div className="mt-5">
                 <InsightQuote>
                   Coincarnation begins the system. Levershare is the larger economic vision.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
+          
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-indigo-500/10 to-purple-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/80">
+                Executive Summary
+              </p>
+
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                Coincarnation is a capital formation framework for broader economic participation.
+              </h3>
+
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                Coincarnation transforms eligible digital assets into productive
+                capital, recognizes contribution through Proof of Value, and connects
+                that recognition to future opportunity through Personal Value Currency.
+              </p>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  Coincarnation was not created to build another token economy.
                 </InsightQuote>
               </div>
             </div>
