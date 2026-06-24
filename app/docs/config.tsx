@@ -194,7 +194,7 @@ export const DOC_SECTIONS: DocSection[] = [
             </p>
 
             <h3 className="mt-3 text-2xl font-black leading-tight">
-              From dormant capital to expanded opportunity.
+              From forgotten capital to renewed opportunity.
             </h3>
 
             <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/65">
@@ -204,46 +204,39 @@ export const DOC_SECTIONS: DocSection[] = [
               value, recognize contribution, and expand opportunity.
             </p>
 
-            <div className="mt-7 grid gap-3 md:grid-cols-6">
+            <div className="mt-7 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {[
-                [
-                  "Dormant Capital",
-                  "Forgotten value",
-                ],
-                [
-                  "Coincarnation",
-                  "Capital formation",
-                ],
-                [
-                  "Capital Recovery",
-                  "Participant gains",
-                ],
-                [
-                  "Fair Future Fund",
-                  "Capital stewardship",
-                ],
-                [
-                  "Proof of Value",
-                  "Contribution recognition",
-                ],
-                [
-                  "PVC",
-                  "Opportunity creation",
-                ],
-              ].map(([title, subtitle], index) => (
+                ["01", "Forgotten Capital", "Abandoned value waiting for a second life"],
+                ["02", "Coincarnation", "Dormant assets become productive capital"],
+                ["03", "Capital Recovery", "Participants may recover value"],
+                ["04", "Fair Future Fund", "Capital is stewarded for long-term opportunity"],
+                ["05", "Proof of Value", "Contribution becomes recognized"],
+                ["06", "PVC", "Recognition opens future opportunity"],
+              ].map(([no, title, subtitle], index) => (
                 <div
                   key={title}
-                  className="relative rounded-2xl border border-white/10 bg-black/20 p-4 text-center"
+                  className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/25 p-5"
                 >
-                  <div className="text-sm font-bold">{title}</div>
+                  <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-cyan-400/10 blur-2xl" />
 
-                  <div className="mt-2 text-xs text-white/55">
-                    {subtitle}
+                  <div className="relative flex items-start gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-300/10 text-sm font-black text-cyan-100">
+                      {no}
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="text-base font-black leading-tight text-white">
+                        {title}
+                      </div>
+                      <div className="mt-2 text-xs leading-relaxed text-white/55">
+                        {subtitle}
+                      </div>
+                    </div>
                   </div>
 
                   {index < 5 && (
-                    <div className="absolute -right-2 top-1/2 hidden -translate-y-1/2 text-cyan-200/60 md:block">
-                      →
+                    <div className="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-cyan-200/45">
+                      Next layer →
                     </div>
                   )}
                 </div>
@@ -260,7 +253,7 @@ export const DOC_SECTIONS: DocSection[] = [
               </p>
             </div>
 
-            <div className="mt-5">
+            <div className="mt-5 max-w-full overflow-hidden">
               <InsightQuote>
                 Levershare begins with dormant capital, transforms it into productive
                 capital through Coincarnation, grows it through stewardship, recognizes
