@@ -4477,11 +4477,9 @@ export const DOC_SECTIONS: DocSection[] = [
                 </p>
               </div>
 
-              <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
-                <InsightQuote>
-                  Coincarnation follows a milestone-based roadmap, not a date-based roadmap.
-                </InsightQuote>
-              </div>
+              <InsightQuote>
+                Coincarnation follows a milestone-based roadmap, not a date-based roadmap.
+              </InsightQuote>
             </div>
           </div>
 
