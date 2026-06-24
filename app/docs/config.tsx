@@ -4455,7 +4455,7 @@ export const DOC_SECTIONS: DocSection[] = [
     Content: () => (
       <>
         <section className="space-y-8">
-          {/* Roadmap hero */}
+          {/* Hero */}
           <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-black p-6">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
             <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-purple-500/10 blur-3xl" />
@@ -4467,130 +4467,196 @@ export const DOC_SECTIONS: DocSection[] = [
                 </p>
 
                 <h3 className="mt-4 text-3xl font-black leading-tight md:text-5xl">
-                  A long-term journey built in stages.
+                  A living roadmap built through Epochs.
                 </h3>
 
                 <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
-                  Coincarnation evolves step by step. Each stage builds the foundation
-                  for the next one and expands the impact of the entire ecosystem.
+                  Coincarnation Phases are operational participation cycles. Roadmap
+                  Epochs are larger historical development periods that may contain
+                  multiple phases, launches, integrations, and governance milestones.
                 </p>
               </div>
 
               <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
                 <InsightQuote>
-                  The roadmap is not a promise of dates. It is a commitment to build
-                  responsibly, validate thoroughly, and grow together.
+                  Coincarnation follows a milestone-based roadmap, not a date-based roadmap.
                 </InsightQuote>
               </div>
             </div>
           </div>
 
-          {/* Vertical roadmap */}
-          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-6">
+          {/* Phase vs Epoch distinction */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+                Coincarnation Phases
+              </p>
+              <h3 className="mt-3 text-lg font-bold">Operational cycles</h3>
+              <p className="mt-3 text-sm leading-relaxed text-white/65">
+                Phases are managed through the protocol and admin system. They define
+                when participants can Coincarnate, contribute, claim, and interact with
+                active mechanics.
+              </p>
+            </div>
 
+            <div className="rounded-3xl border border-purple-300/20 bg-purple-300/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-200/70">
+                Roadmap Epochs
+              </p>
+              <h3 className="mt-3 text-lg font-bold">Historical development periods</h3>
+              <p className="mt-3 text-sm leading-relaxed text-white/65">
+                Epochs describe the long-term evolution of Coincarnation: foundation,
+                economic activation, global expansion, fund formation, PVC utility, and
+                open Proof of Value adoption.
+              </p>
+            </div>
+          </div>
+
+          {/* Epoch roadmap */}
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-6">
             <div className="space-y-5">
               {[
                 {
-                  no: "01",
-                  title: "Genesis Phase",
-                  status: "Active Stage",
+                  no: "I",
+                  title: "Foundation Epoch",
+                  status: "Active",
                   active: true,
                   desc:
-                    "The first real phase of Coincarnation. Early participants experience the system, contribute, and help shape the foundation.",
-                  focus: [
-                    "Real users onboarding",
-                    "Identity activation",
-                    "Proof Ledger validation",
-                    "PVC formation",
-                    "CorePoints recognition",
+                    "The infrastructure epoch. Coincarnation’s core systems are designed, built, connected, and validated through the first real Coincarnation Phase.",
+                  mission:
+                    "Build the foundation required for real participation, contribution recognition, and future economic activation.",
+                  achievements: [
+                    "Identity Layer",
+                    "Proof Ledger",
+                    "Proof of Value",
+                    "PVC Framework",
+                    "Asset Classification",
+                    "Governance Framework",
+                    "MEGY Design",
+                    "Fair Future Fund Design",
+                    "Risk & Security Architecture",
+                    "First Coincarnation Phase",
                   ],
-                  signals: [
-                    "Real Coincarnations completed",
-                    "PVCs are being generated",
-                    "Community engagement grows",
-                    "System runs reliably",
-                  ],
+                  completion:
+                    "The first Coincarnation Phase is successfully completed with real user participation.",
                 },
                 {
-                  no: "02",
-                  title: "Expansion Phase",
+                  no: "II",
+                  title: "Economic Activation Epoch",
                   status: "Next",
                   desc:
-                    "Broader participation begins. Referral flows, asset classification, community behavior, and governance tests strengthen the system.",
-                  focus: [
-                    "Broader participation",
-                    "Referral and community testing",
-                    "System resilience tests",
+                    "The economic layer begins. The second Coincarnation Phase opens, MEGY is minted, initial claims are tested, and MEGY becomes publicly accessible.",
+                  mission:
+                    "Validate the complete economic cycle from contribution to MEGY access.",
+                  achievements: [
+                    "Second Coincarnation Phase",
+                    "MEGY Mint",
+                    "Initial Claim Operations",
+                    "Full User Journey Validation",
+                    "Reward Distribution Tests",
+                    "Liquidity Preparation",
+                    "Economic Stress Testing",
+                    "DEX Listing",
                   ],
+                  completion:
+                    "MEGY becomes publicly accessible and the first complete economic cycle is validated.",
                 },
                 {
-                  no: "03",
-                  title: "MEGY Genesis",
+                  no: "III",
+                  title: "Global Expansion Epoch",
                   status: "Future",
                   desc:
-                    "After successful completion of Phase 2, MEGY is minted and the economic asset layer of Coincarnation begins.",
-                  focus: ["MEGY minting", "Economic layer activation", "Tokenomics go live"],
+                    "Coincarnation expands beyond Solana and becomes a multi-chain participation ecosystem.",
+                  mission:
+                    "Bring Coincarnation to major blockchain ecosystems and expand global participation.",
+                  achievements: [
+                    "Multi-chain Coincarnation",
+                    "Ethereum Integration",
+                    "BNB Chain Integration",
+                    "Base Integration",
+                    "Cross-chain Identity",
+                    "Cross-chain Proof Ledger",
+                    "Global Ambassador Network",
+                    "Regional Communities",
+                    "Coincarnation Academy",
+                    "First CEX Listing",
+                  ],
+                  completion:
+                    "Coincarnation operates across major networks and achieves at least one major CEX listing.",
                 },
                 {
-                  no: "04",
-                  title: "Full Cycle Validation",
+                  no: "IV",
+                  title: "Fair Future Epoch",
                   status: "Future",
                   desc:
-                    "Phase 3 opens. Claim flows are activated and the complete journey from contribution to claim is tested in real conditions.",
-                  focus: ["Claims activation", "End-to-end testing", "Cycle validation"],
+                    "The capital stewardship layer becomes operational through the formation of Fair Future Fund.",
+                  mission:
+                    "Transform accumulated capital into professionally governed long-term opportunity.",
+                  achievements: [
+                    "Fair Future Fund Formation",
+                    "Professional Management Team",
+                    "Fund Governance Framework",
+                    "Transparency Infrastructure",
+                    "Initial Capital Deployment",
+                    "Risk Policy Activation",
+                    "First Fund Returns",
+                    "First Distribution Event",
+                  ],
+                  completion:
+                    "The first Fair Future Fund distribution is successfully completed.",
                 },
                 {
-                  no: "05",
-                  title: "Public Market Access",
+                  no: "V",
+                  title: "Utility Epoch",
                   status: "Future",
                   desc:
-                    "After full validation, MEGY becomes publicly accessible through DEX listings.",
-                  focus: ["DEX preparation", "Liquidity bootstrapping", "Market access"],
+                    "PVC evolves from contribution history into a practical utility and access layer.",
+                  mission:
+                    "Make PVC useful across ecosystem services, third-party opportunities, and real-world access.",
+                  achievements: [
+                    "PVC Utility Network",
+                    "Merchant Integrations",
+                    "Service Integrations",
+                    "Subscription Use Cases",
+                    "Travel Use Cases",
+                    "Marketplace Access",
+                    "Third-Party Utility Partners",
+                    "Real-World Access Programs",
+                  ],
+                  completion:
+                    "PVC becomes usable across a diverse network of ecosystem and third-party opportunities.",
                 },
                 {
-                  no: "06",
-                  title: "Global Participation Expansion",
+                  no: "VI",
+                  title: "Open Value Epoch",
                   status: "Future",
                   desc:
-                    "Coincarnation expands through education, marketing, partnerships, and global community growth.",
-                  focus: ["Global marketing", "Strategic partnerships", "Mass adoption"],
+                    "Proof of Value expands beyond Coincarnation and becomes an open recognition framework.",
+                  mission:
+                    "Allow new verified contribution sources to generate PVC under governed recognition rules.",
+                  achievements: [
+                    "External Proof Sources",
+                    "Open Recognition Framework",
+                    "Third-Party PoV Integrations",
+                    "External PVC Generation",
+                    "Independent Ecosystem Adoption",
+                    "Global Recognition Network",
+                  ],
+                  completion:
+                    "Proof of Value becomes an open framework that can exist beyond Coincarnation itself.",
                 },
-                {
-                  no: "07",
-                  title: "Fair Future Fund Formation",
-                  status: "Future",
-                  desc:
-                    "After meaningful participation and significant Coincarnated value, Fair Future Fund is established with professional governance.",
-                  focus: ["FFF establishment", "Capital stewardship", "First fund distribution"],
-                },
-                {
-                  no: "08",
-                  title: "PVC Utility Network",
-                  status: "Future",
-                  desc:
-                    "PVC evolves into a practical utility layer for payments, access, services, subscriptions, and real-world transactions.",
-                  focus: ["Utility integrations", "Third-party adoption", "Real-world usage"],
-                },
-                {
-                  no: "09",
-                  title: "Proof of Value Ecosystem",
-                  status: "Future",
-                  desc:
-                    "Proof of Value expands beyond Coincarnation. New verified contribution sources may generate PVC under governed recognition rules.",
-                  focus: ["External PoV sources", "Ecosystem expansion", "Global recognition layer"],
-                },
-              ].map((stage) => (
+              ].map((epoch) => (
                 <div
-                  key={stage.no}
+                  key={epoch.no}
                   className="grid gap-4 md:grid-cols-[90px_1fr] md:items-start"
                 >
                   <div className="flex md:justify-center">
                     <div
                       className={[
                         "relative flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full border text-center",
-                        stage.active
+                        epoch.active
                           ? "border-cyan-300/60 bg-cyan-300/10 shadow-[0_0_35px_rgba(34,211,238,0.35)]"
-                          : stage.status === "Next"
+                          : epoch.status === "Next"
                             ? "border-purple-300/50 bg-purple-300/10 shadow-[0_0_28px_rgba(168,85,247,0.25)]"
                             : "border-white/10 bg-black/30",
                       ].join(" ")}
@@ -4598,27 +4664,26 @@ export const DOC_SECTIONS: DocSection[] = [
                       <div
                         className={[
                           "text-2xl font-black",
-
-                          stage.active
+                          epoch.active
                             ? "text-cyan-100"
-                            : stage.status === "Next"
+                            : epoch.status === "Next"
                               ? "text-purple-100"
                               : "text-white/45",
                         ].join(" ")}
                       >
-                        {stage.no}
+                        {epoch.no}
                       </div>
                       <div
                         className={[
                           "mt-1 text-[9px] font-bold uppercase leading-tight tracking-wide",
-                          stage.active
+                          epoch.active
                             ? "text-cyan-100/70"
-                            : stage.status === "Next"
+                            : epoch.status === "Next"
                               ? "text-purple-100/70"
                               : "text-white/35",
                         ].join(" ")}
                       >
-                        {stage.status}
+                        {epoch.status}
                       </div>
                     </div>
                   </div>
@@ -4626,20 +4691,21 @@ export const DOC_SECTIONS: DocSection[] = [
                   <div
                     className={[
                       "relative overflow-hidden rounded-3xl border p-5",
-                      stage.active
+                      epoch.active
                         ? "border-cyan-300/30 bg-gradient-to-br from-cyan-500/10 via-black/30 to-emerald-500/10"
-                        : stage.status === "Next"
+                        : epoch.status === "Next"
                           ? "border-purple-300/25 bg-gradient-to-br from-purple-500/10 via-black/25 to-black/30"
                           : "border-white/10 bg-black/25",
                     ].join(" ")}
                   >
-                    {stage.active && (
+                    {epoch.active && (
                       <>
                         <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
                         <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-emerald-400/10 blur-3xl" />
                       </>
                     )}
-                    {stage.status === "Next" && (
+
+                    {epoch.status === "Next" && (
                       <>
                         <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
                         <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-fuchsia-400/10 blur-3xl" />
@@ -4651,35 +4717,46 @@ export const DOC_SECTIONS: DocSection[] = [
                         <p
                           className={[
                             "rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]",
-
-                            stage.active
+                            epoch.active
                               ? "border-cyan-300/30 bg-cyan-300/10 text-cyan-100"
-
-                              : stage.status === "Next"
+                              : epoch.status === "Next"
                                 ? "border-purple-300/30 bg-purple-300/10 text-purple-100"
-
                                 : "border-white/10 bg-white/[0.03] text-white/35",
                           ].join(" ")}
                         >
-                          {stage.status}
+                          {epoch.status}
                         </p>
                       </div>
 
-                      <h3 className="mt-3 text-xl font-black md:text-2xl">
-                        {stage.title}
+                      <h3
+                        className={[
+                          "mt-3 text-xl font-black md:text-2xl",
+                          epoch.status === "Next" ? "text-purple-100" : "text-white",
+                        ].join(" ")}
+                      >
+                        {epoch.title}
                       </h3>
 
                       <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/65">
-                        {stage.desc}
+                        {epoch.desc}
                       </p>
 
-                      {stage.active ? (
+                      {(epoch.active || epoch.status === "Next") ? (
                         <div className="mt-5 space-y-4">
+                          <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                            <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/45">
+                              Mission
+                            </p>
+                            <p className="mt-2 text-sm leading-relaxed text-white/70">
+                              {epoch.mission}
+                            </p>
+                          </div>
+
                           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                            {stage.focus.map((item) => (
+                            {epoch.achievements.map((item) => (
                               <div
                                 key={item}
-                                className="rounded-2xl border border-white/10 bg-black/25 p-4 text-center"
+                                className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center"
                               >
                                 <div className="text-xs font-bold text-white/80">
                                   {item}
@@ -4688,51 +4765,18 @@ export const DOC_SECTIONS: DocSection[] = [
                             ))}
                           </div>
 
-                          <div className="grid gap-4 md:grid-cols-2">
-                            <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                              <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-100/80">
-                                What we focus on
-                              </p>
-                              <div className="mt-3 space-y-2">
-                                {[
-                                  "Deliver seamless user experience",
-                                  "Validate core mechanics in a live environment",
-                                  "Build initial contribution and recognition data",
-                                  "Ensure system stability and security",
-                                ].map((x) => (
-                                  <div key={x} className="text-sm text-white/65">
-                                    ✓ {x}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-
-                            <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                              <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-100/80">
-                                Success signals
-                              </p>
-                              <div className="mt-3 space-y-2">
-                                {stage.signals?.map((x) => (
-                                  <div key={x} className="text-sm text-white/65">
-                                    ✓ {x}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-3">
-                            <div className="h-2 min-w-[180px] flex-1 overflow-hidden rounded-full bg-white/10">
-                              <div className="h-full w-1/4 rounded-full bg-gradient-to-r from-cyan-300 to-emerald-300" />
-                            </div>
-                            <div className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-bold text-cyan-100">
-                              In Progress
-                            </div>
+                          <div className="rounded-2xl border-l-4 border-cyan-300 bg-white/[0.04] p-4">
+                            <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-100/80">
+                              Completion criteria
+                            </p>
+                            <p className="mt-2 text-sm leading-relaxed text-white/70">
+                              {epoch.completion}
+                            </p>
                           </div>
                         </div>
                       ) : (
-                        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                          {stage.focus.map((item) => (
+                        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          {epoch.achievements.slice(0, 6).map((item) => (
                             <div
                               key={item}
                               className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-white/55"
@@ -4749,9 +4793,27 @@ export const DOC_SECTIONS: DocSection[] = [
             </div>
           </div>
 
-          {/* Final */}
+          {/* Living roadmap note */}
           <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
+              Living roadmap
+            </p>
+
+            <blockquote className="mt-3 text-2xl font-black leading-tight">
+              Future Epochs may expand, split, merge, or evolve as the ecosystem grows.
+            </blockquote>
+
+            <p className="mt-4 text-sm leading-relaxed text-white/65">
+              Roadmap updates should not be seen as a loss of direction. Coincarnation
+              is designed as a long-term economic framework, and its roadmap may adapt
+              through participation data, governance maturity, technological progress,
+              regulatory developments, and new ecosystem opportunities.
+            </p>
+          </div>
+
+          {/* Final */}
+          <div className="rounded-3xl border border-cyan-400/20 bg-black/30 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
               Roadmap principle
             </p>
 
@@ -4760,9 +4822,9 @@ export const DOC_SECTIONS: DocSection[] = [
             </blockquote>
 
             <p className="mt-4 text-sm leading-relaxed text-white/65">
-              Each stage is unlocked by validation, trust, and real participation. As
-              Coincarnation matures, future stages can be expanded with deeper detail
-              and stronger governance.
+              Each Epoch is unlocked by validation, trust, and real participation. The
+              roadmap is designed to preserve direction while allowing the system to
+              mature responsibly.
             </p>
           </div>
         </section>
