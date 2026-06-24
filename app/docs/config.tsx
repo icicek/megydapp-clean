@@ -76,39 +76,77 @@ export const DOC_SECTIONS: DocSection[] = [
 
               <div className="mt-8 grid gap-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
                 {/* Orbit visual */}
-                <div className="relative mx-auto flex h-[360px] w-full max-w-[520px] items-center justify-center">
-                  <div className="absolute h-52 w-52 rounded-full border border-cyan-300/30 bg-black/40 shadow-[0_0_60px_rgba(34,211,238,0.18)]" />
-                  <div className="absolute h-72 w-72 rounded-full border border-purple-300/15" />
-                  <div className="absolute h-80 w-80 rounded-full border border-cyan-300/10" />
+                <div className="relative mx-auto flex w-full max-w-[620px] items-center justify-center">
+                  <div className="relative hidden h-[520px] w-[620px] lg:block">
+                    <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-300/30 bg-black/40 shadow-[0_0_70px_rgba(34,211,238,0.2)]" />
+                    <div className="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-purple-300/15" />
+                    <div className="absolute left-1/2 top-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-300/10" />
 
-                  <div className="relative z-10 flex h-44 w-44 items-center justify-center rounded-full border border-cyan-300/30 bg-zinc-950/90 text-center shadow-[0_0_70px_rgba(34,211,238,0.22)]">
-                    <div>
+                    <div className="absolute left-1/2 top-1/2 z-10 flex h-48 w-48 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-300/30 bg-zinc-950/90 text-center shadow-[0_0_70px_rgba(34,211,238,0.22)]">
+                      <div>
+                        <div className="text-2xl font-black text-white">Levershare</div>
+                        <div className="mt-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-200/70">
+                          Participation Economy
+                        </div>
+                      </div>
+                    </div>
+
+                    {[
+                      ["1", "Coincarnation", "Capital formation", "left-[235px] top-0", "border-cyan-300/40 bg-cyan-300/10 text-cyan-100"],
+                      ["2", "PVC", "Personal value currency", "right-0 top-[120px]", "border-purple-300/40 bg-purple-300/10 text-purple-100"],
+                      ["3", "CorePoint", "Contribution unit", "right-[46px] bottom-[78px]", "border-emerald-300/40 bg-emerald-300/10 text-emerald-100"],
+                      ["4", "Fair Future Fund", "Capital stewardship", "left-[235px] bottom-0", "border-amber-300/40 bg-amber-300/10 text-amber-100"],
+                      ["5", "Proof of Value", "Recognition engine", "left-[46px] bottom-[78px]", "border-fuchsia-300/40 bg-fuchsia-300/10 text-fuchsia-100"],
+                      ["6", "MEGY", "Economic asset", "left-0 top-[120px]", "border-orange-300/40 bg-orange-300/10 text-orange-100"],
+                    ].map(([no, title, subtitle, pos, color]) => (
+                      <div
+                        key={title}
+                        className={`absolute ${pos} z-20 w-36 rounded-2xl border p-3 text-center backdrop-blur ${color}`}
+                      >
+                        <div className="text-lg font-black">{no}</div>
+                        <div className="mt-1 text-xs font-bold leading-tight">{title}</div>
+                        <div className="mt-1 text-[10px] leading-tight text-white/55">
+                          {subtitle}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Mobile / tablet safe version */}
+                  <div className="grid w-full gap-3 lg:hidden">
+                    <div className="rounded-3xl border border-cyan-300/30 bg-zinc-950/80 p-5 text-center shadow-[0_0_50px_rgba(34,211,238,0.16)]">
                       <div className="text-2xl font-black text-white">Levershare</div>
                       <div className="mt-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-200/70">
                         Participation Economy
                       </div>
                     </div>
-                  </div>
 
-                  {[
-                    ["1", "Coincarnation", "Capital formation", "left-1/2 top-0 -translate-x-1/2", "border-cyan-300/40 bg-cyan-300/10 text-cyan-100"],
-                    ["2", "PVC", "Personal value currency", "right-0 top-20", "border-purple-300/40 bg-purple-300/10 text-purple-100"],
-                    ["3", "CorePoint", "Contribution unit", "right-4 bottom-16", "border-emerald-300/40 bg-emerald-300/10 text-emerald-100"],
-                    ["4", "Fair Future Fund", "Capital stewardship", "left-1/2 bottom-0 -translate-x-1/2", "border-amber-300/40 bg-amber-300/10 text-amber-100"],
-                    ["5", "Proof of Value", "Recognition engine", "left-4 bottom-16", "border-fuchsia-300/40 bg-fuchsia-300/10 text-fuchsia-100"],
-                    ["6", "MEGY", "Economic asset", "left-0 top-20", "border-orange-300/40 bg-orange-300/10 text-orange-100"],
-                  ].map(([no, title, subtitle, pos, color]) => (
-                    <div
-                      key={title}
-                      className={`absolute ${pos} z-20 w-32 rounded-2xl border p-3 text-center backdrop-blur ${color}`}
-                    >
-                      <div className="text-lg font-black">{no}</div>
-                      <div className="mt-1 text-xs font-bold leading-tight">{title}</div>
-                      <div className="mt-1 text-[10px] leading-tight text-white/55">
-                        {subtitle}
+                    {[
+                      ["1", "Coincarnation", "Capital formation", "border-cyan-300/40 bg-cyan-300/10 text-cyan-100"],
+                      ["2", "PVC", "Personal value currency", "border-purple-300/40 bg-purple-300/10 text-purple-100"],
+                      ["3", "CorePoint", "Contribution unit", "border-emerald-300/40 bg-emerald-300/10 text-emerald-100"],
+                      ["4", "Fair Future Fund", "Capital stewardship", "border-amber-300/40 bg-amber-300/10 text-amber-100"],
+                      ["5", "Proof of Value", "Recognition engine", "border-fuchsia-300/40 bg-fuchsia-300/10 text-fuchsia-100"],
+                      ["6", "MEGY", "Economic asset", "border-orange-300/40 bg-orange-300/10 text-orange-100"],
+                    ].map(([no, title, subtitle, color]) => (
+                      <div
+                        key={title}
+                        className={`rounded-2xl border p-4 ${color}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/30 text-sm font-black">
+                            {no}
+                          </div>
+                          <div>
+                            <div className="text-sm font-bold leading-tight">{title}</div>
+                            <div className="mt-1 text-xs leading-tight text-white/55">
+                              {subtitle}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
 
                 {/* Explanation cards */}
