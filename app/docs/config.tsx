@@ -255,9 +255,7 @@ export const DOC_SECTIONS: DocSection[] = [
 
             <div className="mt-5 max-w-full overflow-hidden">
               <InsightQuote>
-                Levershare begins with dormant capital, transforms it into productive
-                capital through Coincarnation, grows it through stewardship, recognizes
-                contribution through Proof of Value, and expands opportunity through PVC.
+                Coincarnation gives abandoned value a second life.
               </InsightQuote>
             </div>
           </div>
