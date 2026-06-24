@@ -4506,8 +4506,8 @@ export const DOC_SECTIONS: DocSection[] = [
               <h3 className="mt-3 text-lg font-bold">Historical development periods</h3>
               <p className="mt-3 text-sm leading-relaxed text-white/65">
                 Epochs describe the long-term evolution of Coincarnation: foundation,
-                economic activation, global expansion, fund formation, PVC utility, and
-                open Proof of Value adoption.
+                economic activation, global expansion, fund formation, PVC utility, open
+                Proof of Value adoption, and global value economy development.
               </p>
             </div>
           </div>
@@ -4518,13 +4518,14 @@ export const DOC_SECTIONS: DocSection[] = [
               {[
                 {
                   no: "I",
+                  status: "● Active",
+                  statusType: "active",
                   title: "Foundation Epoch",
-                  status: "Active",
-                  active: true,
+                  subtitle: "Coincarnation moves from concept to reality.",
                   desc:
                     "The infrastructure epoch. Coincarnation’s core systems are designed, built, connected, and validated through the first real Coincarnation Phase.",
                   mission:
-                    "Build the foundation required for real participation, contribution recognition, and future economic activation.",
+                    "Build the infrastructure required for real participation, contribution recognition, and future economic activation.",
                   achievements: [
                     "Identity Layer",
                     "Proof Ledger",
@@ -4542,12 +4543,14 @@ export const DOC_SECTIONS: DocSection[] = [
                 },
                 {
                   no: "II",
+                  status: "◐ Next",
+                  statusType: "next",
                   title: "Economic Activation Epoch",
-                  status: "Next",
+                  subtitle: "Recognition becomes an operating economy.",
                   desc:
                     "The economic layer begins. The second Coincarnation Phase opens, MEGY is minted, initial claims are tested, and MEGY becomes publicly accessible.",
                   mission:
-                    "Validate the complete economic cycle from contribution to MEGY access.",
+                    "Transform contribution recognition into a functioning economic system.",
                   achievements: [
                     "Second Coincarnation Phase",
                     "MEGY Mint",
@@ -4563,33 +4566,38 @@ export const DOC_SECTIONS: DocSection[] = [
                 },
                 {
                   no: "III",
+                  status: "○ Future",
+                  statusType: "future",
                   title: "Global Expansion Epoch",
-                  status: "Future",
+                  subtitle: "Coincarnation expands beyond Solana.",
                   desc:
-                    "Coincarnation expands beyond Solana and becomes a multi-chain participation ecosystem.",
+                    "Coincarnation becomes a multi-chain participation ecosystem with broader global reach, regional communities, and stronger market access.",
                   mission:
-                    "Bring Coincarnation to major blockchain ecosystems and expand global participation.",
+                    "Expand Coincarnation beyond Solana and establish a global participation ecosystem.",
                   achievements: [
                     "Multi-chain Coincarnation",
                     "Ethereum Integration",
                     "BNB Chain Integration",
                     "Base Integration",
-                    "Cross-chain Identity",
+                    "Cross-chain Identity Layer",
                     "Cross-chain Proof Ledger",
-                    "Global Ambassador Network",
+                    "Global Ambassador Program",
                     "Regional Communities",
                     "Coincarnation Academy",
-                    "First CEX Listing",
+                    "Strategic Partnerships",
+                    "First Major CEX Listing",
                   ],
                   completion:
-                    "Coincarnation operates across major networks and achieves at least one major CEX listing.",
+                    "Coincarnation operates across major blockchain ecosystems and achieves at least one major centralized exchange listing.",
                 },
                 {
                   no: "IV",
+                  status: "○ Future",
+                  statusType: "future",
                   title: "Fair Future Epoch",
-                  status: "Future",
+                  subtitle: "Capital becomes professionally governed opportunity.",
                   desc:
-                    "The capital stewardship layer becomes operational through the formation of Fair Future Fund.",
+                    "The capital stewardship layer becomes operational through the formation of Fair Future Fund and professional governance structures.",
                   mission:
                     "Transform accumulated capital into professionally governed long-term opportunity.",
                   achievements: [
@@ -4607,10 +4615,12 @@ export const DOC_SECTIONS: DocSection[] = [
                 },
                 {
                   no: "V",
+                  status: "○ Future",
+                  statusType: "future",
                   title: "Utility Epoch",
-                  status: "Future",
+                  subtitle: "PVC becomes usable beyond recognition history.",
                   desc:
-                    "PVC evolves from contribution history into a practical utility and access layer.",
+                    "PVC evolves from contribution history into a practical utility and access layer across ecosystem services, partner opportunities, and real-world use cases.",
                   mission:
                     "Make PVC useful across ecosystem services, third-party opportunities, and real-world access.",
                   achievements: [
@@ -4622,18 +4632,22 @@ export const DOC_SECTIONS: DocSection[] = [
                     "Marketplace Access",
                     "Third-Party Utility Partners",
                     "Real-World Access Programs",
+                    "Premium Membership Systems",
+                    "Access Rights Framework",
                   ],
                   completion:
                     "PVC becomes usable across a diverse network of ecosystem and third-party opportunities.",
                 },
                 {
                   no: "VI",
+                  status: "○ Future",
+                  statusType: "future",
                   title: "Open Value Epoch",
-                  status: "Future",
+                  subtitle: "Proof of Value expands beyond Coincarnation.",
                   desc:
-                    "Proof of Value expands beyond Coincarnation and becomes an open recognition framework.",
+                    "Proof of Value becomes an open recognition framework where new verified contribution sources may generate PVC under governed rules.",
                   mission:
-                    "Allow new verified contribution sources to generate PVC under governed recognition rules.",
+                    "Expand Proof of Value beyond Coincarnation itself.",
                   achievements: [
                     "External Proof Sources",
                     "Open Recognition Framework",
@@ -4643,7 +4657,28 @@ export const DOC_SECTIONS: DocSection[] = [
                     "Global Recognition Network",
                   ],
                   completion:
-                    "Proof of Value becomes an open framework that can exist beyond Coincarnation itself.",
+                    "Proof of Value becomes an open framework capable of existing beyond Coincarnation.",
+                },
+                {
+                  no: "VII",
+                  status: "○ Future",
+                  statusType: "vision",
+                  title: "Global Value Economy Epoch",
+                  subtitle: "The long-term vision matures into a global value economy.",
+                  desc:
+                    "Coincarnation matures beyond a standalone platform into an interconnected ecosystem where value recognition, capital formation, and opportunity distribution reinforce one another.",
+                  mission:
+                    "Create an interconnected ecosystem where value recognition, capital formation, and opportunity distribution reinforce one another.",
+                  achievements: [
+                    "Global Recognition Infrastructure",
+                    "Mature PVC Economy",
+                    "Large-Scale Fair Future Fund Operations",
+                    "Multi-Ecosystem Participation",
+                    "Open Value Standards",
+                    "Global Opportunity Network",
+                  ],
+                  completion:
+                    "Coincarnation operates as a mature global value economy rather than a standalone platform.",
                 },
               ].map((epoch) => (
                 <div
@@ -4654,21 +4689,25 @@ export const DOC_SECTIONS: DocSection[] = [
                     <div
                       className={[
                         "relative flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full border text-center",
-                        epoch.active
+                        epoch.statusType === "active"
                           ? "border-cyan-300/60 bg-cyan-300/10 shadow-[0_0_35px_rgba(34,211,238,0.35)]"
-                          : epoch.status === "Next"
+                          : epoch.statusType === "next"
                             ? "border-purple-300/50 bg-purple-300/10 shadow-[0_0_28px_rgba(168,85,247,0.25)]"
-                            : "border-white/10 bg-black/30",
+                            : epoch.statusType === "vision"
+                              ? "border-amber-300/40 bg-amber-300/10 shadow-[0_0_24px_rgba(251,191,36,0.18)]"
+                              : "border-white/10 bg-black/30",
                       ].join(" ")}
                     >
                       <div
                         className={[
                           "text-2xl font-black",
-                          epoch.active
+                          epoch.statusType === "active"
                             ? "text-cyan-100"
-                            : epoch.status === "Next"
+                            : epoch.statusType === "next"
                               ? "text-purple-100"
-                              : "text-white/45",
+                              : epoch.statusType === "vision"
+                                ? "text-amber-100"
+                                : "text-white/45",
                         ].join(" ")}
                       >
                         {epoch.no}
@@ -4676,11 +4715,13 @@ export const DOC_SECTIONS: DocSection[] = [
                       <div
                         className={[
                           "mt-1 text-[9px] font-bold uppercase leading-tight tracking-wide",
-                          epoch.active
+                          epoch.statusType === "active"
                             ? "text-cyan-100/70"
-                            : epoch.status === "Next"
+                            : epoch.statusType === "next"
                               ? "text-purple-100/70"
-                              : "text-white/35",
+                              : epoch.statusType === "vision"
+                                ? "text-amber-100/70"
+                                : "text-white/35",
                         ].join(" ")}
                       >
                         {epoch.status}
@@ -4691,24 +4732,33 @@ export const DOC_SECTIONS: DocSection[] = [
                   <div
                     className={[
                       "relative overflow-hidden rounded-3xl border p-5",
-                      epoch.active
+                      epoch.statusType === "active"
                         ? "border-cyan-300/30 bg-gradient-to-br from-cyan-500/10 via-black/30 to-emerald-500/10"
-                        : epoch.status === "Next"
+                        : epoch.statusType === "next"
                           ? "border-purple-300/25 bg-gradient-to-br from-purple-500/10 via-black/25 to-black/30"
-                          : "border-white/10 bg-black/25",
+                          : epoch.statusType === "vision"
+                            ? "border-amber-300/20 bg-gradient-to-br from-amber-500/10 via-black/25 to-purple-500/10"
+                            : "border-white/10 bg-black/25",
                     ].join(" ")}
                   >
-                    {epoch.active && (
+                    {epoch.statusType === "active" && (
                       <>
                         <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
                         <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-emerald-400/10 blur-3xl" />
                       </>
                     )}
 
-                    {epoch.status === "Next" && (
+                    {epoch.statusType === "next" && (
                       <>
                         <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
                         <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-fuchsia-400/10 blur-3xl" />
+                      </>
+                    )}
+
+                    {epoch.statusType === "vision" && (
+                      <>
+                        <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-amber-400/10 blur-3xl" />
+                        <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
                       </>
                     )}
 
@@ -4717,11 +4767,13 @@ export const DOC_SECTIONS: DocSection[] = [
                         <p
                           className={[
                             "rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]",
-                            epoch.active
+                            epoch.statusType === "active"
                               ? "border-cyan-300/30 bg-cyan-300/10 text-cyan-100"
-                              : epoch.status === "Next"
+                              : epoch.statusType === "next"
                                 ? "border-purple-300/30 bg-purple-300/10 text-purple-100"
-                                : "border-white/10 bg-white/[0.03] text-white/35",
+                                : epoch.statusType === "vision"
+                                  ? "border-amber-300/30 bg-amber-300/10 text-amber-100"
+                                  : "border-white/10 bg-white/[0.03] text-white/35",
                           ].join(" ")}
                         >
                           {epoch.status}
@@ -4731,17 +4783,25 @@ export const DOC_SECTIONS: DocSection[] = [
                       <h3
                         className={[
                           "mt-3 text-xl font-black md:text-2xl",
-                          epoch.status === "Next" ? "text-purple-100" : "text-white",
+                          epoch.statusType === "next"
+                            ? "text-purple-100"
+                            : epoch.statusType === "vision"
+                              ? "text-amber-100"
+                              : "text-white",
                         ].join(" ")}
                       >
                         {epoch.title}
                       </h3>
 
+                      <p className="mt-2 text-sm font-semibold text-white/50">
+                        {epoch.subtitle}
+                      </p>
+
                       <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/65">
                         {epoch.desc}
                       </p>
 
-                      {(epoch.active || epoch.status === "Next") ? (
+                      {(epoch.statusType === "active" || epoch.statusType === "next") ? (
                         <div className="mt-5 space-y-4">
                           <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
                             <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/45">
@@ -4765,8 +4825,22 @@ export const DOC_SECTIONS: DocSection[] = [
                             ))}
                           </div>
 
-                          <div className="rounded-2xl border-l-4 border-cyan-300 bg-white/[0.04] p-4">
-                            <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-100/80">
+                          <div
+                            className={[
+                              "rounded-2xl border-l-4 bg-white/[0.04] p-4",
+                              epoch.statusType === "next"
+                                ? "border-purple-300"
+                                : "border-cyan-300",
+                            ].join(" ")}
+                          >
+                            <p
+                              className={[
+                                "text-xs font-bold uppercase tracking-[0.18em]",
+                                epoch.statusType === "next"
+                                  ? "text-purple-100/80"
+                                  : "text-cyan-100/80",
+                              ].join(" ")}
+                            >
                               Completion criteria
                             </p>
                             <p className="mt-2 text-sm leading-relaxed text-white/70">
@@ -4775,15 +4849,49 @@ export const DOC_SECTIONS: DocSection[] = [
                           </div>
                         </div>
                       ) : (
-                        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                          {epoch.achievements.slice(0, 6).map((item) => (
-                            <div
-                              key={item}
-                              className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-white/55"
+                        <div className="mt-5 space-y-4">
+                          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                            <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/35">
+                              Mission
+                            </p>
+                            <p className="mt-2 text-sm leading-relaxed text-white/55">
+                              {epoch.mission}
+                            </p>
+                          </div>
+
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            {epoch.achievements.slice(0, 6).map((item) => (
+                              <div
+                                key={item}
+                                className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-white/55"
+                              >
+                                {item}
+                              </div>
+                            ))}
+                          </div>
+
+                          <div
+                            className={[
+                              "rounded-2xl border-l-4 bg-white/[0.03] p-4",
+                              epoch.statusType === "vision"
+                                ? "border-amber-300/60"
+                                : "border-white/15",
+                            ].join(" ")}
+                          >
+                            <p
+                              className={[
+                                "text-xs font-bold uppercase tracking-[0.18em]",
+                                epoch.statusType === "vision"
+                                  ? "text-amber-100/70"
+                                  : "text-white/35",
+                              ].join(" ")}
                             >
-                              {item}
-                            </div>
-                          ))}
+                              Completion criteria
+                            </p>
+                            <p className="mt-2 text-sm leading-relaxed text-white/55">
+                              {epoch.completion}
+                            </p>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -4804,10 +4912,10 @@ export const DOC_SECTIONS: DocSection[] = [
             </blockquote>
 
             <p className="mt-4 text-sm leading-relaxed text-white/65">
-              Roadmap updates should not be seen as a loss of direction. Coincarnation
-              is designed as a long-term economic framework, and its roadmap may adapt
-              through participation data, governance maturity, technological progress,
-              regulatory developments, and new ecosystem opportunities.
+              Roadmap progression is determined by validation, not time. New
+              opportunities, governance decisions, technological advances, participation
+              data, and regulatory developments may shape future development without
+              changing the long-term direction of Coincarnation.
             </p>
           </div>
 
