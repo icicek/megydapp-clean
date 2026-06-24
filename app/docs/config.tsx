@@ -4951,12 +4951,203 @@ export const DOC_SECTIONS: DocSection[] = [
       "The long-term vision of capital formation, value recognition, and opportunity distribution.",
     Content: () => (
       <>
-        <p>
-          Coincarnation was not created to build another token economy. It was
-          created to explore whether access to capital formation, value
-          recognition, and economic opportunity can become more broadly
-          distributed.
-        </p>
+        <section className="space-y-8">
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 via-cyan-500/10 to-black p-6">
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-purple-400/10 blur-3xl" />
+            <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-purple-200/80">
+                Closing Vision
+              </p>
+
+              <h3 className="mt-4 max-w-4xl text-3xl font-black leading-tight md:text-5xl">
+                Beyond Coincarnation. Beyond Web3. Toward a broader participation economy.
+              </h3>
+
+              <p className="mt-5 max-w-3xl text-sm leading-relaxed text-white/70">
+                Coincarnation is the first step. Levershare is the larger vision. What
+                begins as a Web3 participation system may eventually evolve into a
+                broader economic framework where contribution, recognition, opportunity,
+                and capital formation become more closely connected.
+              </p>
+
+              <div className="mt-6">
+                <InsightQuote>
+                  Levershare does not seek to replace existing economic systems. It
+                  seeks to expand who can meaningfully participate in them.
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
+
+          {/* Bigger picture */}
+          <div className="grid gap-4 md:grid-cols-3">
+            {[
+              [
+                "Coincarnation",
+                "Capital Formation",
+                "Coincarnation introduces a new approach to participation-driven capital formation.",
+              ],
+              [
+                "Levershare",
+                "Economic Infrastructure",
+                "Levershare connects Coincarnation, Proof of Value, PVC, CorePoints, Fair Future Fund, and future systems into a unified framework.",
+              ],
+              [
+                "Humanity",
+                "Long-Term Vision",
+                "The long-term objective is not limited to crypto communities. It is to create systems that can eventually serve people regardless of geography, background, or existing wealth.",
+              ],
+            ].map(([label, title, desc]) => (
+              <div
+                key={label}
+                className="rounded-3xl border border-white/10 bg-white/[0.03] p-5"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+                  {label}
+                </p>
+                <h3 className="mt-3 text-lg font-bold">{title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Levershare vision */}
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-black/30 to-purple-500/10 p-6">
+            <div className="absolute -right-24 top-1/3 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
+            <div className="absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-purple-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+                The Levershare Vision
+              </p>
+
+              <h3 className="mt-3 text-2xl font-black leading-tight md:text-3xl">
+                A future where value can move from recognition to opportunity.
+              </h3>
+
+              <div className="mt-6 grid gap-3 md:grid-cols-5">
+                {[
+                  ["Contribution", "creates"],
+                  ["Recognition", "creates"],
+                  ["Opportunity", "enables"],
+                  ["Participation", "supports"],
+                  ["Capital Formation", "creates more opportunity"],
+                ].map(([title, subtitle]) => (
+                  <div
+                    key={title}
+                    className="rounded-2xl border border-white/10 bg-black/25 p-4 text-center"
+                  >
+                    <div className="text-sm font-bold">{title}</div>
+                    <div className="mt-2 text-xs leading-relaxed text-white/55">
+                      {subtitle}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <blockquote className="mt-6 rounded-2xl border-l-4 border-cyan-300 bg-white/[0.04] p-5 text-lg font-semibold leading-relaxed">
+                Contribution creates recognition. Recognition creates opportunity.
+                Opportunity enables participation. Participation supports capital
+                formation. Capital formation creates new opportunities for others.
+              </blockquote>
+            </div>
+          </div>
+
+          {/* Three principles */}
+          <div className="grid gap-4 md:grid-cols-3">
+            {[
+              [
+                "Recognition",
+                "Human contribution should not disappear simply because it cannot be immediately priced by a market.",
+              ],
+              [
+                "Opportunity",
+                "Access to capital formation should not be limited to those who already possess capital.",
+              ],
+              [
+                "Participation",
+                "People should have more ways to participate in economic systems than ownership alone.",
+              ],
+            ].map(([title, desc]) => (
+              <div
+                key={title}
+                className="rounded-3xl border border-purple-300/20 bg-purple-300/5 p-5"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-200/70">
+                  Future principle
+                </p>
+                <h3 className="mt-3 text-lg font-bold">{title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Humanity vision */}
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+              Levershare and humanity
+            </p>
+
+            <h3 className="mt-3 text-2xl font-black leading-tight">
+              Levershare is not designed only for cryptocurrency investors.
+            </h3>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <p className="text-sm leading-relaxed text-white/65">
+                Web3 provides the initial infrastructure, but the long-term vision
+                extends far beyond blockchain communities. If successful, systems such
+                as Proof of Value, Personal Value Currency, CorePoints, Coincarnation,
+                and Fair Future Fund could support broader forms of economic inclusion
+                and opportunity creation.
+              </p>
+
+              <p className="text-sm leading-relaxed text-white/65">
+                The objective is not to build a system for a specific group. The
+                objective is to build systems that can serve people: across geography,
+                income level, background, and starting position.
+              </p>
+            </div>
+          </div>
+
+          {/* Final statement */}
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-black/30 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+                Final vision
+              </p>
+
+              <blockquote className="mt-3 text-2xl font-black leading-tight md:text-4xl">
+                Coincarnation is the beginning. Levershare is the vision.
+              </blockquote>
+
+              <p className="mt-5 max-w-3xl text-sm leading-relaxed text-white/65">
+                The future belongs to systems that recognize value, expand opportunity,
+                and empower participation. Levershare begins with Coincarnation, but it
+                is built for a future where every person can be seen, recognized, and
+                given a fairer path to participate in economic life.
+              </p>
+
+              <div className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center">
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/40">
+                  Levershare
+                </p>
+                <h3 className="mt-4 text-3xl font-black tracking-tight md:text-5xl">
+                  Recognize Value.
+                  <br />
+                  Expand Opportunity.
+                  <br />
+                  Build the Future.
+                </h3>
+              </div>
+            </div>
+          </div>
+        </section>
       </>
     ),
   },
