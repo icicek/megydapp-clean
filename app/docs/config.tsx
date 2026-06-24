@@ -138,34 +138,6 @@ export const DOC_SECTIONS: DocSection[] = [
               </div>
             </div>
           </div>
-          
-          {/* Hero */}
-          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-indigo-500/10 to-purple-500/10 p-6">
-            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
-            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
-
-            <div className="relative">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/80">
-                Executive Summary
-              </p>
-
-              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
-                Coincarnation is a capital formation framework for broader economic participation.
-              </h3>
-
-              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
-                Coincarnation transforms eligible digital assets into productive
-                capital, recognizes contribution through Proof of Value, and connects
-                that recognition to future opportunity through Personal Value Currency.
-              </p>
-
-              <div className="mt-5">
-                <InsightQuote>
-                  Coincarnation was not created to build another token economy.
-                </InsightQuote>
-              </div>
-            </div>
-          </div>
 
           {/* Main thesis */}
           <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
@@ -195,6 +167,34 @@ export const DOC_SECTIONS: DocSection[] = [
               <InsightQuote>
                 Coincarnation creates capital. Fair Future Fund manages and grows it. Proof of Value recognizes contribution. Personal Value Currency distributes opportunity.
               </InsightQuote>
+            </div>
+          </div>
+          
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-indigo-500/10 to-purple-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/80">
+                Executive Summary
+              </p>
+
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                Coincarnation is a capital formation framework for broader economic participation.
+              </h3>
+
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                Coincarnation transforms eligible digital assets into productive
+                capital, recognizes contribution through Proof of Value, and connects
+                that recognition to future opportunity through Personal Value Currency.
+              </p>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  Coincarnation was not created to build another token economy.
+                </InsightQuote>
+              </div>
             </div>
           </div>
 
