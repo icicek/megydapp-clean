@@ -145,26 +145,6 @@ export const DOC_SECTIONS: DocSection[] = [
                     ))}
                   </div>
                 </div>
-
-                {/* Explanation cards */}
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {[
-                    ["Coincarnation", "A new capital formation model powered by digital asset participation."],
-                    ["Personal Value Currency", "A personal, non-transferable value layer built from recognized contribution."],
-                    ["CorePoint", "The accounting unit of recognized contribution inside the ecosystem."],
-                    ["Fair Future Fund", "A capital stewardship layer for long-term resilience and opportunity."],
-                    ["Proof of Value", "The recognition framework that validates measurable contribution."],
-                    ["MEGY", "The ecosystem asset that powers economic activity and incentives."],
-                  ].map(([title, desc]) => (
-                    <div
-                      key={title}
-                      className="rounded-2xl border border-white/10 bg-black/25 p-4"
-                    >
-                      <div className="text-sm font-bold text-cyan-100">{title}</div>
-                      <p className="mt-2 text-xs leading-relaxed text-white/60">{desc}</p>
-                    </div>
-                  ))}
-                </div>
               </div>
 
               <div className="mt-7 rounded-3xl border border-white/10 bg-black/25 p-5">
