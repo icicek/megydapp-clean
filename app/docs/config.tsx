@@ -187,33 +187,84 @@ export const DOC_SECTIONS: DocSection[] = [
             </div>
           </div>
 
-          {/* Main thesis */}
+          {/* Participation Economy Cycle */}
           <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
-              Core thesis
+              Participation Economy Cycle
             </p>
 
-            <div className="mt-5 grid gap-3 md:grid-cols-5">
+            <h3 className="mt-3 text-2xl font-black leading-tight">
+              From dormant capital to expanded opportunity.
+            </h3>
+
+            <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/65">
+              Levershare begins with dormant capital: digital assets that have lost market
+              relevance but still contain economic potential. Through Coincarnation, that
+              dormant capital becomes productive again and enters a cycle designed to create
+              value, recognize contribution, and expand opportunity.
+            </p>
+
+            <div className="mt-7 grid gap-3 md:grid-cols-6">
               {[
-                ["Digital Assets", "Existing value"],
-                ["Coincarnation", "Capital formation"],
-                ["FFF", "Capital growth"],
-                ["PoV", "Contribution recognition"],
-                ["PVC", "Opportunity distribution"],
-              ].map(([title, subtitle]) => (
+                [
+                  "Dormant Capital",
+                  "Forgotten value",
+                ],
+                [
+                  "Coincarnation",
+                  "Capital formation",
+                ],
+                [
+                  "Capital Recovery",
+                  "Participant gains",
+                ],
+                [
+                  "Fair Future Fund",
+                  "Capital stewardship",
+                ],
+                [
+                  "Proof of Value",
+                  "Contribution recognition",
+                ],
+                [
+                  "PVC",
+                  "Opportunity creation",
+                ],
+              ].map(([title, subtitle], index) => (
                 <div
                   key={title}
-                  className="rounded-2xl border border-white/10 bg-black/20 p-4 text-center"
+                  className="relative rounded-2xl border border-white/10 bg-black/20 p-4 text-center"
                 >
                   <div className="text-sm font-bold">{title}</div>
-                  <div className="mt-2 text-xs text-white/55">{subtitle}</div>
+
+                  <div className="mt-2 text-xs text-white/55">
+                    {subtitle}
+                  </div>
+
+                  {index < 5 && (
+                    <div className="absolute -right-2 top-1/2 hidden -translate-y-1/2 text-cyan-200/60 md:block">
+                      →
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
 
+            <div className="mt-6 rounded-2xl border border-cyan-400/20 bg-black/25 p-5">
+              <p className="text-sm leading-relaxed text-white/70">
+                Participants may recover value through Coincarnation. A portion of the
+                resulting capital contributes to the formation and growth of Fair Future
+                Fund. Proof of Value recognizes measurable contribution within the
+                ecosystem, while Personal Value Currency creates pathways to future
+                opportunity.
+              </p>
+            </div>
+
             <div className="mt-5">
               <InsightQuote>
-                Coincarnation creates capital. Fair Future Fund manages and grows it. Proof of Value recognizes contribution. Personal Value Currency distributes opportunity.
+                Levershare begins with dormant capital, transforms it into productive
+                capital through Coincarnation, grows it through stewardship, recognizes
+                contribution through Proof of Value, and expands opportunity through PVC.
               </InsightQuote>
             </div>
           </div>
