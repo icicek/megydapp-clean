@@ -54,35 +54,66 @@ export const DOC_SECTIONS: DocSection[] = [
             </div>
           </div>
 
-          {/* Core system map */}
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
-              System map
-            </p>
-            <h3 className="mt-1 text-lg font-semibold">
-              One framework, four core layers
-            </h3>
+          {/* Levershare Ecosystem Map */}
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-black p-6">
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
+            <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-purple-400/10 blur-3xl" />
 
-            <div className="mt-5 grid gap-3 md:grid-cols-4">
-              {[
-                ["Coincarnation", "Creates capital", "Transforms eligible assets into productive capital"],
-                ["Fair Future Fund", "Manages and grows it", "Allocates capital through long-term strategies"],
-                ["Proof of Value", "Recognizes contribution", "Makes measurable participation visible"],
-                ["PVC", "Distributes opportunity", "Connects contribution to future rights and access"],
-              ].map(([title, role, desc]) => (
-                <div
-                  key={title}
-                  className="rounded-2xl border border-white/10 bg-black/25 p-4"
-                >
-                  <div className="text-sm font-bold">{title}</div>
-                  <div className="mt-2 text-xs font-semibold text-cyan-100/80">
-                    {role}
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+                Levershare Ecosystem Map
+              </p>
+
+              <h3 className="mt-2 text-2xl font-black leading-tight">
+                One vision, multiple economic layers.
+              </h3>
+
+              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/65">
+                Levershare connects Coincarnation, Proof of Value, CorePoints, PVC, MEGY,
+                Fair Future Fund, and governance into a broader participation economy.
+              </p>
+
+              <div className="mt-7 grid gap-5 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+                <div className="mx-auto flex h-52 w-52 items-center justify-center rounded-full border border-cyan-300/25 bg-black/35 text-center shadow-[0_0_60px_rgba(34,211,238,0.18)]">
+                  <div>
+                    <div className="text-2xl font-black text-white">
+                      Levershare
+                    </div>
+                    <div className="mt-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">
+                      Participation Economy
+                    </div>
                   </div>
-                  <p className="mt-3 text-xs leading-relaxed text-white/60">
-                    {desc}
-                  </p>
                 </div>
-              ))}
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    ["Coincarnation", "Capital formation through digital asset participation"],
+                    ["Proof of Value", "Recognition framework for measurable contribution"],
+                    ["CorePoints", "Accounting unit for recognized contribution"],
+                    ["PVC", "Personal Value Currency built from recognized contribution"],
+                    ["MEGY", "Ecosystem asset powering economic activity"],
+                    ["Fair Future Fund", "Capital stewardship and long-term opportunity layer"],
+                    ["Governance", "Rule evolution, oversight, and accountability"],
+                    ["Risk Safeguards", "Protection against abuse, manipulation, and capture"],
+                  ].map(([title, desc]) => (
+                    <div
+                      key={title}
+                      className="rounded-2xl border border-white/10 bg-black/25 p-4"
+                    >
+                      <div className="text-sm font-bold text-cyan-100">{title}</div>
+                      <p className="mt-2 text-xs leading-relaxed text-white/60">
+                        {desc}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <InsightQuote>
+                  Coincarnation begins the system. Levershare is the larger economic vision.
+                </InsightQuote>
+              </div>
             </div>
           </div>
 
