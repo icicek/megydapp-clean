@@ -41,12 +41,13 @@ export const DOC_SECTIONS: DocSection[] = [
               </h3>
 
               <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/65">
-                Levershare connects six core innovations into a unified Web3 economy where
-                contribution is recognized, value is accumulated, capital is formed, and
-                opportunity is expanded.
+                Levershare combines six interconnected economic layers into a unified
+                participation economy. Together, these layers connect capital formation,
+                contribution recognition, economic activity, and long-term opportunity.
               </p>
 
               <div className="mt-8 space-y-7">
+
                 {/* Orbit visual */}
                 <div className="relative mx-auto flex w-full max-w-[620px] items-center justify-center">
                   <div className="relative hidden h-[520px] w-[620px] lg:block">
@@ -56,7 +57,10 @@ export const DOC_SECTIONS: DocSection[] = [
 
                     <div className="absolute left-1/2 top-1/2 z-10 flex h-48 w-48 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-300/30 bg-zinc-950/90 text-center shadow-[0_0_70px_rgba(34,211,238,0.22)]">
                       <div>
-                        <div className="text-2xl font-black text-white">Levershare</div>
+                        <div className="text-2xl font-black text-white">
+                          Levershare
+                        </div>
+
                         <div className="mt-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-200/70">
                           Participation Economy
                         </div>
@@ -64,54 +68,96 @@ export const DOC_SECTIONS: DocSection[] = [
                     </div>
 
                     {[
-                      ["1", "Coincarnation", "Capital formation", "left-[235px] top-0", "border-cyan-300/40 bg-cyan-300/10 text-cyan-100"],
-                      ["2", "PVC", "Personal value currency", "right-0 top-[120px]", "border-purple-300/40 bg-purple-300/10 text-purple-100"],
-                      ["3", "CorePoint", "Contribution unit", "right-[46px] bottom-[78px]", "border-emerald-300/40 bg-emerald-300/10 text-emerald-100"],
-                      ["4", "Fair Future Fund", "Capital stewardship", "left-[235px] bottom-0", "border-amber-300/40 bg-amber-300/10 text-amber-100"],
-                      ["5", "Proof of Value", "Recognition engine", "left-[46px] bottom-[78px]", "border-fuchsia-300/40 bg-fuchsia-300/10 text-fuchsia-100"],
-                      ["6", "MEGY", "Economic asset", "left-0 top-[120px]", "border-orange-300/40 bg-orange-300/10 text-orange-100"],
+                      [
+                        "1",
+                        "Coincarnation",
+                        "Capital Formation Layer",
+                        "left-[235px] top-0",
+                        "border-cyan-300/40 bg-cyan-300/10 text-cyan-100",
+                      ],
+                      [
+                        "2",
+                        "PVC",
+                        "Personal Value Layer",
+                        "right-0 top-[120px]",
+                        "border-purple-300/40 bg-purple-300/10 text-purple-100",
+                      ],
+                      [
+                        "3",
+                        "CorePoint",
+                        "Contribution Accounting Layer",
+                        "right-[46px] bottom-[78px]",
+                        "border-emerald-300/40 bg-emerald-300/10 text-emerald-100",
+                      ],
+                      [
+                        "4",
+                        "Fair Future Fund",
+                        "Capital Stewardship Layer",
+                        "left-[235px] bottom-0",
+                        "border-amber-300/40 bg-amber-300/10 text-amber-100",
+                      ],
+                      [
+                        "5",
+                        "Proof of Value",
+                        "Recognition Layer",
+                        "left-[46px] bottom-[78px]",
+                        "border-fuchsia-300/40 bg-fuchsia-300/10 text-fuchsia-100",
+                      ],
+                      [
+                        "6",
+                        "MEGY",
+                        "Economic Activity Layer",
+                        "left-0 top-[120px]",
+                        "border-orange-300/40 bg-orange-300/10 text-orange-100",
+                      ],
                     ].map(([no, title, subtitle, pos, color]) => (
                       <div
                         key={title}
-                        className={`absolute ${pos} z-20 w-36 rounded-2xl border p-3 text-center backdrop-blur ${color}`}
+                        className={`absolute ${pos} z-20 w-40 rounded-2xl border p-3 text-center backdrop-blur ${color}`}
                       >
                         <div className="text-lg font-black">{no}</div>
-                        <div className="mt-1 text-xs font-bold leading-tight">{title}</div>
-                        <div className="mt-1 text-[10px] leading-tight text-white/55">
+
+                        <div className="mt-1 text-xs font-bold leading-tight">
+                          {title}
+                        </div>
+
+                        <div className="mt-2 text-[10px] uppercase tracking-[0.12em] text-white/55">
                           {subtitle}
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  {/* Mobile / tablet safe version */}
+                  {/* Mobile */}
                   <div className="grid w-full gap-3 lg:hidden">
                     <div className="rounded-3xl border border-cyan-300/30 bg-zinc-950/80 p-5 text-center shadow-[0_0_50px_rgba(34,211,238,0.16)]">
-                      <div className="text-2xl font-black text-white">Levershare</div>
+                      <div className="text-2xl font-black text-white">
+                        Levershare
+                      </div>
+
                       <div className="mt-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-200/70">
                         Participation Economy
                       </div>
                     </div>
 
                     {[
-                      ["1", "Coincarnation", "Capital formation", "border-cyan-300/40 bg-cyan-300/10 text-cyan-100"],
-                      ["2", "PVC", "Personal value currency", "border-purple-300/40 bg-purple-300/10 text-purple-100"],
-                      ["3", "CorePoint", "Contribution unit", "border-emerald-300/40 bg-emerald-300/10 text-emerald-100"],
-                      ["4", "Fair Future Fund", "Capital stewardship", "border-amber-300/40 bg-amber-300/10 text-amber-100"],
-                      ["5", "Proof of Value", "Recognition engine", "border-fuchsia-300/40 bg-fuchsia-300/10 text-fuchsia-100"],
-                      ["6", "MEGY", "Economic asset", "border-orange-300/40 bg-orange-300/10 text-orange-100"],
-                    ].map(([no, title, subtitle, color]) => (
-                      <div key={title} className={`rounded-2xl border p-4 ${color}`}>
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/30 text-sm font-black">
-                            {no}
-                          </div>
-                          <div>
-                            <div className="text-sm font-bold leading-tight">{title}</div>
-                            <div className="mt-1 text-xs leading-tight text-white/55">
-                              {subtitle}
-                            </div>
-                          </div>
+                      ["Coincarnation", "Capital Formation Layer"],
+                      ["Proof of Value", "Recognition Layer"],
+                      ["CorePoint", "Contribution Accounting Layer"],
+                      ["PVC", "Personal Value Layer"],
+                      ["MEGY", "Economic Activity Layer"],
+                      ["Fair Future Fund", "Capital Stewardship Layer"],
+                    ].map(([title, subtitle]) => (
+                      <div
+                        key={title}
+                        className="rounded-2xl border border-white/10 bg-black/25 p-4"
+                      >
+                        <div className="text-sm font-bold text-white">
+                          {title}
+                        </div>
+
+                        <div className="mt-2 text-xs uppercase tracking-[0.12em] text-cyan-200/60">
+                          {subtitle}
                         </div>
                       </div>
                     ))}
@@ -125,9 +171,11 @@ export const DOC_SECTIONS: DocSection[] = [
                 </p>
 
                 <p className="mt-3 text-sm leading-relaxed text-white/65">
-                  Levershare is not designed only for crypto users or investors. Its long-term
-                  vision is to create a fairer, more inclusive economic system that can serve
-                  people regardless of geography, background, or starting point.
+                  Levershare is not designed exclusively for cryptocurrency investors.
+                  Web3 provides the initial infrastructure, but the long-term vision
+                  extends far beyond blockchain communities. The objective is to build
+                  systems that can eventually serve people regardless of geography,
+                  background, existing wealth, or starting position.
                 </p>
               </div>
 
@@ -169,7 +217,7 @@ export const DOC_SECTIONS: DocSection[] = [
               </InsightQuote>
             </div>
           </div>
-          
+
           {/* Hero */}
           <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-indigo-500/10 to-purple-500/10 p-6">
             <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
