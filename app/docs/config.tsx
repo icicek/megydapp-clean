@@ -187,6 +187,35 @@ export const DOC_SECTIONS: DocSection[] = [
             </div>
           </div>
 
+          {/* Hero */}
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-indigo-500/10 to-purple-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/80">
+                Executive Summary
+              </p>
+
+              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                Levershare transforms forgotten capital into renewed opportunity.
+              </h3>
+
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
+                Levershare begins with dormant capital and transforms it into productive
+                economic activity through Coincarnation. Capital formation, stewardship,
+                contribution recognition, and opportunity creation are connected through an
+                integrated participation economy designed for long-term value creation.
+              </p>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  What if abandoned capital could have a second life?
+                </InsightQuote>
+              </div>
+            </div>
+          </div>
+
           {/* Participation Economy Cycle */}
           <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
@@ -251,35 +280,6 @@ export const DOC_SECTIONS: DocSection[] = [
               <InsightQuote>
                 Coincarnation gives abandoned value a second life.
               </InsightQuote>
-            </div>
-          </div>
-
-          {/* Hero */}
-          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-indigo-500/10 to-purple-500/10 p-6">
-            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
-            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-purple-400/10 blur-3xl" />
-
-            <div className="relative">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/80">
-                Executive Summary
-              </p>
-
-              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
-                Levershare transforms forgotten capital into renewed opportunity.
-              </h3>
-
-              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
-                Levershare begins with dormant capital and transforms it into productive
-                economic activity through Coincarnation. Capital formation, stewardship,
-                contribution recognition, and opportunity creation are connected through an
-                integrated participation economy designed for long-term value creation.
-              </p>
-
-              <div className="mt-5">
-                <InsightQuote>
-                  What if abandoned capital could have a second life?
-                </InsightQuote>
-              </div>
             </div>
           </div>
 
@@ -396,8 +396,8 @@ export const DOC_SECTIONS: DocSection[] = [
             </p>
 
             <blockquote className="mt-3 text-2xl font-black leading-tight">
-              Levershare is not designed merely to recover value. It is designed to expand
-              how value can be created, recognized, and shared.
+            The long-term objective is not simply to build a better crypto economy, but to explore how 
+            participation itself can become a foundation for broader economic opportunity.
             </blockquote>
 
             <p className="mt-4 text-sm leading-relaxed text-white/65">
