@@ -569,6 +569,265 @@ export const DOC_SECTIONS: DocSection[] = [
   },
 
   {
+    slug: "the-cost-of-misalignment",
+    title: "The Cost of Misalignment",
+    updatedAt: "2026-06-30",
+    words: 650,
+    summary:
+      "Explores why income inequality may begin long before income is distributed: where measurable contribution is recognized.",
+    Content: () => (
+      <>
+        <section className="space-y-8">
+          <div className="relative overflow-hidden rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 via-cyan-500/10 to-black p-6 md:p-8">
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-purple-400/10 blur-3xl" />
+            <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-purple-200/80">
+                The Foundations
+              </p>
+
+              <h3 className="mt-4 max-w-4xl text-3xl font-black leading-tight md:text-5xl">
+                The Cost of Misalignment
+              </h3>
+
+              <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/60 md:text-base">
+                Why income inequality may begin long before income is distributed.
+              </p>
+
+              <div className="mt-8 space-y-5 text-sm leading-relaxed text-white/68 md:text-base md:leading-relaxed">
+                <p>
+                  Income inequality has become one of the defining economic
+                  challenges of modern civilization.
+                </p>
+
+                <p>
+                  Governments debate it. Economists measure it. International
+                  organizations publish reports about it. Entire political
+                  movements are built around it.
+                </p>
+
+                <p>
+                  Yet despite decades of research, economic growth, institutional
+                  reform, technological progress, and countless policy proposals,
+                  it remains one of the defining characteristics of the modern
+                  world.
+                </p>
+
+                <p>
+                  This observation should not lead us to dismiss existing efforts.
+                  Many have improved millions of lives. Many will continue to do so.
+                </p>
+
+                <p>But perhaps they also invite a different question.</p>
+              </div>
+
+              <div className="mt-8 rounded-3xl border border-white/10 bg-black/30 p-5 md:p-6">
+                <p className="text-2xl font-black leading-tight text-white md:text-3xl">
+                  What if income inequality is not where the problem begins?
+                </p>
+              </div>
+
+              <div className="mt-8 space-y-5 text-sm leading-relaxed text-white/68 md:text-base md:leading-relaxed">
+                <p>
+                  Most discussions begin after income already exists. How should it
+                  be distributed? How should it be taxed? How should it be
+                  transferred?
+                </p>
+
+                <p>
+                  These are important questions. But they all examine the final
+                  stage of a much longer economic process.
+                </p>
+
+                <p>Levershare begins by looking earlier.</p>
+
+                <p>
+                  Long before income is distributed, someone creates value.
+                  Sometimes alone. More often together.
+                </p>
+
+                <p>
+                  Every modern product, every service, every scientific discovery,
+                  and every technological breakthrough exists because thousands of
+                  different contributions come together.
+                </p>
+
+                <p>
+                  Some are visible. Many are not. The economic value is created
+                  collectively. The economic outcomes are not always aligned in the
+                  same way.
+                </p>
+              </div>
+
+              <div className="mt-8">
+                <InsightQuote>
+                  Income inequality may not begin where income is distributed. It
+                  may begin where contribution is recognized.
+                </InsightQuote>
+              </div>
+
+              <div className="mt-8 space-y-5 text-sm leading-relaxed text-white/68 md:text-base md:leading-relaxed">
+                <p>
+                  This observation is not an argument against markets. Nor against
+                  entrepreneurship. Nor against capital.
+                </p>
+
+                <p>
+                  Capital matters. Risk matters. Leadership matters. Innovation
+                  matters. Markets remain one of humanity&apos;s greatest achievements.
+                </p>
+
+                <p>But perhaps they are still evolving.</p>
+
+                <p>
+                  Perhaps one question deserves far more attention than it has
+                  received.
+                </p>
+              </div>
+
+              <div className="mt-8 rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5 md:p-6">
+                <p className="text-2xl font-black leading-tight text-white md:text-3xl">
+                  How closely do economic outcomes reflect measurable human
+                  contribution?
+                </p>
+              </div>
+
+              <div className="mt-8 space-y-5 text-sm leading-relaxed text-white/68 md:text-base md:leading-relaxed">
+                <p>
+                  Levershare does not claim to know the perfect answer. In reality,
+                  no economic system can perfectly measure every form of human
+                  value. Nor should it try.
+                </p>
+
+                <p>
+                  Some contributions belong to families. Some belong to friendships.
+                  Some belong to communities. Some should never become economic
+                  transactions.
+                </p>
+
+                <p>Levershare asks a narrower question.</p>
+              </div>
+
+              <div className="mt-8 rounded-3xl border border-white/10 bg-black/25 p-5 md:p-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200/70">
+                  Focus
+                </p>
+
+                <h4 className="mt-3 text-2xl font-black leading-tight text-white md:text-3xl">
+                  Meaningfully measurable contribution.
+                </h4>
+
+                <p className="mt-4 text-sm leading-relaxed text-white/65 md:text-base">
+                  The kinds of contribution that already create economic value, but
+                  whose relationship with economic outcomes may still be incomplete.
+                </p>
+              </div>
+
+              <div className="mt-8 space-y-5 text-sm leading-relaxed text-white/68 md:text-base md:leading-relaxed">
+                <p>
+                  Modern technologies give us an opportunity previous generations
+                  never had.
+                </p>
+
+                <p>
+                  Not to measure everything. But perhaps to measure more. Not to
+                  eliminate uncertainty. But perhaps to reduce economic
+                  misalignment.
+                </p>
+
+                <p>
+                  Because better recognition does more than improve measurement. It
+                  changes expectations.
+                </p>
+
+                <p>
+                  When people believe that meaningful contribution is more likely
+                  to produce meaningful economic outcomes, they become more willing
+                  to participate.
+                </p>
+              </div>
+
+              <div className="mt-8 grid gap-4 md:grid-cols-4">
+                {[
+                  ["01", "Trust", "People believe contribution can matter."],
+                  ["02", "Participation", "More people become willing to create."],
+                  ["03", "Innovation", "More participation expands creativity."],
+                  ["04", "Prosperity", "More innovation strengthens shared growth."],
+                ].map(([no, title, text]) => (
+                  <div
+                    key={title}
+                    className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/25 p-5"
+                  >
+                    <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-cyan-400/10 blur-2xl" />
+
+                    <div className="relative">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-300/10 text-sm font-black text-cyan-100">
+                        {no}
+                      </div>
+
+                      <h4 className="mt-4 text-base font-black text-white">
+                        {title}
+                      </h4>
+
+                      <p className="mt-2 text-xs leading-relaxed text-white/55">
+                        {text}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 space-y-5 text-sm leading-relaxed text-white/68 md:text-base md:leading-relaxed">
+                <p>
+                  Seen from this perspective, improving the relationship between
+                  contribution and economic outcomes is not simply about producing
+                  fairer economic results.
+                </p>
+
+                <p>
+                  It may also be about unlocking human potential that never fully
+                  enters the economy in the first place.
+                </p>
+              </div>
+
+              <div className="mt-8">
+                <InsightQuote>
+                  Perhaps the world&apos;s greatest untapped economic resource is
+                  not hidden capital. Perhaps it is measurable human contribution
+                  that never becomes meaningful economic participation.
+                </InsightQuote>
+              </div>
+
+              <div className="mt-8 space-y-5 text-sm leading-relaxed text-white/68 md:text-base md:leading-relaxed">
+                <p>
+                  If that possibility is real, then improving the relationship
+                  between measurable contribution and economic outcomes is not only
+                  about reducing inequality.
+                </p>
+
+                <p>
+                  It may also be about enabling more people to create value,
+                  participate with confidence, and contribute to human progress.
+                </p>
+              </div>
+
+              <div className="mt-8 rounded-3xl border border-purple-300/20 bg-purple-300/5 p-6">
+                <p className="text-sm leading-relaxed text-white/70 md:text-base">
+                  That is the possibility Levershare exists to explore. Not because
+                  we believe we already know the answer, but because we believe
+                  humanity now possesses tools capable of asking the question in
+                  ways previous generations never could.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </>
+    ),
+  },
+
+  {
     slug: "global-inequality",
     title: "Global Inequality & Capital Formation",
     updatedAt: "2026-06-16",
