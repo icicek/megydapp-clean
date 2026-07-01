@@ -396,8 +396,8 @@ export const DOC_SECTIONS: DocSection[] = [
             </p>
 
             <blockquote className="mt-3 text-2xl font-black leading-tight">
-            The long-term objective is not simply to build a better crypto economy, but to explore how 
-            participation itself can become a foundation for broader economic opportunity.
+              The long-term objective is not simply to build a better crypto economy, but to explore how
+              participation itself can become a foundation for broader economic opportunity.
             </blockquote>
 
             <p className="mt-4 text-sm leading-relaxed text-white/65">
@@ -512,8 +512,8 @@ export const DOC_SECTIONS: DocSection[] = [
 
               <div className="mt-8">
                 <InsightQuote>
-                  Levershare exists to progressively improve the alignment
-                  between measurable human contribution and economic outcomes.
+                  Levershare explores whether modern technologies can progressively improve
+                  the alignment between meaningfully measurable contribution and economic outcomes.
                 </InsightQuote>
               </div>
 
@@ -553,8 +553,9 @@ export const DOC_SECTIONS: DocSection[] = [
 
               <div className="mt-8 rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-6">
                 <p className="text-sm leading-relaxed text-white/70 md:text-base">
-                  If our assumptions prove incomplete, we will improve them. If
-                  our models prove insufficient, we will refine them.
+                  If our assumptions prove incomplete, we will improve them. If our models prove
+                  insufficient, we will refine them. The goal is not certainty; it is to learn
+                  whether better alignment can unlock more human potential.
                 </p>
 
                 <p className="mt-5 text-2xl font-black leading-tight text-white md:text-3xl">
