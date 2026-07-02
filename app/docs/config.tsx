@@ -205,7 +205,7 @@ export const DOC_SECTIONS: DocSection[] = [
                 Levershare is a long-term economic research project exploring whether
                 modern technologies can progressively improve the alignment between
                 meaningfully measurable human contribution and economic outcomes.
-                Coincarnation is the first practical system designed to explore that hypothesis.
+                Coincarnation is the first practical implementation built to explore that hypothesis.
               </p>
 
               <div className="mt-5">
@@ -327,9 +327,9 @@ export const DOC_SECTIONS: DocSection[] = [
               <div className="mt-4 space-y-2">
                 {[
                   "A long-term economic research project",
+                  "A recognition system built through Proof of Value, CorePoints, and PVC",
                   "A participation economy built around forgotten capital",
                   "A capital formation framework powered by Coincarnation",
-                  "A recognition system built through Proof of Value, CorePoints, and PVC",
                   "A long-term Web3 infrastructure for broader economic opportunity",
                 ].map((x) => (
                   <div
@@ -433,7 +433,8 @@ export const DOC_SECTIONS: DocSection[] = [
             <blockquote className="mt-3 text-2xl font-black leading-tight">
               The long-term objective is not simply to build better economic tools,
               but to explore whether better alignment between meaningfully measurable
-              human contribution and economic outcomes can unlock more human potential.
+              human contribution and economic outcomes can unlock more human potential
+              through broader economic participation.
             </blockquote>
 
             <p className="mt-4 text-sm leading-relaxed text-white/65">
@@ -446,8 +447,8 @@ export const DOC_SECTIONS: DocSection[] = [
           <div className="mt-2">
             <InsightQuote>
               Levershare does not begin by asking how wealth should be redistributed.
-              It begins by asking how measurable contribution and economic outcomes
-              can become better aligned.
+
+              It begins by asking how measurable contribution and economic outcomes can become progressively better aligned.
             </InsightQuote>
           </div>
         </section>
