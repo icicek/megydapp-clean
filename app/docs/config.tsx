@@ -198,28 +198,28 @@ export const DOC_SECTIONS: DocSection[] = [
               </p>
 
               <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
-                Levershare transforms forgotten capital into renewed opportunity.
+                Exploring a new foundation for economic opportunity.
               </h3>
 
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
-                Levershare begins with dormant capital and transforms it into productive
-                economic activity through Coincarnation. Capital formation, stewardship,
-                contribution recognition, and opportunity creation are connected through an
-                integrated participation economy designed for long-term value creation.
+                Levershare is a long-term economic research project exploring whether
+                modern technologies can progressively improve the alignment between
+                meaningfully measurable human contribution and economic outcomes.
+                Coincarnation is the first practical system designed to explore that hypothesis.
               </p>
 
               <div className="mt-5">
                 <InsightQuote>
-                  What if abandoned capital could have a second life?
+                  What if better economic outcomes begin long before income is distributed?
                 </InsightQuote>
               </div>
             </div>
           </div>
 
-          {/* Participation Economy Cycle */}
+          {/* Capital Recovery Cycle */}
           <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
-              Participation Economy Cycle
+              Capital Recovery Cycle
             </p>
 
             <h3 className="mt-3 text-2xl font-black leading-tight">
@@ -280,6 +280,40 @@ export const DOC_SECTIONS: DocSection[] = [
               <InsightQuote>
                 Coincarnation gives abandoned value a second life.
               </InsightQuote>
+              <div className="mt-7 rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/70">
+                  Economic Participation Flywheel
+                </p>
+
+                <div className="mt-5 grid gap-3 md:grid-cols-5">
+                  {[
+                    ["01", "Recognition"],
+                    ["02", "Trust"],
+                    ["03", "Participation"],
+                    ["04", "Innovation"],
+                    ["05", "Prosperity"],
+                  ].map(([no, title]) => (
+                    <div
+                      key={title}
+                      className="rounded-2xl border border-white/10 bg-black/25 p-4 text-center"
+                    >
+                      <div className="text-xs font-black text-cyan-200/70">
+                        {no}
+                      </div>
+                      <div className="mt-2 text-sm font-bold text-white">
+                        {title}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="mt-5 text-sm leading-relaxed text-white/65">
+                  Better recognition does not simply improve economic measurement.
+                  It changes expectations. Greater trust encourages participation.
+                  Greater participation expands innovation. Innovation strengthens
+                  prosperity.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -292,6 +326,7 @@ export const DOC_SECTIONS: DocSection[] = [
 
               <div className="mt-4 space-y-2">
                 {[
+                  "A long-term economic research project",
                   "A participation economy built around forgotten capital",
                   "A capital formation framework powered by Coincarnation",
                   "A recognition system built through Proof of Value, CorePoints, and PVC",
@@ -396,16 +431,24 @@ export const DOC_SECTIONS: DocSection[] = [
             </p>
 
             <blockquote className="mt-3 text-2xl font-black leading-tight">
-              The long-term objective is not simply to build a better crypto economy, but to explore how
-              participation itself can become a foundation for broader economic opportunity.
+              The long-term objective is not simply to build better economic tools,
+              but to explore whether better alignment between meaningfully measurable
+              human contribution and economic outcomes can unlock more human potential.
             </blockquote>
 
             <p className="mt-4 text-sm leading-relaxed text-white/65">
               Coincarnation begins with forgotten digital assets, but Levershare points
-              toward a broader participation economy: capital formation, contribution
-              recognition, economic activity, governance, stewardship, and opportunity
-              expansion working as one integrated system.
+              toward a broader economic research ecosystem: contribution recognition,
+              capital formation, economic participation, stewardship, governance, and
+              opportunity expansion working as one integrated system.
             </p>
+          </div>
+          <div className="mt-2">
+            <InsightQuote>
+              Levershare does not begin by asking how wealth should be redistributed.
+              It begins by asking how measurable contribution and economic outcomes
+              can become better aligned.
+            </InsightQuote>
           </div>
         </section>
       </>
