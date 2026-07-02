@@ -227,7 +227,7 @@ export const DOC_SECTIONS: DocSection[] = [
             </h3>
 
             <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/65">
-              Levershare begins with dormant capital: digital assets that have lost market
+              Coincarnation begins with dormant capital: digital assets that have lost market
               relevance but still contain economic potential. Through Coincarnation, that
               dormant capital becomes productive again and enters a cycle designed to create
               value, recognize contribution, and expand opportunity.
@@ -447,10 +447,12 @@ export const DOC_SECTIONS: DocSection[] = [
           <div className="mt-2">
             <InsightQuote>
               Levershare does not begin by asking how wealth should be redistributed.
-
               It begins by asking how measurable contribution and economic outcomes can become progressively better aligned.
             </InsightQuote>
           </div>
+          <p className="mt-6 text-center text-sm italic text-white/50">
+            The chapters that follow explore this hypothesis from first principles.
+          </p>
         </section>
       </>
     ),
