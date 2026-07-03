@@ -878,281 +878,239 @@ export const DOC_SECTIONS: DocSection[] = [
     slug: "every-economy-grows-what-it-chooses-to-recognize",
     title: "Every Economy Grows What It Chooses to Recognize",
     updatedAt: "2026-06-30",
-    words: 820,
+    words: 760,
     summary:
-      "Explores how economic systems grow around the forms of human contribution they are capable of recognizing, coordinating, and rewarding.",
+      "Explores how economic systems evolve by expanding their ability to recognize, coordinate, and benefit from meaningful human contribution.",
     Content: () => (
       <>
         <section className="space-y-8">
-          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-black p-6 md:p-8">
-            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
-            <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-purple-400/10 blur-3xl" />
+          <article className="mx-auto max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200/80">
+              The Foundations
+            </p>
 
-            <div className="relative">
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200/80">
-                The Foundations
+            <h3 className="mt-4 text-3xl font-black leading-tight md:text-5xl">
+              Every Economy Grows What It Chooses to Recognize
+            </h3>
+
+            <div className="mt-8 space-y-6 text-sm leading-relaxed text-white/70 md:text-base md:leading-8">
+              <p>
+                Human potential has always exceeded the ability of economic systems
+                to recognize it.
               </p>
 
-              <h3 className="mt-4 max-w-4xl text-3xl font-black leading-tight md:text-5xl">
-                Every Economy Grows What It Chooses to Recognize
-              </h3>
+              <p>
+                As a result, economies have never been able to fully benefit from it.
+              </p>
 
-              <div className="mt-8 space-y-5 text-sm leading-relaxed text-white/68 md:text-base md:leading-relaxed">
-                <p>
-                  Human potential has always exceeded the ability of economic
-                  systems to recognize it.
-                </p>
+              <p>
+                This has rarely reflected a lack of human creativity or willingness
+                to contribute. More often, it has reflected the limits of the
+                institutions, technologies, and coordination mechanisms available at
+                the time.
+              </p>
 
-                <p>
-                  As a result, economies have never been able to fully benefit
-                  from it.
-                </p>
+              <p>
+                Throughout history, people have continuously discovered new ways to
+                create value. Economic systems, however, have only been able to
+                coordinate the forms of contribution they could meaningfully observe,
+                verify, exchange, and reward.
+              </p>
 
-                <p>
-                  This has rarely reflected a lack of human creativity, ambition,
-                  or willingness to contribute.
-                </p>
+              <p>Human beings create value.</p>
 
-                <p>
-                  More often, it has reflected the limits of the technologies,
-                  institutions, and coordination mechanisms available at the time.
-                </p>
-              </div>
+              <p>
+                Economic systems determine how much of that value can meaningfully
+                participate in economic life.
+              </p>
 
-              <div className="mt-8">
-                <InsightQuote>
-                  The history of civilization is not only the history of creating
-                  more value. It is also the history of expanding humanity&apos;s
-                  ability to transform existing human potential into meaningful
-                  economic participation.
-                </InsightQuote>
-              </div>
-
-              <div className="mt-8 space-y-5 text-sm leading-relaxed text-white/68 md:text-base md:leading-relaxed">
-                <p>
-                  Every major economic breakthrough has followed a remarkably
-                  similar pattern.
-                </p>
-
-                <p>People were already capable.</p>
-
-                <p>The opportunity to participate changed.</p>
-              </div>
-
-              <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                {[
-                  [
-                    "01",
-                    "Double-entry bookkeeping",
-                    "It did not create commerce. It allowed commerce to grow beyond the limits of memory and trust.",
-                  ],
-                  [
-                    "02",
-                    "Patent systems",
-                    "They did not create invention. They made invention economically sustainable.",
-                  ],
-                  [
-                    "03",
-                    "The internet",
-                    "It did not create knowledge. It reduced the cost of sharing, organizing, and building upon knowledge.",
-                  ],
-                  [
-                    "04",
-                    "Open-source software",
-                    "It did not invent collaboration. It enabled global collaboration at unprecedented scale.",
-                  ],
-                ].map(([no, title, text]) => (
-                  <div
-                    key={title}
-                    className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/25 p-5"
-                  >
-                    <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-cyan-400/10 blur-2xl" />
-
-                    <div className="relative">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-300/10 text-sm font-black text-cyan-100">
-                        {no}
-                      </div>
-
-                      <h4 className="mt-4 text-base font-black text-white">
-                        {title}
-                      </h4>
-
-                      <p className="mt-2 text-xs leading-relaxed text-white/55">
-                        {text}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-8 space-y-5 text-sm leading-relaxed text-white/68 md:text-base md:leading-relaxed">
-                <p>Different technologies. Different institutions. Different centuries.</p>
-
-                <p>Yet each expanded the economy&apos;s capacity to benefit from contributions that had always existed.</p>
-
-                <p>
-                  Technology did not create human potential. It expanded what
-                  economic systems were capable of doing with it.
-                </p>
-              </div>
-
-              <div className="mt-8 rounded-3xl border border-purple-300/20 bg-purple-300/5 p-6">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-200/70">
-                  The recurring pattern
-                </p>
-
-                <div className="mt-5 grid gap-3 md:grid-cols-5">
-                  {[
-                    ["01", "Coordination"],
-                    ["02", "Participation"],
-                    ["03", "Experimentation"],
-                    ["04", "Innovation"],
-                    ["05", "Prosperity"],
-                  ].map(([no, title]) => (
-                    <div
-                      key={title}
-                      className="rounded-2xl border border-white/10 bg-black/25 p-4 text-center"
-                    >
-                      <div className="text-xs font-black text-purple-200/70">
-                        {no}
-                      </div>
-                      <div className="mt-2 text-sm font-bold text-white">
-                        {title}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <p className="mt-5 text-sm leading-relaxed text-white/65 md:text-base">
-                  When meaningful contribution becomes easier to coordinate, more
-                  people choose to participate. As participation expands,
-                  experimentation expands. As experimentation expands, innovation
-                  accelerates. As innovation accelerates, prosperity expands.
-                </p>
-              </div>
-
-              <div className="mt-8 space-y-5 text-sm leading-relaxed text-white/68 md:text-base md:leading-relaxed">
-                <p>
-                  Economic progress has never been driven solely by producing more.
-                </p>
-
-                <p>
-                  It has also been driven by enabling more people to become producers.
-                </p>
-
-                <p>
-                  Perhaps one of humanity&apos;s greatest untapped resources is not
-                  hidden capital.
-                </p>
-
-                <p>
-                  It is meaningful human contribution that never finds meaningful
-                  economic participation.
-                </p>
-
-                <p>
-                  Perhaps the future of economic progress depends less on
-                  discovering new human potential and more on enabling more of it
-                  to participate.
-                </p>
-              </div>
-
-              <div className="mt-8 rounded-3xl border border-white/10 bg-black/25 p-6">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/70">
-                  Economic evolution
-                </p>
-
-                <p className="mt-4 text-sm leading-relaxed text-white/65 md:text-base">
-                  Economic systems have never been static. Every generation has
-                  inherited institutions shaped by the technologies available in
-                  its own time. Some generations have also expanded what those
-                  institutions made possible.
-                </p>
-
-                <p className="mt-4 text-sm leading-relaxed text-white/65 md:text-base">
-                  History rarely changes because existing systems suddenly
-                  disappear. It changes because better ways of coordinating human
-                  activity gradually become possible.
-                </p>
-              </div>
-
-              <div className="mt-8 space-y-5 text-sm leading-relaxed text-white/68 md:text-base md:leading-relaxed">
-                <p>Levershare begins with that observation.</p>
-
-                <p>
-                  Not with the assumption that existing economic systems have
-                  failed. Nor with the belief that previous generations were wrong.
-                </p>
-
-                <p>
-                  Every generation has built upon the achievements of those before it.
-                </p>
-
-                <p>Levershare simply asks whether another step has become possible.</p>
-              </div>
-
-              <div className="mt-8 rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5 md:p-6">
-                <p className="text-2xl font-black leading-tight text-white md:text-3xl">
-                  Can modern technologies enable economies to recognize, coordinate,
-                  and reward meaningful human contribution more effectively than
-                  ever before?
-                </p>
-              </div>
-
-              <div className="mt-8 space-y-5 text-sm leading-relaxed text-white/68 md:text-base md:leading-relaxed">
-                <p>
-                  Can they enable more people not only to consume economic value,
-                  but to participate meaningfully in creating it?
-                </p>
-
-                <p>
-                  If the hypothesis proves correct, more people may gain meaningful
-                  opportunities to influence their own economic outcomes through
-                  their own contributions.
-                </p>
-
-                <p>
-                  Levershare does not promise equal outcomes. It seeks to expand
-                  equal opportunities to create them.
-                </p>
-              </div>
-
-              <div className="mt-8">
-                <InsightQuote>
-                  Levershare is not designed to create more transactions. It is
-                  designed to create more creators.
-                </InsightQuote>
-              </div>
-
-              <div className="mt-8 space-y-5 text-sm leading-relaxed text-white/68 md:text-base md:leading-relaxed">
-                <p>
-                  People will not join Levershare to build a PVC.
-                </p>
-
-                <p>
-                  They will build a PVC because they choose to build a life
-                  centered on meaningful contribution.
-                </p>
-              </div>
-
-              <div className="mt-8 rounded-3xl border border-purple-300/20 bg-purple-300/5 p-6">
-                <p className="text-2xl font-black leading-tight text-white md:text-3xl">
-                  The purpose of Levershare is not simply to build a better economy.
-                </p>
-
-                <p className="mt-4 text-2xl font-black leading-tight text-white md:text-3xl">
-                  It is to help humanity benefit more fully from its own potential.
-                </p>
-              </div>
-
-              <div className="mt-8">
-                <InsightQuote>
-                  Every economy grows what it chooses to recognize. Perhaps the
-                  next chapter of economic progress begins by choosing more wisely.
-                </InsightQuote>
-              </div>
+              <p>
+                That distinction has quietly shaped the history of civilization.
+              </p>
             </div>
-          </div>
+
+            <div className="my-10">
+              <InsightQuote>
+                The history of civilization is not only the history of creating more
+                value. It is also the history of expanding humanity&apos;s ability to
+                transform existing human potential into meaningful economic
+                participation.
+              </InsightQuote>
+            </div>
+
+            <div className="space-y-6 text-sm leading-relaxed text-white/70 md:text-base md:leading-8">
+              <p>History offers countless examples.</p>
+
+              <p>
+                Double-entry bookkeeping did not create commerce. It made
+                increasingly complex commerce possible.
+              </p>
+
+              <p>
+                Patent systems did not create invention. They made invention
+                economically sustainable.
+              </p>
+
+              <p>
+                The internet did not create knowledge. It dramatically reduced the
+                cost of sharing, organizing, and building upon knowledge.
+              </p>
+
+              <p>
+                Open-source software did not invent collaboration. It made global
+                collaboration possible at a scale that had never existed before.
+              </p>
+
+              <p>Different technologies.</p>
+
+              <p>Different institutions.</p>
+
+              <p>Different centuries.</p>
+
+              <p>Yet the same underlying principle appears again and again.</p>
+
+              <p>Technology does not create human potential.</p>
+
+              <p>
+                It expands what economic systems are capable of doing with it.
+              </p>
+
+              <p>History reveals a remarkably consistent pattern.</p>
+
+              <p>
+                When meaningful contribution becomes easier to coordinate, more
+                people choose to participate.
+              </p>
+
+              <p>As participation expands, experimentation expands.</p>
+
+              <p>As experimentation expands, innovation accelerates.</p>
+
+              <p>As innovation accelerates, prosperity expands.</p>
+
+              <p>
+                Economic progress has therefore never depended solely on producing
+                more.
+              </p>
+
+              <p>
+                It has also depended on enabling more people to become producers.
+              </p>
+
+              <p>
+                Perhaps one of humanity&apos;s greatest untapped resources is not
+                hidden capital.
+              </p>
+
+              <p>
+                It is meaningful human contribution that never finds meaningful
+                economic participation.
+              </p>
+
+              <p>
+                Perhaps the future of economic progress depends less on discovering
+                new human potential...
+              </p>
+
+              <p>...and more on enabling more of it to participate.</p>
+
+              <p>Economic systems have never been static.</p>
+
+              <p>
+                Every generation has inherited institutions shaped by the
+                technologies available in its own time.
+              </p>
+
+              <p>
+                Some generations have also expanded what those institutions made
+                possible.
+              </p>
+
+              <p>
+                History rarely changes because existing systems suddenly disappear.
+              </p>
+
+              <p>
+                It changes because better ways of coordinating human activity
+                gradually become possible.
+              </p>
+
+              <p>
+                Every economic system has reflected the possibilities of its own era.
+              </p>
+
+              <p>
+                As those possibilities expanded, economic systems evolved.
+              </p>
+
+              <p>Not by rejecting the past.</p>
+
+              <p>But by building upon it.</p>
+
+              <p>Levershare begins with that observation.</p>
+
+              <p>
+                Not with the assumption that existing economic systems have failed.
+              </p>
+
+              <p>Nor with the belief that previous generations were wrong.</p>
+
+              <p>
+                Every generation has built upon the achievements of those before it.
+              </p>
+
+              <p>Levershare simply asks whether another step has become possible.</p>
+
+              <p>
+                Can modern technologies enable economies to recognize, coordinate,
+                and reward meaningful human contribution more effectively than ever
+                before?
+              </p>
+
+              <p>
+                Can they enable more people not only to consume economic value...
+              </p>
+
+              <p>...but to participate meaningfully in creating it?</p>
+
+              <p>
+                If the hypothesis proves correct, more people may gain meaningful
+                opportunities to influence their own economic outcomes through their
+                own contributions.
+              </p>
+
+              <p>Levershare does not promise equal outcomes.</p>
+
+              <p>It seeks to expand equal opportunities to create them.</p>
+
+              <p>It is not designed to create more transactions.</p>
+
+              <p>It is designed to create more creators.</p>
+
+              <p>People will not join Levershare to build a PVC.</p>
+
+              <p>
+                They will build a PVC because they choose to build a life centered on
+                meaningful contribution.
+              </p>
+            </div>
+
+            <div className="my-10">
+              <InsightQuote>
+                The purpose of Levershare is not simply to build a better economy.
+                It is to help humanity benefit more fully from its own potential.
+              </InsightQuote>
+            </div>
+
+            <div className="space-y-6 text-sm leading-relaxed text-white/70 md:text-base md:leading-8">
+              <p>Every economy grows what it chooses to recognize.</p>
+
+              <p>
+                Perhaps the next chapter of economic progress begins by choosing
+                more wisely.
+              </p>
+            </div>
+          </article>
         </section>
       </>
     ),
