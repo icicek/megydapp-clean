@@ -1096,10 +1096,10 @@ export const DOC_SECTIONS: DocSection[] = [
             </div>
 
             <div className="my-10">
-              <InsightQuote>
+              <BookQuote>
                 The purpose of Levershare is not simply to build a better economy.
                 It is to help humanity benefit more fully from its own potential.
-              </InsightQuote>
+              </BookQuote>
             </div>
 
             <div className="space-y-6 text-sm leading-relaxed text-white/70 md:text-base md:leading-8">
