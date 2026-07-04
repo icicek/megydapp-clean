@@ -31,8 +31,8 @@ export default function BookQuote({ children }: BookQuoteProps) {
   };
 
   return (
-    <figure className="group my-10 border-y border-white/10 py-7 md:my-12 md:py-9">
-      <blockquote className="text-xl md:text-2xl font-light leading-relaxed tracking-tight text-white">
+    <figure className="group my-12 border-y border-white/10 py-8 md:my-14 md:py-10">
+      <blockquote className="max-w-4xl text-lg font-medium leading-relaxed tracking-tight text-white/90 md:text-[26px] md:leading-[1.65]">
         {children}
       </blockquote>
 
@@ -40,7 +40,7 @@ export default function BookQuote({ children }: BookQuoteProps) {
         <button
           type="button"
           onClick={handleCopy}
-          className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-white/40 transition-all duration-300 hover:border-white/20 hover:text-white"
+          className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-white/35 transition-all duration-300 hover:border-cyan-200/20 hover:text-cyan-100"
           aria-label="Copy quote"
         >
           {copied ? 'Copied' : 'Copy Quote'}
