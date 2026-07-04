@@ -32,15 +32,15 @@ export default function BookQuote({ children }: BookQuoteProps) {
 
   return (
     <figure className="group my-10 border-y border-white/10 py-7 md:my-12 md:py-9">
-      <blockquote className="text-xl font-semibold leading-relaxed tracking-tight text-white md:text-2xl md:leading-relaxed">
+      <blockquote className="text-xl md:text-2xl font-light leading-relaxed tracking-tight text-white">
         {children}
       </blockquote>
 
-      <div className="mt-5 flex justify-end">
+      <div className="mt-4 flex justify-end">
         <button
           type="button"
           onClick={handleCopy}
-          className="rounded-full border border-white/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45 transition hover:border-cyan-300/30 hover:text-cyan-100"
+          className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-white/40 transition-all duration-300 hover:border-white/20 hover:text-white"
           aria-label="Copy quote"
         >
           {copied ? 'Copied' : 'Copy Quote'}
