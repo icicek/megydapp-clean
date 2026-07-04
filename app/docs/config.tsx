@@ -1,6 +1,7 @@
 // app/docs/config.tsx
 import React from "react";
 import InsightQuote from "./components/InsightQuote";
+import BookQuote from '@/components/docs/BookQuote';
 
 export type DocSection = {
   slug: string;
@@ -930,12 +931,11 @@ export const DOC_SECTIONS: DocSection[] = [
             </div>
 
             <div className="my-10">
-              <InsightQuote>
-                The history of civilization is not only the history of creating more
-                value. It is also the history of expanding humanity&apos;s ability to
-                transform existing human potential into meaningful economic
-                participation.
-              </InsightQuote>
+              <BookQuote>
+                The history of civilization is not only the history of creating more value.
+                It is also the history of expanding humanity&apos;s ability to transform existing
+                human potential into meaningful economic participation.
+              </BookQuote>
             </div>
 
             <div className="space-y-6 text-sm leading-relaxed text-white/70 md:text-base md:leading-8">
