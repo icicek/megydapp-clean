@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ESSAYS } from "../config";
+import { ESSAYS } from "@/app/essays/config";
 
 type EssayPageProps = {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
 };
 
 export function generateStaticParams() {
@@ -16,8 +16,9 @@ export function generateStaticParams() {
   }));
 }
 
-export function generateMetadata({ params }: EssayPageProps) {
-  const essay = ESSAYS.find((item) => item.slug === params.slug);
+export async function generateMetadata({ params }: EssayPageProps) {
+  const { slug } = await params;
+  const essay = ESSAYS.find((item) => item.slug === slug);
 
   if (!essay) {
     return {
@@ -31,8 +32,10 @@ export function generateMetadata({ params }: EssayPageProps) {
   };
 }
 
-export default function EssayPage({ params }: EssayPageProps) {
-  const essayIndex = ESSAYS.findIndex((item) => item.slug === params.slug);
+export default async function EssayPage({ params }: EssayPageProps) {
+  const { slug } = await params;
+
+  const essayIndex = ESSAYS.findIndex((item) => item.slug === slug);
   const essay = ESSAYS[essayIndex];
 
   if (!essay) notFound();
