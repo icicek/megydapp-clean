@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ESSAYS } from "@/app/essays/config";
+import ESSAYS from "../catalog";
 
 type EssayPageProps = {
   params: Promise<{
