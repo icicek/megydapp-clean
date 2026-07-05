@@ -31,7 +31,7 @@ export default function BookQuote({ children }: BookQuoteProps) {
   };
 
   return (
-    <figure className="group my-12 border-y border-white/10 py-8 md:my-14 md:py-10">
+    <figure className="group my-16 border-y border-white/10 py-9 md:my-20 md:py-12">
       <blockquote className="max-w-4xl text-lg font-medium leading-relaxed tracking-tight text-white/90 md:text-[26px] md:leading-[1.65]">
         {children}
       </blockquote>

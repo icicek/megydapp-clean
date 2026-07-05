@@ -47,23 +47,23 @@ export default function EssayLayout({
                         {essay.title}
                     </h1>
 
-                    <p className="mt-6 max-w-2xl text-lg leading-relaxed text-white/55 md:text-xl">
+                    <p className="mt-6 max-w-2xl text-lg leading-relaxed text-white/65 md:text-xl">
                         {essay.subtitle}
                     </p>
 
-                    <div className="mt-7 flex flex-wrap gap-2">
+                    <div className="mt-7 flex flex-wrap gap-x-4 gap-y-2">
                         {essay.categories.map((category) => (
                             <span
                                 key={category}
-                                className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/40"
+                                className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/35"
                             >
-                                {category}
+                                #{category}
                             </span>
                         ))}
                     </div>
                 </header>
 
-                <div className="mt-12">{children}</div>
+                <div className="mt-16">{children}</div>
 
                 <footer className="mt-20 border-t border-white/10 pt-8">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
