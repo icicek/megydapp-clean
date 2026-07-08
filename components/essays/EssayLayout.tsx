@@ -26,7 +26,6 @@ export default function EssayLayout({
     return (
         <>
             <ReadingProgress />
-            <main className="min-h-screen bg-zinc-950 px-6 py-16 text-white md:py-20"></main>
             <main className="min-h-screen bg-zinc-950 px-6 py-16 text-white md:py-20">
                 <article className="mx-auto max-w-3xl">
                     <Link
