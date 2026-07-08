@@ -1,3 +1,5 @@
+// app/docs/[slug]/pagerHotkeys.tsx
+
 'use client';
 
 import { useEffect } from 'react';
