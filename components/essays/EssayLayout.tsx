@@ -63,7 +63,7 @@ export default function EssayLayout({
                     </div>
                 </header>
 
-                <div className="mt-16">{children}</div>
+                <div className="mt-12">{children}</div>
 
                 <footer className="mt-28 border-t border-white/10 pt-8">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
