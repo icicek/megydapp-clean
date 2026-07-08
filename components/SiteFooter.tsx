@@ -22,7 +22,7 @@ export default function SiteFooter() {
   return (
     <footer className="relative mt-14 w-full max-w-5xl border-t border-white/10 px-2 pt-8 pb-5">
       <div className="pointer-events-none absolute left-1/2 top-0 h-px w-2/3 -translate-x-1/2 bg-gradient-to-r from-transparent via-cyan-300/35 to-transparent" />
-      
+
       <div className="grid grid-cols-1 gap-10 md:grid-cols-3 md:items-start">
         <div className="md:mx-auto md:max-w-[280px]">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
@@ -47,7 +47,7 @@ export default function SiteFooter() {
             >
               Home
             </a>
-            
+
             <a
               href="/coinographia"
               className="text-cyan-200 transition-colors hover:text-cyan-100"
@@ -70,10 +70,10 @@ export default function SiteFooter() {
             </button>
 
             <a
-              href="/docs"
+              href="/knowledge"
               className="text-violet-200 transition-colors hover:text-violet-100"
             >
-              Read the Docs
+              Knowledge
             </a>
           </div>
         </div>
