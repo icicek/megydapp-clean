@@ -30,6 +30,11 @@ export type EssayMetadata = {
     tags: string[];
     theme: string;
 
+    toc?: {
+        id: string;
+        title: string;
+    }[];
+
     featured?: boolean;
     cover?: string;
     ogImage?: string;

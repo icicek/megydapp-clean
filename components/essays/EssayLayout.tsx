@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { EssayEntry } from "@/app/essays/types";
+import EssayToc from "@/components/essays/EssayToc";
 import ReadingProgress from "@/components/essays/ReadingProgress";
 import {
     calculateReadingTime,
@@ -26,6 +27,7 @@ export default function EssayLayout({
     return (
         <>
             <ReadingProgress />
+            <EssayToc items={essay.toc} />
             <main className="min-h-screen bg-zinc-950 px-6 py-16 text-white md:py-20">
                 <article className="mx-auto max-w-3xl">
                     <Link

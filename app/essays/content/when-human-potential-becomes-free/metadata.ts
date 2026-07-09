@@ -37,6 +37,12 @@ const metadata: EssayMetadata = {
         "Aristotle",
     ],
 
+    toc: [
+        { id: "the-question", title: "The Question" },
+        { id: "why-it-matters", title: "Why It Matters" },
+        { id: "the-hypothesis", title: "The Hypothesis" },
+    ],
+
     categories: ["Foundations", "Human Potential"],
     tags: [
         "human potential",
