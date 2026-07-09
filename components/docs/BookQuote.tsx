@@ -2,29 +2,34 @@
 
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useMemo, useState } from 'react';
 
 type BookQuoteProps = {
     children: ReactNode;
 };
 
+function extractText(node: ReactNode): string {
+    if (typeof node === 'string') return node;
+    if (typeof node === 'number') return String(node);
+    if (Array.isArray(node)) return node.map(extractText).join('');
+    return '';
+}
+
 export default function BookQuote({ children }: BookQuoteProps) {
     const [copied, setCopied] = useState(false);
 
-    const getText = (node: ReactNode): string => {
-        if (typeof node === 'string') return node;
-        if (typeof node === 'number') return String(node);
-        if (Array.isArray(node)) return node.map(getText).join('');
-        return '';
-    };
+    const quoteText = useMemo(() => extractText(children).trim(), [children]);
 
     const handleCopy = async () => {
-        const text = getText(children).trim();
+        const source =
+            typeof window !== 'undefined'
+                ? `\n\n— Levershare Essays\n${window.location.href}`
+                : '';
 
         try {
-            await navigator.clipboard.writeText(text);
+            await navigator.clipboard.writeText(`${quoteText}${source}`);
             setCopied(true);
-            window.setTimeout(() => setCopied(false), 1600);
+            window.setTimeout(() => setCopied(false), 1800);
         } catch {
             setCopied(false);
         }
@@ -36,14 +41,17 @@ export default function BookQuote({ children }: BookQuoteProps) {
                 {children}
             </blockquote>
 
-            <div className="mt-4 flex justify-end">
+            <div className="mt-5 flex justify-end">
                 <button
                     type="button"
                     onClick={handleCopy}
-                    className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-white/35 transition-all duration-300 hover:border-cyan-200/20 hover:text-cyan-100"
+                    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35 transition-all duration-300 hover:border-cyan-200/25 hover:text-cyan-100"
                     aria-label="Copy quote"
                 >
-                    {copied ? 'Copied' : 'Copy Quote'}
+                    <span>{copied ? 'Copied' : 'Copy'}</span>
+                    <span className={copied ? 'text-cyan-200' : 'text-white/25'}>
+                        {copied ? '✓' : '↗'}
+                    </span>
                 </button>
             </div>
         </figure>

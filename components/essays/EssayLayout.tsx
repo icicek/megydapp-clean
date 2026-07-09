@@ -4,6 +4,8 @@ import Link from "next/link";
 import { EssayEntry } from "@/app/essays/types";
 import EssayToc from "@/components/essays/EssayToc";
 import ReadingProgress from "@/components/essays/ReadingProgress";
+import EssayProgressDots from "@/components/essays/EssayProgressDots";
+import ESSAYS from "@/app/essays/catalog";
 import {
     calculateReadingTime,
     formatDate,
@@ -66,6 +68,7 @@ export default function EssayLayout({
                                 </span>
                             ))}
                         </div>
+                        <EssayProgressDots essays={ESSAYS} currentSlug={essay.slug} />
                     </header>
 
                     <div className="mt-12">{children}</div>
