@@ -1,6 +1,8 @@
 // app/essays/content/the-cost-of-misalignment/Essay.tsx
 
 import BookQuote from "@/components/docs/BookQuote";
+import RecognitionGap from "@/components/essays/RecognitionGap";
+import ParticipationFlywheel from "@/components/essays/ParticipationFlywheel";
 
 const sectionTitleClass =
     "scroll-mt-28 text-sm font-semibold uppercase tracking-[0.28em] text-cyan-200/55";
@@ -235,27 +237,7 @@ export default function Essay() {
                     </p>
                 </div>
 
-                <div className="overflow-hidden border-y border-white/10 py-10">
-                    <div className="mx-auto max-w-xl space-y-3 text-center">
-                        {[
-                            "Meaningful Contribution",
-                            "Incomplete Visibility",
-                            "Incomplete Recognition",
-                            "Incomplete Participation",
-                            "Misaligned Economic Outcome",
-                        ].map((step, index, steps) => (
-                            <div key={step}>
-                                <p className="text-lg font-semibold text-white/85 md:text-xl">
-                                    {step}
-                                </p>
-
-                                {index < steps.length - 1 && (
-                                    <p className="py-1 text-lg text-cyan-200/35">↓</p>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                <RecognitionGap />
 
                 <div className={paragraphClass}>
                     <p>The gap does not always arise from exploitation.</p>
@@ -432,28 +414,7 @@ export default function Essay() {
                     </p>
                 </div>
 
-                <div className="overflow-hidden border-y border-white/10 py-10">
-                    <div className="mx-auto max-w-xl space-y-3 text-center">
-                        {[
-                            "Better Recognition",
-                            "Greater Trust",
-                            "Deeper Participation",
-                            "More Experimentation",
-                            "More Innovation",
-                            "Broader Prosperity",
-                        ].map((step, index, steps) => (
-                            <div key={step}>
-                                <p className="text-lg font-semibold text-white/85 md:text-xl">
-                                    {step}
-                                </p>
-
-                                {index < steps.length - 1 && (
-                                    <p className="py-1 text-lg text-cyan-200/35">↓</p>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                <ParticipationFlywheel />
 
                 <div className={paragraphClass}>
                     <p>

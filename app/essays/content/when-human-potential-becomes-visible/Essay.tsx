@@ -1,6 +1,7 @@
 //app/essays/content/when-human-potential-becomes-visible/Essay.tsx
 
 import BookQuote from "@/components/docs/BookQuote";
+import DiscoveryJourney from "@/components/essays/DiscoveryJourney";
 
 const sectionTitleClass =
     "scroll-mt-28 text-sm font-semibold uppercase tracking-[0.28em] text-cyan-200/55";
@@ -244,40 +245,7 @@ export default function Essay() {
                     </p>
                 </div>
 
-                <div className="overflow-hidden border-y border-white/10 py-10">
-                    <div className="mx-auto max-w-xl space-y-3 text-center">
-                        {[
-                            "Talent",
-                            "Discovery",
-                            "Potential Becomes Visible",
-                            "Development",
-                            "Expression",
-                            "Self-Actualization",
-                        ].map((step, index, steps) => (
-                            <div key={step}>
-                                <p className="text-lg font-semibold text-white/85 md:text-xl">
-                                    {step}
-                                </p>
-
-                                {index < steps.length - 1 && (
-                                    <p className="py-1 text-lg text-cyan-200/35">↓</p>
-                                )}
-                            </div>
-                        ))}
-
-                        <div className="pt-3">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/30">
-                                Optional
-                            </p>
-
-                            <p className="py-2 text-lg text-cyan-200/35">↓</p>
-
-                            <p className="text-lg font-semibold text-cyan-100/80 md:text-xl">
-                                Economic Participation
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                <DiscoveryJourney />
 
                 <div className={paragraphClass}>
                     <p>Every stage matters.</p>
