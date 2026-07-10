@@ -1,4 +1,4 @@
-//app/essays/content/when-human-potential-becomes-free/metadata.ts
+// app/essays/content/when-human-potential-becomes-free/metadata.ts
 
 import { EssayMetadata } from "../../types";
 
@@ -9,38 +9,38 @@ const metadata: EssayMetadata = {
     part: 1,
     series: "Foundations",
 
-    title: "When Human Potential Becomes Free",
+    title: "When Human Potential Becomes Visible",
     subtitle:
-        "Exploring how more people can discover the potential they already possess and make it visible to the world.",
+        "Exploring the conditions through which human talent can be discovered, developed, expressed, and made visible to the world.",
 
-    status: "Writing",
-    publishedAt: undefined,
-    updatedAt: "2026-07-08",
-    revision: "0.1.0",
+    status: "Published",
+    publishedAt: "2026-07-10",
+    updatedAt: "2026-07-10",
+    revision: "1.0.0",
 
-    words: 0,
+    words: 2300,
 
     summary:
-        "An upcoming essay on human potential, self-discovery, visibility, technology, and the conditions that allow people to become who they already have the potential to be.",
+        "An exploration of human potential, self-discovery, the internal advantage of the AI age, and the discovery infrastructure that may help more people become who they already have the potential to be.",
+
     excerpt:
-        "Human potential does not need to be created. It needs the conditions to emerge.",
+        "Human potential does not need to be created. It needs the conditions through which it can become visible.",
+
     description:
-        "A Levershare essay exploring human potential, self-discovery, visibility, Aristotle's telos, Maslow's hierarchy, technology, and the economic conditions that may help more people realize who they already have the potential to be.",
+        "A Levershare essay exploring human potential, Aristotle's concept of telos, Maslow's hierarchy, artificial intelligence, self-discovery, economic participation, and the emergence of discovery infrastructure.",
+
     keywords: [
         "Levershare",
         "human potential",
         "self-discovery",
-        "visibility",
-        "human development",
+        "discovery infrastructure",
+        "artificial intelligence",
+        "talent",
+        "self-actualization",
         "economic participation",
         "Maslow",
         "Aristotle",
-    ],
-
-    toc: [
-        { id: "the-question", title: "The Question" },
-        { id: "why-it-matters", title: "Why It Matters" },
-        { id: "the-hypothesis", title: "The Hypothesis" },
+        "telos",
     ],
 
     categories: ["Foundations", "Human Potential"],
@@ -48,12 +48,62 @@ const metadata: EssayMetadata = {
         "human potential",
         "self-discovery",
         "visibility",
-        "technology",
-        "human development",
+        "talent",
+        "artificial intelligence",
+        "discovery infrastructure",
+        "self-actualization",
     ],
+
     theme: "Human Potential",
 
     featured: false,
+
+    toc: [
+        {
+            id: "the-hidden-resource",
+            title: "The Hidden Resource",
+        },
+        {
+            id: "waiting-for-the-conditions",
+            title: "Waiting for the Conditions",
+        },
+        {
+            id: "the-lives-we-never-saw",
+            title: "The Lives We Never Saw",
+        },
+        {
+            id: "becoming-what-we-can-be",
+            title: "Becoming What We Can Be",
+        },
+        {
+            id: "from-talent-to-participation",
+            title: "From Talent to Participation",
+        },
+        {
+            id: "the-internal-advantage",
+            title: "The Internal Advantage",
+        },
+        {
+            id: "discovery-infrastructure",
+            title: "Discovery Infrastructure",
+        },
+        {
+            id: "technology-and-self-discovery",
+            title: "Technology and Self-Discovery",
+        },
+        {
+            id: "a-question-for-maslow",
+            title: "A Question for Maslow",
+        },
+        {
+            id: "the-levershare-question",
+            title: "The Levershare Question",
+        },
+        {
+            id: "a-different-kind-of-discovery",
+            title: "A Different Kind of Discovery",
+        },
+    ],
 };
 
 export default metadata;
