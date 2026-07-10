@@ -63,9 +63,9 @@ export default function RecognitionEngine() {
             </figcaption>
 
             <div className="relative mt-10">
-                <div className="absolute bottom-6 left-[23px] top-6 hidden w-px bg-gradient-to-b from-cyan-300/40 via-cyan-300/15 to-purple-300/30 sm:block" />
+                <div className="absolute bottom-6 left-[44px] top-6 z-0 hidden w-px bg-gradient-to-b from-cyan-300/40 via-cyan-300/15 to-purple-300/30 sm:block" />
 
-                <div className="space-y-4">
+                <div className="relative z-10 space-y-4">
                     {steps.map((step, index) => {
                         const isFirst = index === 0;
                         const isLast = index === steps.length - 1;
@@ -77,12 +77,12 @@ export default function RecognitionEngine() {
                             >
                                 <div
                                     className={[
-                                        "relative z-10 flex h-12 w-12 items-center justify-center rounded-2xl border text-xs font-black transition",
+                                        "relative z-20 flex h-12 w-12 items-center justify-center rounded-2xl border bg-zinc-950 text-xs font-black transition",
                                         isFirst
-                                            ? "border-cyan-300/40 bg-cyan-300/10 text-cyan-100 shadow-[0_0_30px_rgba(103,232,249,0.12)]"
+                                            ? "border-cyan-300/40 text-cyan-100 shadow-[0_0_30px_rgba(103,232,249,0.12)]"
                                             : isLast
-                                                ? "border-purple-300/35 bg-purple-300/10 text-purple-100"
-                                                : "border-white/10 bg-zinc-950 text-white/40 group-hover:text-cyan-100",
+                                                ? "border-purple-300/35 text-purple-100 shadow-[0_0_30px_rgba(216,180,254,0.08)]"
+                                                : "border-white/10 text-white/40 group-hover:border-cyan-300/20 group-hover:text-cyan-100",
                                     ].join(" ")}
                                 >
                                     {step.number}
