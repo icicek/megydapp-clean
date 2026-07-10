@@ -1,9 +1,9 @@
-// app/essays/content/when-human-potential-becomes-free/metadata.ts
+// app/essays/content/when-human-potential-becomes-visible/metadata.ts
 
 import { EssayMetadata } from "../../types";
 
 const metadata: EssayMetadata = {
-    slug: "when-human-potential-becomes-free",
+    slug: "when-human-potential-becomes-visible",
     number: 2,
     label: "Essay No. 02 of ∞",
     part: 1,

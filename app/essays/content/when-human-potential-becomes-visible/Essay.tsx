@@ -1,6 +1,4 @@
-//app/essays/content/when-human-potential-becomes-free/Essay.tsx
-
-// app/essays/content/when-human-potential-becomes-free/Essay.tsx
+//app/essays/content/when-human-potential-becomes-visible/Essay.tsx
 
 import BookQuote from "@/components/docs/BookQuote";
 

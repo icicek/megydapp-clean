@@ -2,7 +2,7 @@
 
 import { EssayEntry } from "./types";
 import * as Essay01 from "./content/a-question-worth-asking";
-import * as Essay02 from "./content/when-human-potential-becomes-free";
+import * as Essay02 from "./content/when-human-potential-becomes-visible";
 
 const ESSAYS: EssayEntry[] = [
     {

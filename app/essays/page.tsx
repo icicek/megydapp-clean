@@ -1,7 +1,5 @@
 //app/essays/page.tsx
 
-// app/essays/page.tsx
-
 import Link from "next/link";
 import ESSAYS from "./catalog";
 import {
