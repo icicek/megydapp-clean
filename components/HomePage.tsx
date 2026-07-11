@@ -1197,10 +1197,16 @@ export default function HomePage() {
           </span>
         </p>
 
-        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-gray-300 sm:text-base sm:leading-7">
-          Turn forgotten crypto value into your Personal Value Currency — while building
-          the Fair Future Fund.
-        </p>
+        <div className="mx-auto mt-4 max-w-3xl">
+          <p className="text-base font-semibold leading-7 text-white/85 sm:text-lg sm:leading-8">
+            Give abandoned, inactive, or unsupported crypto assets a second economic life.
+          </p>
+
+          <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-gray-400 sm:text-base sm:leading-7">
+            Coincarnate assets from your wallet, receive $MEGY, and begin building your
+            Personal Value Currency through the Fair Future Fund.
+          </p>
+        </div>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-400/[0.06] px-3 py-1.5 text-[11px] font-semibold text-cyan-100 shadow-[0_0_14px_rgba(34,211,238,0.08)]">
             <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 animate-pulse" />
@@ -1222,12 +1228,73 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* First-time user guide */}
+      <section
+        aria-label="How Coincarnation works"
+        className="w-full max-w-5xl"
+      >
+        <div className="rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-4 sm:px-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-center sm:gap-3">
+            {[
+              {
+                step: '01',
+                title: 'Connect Wallet',
+                description: 'Open your wallet to scan available assets.',
+              },
+              {
+                step: '02',
+                title: 'Choose an Asset',
+                description: 'Select the token you want to Coincarnate.',
+              },
+              {
+                step: '03',
+                title: 'Coincarnate',
+                description: 'Confirm the action and receive your revival value.',
+              },
+            ].map((item, index, items) => (
+              <React.Fragment key={item.step}>
+                <div className="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-white/8 bg-black/20 px-4 py-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-300/15 bg-cyan-400/[0.06] text-[10px] font-black tracking-[0.16em] text-cyan-100">
+                    {item.step}
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-white">
+                      {item.title}
+                    </p>
+
+                    <p className="mt-1 text-[11px] leading-5 text-gray-400">
+                      {item.description}
+                    </p>
+                  </div>
+                </div>
+
+                {index < items.length - 1 && (
+                  <>
+                    <span className="hidden text-lg text-cyan-200/35 sm:block">
+                      →
+                    </span>
+
+                    <span className="text-center text-sm text-cyan-200/30 sm:hidden">
+                      ↓
+                    </span>
+                  </>
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <div className="relative w-full max-w-5xl overflow-hidden rounded-[30px] border border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.13),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.13),transparent_32%),linear-gradient(180deg,rgba(20,26,40,0.96),rgba(13,17,28,0.98))] p-5 sm:p-7 shadow-[0_24px_80px_rgba(0,0,0,0.34),0_0_42px_rgba(34,211,238,0.08),0_0_54px_rgba(168,85,247,0.08)] before:pointer-events-none before:absolute before:inset-0 before:rounded-[30px] before:bg-[linear-gradient(135deg,rgba(34,211,238,0.22),transparent_28%,rgba(168,85,247,0.18)_62%,transparent_82%)] before:opacity-60">
         <div className="relative z-[1]">
-          <h2 className="text-lg mb-1 text-left">You give</h2>
-          <p className="text-xs text-gray-400 text-left mb-2">
-            Walking deadcoins, memecoins, any unsupported assets…
-          </p>
+        <h2 className="text-lg mb-1 text-left">
+          You Coincarnate
+        </h2>
+
+        <p className="text-xs text-gray-400 text-left mb-2">
+          Select an abandoned, inactive, or unsupported asset from your wallet.
+        </p>
 
           {/* -------- SADECE SOLANA -------- */}
           {publicKey ? (
@@ -1248,7 +1315,7 @@ export default function HomePage() {
                   )}
 
                   <label className="sr-only" htmlFor="token-select">
-                    Select a token to Coincarnate
+                    Choose an asset to Coincarnate
                   </label>
 
                   <div
@@ -1284,7 +1351,7 @@ export default function HomePage() {
                           disabled
                           className="bg-slate-950 text-slate-300"
                         >
-                          Select a token to Coincarnate
+                          Choose an asset to Coincarnate
                         </option>
 
                         {tokens.map((token) => {
@@ -1384,7 +1451,9 @@ export default function HomePage() {
               )}
             </>
           ) : (
-            <p className="text-gray-400">Connect your wallet to see your tokens.</p>
+            <p className="text-sm leading-6 text-gray-400">
+              Connect your wallet to scan available assets and choose one to Coincarnate.
+            </p>
           )}
 
           <div className="my-5 flex items-center justify-center gap-3 px-8" aria-hidden>
