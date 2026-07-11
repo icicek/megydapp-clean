@@ -1623,8 +1623,8 @@ export default function HomePage() {
 
                     <p className="mt-1 truncate text-[11px] text-gray-400">
                       {connected && pubkeyBase58
-                        ? 'claims · CorePoint · Personal Value Currency'
-                        : 'connect wallet to access your personal value profile'}
+                        ? 'Contribution history · CorePoints · Personal Value Currency'
+                        : 'Connect wallet to open your personal value profile'}
                     </p>
                   </div>
                 </div>
@@ -1687,7 +1687,7 @@ export default function HomePage() {
                   Fair Future Fund
                 </p>
                 <p className="mt-2 max-w-[130px] text-[10px] leading-4 text-gray-300 sm:max-w-[170px] sm:text-[11px] sm:leading-5">
-                  collective revival power into shared future value
+                  revived crypto value into shared future capital
                 </p>
               </div>
 
@@ -1786,7 +1786,7 @@ export default function HomePage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-xl md:text-2xl font-semibold text-white">
-              Recently Coincarnated
+              Live Coincarnations
             </h2>
             <div className="mt-1 max-w-2xl">
               <p className="text-xs text-green-400">
@@ -1796,7 +1796,7 @@ export default function HomePage() {
                 </span>
               </p>
               <p className="mt-1 text-sm text-gray-400">
-                A live view of how damaged tokens are being processed through Coincarnation.
+                Real assets entering the Coincarnation engine.
               </p>
             </div>
           </div>
