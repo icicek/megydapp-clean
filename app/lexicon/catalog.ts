@@ -6,6 +6,7 @@ import * as HumanPotential from "./content/human-potential";
 import * as Contribution from "./content/contribution";
 import * as Recognition from "./content/recognition";
 import * as DiscoveryInfrastructure from "./content/discovery-infrastructure";
+import * as RecognitionGap from "./content/recognition-gap";
 
 const LEXICON: LexiconEntry[] = [
     {
@@ -23,6 +24,10 @@ const LEXICON: LexiconEntry[] = [
     {
         ...DiscoveryInfrastructure.metadata,
         Content: DiscoveryInfrastructure.Content,
+    },
+    {
+        ...RecognitionGap.metadata,
+        Content: RecognitionGap.Content,
     },
 ].sort((a, b) => a.order - b.order);
 
