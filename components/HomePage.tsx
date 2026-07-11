@@ -1228,63 +1228,74 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* First-time user guide */}
-      <section
-        aria-label="How Coincarnation works"
-        className="w-full max-w-5xl"
-      >
-        <div className="rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-4 sm:px-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-center sm:gap-3">
-            {[
-              {
-                step: '01',
-                title: 'Connect Wallet',
-                description: 'Open your wallet to scan available assets.',
-              },
-              {
-                step: '02',
-                title: 'Choose an Asset',
-                description: 'Select the token you want to Coincarnate.',
-              },
-              {
-                step: '03',
-                title: 'Coincarnate',
-                description: 'Confirm the action and receive your revival value.',
-              },
-            ].map((item, index, items) => (
-              <React.Fragment key={item.step}>
-                <div className="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-white/8 bg-black/20 px-4 py-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-300/15 bg-cyan-400/[0.06] text-[10px] font-black tracking-[0.16em] text-cyan-100">
-                    {item.step}
+      {/* First-time user guide — visible only before wallet connection */}
+      {!connected && (
+        <section
+          aria-label="How Coincarnation works"
+          className="w-full max-w-5xl"
+        >
+          <div className="relative overflow-hidden rounded-2xl border border-cyan-300/12 bg-[linear-gradient(135deg,rgba(34,211,238,0.035),rgba(255,255,255,0.018),rgba(139,92,246,0.035))] px-4 py-3 shadow-[0_14px_36px_rgba(0,0,0,0.18)] sm:px-5">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_left,rgba(34,211,238,0.07),transparent_32%),radial-gradient(circle_at_right,rgba(139,92,246,0.07),transparent_32%)]" />
+
+            <div className="relative flex items-center justify-between gap-2 sm:gap-4">
+              {[
+                {
+                  step: '01',
+                  title: 'Connect',
+                  desktopTitle: 'Connect Wallet',
+                },
+                {
+                  step: '02',
+                  title: 'Choose',
+                  desktopTitle: 'Choose an Asset',
+                },
+                {
+                  step: '03',
+                  title: 'Coincarnate',
+                  desktopTitle: 'Coincarnate',
+                },
+              ].map((item, index, items) => (
+                <React.Fragment key={item.step}>
+                  <div className="flex min-w-0 flex-1 items-center justify-center gap-2 sm:justify-start sm:gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cyan-300/18 bg-cyan-400/[0.06] text-[9px] font-black tracking-[0.14em] text-cyan-100 shadow-[0_0_16px_rgba(34,211,238,0.08)] sm:h-9 sm:w-9 sm:text-[10px]">
+                      {item.step}
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold text-white/85 sm:hidden">
+                        {item.title}
+                      </p>
+
+                      <p className="hidden truncate text-sm font-bold text-white/85 sm:block">
+                        {item.desktopTitle}
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-white">
-                      {item.title}
-                    </p>
+                  {index < items.length - 1 && (
+                    <div
+                      aria-hidden="true"
+                      className="flex shrink-0 items-center gap-1"
+                    >
+                      <div className="hidden h-px w-5 bg-gradient-to-r from-cyan-300/10 to-cyan-300/30 sm:block" />
 
-                    <p className="mt-1 text-[11px] leading-5 text-gray-400">
-                      {item.description}
-                    </p>
-                  </div>
-                </div>
+                      <span className="text-xs text-cyan-200/35 sm:text-sm">
+                        →
+                      </span>
 
-                {index < items.length - 1 && (
-                  <>
-                    <span className="hidden text-lg text-cyan-200/35 sm:block">
-                      →
-                    </span>
+                      <div className="hidden h-px w-5 bg-gradient-to-r from-cyan-300/30 to-violet-300/10 sm:block" />
+                    </div>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
 
-                    <span className="text-center text-sm text-cyan-200/30 sm:hidden">
-                      ↓
-                    </span>
-                  </>
-                )}
-              </React.Fragment>
-            ))}
+            <p className="relative mt-2 hidden text-center text-[10px] leading-5 text-white/35 sm:block">
+              Connect your wallet, select an available asset, and begin its Coincarnation.
+            </p>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <div className="relative w-full max-w-5xl overflow-hidden rounded-[30px] border border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.13),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.13),transparent_32%),linear-gradient(180deg,rgba(20,26,40,0.96),rgba(13,17,28,0.98))] p-5 sm:p-7 shadow-[0_24px_80px_rgba(0,0,0,0.34),0_0_42px_rgba(34,211,238,0.08),0_0_54px_rgba(168,85,247,0.08)] before:pointer-events-none before:absolute before:inset-0 before:rounded-[30px] before:bg-[linear-gradient(135deg,rgba(34,211,238,0.22),transparent_28%,rgba(168,85,247,0.18)_62%,transparent_82%)] before:opacity-60">
         <div className="relative z-[1]">
