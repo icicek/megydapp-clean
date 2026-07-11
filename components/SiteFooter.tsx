@@ -1,3 +1,5 @@
+//components/SiteFooter.tsx
+
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -6,11 +8,22 @@ import { useWallet } from '@solana/wallet-adapter-react';
 export default function SiteFooter() {
   const router = useRouter();
   const { publicKey, connected } = useWallet();
+
   const pubkeyBase58 = publicKey?.toBase58() ?? null;
+  const currentYear = new Date().getFullYear();
+
+  function openProfile() {
+    if (!connected || !pubkeyBase58) {
+      alert('Connect your wallet to view your Coincarnation profile.');
+      return;
+    }
+
+    router.push('/profile');
+  }
 
   function shareOnX() {
     const text =
-      'People are starting to Coincarnate deadcoins into something much bigger.';
+      'People are starting to Coincarnate forgotten crypto assets into something much bigger.';
 
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
       `${text}\n\nhttps://coincarnation.com`
@@ -19,91 +32,103 @@ export default function SiteFooter() {
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
-  return (
-    <footer className="relative mt-14 w-full max-w-5xl border-t border-white/10 px-2 pt-8 pb-5">
-      <div className="pointer-events-none absolute left-1/2 top-0 h-px w-2/3 -translate-x-1/2 bg-gradient-to-r from-transparent via-cyan-300/35 to-transparent" />
+  const sectionTitleClass =
+    'text-[10px] font-bold uppercase tracking-[0.22em] text-white/35';
 
-      <div className="grid grid-cols-1 gap-10 md:grid-cols-3 md:items-start">
-        <div className="md:mx-auto md:max-w-[280px]">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
+  const linkClass =
+    'text-sm text-gray-400 transition-colors duration-200 hover:text-white';
+
+  return (
+    <footer className="relative mt-14 w-full max-w-5xl border-t border-white/10 px-2 pb-5 pt-10">
+      {/* Top glow */}
+      <div className="pointer-events-none absolute left-1/2 top-0 h-px w-2/3 -translate-x-1/2 bg-gradient-to-r from-transparent via-cyan-300/40 to-transparent" />
+
+      {/* Main footer */}
+      <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[1.35fr_0.8fr_0.9fr_0.9fr]">
+        {/* Brand */}
+        <div className="max-w-sm">
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-100/75">
             Coincarnation
           </p>
 
-          <p className="mt-3 text-sm leading-7 text-gray-400">
-            Coincarnation is a creative initial offering event developed by Levershare
-            to transform crypto market fragmentation into a Proof of Value economy.
+          <h2 className="mt-4 max-w-xs text-xl font-black leading-snug text-white">
+            Transforming forgotten value into future opportunity.
+          </h2>
+
+          <p className="mt-4 max-w-sm text-sm leading-7 text-gray-400">
+            A Proof of Value ecosystem designed to give abandoned digital
+            assets a second economic life.
           </p>
+
+          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-400/[0.055] px-3 py-1.5 text-[10px] font-semibold text-emerald-100/75">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,0.65)]" />
+            Built on Proof of Value
+          </div>
         </div>
 
-        <div className="md:mx-auto">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
-            Navigate
-          </p>
+        {/* Product */}
+        <nav aria-label="Product">
+          <p className={sectionTitleClass}>Product</p>
 
-          <div className="mt-3 flex flex-col gap-2 text-sm">
-            <a
-              href="/"
-              className="text-white transition-colors hover:text-gray-200"
-            >
+          <div className="mt-4 flex flex-col items-start gap-3">
+            <a href="/" className={linkClass}>
               Home
             </a>
 
             <a
               href="/coinographia"
-              className="text-cyan-200 transition-colors hover:text-cyan-100"
+              className="text-sm text-cyan-200/75 transition-colors duration-200 hover:text-cyan-100"
             >
-              Explore Coinographia
+              Coinographia
             </a>
 
-            <button
-              onClick={() => {
-                if (!connected || !pubkeyBase58) {
-                  alert('Connect your wallet to view your Coincarnation profile.');
-                  return;
-                }
-
-                router.push('/profile');
-              }}
-              className="text-left text-emerald-200 transition-colors hover:text-emerald-100"
-            >
-              Open Your Profile
-            </button>
-
-            <a
-              href="/knowledge"
-              className="text-violet-200 transition-colors hover:text-violet-100"
-            >
-              Knowledge
-            </a>
-          </div>
-        </div>
-
-        <div className="md:mx-auto">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
-            Social
-          </p>
-
-          <div className="mt-3 flex flex-col gap-3 text-sm">
             <button
               type="button"
-              onClick={shareOnX}
-              className="inline-flex items-center gap-2 text-left text-pink-200 transition-colors hover:text-pink-100"
+              onClick={openProfile}
+              className="text-left text-sm text-emerald-200/75 transition-colors duration-200 hover:text-emerald-100"
             >
-              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-pink-300/20 bg-pink-400/[0.07] text-xs font-black">
-                𝕏
-              </span>
-              <span>Share on X</span>
+              Your Profile
             </button>
+          </div>
+        </nav>
 
+        {/* Documentation */}
+        <nav aria-label="Documentation">
+          <p className={sectionTitleClass}>Documentation</p>
+
+          <div className="mt-4 flex flex-col items-start gap-3">
+            <a
+              href="/docs"
+              className="text-sm text-violet-200/75 transition-colors duration-200 hover:text-violet-100"
+            >
+              Whitepaper
+            </a>
+
+            <a href="/essays" className={linkClass}>
+              Essays
+            </a>
+
+            <a href="/lexicon" className={linkClass}>
+              Lexicon
+            </a>
+          </div>
+        </nav>
+
+        {/* Community */}
+        <nav aria-label="Community">
+          <p className={sectionTitleClass}>Community</p>
+
+          <div className="mt-4 flex flex-col items-start gap-3">
             <a
               href="https://x.com/levershare"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-gray-300 transition-colors hover:text-white"
+              className="group inline-flex items-center gap-2 text-sm text-gray-400 transition-colors duration-200 hover:text-white"
             >
-              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/[0.07] text-xs font-black">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] text-xs font-black transition-colors group-hover:border-cyan-300/20 group-hover:bg-cyan-400/[0.07]">
                 𝕏
               </span>
+
               <span>Follow on X</span>
             </a>
 
@@ -111,22 +136,45 @@ export default function SiteFooter() {
               href="https://t.me/levershare"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-gray-300 transition-colors hover:text-white"
+              className="group inline-flex items-center gap-2 text-sm text-gray-400 transition-colors duration-200 hover:text-white"
             >
-              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-sky-300/20 bg-sky-400/[0.07] text-xs font-black">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] text-xs font-black transition-colors group-hover:border-sky-300/20 group-hover:bg-sky-400/[0.07]">
                 ✈
               </span>
+
               <span>Telegram</span>
             </a>
+
+            <button
+              type="button"
+              onClick={shareOnX}
+              className="group inline-flex items-center gap-2 text-left text-sm text-pink-200/75 transition-colors duration-200 hover:text-pink-100"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-pink-300/15 bg-pink-400/[0.055] text-xs font-black transition-colors group-hover:border-pink-300/30 group-hover:bg-pink-400/[0.10]">
+                ↗
+              </span>
+
+              <span>Share Coincarnation</span>
+            </button>
           </div>
-        </div>
+        </nav>
       </div>
 
-      <div className="mt-8 border-t border-white/5 pt-4 text-center">
-        <p className="text-xs leading-5 text-gray-500">
-          Every human being should have the right to build a personal currency
-          powered by the value they contribute to the world.
-        </p>
+      {/* Bottom bar */}
+      <div className="mt-10 border-t border-white/[0.07] pt-5">
+        <div className="flex flex-col items-center justify-between gap-3 text-center sm:flex-row sm:text-left">
+          <p className="text-xs text-gray-500">
+            © {currentYear} Coincarnation. All rights reserved.
+          </p>
+
+          <p className="text-xs text-gray-500">
+            Built on the{' '}
+            <span className="font-semibold text-violet-200/65">
+              Levershare
+            </span>{' '}
+            philosophy.
+          </p>
+        </div>
       </div>
     </footer>
   );

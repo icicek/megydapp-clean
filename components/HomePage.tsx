@@ -1493,9 +1493,6 @@ export default function HomePage() {
             </>
           ) : (
             <div className="space-y-2">
-              <p className="text-sm leading-6 text-gray-400">
-                Your available assets will appear here after connection.
-              </p>
 
               <p className="flex items-center gap-2 text-[11px] font-medium text-emerald-200/70">
                 <span
