@@ -15,8 +15,8 @@ const metadata: LexiconMetadata = {
     order: 3,
     featured: true,
 
-    updatedAt: "2026-07-10",
-    revision: "1.0.0",
+    updatedAt: "2026-07-11",
+    revision: "1.0.1",
 
     aliases: ["Contribution Recognition", "Recognition Capacity"],
 
@@ -33,6 +33,10 @@ const metadata: LexiconMetadata = {
         {
             slug: "contribution",
             title: "Contribution",
+        },
+        {
+            slug: "recognition-gap",
+            title: "Recognition Gap",
         },
         {
             slug: "human-potential",

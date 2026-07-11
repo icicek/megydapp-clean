@@ -16,7 +16,7 @@ const metadata: LexiconMetadata = {
     featured: true,
 
     updatedAt: "2026-07-11",
-    revision: "1.0.0",
+    revision: "1.0.1",
 
     aliases: [
         "Infrastructure for Self-Discovery",
@@ -47,6 +47,10 @@ const metadata: LexiconMetadata = {
         {
             slug: "recognition",
             title: "Recognition",
+        },
+        {
+            slug: "recognition-gap",
+            title: "Recognition Gap",
         },
     ],
 
