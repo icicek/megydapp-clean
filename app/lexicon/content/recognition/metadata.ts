@@ -16,7 +16,7 @@ const metadata: LexiconMetadata = {
     featured: true,
 
     updatedAt: "2026-07-11",
-    revision: "1.0.1",
+    revision: "1.0.2",
 
     aliases: ["Contribution Recognition", "Recognition Capacity"],
 
@@ -39,6 +39,10 @@ const metadata: LexiconMetadata = {
             title: "Recognition Gap",
         },
         {
+            slug: "economic-participation",
+            title: "Economic Participation",
+        },
+        {
             slug: "human-potential",
             title: "Human Potential",
         },
@@ -47,7 +51,6 @@ const metadata: LexiconMetadata = {
             title: "Discovery Infrastructure",
         },
     ],
-
     references: [
         {
             label:
