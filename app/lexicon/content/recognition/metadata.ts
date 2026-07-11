@@ -16,7 +16,7 @@ const metadata: LexiconMetadata = {
     featured: true,
 
     updatedAt: "2026-07-11",
-    revision: "1.0.2",
+    revision: "1.0.3",
 
     aliases: ["Contribution Recognition", "Recognition Capacity"],
 
@@ -35,6 +35,10 @@ const metadata: LexiconMetadata = {
             title: "Contribution",
         },
         {
+            slug: "proof-of-value",
+            title: "Proof of Value",
+        },
+        {
             slug: "recognition-gap",
             title: "Recognition Gap",
         },
@@ -51,6 +55,7 @@ const metadata: LexiconMetadata = {
             title: "Discovery Infrastructure",
         },
     ],
+    
     references: [
         {
             label:
