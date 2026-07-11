@@ -1492,9 +1492,22 @@ export default function HomePage() {
               )}
             </>
           ) : (
-            <p className="text-sm leading-6 text-gray-400">
-              Your available assets will appear here after connection.
-            </p>
+            <div className="space-y-2">
+              <p className="text-sm leading-6 text-gray-400">
+                Your available assets will appear here after connection.
+              </p>
+
+              <p className="flex items-center gap-2 text-[11px] font-medium text-emerald-200/70">
+                <span
+                  aria-hidden="true"
+                  className="flex h-4 w-4 items-center justify-center rounded-full border border-emerald-300/20 bg-emerald-400/[0.06] text-[9px]"
+                >
+                  ✓
+                </span>
+
+                Connecting your wallet never transfers your assets.
+              </p>
+            </div>
           )}
 
           <div className="my-5 flex items-center justify-center gap-3 px-8" aria-hidden>
@@ -1508,9 +1521,12 @@ export default function HomePage() {
             <div className="h-[2px] w-full max-w-[220px] bg-gradient-to-l from-transparent via-cyan-400/24 to-cyan-400/10" />
           </div>
 
-          <h2 className="text-lg text-left mb-2">You receive</h2>
+          <h2 className="text-lg text-left mb-2">
+            You Receive
+          </h2>
+
           <p className="text-xs text-gray-400 text-left mb-2">
-            $MEGY — the currency of the Fair Future Fund
+            Receive $MEGY and begin building your Personal Value Currency.
           </p>
 
           <div className="mt-3">
