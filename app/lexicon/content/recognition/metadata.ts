@@ -16,7 +16,7 @@ const metadata: LexiconMetadata = {
     featured: true,
 
     updatedAt: "2026-07-11",
-    revision: "1.0.3",
+    revision: "1.0.4",
 
     aliases: ["Contribution Recognition", "Recognition Capacity"],
 
@@ -33,6 +33,10 @@ const metadata: LexiconMetadata = {
         {
             slug: "contribution",
             title: "Contribution",
+        },
+        {
+            slug: "identity",
+            title: "Identity",
         },
         {
             slug: "proof-of-value",

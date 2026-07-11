@@ -16,7 +16,7 @@ const metadata: LexiconMetadata = {
     featured: true,
 
     updatedAt: "2026-07-11",
-    revision: "1.0.0",
+    revision: "1.0.1",
 
     aliases: [
         "PoV",
@@ -46,6 +46,10 @@ const metadata: LexiconMetadata = {
         {
             slug: "contribution",
             title: "Contribution",
+        },
+        {
+            slug: "identity",
+            title: "Identity",
         },
         {
             slug: "recognition",

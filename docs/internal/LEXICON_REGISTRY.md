@@ -117,15 +117,13 @@ This document is internal and is not intended for public distribution.
 
 ---
 
-# Identity
-
 ## Identity
 
-- **Status:** Planned
+- **Status:** Published
 - **Layer:** Identity
 - **Priority:** High
 - **Dependencies:** None
-- **Notes:** Should define identity as the persistent relationship between a person, their actions, contribution history, and participation within Levershare.
+- **Notes:** Defines identity as the persistent context through which actions, contributions, relationships, recognition, and participation can remain connected to a person across time.
 
 ---
 

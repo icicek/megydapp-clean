@@ -16,7 +16,7 @@ const metadata: LexiconMetadata = {
     featured: true,
 
     updatedAt: "2026-07-11",
-    revision: "1.0.3",
+    revision: "1.0.4",
 
     aliases: ["Human Contribution", "Meaningful Contribution"],
 
@@ -32,6 +32,10 @@ const metadata: LexiconMetadata = {
         {
             slug: "human-potential",
             title: "Human Potential",
+        },
+        {
+            slug: "identity",
+            title: "Identity",
         },
         {
             slug: "recognition",
