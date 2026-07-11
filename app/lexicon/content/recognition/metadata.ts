@@ -38,6 +38,10 @@ const metadata: LexiconMetadata = {
             slug: "human-potential",
             title: "Human Potential",
         },
+        {
+            slug: "discovery-infrastructure",
+            title: "Discovery Infrastructure",
+        },
     ],
 
     references: [

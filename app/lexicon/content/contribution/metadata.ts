@@ -37,6 +37,10 @@ const metadata: LexiconMetadata = {
             slug: "recognition",
             title: "Recognition",
         },
+        {
+            slug: "discovery-infrastructure",
+            title: "Discovery Infrastructure",
+        },
     ],
 
     references: [
