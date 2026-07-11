@@ -9,6 +9,7 @@ import * as DiscoveryInfrastructure from "./content/discovery-infrastructure";
 import * as RecognitionGap from "./content/recognition-gap";
 import * as EconomicParticipation from "./content/economic-participation";
 import * as ProofOfValue from "./content/proof-of-value";
+import * as Identity from "./content/identity";
 
 const LEXICON: LexiconEntry[] = [
     {
@@ -38,6 +39,10 @@ const LEXICON: LexiconEntry[] = [
     {
         ...ProofOfValue.metadata,
         Content: ProofOfValue.Content,
+    },
+    {
+        ...Identity.metadata,
+        Content: Identity.Content,
     },
 ].sort((a, b) => a.order - b.order);
 
