@@ -182,7 +182,7 @@ export default function SiteFooter() {
     'text-[10px] font-bold uppercase tracking-[0.22em] text-white/35';
 
   const linkClass =
-    'text-sm text-gray-400 transition-colors duration-200 hover:text-white';
+    'cursor-pointer text-sm text-gray-400 transition-colors duration-200 hover:text-white';
 
   return (
     <>
@@ -240,7 +240,7 @@ export default function SiteFooter() {
               <button
                 type="button"
                 onClick={openProfile}
-                className="text-left text-sm text-emerald-200/75 transition-colors duration-200 hover:text-emerald-100"
+                className="cursor-pointer text-left text-sm text-emerald-200/75 transition-colors duration-200 hover:text-emerald-100"
               >
                 Your Profile
               </button>
@@ -282,7 +282,7 @@ export default function SiteFooter() {
                     'X'
                   )
                 }
-                className="group inline-flex items-center gap-2 text-left text-sm text-gray-400 transition-colors duration-200 hover:text-white"
+                className="group inline-flex cursor-pointer items-center gap-2 text-left text-sm text-gray-400 transition-colors duration-200 hover:text-white"
               >
                 <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] text-xs font-black transition-colors group-hover:border-cyan-300/20 group-hover:bg-cyan-400/[0.07]">
                   𝕏
@@ -299,7 +299,7 @@ export default function SiteFooter() {
                     'Telegram'
                   )
                 }
-                className="group inline-flex items-center gap-2 text-left text-sm text-gray-400 transition-colors duration-200 hover:text-white"
+                className="group inline-flex cursor-pointer items-center gap-2 text-left text-sm text-gray-400 transition-colors duration-200 hover:text-white"
               >
                 <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] text-xs font-black transition-colors group-hover:border-sky-300/20 group-hover:bg-sky-400/[0.07]">
                   ✈
@@ -311,7 +311,7 @@ export default function SiteFooter() {
               <button
                 type="button"
                 onClick={() => void shareOnX()}
-                className="group inline-flex items-center gap-2 text-left text-sm text-pink-200/75 transition-colors duration-200 hover:text-pink-100"
+                className="group inline-flex cursor-pointer items-center gap-2 text-left text-sm text-pink-200/75 transition-colors duration-200 hover:text-pink-100"
               >
                 <span className="flex h-7 w-7 items-center justify-center rounded-full border border-pink-300/15 bg-pink-400/[0.055] text-xs font-black transition-colors group-hover:border-pink-300/30 group-hover:bg-pink-400/[0.10]">
                   ↗
