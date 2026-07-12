@@ -196,17 +196,17 @@ export default function SiteFooter() {
         </div>
       )}
 
-      <footer className="relative mt-14 w-full max-w-5xl border-t border-white/10 px-2 pb-5 pt-10">
+      <footer className="relative mt-14 w-full max-w-5xl border-t border-white/10 px-2 pb-4 pt-8">
         <div className="pointer-events-none absolute left-1/2 top-0 h-px w-2/3 -translate-x-1/2 bg-gradient-to-r from-transparent via-cyan-300/40 to-transparent" />
 
-        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[1.15fr_0.95fr_1fr_1.05fr] lg:items-start lg:gap-8">
+        <div className="grid grid-cols-1 gap-9 sm:grid-cols-2 lg:grid-cols-[1.15fr_0.8fr_0.9fr_1fr] lg:items-start lg:gap-12">
           {/* Brand */}
           <div className="max-w-xs">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-100/75">
               Coincarnation
             </p>
 
-            <h2 className="mt-3 text-lg font-bold leading-tight text-white">
+            <h2 className="mt-3 max-w-[260px] text-base font-semibold leading-7 text-white/90">
               Transforming forgotten value into future opportunity.
             </h2>
 
@@ -217,10 +217,10 @@ export default function SiteFooter() {
           </div>
 
           {/* Product */}
-          <nav aria-label="Product">
+          <nav aria-label="Product" className="lg:justify-self-center">
             <p className={sectionTitleClass}>Product</p>
 
-            <div className="mt-3 flex flex-col items-start gap-2.5">
+            <div className="mt-3 flex flex-col items-start gap-2">
               <a href="/" className={linkClass}>
                 Home
               </a>
@@ -243,10 +243,10 @@ export default function SiteFooter() {
           </nav>
 
           {/* Documentation */}
-          <nav aria-label="Documentation">
+          <nav aria-label="Documentation" className="lg:justify-self-center">
             <p className={sectionTitleClass}>Documentation</p>
 
-            <div className="mt-3 flex flex-col items-start gap-2.5">
+            <div className="mt-3 flex flex-col items-start gap-2">
               <a
                 href="/docs"
                 className="text-sm text-violet-200/75 transition-colors duration-200 hover:text-violet-100"
@@ -268,7 +268,7 @@ export default function SiteFooter() {
           <nav aria-label="Community">
             <p className={sectionTitleClass}>Community</p>
 
-            <div className="mt-3 flex flex-col items-start gap-2.5">
+            <div className="mt-3 flex flex-col items-start gap-2">
               <button
                 type="button"
                 onClick={() =>
@@ -319,7 +319,7 @@ export default function SiteFooter() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-10 border-t border-white/[0.07] pt-5">
+        <div className="mt-8 border-t border-white/[0.07] pt-5">
           <div className="flex flex-col items-center justify-between gap-3 text-center sm:flex-row sm:text-left">
             <p className="text-xs text-gray-500">
               © {currentYear} Coincarnation. All rights reserved.
