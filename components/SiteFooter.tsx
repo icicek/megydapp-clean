@@ -199,23 +199,18 @@ export default function SiteFooter() {
       <footer className="relative mt-14 w-full max-w-5xl border-t border-white/10 px-2 pb-5 pt-10">
         <div className="pointer-events-none absolute left-1/2 top-0 h-px w-2/3 -translate-x-1/2 bg-gradient-to-r from-transparent via-cyan-300/40 to-transparent" />
 
-        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[1.35fr_0.8fr_0.9fr_0.9fr]">
+        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[1.15fr_0.95fr_1fr_1.05fr] lg:items-start lg:gap-8">
           {/* Brand */}
-          <div className="max-w-sm">
+          <div className="max-w-xs">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-100/75">
               Coincarnation
             </p>
 
-            <h2 className="mt-4 max-w-xs text-xl font-black leading-snug text-white">
+            <h2 className="mt-4 text-xl font-black leading-snug text-white">
               Transforming forgotten value into future opportunity.
             </h2>
 
-            <p className="mt-4 max-w-sm text-sm leading-7 text-gray-400">
-              A Proof of Value ecosystem designed to give abandoned digital
-              assets a second economic life.
-            </p>
-
-            <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-400/[0.055] px-3 py-1.5 text-[10px] font-semibold text-emerald-100/75">
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-400/[0.055] px-3 py-1.5 text-[10px] font-semibold text-emerald-100/75">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,0.65)]" />
               Built on Proof of Value
             </div>
@@ -225,7 +220,7 @@ export default function SiteFooter() {
           <nav aria-label="Product">
             <p className={sectionTitleClass}>Product</p>
 
-            <div className="mt-4 flex flex-col items-start gap-3">
+            <div className="mt-3 flex flex-col items-start gap-2.5">
               <a href="/" className={linkClass}>
                 Home
               </a>
@@ -251,7 +246,7 @@ export default function SiteFooter() {
           <nav aria-label="Documentation">
             <p className={sectionTitleClass}>Documentation</p>
 
-            <div className="mt-4 flex flex-col items-start gap-3">
+            <div className="mt-3 flex flex-col items-start gap-2.5">
               <a
                 href="/docs"
                 className="text-sm text-violet-200/75 transition-colors duration-200 hover:text-violet-100"
@@ -273,7 +268,7 @@ export default function SiteFooter() {
           <nav aria-label="Community">
             <p className={sectionTitleClass}>Community</p>
 
-            <div className="mt-4 flex flex-col items-start gap-3">
+            <div className="mt-3 flex flex-col items-start gap-2.5">
               <button
                 type="button"
                 onClick={() =>
@@ -282,9 +277,9 @@ export default function SiteFooter() {
                     'X'
                   )
                 }
-                className="group inline-flex cursor-pointer items-center gap-2 text-left text-sm text-gray-400 transition-colors duration-200 hover:text-white"
+                className="group inline-flex min-h-7 cursor-pointer items-center gap-2 text-left text-sm text-gray-400 transition-colors duration-200 hover:text-white"
               >
-                <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] text-xs font-black transition-colors group-hover:border-cyan-300/20 group-hover:bg-cyan-400/[0.07]">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] text-[11px] font-black transition-colors group-hover:border-cyan-300/20 group-hover:bg-cyan-400/[0.07]">
                   𝕏
                 </span>
 
@@ -299,9 +294,9 @@ export default function SiteFooter() {
                     'Telegram'
                   )
                 }
-                className="group inline-flex cursor-pointer items-center gap-2 text-left text-sm text-gray-400 transition-colors duration-200 hover:text-white"
+                className="group inline-flex min-h-7 cursor-pointer items-center gap-2 text-left text-sm text-gray-400 transition-colors duration-200 hover:text-white"
               >
-                <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] text-xs font-black transition-colors group-hover:border-sky-300/20 group-hover:bg-sky-400/[0.07]">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] text-[11px] font-black transition-colors group-hover:border-sky-300/20 group-hover:bg-sky-400/[0.07]">
                   ✈
                 </span>
 
@@ -311,9 +306,9 @@ export default function SiteFooter() {
               <button
                 type="button"
                 onClick={() => void shareOnX()}
-                className="group inline-flex cursor-pointer items-center gap-2 text-left text-sm text-pink-200/75 transition-colors duration-200 hover:text-pink-100"
+                className="group inline-flex min-h-7 cursor-pointer items-center gap-2 text-left text-sm text-pink-200/75 transition-colors duration-200 hover:text-pink-100"
               >
-                <span className="flex h-7 w-7 items-center justify-center rounded-full border border-pink-300/15 bg-pink-400/[0.055] text-xs font-black transition-colors group-hover:border-pink-300/30 group-hover:bg-pink-400/[0.10]">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full border border-pink-300/15 bg-pink-400/[0.055] text-[11px] font-black transition-colors group-hover:border-pink-300/30 group-hover:bg-pink-400/[0.10]">
                   ↗
                 </span>
 
