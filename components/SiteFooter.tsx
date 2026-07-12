@@ -206,7 +206,7 @@ export default function SiteFooter() {
               Coincarnation
             </p>
 
-            <h2 className="mt-4 text-xl font-black leading-snug text-white">
+            <h2 className="mt-3 text-lg font-bold leading-tight text-white">
               Transforming forgotten value into future opportunity.
             </h2>
 
