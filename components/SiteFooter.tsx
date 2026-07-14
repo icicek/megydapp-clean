@@ -107,26 +107,21 @@ export default function SiteFooter() {
   ) {
     if (typeof window === 'undefined') return;
   
-    // Mobilde wallet browser ve uygulama yönlendirme sorunlarını önlemek için
-    // linki kopyalıyoruz.
     if (isMobileDevice()) {
       const copied = await copyText(url);
   
       showExternalLinkNotice(
         copied
           ? `${platformName} link copied. Open the ${platformName} app and paste it.`
-          : `Copy and open this link in the ${platformName} app: ${url}`
+          : `Copy this link and open it in the ${platformName} app: ${url}`
       );
   
       return;
     }
   
-    // Desktopta bağlantıyı doğrudan açıyoruz.
-    const opened = window.open(url, '_blank', 'noopener,noreferrer');
-  
-    if (!opened) {
-      window.location.assign(url);
-    }
+    // Desktop: open only once.
+    // Do not inspect the return value when using noopener.
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   async function shareOnX() {
@@ -138,7 +133,6 @@ export default function SiteFooter() {
     const shareUrl = 'https://coincarnation.com';
     const fullText = `${text}\n\n${shareUrl}`;
   
-    // Mobilde paylaşım metnini kopyala.
     if (isMobileDevice()) {
       const copied = await copyText(fullText);
   
@@ -151,20 +145,12 @@ export default function SiteFooter() {
       return;
     }
   
-    // Desktopta X paylaşım ekranını doğrudan aç.
     const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
       fullText
     )}`;
   
-    const opened = window.open(
-      intentUrl,
-      '_blank',
-      'noopener,noreferrer'
-    );
-  
-    if (!opened) {
-      window.location.assign(intentUrl);
-    }
+    // Desktop: open once; never redirect the Coincarnation tab.
+    window.open(intentUrl, '_blank', 'noopener,noreferrer');
   }
 
   const sectionTitleClass =
