@@ -37,37 +37,21 @@ export default function SiteFooter() {
     router.push('/profile');
   }
 
-  function isWalletBrowser() {
+  function isMobileDevice() {
     if (typeof window === 'undefined' || typeof navigator === 'undefined') {
       return false;
     }
-
+  
     const ua = navigator.userAgent.toLowerCase();
-
-    const w = window as typeof window & {
-      phantom?: unknown;
-      backpack?: unknown;
-      solflare?: unknown;
-      solana?: {
-        isPhantom?: boolean;
-        isBackpack?: boolean;
-        isSolflare?: boolean;
-        isSolflareWallet?: boolean;
-      };
-    };
-
-    return Boolean(
-      ua.includes('phantom') ||
-        ua.includes('solflare') ||
-        ua.includes('backpack') ||
-        w.phantom ||
-        w.backpack ||
-        w.solflare ||
-        w.solana?.isPhantom ||
-        w.solana?.isBackpack ||
-        w.solana?.isSolflare ||
-        w.solana?.isSolflareWallet
-    );
+  
+    const mobileUserAgent =
+      /android|iphone|ipad|ipod|mobile|opera mini|iemobile/.test(ua);
+  
+    const coarsePointer =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(pointer: coarse)').matches;
+  
+    return mobileUserAgent || coarsePointer;
   }
 
   async function copyText(value: string) {
@@ -122,21 +106,24 @@ export default function SiteFooter() {
     platformName: string
   ) {
     if (typeof window === 'undefined') return;
-
-    if (isWalletBrowser()) {
+  
+    // Mobilde wallet browser ve uygulama yönlendirme sorunlarını önlemek için
+    // linki kopyalıyoruz.
+    if (isMobileDevice()) {
       const copied = await copyText(url);
-
+  
       showExternalLinkNotice(
         copied
-          ? `${platformName} link copied. Open it in Chrome, Safari, or the ${platformName} app.`
-          : `Open ${url} in Chrome, Safari, or the ${platformName} app.`
+          ? `${platformName} link copied. Open the ${platformName} app and paste it.`
+          : `Copy and open this link in the ${platformName} app: ${url}`
       );
-
+  
       return;
     }
-
+  
+    // Desktopta bağlantıyı doğrudan açıyoruz.
     const opened = window.open(url, '_blank', 'noopener,noreferrer');
-
+  
     if (!opened) {
       window.location.assign(url);
     }
@@ -144,35 +131,37 @@ export default function SiteFooter() {
 
   async function shareOnX() {
     if (typeof window === 'undefined') return;
-
+  
     const text =
       'People are starting to Coincarnate forgotten crypto assets into something much bigger.';
-
+  
     const shareUrl = 'https://coincarnation.com';
     const fullText = `${text}\n\n${shareUrl}`;
-
-    if (isWalletBrowser()) {
+  
+    // Mobilde paylaşım metnini kopyala.
+    if (isMobileDevice()) {
       const copied = await copyText(fullText);
-
+  
       showExternalLinkNotice(
         copied
           ? 'Post copied. Open X and paste it.'
           : 'Open X and share Coincarnation manually.'
       );
-
+  
       return;
     }
-
+  
+    // Desktopta X paylaşım ekranını doğrudan aç.
     const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
       fullText
     )}`;
-
+  
     const opened = window.open(
       intentUrl,
       '_blank',
       'noopener,noreferrer'
     );
-
+  
     if (!opened) {
       window.location.assign(intentUrl);
     }
