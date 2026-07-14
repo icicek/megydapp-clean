@@ -1210,29 +1210,34 @@ export default function CoinographiaPage() {
                             <div className="flex min-w-0 flex-col xl:h-full xl:justify-between">
                                 <div>
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <span className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-200">
+                                        <span className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-200 shadow-[0_0_18px_rgba(34,211,238,0.10)]">
                                             Coinographia
                                         </span>
 
-                                        <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-gray-300">
-                                            Market Damage Observatory
+                                        <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/15 bg-emerald-400/[0.06] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-200/80">
+                                            <span className="relative flex h-1.5 w-1.5">
+                                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-60" />
+                                                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                                            </span>
+                                            Live Registry
                                         </span>
                                     </div>
 
-                                    <h1 className="mt-3 max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-4xl xl:text-[42px] xl:leading-[1.05]">
-                                        Crypto grew fast. Survivability did not.
+                                    <h1 className="mt-4 max-w-2xl text-3xl font-black tracking-tight text-white sm:text-4xl xl:text-[42px] xl:leading-[1.05]">
+                                        The world’s first living map of crypto survivability.
                                     </h1>
 
                                     <p className="mt-4 max-w-2xl text-sm leading-7 text-gray-300 sm:text-[15px]">
-                                        Behind every rally, millions of wallets still carry deadcoins, decaying assets and abandoned losses.
-
-                                        <span className="block mt-3">
-                                            Coinographia makes this hidden market damage visible.
-                                        </span>
+                                        Track which assets are healthy, which are decaying, and which have already
+                                        become deadcoins.
                                     </p>
 
-                                    <div className="mt-5 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500">
-                                        Active asset states monitored by Coinographia
+                                    <p className="mt-3 max-w-2xl text-sm leading-7 text-gray-400">
+                                        Coinographia turns hidden market damage into a live, searchable registry.
+                                    </p>
+
+                                    <div className="mt-6 text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+                                        Survivability States
                                     </div>
 
                                     <div className="mt-3 flex flex-wrap items-center gap-2.5">
@@ -1258,17 +1263,14 @@ export default function CoinographiaPage() {
                                     </div>
                                 </div>
 
-                                <div className="mt-10 xl:mt-auto">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-violet-200">
-                                        Why Coincarnation Exists
+                                <div className="mt-8 rounded-2xl border border-violet-400/15 bg-violet-400/[0.045] px-4 py-4 xl:mt-auto">
+                                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-200/75">
+                                        From Observation to Action
                                     </div>
 
-                                    <p className="mt-3 max-w-2xl text-lg font-semibold leading-8 text-white sm:text-xl">
-                                        Coincarnation gives forgotten crypto losses a second life.
-                                    </p>
-
-                                    <p className="mt-3 max-w-2xl text-sm leading-7 text-gray-400">
-                                        Dead and decaying holdings are no longer forced to remain idle — Coincarnation turns them into renewed participation.
+                                    <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/90 sm:text-base">
+                                        Coinographia reveals the damage. Coincarnation gives forgotten value a
+                                        second economic life.
                                     </p>
                                 </div>
                             </div>
