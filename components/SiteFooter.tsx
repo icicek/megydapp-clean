@@ -41,17 +41,54 @@ export default function SiteFooter() {
     if (typeof window === 'undefined' || typeof navigator === 'undefined') {
       return false;
     }
-  
+
     const ua = navigator.userAgent.toLowerCase();
-  
+
     const mobileUserAgent =
       /android|iphone|ipad|ipod|mobile|opera mini|iemobile/.test(ua);
-  
+
     const coarsePointer =
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(pointer: coarse)').matches;
-  
+
     return mobileUserAgent || coarsePointer;
+  }
+
+  function isMobileWalletBrowser() {
+    if (
+      typeof window === 'undefined' ||
+      typeof navigator === 'undefined' ||
+      !isMobileDevice()
+    ) {
+      return false;
+    }
+
+    const ua = navigator.userAgent.toLowerCase();
+
+    const w = window as typeof window & {
+      phantom?: unknown;
+      backpack?: unknown;
+      solflare?: unknown;
+      solana?: {
+        isPhantom?: boolean;
+        isBackpack?: boolean;
+        isSolflare?: boolean;
+        isSolflareWallet?: boolean;
+      };
+    };
+
+    return Boolean(
+      ua.includes('phantom') ||
+      ua.includes('solflare') ||
+      ua.includes('backpack') ||
+      w.phantom ||
+      w.backpack ||
+      w.solflare ||
+      w.solana?.isPhantom ||
+      w.solana?.isBackpack ||
+      w.solana?.isSolflare ||
+      w.solana?.isSolflareWallet
+    );
   }
 
   async function copyText(value: string) {
@@ -106,49 +143,81 @@ export default function SiteFooter() {
     platformName: string
   ) {
     if (typeof window === 'undefined') return;
-  
+
     if (isMobileDevice()) {
       const copied = await copyText(url);
-  
+
       showExternalLinkNotice(
         copied
           ? `${platformName} link copied. Open the ${platformName} app and paste it.`
           : `Copy this link and open it in the ${platformName} app: ${url}`
       );
-  
+
       return;
     }
-  
+
     // Desktop: open only once.
     // Do not inspect the return value when using noopener.
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
+  async function openTelegram() {
+    if (typeof window === 'undefined') return;
+
+    const username = 'levershare';
+    const webUrl = `https://t.me/${username}`;
+    const appUrl = `tg://resolve?domain=${username}`;
+
+    // Desktop: Telegram'ın web bağlantısını yeni sekmede aç.
+    if (!isMobileDevice()) {
+      window.open(webUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    // Mobil wallet browser:
+    // Özel tg:// protokolü hata verebildiği için güvenli şekilde kopyala.
+    if (isMobileWalletBrowser()) {
+      const copied = await copyText(webUrl);
+
+      showExternalLinkNotice(
+        copied
+          ? 'Telegram link copied. Open Telegram and paste it.'
+          : `Open this link in Telegram: ${webUrl}`
+      );
+
+      return;
+    }
+
+    // Normal mobil Chrome / Safari:
+    // Telegram uygulamasını doğrudan çağır.
+    window.location.href = appUrl;
+  }
+
   async function shareOnX() {
     if (typeof window === 'undefined') return;
-  
+
     const text =
       'People are starting to Coincarnate forgotten crypto assets into something much bigger.';
-  
+
     const shareUrl = 'https://coincarnation.com';
     const fullText = `${text}\n\n${shareUrl}`;
-  
+
     if (isMobileDevice()) {
       const copied = await copyText(fullText);
-  
+
       showExternalLinkNotice(
         copied
           ? 'Post copied. Open X and paste it.'
           : 'Open X and share Coincarnation manually.'
       );
-  
+
       return;
     }
-  
+
     const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
       fullText
     )}`;
-  
+
     // Desktop: open once; never redirect the Coincarnation tab.
     window.open(intentUrl, '_blank', 'noopener,noreferrer');
   }
@@ -263,12 +332,7 @@ export default function SiteFooter() {
 
               <button
                 type="button"
-                onClick={() =>
-                  void openExternalLinkSafely(
-                    'https://t.me/levershare',
-                    'Telegram'
-                  )
-                }
+                onClick={() => void openTelegram()}
                 className="group inline-flex min-h-7 cursor-pointer items-center gap-2 text-left text-sm text-gray-400 transition-colors duration-200 hover:text-white"
               >
                 <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] text-[11px] font-black transition-colors group-hover:border-sky-300/20 group-hover:bg-sky-400/[0.07]">
