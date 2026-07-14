@@ -149,8 +149,8 @@ export default function SiteFooter() {
 
       showExternalLinkNotice(
         copied
-          ? `${platformName} link copied. Open the ${platformName} app and paste it.`
-          : `Copy this link and open it in the ${platformName} app: ${url}`
+          ? 'X profile link copied: @levershare'
+          : 'Open @levershare on X.'
       );
 
       return;
@@ -181,8 +181,8 @@ export default function SiteFooter() {
 
       showExternalLinkNotice(
         copied
-          ? 'Telegram link copied. Open Telegram and paste it.'
-          : `Open this link in Telegram: ${webUrl}`
+          ? 'Telegram link copied: @levershare'
+          : 'Open @levershare on Telegram.'
       );
 
       return;
