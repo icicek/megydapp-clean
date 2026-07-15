@@ -1404,7 +1404,7 @@ export default function CoinographiaPage() {
                                 <input
                                     value={q}
                                     onChange={(e) => setQ(e.target.value)}
-                                    placeholder="Search your token..."
+                                    placeholder="Search by token, symbol, or mint..."
                                     className="h-14 w-full rounded-[22px] border border-cyan-400/18 bg-[#0b1425] pl-12 pr-20 sm:pr-24 text-[15px] font-medium text-white outline-none transition-all duration-200 placeholder:text-gray-500 focus:border-cyan-300/45 focus:bg-[#101c32] focus:shadow-[0_0_0_1px_rgba(34,211,238,0.24),0_0_34px_rgba(34,211,238,0.16)]"
                                 />
 
@@ -1508,17 +1508,77 @@ export default function CoinographiaPage() {
                             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/30 to-transparent" />
                         </div>
                         <div className="relative z-[1]">
-                            <div className="flex max-w-3xl flex-col">
-                                <h2 className="text-lg font-semibold text-white">Live Discovery</h2>
+                            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                                <div className="max-w-2xl">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100">
+                                            <span className="relative flex h-1.5 w-1.5">
+                                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-300 opacity-60" />
+                                                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan-300" />
+                                            </span>
 
-                                <p className="mt-2 text-sm text-gray-300">
-                                    This is where market decay turns into visible signals.
-                                    Discover which tokens are attracting wallets, generating Coincarnation momentum,
-                                    and moving from passive failure toward collective revival.
-                                </p>
+                                            Live Discovery
+                                        </span>
+
+                                        <span className="inline-flex items-center rounded-full border border-violet-400/15 bg-violet-400/[0.06] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-200/75">
+                                            Signal Intelligence
+                                        </span>
+                                    </div>
+
+                                    <h2 className="mt-4 text-2xl font-black tracking-tight text-white sm:text-3xl">
+                                        Watch crypto survivability change in real time.
+                                    </h2>
+
+                                    <p className="mt-3 max-w-2xl text-sm leading-7 text-gray-300">
+                                        Discover where wallet activity, revived value, and Coincarnation momentum
+                                        are forming around individual assets.
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-2 lg:min-w-[360px]">
+                                    <div className="rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.055] px-3 py-3 text-center">
+                                        <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-cyan-200/60">
+                                            Signals
+                                        </p>
+
+                                        <p className="mt-1 text-lg font-black text-white">
+                                            {formatNumberCompact(discoveryItems.length)}
+                                        </p>
+                                    </div>
+
+                                    <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.055] px-3 py-3 text-center">
+                                        <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-emerald-200/60">
+                                            Wallets
+                                        </p>
+
+                                        <p className="mt-1 text-lg font-black text-white">
+                                            {formatNumberCompact(
+                                                discoveryItems.reduce(
+                                                    (sum, item) => sum + Number(item.unique_wallets || 0),
+                                                    0
+                                                )
+                                            )}
+                                        </p>
+                                    </div>
+
+                                    <div className="rounded-2xl border border-violet-400/15 bg-violet-400/[0.055] px-3 py-3 text-center">
+                                        <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-violet-200/60">
+                                            Revived
+                                        </p>
+
+                                        <p className="mt-1 text-lg font-black text-white">
+                                            {formatUsdCompact(
+                                                discoveryItems.reduce(
+                                                    (sum, item) => sum + Number(item.total_revived_usd || 0),
+                                                    0
+                                                )
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                                 <p className="text-xs leading-5 text-slate-300/70">
                                     {getDiscoverySortLabel(discoverySort)}
                                     {status ? ` · Filtered by ${status}` : ''}
