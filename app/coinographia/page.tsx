@@ -146,6 +146,43 @@ function formatUpdatedShort(value: string | null) {
     });
 }
 
+function formatRelativeActivityTime(
+    value: string | null,
+    now: number
+) {
+    if (!value) return 'No activity yet';
+
+    const timestamp = new Date(value).getTime();
+
+    if (Number.isNaN(timestamp)) {
+        return 'Unknown';
+    }
+
+    const diffSeconds = Math.max(
+        0,
+        Math.floor((now - timestamp) / 1000)
+    );
+
+    if (diffSeconds < 15) return 'Now';
+    if (diffSeconds < 60) return `${diffSeconds}s ago`;
+
+    const diffMinutes = Math.floor(diffSeconds / 60);
+
+    if (diffMinutes < 60) {
+        return `${diffMinutes}m ago`;
+    }
+
+    const diffHours = Math.floor(diffMinutes / 60);
+
+    if (diffHours < 24) {
+        return `${diffHours}h ago`;
+    }
+
+    const diffDays = Math.floor(diffHours / 24);
+
+    return `${diffDays}d ago`;
+}
+
 function formatMetricValue(value: number | null, unit: 'usd' | 'raw') {
     if (value === null || !Number.isFinite(value)) return 'Not set';
 
@@ -976,6 +1013,7 @@ export default function CoinographiaPage() {
     const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(true);
     const [discoveryView, setDiscoveryView] = useState<'cards' | 'compact'>('cards');
     const [activeDiscoveryDetail, setActiveDiscoveryDetail] = useState<DiscoveryRow | null>(null);
+    const [discoveryNow, setDiscoveryNow] = useState(() => Date.now());
 
     function handleCoincarnateClick(
         mint: string,
@@ -1163,11 +1201,66 @@ export default function CoinographiaPage() {
         return () => clearTimeout(id);
     }, [q, status, discoverySort]);
 
+    useEffect(() => {
+        const intervalId = window.setInterval(() => {
+            setDiscoveryNow(Date.now());
+        }, 60_000);
+
+        return () => {
+            window.clearInterval(intervalId);
+        };
+    }, []);
+
     const discoverySearchContext = useMemo(() => {
         return getDiscoverySearchContext(discoveryItems, q);
     }, [discoveryItems, q]);
 
     const hasActiveSearch = q.trim().length > 0;
+
+    const discoveryHeatSummary = useMemo(() => {
+        return discoveryItems.reduce(
+            (summary, item) => {
+                if (item.heat_level === 'HOT') {
+                    summary.hot += 1;
+                }
+
+                if (item.heat_level === 'TRENDING') {
+                    summary.trending += 1;
+                }
+
+                if (item.heat_level === 'LIVE') {
+                    summary.live += 1;
+                }
+
+                return summary;
+            },
+            {
+                hot: 0,
+                trending: 0,
+                live: 0,
+            }
+        );
+    }, [discoveryItems]);
+
+    const latestDiscoveryActivityAt = useMemo(() => {
+        let latestTimestamp: string | null = null;
+        let latestTime = 0;
+
+        for (const item of discoveryItems) {
+            if (!item.last_activity_at) continue;
+
+            const itemTime = new Date(item.last_activity_at).getTime();
+
+            if (Number.isNaN(itemTime)) continue;
+
+            if (itemTime > latestTime) {
+                latestTime = itemTime;
+                latestTimestamp = item.last_activity_at;
+            }
+        }
+
+        return latestTimestamp;
+    }, [discoveryItems]);
 
     const totalPages = Math.max(1, Math.ceil(total / limit));
 
@@ -1575,6 +1668,61 @@ export default function CoinographiaPage() {
                                             )}
                                         </p>
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Live signal strip */}
+                            <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-white/[0.08] bg-black/20 px-4 py-3 text-[10px] font-bold uppercase tracking-[0.12em]">
+                                <div className="inline-flex items-center gap-2 text-rose-200/80">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-rose-300 shadow-[0_0_10px_rgba(251,113,133,0.7)]" />
+
+                                    <span>Hot</span>
+
+                                    <span className="text-white">
+                                        {discoveryHeatSummary.hot}
+                                    </span>
+                                </div>
+
+                                <div className="hidden h-3 w-px bg-white/10 sm:block" />
+
+                                <div className="inline-flex items-center gap-2 text-amber-200/80">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(252,211,77,0.65)]" />
+
+                                    <span>Trending</span>
+
+                                    <span className="text-white">
+                                        {discoveryHeatSummary.trending}
+                                    </span>
+                                </div>
+
+                                <div className="hidden h-3 w-px bg-white/10 sm:block" />
+
+                                <div className="inline-flex items-center gap-2 text-cyan-200/80">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.65)]" />
+
+                                    <span>Live</span>
+
+                                    <span className="text-white">
+                                        {discoveryHeatSummary.live}
+                                    </span>
+                                </div>
+
+                                <div className="hidden h-3 w-px bg-white/10 sm:block" />
+
+                                <div className="inline-flex items-center gap-2 text-gray-400 sm:ml-auto">
+                                    <span className="relative flex h-1.5 w-1.5">
+                                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-50" />
+                                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                                    </span>
+
+                                    <span>Latest activity</span>
+
+                                    <span className="normal-case tracking-normal text-emerald-200/85">
+                                        {formatRelativeActivityTime(
+                                            latestDiscoveryActivityAt,
+                                            discoveryNow
+                                        )}
+                                    </span>
                                 </div>
                             </div>
 
