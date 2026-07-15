@@ -151,6 +151,7 @@ function formatRelativeActivityTime(
     now: number
 ) {
     if (!value) return 'No activity yet';
+    if (!now) return 'Loading…';
 
     const timestamp = new Date(value).getTime();
 
@@ -1013,7 +1014,7 @@ export default function CoinographiaPage() {
     const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(true);
     const [discoveryView, setDiscoveryView] = useState<'cards' | 'compact'>('cards');
     const [activeDiscoveryDetail, setActiveDiscoveryDetail] = useState<DiscoveryRow | null>(null);
-    const [discoveryNow, setDiscoveryNow] = useState(() => Date.now());
+    const [discoveryNow, setDiscoveryNow] = useState(0);
 
     function handleCoincarnateClick(
         mint: string,
@@ -1202,6 +1203,8 @@ export default function CoinographiaPage() {
     }, [q, status, discoverySort]);
 
     useEffect(() => {
+        setDiscoveryNow(Date.now());
+
         const intervalId = window.setInterval(() => {
             setDiscoveryNow(Date.now());
         }, 60_000);
