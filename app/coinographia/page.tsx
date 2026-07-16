@@ -2611,116 +2611,313 @@ export default function CoinographiaPage() {
                                     {getDiscoveryStoryLine(activeDiscoveryDetail)}
                                 </div>
 
-                                <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3">
-                                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.13em] text-cyan-100">
-                                        <span className="relative flex h-2 w-2 shrink-0">
-                                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-60" />
-                                            <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.9)]" />
-                                        </span>
+                                {/* Current state */}
+                                <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-500">
+                                                Current State
+                                            </p>
 
-                                        <span className="min-w-0 truncate">
-                                            {getDiscoverySignalLine(activeDiscoveryDetail)}
+                                            <p className="mt-1 text-sm font-semibold text-white">
+                                                Present asset condition
+                                            </p>
+                                        </div>
+
+                                        <StatusBadge status={activeDiscoveryDetail.status} />
+                                    </div>
+
+                                    <div className="mt-4 grid grid-cols-2 gap-2">
+                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-3">
+                                            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-gray-500">
+                                                Survival State
+                                            </p>
+
+                                            <p className="mt-1 text-sm font-semibold capitalize text-white">
+                                                {activeDiscoveryDetail.status.replaceAll('_', ' ')}
+                                            </p>
+                                        </div>
+
+                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-3">
+                                            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-gray-500">
+                                                Coincarnation State
+                                            </p>
+
+                                            <p className="mt-1 text-sm font-semibold text-white">
+                                                {activeDiscoveryDetail.total_coincarnations > 0
+                                                    ? 'Active'
+                                                    : 'Not yet Coincarnated'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <p className="mt-3 text-xs leading-5 text-gray-500">
+                                        Classification describes the asset’s condition. Coincarnation records
+                                        economic participation around it.
+                                    </p>
+                                </section>
+
+                                {/* Survival history */}
+                                <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-200/65">
+                                                Survival History
+                                            </p>
+
+                                            <p className="mt-1 text-sm font-semibold text-white">
+                                                Changes in asset condition
+                                            </p>
+                                        </div>
+
+                                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-gray-500">
+                                            History
                                         </span>
+                                    </div>
+
+                                    <div className="mt-4">
+                                        <div className="flex gap-3">
+                                            <div className="flex w-4 shrink-0 flex-col items-center">
+                                                <span className="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,0.55)]" />
+                                            </div>
+
+                                            <div className="min-w-0 flex-1 rounded-xl border border-emerald-400/15 bg-emerald-400/[0.04] px-3 py-3">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <p className="text-sm font-semibold capitalize text-white">
+                                                        {activeDiscoveryDetail.status.replaceAll('_', ' ')}
+                                                    </p>
+
+                                                    <span className="shrink-0 text-[10px] text-gray-500">
+                                                        Current
+                                                    </span>
+                                                </div>
+
+                                                <p className="mt-1 text-xs leading-5 text-gray-500">
+                                                    Current classified state recorded by Coinographia.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-3 rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-3 py-3 text-xs leading-5 text-gray-500">
+                                        Earlier state transitions will appear here when classification history is
+                                        connected.
+                                    </div>
+                                </section>
+
+                                {/* Coincarnation history */}
+                                <section className="mt-4 rounded-2xl border border-violet-400/15 bg-violet-400/[0.035] p-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-200/70">
+                                                Coincarnation History
+                                            </p>
+
+                                            <p className="mt-1 text-sm font-semibold text-white">
+                                                Economic participation events
+                                            </p>
+                                        </div>
+
+                                        <span className="rounded-full border border-violet-300/15 bg-violet-400/[0.06] px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-violet-200/70">
+                                            Independent Layer
+                                        </span>
+                                    </div>
+
+                                    {activeDiscoveryDetail.total_coincarnations > 0 ? (
+                                        <div className="mt-4 rounded-xl border border-violet-400/15 bg-violet-400/[0.045] px-3 py-3">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div>
+                                                    <p className="text-sm font-semibold text-white">
+                                                        Coincarnation activity detected
+                                                    </p>
+
+                                                    <p className="mt-1 text-xs leading-5 text-gray-400">
+                                                        Coincarnation activity has been recorded for this asset. Its current
+                                                        survival classification is{' '}
+                                                        <span className="capitalize text-violet-200">
+                                                            {activeDiscoveryDetail.status.replaceAll('_', ' ')}
+                                                        </span>
+                                                        .
+                                                    </p>
+                                                </div>
+
+                                                <div className="shrink-0 text-right">
+                                                    <p className="text-lg font-black text-white">
+                                                        {formatNumberCompact(
+                                                            activeDiscoveryDetail.total_coincarnations
+                                                        )}
+                                                    </p>
+
+                                                    <p className="text-[9px] uppercase tracking-[0.12em] text-gray-500">
+                                                        Events
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="mt-4 rounded-xl border border-dashed border-violet-400/15 bg-violet-400/[0.025] px-3 py-4 text-center">
+                                            <p className="text-sm font-semibold text-white">
+                                                Not yet Coincarnated
+                                            </p>
+
+                                            <p className="mt-1 text-xs leading-5 text-gray-500">
+                                                Coincarnation can occur while an asset is healthy, walking dead, or a
+                                                deadcoin.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <p className="mt-3 text-xs leading-5 text-gray-500">
+                                        Detailed Coincarnation events and their historical asset states will appear
+                                        here when event history is connected.
+                                    </p>
+                                </section>
+
+                                {/* Current signals */}
+                                <section className="mt-4 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.025] p-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200/70">
+                                                Current Signals
+                                            </p>
+
+                                            <p className="mt-1 text-sm font-semibold text-white">
+                                                Live detection and ranking context
+                                            </p>
+                                        </div>
+
+                                        <span className="inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-400/[0.06] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-cyan-100/75">
+                                            <span className="relative flex h-1.5 w-1.5">
+                                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-300 opacity-50" />
+                                                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan-300" />
+                                            </span>
+                                            Live
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-4 rounded-xl border border-cyan-300/15 bg-black/20 px-3 py-3">
+                                        <div className="flex items-start gap-2">
+                                            <span className="relative mt-1 flex h-2 w-2 shrink-0">
+                                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-60" />
+                                                <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.9)]" />
+                                            </span>
+
+                                            <p className="min-w-0 text-[10px] font-bold uppercase leading-5 tracking-[0.13em] text-cyan-100">
+                                                {getDiscoverySignalLine(activeDiscoveryDetail)}
+                                            </p>
+                                        </div>
                                     </div>
 
                                     <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2">
-                                            <div className="text-[10px] uppercase tracking-[0.1em] text-gray-500">
+                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-3">
+                                            <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500">
                                                 Rank Reason
-                                            </div>
+                                            </p>
 
-                                            <div className="mt-1 font-semibold text-gray-200">
+                                            <p className="mt-1 text-xs font-semibold leading-5 text-gray-200">
                                                 {getRankReasonLabel(activeDiscoveryDetail.rank_reason)}
-                                            </div>
+                                            </p>
                                         </div>
 
-                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2">
-                                            <div className="text-[10px] uppercase tracking-[0.1em] text-gray-500">
+                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-3">
+                                            <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500">
                                                 Activity Score
-                                            </div>
+                                            </p>
 
-                                            <div className="mt-1 font-semibold text-gray-200">
-                                                {formatNumberCompact(
-                                                    activeDiscoveryDetail.activity_score
-                                                )}
-                                            </div>
+                                            <p className="mt-1 text-sm font-semibold text-gray-200">
+                                                {formatNumberCompact(activeDiscoveryDetail.activity_score)}
+                                            </p>
                                         </div>
 
-                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2">
-                                            <div className="text-[10px] uppercase tracking-[0.1em] text-gray-500">
+                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-3">
+                                            <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500">
                                                 First Seen
-                                            </div>
+                                            </p>
 
-                                            <div className="mt-1 font-semibold text-gray-200">
-                                                {formatDiscoverySince(
-                                                    activeDiscoveryDetail.first_seen_at
-                                                ) || 'Unknown'}
-                                            </div>
+                                            <p className="mt-1 text-xs font-semibold leading-5 text-gray-200">
+                                                {formatDiscoverySince(activeDiscoveryDetail.first_seen_at) ||
+                                                    'Unknown'}
+                                            </p>
                                         </div>
 
-                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2">
-                                            <div className="text-[10px] uppercase tracking-[0.1em] text-gray-500">
+                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-3">
+                                            <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500">
                                                 Last Activity
-                                            </div>
+                                            </p>
 
-                                            <div className="mt-1 font-semibold text-gray-200">
+                                            <p className="mt-1 text-xs font-semibold leading-5 text-gray-200">
                                                 {activeDiscoveryDetail.last_activity_at
-                                                    ? formatUpdatedShort(
-                                                        activeDiscoveryDetail.last_activity_at
-                                                    )
+                                                    ? formatUpdatedShort(activeDiscoveryDetail.last_activity_at)
                                                     : 'No activity yet'}
-                                            </div>
+                                            </p>
                                         </div>
                                     </div>
-                                </div>
+
+                                    <p className="mt-3 text-xs leading-5 text-gray-500">
+                                        These signals describe Coinographia’s current detection context, not the
+                                        asset’s full historical record.
+                                    </p>
+                                </section>
 
                                 {activeDiscoveryDetail.rank_reason !== 'search_pioneer' && (
-                                    <div className="mt-3 grid grid-cols-3 gap-2">
-                                        <div
-                                            className={getDiscoveryMetricCellClass(true, 'cyan')}
-                                        >
-                                            <div className="text-[9px] uppercase tracking-[0.08em] text-gray-500">
-                                                Coinc.
-                                            </div>
+                                    <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200/65">
+                                                Activity
+                                            </p>
 
-                                            <div className="mt-1 text-sm font-semibold text-white">
-                                                {formatNumberCompact(
-                                                    activeDiscoveryDetail.total_coincarnations
-                                                )}
-                                            </div>
+                                            <p className="mt-1 text-sm font-semibold text-white">
+                                                Current participation signals
+                                            </p>
                                         </div>
 
-                                        <div
-                                            className={getDiscoveryMetricCellClass(
-                                                true,
-                                                'emerald'
-                                            )}
-                                        >
-                                            <div className="text-[9px] uppercase tracking-[0.08em] text-gray-500">
-                                                Revived
+                                        <div className="mt-4 grid grid-cols-3 gap-2">
+                                            <div
+                                                className={getDiscoveryMetricCellClass(true, 'cyan')}
+                                            >
+                                                <div className="text-[9px] uppercase tracking-[0.08em] text-gray-500">
+                                                    Coinc.
+                                                </div>
+
+                                                <div className="mt-1 text-sm font-semibold text-white">
+                                                    {formatNumberCompact(
+                                                        activeDiscoveryDetail.total_coincarnations
+                                                    )}
+                                                </div>
                                             </div>
 
-                                            <div className="mt-1 text-sm font-semibold text-white">
-                                                {formatUsdCompact(
-                                                    activeDiscoveryDetail.total_revived_usd
+                                            <div
+                                                className={getDiscoveryMetricCellClass(
+                                                    true,
+                                                    'emerald'
                                                 )}
+                                            >
+                                                <div className="text-[9px] uppercase tracking-[0.08em] text-gray-500">
+                                                    Revived
+                                                </div>
+
+                                                <div className="mt-1 text-sm font-semibold text-white">
+                                                    {formatUsdCompact(
+                                                        activeDiscoveryDetail.total_revived_usd
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div
+                                                className={getDiscoveryMetricCellClass(true, 'amber')}
+                                            >
+                                                <div className="text-[9px] uppercase tracking-[0.08em] text-gray-500">
+                                                    Wallets
+                                                </div>
+
+                                                <div className="mt-1 text-sm font-semibold text-white">
+                                                    {formatNumberCompact(
+                                                        activeDiscoveryDetail.unique_wallets
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
-
-                                        <div
-                                            className={getDiscoveryMetricCellClass(true, 'amber')}
-                                        >
-                                            <div className="text-[9px] uppercase tracking-[0.08em] text-gray-500">
-                                                Wallets
-                                            </div>
-
-                                            <div className="mt-1 text-sm font-semibold text-white">
-                                                {formatNumberCompact(
-                                                    activeDiscoveryDetail.unique_wallets
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
+                                    </section>
                                 )}
 
                                 <div className="mt-4 grid grid-cols-2 gap-2">
