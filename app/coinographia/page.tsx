@@ -2683,21 +2683,28 @@ export default function CoinographiaPage() {
                                         {/* Status panel */}
                                         <div
                                             className={[
-                                                'mt-3 rounded-2xl border px-3 py-3',
+                                                'mt-3 rounded-2xl border px-3 py-2.5',
                                                 getRegistryInnerPanelClass(it.status),
                                             ].join(' ')}
                                         >
-                                            <div className="flex min-w-0 items-center justify-between gap-3">
-                                                <StatusBadge status={it.status} />
+                                            <div className="flex min-w-0 items-start gap-3">
+                                                <div className="shrink-0 pt-0.5">
+                                                    <StatusBadge status={it.status} />
+                                                </div>
 
-                                                <span className="shrink-0 text-[10px] text-gray-500">
-                                                    {formatUpdatedShort(it.updated_at)}
-                                                </span>
+                                                <div className="ml-auto min-w-0 text-right">
+                                                    <div className="whitespace-nowrap text-[10px] text-gray-500">
+                                                        {formatUpdatedShort(it.updated_at)}
+                                                    </div>
+
+                                                    <p
+                                                        className="mt-1 truncate text-[10px] leading-4 text-gray-500"
+                                                        title={getRegistryStatusSignal(it.status)}
+                                                    >
+                                                        {getRegistryStatusSignal(it.status)}
+                                                    </p>
+                                                </div>
                                             </div>
-
-                                            <p className="mt-2 truncate text-[10px] leading-5 text-gray-500">
-                                                {getRegistryStatusSignal(it.status)}
-                                            </p>
                                         </div>
                                     </div>
 
@@ -2974,29 +2981,52 @@ export default function CoinographiaPage() {
                     </table>
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                    <div className="text-sm text-gray-400">
-                        Page {page + 1} / {totalPages}
-                    </div>
-
-                    <div className="flex items-center gap-2">
+                {!loading && !error && total > 0 && totalPages > 1 && (
+                    <nav
+                        aria-label="Token Registry pagination"
+                        className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-3 py-2.5 sm:px-4"
+                    >
                         <button
-                            onClick={() => setPage((p) => Math.max(0, p - 1))}
+                            type="button"
+                            onClick={() => setPage((current) => Math.max(0, current - 1))}
                             disabled={page === 0}
-                            className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08] disabled:opacity-50"
+                            className="inline-flex h-9 min-w-9 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 text-xs font-semibold text-gray-300 transition-all duration-200 hover:border-cyan-400/20 hover:bg-cyan-400/[0.07] hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-35"
+                            aria-label="Previous registry page"
                         >
-                            Previous
+                            <span aria-hidden="true">←</span>
+                            <span className="hidden sm:inline">Previous</span>
                         </button>
 
+                        <div className="min-w-0 text-center">
+                            <p className="text-xs font-semibold text-white">
+                                Page {page + 1}
+                                <span className="font-normal text-gray-500">
+                                    {' '}of {totalPages}
+                                </span>
+                            </p>
+
+                            <p className="mt-0.5 hidden text-[10px] text-gray-500 sm:block">
+                                {page * limit + 1}–
+                                {Math.min((page + 1) * limit, total)} of {total} assets
+                            </p>
+                        </div>
+
                         <button
-                            onClick={() => setPage((p) => (p + 1 < totalPages ? p + 1 : p))}
+                            type="button"
+                            onClick={() =>
+                                setPage((current) =>
+                                    current + 1 < totalPages ? current + 1 : current
+                                )
+                            }
                             disabled={page + 1 >= totalPages}
-                            className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08] disabled:opacity-50"
+                            className="inline-flex h-9 min-w-9 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 text-xs font-semibold text-gray-300 transition-all duration-200 hover:border-cyan-400/20 hover:bg-cyan-400/[0.07] hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-35"
+                            aria-label="Next registry page"
                         >
-                            Next
+                            <span className="hidden sm:inline">Next</span>
+                            <span aria-hidden="true">→</span>
                         </button>
-                    </div>
-                </div>
+                    </nav>
+                )}
             </div>
             {toast && (
                 <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center">
