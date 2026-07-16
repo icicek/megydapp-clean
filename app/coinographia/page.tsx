@@ -2545,74 +2545,111 @@ export default function CoinographiaPage() {
                                 key={it.mint}
                                 className={getRegistryFeedItemClass(it.status)}
                             >
-                                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                                    <div className="min-w-0 flex items-center gap-3">
-                                        {it.logo_uri ? (
-                                            <img
-                                                src={it.logo_uri}
-                                                alt={it.symbol || it.name || it.mint}
-                                                className="h-10 w-10 rounded-full border border-white/10 object-cover shrink-0"
-                                            />
-                                        ) : (
-                                            <div className="h-10 w-10 rounded-full border border-white/10 bg-white/5 shrink-0" />
-                                        )}
+                                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                                    {/* Main content */}
+                                    <div className="min-w-0">
+                                        {/* Token identity */}
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            {it.logo_uri ? (
+                                                <img
+                                                    src={it.logo_uri}
+                                                    alt={it.symbol || it.name || it.mint}
+                                                    className="h-11 w-11 shrink-0 rounded-full border border-white/10 object-cover"
+                                                />
+                                            ) : (
+                                                <div className="h-11 w-11 shrink-0 rounded-full border border-white/10 bg-white/5" />
+                                            )}
 
-                                        <div className="min-w-0 flex-1">
-                                            <div className="truncate text-[15px] font-semibold leading-5">
-                                                {it.symbol || 'Unknown Symbol'}
-                                            </div>
-
-                                            <div className="mt-1 flex min-w-0 items-center gap-1.5">
-                                                <div className="truncate font-mono text-[10px] text-gray-500" title={it.mint}>
-                                                    {shortenMint(it.mint)}
+                                            <div className="min-w-0 flex-1">
+                                                <div className="truncate text-[16px] font-semibold leading-5 text-white">
+                                                    {it.symbol || 'Unknown Symbol'}
+                                                    {it.name ? ` — ${it.name}` : ''}
                                                 </div>
 
-                                                <button
-                                                    onClick={() => void handleMintCopy(it.mint)}
-                                                    className={[
-                                                        'shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold transition-all duration-200 active:scale-95',
-                                                        copiedMint === it.mint
-                                                            ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-200'
-                                                            : 'border-white/10 bg-white/[0.04] text-gray-400 hover:bg-white/[0.08] hover:text-white',
-                                                    ].join(' ')}
-                                                    title={copiedMint === it.mint ? 'Copied' : 'Copy mint'}
-                                                    aria-label={copiedMint === it.mint ? 'Copied' : 'Copy mint'}
-                                                >
-                                                    {copiedMint === it.mint ? 'copied' : 'copy'}
-                                                </button>
-                                            </div>
+                                                <div className="mt-1 flex min-w-0 items-center gap-2">
+                                                    <span
+                                                        className="truncate font-mono text-[11px] text-gray-400"
+                                                        title={it.mint}
+                                                    >
+                                                        {shortenMint(it.mint)}
+                                                    </span>
 
-                                            <div className={`mt-2 rounded-2xl border px-2.5 py-2 ${getRegistryInnerPanelClass(it.status)}`}>
-                                                <div className="flex min-w-0 items-center gap-2">
-                                                    <StatusBadge status={it.status} />
-
-                                                    <div className="min-w-0 truncate text-[10px] text-gray-500">
-                                                        {formatUpdatedShort(it.updated_at)}
-                                                    </div>
-                                                </div>
-
-                                                <div className="mt-1 max-w-[220px] truncate text-[10px] text-gray-500">
-                                                    {getRegistryStatusSignal(it.status)}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => void handleMintCopy(it.mint)}
+                                                        className={[
+                                                            'shrink-0 cursor-pointer rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-all duration-200 hover:scale-[1.04] active:scale-[0.96]',
+                                                            copiedMint === it.mint
+                                                                ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-200'
+                                                                : 'border-white/10 bg-white/[0.04] text-gray-300 hover:bg-white/[0.08] hover:text-white',
+                                                        ].join(' ')}
+                                                        title={copiedMint === it.mint ? 'Mint copied' : 'Copy mint'}
+                                                        aria-label={copiedMint === it.mint ? 'Mint copied' : 'Copy mint'}
+                                                    >
+                                                        {copiedMint === it.mint ? '✓' : 'copy'}
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {/* Status panel */}
+                                        <div
+                                            className={[
+                                                'mt-3 rounded-2xl border px-3 py-3',
+                                                getRegistryInnerPanelClass(it.status),
+                                            ].join(' ')}
+                                        >
+                                            <div className="flex min-w-0 items-center justify-between gap-3">
+                                                <StatusBadge status={it.status} />
+
+                                                <span className="shrink-0 text-[10px] text-gray-500">
+                                                    {formatUpdatedShort(it.updated_at)}
+                                                </span>
+                                            </div>
+
+                                            <p className="mt-2 truncate text-[10px] leading-5 text-gray-500">
+                                                {getRegistryStatusSignal(it.status)}
+                                            </p>
+                                        </div>
                                     </div>
 
-                                    <div className={`flex shrink-0 flex-col items-center gap-1.5 rounded-2xl border p-1.5 ${getRegistryActionRailClass(it.status)}`}>
+                                    {/* Action rail */}
+                                    <div
+                                        className={[
+                                            'flex shrink-0 flex-col items-center gap-1.5 rounded-2xl border p-1.5',
+                                            getRegistryActionRailClass(it.status),
+                                        ].join(' ')}
+                                    >
                                         <button
+                                            type="button"
                                             disabled={isDisabled}
-                                            onClick={() => handleCoincarnateClick(it.mint, it.status, it.symbol, it.name)}
+                                            onClick={() =>
+                                                handleCoincarnateClick(
+                                                    it.mint,
+                                                    it.status,
+                                                    it.symbol,
+                                                    it.name
+                                                )
+                                            }
                                             className={getMobileActionButtonClass(it.status, isDisabled)}
                                             title={
                                                 isDisabled
                                                     ? 'Coincarnation is disabled for redlisted or blacklisted tokens.'
-                                                    : `Coincarnate ${it.symbol ? `$${it.symbol}` : 'this token'}`
+                                                    : `Coincarnate ${it.symbol ? `$${it.symbol}` : 'this token'
+                                                    }`
+                                            }
+                                            aria-label={
+                                                isDisabled
+                                                    ? 'Coincarnation disabled'
+                                                    : `Coincarnate ${it.symbol ? `$${it.symbol}` : 'this token'
+                                                    }`
                                             }
                                         >
                                             <span className="leading-none text-[16px]">✦</span>
                                         </button>
 
                                         <button
+                                            type="button"
                                             onClick={() => {
                                                 if (!canShareStatus(it.status)) return;
                                                 void shareRegistryOnX(it);
@@ -2620,11 +2657,19 @@ export default function CoinographiaPage() {
                                             disabled={!canShareStatus(it.status)}
                                             className={
                                                 canShareStatus(it.status)
-                                                    ? "flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.08] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_16px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 hover:border-cyan-400/35 hover:bg-cyan-500/[0.14] active:scale-95"
+                                                    ? 'flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.08] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_16px_rgba(0,0,0,0.14)] backdrop-blur-sm transition-all duration-200 hover:border-cyan-400/35 hover:bg-cyan-500/[0.14] active:scale-95'
                                                     : getShareButtonDisabledClass('sm')
                                             }
-                                            title={canShareStatus(it.status) ? 'Share signal' : 'Sharing is disabled for redlisted or blacklisted tokens'}
-                                            aria-label={canShareStatus(it.status) ? 'Share signal' : 'Sharing disabled'}
+                                            title={
+                                                canShareStatus(it.status)
+                                                    ? 'Share signal'
+                                                    : 'Sharing is disabled for redlisted or blacklisted tokens'
+                                            }
+                                            aria-label={
+                                                canShareStatus(it.status)
+                                                    ? 'Share signal'
+                                                    : 'Sharing disabled'
+                                            }
                                         >
                                             {sharedMint === it.mint && canShareStatus(it.status) ? (
                                                 '✓'
