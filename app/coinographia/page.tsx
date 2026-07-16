@@ -495,9 +495,10 @@ function getDiscoverySearchContext(items: DiscoveryRow[], query: string) {
         }
 
         return {
-            tone: 'related' as const,
-            title: 'Matching assets surfaced',
-            body: 'Select a suggested asset or continue typing to narrow the results.',
+            tone: 'exact' as const,
+            title: 'Exact match surfaced',
+            body: `${exactItem.symbol || exactItem.name || 'This token'
+                } is currently visible in discovery results.`,
         };
     }
 
@@ -1239,6 +1240,27 @@ export default function CoinographiaPage() {
             window.clearInterval(intervalId);
         };
     }, []);
+
+    useEffect(() => {
+        if (!activeDiscoveryDetail) return;
+
+        const previousOverflow = document.body.style.overflow;
+
+        document.body.style.overflow = 'hidden';
+
+        function handleEscape(event: KeyboardEvent) {
+            if (event.key === 'Escape') {
+                setActiveDiscoveryDetail(null);
+            }
+        }
+
+        window.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', handleEscape);
+        };
+    }, [activeDiscoveryDetail]);
 
     const discoverySearchContext = useMemo(() => {
         return getDiscoverySearchContext(discoveryItems, q);
@@ -2477,64 +2499,105 @@ export default function CoinographiaPage() {
 
                 {activeDiscoveryDetail && (
                     <div
-                        className="fixed inset-0 z-[80] flex items-start justify-center bg-black/55 px-4 pt-20 backdrop-blur-sm sm:pt-24"
-                        onClick={() => setActiveDiscoveryDetail(null)}
+                        className="fixed inset-0 z-[100]"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={`Asset Profile for ${activeDiscoveryDetail.symbol ||
+                            activeDiscoveryDetail.name ||
+                            'selected asset'
+                            }`}
                     >
-                        <div
-                            className="w-full max-w-xl overflow-hidden rounded-[26px] border border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_28%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.14),transparent_30%),linear-gradient(180deg,rgba(13,19,34,0.98),rgba(7,11,20,0.98))] shadow-[0_30px_90px_rgba(0,0,0,0.55),0_0_42px_rgba(34,211,238,0.12)]"
-                            onClick={(e) => e.stopPropagation()}
+                        {/* Backdrop */}
+                        <button
+                            type="button"
+                            aria-label="Close Asset Profile"
+                            onClick={() => setActiveDiscoveryDetail(null)}
+                            className="absolute inset-0 cursor-default bg-black/65 backdrop-blur-[3px]"
+                        />
+
+                        {/* Drawer */}
+                        <aside
+                            className="asset-drawer-motion absolute inset-y-0 right-0 flex w-full max-w-[560px] flex-col overflow-hidden border-l border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.15),transparent_28%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.13),transparent_32%),linear-gradient(180deg,rgba(12,18,32,0.995),rgba(6,10,19,0.995))] shadow-[-28px_0_90px_rgba(0,0,0,0.58),-8px_0_40px_rgba(34,211,238,0.08)] animate-[assetDrawerIn_320ms_cubic-bezier(0.22,1,0.36,1)]"
+                            onClick={(event) => event.stopPropagation()}
                         >
-                            <div className="flex items-start justify-between gap-4 border-b border-white/10 p-4">
-                                <div className="flex min-w-0 items-center gap-3">
+                            {/* Fixed header */}
+                            <div className="shrink-0 border-b border-white/10 px-4 py-4 sm:px-5">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="min-w-0">
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-200/70">
+                                            Asset Biography
+                                        </p>
+
+                                        <p className="mt-1 text-[11px] leading-5 text-gray-500">
+                                            Every digital asset has a story. Coinographia records it.
+                                        </p>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveDiscoveryDetail(null)}
+                                        className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-lg text-gray-300 transition-all duration-200 hover:border-cyan-300/20 hover:bg-white/[0.09] hover:text-white"
+                                        aria-label="Close Asset Profile"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+
+                                {/* Asset identity */}
+                                <div className="mt-4 flex min-w-0 items-center gap-3">
                                     {activeDiscoveryDetail.logo_uri ? (
                                         <img
                                             src={activeDiscoveryDetail.logo_uri}
-                                            alt={activeDiscoveryDetail.symbol || activeDiscoveryDetail.mint}
-                                            className="h-11 w-11 shrink-0 rounded-full border border-white/10 object-cover"
+                                            alt={
+                                                activeDiscoveryDetail.symbol ||
+                                                activeDiscoveryDetail.name ||
+                                                activeDiscoveryDetail.mint
+                                            }
+                                            className="h-12 w-12 shrink-0 rounded-full border border-white/10 object-cover"
                                         />
                                     ) : (
-                                        <div className="h-11 w-11 shrink-0 rounded-full border border-white/10 bg-white/[0.06]" />
+                                        <div className="h-12 w-12 shrink-0 rounded-full border border-white/10 bg-white/[0.06]" />
                                     )}
 
-                                    <div className="min-w-0">
+                                    <div className="min-w-0 flex-1">
                                         <div className="truncate text-lg font-bold text-white">
                                             {activeDiscoveryDetail.symbol || 'Unknown'}
+                                            {activeDiscoveryDetail.name
+                                                ? ` — ${activeDiscoveryDetail.name}`
+                                                : ''}
                                         </div>
 
                                         <div className="mt-1 flex min-w-0 items-center gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => void handleMintCopy(activeDiscoveryDetail.mint)}
-                                                className="min-w-0 truncate font-mono text-xs text-gray-500 transition-colors hover:text-cyan-200"
-                                                title="Copy mint"
+                                            <span
+                                                className="min-w-0 truncate font-mono text-xs text-gray-500"
+                                                title={activeDiscoveryDetail.mint}
                                             >
-                                                {copiedMint === activeDiscoveryDetail.mint
-                                                    ? 'Copied'
-                                                    : shortenMint(activeDiscoveryDetail.mint)}
-                                            </button>
+                                                {shortenMint(activeDiscoveryDetail.mint)}
+                                            </span>
 
                                             <button
                                                 type="button"
-                                                onClick={() => void handleMintCopy(activeDiscoveryDetail.mint)}
-                                                className="shrink-0 rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[10px] font-semibold text-cyan-100 transition-all hover:bg-cyan-400/15"
+                                                onClick={() =>
+                                                    void handleMintCopy(activeDiscoveryDetail.mint)
+                                                }
+                                                className="shrink-0 cursor-pointer rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[10px] font-semibold text-cyan-100 transition-all duration-200 hover:border-cyan-400/35 hover:bg-cyan-400/15"
+                                                title={
+                                                    copiedMint === activeDiscoveryDetail.mint
+                                                        ? 'Mint copied'
+                                                        : 'Copy mint'
+                                                }
                                             >
-                                                Copy
+                                                {copiedMint === activeDiscoveryDetail.mint
+                                                    ? 'Copied'
+                                                    : 'Copy'}
                                             </button>
                                         </div>
                                     </div>
                                 </div>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setActiveDiscoveryDetail(null)}
-                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-lg text-gray-300 transition-all hover:bg-white/[0.09] hover:text-white"
-                                    aria-label="Close"
-                                >
-                                    ×
-                                </button>
                             </div>
 
-                            <div className="p-4">
+                            {/* Scrollable body */}
+                            <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">
                                 <div className="flex flex-wrap items-center gap-2">
                                     <StatusBadge status={activeDiscoveryDetail.status} />
                                     <HeatBadge heat={activeDiscoveryDetail.heat_level} />
@@ -2565,6 +2628,7 @@ export default function CoinographiaPage() {
                                             <div className="text-[10px] uppercase tracking-[0.1em] text-gray-500">
                                                 Rank Reason
                                             </div>
+
                                             <div className="mt-1 font-semibold text-gray-200">
                                                 {getRankReasonLabel(activeDiscoveryDetail.rank_reason)}
                                             </div>
@@ -2574,8 +2638,11 @@ export default function CoinographiaPage() {
                                             <div className="text-[10px] uppercase tracking-[0.1em] text-gray-500">
                                                 Activity Score
                                             </div>
+
                                             <div className="mt-1 font-semibold text-gray-200">
-                                                {formatNumberCompact(activeDiscoveryDetail.activity_score)}
+                                                {formatNumberCompact(
+                                                    activeDiscoveryDetail.activity_score
+                                                )}
                                             </div>
                                         </div>
 
@@ -2583,8 +2650,11 @@ export default function CoinographiaPage() {
                                             <div className="text-[10px] uppercase tracking-[0.1em] text-gray-500">
                                                 First Seen
                                             </div>
+
                                             <div className="mt-1 font-semibold text-gray-200">
-                                                {formatDiscoverySince(activeDiscoveryDetail.first_seen_at) || 'Unknown'}
+                                                {formatDiscoverySince(
+                                                    activeDiscoveryDetail.first_seen_at
+                                                ) || 'Unknown'}
                                             </div>
                                         </div>
 
@@ -2592,9 +2662,12 @@ export default function CoinographiaPage() {
                                             <div className="text-[10px] uppercase tracking-[0.1em] text-gray-500">
                                                 Last Activity
                                             </div>
+
                                             <div className="mt-1 font-semibold text-gray-200">
                                                 {activeDiscoveryDetail.last_activity_at
-                                                    ? formatUpdatedShort(activeDiscoveryDetail.last_activity_at)
+                                                    ? formatUpdatedShort(
+                                                        activeDiscoveryDetail.last_activity_at
+                                                    )
                                                     : 'No activity yet'}
                                             </div>
                                         </div>
@@ -2603,80 +2676,111 @@ export default function CoinographiaPage() {
 
                                 {activeDiscoveryDetail.rank_reason !== 'search_pioneer' && (
                                     <div className="mt-3 grid grid-cols-3 gap-2">
-                                        <div className={getDiscoveryMetricCellClass(true, 'cyan')}>
+                                        <div
+                                            className={getDiscoveryMetricCellClass(true, 'cyan')}
+                                        >
                                             <div className="text-[9px] uppercase tracking-[0.08em] text-gray-500">
                                                 Coinc.
                                             </div>
+
                                             <div className="mt-1 text-sm font-semibold text-white">
-                                                {formatNumberCompact(activeDiscoveryDetail.total_coincarnations)}
+                                                {formatNumberCompact(
+                                                    activeDiscoveryDetail.total_coincarnations
+                                                )}
                                             </div>
                                         </div>
 
-                                        <div className={getDiscoveryMetricCellClass(true, 'emerald')}>
+                                        <div
+                                            className={getDiscoveryMetricCellClass(
+                                                true,
+                                                'emerald'
+                                            )}
+                                        >
                                             <div className="text-[9px] uppercase tracking-[0.08em] text-gray-500">
                                                 Revived
                                             </div>
+
                                             <div className="mt-1 text-sm font-semibold text-white">
-                                                {formatUsdCompact(activeDiscoveryDetail.total_revived_usd)}
+                                                {formatUsdCompact(
+                                                    activeDiscoveryDetail.total_revived_usd
+                                                )}
                                             </div>
                                         </div>
 
-                                        <div className={getDiscoveryMetricCellClass(true, 'amber')}>
+                                        <div
+                                            className={getDiscoveryMetricCellClass(true, 'amber')}
+                                        >
                                             <div className="text-[9px] uppercase tracking-[0.08em] text-gray-500">
                                                 Wallets
                                             </div>
+
                                             <div className="mt-1 text-sm font-semibold text-white">
-                                                {formatNumberCompact(activeDiscoveryDetail.unique_wallets)}
+                                                {formatNumberCompact(
+                                                    activeDiscoveryDetail.unique_wallets
+                                                )}
                                             </div>
                                         </div>
                                     </div>
                                 )}
 
                                 <div className="mt-4 grid grid-cols-2 gap-2">
-                                    {activeDiscoveryDetail && (
-                                        <button
-                                            type="button"
-                                            disabled={!canShareStatus(activeDiscoveryDetail.status)}
-                                            onClick={() => {
-                                                if (!canShareStatus(activeDiscoveryDetail.status)) return;
-                                                void shareDiscoveryOnX(activeDiscoveryDetail);
-                                            }}
-                                            className={[
-                                                'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all',
-                                                canShareStatus(activeDiscoveryDetail.status)
-                                                    ? 'border border-cyan-400/20 bg-cyan-400/10 text-cyan-100 hover:border-cyan-400/35 hover:bg-cyan-400/15'
-                                                    : 'border border-white/10 bg-white/[0.03] text-gray-500 opacity-45 cursor-not-allowed',
-                                            ].join(' ')}
-                                            title={
-                                                canShareStatus(activeDiscoveryDetail.status)
-                                                    ? 'Share signal'
-                                                    : 'Sharing is disabled for redlisted or blacklisted tokens'
+                                    <button
+                                        type="button"
+                                        disabled={!canShareStatus(activeDiscoveryDetail.status)}
+                                        onClick={() => {
+                                            if (!canShareStatus(activeDiscoveryDetail.status)) {
+                                                return;
                                             }
-                                        >
-                                            <ShareArrowIcon className="h-4 w-4" />
-                                            Share
-                                        </button>
-                                    )}
+
+                                            void shareDiscoveryOnX(activeDiscoveryDetail);
+                                        }}
+                                        className={[
+                                            'inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200',
+                                            canShareStatus(activeDiscoveryDetail.status)
+                                                ? 'border border-cyan-400/20 bg-cyan-400/10 text-cyan-100 hover:border-cyan-400/35 hover:bg-cyan-400/15'
+                                                : 'cursor-not-allowed border border-white/10 bg-white/[0.03] text-gray-500 opacity-45',
+                                        ].join(' ')}
+                                        title={
+                                            canShareStatus(activeDiscoveryDetail.status)
+                                                ? 'Share signal'
+                                                : 'Sharing is disabled for redlisted or blacklisted tokens'
+                                        }
+                                    >
+                                        <ShareArrowIcon className="h-4 w-4" />
+                                        Share
+                                    </button>
 
                                     <button
                                         type="button"
-                                        disabled={activeDiscoveryDetail.status === 'redlist' || activeDiscoveryDetail.status === 'blacklist'}
-                                        onClick={() => handleCoincarnateClick(activeDiscoveryDetail.mint, activeDiscoveryDetail.status)}
+                                        disabled={
+                                            activeDiscoveryDetail.status === 'redlist' ||
+                                            activeDiscoveryDetail.status === 'blacklist'
+                                        }
+                                        onClick={() =>
+                                            handleCoincarnateClick(
+                                                activeDiscoveryDetail.mint,
+                                                activeDiscoveryDetail.status,
+                                                activeDiscoveryDetail.symbol,
+                                                activeDiscoveryDetail.name
+                                            )
+                                        }
                                         className={[
-                                            'rounded-xl px-4 py-3 text-sm font-semibold transition-all',
+                                            'cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed',
                                             getCoincarnateButtonClass(
                                                 activeDiscoveryDetail.status,
-                                                activeDiscoveryDetail.status === 'redlist' || activeDiscoveryDetail.status === 'blacklist'
+                                                activeDiscoveryDetail.status === 'redlist' ||
+                                                activeDiscoveryDetail.status === 'blacklist'
                                             ),
                                         ].join(' ')}
                                     >
-                                        {activeDiscoveryDetail.status === 'redlist' || activeDiscoveryDetail.status === 'blacklist'
+                                        {activeDiscoveryDetail.status === 'redlist' ||
+                                            activeDiscoveryDetail.status === 'blacklist'
                                             ? 'Disabled'
                                             : '✦ Coincarnate'}
                                     </button>
                                 </div>
                             </div>
-                        </div>
+                        </aside>
                     </div>
                 )}
 
@@ -3204,13 +3308,15 @@ export default function CoinographiaPage() {
                     </nav>
                 )}
             </div>
-            {toast && (
-                <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center">
-                    <div className="rounded-full border border-emerald-400/25 bg-emerald-500/12 px-4 py-2 text-sm text-emerald-200 shadow-[0_10px_30px_rgba(16,185,129,0.18)] backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        {toast.text}
+            {
+                toast && (
+                    <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center">
+                        <div className="rounded-full border border-emerald-400/25 bg-emerald-500/12 px-4 py-2 text-sm text-emerald-200 shadow-[0_10px_30px_rgba(16,185,129,0.18)] backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            {toast.text}
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

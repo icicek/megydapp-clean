@@ -34,3 +34,25 @@ body {
   article { break-inside: avoid; }
   /* Kenar boşlukları – tarayıcıdan “More settings → Margins: Default/None” ile oynayabilirsin */
 }
+
+@keyframes assetDrawerIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.asset-drawer-motion {
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .asset-drawer-motion {
+    animation: none !important;
+  }
+}
