@@ -2717,8 +2717,8 @@ export default function CoinographiaPage() {
                             <tr>
                                 <th className="w-[40%] p-3 text-left text-sm">Token</th>
                                 <th className="w-[14%] p-3 text-center text-sm">Status</th>
-                                <th className="w-[18%] p-3 text-center text-sm">Details</th>
-                                <th className="w-[28%] p-3 text-center text-sm">Action</th>
+                                <th className="w-[26%] p-3 text-center text-sm">Details</th>
+                                <th className="w-[20%] p-3 text-center text-sm">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2787,24 +2787,51 @@ export default function CoinographiaPage() {
                                         </td>
 
                                         <td className="p-4 text-center align-middle">
-                                            <div className="flex flex-col items-center gap-1.5">
-                                                <ClassificationBadge label={it.classification_label} />
-                                                <div className="text-[11px] text-gray-500 whitespace-nowrap">
-                                                    {formatUpdatedShort(it.updated_at)}
+                                            <div className="mx-auto max-w-[210px]">
+                                                {/* Classification + updated time */}
+                                                <div className="flex min-w-0 items-center justify-center gap-2">
+                                                    <div className="min-w-0">
+                                                        <ClassificationBadge label={it.classification_label} />
+                                                    </div>
+
+                                                    <span
+                                                        className="shrink-0 whitespace-nowrap text-[10px] text-gray-500"
+                                                        title={`Last updated: ${formatUpdatedShort(it.updated_at)}`}
+                                                    >
+                                                        {formatUpdatedShort(it.updated_at)}
+                                                    </span>
                                                 </div>
-                                                <div className="max-w-[170px] truncate text-[10px] text-gray-500">
-                                                    {getRegistryStatusSignal(it.status)}
+
+                                                {/* Current status signal */}
+                                                <div
+                                                    className={[
+                                                        'mt-2 rounded-xl border px-2.5 py-1.5 text-[10px] leading-4',
+                                                        getRegistryInnerPanelClass(it.status),
+                                                    ].join(' ')}
+                                                    title={getRegistryStatusSignal(it.status)}
+                                                >
+                                                    <span className="block truncate text-gray-400">
+                                                        {getRegistryStatusSignal(it.status)}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </td>
 
                                         <td className="p-4 text-center align-middle">
-                                            <div className="flex justify-center items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+                                            <div className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                                                 <button
+                                                    type="button"
                                                     disabled={isDisabled}
-                                                    onClick={() => handleCoincarnateClick(it.mint, it.status, it.symbol, it.name)}
+                                                    onClick={() =>
+                                                        handleCoincarnateClick(
+                                                            it.mint,
+                                                            it.status,
+                                                            it.symbol,
+                                                            it.name
+                                                        )
+                                                    }
                                                     className={[
-                                                        'w-[150px] rounded-xl px-3 py-2 text-[12px] font-semibold tracking-[0.01em] transition-all duration-200 text-center whitespace-nowrap overflow-hidden text-ellipsis hover:-translate-y-[1px]',
+                                                        'h-9 min-w-[112px] cursor-pointer rounded-xl px-4 text-[12px] font-semibold tracking-[0.01em] transition-all duration-200 hover:-translate-y-[1px] disabled:cursor-not-allowed',
                                                         getCoincarnateButtonClass(it.status, isDisabled),
                                                     ].join(' ')}
                                                     title={
@@ -2812,11 +2839,17 @@ export default function CoinographiaPage() {
                                                             ? 'Coincarnation is disabled for redlisted or blacklisted tokens.'
                                                             : `Coincarnate ${tokenLabel}`
                                                     }
+                                                    aria-label={
+                                                        isDisabled
+                                                            ? 'Coincarnation disabled'
+                                                            : `Coincarnate ${tokenLabel}`
+                                                    }
                                                 >
-                                                    {it.symbol ? `✦ Coincarnate $${it.symbol}` : '✦ Coincarnate'}
+                                                    ✦ Coincarnate
                                                 </button>
 
                                                 <button
+                                                    type="button"
                                                     onClick={() => {
                                                         if (!canShareStatus(it.status)) return;
                                                         void shareRegistryOnX(it);
@@ -2824,7 +2857,7 @@ export default function CoinographiaPage() {
                                                     disabled={!canShareStatus(it.status)}
                                                     className={
                                                         canShareStatus(it.status)
-                                                            ? "flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.08] text-[15px] leading-none text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_18px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-all duration-200 hover:-translate-y-[1px] hover:scale-105 hover:border-cyan-400/35 hover:bg-cyan-500/[0.14] hover:shadow-[0_0_24px_rgba(34,211,238,0.28)] active:scale-95"
+                                                            ? 'flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/[0.07] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-200 hover:-translate-y-[1px] hover:border-cyan-400/35 hover:bg-cyan-500/[0.13] hover:shadow-[0_0_20px_rgba(34,211,238,0.22)] active:scale-95'
                                                             : getShareButtonDisabledClass('md')
                                                     }
                                                     title={
@@ -2832,12 +2865,17 @@ export default function CoinographiaPage() {
                                                             ? 'Share signal'
                                                             : 'Sharing is disabled for redlisted or blacklisted tokens'
                                                     }
-                                                    aria-label={canShareStatus(it.status) ? 'Share signal' : 'Sharing disabled'}
+                                                    aria-label={
+                                                        canShareStatus(it.status)
+                                                            ? 'Share signal'
+                                                            : 'Sharing disabled'
+                                                    }
                                                 >
-                                                    {sharedMint === it.mint && canShareStatus(it.status) ? (
+                                                    {sharedMint === it.mint &&
+                                                        canShareStatus(it.status) ? (
                                                         '✓'
                                                     ) : (
-                                                        <ShareArrowIcon className="h-[17px] w-[17px]" />
+                                                        <ShareArrowIcon className="h-4 w-4" />
                                                     )}
                                                 </button>
                                             </div>
