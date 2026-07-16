@@ -455,6 +455,31 @@ function isExactDiscoveryMatch(item: DiscoveryRow, query: string) {
     );
 }
 
+function isPartialTokenMatch(
+    item: {
+        mint: string;
+        symbol: string | null;
+        name: string | null;
+    },
+    query: string
+) {
+    const normalizedQuery = normalizeSearchText(query);
+
+    if (!normalizedQuery) return false;
+
+    const symbol = normalizeSearchText(item.symbol || '');
+    const name = normalizeSearchText(item.name || '');
+    const mint = normalizeSearchText(item.mint);
+
+    return (
+        symbol.startsWith(normalizedQuery) ||
+        name.startsWith(normalizedQuery) ||
+        symbol.includes(normalizedQuery) ||
+        name.includes(normalizedQuery) ||
+        mint.startsWith(normalizedQuery)
+    );
+}
+
 function getDiscoverySearchContext(items: DiscoveryRow[], query: string) {
     const q = query.trim();
     if (!q) return null;
@@ -470,9 +495,9 @@ function getDiscoverySearchContext(items: DiscoveryRow[], query: string) {
         }
 
         return {
-            tone: 'exact' as const,
-            title: 'Exact match surfaced',
-            body: `${exactItem.symbol || exactItem.name || 'This token'} is currently visible in discovery results.`,
+            tone: 'related' as const,
+            title: 'Matching assets surfaced',
+            body: 'Select a suggested asset or continue typing to narrow the results.',
         };
     }
 
@@ -1001,6 +1026,7 @@ export default function CoinographiaPage() {
     const router = useRouter();
 
     const [q, setQ] = useState('');
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [status, setStatus] = useState<TokenStatus | ''>('');
     const [limit, setLimit] = useState(20);
     const [page, setPage] = useState(0);
@@ -1219,6 +1245,69 @@ export default function CoinographiaPage() {
     }, [discoveryItems, q]);
 
     const hasActiveSearch = q.trim().length > 0;
+
+    const searchSuggestions = useMemo(() => {
+        const query = q.trim();
+
+        if (query.length < 2) return [];
+
+        const combined = [
+            ...discoveryItems.map((item) => ({
+                mint: item.mint,
+                symbol: item.symbol,
+                name: item.name,
+                logo_uri: item.logo_uri,
+                status: item.status,
+            })),
+            ...items.map((item) => ({
+                mint: item.mint,
+                symbol: item.symbol,
+                name: item.name,
+                logo_uri: item.logo_uri,
+                status: item.status,
+            })),
+        ];
+
+        const uniqueByMint = new Map<
+            string,
+            {
+                mint: string;
+                symbol: string | null;
+                name: string | null;
+                logo_uri: string | null;
+                status: TokenStatus;
+            }
+        >();
+
+        for (const item of combined) {
+            if (!uniqueByMint.has(item.mint)) {
+                uniqueByMint.set(item.mint, item);
+            }
+        }
+
+        return Array.from(uniqueByMint.values())
+            .filter((item) => isPartialTokenMatch(item, query))
+            .sort((a, b) => {
+                const normalizedQuery = normalizeSearchText(query);
+
+                const aSymbol = normalizeSearchText(a.symbol || '');
+                const bSymbol = normalizeSearchText(b.symbol || '');
+                const aName = normalizeSearchText(a.name || '');
+                const bName = normalizeSearchText(b.name || '');
+
+                const score = (symbol: string, name: string) => {
+                    if (symbol === normalizedQuery) return 0;
+                    if (name === normalizedQuery) return 1;
+                    if (symbol.startsWith(normalizedQuery)) return 2;
+                    if (name.startsWith(normalizedQuery)) return 3;
+                    if (symbol.includes(normalizedQuery)) return 4;
+                    return 5;
+                };
+
+                return score(aSymbol, aName) - score(bSymbol, bName);
+            })
+            .slice(0, 6);
+    }, [q, discoveryItems, items]);
 
     const discoveryHeatSummary = useMemo(() => {
         return discoveryItems.reduce(
@@ -1500,8 +1589,21 @@ export default function CoinographiaPage() {
                                 <input
                                     value={q}
                                     onChange={(e) => setQ(e.target.value)}
+                                    onFocus={() => setIsSearchFocused(true)}
+                                    onBlur={() => {
+                                        window.setTimeout(() => {
+                                            setIsSearchFocused(false);
+                                        }, 150);
+                                    }}
                                     placeholder="Search by token, symbol, or mint..."
-                                    className="h-14 w-full rounded-[22px] border border-cyan-400/18 bg-[#0b1425] pl-12 pr-20 sm:pr-24 text-[15px] font-medium text-white outline-none transition-all duration-200 placeholder:text-gray-500 focus:border-cyan-300/45 focus:bg-[#101c32] focus:shadow-[0_0_0_1px_rgba(34,211,238,0.24),0_0_34px_rgba(34,211,238,0.16)]"
+                                    autoComplete="off"
+                                    aria-autocomplete="list"
+                                    aria-expanded={
+                                        isSearchFocused &&
+                                        q.trim().length >= 2 &&
+                                        searchSuggestions.length > 0
+                                    }
+                                    className="h-14 w-full rounded-[22px] border border-cyan-400/18 bg-[#0b1425] pl-12 pr-20 text-[15px] font-medium text-white outline-none transition-all duration-200 placeholder:text-gray-500 focus:border-cyan-300/45 focus:bg-[#101c32] focus:shadow-[0_0_0_1px_rgba(34,211,238,0.24),0_0_34px_rgba(34,211,238,0.16)] sm:pr-24"
                                 />
 
                                 {q.trim() && (
@@ -1513,6 +1615,80 @@ export default function CoinographiaPage() {
                                         Clear
                                     </button>
                                 )}
+                                {isSearchFocused &&
+                                    q.trim().length >= 2 &&
+                                    searchSuggestions.length > 0 && (
+                                        <div
+                                            role="listbox"
+                                            className="absolute inset-x-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-2xl border border-cyan-300/20 bg-[#0a1221]/98 p-1.5 shadow-[0_24px_70px_rgba(0,0,0,0.55),0_0_32px_rgba(34,211,238,0.10)] backdrop-blur-xl"
+                                        >
+                                            <div className="px-3 pb-2 pt-1 text-[9px] font-bold uppercase tracking-[0.16em] text-cyan-200/55">
+                                                Matching assets
+                                            </div>
+
+                                            <div className="flex flex-col gap-1">
+                                                {searchSuggestions.map((suggestion) => {
+                                                    const displayLabel =
+                                                        suggestion.symbol ||
+                                                        suggestion.name ||
+                                                        shortenMint(suggestion.mint);
+
+                                                    return (
+                                                        <button
+                                                            key={suggestion.mint}
+                                                            type="button"
+                                                            role="option"
+                                                            onMouseDown={(event) => {
+                                                                event.preventDefault();
+                                                            }}
+                                                            onClick={() => {
+                                                                setQ(displayLabel);
+                                                                setPage(0);
+                                                                setIsSearchFocused(false);
+                                                            }}
+                                                            className="group/suggestion flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-200 hover:bg-cyan-400/[0.08]"
+                                                        >
+                                                            {suggestion.logo_uri ? (
+                                                                <img
+                                                                    src={suggestion.logo_uri}
+                                                                    alt={
+                                                                        suggestion.symbol ||
+                                                                        suggestion.name ||
+                                                                        suggestion.mint
+                                                                    }
+                                                                    className="h-9 w-9 shrink-0 rounded-full border border-white/10 object-cover"
+                                                                />
+                                                            ) : (
+                                                                <div className="h-9 w-9 shrink-0 rounded-full border border-white/10 bg-white/[0.04]" />
+                                                            )}
+
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="truncate text-sm font-semibold text-white">
+                                                                    {suggestion.symbol || 'Unknown'}
+                                                                    {suggestion.name
+                                                                        ? ` — ${suggestion.name}`
+                                                                        : ''}
+                                                                </div>
+
+                                                                <div className="mt-0.5 truncate font-mono text-[10px] text-gray-500">
+                                                                    {shortenMint(suggestion.mint)}
+                                                                </div>
+                                                            </div>
+
+                                                            <StatusBadge status={suggestion.status} />
+
+                                                            <span
+                                                                aria-hidden="true"
+                                                                className="text-sm text-cyan-300/50 transition-transform duration-200 group-hover/suggestion:translate-x-0.5 group-hover/suggestion:text-cyan-200"
+                                                            >
+                                                                →
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
                             </div>
                         </div>
 
