@@ -2504,22 +2504,48 @@ export default function CoinographiaPage() {
                     </div>
                 )}
 
-                <div id="token-registry" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-gray-400 scroll-mt-24">
-                    <div>
-                        <div className="text-sm font-semibold text-white">Token Registry</div>
-                        <div className="mt-1 text-xs text-gray-400">
-                            {loading
-                                ? 'Loading registry…'
-                                : `${total} token(s) found · every token has a state`}
+                <div
+                    id="token-registry"
+                    className="mb-4 flex items-center justify-between gap-3 scroll-mt-24 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-4 py-3"
+                >
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <h2 className="text-sm font-semibold text-white">
+                                Token Registry
+                            </h2>
+
+                            {!loading && (
+                                <span className="inline-flex items-center rounded-full border border-white/[0.08] bg-white/[0.035] px-2 py-0.5 text-[10px] font-semibold text-gray-400">
+                                    {total} assets
+                                </span>
+                            )}
                         </div>
+
+                        <p className="mt-1 text-[11px] leading-5 text-gray-500">
+                            {loading
+                                ? 'Loading classified assets…'
+                                : 'The searchable record of every classified asset state.'}
+                        </p>
                     </div>
 
                     <button
+                        type="button"
                         onClick={() => void load()}
                         disabled={loading}
-                        className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white transition-colors hover:bg-white/[0.08] disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 text-xs font-semibold text-gray-300 transition-all duration-200 hover:border-cyan-400/20 hover:bg-cyan-400/[0.07] hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        title="Refresh Token Registry"
+                        aria-label="Refresh Token Registry"
                     >
-                        {loading ? 'Refreshing...' : 'Refresh Registry'}
+                        <span
+                            aria-hidden="true"
+                            className={loading ? 'animate-spin' : ''}
+                        >
+                            ↻
+                        </span>
+
+                        <span className="hidden sm:inline">
+                            {loading ? 'Refreshing' : 'Refresh'}
+                        </span>
                     </button>
                 </div>
 
