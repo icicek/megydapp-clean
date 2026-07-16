@@ -2550,16 +2550,78 @@ export default function CoinographiaPage() {
                 </div>
 
                 {error && (
-                    <div className="mb-4 rounded border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                        {error}
+                    <div
+                        role="alert"
+                        className="mb-4 overflow-hidden rounded-2xl border border-rose-400/20 bg-[linear-gradient(180deg,rgba(244,63,94,0.08),rgba(255,255,255,0.025))] px-4 py-4 shadow-[0_12px_34px_rgba(0,0,0,0.16)]"
+                    >
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <span
+                                        aria-hidden="true"
+                                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-rose-300/20 bg-rose-400/[0.08] text-sm text-rose-200"
+                                    >
+                                        !
+                                    </span>
+
+                                    <p className="text-sm font-semibold text-rose-100">
+                                        Token Registry could not be loaded.
+                                    </p>
+                                </div>
+
+                                <p className="mt-2 text-xs leading-5 text-gray-400">
+                                    The registry may be temporarily unavailable. Your filters and search
+                                    remain unchanged.
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => void load()}
+                                disabled={loading}
+                                className="inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl border border-rose-300/20 bg-rose-400/[0.08] px-4 text-xs font-semibold text-rose-100 transition-all duration-200 hover:border-rose-300/35 hover:bg-rose-400/[0.14] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <span
+                                    aria-hidden="true"
+                                    className={loading ? 'animate-spin' : ''}
+                                >
+                                    ↻
+                                </span>
+
+                                {loading ? 'Retrying' : 'Try Again'}
+                            </button>
+                        </div>
                     </div>
                 )}
 
                 {/* Mobile cards */}
                 <div className="space-y-3 md:hidden">
-                    {items.length === 0 && !loading && (
-                        <div className="rounded-2xl border border-cyan-400/15 bg-[linear-gradient(180deg,rgba(34,211,238,0.06),rgba(255,255,255,0.028))] p-4 text-gray-400 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
-                            No registry records matched your current filters.
+                    {items.length === 0 && !loading && !error && (
+                        <div className="rounded-2xl border border-cyan-400/15 bg-[linear-gradient(180deg,rgba(34,211,238,0.06),rgba(255,255,255,0.025))] px-5 py-6 text-center shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
+                            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-400/[0.06] text-lg text-cyan-200">
+                                ⌕
+                            </div>
+
+                            <p className="mt-4 text-sm font-semibold text-white">
+                                No classified assets found
+                            </p>
+
+                            <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-gray-400">
+                                No registry records match your current search and status filters.
+                            </p>
+
+                            {(q.trim() || status) && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setQ('');
+                                        setStatus('');
+                                    }}
+                                    className="mt-4 inline-flex h-9 cursor-pointer items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-400/[0.07] px-4 text-xs font-semibold text-cyan-100 transition-all duration-200 hover:border-cyan-300/35 hover:bg-cyan-400/[0.12]"
+                                >
+                                    Clear Filters
+                                </button>
+                            )}
                         </div>
                     )}
 
@@ -2722,10 +2784,35 @@ export default function CoinographiaPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {items.length === 0 && !loading && (
+                            {items.length === 0 && !loading && !error && (
                                 <tr>
-                                    <td colSpan={4} className="p-4 text-gray-400">
-                                        No registry records matched your current filters.
+                                    <td colSpan={4} className="px-6 py-10">
+                                        <div className="mx-auto max-w-md text-center">
+                                            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-400/[0.06] text-lg text-cyan-200">
+                                                ⌕
+                                            </div>
+
+                                            <p className="mt-4 text-sm font-semibold text-white">
+                                                No classified assets found
+                                            </p>
+
+                                            <p className="mt-2 text-xs leading-5 text-gray-400">
+                                                No registry records match your current search and status filters.
+                                            </p>
+
+                                            {(q.trim() || status) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setQ('');
+                                                        setStatus('');
+                                                    }}
+                                                    className="mt-4 inline-flex h-9 cursor-pointer items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-400/[0.07] px-4 text-xs font-semibold text-cyan-100 transition-all duration-200 hover:border-cyan-300/35 hover:bg-cyan-400/[0.12]"
+                                                >
+                                                    Clear Filters
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             )}
