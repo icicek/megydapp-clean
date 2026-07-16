@@ -521,7 +521,7 @@ function getDiscoverySearchContextClass(
 
 function getMobileActionButtonClass(status: TokenStatus, disabled: boolean) {
     const base =
-        'h-8 w-8 rounded-xl border text-[13px] font-semibold ' +
+        'h-8 w-8 rounded-xl border text-[12px] font-semibold ' +
         'shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_16px_rgba(0,0,0,0.14)] ' +
         'backdrop-blur-sm transition-all duration-200 flex items-center justify-center ' +
         'hover:scale-105 active:scale-95';
@@ -2616,7 +2616,7 @@ export default function CoinographiaPage() {
                                     {/* Action rail */}
                                     <div
                                         className={[
-                                            'flex shrink-0 flex-col items-center gap-1.5 rounded-2xl border p-1.5',
+                                            'flex shrink-0 flex-col items-center gap-1 rounded-2xl border p-1',
                                             getRegistryActionRailClass(it.status),
                                         ].join(' ')}
                                     >
@@ -2645,7 +2645,7 @@ export default function CoinographiaPage() {
                                                     }`
                                             }
                                         >
-                                            <span className="leading-none text-[16px]">✦</span>
+                                            <span className="leading-none text-[14px]">✦</span>
                                         </button>
 
                                         <button
