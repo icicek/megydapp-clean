@@ -81,6 +81,113 @@ function StatusBadge({ status }: { status: TokenStatus }) {
     );
 }
 
+function formatAssetStatusLabel(status: string | null | undefined) {
+    if (!status) {
+        return 'Unclassified';
+    }
+
+    return status
+        .replaceAll('_', ' ')
+        .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatHistoryReason(reason: string | null | undefined) {
+    if (!reason) {
+        return 'Status recorded';
+    }
+
+    return reason
+        .replaceAll('_', ' ')
+        .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatHistorySource(source: string | null | undefined) {
+    if (!source) {
+        return 'Unknown source';
+    }
+
+    const labels: Record<string, string> = {
+        engine: 'Coinographia Engine',
+        external: 'External Action',
+        admin: 'Admin',
+        system: 'System',
+        cron: 'Automated Monitor',
+    };
+
+    return (
+        labels[source] ??
+        source
+            .replaceAll('_', ' ')
+            .replace(/\b\w/g, (character) => character.toUpperCase())
+    );
+}
+
+function formatProfileHistoryDate(value: string | null | undefined) {
+    if (!value) {
+        return 'Date unavailable';
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return 'Date unavailable';
+    }
+
+    return new Intl.DateTimeFormat('en-US', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(date);
+}
+
+function getHistoryStatusClasses(status: string | null | undefined) {
+    switch (status) {
+        case 'healthy':
+            return {
+                dot: 'bg-emerald-300 shadow-[0_0_14px_rgba(110,231,183,0.8)]',
+                badge:
+                    'border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-200',
+            };
+
+        case 'walking_dead':
+            return {
+                dot: 'bg-amber-300 shadow-[0_0_14px_rgba(252,211,77,0.75)]',
+                badge:
+                    'border-amber-400/20 bg-amber-400/[0.08] text-amber-200',
+            };
+
+        case 'deadcoin':
+            return {
+                dot: 'bg-orange-300 shadow-[0_0_14px_rgba(253,186,116,0.75)]',
+                badge:
+                    'border-orange-400/20 bg-orange-400/[0.08] text-orange-200',
+            };
+
+        case 'redlist':
+            return {
+                dot: 'bg-red-300 shadow-[0_0_14px_rgba(252,165,165,0.75)]',
+                badge:
+                    'border-red-400/20 bg-red-400/[0.08] text-red-200',
+            };
+
+        case 'blacklist':
+            return {
+                dot: 'bg-zinc-300 shadow-[0_0_14px_rgba(212,212,216,0.55)]',
+                badge:
+                    'border-zinc-400/20 bg-zinc-400/[0.08] text-zinc-200',
+            };
+
+        default:
+            return {
+                dot: 'bg-slate-400',
+                badge:
+                    'border-white/10 bg-white/[0.05] text-gray-300',
+            };
+    }
+}
+
 function ClassificationBadge({ label }: { label: string }) {
     return (
         <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-gray-200 whitespace-nowrap">
@@ -1052,6 +1159,10 @@ export default function CoinographiaPage() {
 
     const [profileError, setProfileError] =
         useState<string | null>(null);
+
+    const [showAllSurvivalHistory, setShowAllSurvivalHistory] =
+        useState(false);
+
     const [discoveryNow, setDiscoveryNow] = useState(0);
 
     function handleCoincarnateClick(
@@ -1405,6 +1516,7 @@ export default function CoinographiaPage() {
         setActiveDiscoveryProfile(null);
         setProfileError(null);
         setProfileLoading(true);
+        setShowAllSurvivalHistory(false);
 
         try {
             const response = await fetch(
@@ -1450,6 +1562,7 @@ export default function CoinographiaPage() {
         setActiveDiscoveryProfile(null);
         setProfileError(null);
         setProfileLoading(false);
+        setShowAllSurvivalHistory(false);
     };
 
     return (
@@ -2983,38 +3096,180 @@ export default function CoinographiaPage() {
                                                 </div>
 
                                                 <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
+                                                    {/* Current classification */}
                                                     <div className="flex items-center justify-between gap-4 border-b border-white/10 px-4 py-4">
                                                         <div>
                                                             <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-600">
                                                                 Current Classification
                                                             </p>
 
-                                                            <p className="mt-1 text-sm font-semibold capitalize text-white">
-                                                                {(
-                                                                    activeDiscoveryProfile
-                                                                        .current_status
-                                                                        ?.status ??
+                                                            <p className="mt-1 text-sm font-semibold text-white">
+                                                                {formatAssetStatusLabel(
+                                                                    activeDiscoveryProfile.current_status?.status ??
                                                                     activeDiscoveryDetail.status
-                                                                ).replaceAll('_', ' ')}
+                                                                )}
                                                             </p>
                                                         </div>
 
-                                                        <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,0.55)]" />
+                                                        <span
+                                                            className={[
+                                                                'h-2.5 w-2.5 shrink-0 rounded-full',
+                                                                getHistoryStatusClasses(
+                                                                    activeDiscoveryProfile.current_status?.status ??
+                                                                    activeDiscoveryDetail.status
+                                                                ).dot,
+                                                            ].join(' ')}
+                                                        />
                                                     </div>
 
-                                                    <div className="px-4 py-4">
-                                                        <p className="text-xs leading-5 text-gray-500">
-                                                            {
-                                                                activeDiscoveryProfile
-                                                                    .survival_history.length
-                                                            } historical state transition
-                                                            {activeDiscoveryProfile
-                                                                .survival_history.length === 1
-                                                                ? ''
-                                                                : 's'}{' '}
-                                                            recorded.
-                                                        </p>
-                                                    </div>
+                                                    {activeDiscoveryProfile.survival_history.length > 0 ? (
+                                                        <>
+                                                            {/* Timeline */}
+                                                            <div className="px-4 py-5">
+                                                                <div className="relative">
+                                                                    <div
+                                                                        aria-hidden="true"
+                                                                        className="absolute bottom-3 left-[7px] top-3 w-px bg-gradient-to-b from-emerald-300/35 via-white/10 to-transparent"
+                                                                    />
+
+                                                                    <div className="space-y-5">
+                                                                        {(showAllSurvivalHistory
+                                                                            ? activeDiscoveryProfile.survival_history
+                                                                            : activeDiscoveryProfile.survival_history.slice(
+                                                                                0,
+                                                                                6
+                                                                            )
+                                                                        ).map((historyItem, index) => {
+                                                                            const newStatusClasses =
+                                                                                getHistoryStatusClasses(
+                                                                                    historyItem.new_status
+                                                                                );
+
+                                                                            return (
+                                                                                <div
+                                                                                    key={`${historyItem.changed_at}-${index}`}
+                                                                                    className="relative pl-8"
+                                                                                >
+                                                                                    <span
+                                                                                        className={[
+                                                                                            'absolute left-0 top-1.5 h-[15px] w-[15px] rounded-full border-4 border-[#0a101c]',
+                                                                                            newStatusClasses.dot,
+                                                                                        ].join(' ')}
+                                                                                    />
+
+                                                                                    <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-4 transition-colors hover:bg-white/[0.025]">
+                                                                                        <div className="flex flex-wrap items-center gap-2">
+                                                                                            {historyItem.old_status ? (
+                                                                                                <>
+                                                                                                    <span
+                                                                                                        className={[
+                                                                                                            'inline-flex rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.09em]',
+                                                                                                            getHistoryStatusClasses(
+                                                                                                                historyItem.old_status
+                                                                                                            ).badge,
+                                                                                                        ].join(' ')}
+                                                                                                    >
+                                                                                                        {formatAssetStatusLabel(
+                                                                                                            historyItem.old_status
+                                                                                                        )}
+                                                                                                    </span>
+
+                                                                                                    <span className="text-xs text-gray-600">
+                                                                                                        →
+                                                                                                    </span>
+                                                                                                </>
+                                                                                            ) : (
+                                                                                                <span className="inline-flex rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.09em] text-gray-500">
+                                                                                                    Initial State
+                                                                                                </span>
+                                                                                            )}
+
+                                                                                            <span
+                                                                                                className={[
+                                                                                                    'inline-flex rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.09em]',
+                                                                                                    newStatusClasses.badge,
+                                                                                                ].join(' ')}
+                                                                                            >
+                                                                                                {formatAssetStatusLabel(
+                                                                                                    historyItem.new_status
+                                                                                                )}
+                                                                                            </span>
+                                                                                        </div>
+
+                                                                                        <p className="mt-3 text-xs font-semibold text-gray-200">
+                                                                                            {formatHistoryReason(
+                                                                                                historyItem.reason
+                                                                                            )}
+                                                                                        </p>
+
+                                                                                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] leading-5 text-gray-600">
+                                                                                            <span>
+                                                                                                {formatProfileHistoryDate(
+                                                                                                    historyItem.changed_at
+                                                                                                )}
+                                                                                            </span>
+
+                                                                                            <span
+                                                                                                aria-hidden="true"
+                                                                                                className="h-1 w-1 rounded-full bg-gray-700"
+                                                                                            />
+
+                                                                                            <span>
+                                                                                                {formatHistorySource(
+                                                                                                    historyItem.source
+                                                                                                )}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Timeline footer */}
+                                                            <div className="flex flex-col gap-3 border-t border-white/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                                                                <p className="text-[10px] leading-5 text-gray-600">
+                                                                    {
+                                                                        activeDiscoveryProfile.survival_history
+                                                                            .length
+                                                                    }{' '}
+                                                                    historical state transition
+                                                                    {activeDiscoveryProfile.survival_history
+                                                                        .length === 1
+                                                                        ? ''
+                                                                        : 's'}{' '}
+                                                                    recorded.
+                                                                </p>
+
+                                                                {activeDiscoveryProfile.survival_history.length >
+                                                                    6 && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() =>
+                                                                                setShowAllSurvivalHistory(
+                                                                                    (currentValue) =>
+                                                                                        !currentValue
+                                                                                )
+                                                                            }
+                                                                            className="cursor-pointer self-start rounded-lg border border-emerald-400/15 bg-emerald-400/[0.06] px-3 py-2 text-[10px] font-semibold text-emerald-200 transition-colors hover:bg-emerald-400/[0.1] sm:self-auto"
+                                                                        >
+                                                                            {showAllSurvivalHistory
+                                                                                ? 'Show recent only'
+                                                                                : `View all ${activeDiscoveryProfile.survival_history.length}`}
+                                                                        </button>
+                                                                    )}
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <div className="px-4 py-5">
+                                                            <p className="text-xs leading-5 text-gray-500">
+                                                                No historical state transitions have been
+                                                                recorded for this asset yet.
+                                                            </p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </section>
 
