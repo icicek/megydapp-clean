@@ -2119,10 +2119,18 @@ export default function CoinographiaPage() {
                                                 key={it.mint}
                                                 className={getCompactDiscoveryCardClass(it.heat_level, it.status, isExpandedCompact)}
                                             >
-                                                <button
-                                                    type="button"
+                                                <div
+                                                    role="button"
+                                                    tabIndex={0}
                                                     onClick={() => setActiveDiscoveryDetail(it)}
-                                                    className="relative z-[1] flex w-full flex-col items-start text-left"
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' || e.key === ' ') {
+                                                            e.preventDefault();
+                                                            setActiveDiscoveryDetail(it);
+                                                        }
+                                                    }}
+                                                    className="relative z-[1] flex w-full cursor-pointer flex-col items-start text-left"
+                                                    aria-label={`Open ${it.symbol || 'asset'} profile`}
                                                 >
                                                     <div className="relative flex w-full items-start gap-2 pr-8">
                                                         {it.logo_uri ? (
@@ -2224,7 +2232,7 @@ export default function CoinographiaPage() {
                                                             </button>
                                                         </div>
                                                     </div>
-                                                </button>
+                                                </div>
                                             </div>
                                         );
                                     }
