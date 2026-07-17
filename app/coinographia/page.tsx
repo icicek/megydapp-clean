@@ -2240,7 +2240,16 @@ export default function CoinographiaPage() {
                                     return (
                                         <div
                                             key={it.mint}
-                                            onClick={() => handleCoincarnateClick(it.mint, it.status, it.symbol, it.name)}
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => setActiveDiscoveryDetail(it)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    setActiveDiscoveryDetail(it);
+                                                }
+                                            }}
+                                            aria-label={`Open ${it.symbol || it.name || 'asset'} profile`}
                                             className={[
                                                 getDiscoveryCardClass(it.heat_level, it.status),
                                                 isFeatured
