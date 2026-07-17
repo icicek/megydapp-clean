@@ -60,6 +60,15 @@ type DiscoveryRow = {
     | 'search_pioneer';
 };
 
+type SurvivalHistoryFilter =
+    | 'all'
+    | 'engine'
+    | 'admin'
+    | 'external';
+
+const HISTORY_PAGE_SIZE = 6;
+const HISTORY_MAX_INLINE_ITEMS = 24;
+
 const STATUS_STYLES: Record<TokenStatus, string> = {
     healthy: 'bg-emerald-900/50 text-emerald-200 border border-emerald-700',
     walking_dead: 'bg-amber-900/50 text-amber-200 border border-amber-700',
@@ -193,6 +202,18 @@ function ClassificationBadge({ label }: { label: string }) {
         <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-gray-200 whitespace-nowrap">
             {label}
         </span>
+    );
+}
+
+function isAdminSurvivalHistoryItem(item: {
+    source: string | null;
+    reason: string | null;
+}) {
+    const reason = item.reason?.toLowerCase() ?? '';
+
+    return (
+        reason.includes('admin') ||
+        reason.includes('reset by admin')
     );
 }
 
@@ -1259,11 +1280,16 @@ export default function CoinographiaPage() {
     const [profileError, setProfileError] =
         useState<string | null>(null);
 
-    const [showAllSurvivalHistory, setShowAllSurvivalHistory] =
-        useState(false);
+    const [visibleSurvivalHistoryCount, setVisibleSurvivalHistoryCount] =
+        useState(HISTORY_PAGE_SIZE);
 
-    const [showAllCoincarnationHistory, setShowAllCoincarnationHistory] =
-        useState(false);
+    const [
+        visibleCoincarnationHistoryCount,
+        setVisibleCoincarnationHistoryCount,
+    ] = useState(HISTORY_PAGE_SIZE);
+
+    const [survivalHistoryFilter, setSurvivalHistoryFilter] =
+        useState<SurvivalHistoryFilter>('all');
 
     const [discoveryNow, setDiscoveryNow] = useState(0);
 
@@ -1475,6 +1501,16 @@ export default function CoinographiaPage() {
         function handleEscape(event: KeyboardEvent) {
             if (event.key === 'Escape') {
                 setActiveDiscoveryDetail(null);
+                setActiveDiscoveryProfile(null);
+                setProfileError(null);
+                setProfileLoading(false);
+                setVisibleSurvivalHistoryCount(
+                    HISTORY_PAGE_SIZE
+                );
+                setVisibleCoincarnationHistoryCount(
+                    HISTORY_PAGE_SIZE
+                );
+                setSurvivalHistoryFilter('all');
             }
         }
 
@@ -1618,8 +1654,9 @@ export default function CoinographiaPage() {
         setActiveDiscoveryProfile(null);
         setProfileError(null);
         setProfileLoading(true);
-        setShowAllSurvivalHistory(false);
-        setShowAllCoincarnationHistory(false);
+        setVisibleSurvivalHistoryCount(HISTORY_PAGE_SIZE);
+        setVisibleCoincarnationHistoryCount(HISTORY_PAGE_SIZE);
+        setSurvivalHistoryFilter('all');
 
         try {
             const response = await fetch(
@@ -1665,9 +1702,57 @@ export default function CoinographiaPage() {
         setActiveDiscoveryProfile(null);
         setProfileError(null);
         setProfileLoading(false);
-        setShowAllSurvivalHistory(false);
-        setShowAllCoincarnationHistory(false);
+        setVisibleSurvivalHistoryCount(HISTORY_PAGE_SIZE);
+        setVisibleCoincarnationHistoryCount(HISTORY_PAGE_SIZE);
+        setSurvivalHistoryFilter('all');
     };
+
+    const filteredSurvivalHistory =
+        activeDiscoveryProfile?.survival_history.filter((historyItem) => {
+            switch (survivalHistoryFilter) {
+                case 'engine':
+                    return historyItem.source === 'engine';
+
+                case 'admin':
+                    return isAdminSurvivalHistoryItem(historyItem);
+
+                case 'external':
+                    return (
+                        historyItem.source === 'external' &&
+                        !isAdminSurvivalHistoryItem(historyItem)
+                    );
+
+                case 'all':
+                default:
+                    return true;
+            }
+        }) ?? [];
+
+    const visibleSurvivalHistory =
+        filteredSurvivalHistory.slice(
+            0,
+            visibleSurvivalHistoryCount
+        );
+
+    const visibleCoincarnationEvents =
+        activeDiscoveryProfile?.coincarnation_events.slice(
+            0,
+            visibleCoincarnationHistoryCount
+        ) ?? [];
+
+    const hasMoreSurvivalHistory =
+        visibleSurvivalHistoryCount <
+        Math.min(
+            filteredSurvivalHistory.length,
+            HISTORY_MAX_INLINE_ITEMS
+        );
+
+    const hasMoreCoincarnationHistory =
+        visibleCoincarnationHistoryCount <
+        Math.min(
+            activeDiscoveryProfile?.coincarnation_events.length ?? 0,
+            HISTORY_MAX_INLINE_ITEMS
+        );
 
     return (
         <div className="min-h-screen bg-[#090d15] text-white px-4 py-4 md:px-8 md:py-6">
@@ -3226,7 +3311,45 @@ export default function CoinographiaPage() {
                                                         />
                                                     </div>
 
-                                                    {activeDiscoveryProfile.survival_history.length > 0 ? (
+                                                    {/* Filters */}
+                                                    <div className="border-b border-white/10 px-4 py-4">
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {(
+                                                                [
+                                                                    ['all', 'All'],
+                                                                    ['engine', 'Engine'],
+                                                                    ['admin', 'Admin'],
+                                                                    ['external', 'External'],
+                                                                ] as const
+                                                            ).map(([filterValue, filterLabel]) => {
+                                                                const isActive =
+                                                                    survivalHistoryFilter === filterValue;
+
+                                                                return (
+                                                                    <button
+                                                                        key={filterValue}
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setSurvivalHistoryFilter(filterValue);
+                                                                            setVisibleSurvivalHistoryCount(
+                                                                                HISTORY_PAGE_SIZE
+                                                                            );
+                                                                        }}
+                                                                        className={[
+                                                                            'cursor-pointer rounded-full border px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.1em] transition-all duration-200',
+                                                                            isActive
+                                                                                ? 'border-emerald-300/30 bg-emerald-400/[0.12] text-emerald-100'
+                                                                                : 'border-white/10 bg-white/[0.03] text-gray-500 hover:border-white/15 hover:bg-white/[0.05] hover:text-gray-300',
+                                                                        ].join(' ')}
+                                                                    >
+                                                                        {filterLabel}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+
+                                                    {filteredSurvivalHistory.length > 0 ? (
                                                         <>
                                                             {/* Timeline */}
                                                             <div className="px-4 py-5">
@@ -3237,13 +3360,7 @@ export default function CoinographiaPage() {
                                                                     />
 
                                                                     <div className="space-y-5">
-                                                                        {(showAllSurvivalHistory
-                                                                            ? activeDiscoveryProfile.survival_history
-                                                                            : activeDiscoveryProfile.survival_history.slice(
-                                                                                0,
-                                                                                6
-                                                                            )
-                                                                        ).map((historyItem, index) => {
+                                                                        {visibleSurvivalHistory.map((historyItem, index) => {
                                                                             const newStatusClasses =
                                                                                 getHistoryStatusClasses(
                                                                                     historyItem.new_status
@@ -3333,44 +3450,79 @@ export default function CoinographiaPage() {
                                                             </div>
 
                                                             {/* Timeline footer */}
-                                                            <div className="flex flex-col gap-3 border-t border-white/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-                                                                <p className="text-[10px] leading-5 text-gray-600">
-                                                                    {
-                                                                        activeDiscoveryProfile.survival_history
-                                                                            .length
-                                                                    }{' '}
-                                                                    historical state transition
-                                                                    {activeDiscoveryProfile.survival_history
-                                                                        .length === 1
-                                                                        ? ''
-                                                                        : 's'}{' '}
-                                                                    recorded.
-                                                                </p>
+                                                            <div className="border-t border-white/10 px-4 py-4">
+                                                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                                                    <p className="text-[10px] leading-5 text-gray-600">
+                                                                        Showing{' '}
+                                                                        {Math.min(
+                                                                            visibleSurvivalHistoryCount,
+                                                                            filteredSurvivalHistory.length
+                                                                        )}{' '}
+                                                                        of {filteredSurvivalHistory.length}{' '}
+                                                                        {survivalHistoryFilter === 'all'
+                                                                            ? 'historical transitions'
+                                                                            : `${survivalHistoryFilter} transitions`}
+                                                                        .
+                                                                    </p>
 
-                                                                {activeDiscoveryProfile.survival_history.length >
-                                                                    6 && (
+                                                                    {hasMoreSurvivalHistory && (
                                                                         <button
                                                                             type="button"
                                                                             onClick={() =>
-                                                                                setShowAllSurvivalHistory(
-                                                                                    (currentValue) =>
-                                                                                        !currentValue
+                                                                                setVisibleSurvivalHistoryCount(
+                                                                                    (currentCount) =>
+                                                                                        Math.min(
+                                                                                            currentCount +
+                                                                                            HISTORY_PAGE_SIZE,
+                                                                                            HISTORY_MAX_INLINE_ITEMS
+                                                                                        )
                                                                                 )
                                                                             }
                                                                             className="cursor-pointer self-start rounded-lg border border-emerald-400/15 bg-emerald-400/[0.06] px-3 py-2 text-[10px] font-semibold text-emerald-200 transition-colors hover:bg-emerald-400/[0.1] sm:self-auto"
                                                                         >
-                                                                            {showAllSurvivalHistory
-                                                                                ? 'Show recent only'
-                                                                                : `View all ${activeDiscoveryProfile.survival_history.length}`}
+                                                                            Show 6 more
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+
+                                                                {filteredSurvivalHistory.length >
+                                                                    HISTORY_MAX_INLINE_ITEMS &&
+                                                                    visibleSurvivalHistoryCount >=
+                                                                    HISTORY_MAX_INLINE_ITEMS && (
+                                                                        <p className="mt-3 border-t border-white/[0.07] pt-3 text-[10px] leading-5 text-gray-600">
+                                                                            The latest {HISTORY_MAX_INLINE_ITEMS} matching
+                                                                            transitions are shown here. Older records remain
+                                                                            preserved in Coinographia.
+                                                                        </p>
+                                                                    )}
+
+                                                                {visibleSurvivalHistoryCount >
+                                                                    HISTORY_PAGE_SIZE && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() =>
+                                                                                setVisibleSurvivalHistoryCount(
+                                                                                    HISTORY_PAGE_SIZE
+                                                                                )
+                                                                            }
+                                                                            className="mt-3 cursor-pointer text-[10px] font-semibold text-gray-500 transition-colors hover:text-gray-300"
+                                                                        >
+                                                                            Show recent only ↑
                                                                         </button>
                                                                     )}
                                                             </div>
                                                         </>
                                                     ) : (
-                                                        <div className="px-4 py-5">
-                                                            <p className="text-xs leading-5 text-gray-500">
-                                                                No historical state transitions have been
-                                                                recorded for this asset yet.
+                                                        <div className="px-4 py-6 text-center">
+                                                            <p className="text-sm font-semibold text-white">
+                                                                No matching transitions
+                                                            </p>
+
+                                                            <p className="mt-2 text-xs leading-5 text-gray-500">
+                                                                No {survivalHistoryFilter === 'all'
+                                                                    ? ''
+                                                                    : `${survivalHistoryFilter} `}
+                                                                survival records were found for this asset.
                                                             </p>
                                                         </div>
                                                     )}
@@ -3425,13 +3577,7 @@ export default function CoinographiaPage() {
                                                                 />
 
                                                                 <div className="space-y-5">
-                                                                    {(showAllCoincarnationHistory
-                                                                        ? activeDiscoveryProfile.coincarnation_events
-                                                                        : activeDiscoveryProfile.coincarnation_events.slice(
-                                                                            0,
-                                                                            6
-                                                                        )
-                                                                    ).map((eventItem, index) => {
+                                                                    {visibleCoincarnationEvents.map((eventItem) => {
                                                                         const transactionUrl =
                                                                             getSolscanTransactionUrl(
                                                                                 eventItem.transaction_signature
@@ -3521,7 +3667,7 @@ export default function CoinographiaPage() {
                                                                                             <p
                                                                                                 className="mt-1.5 truncate font-mono text-xs font-semibold text-gray-300"
                                                                                                 title={
-                                                                                                    eventItem.wallet_address
+                                                                                                    eventItem.wallet_address ?? undefined
                                                                                                 }
                                                                                             >
                                                                                                 {shortenWalletAddress(
@@ -3572,34 +3718,66 @@ export default function CoinographiaPage() {
                                                         </div>
 
                                                         {/* Event footer */}
-                                                        <div className="flex flex-col gap-3 border-t border-white/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-                                                            <p className="text-[10px] leading-5 text-gray-600">
-                                                                {
-                                                                    activeDiscoveryProfile.coincarnation_events
-                                                                        .length
-                                                                }{' '}
-                                                                Coincarnation event
-                                                                {activeDiscoveryProfile.coincarnation_events
-                                                                    .length === 1
-                                                                    ? ''
-                                                                    : 's'}{' '}
-                                                                available.
-                                                            </p>
+                                                        <div className="border-t border-white/10 px-4 py-4">
+                                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                                                <p className="text-[10px] leading-5 text-gray-600">
+                                                                    Showing{' '}
+                                                                    {Math.min(
+                                                                        visibleCoincarnationHistoryCount,
+                                                                        activeDiscoveryProfile.coincarnation_events
+                                                                            .length
+                                                                    )}{' '}
+                                                                    of{' '}
+                                                                    {
+                                                                        activeDiscoveryProfile.coincarnation_events
+                                                                            .length
+                                                                    }{' '}
+                                                                    Coincarnation events.
+                                                                </p>
 
-                                                            {activeDiscoveryProfile.coincarnation_events.length >
-                                                                6 && (
+                                                                {hasMoreCoincarnationHistory && (
                                                                     <button
                                                                         type="button"
                                                                         onClick={() =>
-                                                                            setShowAllCoincarnationHistory(
-                                                                                (currentValue) => !currentValue
+                                                                            setVisibleCoincarnationHistoryCount(
+                                                                                (currentCount) =>
+                                                                                    Math.min(
+                                                                                        currentCount +
+                                                                                        HISTORY_PAGE_SIZE,
+                                                                                        HISTORY_MAX_INLINE_ITEMS
+                                                                                    )
                                                                             )
                                                                         }
                                                                         className="cursor-pointer self-start rounded-lg border border-violet-400/15 bg-violet-400/[0.06] px-3 py-2 text-[10px] font-semibold text-violet-200 transition-colors hover:bg-violet-400/[0.1] sm:self-auto"
                                                                     >
-                                                                        {showAllCoincarnationHistory
-                                                                            ? 'Show recent only'
-                                                                            : `View all ${activeDiscoveryProfile.coincarnation_events.length}`}
+                                                                        Show 6 more
+                                                                    </button>
+                                                                )}
+                                                            </div>
+
+                                                            {activeDiscoveryProfile.coincarnation_events.length >
+                                                                HISTORY_MAX_INLINE_ITEMS &&
+                                                                visibleCoincarnationHistoryCount >=
+                                                                HISTORY_MAX_INLINE_ITEMS && (
+                                                                    <p className="mt-3 border-t border-white/[0.07] pt-3 text-[10px] leading-5 text-gray-600">
+                                                                        The latest {HISTORY_MAX_INLINE_ITEMS}{' '}
+                                                                        Coincarnation events are displayed in this
+                                                                        profile view.
+                                                                    </p>
+                                                                )}
+
+                                                            {visibleCoincarnationHistoryCount >
+                                                                HISTORY_PAGE_SIZE && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            setVisibleCoincarnationHistoryCount(
+                                                                                HISTORY_PAGE_SIZE
+                                                                            )
+                                                                        }
+                                                                        className="mt-3 cursor-pointer text-[10px] font-semibold text-gray-500 transition-colors hover:text-gray-300"
+                                                                    >
+                                                                        Show recent only ↑
                                                                     </button>
                                                                 )}
                                                         </div>
