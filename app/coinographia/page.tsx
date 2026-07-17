@@ -2538,10 +2538,17 @@ export default function CoinographiaPage() {
                                     const isFeatured = index === 0;
                                     const isPioneer = it.rank_reason === 'search_pioneer';
 
-                                    const isCoinc = discoverySort === 'coincarnations' || discoverySort === 'recent';
+                                    const isCoinc =
+                                        discoverySort === 'coincarnations' ||
+                                        discoverySort === 'recent';
+
                                     const isUsd = discoverySort === 'usd';
                                     const isWallets = discoverySort === 'wallets';
-                                    const isExpandedCompact = activeDiscoveryDetail?.mint === it.mint;
+
+                                    const isActiveDiscoveryCard =
+                                        activeDiscoveryDetail?.mint === it.mint;
+
+                                    const isExpandedCompact = isActiveDiscoveryCard;
 
                                     if (discoveryView === 'compact') {
                                         return (
@@ -2684,12 +2691,21 @@ export default function CoinographiaPage() {
                                                 }
                                             }}
                                             aria-label={`Open ${it.symbol || it.name || 'asset'} profile`}
+                                            aria-current={isActiveDiscoveryCard ? 'true' : undefined}
                                             className={[
                                                 getDiscoveryCardClass(it.heat_level, it.status),
+
                                                 isFeatured
                                                     ? 'ring-1 ring-cyan-400/35 shadow-[0_0_34px_rgba(34,211,238,0.16)] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.08),transparent_24%),linear-gradient(180deg,rgba(22,30,48,0.96),rgba(13,18,31,0.96))] md:scale-[1.01]'
                                                     : '',
-                                                isPioneer ? getPioneerCardAccentClass() : '',
+
+                                                isPioneer
+                                                    ? getPioneerCardAccentClass()
+                                                    : '',
+
+                                                isActiveDiscoveryCard
+                                                    ? 'ring-1 ring-cyan-300/65 border-cyan-300/35 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.10),transparent_28%),linear-gradient(180deg,rgba(20,31,50,0.98),rgba(12,19,33,0.98))] shadow-[0_0_0_1px_rgba(34,211,238,0.10),0_0_42px_rgba(34,211,238,0.20),0_18px_44px_rgba(2,6,23,0.34)] -translate-y-[2px] scale-[1.01]'
+                                                    : '',
                                             ].join(' ')}
                                         >
                                             {isFeatured && (
@@ -2709,6 +2725,25 @@ export default function CoinographiaPage() {
                                                 <div className="pointer-events-none absolute inset-0 rounded-2xl">
                                                     <div className="absolute -left-10 top-10 h-24 w-24 rounded-full bg-violet-400/10 blur-3xl animate-pulse" />
                                                     <div className="absolute right-0 top-1/2 h-20 w-20 rounded-full bg-cyan-400/10 blur-3xl animate-pulse" />
+                                                </div>
+                                            )}
+
+                                            {isActiveDiscoveryCard && (
+                                                <div className="relative z-[2] mb-3 flex items-center justify-between gap-3 rounded-xl border border-cyan-300/20 bg-cyan-400/[0.07] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_22px_rgba(34,211,238,0.08)]">
+                                                    <div className="inline-flex min-w-0 items-center gap-2">
+                                                        <span className="relative flex h-2 w-2 shrink-0">
+                                                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-300 opacity-50" />
+                                                            <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-200 shadow-[0_0_10px_rgba(103,232,249,0.8)]" />
+                                                        </span>
+
+                                                        <span className="truncate text-[9px] font-bold uppercase tracking-[0.15em] text-cyan-100/80">
+                                                            Profile Open
+                                                        </span>
+                                                    </div>
+
+                                                    <span className="shrink-0 text-[9px] font-semibold text-cyan-200/60">
+                                                        Viewing details
+                                                    </span>
                                                 </div>
                                             )}
 
@@ -3743,7 +3778,7 @@ export default function CoinographiaPage() {
 
                                                                                     {/* Event header */}
                                                                                     <div className="relative border-b border-white/[0.08] px-4 py-3.5">
-                                                                                        <div className="flex items-start justify-between gap-3">
+                                                                                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                                                                                             <div className="min-w-0">
                                                                                                 <div className="flex flex-wrap items-center gap-2">
                                                                                                     <span className="inline-flex items-center rounded-full border border-violet-300/15 bg-violet-400/[0.08] px-2.5 py-1 text-[8px] font-bold uppercase tracking-[0.14em] text-violet-100/75">
@@ -3776,7 +3811,7 @@ export default function CoinographiaPage() {
                                                                                                 </div>
                                                                                             </div>
 
-                                                                                            <div className="shrink-0 text-right">
+                                                                                            <div className="shrink-0 text-left sm:text-right">
                                                                                                 <p className="text-[9px] font-bold uppercase tracking-[0.13em] text-emerald-200/55">
                                                                                                     Revived Value
                                                                                                 </p>
