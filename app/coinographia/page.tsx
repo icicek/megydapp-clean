@@ -2564,7 +2564,7 @@ export default function CoinographiaPage() {
                             {/* Scrollable body */}
                             <div className="flex-1 overflow-y-auto overscroll-contain">
                                 {/* Asset hero */}
-                                <section className="relative overflow-hidden border-b border-white/10 px-4 pb-6 pt-7 sm:px-5 sm:pb-7 sm:pt-8">
+                                <section className="relative overflow-hidden border-b border-white/10 px-4 pb-6 pt-8 sm:px-5 sm:pb-7 sm:pt-10">
                                     <div
                                         aria-hidden="true"
                                         className="pointer-events-none absolute -right-20 -top-28 h-64 w-64 rounded-full bg-cyan-400/[0.08] blur-3xl"
@@ -2679,7 +2679,7 @@ export default function CoinographiaPage() {
                                 </section>
 
                                 {/* Profile content */}
-                                <div className="px-4 pb-5 pt-6 sm:px-5 sm:pb-6">
+                                <div className="px-4 pb-5 sm:px-5 sm:pb-6">
                                     {/* Asset biography */}
                                     <section className="border-b border-white/10 pb-6">
                                         <div className="flex items-center gap-3">
@@ -2993,87 +2993,72 @@ export default function CoinographiaPage() {
                                                 </div>
                                             </section>
                                         )}
-
-                                    {/* Actions */}
-                                    <section className="pt-6">
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <button
-                                                type="button"
-                                                disabled={
-                                                    !canShareStatus(
-                                                        activeDiscoveryDetail.status
-                                                    )
-                                                }
-                                                onClick={() => {
-                                                    if (
-                                                        !canShareStatus(
-                                                            activeDiscoveryDetail.status
-                                                        )
-                                                    ) {
-                                                        return;
-                                                    }
-
-                                                    void shareDiscoveryOnX(
-                                                        activeDiscoveryDetail
-                                                    );
-                                                }}
-                                                className={[
-                                                    'inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200',
-                                                    canShareStatus(
-                                                        activeDiscoveryDetail.status
-                                                    )
-                                                        ? 'border border-cyan-400/20 bg-cyan-400/10 text-cyan-100 hover:border-cyan-400/35 hover:bg-cyan-400/15'
-                                                        : 'cursor-not-allowed border border-white/10 bg-white/[0.03] text-gray-500 opacity-45',
-                                                ].join(' ')}
-                                                title={
-                                                    canShareStatus(
-                                                        activeDiscoveryDetail.status
-                                                    )
-                                                        ? 'Share signal'
-                                                        : 'Sharing is disabled for redlisted or blacklisted tokens'
-                                                }
-                                            >
-                                                <ShareArrowIcon className="h-4 w-4" />
-                                                Share
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                disabled={
-                                                    activeDiscoveryDetail.status ===
-                                                    'redlist' ||
-                                                    activeDiscoveryDetail.status ===
-                                                    'blacklist'
-                                                }
-                                                onClick={() =>
-                                                    handleCoincarnateClick(
-                                                        activeDiscoveryDetail.mint,
-                                                        activeDiscoveryDetail.status,
-                                                        activeDiscoveryDetail.symbol,
-                                                        activeDiscoveryDetail.name
-                                                    )
-                                                }
-                                                className={[
-                                                    'cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed',
-                                                    getCoincarnateButtonClass(
-                                                        activeDiscoveryDetail.status,
-                                                        activeDiscoveryDetail.status ===
-                                                        'redlist' ||
-                                                        activeDiscoveryDetail.status ===
-                                                        'blacklist'
-                                                    ),
-                                                ].join(' ')}
-                                            >
-                                                {activeDiscoveryDetail.status ===
-                                                    'redlist' ||
-                                                    activeDiscoveryDetail.status ===
-                                                    'blacklist'
-                                                    ? 'Disabled'
-                                                    : '✦ Coincarnate'}
-                                            </button>
-                                        </div>
-                                    </section>
                                 </div>
+                            </div>
+                            {/* Sticky action bar */}
+                            <div className="relative shrink-0 border-t border-white/10 bg-[#070c16]/90 px-4 py-3 shadow-[0_-18px_45px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:px-5 sm:py-4">
+                                <div className="pointer-events-none absolute inset-x-0 bottom-full h-8 bg-gradient-to-t from-[#070c16]/80 to-transparent" />
+
+                                <div className="relative grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        disabled={!canShareStatus(activeDiscoveryDetail.status)}
+                                        onClick={() => {
+                                            if (!canShareStatus(activeDiscoveryDetail.status)) {
+                                                return;
+                                            }
+
+                                            void shareDiscoveryOnX(activeDiscoveryDetail);
+                                        }}
+                                        className={[
+                                            'inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200',
+                                            canShareStatus(activeDiscoveryDetail.status)
+                                                ? 'border border-cyan-400/20 bg-cyan-400/[0.08] text-cyan-100 hover:border-cyan-400/35 hover:bg-cyan-400/[0.14]'
+                                                : 'cursor-not-allowed border border-white/10 bg-white/[0.03] text-gray-500 opacity-45',
+                                        ].join(' ')}
+                                        title={
+                                            canShareStatus(activeDiscoveryDetail.status)
+                                                ? 'Share signal'
+                                                : 'Sharing is disabled for redlisted or blacklisted tokens'
+                                        }
+                                    >
+                                        <ShareArrowIcon className="h-4 w-4" />
+                                        Share
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        disabled={
+                                            activeDiscoveryDetail.status === 'redlist' ||
+                                            activeDiscoveryDetail.status === 'blacklist'
+                                        }
+                                        onClick={() =>
+                                            handleCoincarnateClick(
+                                                activeDiscoveryDetail.mint,
+                                                activeDiscoveryDetail.status,
+                                                activeDiscoveryDetail.symbol,
+                                                activeDiscoveryDetail.name
+                                            )
+                                        }
+                                        className={[
+                                            'min-h-11 cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed',
+                                            getCoincarnateButtonClass(
+                                                activeDiscoveryDetail.status,
+                                                activeDiscoveryDetail.status === 'redlist' ||
+                                                activeDiscoveryDetail.status === 'blacklist'
+                                            ),
+                                        ].join(' ')}
+                                    >
+                                        {activeDiscoveryDetail.status === 'redlist' ||
+                                            activeDiscoveryDetail.status === 'blacklist'
+                                            ? 'Disabled'
+                                            : '✦ Coincarnate'}
+                                    </button>
+                                </div>
+
+                                <p className="mt-2 text-center text-[9px] leading-4 text-gray-600">
+                                    Coincarnation is initiated only after explicit wallet confirmation.
+                                </p>
                             </div>
                         </aside>
                     </div>
