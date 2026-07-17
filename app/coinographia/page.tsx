@@ -2537,461 +2537,542 @@ export default function CoinographiaPage() {
                             className="asset-drawer-motion absolute inset-y-0 right-0 flex w-full max-w-[560px] flex-col overflow-hidden border-l border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.15),transparent_28%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.13),transparent_32%),linear-gradient(180deg,rgba(12,18,32,0.995),rgba(6,10,19,0.995))] shadow-[-28px_0_90px_rgba(0,0,0,0.58),-8px_0_40px_rgba(34,211,238,0.08)] animate-[assetDrawerIn_320ms_cubic-bezier(0.22,1,0.36,1)]"
                             onClick={(event) => event.stopPropagation()}
                         >
-                            {/* Fixed header */}
-                            <div className="shrink-0 border-b border-white/10 px-4 py-4 sm:px-5">
-                                <div className="flex items-start justify-between gap-4">
+                            {/* Fixed top bar */}
+                            <div className="shrink-0 border-b border-white/10 bg-black/10 px-4 py-4 backdrop-blur-xl sm:px-5">
+                                <div className="flex items-center justify-between gap-4">
                                     <div className="min-w-0">
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-200/70">
-                                            Asset Biography
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-200/65">
+                                            Coinographia
                                         </p>
 
-                                        <p className="mt-1 text-[11px] leading-5 text-gray-500">
-                                            Every digital asset has a story. Coinographia records it.
+                                        <p className="mt-1 text-[11px] text-gray-500">
+                                            Asset Profile
                                         </p>
                                     </div>
 
                                     <button
                                         type="button"
                                         onClick={() => setActiveDiscoveryDetail(null)}
-                                        className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-lg text-gray-300 transition-all duration-200 hover:border-cyan-300/20 hover:bg-white/[0.09] hover:text-white"
+                                        className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-lg text-gray-300 transition-all duration-200 hover:border-cyan-300/25 hover:bg-white/[0.09] hover:text-white"
                                         aria-label="Close Asset Profile"
                                     >
                                         ×
                                     </button>
                                 </div>
+                            </div>
 
-                                {/* Asset identity */}
-                                <div className="mt-4 flex min-w-0 items-center gap-3">
-                                    {activeDiscoveryDetail.logo_uri ? (
-                                        <img
-                                            src={activeDiscoveryDetail.logo_uri}
-                                            alt={
-                                                activeDiscoveryDetail.symbol ||
-                                                activeDiscoveryDetail.name ||
-                                                activeDiscoveryDetail.mint
-                                            }
-                                            className="h-12 w-12 shrink-0 rounded-full border border-white/10 object-cover"
-                                        />
-                                    ) : (
-                                        <div className="h-12 w-12 shrink-0 rounded-full border border-white/10 bg-white/[0.06]" />
-                                    )}
+                            {/* Scrollable body */}
+                            <div className="flex-1 overflow-y-auto overscroll-contain">
+                                {/* Asset hero */}
+                                <section className="relative overflow-hidden border-b border-white/10 px-4 pb-6 pt-7 sm:px-5 sm:pb-7 sm:pt-8">
+                                    <div
+                                        aria-hidden="true"
+                                        className="pointer-events-none absolute -right-20 -top-28 h-64 w-64 rounded-full bg-cyan-400/[0.08] blur-3xl"
+                                    />
 
-                                    <div className="min-w-0 flex-1">
-                                        <div className="truncate text-lg font-bold text-white">
-                                            {activeDiscoveryDetail.symbol || 'Unknown'}
-                                            {activeDiscoveryDetail.name
-                                                ? ` — ${activeDiscoveryDetail.name}`
-                                                : ''}
+                                    <div
+                                        aria-hidden="true"
+                                        className="pointer-events-none absolute -left-24 bottom-[-120px] h-64 w-64 rounded-full bg-violet-500/[0.07] blur-3xl"
+                                    />
+
+                                    <div className="relative">
+                                        <div className="flex min-w-0 items-start gap-4">
+                                            {activeDiscoveryDetail.logo_uri ? (
+                                                <img
+                                                    src={activeDiscoveryDetail.logo_uri}
+                                                    alt={
+                                                        activeDiscoveryDetail.symbol ||
+                                                        activeDiscoveryDetail.name ||
+                                                        activeDiscoveryDetail.mint
+                                                    }
+                                                    className="h-16 w-16 shrink-0 rounded-2xl border border-white/10 bg-white/[0.04] object-cover shadow-[0_12px_36px_rgba(0,0,0,0.35)]"
+                                                />
+                                            ) : (
+                                                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-xl font-black text-gray-500 shadow-[0_12px_36px_rgba(0,0,0,0.35)]">
+                                                    {(
+                                                        activeDiscoveryDetail.symbol ||
+                                                        activeDiscoveryDetail.name ||
+                                                        '?'
+                                                    )
+                                                        .slice(0, 1)
+                                                        .toUpperCase()}
+                                                </div>
+                                            )}
+
+                                            <div className="min-w-0 flex-1 pt-0.5">
+                                                <p className="truncate text-2xl font-black tracking-[-0.025em] text-white sm:text-[28px]">
+                                                    {activeDiscoveryDetail.symbol ||
+                                                        activeDiscoveryDetail.name ||
+                                                        'Unknown Asset'}
+                                                </p>
+
+                                                {activeDiscoveryDetail.name &&
+                                                    activeDiscoveryDetail.name !==
+                                                    activeDiscoveryDetail.symbol && (
+                                                        <p className="mt-1 truncate text-sm font-medium text-gray-400">
+                                                            {activeDiscoveryDetail.name}
+                                                        </p>
+                                                    )}
+
+                                                <p className="mt-2 text-[11px] leading-5 text-gray-500">
+                                                    Observed by Coinographia
+                                                </p>
+                                            </div>
                                         </div>
 
-                                        <div className="mt-1 flex min-w-0 items-center gap-2">
-                                            <span
-                                                className="min-w-0 truncate font-mono text-xs text-gray-500"
-                                                title={activeDiscoveryDetail.mint}
-                                            >
-                                                {shortenMint(activeDiscoveryDetail.mint)}
+                                        {/* Classification */}
+                                        <div className="mt-5 flex flex-wrap items-center gap-2">
+                                            <StatusBadge
+                                                status={activeDiscoveryDetail.status}
+                                            />
+
+                                            <HeatBadge
+                                                heat={activeDiscoveryDetail.heat_level}
+                                            />
+
+                                            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-semibold text-gray-300">
+                                                {getRankReasonLabel(
+                                                    activeDiscoveryDetail.rank_reason
+                                                )}
                                             </span>
+                                        </div>
+
+                                        {/* Mint address */}
+                                        <div className="mt-5 flex min-w-0 items-center justify-between gap-3 border-t border-white/10 pt-4">
+                                            <div className="min-w-0">
+                                                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-gray-600">
+                                                    Mint Address
+                                                </p>
+
+                                                <p
+                                                    className="mt-1 truncate font-mono text-xs text-gray-400"
+                                                    title={activeDiscoveryDetail.mint}
+                                                >
+                                                    {shortenMint(
+                                                        activeDiscoveryDetail.mint
+                                                    )}
+                                                </p>
+                                            </div>
 
                                             <button
                                                 type="button"
                                                 onClick={() =>
-                                                    void handleMintCopy(activeDiscoveryDetail.mint)
+                                                    void handleMintCopy(
+                                                        activeDiscoveryDetail.mint
+                                                    )
                                                 }
-                                                className="shrink-0 cursor-pointer rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[10px] font-semibold text-cyan-100 transition-all duration-200 hover:border-cyan-400/35 hover:bg-cyan-400/15"
+                                                className="shrink-0 cursor-pointer rounded-lg border border-cyan-400/20 bg-cyan-400/[0.08] px-3 py-1.5 text-[10px] font-semibold text-cyan-100 transition-all duration-200 hover:border-cyan-400/35 hover:bg-cyan-400/[0.14]"
                                                 title={
-                                                    copiedMint === activeDiscoveryDetail.mint
+                                                    copiedMint ===
+                                                        activeDiscoveryDetail.mint
                                                         ? 'Mint copied'
                                                         : 'Copy mint'
                                                 }
                                             >
-                                                {copiedMint === activeDiscoveryDetail.mint
+                                                {copiedMint ===
+                                                    activeDiscoveryDetail.mint
                                                     ? 'Copied'
                                                     : 'Copy'}
                                             </button>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-
-                            {/* Scrollable body */}
-                            <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <StatusBadge status={activeDiscoveryDetail.status} />
-                                    <HeatBadge heat={activeDiscoveryDetail.heat_level} />
-
-                                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[11px] font-medium text-gray-200">
-                                        {getRankReasonLabel(activeDiscoveryDetail.rank_reason)}
-                                    </span>
-                                </div>
-
-                                <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm leading-6 text-gray-300">
-                                    {getDiscoveryStoryLine(activeDiscoveryDetail)}
-                                </div>
-
-                                {/* Current state */}
-                                <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-500">
-                                                Current State
-                                            </p>
-
-                                            <p className="mt-1 text-sm font-semibold text-white">
-                                                Present asset condition
-                                            </p>
-                                        </div>
-
-                                        <StatusBadge status={activeDiscoveryDetail.status} />
-                                    </div>
-
-                                    <div className="mt-4 grid grid-cols-2 gap-2">
-                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-3">
-                                            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-gray-500">
-                                                Survival State
-                                            </p>
-
-                                            <p className="mt-1 text-sm font-semibold capitalize text-white">
-                                                {activeDiscoveryDetail.status.replaceAll('_', ' ')}
-                                            </p>
-                                        </div>
-
-                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-3">
-                                            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-gray-500">
-                                                Coincarnation State
-                                            </p>
-
-                                            <p className="mt-1 text-sm font-semibold text-white">
-                                                {activeDiscoveryDetail.total_coincarnations > 0
-                                                    ? 'Active'
-                                                    : 'Not yet Coincarnated'}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <p className="mt-3 text-xs leading-5 text-gray-500">
-                                        Classification describes the asset’s condition. Coincarnation records
-                                        economic participation around it.
-                                    </p>
                                 </section>
 
-                                {/* Survival history */}
-                                <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-200/65">
-                                                Survival History
+                                {/* Profile content */}
+                                <div className="px-4 pb-5 pt-6 sm:px-5 sm:pb-6">
+                                    {/* Asset biography */}
+                                    <section className="border-b border-white/10 pb-6">
+                                        <div className="flex items-center gap-3">
+                                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-200/65">
+                                                Asset Biography
                                             </p>
 
-                                            <p className="mt-1 text-sm font-semibold text-white">
-                                                Changes in asset condition
-                                            </p>
+                                            <span className="h-px min-w-0 flex-1 bg-gradient-to-r from-cyan-300/15 to-transparent" />
                                         </div>
 
-                                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-gray-500">
-                                            History
-                                        </span>
-                                    </div>
+                                        <p className="mt-4 text-[15px] leading-7 text-gray-300">
+                                            {getDiscoveryStoryLine(
+                                                activeDiscoveryDetail
+                                            )}
+                                        </p>
 
-                                    <div className="mt-4">
-                                        <div className="flex gap-3">
-                                            <div className="flex w-4 shrink-0 flex-col items-center">
-                                                <span className="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,0.55)]" />
+                                        <p className="mt-3 text-xs leading-5 text-gray-600">
+                                            Every digital asset has a story.
+                                            Coinographia records its present condition,
+                                            signals and economic participation.
+                                        </p>
+                                    </section>
+
+                                    {/* Current state */}
+                                    <section className="border-b border-white/10 py-6">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">
+                                                    Current State
+                                                </p>
+
+                                                <p className="mt-1 text-sm font-semibold text-white">
+                                                    Present asset condition
+                                                </p>
                                             </div>
 
-                                            <div className="min-w-0 flex-1 rounded-xl border border-emerald-400/15 bg-emerald-400/[0.04] px-3 py-3">
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <p className="text-sm font-semibold capitalize text-white">
-                                                        {activeDiscoveryDetail.status.replaceAll('_', ' ')}
-                                                    </p>
+                                            <StatusBadge
+                                                status={activeDiscoveryDetail.status}
+                                            />
+                                        </div>
 
-                                                    <span className="shrink-0 text-[10px] text-gray-500">
-                                                        Current
-                                                    </span>
-                                                </div>
+                                        <div className="mt-5 grid grid-cols-2 divide-x divide-white/10 rounded-2xl border border-white/10 bg-white/[0.025]">
+                                            <div className="min-w-0 px-4 py-4">
+                                                <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-600">
+                                                    Classification
+                                                </p>
 
-                                                <p className="mt-1 text-xs leading-5 text-gray-500">
-                                                    Current classified state recorded by Coinographia.
+                                                <p className="mt-2 text-sm font-semibold capitalize text-white">
+                                                    {activeDiscoveryDetail.status.replaceAll(
+                                                        '_',
+                                                        ' '
+                                                    )}
+                                                </p>
+                                            </div>
+
+                                            <div className="min-w-0 px-4 py-4">
+                                                <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-600">
+                                                    Coincarnation
+                                                </p>
+
+                                                <p className="mt-2 text-sm font-semibold text-white">
+                                                    {activeDiscoveryDetail.total_coincarnations >
+                                                        0
+                                                        ? 'Active'
+                                                        : 'Not yet recorded'}
                                                 </p>
                                             </div>
                                         </div>
-                                    </div>
+                                    </section>
 
-                                    <div className="mt-3 rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-3 py-3 text-xs leading-5 text-gray-500">
-                                        Earlier state transitions will appear here when classification history is
-                                        connected.
-                                    </div>
-                                </section>
+                                    {/* Current signals */}
+                                    <section className="border-b border-white/10 py-6">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-200/70">
+                                                    Current Signals
+                                                </p>
 
-                                {/* Coincarnation history */}
-                                <section className="mt-4 rounded-2xl border border-violet-400/15 bg-violet-400/[0.035] p-4">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-200/70">
+                                                <p className="mt-1 text-sm font-semibold text-white">
+                                                    Live detection and ranking context
+                                                </p>
+                                            </div>
+
+                                            <span className="inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-400/[0.06] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-cyan-100/75">
+                                                <span className="relative flex h-1.5 w-1.5">
+                                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-300 opacity-50" />
+                                                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan-300" />
+                                                </span>
+                                                Live
+                                            </span>
+                                        </div>
+
+                                        <div className="mt-5 rounded-2xl border border-cyan-300/15 bg-cyan-400/[0.035] px-4 py-4">
+                                            <div className="flex items-start gap-3">
+                                                <span className="relative mt-1.5 flex h-2 w-2 shrink-0">
+                                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-60" />
+                                                    <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.9)]" />
+                                                </span>
+
+                                                <p className="min-w-0 text-[10px] font-bold uppercase leading-5 tracking-[0.13em] text-cyan-100">
+                                                    {getDiscoverySignalLine(
+                                                        activeDiscoveryDetail
+                                                    )}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10">
+                                            <div className="bg-[#090f1b] px-4 py-4">
+                                                <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-gray-600">
+                                                    Activity Score
+                                                </p>
+
+                                                <p className="mt-2 text-2xl font-black tracking-tight text-white">
+                                                    {formatNumberCompact(
+                                                        activeDiscoveryDetail.activity_score
+                                                    )}
+                                                </p>
+                                            </div>
+
+                                            <div className="bg-[#090f1b] px-4 py-4">
+                                                <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-gray-600">
+                                                    Rank Reason
+                                                </p>
+
+                                                <p className="mt-2 text-sm font-semibold leading-5 text-gray-200">
+                                                    {getRankReasonLabel(
+                                                        activeDiscoveryDetail.rank_reason
+                                                    )}
+                                                </p>
+                                            </div>
+
+                                            <div className="bg-[#090f1b] px-4 py-4">
+                                                <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-gray-600">
+                                                    First Seen
+                                                </p>
+
+                                                <p className="mt-2 text-sm font-semibold leading-5 text-gray-200">
+                                                    {formatDiscoverySince(
+                                                        activeDiscoveryDetail.first_seen_at
+                                                    ) || 'Unknown'}
+                                                </p>
+                                            </div>
+
+                                            <div className="bg-[#090f1b] px-4 py-4">
+                                                <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-gray-600">
+                                                    Last Activity
+                                                </p>
+
+                                                <p className="mt-2 text-sm font-semibold leading-5 text-gray-200">
+                                                    {activeDiscoveryDetail.last_activity_at
+                                                        ? formatUpdatedShort(
+                                                            activeDiscoveryDetail.last_activity_at
+                                                        )
+                                                        : 'No activity yet'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <p className="mt-3 text-xs leading-5 text-gray-600">
+                                            These signals describe Coinographia’s
+                                            current detection context, not the asset’s
+                                            complete historical record.
+                                        </p>
+                                    </section>
+
+                                    {/* Survival history */}
+                                    <section className="border-b border-white/10 py-6">
+                                        <div className="flex items-center gap-3">
+                                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-200/65">
+                                                Survival History
+                                            </p>
+
+                                            <span className="h-px min-w-0 flex-1 bg-gradient-to-r from-emerald-300/15 to-transparent" />
+                                        </div>
+
+                                        <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
+                                            <div className="flex items-center justify-between gap-4 border-b border-white/10 px-4 py-4">
+                                                <div>
+                                                    <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-600">
+                                                        Current Classification
+                                                    </p>
+
+                                                    <p className="mt-1 text-sm font-semibold capitalize text-white">
+                                                        {activeDiscoveryDetail.status.replaceAll(
+                                                            '_',
+                                                            ' '
+                                                        )}
+                                                    </p>
+                                                </div>
+
+                                                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,0.55)]" />
+                                            </div>
+
+                                            <div className="px-4 py-4">
+                                                <p className="text-xs leading-5 text-gray-500">
+                                                    Earlier state transitions will
+                                                    appear here when classification
+                                                    history is connected.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    {/* Coincarnation history */}
+                                    <section className="border-b border-white/10 py-6">
+                                        <div className="flex items-center gap-3">
+                                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-200/70">
                                                 Coincarnation History
                                             </p>
 
-                                            <p className="mt-1 text-sm font-semibold text-white">
-                                                Economic participation events
-                                            </p>
+                                            <span className="h-px min-w-0 flex-1 bg-gradient-to-r from-violet-300/15 to-transparent" />
                                         </div>
 
-                                        <span className="rounded-full border border-violet-300/15 bg-violet-400/[0.06] px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-violet-200/70">
-                                            Independent Layer
-                                        </span>
-                                    </div>
-
-                                    {activeDiscoveryDetail.total_coincarnations > 0 ? (
-                                        <div className="mt-4 rounded-xl border border-violet-400/15 bg-violet-400/[0.045] px-3 py-3">
-                                            <div className="flex items-center justify-between gap-3">
-                                                <div>
+                                        {activeDiscoveryDetail.total_coincarnations >
+                                            0 ? (
+                                            <div className="mt-5 flex items-center justify-between gap-5 rounded-2xl border border-violet-400/15 bg-violet-400/[0.035] px-4 py-4">
+                                                <div className="min-w-0">
                                                     <p className="text-sm font-semibold text-white">
-                                                        Coincarnation activity detected
+                                                        Coincarnation activity
+                                                        recorded
                                                     </p>
 
-                                                    <p className="mt-1 text-xs leading-5 text-gray-400">
-                                                        Coincarnation activity has been recorded for this asset. Its current
-                                                        survival classification is{' '}
+                                                    <p className="mt-1 text-xs leading-5 text-gray-500">
+                                                        Its present survival
+                                                        classification is{' '}
                                                         <span className="capitalize text-violet-200">
-                                                            {activeDiscoveryDetail.status.replaceAll('_', ' ')}
+                                                            {activeDiscoveryDetail.status.replaceAll(
+                                                                '_',
+                                                                ' '
+                                                            )}
                                                         </span>
                                                         .
                                                     </p>
                                                 </div>
 
                                                 <div className="shrink-0 text-right">
-                                                    <p className="text-lg font-black text-white">
+                                                    <p className="text-2xl font-black tracking-tight text-white">
                                                         {formatNumberCompact(
                                                             activeDiscoveryDetail.total_coincarnations
                                                         )}
                                                     </p>
 
-                                                    <p className="text-[9px] uppercase tracking-[0.12em] text-gray-500">
+                                                    <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-gray-600">
                                                         Events
                                                     </p>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ) : (
-                                        <div className="mt-4 rounded-xl border border-dashed border-violet-400/15 bg-violet-400/[0.025] px-3 py-4 text-center">
-                                            <p className="text-sm font-semibold text-white">
-                                                Not yet Coincarnated
-                                            </p>
+                                        ) : (
+                                            <div className="mt-5 rounded-2xl border border-dashed border-violet-400/15 bg-violet-400/[0.025] px-4 py-5">
+                                                <p className="text-sm font-semibold text-white">
+                                                    Not yet Coincarnated
+                                                </p>
 
-                                            <p className="mt-1 text-xs leading-5 text-gray-500">
-                                                Coincarnation can occur while an asset is healthy, walking dead, or a
-                                                deadcoin.
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    <p className="mt-3 text-xs leading-5 text-gray-500">
-                                        Detailed Coincarnation events and their historical asset states will appear
-                                        here when event history is connected.
-                                    </p>
-                                </section>
-
-                                {/* Current signals */}
-                                <section className="mt-4 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.025] p-4">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200/70">
-                                                Current Signals
-                                            </p>
-
-                                            <p className="mt-1 text-sm font-semibold text-white">
-                                                Live detection and ranking context
-                                            </p>
-                                        </div>
-
-                                        <span className="inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-400/[0.06] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-cyan-100/75">
-                                            <span className="relative flex h-1.5 w-1.5">
-                                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-300 opacity-50" />
-                                                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan-300" />
-                                            </span>
-                                            Live
-                                        </span>
-                                    </div>
-
-                                    <div className="mt-4 rounded-xl border border-cyan-300/15 bg-black/20 px-3 py-3">
-                                        <div className="flex items-start gap-2">
-                                            <span className="relative mt-1 flex h-2 w-2 shrink-0">
-                                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-60" />
-                                                <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.9)]" />
-                                            </span>
-
-                                            <p className="min-w-0 text-[10px] font-bold uppercase leading-5 tracking-[0.13em] text-cyan-100">
-                                                {getDiscoverySignalLine(activeDiscoveryDetail)}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-3">
-                                            <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500">
-                                                Rank Reason
-                                            </p>
-
-                                            <p className="mt-1 text-xs font-semibold leading-5 text-gray-200">
-                                                {getRankReasonLabel(activeDiscoveryDetail.rank_reason)}
-                                            </p>
-                                        </div>
-
-                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-3">
-                                            <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500">
-                                                Activity Score
-                                            </p>
-
-                                            <p className="mt-1 text-sm font-semibold text-gray-200">
-                                                {formatNumberCompact(activeDiscoveryDetail.activity_score)}
-                                            </p>
-                                        </div>
-
-                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-3">
-                                            <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500">
-                                                First Seen
-                                            </p>
-
-                                            <p className="mt-1 text-xs font-semibold leading-5 text-gray-200">
-                                                {formatDiscoverySince(activeDiscoveryDetail.first_seen_at) ||
-                                                    'Unknown'}
-                                            </p>
-                                        </div>
-
-                                        <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-3">
-                                            <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500">
-                                                Last Activity
-                                            </p>
-
-                                            <p className="mt-1 text-xs font-semibold leading-5 text-gray-200">
-                                                {activeDiscoveryDetail.last_activity_at
-                                                    ? formatUpdatedShort(activeDiscoveryDetail.last_activity_at)
-                                                    : 'No activity yet'}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <p className="mt-3 text-xs leading-5 text-gray-500">
-                                        These signals describe Coinographia’s current detection context, not the
-                                        asset’s full historical record.
-                                    </p>
-                                </section>
-
-                                {activeDiscoveryDetail.rank_reason !== 'search_pioneer' && (
-                                    <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-                                        <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200/65">
-                                                Activity
-                                            </p>
-
-                                            <p className="mt-1 text-sm font-semibold text-white">
-                                                Current participation signals
-                                            </p>
-                                        </div>
-
-                                        <div className="mt-4 grid grid-cols-3 gap-2">
-                                            <div
-                                                className={getDiscoveryMetricCellClass(true, 'cyan')}
-                                            >
-                                                <div className="text-[9px] uppercase tracking-[0.08em] text-gray-500">
-                                                    Coinc.
-                                                </div>
-
-                                                <div className="mt-1 text-sm font-semibold text-white">
-                                                    {formatNumberCompact(
-                                                        activeDiscoveryDetail.total_coincarnations
-                                                    )}
-                                                </div>
+                                                <p className="mt-1 text-xs leading-5 text-gray-500">
+                                                    Future Coincarnation activity will
+                                                    appear here.
+                                                </p>
                                             </div>
+                                        )}
+                                    </section>
 
-                                            <div
-                                                className={getDiscoveryMetricCellClass(
-                                                    true,
-                                                    'emerald'
-                                                )}
+                                    {/* Activity */}
+                                    {activeDiscoveryDetail.rank_reason !==
+                                        'search_pioneer' && (
+                                            <section className="border-b border-white/10 py-6">
+                                                <div className="flex items-center gap-3">
+                                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">
+                                                        Activity
+                                                    </p>
+
+                                                    <span className="h-px min-w-0 flex-1 bg-gradient-to-r from-white/10 to-transparent" />
+                                                </div>
+
+                                                <div className="mt-5 grid grid-cols-3 gap-2">
+                                                    <div className="min-w-0 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.035] px-3 py-4 text-center">
+                                                        <p className="text-xl font-black tracking-tight text-white">
+                                                            {formatNumberCompact(
+                                                                activeDiscoveryDetail.total_coincarnations
+                                                            )}
+                                                        </p>
+
+                                                        <p className="mt-2 text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500">
+                                                            Coincarnations
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="min-w-0 rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.035] px-3 py-4 text-center">
+                                                        <p className="text-xl font-black tracking-tight text-white">
+                                                            {formatUsdCompact(
+                                                                activeDiscoveryDetail.total_revived_usd
+                                                            )}
+                                                        </p>
+
+                                                        <p className="mt-2 text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500">
+                                                            Revived
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="min-w-0 rounded-2xl border border-amber-400/15 bg-amber-400/[0.035] px-3 py-4 text-center">
+                                                        <p className="text-xl font-black tracking-tight text-white">
+                                                            {formatNumberCompact(
+                                                                activeDiscoveryDetail.unique_wallets
+                                                            )}
+                                                        </p>
+
+                                                        <p className="mt-2 text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500">
+                                                            Wallets
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </section>
+                                        )}
+
+                                    {/* Actions */}
+                                    <section className="pt-6">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button
+                                                type="button"
+                                                disabled={
+                                                    !canShareStatus(
+                                                        activeDiscoveryDetail.status
+                                                    )
+                                                }
+                                                onClick={() => {
+                                                    if (
+                                                        !canShareStatus(
+                                                            activeDiscoveryDetail.status
+                                                        )
+                                                    ) {
+                                                        return;
+                                                    }
+
+                                                    void shareDiscoveryOnX(
+                                                        activeDiscoveryDetail
+                                                    );
+                                                }}
+                                                className={[
+                                                    'inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200',
+                                                    canShareStatus(
+                                                        activeDiscoveryDetail.status
+                                                    )
+                                                        ? 'border border-cyan-400/20 bg-cyan-400/10 text-cyan-100 hover:border-cyan-400/35 hover:bg-cyan-400/15'
+                                                        : 'cursor-not-allowed border border-white/10 bg-white/[0.03] text-gray-500 opacity-45',
+                                                ].join(' ')}
+                                                title={
+                                                    canShareStatus(
+                                                        activeDiscoveryDetail.status
+                                                    )
+                                                        ? 'Share signal'
+                                                        : 'Sharing is disabled for redlisted or blacklisted tokens'
+                                                }
                                             >
-                                                <div className="text-[9px] uppercase tracking-[0.08em] text-gray-500">
-                                                    Revived
-                                                </div>
+                                                <ShareArrowIcon className="h-4 w-4" />
+                                                Share
+                                            </button>
 
-                                                <div className="mt-1 text-sm font-semibold text-white">
-                                                    {formatUsdCompact(
-                                                        activeDiscoveryDetail.total_revived_usd
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <div
-                                                className={getDiscoveryMetricCellClass(true, 'amber')}
+                                            <button
+                                                type="button"
+                                                disabled={
+                                                    activeDiscoveryDetail.status ===
+                                                    'redlist' ||
+                                                    activeDiscoveryDetail.status ===
+                                                    'blacklist'
+                                                }
+                                                onClick={() =>
+                                                    handleCoincarnateClick(
+                                                        activeDiscoveryDetail.mint,
+                                                        activeDiscoveryDetail.status,
+                                                        activeDiscoveryDetail.symbol,
+                                                        activeDiscoveryDetail.name
+                                                    )
+                                                }
+                                                className={[
+                                                    'cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed',
+                                                    getCoincarnateButtonClass(
+                                                        activeDiscoveryDetail.status,
+                                                        activeDiscoveryDetail.status ===
+                                                        'redlist' ||
+                                                        activeDiscoveryDetail.status ===
+                                                        'blacklist'
+                                                    ),
+                                                ].join(' ')}
                                             >
-                                                <div className="text-[9px] uppercase tracking-[0.08em] text-gray-500">
-                                                    Wallets
-                                                </div>
-
-                                                <div className="mt-1 text-sm font-semibold text-white">
-                                                    {formatNumberCompact(
-                                                        activeDiscoveryDetail.unique_wallets
-                                                    )}
-                                                </div>
-                                            </div>
+                                                {activeDiscoveryDetail.status ===
+                                                    'redlist' ||
+                                                    activeDiscoveryDetail.status ===
+                                                    'blacklist'
+                                                    ? 'Disabled'
+                                                    : '✦ Coincarnate'}
+                                            </button>
                                         </div>
                                     </section>
-                                )}
-
-                                <div className="mt-4 grid grid-cols-2 gap-2">
-                                    <button
-                                        type="button"
-                                        disabled={!canShareStatus(activeDiscoveryDetail.status)}
-                                        onClick={() => {
-                                            if (!canShareStatus(activeDiscoveryDetail.status)) {
-                                                return;
-                                            }
-
-                                            void shareDiscoveryOnX(activeDiscoveryDetail);
-                                        }}
-                                        className={[
-                                            'inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200',
-                                            canShareStatus(activeDiscoveryDetail.status)
-                                                ? 'border border-cyan-400/20 bg-cyan-400/10 text-cyan-100 hover:border-cyan-400/35 hover:bg-cyan-400/15'
-                                                : 'cursor-not-allowed border border-white/10 bg-white/[0.03] text-gray-500 opacity-45',
-                                        ].join(' ')}
-                                        title={
-                                            canShareStatus(activeDiscoveryDetail.status)
-                                                ? 'Share signal'
-                                                : 'Sharing is disabled for redlisted or blacklisted tokens'
-                                        }
-                                    >
-                                        <ShareArrowIcon className="h-4 w-4" />
-                                        Share
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        disabled={
-                                            activeDiscoveryDetail.status === 'redlist' ||
-                                            activeDiscoveryDetail.status === 'blacklist'
-                                        }
-                                        onClick={() =>
-                                            handleCoincarnateClick(
-                                                activeDiscoveryDetail.mint,
-                                                activeDiscoveryDetail.status,
-                                                activeDiscoveryDetail.symbol,
-                                                activeDiscoveryDetail.name
-                                            )
-                                        }
-                                        className={[
-                                            'cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed',
-                                            getCoincarnateButtonClass(
-                                                activeDiscoveryDetail.status,
-                                                activeDiscoveryDetail.status === 'redlist' ||
-                                                activeDiscoveryDetail.status === 'blacklist'
-                                            ),
-                                        ].join(' ')}
-                                    >
-                                        {activeDiscoveryDetail.status === 'redlist' ||
-                                            activeDiscoveryDetail.status === 'blacklist'
-                                            ? 'Disabled'
-                                            : '✦ Coincarnate'}
-                                    </button>
                                 </div>
                             </div>
                         </aside>
