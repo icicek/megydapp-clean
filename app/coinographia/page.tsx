@@ -308,6 +308,105 @@ function formatMetricValue(value: number | null, unit: 'usd' | 'raw') {
     }).format(value);
 }
 
+function formatCoincarnationAmount(
+    value: number | null | undefined,
+    maximumFractionDigits = 6
+) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return '0';
+    }
+
+    return new Intl.NumberFormat('en-US', {
+        maximumFractionDigits,
+    }).format(value);
+}
+
+function formatCoincarnationUsd(value: number | null | undefined) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return '$0.00';
+    }
+
+    if (value > 0 && value < 0.01) {
+        return `$${value.toFixed(4)}`;
+    }
+
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(value);
+}
+
+function shortenWalletAddress(value: string | null | undefined) {
+    if (!value) {
+        return 'Unknown wallet';
+    }
+
+    if (value.length <= 12) {
+        return value;
+    }
+
+    return `${value.slice(0, 5)}…${value.slice(-5)}`;
+}
+
+function shortenTransactionSignature(
+    value: string | null | undefined
+) {
+    if (!value) {
+        return 'Unavailable';
+    }
+
+    if (value.length <= 14) {
+        return value;
+    }
+
+    return `${value.slice(0, 6)}…${value.slice(-6)}`;
+}
+
+function formatAllocationStatus(
+    value: string | null | undefined
+) {
+    if (!value) {
+        return 'Unspecified';
+    }
+
+    return value
+        .replaceAll('_', ' ')
+        .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function getAllocationStatusClasses(
+    value: string | null | undefined
+) {
+    switch (value) {
+        case 'allocated':
+            return 'border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-200';
+
+        case 'partial':
+            return 'border-amber-400/20 bg-amber-400/[0.08] text-amber-200';
+
+        case 'snapshotted':
+            return 'border-cyan-400/20 bg-cyan-400/[0.08] text-cyan-200';
+
+        case 'pending':
+            return 'border-violet-400/20 bg-violet-400/[0.08] text-violet-200';
+
+        default:
+            return 'border-white/10 bg-white/[0.05] text-gray-300';
+    }
+}
+
+function getSolscanTransactionUrl(
+    signature: string | null | undefined
+) {
+    if (!signature) {
+        return null;
+    }
+
+    return `https://solscan.io/tx/${signature}`;
+}
+
 function getMetricCardValue(metricCards: MetricCard[], key: string) {
     return metricCards.find((c) => c.key?.toLowerCase() === key)?.value ?? null;
 }
@@ -1163,6 +1262,9 @@ export default function CoinographiaPage() {
     const [showAllSurvivalHistory, setShowAllSurvivalHistory] =
         useState(false);
 
+    const [showAllCoincarnationHistory, setShowAllCoincarnationHistory] =
+        useState(false);
+
     const [discoveryNow, setDiscoveryNow] = useState(0);
 
     function handleCoincarnateClick(
@@ -1517,6 +1619,7 @@ export default function CoinographiaPage() {
         setProfileError(null);
         setProfileLoading(true);
         setShowAllSurvivalHistory(false);
+        setShowAllCoincarnationHistory(false);
 
         try {
             const response = await fetch(
@@ -1563,6 +1666,7 @@ export default function CoinographiaPage() {
         setProfileError(null);
         setProfileLoading(false);
         setShowAllSurvivalHistory(false);
+        setShowAllCoincarnationHistory(false);
     };
 
     return (
@@ -3283,41 +3387,221 @@ export default function CoinographiaPage() {
                                                     <span className="h-px min-w-0 flex-1 bg-gradient-to-r from-violet-300/15 to-transparent" />
                                                 </div>
 
-                                                {activeDiscoveryProfile.totals
-                                                    .total_coincarnations > 0 ? (
-                                                    <div className="mt-5 flex items-center justify-between gap-5 rounded-2xl border border-violet-400/15 bg-violet-400/[0.035] px-4 py-4">
-                                                        <div className="min-w-0">
-                                                            <p className="text-sm font-semibold text-white">
-                                                                Coincarnation activity recorded
-                                                            </p>
+                                                {activeDiscoveryProfile.coincarnation_events.length > 0 ? (
+                                                    <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
+                                                        {/* Summary */}
+                                                        <div className="flex items-center justify-between gap-5 border-b border-white/10 px-4 py-4">
+                                                            <div className="min-w-0">
+                                                                <p className="text-sm font-semibold text-white">
+                                                                    Coincarnation activity recorded
+                                                                </p>
 
-                                                            <p className="mt-1 text-xs leading-5 text-gray-500">
-                                                                Its present survival
-                                                                classification is{' '}
-                                                                <span className="capitalize text-violet-200">
-                                                                    {(
-                                                                        activeDiscoveryProfile
-                                                                            .current_status
-                                                                            ?.status ??
-                                                                        activeDiscoveryDetail.status
-                                                                    ).replaceAll('_', ' ')}
-                                                                </span>
-                                                                .
-                                                            </p>
+                                                                <p className="mt-1 text-xs leading-5 text-gray-500">
+                                                                    Economic participation events connected to this
+                                                                    asset.
+                                                                </p>
+                                                            </div>
+
+                                                            <div className="shrink-0 text-right">
+                                                                <p className="text-2xl font-black tracking-tight text-white">
+                                                                    {formatNumberCompact(
+                                                                        activeDiscoveryProfile.totals
+                                                                            .total_coincarnations
+                                                                    )}
+                                                                </p>
+
+                                                                <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-gray-600">
+                                                                    Events
+                                                                </p>
+                                                            </div>
                                                         </div>
 
-                                                        <div className="shrink-0 text-right">
-                                                            <p className="text-2xl font-black tracking-tight text-white">
-                                                                {formatNumberCompact(
-                                                                    activeDiscoveryProfile
-                                                                        .totals
-                                                                        .total_coincarnations
-                                                                )}
+                                                        {/* Event timeline */}
+                                                        <div className="px-4 py-5">
+                                                            <div className="relative">
+                                                                <div
+                                                                    aria-hidden="true"
+                                                                    className="absolute bottom-3 left-[7px] top-3 w-px bg-gradient-to-b from-violet-300/35 via-white/10 to-transparent"
+                                                                />
+
+                                                                <div className="space-y-5">
+                                                                    {(showAllCoincarnationHistory
+                                                                        ? activeDiscoveryProfile.coincarnation_events
+                                                                        : activeDiscoveryProfile.coincarnation_events.slice(
+                                                                            0,
+                                                                            6
+                                                                        )
+                                                                    ).map((eventItem, index) => {
+                                                                        const transactionUrl =
+                                                                            getSolscanTransactionUrl(
+                                                                                eventItem.transaction_signature
+                                                                            );
+
+                                                                        return (
+                                                                            <div
+                                                                                key={eventItem.id}
+                                                                                className="relative pl-8"
+                                                                            >
+                                                                                <span className="absolute left-0 top-1.5 h-[15px] w-[15px] rounded-full border-4 border-[#0a101c] bg-violet-300 shadow-[0_0_14px_rgba(196,181,253,0.75)]" />
+
+                                                                                <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-4 transition-colors hover:bg-white/[0.025]">
+                                                                                    <div className="flex items-start justify-between gap-4">
+                                                                                        <div className="min-w-0">
+                                                                                            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-violet-200/70">
+                                                                                                Coincarnation Event
+                                                                                            </p>
+
+                                                                                            <p className="mt-1 text-xs leading-5 text-gray-500">
+                                                                                                {formatProfileHistoryDate(
+                                                                                                    eventItem.timestamp
+                                                                                                )}
+                                                                                            </p>
+                                                                                        </div>
+
+                                                                                        <span
+                                                                                            className={[
+                                                                                                'inline-flex shrink-0 rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.09em]',
+                                                                                                getAllocationStatusClasses(
+                                                                                                    eventItem.alloc_status
+                                                                                                ),
+                                                                                            ].join(' ')}
+                                                                                        >
+                                                                                            {formatAllocationStatus(
+                                                                                                eventItem.alloc_status
+                                                                                            )}
+                                                                                        </span>
+                                                                                    </div>
+
+                                                                                    <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10">
+                                                                                        <div className="bg-[#090f1b] px-3 py-3">
+                                                                                            <p className="text-[8px] font-bold uppercase tracking-[0.12em] text-gray-600">
+                                                                                                Amount
+                                                                                            </p>
+
+                                                                                            <p className="mt-1.5 truncate text-sm font-semibold text-white">
+                                                                                                {formatCoincarnationAmount(
+                                                                                                    eventItem.token_amount
+                                                                                                )}{' '}
+                                                                                                {eventItem.token_symbol ||
+                                                                                                    activeDiscoveryDetail.symbol ||
+                                                                                                    'Tokens'}
+                                                                                            </p>
+                                                                                        </div>
+
+                                                                                        <div className="bg-[#090f1b] px-3 py-3">
+                                                                                            <p className="text-[8px] font-bold uppercase tracking-[0.12em] text-gray-600">
+                                                                                                Revived Value
+                                                                                            </p>
+
+                                                                                            <p className="mt-1.5 text-sm font-semibold text-emerald-200">
+                                                                                                {formatCoincarnationUsd(
+                                                                                                    eventItem.usd_value
+                                                                                                )}
+                                                                                            </p>
+                                                                                        </div>
+
+                                                                                        <div className="bg-[#090f1b] px-3 py-3">
+                                                                                            <p className="text-[8px] font-bold uppercase tracking-[0.12em] text-gray-600">
+                                                                                                Phase
+                                                                                            </p>
+
+                                                                                            <p className="mt-1.5 text-sm font-semibold text-gray-200">
+                                                                                                {eventItem.phase_id !==
+                                                                                                    null
+                                                                                                    ? `Phase ${eventItem.phase_id}`
+                                                                                                    : 'Unassigned'}
+                                                                                            </p>
+                                                                                        </div>
+
+                                                                                        <div className="bg-[#090f1b] px-3 py-3">
+                                                                                            <p className="text-[8px] font-bold uppercase tracking-[0.12em] text-gray-600">
+                                                                                                Wallet
+                                                                                            </p>
+
+                                                                                            <p
+                                                                                                className="mt-1.5 truncate font-mono text-xs font-semibold text-gray-300"
+                                                                                                title={
+                                                                                                    eventItem.wallet_address
+                                                                                                }
+                                                                                            >
+                                                                                                {shortenWalletAddress(
+                                                                                                    eventItem.wallet_address
+                                                                                                )}
+                                                                                            </p>
+                                                                                        </div>
+                                                                                    </div>
+
+                                                                                    <div className="mt-3 flex min-w-0 items-center justify-between gap-3">
+                                                                                        <div className="min-w-0">
+                                                                                            <p className="text-[8px] font-bold uppercase tracking-[0.12em] text-gray-600">
+                                                                                                Transaction
+                                                                                            </p>
+
+                                                                                            <p
+                                                                                                className="mt-1 truncate font-mono text-[10px] text-gray-500"
+                                                                                                title={
+                                                                                                    eventItem.transaction_signature ?? undefined
+                                                                                                }
+                                                                                            >
+                                                                                                {shortenTransactionSignature(
+                                                                                                    eventItem.transaction_signature
+                                                                                                )}
+                                                                                            </p>
+                                                                                        </div>
+
+                                                                                        {transactionUrl && (
+                                                                                            <a
+                                                                                                href={transactionUrl}
+                                                                                                target="_blank"
+                                                                                                rel="noreferrer"
+                                                                                                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-violet-400/15 bg-violet-400/[0.06] px-3 py-2 text-[10px] font-semibold text-violet-200 transition-colors hover:bg-violet-400/[0.1]"
+                                                                                            >
+                                                                                                View transaction
+                                                                                                <span aria-hidden="true">
+                                                                                                    ↗
+                                                                                                </span>
+                                                                                            </a>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Event footer */}
+                                                        <div className="flex flex-col gap-3 border-t border-white/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                                                            <p className="text-[10px] leading-5 text-gray-600">
+                                                                {
+                                                                    activeDiscoveryProfile.coincarnation_events
+                                                                        .length
+                                                                }{' '}
+                                                                Coincarnation event
+                                                                {activeDiscoveryProfile.coincarnation_events
+                                                                    .length === 1
+                                                                    ? ''
+                                                                    : 's'}{' '}
+                                                                available.
                                                             </p>
 
-                                                            <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-gray-600">
-                                                                Events
-                                                            </p>
+                                                            {activeDiscoveryProfile.coincarnation_events.length >
+                                                                6 && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            setShowAllCoincarnationHistory(
+                                                                                (currentValue) => !currentValue
+                                                                            )
+                                                                        }
+                                                                        className="cursor-pointer self-start rounded-lg border border-violet-400/15 bg-violet-400/[0.06] px-3 py-2 text-[10px] font-semibold text-violet-200 transition-colors hover:bg-violet-400/[0.1] sm:self-auto"
+                                                                    >
+                                                                        {showAllCoincarnationHistory
+                                                                            ? 'Show recent only'
+                                                                            : `View all ${activeDiscoveryProfile.coincarnation_events.length}`}
+                                                                    </button>
+                                                                )}
                                                         </div>
                                                     </div>
                                                 ) : (
@@ -3327,8 +3611,7 @@ export default function CoinographiaPage() {
                                                         </p>
 
                                                         <p className="mt-1 text-xs leading-5 text-gray-500">
-                                                            Future Coincarnation activity will
-                                                            appear here.
+                                                            Future Coincarnation activity will appear here.
                                                         </p>
                                                     </div>
                                                 )}
