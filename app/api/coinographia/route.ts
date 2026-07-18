@@ -16,6 +16,8 @@ const ALLOWED_STATUSES = [
 
 type TokenStatus = typeof ALLOWED_STATUSES[number];
 
+const MAX_QUERY_LENGTH = 100;
+
 function toInt(v: string | null, d: number) {
   const n = parseInt(String(v ?? ''), 10);
   return Number.isFinite(n) ? n : d;
@@ -26,7 +28,24 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
 
     const qRaw = searchParams.get('q');
-    const q = qRaw?.trim() || null;
+    const qTrimmed = qRaw?.trim() || '';
+
+    if (qTrimmed.length > MAX_QUERY_LENGTH) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Search query is too long.',
+        },
+        {
+          status: 400,
+          headers: {
+            'Cache-Control': 'no-store',
+          },
+        }
+      );
+    }
+
+    const q = qTrimmed || null;
 
     const rawStatus = searchParams.get('status');
     const status =
