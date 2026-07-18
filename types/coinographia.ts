@@ -32,10 +32,10 @@ export type CoincarnationEvent = {
     wallet_address: string;
     token_symbol: string | null;
     token_contract: string;
-    token_amount: number;
-    usd_value: number;
+    token_amount: number | null;
+    usd_value: number | null;
     transaction_signature: string | null;
-    timestamp: string;
+    timestamp: string | null;
     phase_id: number | null;
     alloc_status: string | null;
 };

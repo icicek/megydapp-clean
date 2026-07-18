@@ -1,7 +1,7 @@
 //app/coinographia/page.tsx
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import AppWalletBar from '@/components/AppWalletBar';
 import { useRouter } from 'next/navigation';
 import type { AssetProfileResponse } from '@/types/coinographia';
@@ -1301,6 +1301,9 @@ export default function CoinographiaPage() {
     const [profileError, setProfileError] =
         useState<string | null>(null);
 
+    const profileRequestControllerRef =
+        useRef<AbortController | null>(null);
+
     const [visibleSurvivalHistoryCount, setVisibleSurvivalHistoryCount] =
         useState(HISTORY_PAGE_SIZE);
 
@@ -1404,13 +1407,14 @@ export default function CoinographiaPage() {
         return sp.toString();
     }, [q, status, limit, page]);
 
-    async function load() {
+    async function load(signal?: AbortSignal) {
         try {
             setLoading(true);
             setError(null);
 
             const res = await fetch(`/api/coinographia?${params}`, {
                 cache: 'no-store',
+                signal,
             });
 
             if (!res.ok) {
@@ -1419,12 +1423,28 @@ export default function CoinographiaPage() {
 
             const j = await res.json();
 
-            setItems(j.items || []);
-            setTotal(j.total || 0);
-        } catch (e: any) {
-            setError(e?.message || 'Load error');
+            if (signal?.aborted) return;
+
+            setItems(Array.isArray(j.items) ? j.items : []);
+            setTotal(Number(j.total) || 0);
+        } catch (error: unknown) {
+            if (
+                error instanceof DOMException &&
+                error.name === 'AbortError'
+            ) {
+                return;
+            }
+
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : 'Load error';
+
+            setError(message);
         } finally {
-            setLoading(false);
+            if (!signal?.aborted) {
+                setLoading(false);
+            }
         }
     }
 
@@ -1447,41 +1467,76 @@ export default function CoinographiaPage() {
         }
     }
 
-    async function loadDiscovery() {
+    async function loadDiscovery(signal?: AbortSignal) {
         try {
             setDiscoveryLoading(true);
             setDiscoveryError(null);
 
             const sp = new URLSearchParams();
-            if (q.trim()) sp.set('q', q.trim());
-            if (status) sp.set('status', status);
+
+            if (q.trim()) {
+                sp.set('q', q.trim());
+            }
+
+            if (status) {
+                sp.set('status', status);
+            }
+
             sp.set('limit', '12');
             sp.set('offset', '0');
             sp.set('sort', discoverySort);
 
-            const res = await fetch(`/api/coinographia/discovery?${sp.toString()}`, {
-                cache: 'no-store',
-            });
+            const res = await fetch(
+                `/api/coinographia/discovery?${sp.toString()}`,
+                {
+                    cache: 'no-store',
+                    signal,
+                }
+            );
 
             if (!res.ok) {
                 throw new Error(`HTTP ${res.status}`);
             }
 
             const j = await res.json();
-            setDiscoveryItems(Array.isArray(j.items) ? j.items : []);
-        } catch (e: any) {
-            setDiscoveryError(e?.message || 'Discovery load error');
+
+            if (signal?.aborted) return;
+
+            setDiscoveryItems(
+                Array.isArray(j.items) ? j.items : []
+            );
+        } catch (error: unknown) {
+            if (
+                error instanceof DOMException &&
+                error.name === 'AbortError'
+            ) {
+                return;
+            }
+
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : 'Discovery load error';
+
+            setDiscoveryError(message);
         } finally {
-            setDiscoveryLoading(false);
+            if (!signal?.aborted) {
+                setDiscoveryLoading(false);
+            }
         }
     }
 
     useEffect(() => {
-        const id = setTimeout(() => {
-            void load();
+        const controller = new AbortController();
+
+        const timeoutId = window.setTimeout(() => {
+            void load(controller.signal);
         }, 200);
 
-        return () => clearTimeout(id);
+        return () => {
+            window.clearTimeout(timeoutId);
+            controller.abort();
+        };
     }, [params]);
 
     useEffect(() => {
@@ -1493,11 +1548,16 @@ export default function CoinographiaPage() {
     }, [q, status, limit]);
 
     useEffect(() => {
-        const id = setTimeout(() => {
-            void loadDiscovery();
+        const controller = new AbortController();
+
+        const timeoutId = window.setTimeout(() => {
+            void loadDiscovery(controller.signal);
         }, 180);
 
-        return () => clearTimeout(id);
+        return () => {
+            window.clearTimeout(timeoutId);
+            controller.abort();
+        };
     }, [q, status, discoverySort]);
 
     useEffect(() => {
@@ -1509,6 +1569,12 @@ export default function CoinographiaPage() {
 
         return () => {
             window.clearInterval(intervalId);
+        };
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            profileRequestControllerRef.current?.abort();
         };
     }, []);
 
@@ -1671,6 +1737,11 @@ export default function CoinographiaPage() {
     }
 
     const openDiscoveryProfile = async (item: DiscoveryRow) => {
+        profileRequestControllerRef.current?.abort();
+
+        const controller = new AbortController();
+        profileRequestControllerRef.current = controller;
+
         setActiveDiscoveryDetail(item);
         setActiveDiscoveryProfile(null);
         setProfileError(null);
@@ -1685,6 +1756,7 @@ export default function CoinographiaPage() {
                 {
                     method: 'GET',
                     cache: 'no-store',
+                    signal: controller.signal,
                 }
             );
 
@@ -1692,20 +1764,33 @@ export default function CoinographiaPage() {
                 | AssetProfileResponse
                 | { error?: string; message?: string };
 
+            if (controller.signal.aborted) return;
+
             if (!response.ok) {
                 throw new Error(
                     'error' in data
-                        ? data.error || data.message || 'Asset profile could not be loaded.'
+                        ? data.error ||
+                        data.message ||
+                        'Asset profile could not be loaded.'
                         : 'Asset profile could not be loaded.'
                 );
             }
 
             if (!('success' in data) || !data.success) {
-                throw new Error('Asset profile returned an invalid response.');
+                throw new Error(
+                    'Asset profile returned an invalid response.'
+                );
             }
 
             setActiveDiscoveryProfile(data);
-        } catch (error) {
+        } catch (error: unknown) {
+            if (
+                error instanceof DOMException &&
+                error.name === 'AbortError'
+            ) {
+                return;
+            }
+
             const message =
                 error instanceof Error
                     ? error.message
@@ -1714,11 +1799,19 @@ export default function CoinographiaPage() {
             setProfileError(message);
             setActiveDiscoveryProfile(null);
         } finally {
-            setProfileLoading(false);
+            if (
+                profileRequestControllerRef.current === controller
+            ) {
+                profileRequestControllerRef.current = null;
+                setProfileLoading(false);
+            }
         }
     };
 
     const closeDiscoveryProfile = () => {
+        profileRequestControllerRef.current?.abort();
+        profileRequestControllerRef.current = null;
+
         setActiveDiscoveryDetail(null);
         setActiveDiscoveryProfile(null);
         setProfileError(null);
