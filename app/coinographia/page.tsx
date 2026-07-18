@@ -1315,6 +1315,9 @@ export default function CoinographiaPage() {
     const [survivalHistoryFilter, setSurvivalHistoryFilter] =
         useState<SurvivalHistoryFilter>('all');
 
+    const discoveryDrawerRef = useRef<HTMLElement | null>(null);
+    const discoveryDrawerCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+    const discoveryDrawerTriggerRef = useRef<HTMLElement | null>(null);
     const [discoveryNow, setDiscoveryNow] = useState(0);
 
     function handleCoincarnateClick(
@@ -1579,6 +1582,95 @@ export default function CoinographiaPage() {
     }, []);
 
     useEffect(() => {
+        if (!activeDiscoveryDetail) {
+            return;
+        }
+
+        const previousBodyOverflow = document.body.style.overflow;
+
+        document.body.style.overflow = 'hidden';
+
+        const focusTimer = window.setTimeout(() => {
+            discoveryDrawerCloseButtonRef.current?.focus();
+        }, 0);
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeDiscoveryProfile();
+                return;
+            }
+
+            if (event.key !== 'Tab') {
+                return;
+            }
+
+            const drawer = discoveryDrawerRef.current;
+
+            if (!drawer) {
+                return;
+            }
+
+            const focusableElements = Array.from(
+                drawer.querySelectorAll<HTMLElement>(
+                    [
+                        'a[href]',
+                        'button:not([disabled])',
+                        'input:not([disabled])',
+                        'select:not([disabled])',
+                        'textarea:not([disabled])',
+                        '[tabindex]:not([tabindex="-1"])',
+                    ].join(',')
+                )
+            ).filter(
+                (element) =>
+                    !element.hasAttribute('disabled') &&
+                    element.getAttribute('aria-hidden') !== 'true'
+            );
+
+            if (focusableElements.length === 0) {
+                event.preventDefault();
+                drawer.focus();
+                return;
+            }
+
+            const firstFocusableElement = focusableElements[0];
+            const lastFocusableElement =
+                focusableElements[focusableElements.length - 1];
+
+            if (
+                event.shiftKey &&
+                document.activeElement === firstFocusableElement
+            ) {
+                event.preventDefault();
+                lastFocusableElement.focus();
+                return;
+            }
+
+            if (
+                !event.shiftKey &&
+                document.activeElement === lastFocusableElement
+            ) {
+                event.preventDefault();
+                firstFocusableElement.focus();
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.clearTimeout(focusTimer);
+            document.removeEventListener('keydown', handleKeyDown);
+            document.body.style.overflow = previousBodyOverflow;
+
+            window.setTimeout(() => {
+                discoveryDrawerTriggerRef.current?.focus();
+                discoveryDrawerTriggerRef.current = null;
+            }, 0);
+        };
+    }, [activeDiscoveryDetail]);
+
+    useEffect(() => {
         if (!activeDiscoveryDetail) return;
 
         const previousOverflow = document.body.style.overflow;
@@ -1737,6 +1829,11 @@ export default function CoinographiaPage() {
     }
 
     const openDiscoveryProfile = async (item: DiscoveryRow) => {
+        discoveryDrawerTriggerRef.current =
+            document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : null;
+
         profileRequestControllerRef.current?.abort();
 
         const controller = new AbortController();
@@ -3097,6 +3194,8 @@ export default function CoinographiaPage() {
 
                         {/* Drawer */}
                         <aside
+                            ref={discoveryDrawerRef}
+                            tabIndex={-1}
                             className="asset-drawer-motion absolute inset-y-0 right-0 flex w-full max-w-[520px] flex-col overflow-hidden border-l border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.15),transparent_28%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.13),transparent_32%),linear-gradient(180deg,rgba(12,18,32,0.995),rgba(6,10,19,0.995))] shadow-[-28px_0_90px_rgba(0,0,0,0.58),-8px_0_40px_rgba(34,211,238,0.08)] animate-[assetDrawerIn_320ms_cubic-bezier(0.22,1,0.36,1)] pb-[env(safe-area-inset-bottom)]"
                             onClick={(event) => event.stopPropagation()}
                         >
@@ -3114,6 +3213,7 @@ export default function CoinographiaPage() {
                                     </div>
 
                                     <button
+                                        ref={discoveryDrawerCloseButtonRef}
                                         type="button"
                                         onClick={closeDiscoveryProfile}
                                         className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-lg text-gray-300 transition-all duration-200 hover:border-cyan-300/25 hover:bg-white/[0.09] hover:text-white"
