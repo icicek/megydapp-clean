@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import AppWalletBar from '@/components/AppWalletBar';
 import { useRouter } from 'next/navigation';
 import type { AssetProfileResponse } from '@/types/coinographia';
+import { motion } from 'framer-motion';
 
 const STATUSES = ['healthy', 'walking_dead', 'deadcoin', 'redlist', 'blacklist'] as const;
 type TokenStatus = typeof STATUSES[number];
@@ -3003,11 +3004,11 @@ export default function CoinographiaPage() {
 
                         {/* Drawer */}
                         <aside
-                            className="asset-drawer-motion absolute inset-y-0 right-0 flex w-full max-w-[560px] flex-col overflow-hidden border-l border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.15),transparent_28%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.13),transparent_32%),linear-gradient(180deg,rgba(12,18,32,0.995),rgba(6,10,19,0.995))] shadow-[-28px_0_90px_rgba(0,0,0,0.58),-8px_0_40px_rgba(34,211,238,0.08)] animate-[assetDrawerIn_320ms_cubic-bezier(0.22,1,0.36,1)]"
+                            className="asset-drawer-motion absolute inset-y-0 right-0 flex w-full max-w-[520px] flex-col overflow-hidden border-l border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.15),transparent_28%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.13),transparent_32%),linear-gradient(180deg,rgba(12,18,32,0.995),rgba(6,10,19,0.995))] shadow-[-28px_0_90px_rgba(0,0,0,0.58),-8px_0_40px_rgba(34,211,238,0.08)] animate-[assetDrawerIn_320ms_cubic-bezier(0.22,1,0.36,1)] pb-[env(safe-area-inset-bottom)]"
                             onClick={(event) => event.stopPropagation()}
                         >
                             {/* Fixed top bar */}
-                            <div className="shrink-0 border-b border-white/10 bg-black/10 px-4 py-4 backdrop-blur-xl sm:px-5">
+                            <div className="shrink-0 border-b border-white/10 bg-black/10 px-5 py-4 backdrop-blur-xl sm:px-6">
                                 <div className="flex items-center justify-between gap-4">
                                     <div className="min-w-0">
                                         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-200/65">
@@ -3077,7 +3078,7 @@ export default function CoinographiaPage() {
                                 ) : activeDiscoveryProfile ? (
                                     <>
                                         {/* Asset hero */}
-                                        <section className="relative overflow-hidden border-b border-white/10 px-4 pb-6 pt-8 sm:px-5 sm:pb-7 sm:pt-10">
+                                        <section className="relative overflow-hidden border-b border-white/10 px-5 pb-6 pt-8 sm:px-6 sm:pb-7 sm:pt-10">
                                             <div
                                                 aria-hidden="true"
                                                 className="pointer-events-none absolute -right-20 -top-28 h-64 w-64 rounded-full bg-cyan-400/[0.08] blur-3xl"
@@ -3202,7 +3203,7 @@ export default function CoinographiaPage() {
                                         </section>
 
                                         {/* Profile content */}
-                                        <div className="px-4 pb-5 sm:px-5 sm:pb-6">
+                                        <div className="px-5 pb-5 sm:px-6 sm:pb-6">
                                             {/* Asset biography */}
                                             <section className="border-b border-white/10 pb-6">
                                                 <div className="flex items-center gap-3">
@@ -4074,10 +4075,10 @@ export default function CoinographiaPage() {
                             </div>
 
                             {/* Sticky action bar */}
-                            <div className="relative shrink-0 border-t border-white/10 bg-[#070c16]/90 px-4 py-3 shadow-[0_-18px_45px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:px-5 sm:py-4">
+                            <div className="relative shrink-0 border-t border-white/10 bg-[#070c16]/90 px-5 py-3 shadow-[0_-18px_45px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:px-6 sm:py-4">
                                 <div className="pointer-events-none absolute inset-x-0 bottom-full h-8 bg-gradient-to-t from-[#070c16]/80 to-transparent" />
 
-                                <div className="relative grid grid-cols-2 gap-2">
+                                <div className="relative grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
                                     <button
                                         type="button"
                                         disabled={
