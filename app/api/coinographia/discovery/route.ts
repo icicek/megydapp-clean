@@ -14,6 +14,8 @@ const ALLOWED_STATUSES = [
   'blacklist',
 ] as const;
 
+const MAX_QUERY_LENGTH = 100;
+
 type TokenStatus = typeof ALLOWED_STATUSES[number];
 type SortKey = 'recent' | 'usd' | 'wallets' | 'coincarnations';
 
@@ -38,7 +40,24 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
 
     const qRaw = searchParams.get('q');
-    const q = qRaw?.trim() || null;
+    const qTrimmed = qRaw?.trim() || '';
+
+    if (qTrimmed.length > MAX_QUERY_LENGTH) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Search query is too long.',
+        },
+        {
+          status: 400,
+          headers: {
+            'Cache-Control': 'no-store',
+          },
+        }
+      );
+    }
+
+    const q = qTrimmed || null;
 
     const rawStatus = searchParams.get('status');
     const status =
@@ -271,14 +290,14 @@ export async function GET(req: NextRequest) {
       activity_score: number;
       heat_level: 'HOT' | 'TRENDING' | 'LIVE' | null;
       rank_reason:
-        | 'highest_revived_usd'
-        | 'most_wallets'
-        | 'most_coincarnations'
-        | 'hot_now'
-        | 'trending_now'
-        | 'live_now'
-        | 'recent_cluster'
-        | 'search_pioneer';
+      | 'highest_revived_usd'
+      | 'most_wallets'
+      | 'most_coincarnations'
+      | 'hot_now'
+      | 'trending_now'
+      | 'live_now'
+      | 'recent_cluster'
+      | 'search_pioneer';
     }>;
 
     const totalRows = (await sql`
