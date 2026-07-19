@@ -212,6 +212,7 @@ export default function ClaimPanel() {
   const [claimAmount, setClaimAmount] = useState<string>('');
   const [selectedClaimPercent, setSelectedClaimPercent] = useState<25 | 50 | 100 | null>(null);
   const [loading, setLoading] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
   const [isClaiming, setIsClaiming] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [claimOpen, setClaimOpen] = useState(false);
@@ -241,7 +242,13 @@ export default function ClaimPanel() {
   const [copiedLinkedWallet, setCopiedLinkedWallet] = useState<string | null>(null);
 
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
-  const [copiedTarget, setCopiedTarget] = useState<'wallet' | 'referral' | null>(null);
+  const [copiedTarget, setCopiedTarget] = useState<
+    | 'profileWallet'
+    | 'claimDestination'
+    | 'profileReferral'
+    | 'pvcReferral'
+    | null
+  >(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
   const [shareContext, setShareContext] = useState<'profile' | 'contribution' | 'leaderboard' | 'success'>('profile');
@@ -278,6 +285,7 @@ export default function ClaimPanel() {
     wallet: string;
     destination: string;
     phaseId: number;
+    claimScope: 'wallet' | 'identity';
     claimAmountRaw: string;
     idemKey: string;
   } | null>(null);
@@ -290,29 +298,28 @@ export default function ClaimPanel() {
     linkedWallets.some(
       (item) =>
         item.chain === 'solana' &&
-        item.walletAddress.toLowerCase() === walletBase58.toLowerCase()
+        item.walletAddress === walletBase58
     )
   );
   const [refundDebug, setRefundDebug] = useState<any>(null);
 
-  async function fetchLinkedIdentityWallets() {
+  async function fetchLinkedIdentityWallets(): Promise<LinkedIdentityWallet[]> {
     try {
       const res = await fetch('/api/auth/wallets', {
         method: 'GET',
         credentials: 'include',
         cache: 'no-store',
       });
-
+  
       const json = await res.json().catch(() => ({}));
-
+  
       if (!res.ok || !json?.ok || !Array.isArray(json.wallets)) {
-        setLinkedWallets([]);
-        return;
+        return [];
       }
-
-      setLinkedWallets(json.wallets);
+  
+      return json.wallets;
     } catch {
-      setLinkedWallets([]);
+      return [];
     }
   }
 
@@ -320,8 +327,19 @@ export default function ClaimPanel() {
     let alive = true;
 
     const fetchData = async () => {
-      if (!publicKey) return;
+      if (!publicKey) {
+        setLoading(false);
+        setData(null);
+        setClaimScopeMeta({
+          scope: 'wallet',
+          claimWalletsCount: 1,
+          isIdentityClaimScope: false,
+        });
+        return;
+      }
+    
       setLoading(true);
+      setDataError(null);
       try {
         const [claimStatusRes, userRes, globalRes] = await Promise.all([
           fetch('/api/admin/config/claim_open'),
@@ -337,9 +355,17 @@ export default function ClaimPanel() {
           userRes.json().catch(() => ({})),
           globalRes.json().catch(() => ({})),
         ]);
-
+        
         if (!alive) return;
-
+        
+        if (!userRes.ok) {
+          throw new Error(
+            userData?.error ||
+              userData?.message ||
+              `Claim data request failed with status ${userRes.status}.`
+          );
+        }
+        
         setClaimOpen(asBool(claimStatus?.value));
 
         if (userData?.success) {
@@ -390,7 +416,11 @@ export default function ClaimPanel() {
 
       } catch (err) {
         if (!alive) return;
+      
         console.error('Claim fetch error:', err);
+        setDataError(
+          'Your claim data could not be loaded. Please refresh the page and try again.'
+        );
       } finally {
         if (!alive) return;
         setLoading(false);
@@ -569,17 +599,31 @@ export default function ClaimPanel() {
 
   useEffect(() => {
     const w = publicKey?.toBase58() ?? null;
+  
     if (!w) {
       setCpHistory([]);
       setLoadingHistory(false);
       return;
     }
-    (async () => {
+  
+    let alive = true;
+  
+    const loadHistory = async () => {
       setLoadingHistory(true);
+  
       const events = await fetchCorepointHistory(w);
+  
+      if (!alive) return;
+  
       setCpHistory(events);
       setLoadingHistory(false);
-    })();
+    };
+  
+    void loadHistory();
+  
+    return () => {
+      alive = false;
+    };
   }, [publicKey]);
 
   useEffect(() => {
@@ -632,7 +676,11 @@ export default function ClaimPanel() {
             identity: recoveredStatus.identity,
           });
 
-          await fetchLinkedIdentityWallets();
+          const wallets = await fetchLinkedIdentityWallets();
+
+          if (!alive) return;
+
+          setLinkedWallets(wallets);
           return;
         }
 
@@ -723,6 +771,22 @@ export default function ClaimPanel() {
     );
   }
 
+  if (dataError) {
+    return (
+      <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
+        <div className="max-w-6xl w-full mx-auto space-y-6">
+          <AppWalletBar />
+  
+          <div className="rounded-2xl border border-red-400/20 bg-zinc-900 p-6 shadow-lg">
+            <p className="text-center font-medium text-red-300">
+              {dataError}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading || data === null) {
     return (
       <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
@@ -749,18 +813,34 @@ export default function ClaimPanel() {
   })();
 
   // 🔹 Deadcoins Revived sayısını artık backend'den alıyoruz
-  const deadcoinsRevived = Number(data.deadcoins_revived ?? 0);
+  const deadcoinsRevived = Math.max(
+    0,
+    toNum(data.deadcoins_revived, 0)
+  );
 
   const shareRatio =
-    globalStats.totalUsd > 0 ? Number(data.total_usd_contributed || 0) / globalStats.totalUsd : 0;
+  globalStats.totalUsd > 0
+    ? Math.max(
+        0,
+        toNum(data.total_usd_contributed, 0) /
+          globalStats.totalUsd
+      )
+    : 0;
 
   const claimableMegy =
     claimableFromFinalized != null
       ? claimableFromFinalized
       : 0;
 
-  const finalizedTotal = Number(finalizedClaim?.finalized_megy_total ?? 0);
-  const claimedTotal = Number(finalizedClaim?.claimed_megy_total ?? 0);
+  const finalizedTotal = Math.max(
+    0,
+    toNum(finalizedClaim?.finalized_megy_total, 0)
+  );
+
+  const claimedTotal = Math.max(
+    0,
+    toNum(finalizedClaim?.claimed_megy_total, 0)
+  );
 
   // Phase selection (Option A: phase-based claim)
   const latestFinalizedPhaseId = phaseId;
@@ -776,17 +856,17 @@ export default function ClaimPanel() {
       : null;
 
   const selectedClaimable =
-    claimScope === 'identity'
-      ? Math.max(
+  claimScope === 'identity'
+    ? Math.max(
         0,
-        Number(finalizedClaim?.claimable_megy_total ?? 0)
+        toNum(finalizedClaim?.claimable_megy_total, 0)
       )
-      : selectedPhaseRow
-        ? Math.max(
+    : selectedPhaseRow
+      ? Math.max(
           0,
-          Number(selectedPhaseRow.claimable_megy ?? 0)
+          toNum(selectedPhaseRow.claimable_megy, 0)
         )
-        : 0;
+      : 0;
 
   const effectivePhaseLabel =
     selectedPhaseRow?.phase_name ||
@@ -805,13 +885,23 @@ export default function ClaimPanel() {
     })
     : null;
 
-  const selectedPhaseTotal =
-    Number(selectedPhaseSnapshot?.finalized_megy ?? 0) ||
-    Number(selectedPhaseSnapshot?.finalizedMegy ?? 0) ||
-    (
-      Number(selectedPhaseSnapshot?.claimed_megy ?? selectedPhaseSnapshot?.claimed ?? 0) +
-      Number(selectedPhaseSnapshot?.claimable_megy ?? selectedPhaseSnapshot?.claimable ?? selectedClaimable ?? 0)
-    );
+  const selectedPhaseTotal = Math.max(
+    0,
+    toNum(
+      selectedPhaseSnapshot?.finalized_megy ??
+        selectedPhaseSnapshot?.finalizedMegy,
+      toNum(
+        selectedPhaseSnapshot?.claimed_megy ??
+          selectedPhaseSnapshot?.claimed,
+        0
+      ) +
+        toNum(
+          selectedPhaseSnapshot?.claimable_megy ??
+            selectedPhaseSnapshot?.claimable,
+          selectedClaimable
+        )
+    )
+  );
 
   const claimExecutionPhaseId =
     claimScope === 'identity' ? 0 : Number(effectivePhaseId ?? 0);
@@ -836,23 +926,28 @@ export default function ClaimPanel() {
   async function handleIdentityLogout() {
     try {
       setMessage('⏳ Signing out identity on this browser...');
-
+  
       const res = await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });
-
+  
       if (!res.ok) {
         throw new Error('IDENTITY_LOGOUT_FAILED');
       }
-
+  
       setIdentityStatus({
         authenticated: false,
         identity: null,
       });
-
+  
       setLinkedWallets([]);
-      setMessage('✅ Identity signed out on this browser. Your linked wallets remain safe.');
+      setShowAllLinkedWallets(false);
+      setShowIdentityTools(false);
+  
+      setMessage(
+        '✅ Identity signed out on this browser. Your linked wallets remain safe.'
+      );
     } catch {
       setMessage('❌ Failed to sign out identity. Please try again.');
     }
@@ -891,7 +986,8 @@ export default function ClaimPanel() {
       });
       setWalletHasNoLinkedIdentity(false);
 
-      await fetchLinkedIdentityWallets();
+      const wallets = await fetchLinkedIdentityWallets();
+      setLinkedWallets(wallets);
 
       setMessage('✅ Signed in with your linked wallet.');
     } catch {
@@ -920,7 +1016,8 @@ export default function ClaimPanel() {
       const nextStatus = await getUserIdentityStatus();
       setIdentityStatus(nextStatus);
 
-      await fetchLinkedIdentityWallets();
+      const wallets = await fetchLinkedIdentityWallets();
+      setLinkedWallets(wallets);
 
       setMessage('✅ Identity verified. You can now perform protected actions.');
     } catch (error) {
@@ -985,7 +1082,8 @@ export default function ClaimPanel() {
       const nextStatus = await getUserIdentityStatus();
       setIdentityStatus(nextStatus);
 
-      await fetchLinkedIdentityWallets();
+      const wallets = await fetchLinkedIdentityWallets();
+      setLinkedWallets(wallets);
 
       setIdentityLinkCodeInput('');
       setMessage('✅ Wallet linked with identity code.');
@@ -1023,7 +1121,8 @@ export default function ClaimPanel() {
       const nextStatus = await getUserIdentityStatus();
       setIdentityStatus(nextStatus);
 
-      await fetchLinkedIdentityWallets();
+      const wallets = await fetchLinkedIdentityWallets();
+      setLinkedWallets(wallets);
 
       setMessage('✅ Active wallet linked to your Coincarnation Identity.');
     } catch (error) {
@@ -1414,7 +1513,8 @@ export default function ClaimPanel() {
         setPendingClaim({
           wallet: walletBase58,
           destination,
-          phaseId: claimExecutionPhaseId, // can be 0 when "all phases" enabled
+          phaseId: claimExecutionPhaseId,
+          claimScope,
           claimAmountRaw: raw,
           idemKey,
         });
@@ -1611,6 +1711,7 @@ export default function ClaimPanel() {
           throw new Error(String(j?.error || `REFUND_REQUEST_FAILED (${r.status})`));
         }
 
+        setRefundFeeSigForSupport(null);
         setMessage('✅ Refund request signed and recorded successfully.');
 
         const refreshed = await fetch(`/api/claim/${publicKey.toBase58()}`, {
@@ -1625,6 +1726,35 @@ export default function ClaimPanel() {
         return;
       }
 
+      const refundFeeLamports = Number(
+        feePrepJson.refund_fee_lamports ?? 0
+      );
+      
+      const refundFeeSol = Number(
+        feePrepJson.refund_fee_sol ?? 0
+      );
+      
+      const treasuryWallet = String(
+        feePrepJson.treasury_wallet ?? ''
+      ).trim();
+      
+      if (
+        !Number.isSafeInteger(refundFeeLamports) ||
+        refundFeeLamports <= 0 ||
+        !Number.isFinite(refundFeeSol) ||
+        refundFeeSol <= 0 ||
+        !treasuryWallet
+      ) {
+        throw new Error('INVALID_REFUND_FEE_CONFIGURATION');
+      }
+      
+      try {
+        // eslint-disable-next-line no-new
+        new PublicKey(treasuryWallet);
+      } catch {
+        throw new Error('INVALID_REFUND_TREASURY_WALLET');
+      }
+      
       // 2) Open refund fee confirmation modal
       setPendingRefund({
         invalidationId:
@@ -1814,6 +1944,7 @@ export default function ClaimPanel() {
         throw new Error(String(j?.error || `REFUND_REQUEST_FAILED (${r.status})`));
       }
 
+      setRefundFeeSigForSupport(null);
       setRefundFeeStep('submitted');
       setMessage('✅ Refund request signed and recorded successfully.');
       setRefundFeeConfirmOpen(false);
@@ -1848,7 +1979,14 @@ export default function ClaimPanel() {
   const confirmAndPayFeeThenExecute = async () => {
     if (!pendingClaim) return;
 
-    const { wallet, destination, phaseId, claimAmountRaw, idemKey } = pendingClaim;
+    const {
+      wallet,
+      destination,
+      phaseId,
+      claimScope: pendingClaimScope,
+      claimAmountRaw,
+      idemKey,
+    } = pendingClaim;
 
     try {
       setIsClaiming(true);
@@ -1856,6 +1994,9 @@ export default function ClaimPanel() {
 
       // Guards
       if (!publicKey) throw new Error('WALLET_NOT_CONNECTED');
+      if (publicKey.toBase58() !== wallet) {
+        throw new Error('WALLET_CHANGED_DURING_CLAIM');
+      }
       if (!connection) throw new Error('RPC_CONNECTION_MISSING');
       if (!sendTransaction) throw new Error('WALLET_SEND_TX_UNAVAILABLE');
       if (!claimOpen) throw new Error('CLAIM_NOT_OPEN');
@@ -1886,7 +2027,7 @@ export default function ClaimPanel() {
       setClaimFeeSigForSupport(feeSig);
       setMessage('⏳ Confirming fee payment on-chain…');
 
-      await connection.confirmTransaction(
+      const confirmation = await connection.confirmTransaction(
         {
           signature: feeSig,
           blockhash: latest.blockhash,
@@ -1894,6 +2035,10 @@ export default function ClaimPanel() {
         },
         'confirmed'
       );
+      
+      if (confirmation.value.err) {
+        throw new Error('CLAIM_FEE_TRANSACTION_FAILED');
+      }
 
       // 2) Start session WITH fee signature
       setMessage('🧩 Opening your claim session…');
@@ -1906,7 +2051,7 @@ export default function ClaimPanel() {
           wallet_address: wallet,
           destination,
           phase_id: phaseId,
-          claim_scope: claimScope,
+          claim_scope: pendingClaimScope,
           fee_tx_signature: feeSig,
           fee_amount: FEE_LAMPORTS,
         }),
@@ -1991,7 +2136,7 @@ export default function ClaimPanel() {
 
       // 4) Refresh profile
       const refreshed = await fetch(
-        `/api/claim/${wallet}${claimScope === 'identity' ? '?scope=identity' : ''}`,
+        `/api/claim/${wallet}${pendingClaimScope === 'identity' ? '?scope=identity' : ''}`,
         { cache: 'no-store' }
       );
       const refreshedJson: any = await refreshed.json().catch(() => ({}));
@@ -2025,7 +2170,10 @@ export default function ClaimPanel() {
   const claimAmountInvalid =
     !isClaimAmountEmpty && (!Number.isFinite(amtNum) || amtNum <= 0);
 
-  const claimAmountNumber = Number(claimAmount || 0);
+  const claimAmountNumber =
+    Number.isFinite(amtNum) && amtNum > 0
+      ? amtNum
+      : 0;
 
   const claimAmountExceeds =
     Number.isFinite(amtNum) && amtNum > selectedClaimable;
@@ -2074,9 +2222,10 @@ export default function ClaimPanel() {
         ? '🚀 Claiming...'
         : selectedClaimable <= 0
           ? '✅ Nothing to claim'
-          : claimScope === 'identity'
-            ? `🎉 Claim ${formatMegyAmount(claimAmountNumber || selectedClaimable, 6)} MEGY`
-            : `🎉 Claim ${formatMegyAmount(claimAmountNumber || selectedClaimable, 6)} MEGY`;
+          : `🎉 Claim ${formatMegyAmount(
+              claimAmountNumber || selectedClaimable,
+              6
+            )} MEGY`;
 
   const protectedActionIssue = getProtectedActionIssue();
 
@@ -2096,7 +2245,7 @@ export default function ClaimPanel() {
       : 'fee tx';
 
   function getLedgerTokenLabel(ev: any): string | null {
-    const symbol =
+    const rawSymbol =
       ev?.token_symbol ||
       ev?.symbol ||
       ev?.tokenSymbol ||
@@ -2104,9 +2253,16 @@ export default function ClaimPanel() {
       ev?.name ||
       null;
 
-    if (symbol) return String(symbol).trim();
+    const symbol = String(rawSymbol ?? '').trim();
 
-    const mint = String(ev?.token_contract || ev?.mint || '').trim();
+    if (symbol) return symbol;
+
+    const mint = String(
+      ev?.token_contract ||
+      ev?.mint ||
+      ''
+    ).trim();
+
     if (mint) return shorten(mint);
 
     return null;
@@ -2364,16 +2520,20 @@ export default function ClaimPanel() {
 
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={async () => {
                               if (!identityLinkCode) return;
-
-                              navigator.clipboard.writeText(identityLinkCode);
-
-                              setIdentityCodeCopied(true);
-
-                              setTimeout(() => {
-                                setIdentityCodeCopied(false);
-                              }, 2000);
+                            
+                              try {
+                                await navigator.clipboard.writeText(identityLinkCode);
+                            
+                                setIdentityCodeCopied(true);
+                            
+                                setTimeout(() => {
+                                  setIdentityCodeCopied(false);
+                                }, 2000);
+                              } catch {
+                                setIdentityLinkMessage('❌ Failed to copy link code.');
+                              }
                             }}
                             className="mt-3 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-white/[0.08]"
                           >
@@ -2520,23 +2680,31 @@ export default function ClaimPanel() {
                   Coincarnator No
                 </p>
                 <p className="mt-1 text-2xl font-black text-cyan-200">
-                  #{data.id}
+                  #{data.id ?? '—'}
                 </p>
               </div>
             </div>
 
             <div className="relative grid grid-cols-1 items-stretch gap-4 md:grid-cols-3">
-              <div
-                className="group relative flex h-[130px] cursor-pointer flex-col overflow-hidden rounded-2xl border border-blue-400/20 bg-blue-500/[0.08] p-4 transition hover:border-blue-300/40 hover:bg-blue-500/[0.14]"
-                onClick={() => {
+              <button
+                type="button"
+                className="group relative flex h-[130px] w-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-blue-400/20 bg-blue-500/[0.08] p-4 text-left transition hover:border-blue-300/40 hover:bg-blue-500/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/60"
+                onClick={async () => {
                   if (!data?.wallet_address) return;
 
-                  navigator.clipboard.writeText(data.wallet_address);
+                  try {
+                    await navigator.clipboard.writeText(data.wallet_address);
 
-                  setCopiedTarget('wallet');
+                    setCopiedTarget('profileWallet');
 
-                  setTimeout(() => setCopiedTarget(null), 2000);
+                    setTimeout(() => {
+                      setCopiedTarget(null);
+                    }, 2000);
+                  } catch {
+                    setMessage('❌ Failed to copy wallet address.');
+                  }
                 }}
+                aria-label="Copy active wallet address"
               >
                 <div className="absolute inset-0 opacity-0 transition group-hover:opacity-100">
                   <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-blue-300/20 blur-2xl" />
@@ -2558,31 +2726,44 @@ export default function ClaimPanel() {
                   Click to copy your active wallet.
                 </p>
 
-                {copiedTarget === 'wallet' && (
+                {copiedTarget === 'profileWallet' && (
                   <p className="absolute right-4 top-10 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300 backdrop-blur-sm">
                     ✅ Copied
                   </p>
                 )}
-              </div>
+              </button>
 
-              <div
+              <button
+                type="button"
+                disabled={!data?.referral_code}
                 className={[
-                  'group relative flex h-[130px] flex-col overflow-hidden rounded-2xl border p-4 transition',
+                  'group relative flex h-[130px] w-full flex-col overflow-hidden rounded-2xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300/60',
                   data?.referral_code
                     ? 'cursor-pointer border-fuchsia-400/20 bg-fuchsia-400/10 hover:border-fuchsia-300/40 hover:bg-fuchsia-400/15'
                     : 'cursor-default border-zinc-700/60 bg-zinc-900/60',
                 ].join(' ')}
-                onClick={() => {
+                onClick={async () => {
                   if (!data?.referral_code) return;
 
-                  const url = buildReferralUrl(data.referral_code ?? '');
+                  try {
+                    const url = buildReferralUrl(data.referral_code);
 
-                  navigator.clipboard.writeText(url);
+                    await navigator.clipboard.writeText(url);
 
-                  setCopiedTarget('referral');
+                    setCopiedTarget('profileReferral');
 
-                  setTimeout(() => setCopiedTarget(null), 2000);
+                    setTimeout(() => {
+                      setCopiedTarget(null);
+                    }, 2000);
+                  } catch {
+                    setMessage('❌ Failed to copy referral link.');
+                  }
                 }}
+                aria-label={
+                  data?.referral_code
+                    ? 'Copy identity referral link'
+                    : 'Referral link unavailable'
+                }
               >
                 <div className="absolute inset-0 opacity-0 transition group-hover:opacity-100">
                   <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-fuchsia-300/20 blur-2xl" />
@@ -2629,12 +2810,12 @@ export default function ClaimPanel() {
                     : 'Activate your Coincarnation Identity to unlock your referral economy.'}
                 </p>
 
-                {copiedTarget === 'referral' && data?.referral_code && (
+                {copiedTarget === 'profileReferral' && data?.referral_code && (
                   <p className="absolute right-4 top-10 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300 backdrop-blur-sm">
                     ✅ Copied
                   </p>
                 )}
-              </div>
+              </button>
 
               <div className="flex h-[130px] flex-col rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
                 <p className="text-xs font-bold uppercase tracking-wide text-emerald-200/70">
@@ -2655,7 +2836,10 @@ export default function ClaimPanel() {
                   Total USD Revived
                 </p>
                 <p className="mt-2 text-3xl font-black text-yellow-100">
-                  ${Number(data.total_usd_contributed || 0).toFixed(2)}
+                  ${Math.max(
+                    0,
+                    toNum(data.total_usd_contributed, 0)
+                  ).toFixed(2)}
                 </p>
                 <p className="mt-auto line-clamp-2 text-xs leading-5 text-yellow-100/60">
                   Your personal revival contribution.
@@ -2680,7 +2864,10 @@ export default function ClaimPanel() {
                 </p>
 
                 <p className="mt-2 truncate text-3xl font-black text-cyan-100">
-                  {Number(data.core_point ?? 0).toLocaleString()} CP
+                  {Math.max(
+                    0,
+                    toNum(data.core_point, 0)
+                  ).toLocaleString()} CP
                 </p>
 
                 <p className="mt-auto line-clamp-2 text-xs leading-5 text-cyan-100/60">
@@ -2776,15 +2963,22 @@ export default function ClaimPanel() {
                           {phasesLoading ? 'Loading…' : currentPhase ? `${currentPhase.name || 'Current Phase'}` : 'No phase'}
                         </p>
 
-                        {currentPhase ? (
-                          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-200">
-                            Active
-                          </span>
-                        ) : null}
+                        {currentPhase &&
+                          !currentPhase.snapshot_taken_at &&
+                          !currentPhase.finalized_at && (
+                            <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-200">
+                              Active
+                            </span>
+                        )}
 
                         {currentPhase?.snapshot_taken_at && (
                           <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-blue-200">
                             Snapshot Taken
+                          </span>
+                        )}
+                        {currentPhase?.finalized_at && (
+                          <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-violet-200">
+                            Finalized
                           </span>
                         )}
                       </div>
@@ -2818,11 +3012,19 @@ export default function ClaimPanel() {
                       );
                     })()}
                     <div className="mt-3 text-center text-xs text-gray-400">
-                      ${Number(currentPhase?.used_usd ?? 0).toLocaleString(undefined, {
+                      $
+                      {Math.max(
+                        0,
+                        toNum(currentPhase?.used_usd, 0)
+                      ).toLocaleString(undefined, {
                         maximumFractionDigits: 2,
                       })}{' '}
                       revived of{' '}
-                      ${Number(currentPhase?.target_usd ?? 0).toLocaleString(undefined, {
+                      $
+                      {Math.max(
+                        0,
+                        toNum(currentPhase?.target_usd, 0)
+                      ).toLocaleString(undefined, {
                         maximumFractionDigits: 2,
                       })}{' '}
                       target
@@ -2840,7 +3042,12 @@ export default function ClaimPanel() {
                   </div>
 
                   {/* Your estimate (inside the same card) */}
-                  {activeEstimate?.active?.id && !currentPhase?.snapshot_taken_at && (
+                  {currentPhase?.id &&
+                    activeEstimate?.active?.id &&
+                    String(activeEstimate.active.id) === String(currentPhase.id) &&
+                    activeEstimate?.me &&
+                    !currentPhase.snapshot_taken_at &&
+                    !currentPhase.finalized_at && (
                     <div className="mt-4 border-t border-zinc-700 pt-4">
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div>
@@ -2874,7 +3081,10 @@ export default function ClaimPanel() {
 
                           <p className="mt-2 text-2xl font-black text-white">
                             $
-                            {Number(activeEstimate.me.userUsd).toLocaleString(undefined, {
+                            {Math.max(
+                              0,
+                              toNum(activeEstimate.me.userUsd, 0)
+                            ).toLocaleString(undefined, {
                               maximumFractionDigits: 2,
                             })}
                           </p>
@@ -2886,7 +3096,12 @@ export default function ClaimPanel() {
                           </p>
 
                           <p className="mt-2 text-2xl font-black text-white">
-                            {(activeEstimate.me.shareRatio * 100).toFixed(3)}%
+                            {(
+                              Math.max(
+                                0,
+                                toNum(activeEstimate.me.shareRatio, 0)
+                              ) * 100
+                            ).toFixed(3)}%
                           </p>
                         </div>
 
@@ -3122,20 +3337,29 @@ export default function ClaimPanel() {
                   {!useAltAddress ? (
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         const address = publicKey?.toBase58();
                         if (!address) return;
 
-                        navigator.clipboard.writeText(address);
-                        setCopiedTarget('wallet');
-                        setTimeout(() => setCopiedTarget(null), 2000);
+                        try {
+                          await navigator.clipboard.writeText(address);
+
+                          setCopiedTarget('claimDestination');
+
+                          setTimeout(() => {
+                            setCopiedTarget(null);
+                          }, 2000);
+                        } catch {
+                          setMessage('❌ Failed to copy destination address.');
+                        }
                       }}
                       className="relative w-full rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-left font-mono text-sm text-emerald-200 break-all transition hover:border-emerald-300/40 hover:bg-emerald-400/15"
                       title="Click to copy destination address"
+                      aria-label="Copy claim destination address"
                     >
                       {publicKey?.toBase58()}
 
-                      {copiedTarget === 'wallet' && (
+                      {copiedTarget === 'claimDestination' && (
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300 backdrop-blur-sm">
                           ✅ Copied
                         </span>
@@ -3168,8 +3392,8 @@ export default function ClaimPanel() {
                     phaseNo: Number(p?.phase_no ?? p?.phaseNo ?? 0) || null,
                     phaseName: p?.phase_name ?? p?.phaseName ?? null,
                     created: p?.created_at ?? p?.snapshot_taken_at ?? p?.createdAt ?? null,
-                    claimable: Number(p?.claimable_megy ?? p?.claimable ?? p?.claimableMegy ?? 0),
-                    claimed: Number(p?.claimed_megy ?? p?.claimed ?? p?.claimedMegy ?? 0),
+                    claimable: Math.max(0, toNum(p?.claimable_megy ?? p?.claimable ?? p?.claimableMegy, 0)),
+                    claimed: Math.max(0, toNum(p?.claimed_megy ?? p?.claimed ?? p?.claimedMegy, 0)),
                   }))
                   .filter((x: any) => Number.isFinite(x.pid) && x.pid > 0)
                   .sort((a: any, b: any) => b.pid - a.pid);
@@ -3574,13 +3798,16 @@ export default function ClaimPanel() {
               {claimOpen ? (
                 <>
                   {(claimScope === 'identity' || effectivePhaseId) && selectedClaimable <= 0 && (
-                    <p className="text-center text-xs text-yellow-300 mb-2">
-                      ⚠️ No claimable balance found for the selected phase. Please select another finalized phase.
+                    <p className="mb-2 text-center text-xs text-yellow-300">
+                      {claimScope === 'identity'
+                        ? '⚠️ No claimable balance was found across your linked wallets.'
+                        : '⚠️ No claimable balance found for the selected phase. Please select another finalized phase.'}
                     </p>
                   )}
 
                   <div className="relative group">
                     <button
+                      type="button"
                       onClick={handleClaim}
                       disabled={claimDisabled}
                       className="w-full rounded-2xl border border-pink-300/30 bg-gradient-to-r from-purple-600 via-fuchsia-500 to-pink-500 py-3.5 text-sm font-black text-white shadow-[0_0_30px_rgba(236,72,153,0.18)] transition-all hover:scale-[1.01] hover:shadow-[0_0_40px_rgba(236,72,153,0.28)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
@@ -3639,7 +3866,14 @@ export default function ClaimPanel() {
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                   <button
                     type="button"
-                    onClick={() => navigator.clipboard.writeText(supportFeeSig)}
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(supportFeeSig);
+                        setMessage(`✅ ${supportFeeSigLabel} copied.`);
+                      } catch {
+                        setMessage(`❌ Failed to copy ${supportFeeSigLabel.toLowerCase()}.`);
+                      }
+                    }}
                     className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs text-white transition hover:bg-zinc-700"
                   >
                     Copy {supportFeeSigLabel}
@@ -3730,9 +3964,17 @@ export default function ClaimPanel() {
                 <div className="relative grid max-h-[72vh] gap-3 overflow-y-auto pr-2 sm:max-h-[620px] sm:pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-300/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/10">
                   {[...txs]
                     .sort((a: any, b: any) => {
-                      const aTime = a?.timestamp ? new Date(a.timestamp).getTime() : 0;
-                      const bTime = b?.timestamp ? new Date(b.timestamp).getTime() : 0;
-
+                      const rawATime = a?.timestamp
+                        ? new Date(a.timestamp).getTime()
+                        : 0;
+                    
+                      const rawBTime = b?.timestamp
+                        ? new Date(b.timestamp).getTime()
+                        : 0;
+                    
+                      const aTime = Number.isFinite(rawATime) ? rawATime : 0;
+                      const bTime = Number.isFinite(rawBTime) ? rawBTime : 0;
+                    
                       return bTime - aTime;
                     })
                     .map((tx: any, index: number) => {
@@ -3742,6 +3984,10 @@ export default function ClaimPanel() {
                         tx?.id ??
                         0
                       );
+
+                      const hasValidContributionId =
+                        Number.isInteger(contributionId) &&
+                        contributionId > 0;
 
                       const refundState = getRefundUiState(tx);
                       const tokenStatus = getTokenStatusBadge(tx?.current_token_status);
@@ -3756,7 +4002,11 @@ export default function ClaimPanel() {
                         undefined;
 
                       const assetLabel = tx.token_symbol || tx.symbol || 'Unknown Asset';
-                      const isRefunding = refundingContributionId === contributionId;
+                      const isRefunding =
+                        refundingContributionId === contributionId;
+
+                      const isAnyRefundProcessing =
+                        refundingContributionId !== null;
 
                       return (
                         <div
@@ -3887,20 +4137,22 @@ export default function ClaimPanel() {
                                 Share
                               </button>
 
-                              {refundState.showRefundButton && (
+                              {refundState.showRefundButton && hasValidContributionId && (
                                 <button
                                   type="button"
                                   onClick={() => handleRequestRefund(tx)}
-                                  disabled={isRefunding}
+                                  disabled={isAnyRefundProcessing}
                                   className="inline-flex items-center justify-center rounded-full border border-fuchsia-300/20 bg-fuchsia-500/10 px-4 py-2 text-xs font-black text-fuchsia-100 transition hover:border-fuchsia-300/45 hover:bg-fuchsia-500/15 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                  {isRefunding ? 'Processing...' : refundState.buttonLabel}
+                                  {isRefunding
+                                    ? 'Processing...'
+                                    : refundState.buttonLabel}
                                 </button>
                               )}
                             </div>
                           </div>
 
-                          {refundErrors[contributionId] && (
+                          {hasValidContributionId && refundErrors[contributionId] && (
                             <p className="mt-3 rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-3 py-2 text-xs font-semibold leading-5 text-yellow-100">
                               {refundErrors[contributionId]}
                             </p>
@@ -3971,10 +4223,12 @@ export default function ClaimPanel() {
                   </p>
 
                   <p className="mt-5 break-words text-5xl font-black tracking-tight text-white sm:text-7xl">
-                    {Number(data.core_point || 0).toLocaleString('en-US', {
+                    {Math.max(0, toNum(data.core_point, 0)).toLocaleString('en-US', {
                       maximumFractionDigits: 0,
                     })}{' '}
-                    <span className="text-3xl text-fuchsia-200/70 sm:text-4xl">CP</span>
+                    <span className="text-3xl text-fuchsia-200/70 sm:text-4xl">
+                      CP
+                    </span>
                   </p>
 
                   <p className="mt-4 text-[10px] font-black uppercase tracking-[0.36em] text-fuchsia-200/70">
@@ -3985,21 +4239,21 @@ export default function ClaimPanel() {
                     CorePoint is the accounting unit of Personal Value Currency.
                   </p>
 
-                  {typeof data.pvc_share === 'number' && (
-                    <div className="mt-8 rounded-2xl border border-fuchsia-400/15 bg-fuchsia-400/[0.06] px-4 py-4">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-fuchsia-200/70">
-                        Your Share of Total PVC Value
-                      </p>
+                  {Number.isFinite(data.pvc_share) && (
+                  <div className="mt-8 rounded-2xl border border-fuchsia-400/15 bg-fuchsia-400/[0.06] px-4 py-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-fuchsia-200/70">
+                      Your Share of Total PVC Value
+                    </p>
 
-                      <p className="mt-1 text-4xl font-black text-fuchsia-200">
-                        {(Number(data.pvc_share) * 100).toFixed(2)}%
-                      </p>
+                    <p className="mt-1 text-4xl font-black text-fuchsia-200">
+                      {(Math.min(1, Math.max(0, toNum(data.pvc_share, 0))) * 100).toFixed(2)}%
+                    </p>
 
-                      <p className="mt-2 text-xs text-fuchsia-200/60">
-                        Your identity’s share of total PVC value.
-                      </p>
-                    </div>
-                  )}
+                    <p className="mt-2 text-xs text-fuchsia-200/60">
+                      Your identity’s share of total PVC value.
+                    </p>
+                  </div>
+                )}
                 </div>
               </div>
             </div>
@@ -4039,7 +4293,7 @@ export default function ClaimPanel() {
 
                     <div className="mt-4 min-h-[76px]">
                       <p className="text-3xl font-black text-fuchsia-200">
-                        {Number(data.core_point_breakdown.coincarnations || 0).toFixed(1)}
+                        {Math.max(0, toNum(data.core_point_breakdown.coincarnations, 0)).toFixed(1)}
                       </p>
 
                       <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
@@ -4072,12 +4326,22 @@ export default function ClaimPanel() {
                           type="button"
                           title="Copy referral link"
                           aria-label="Copy referral link"
-                          onClick={() => {
+                          onClick={async () => {
                             if (!data.referral_code) return;
-                            const url = buildReferralUrl(data.referral_code ?? '');
-                            navigator.clipboard.writeText(url);
-                            setCopiedTarget('referral');
-                            setTimeout(() => setCopiedTarget(null), 2000);
+                          
+                            const url = buildReferralUrl(data.referral_code);
+                          
+                            try {
+                              await navigator.clipboard.writeText(url);
+                          
+                              setCopiedTarget('pvcReferral');
+                          
+                              setTimeout(() => {
+                                setCopiedTarget(null);
+                              }, 2000);
+                            } catch {
+                              setMessage('❌ Failed to copy referral link.');
+                            }
                           }}
                           className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/10 text-sm font-black text-amber-100 shadow-[0_0_20px_rgba(251,191,36,0.08)] transition hover:bg-amber-300/20"
                         >
@@ -4128,7 +4392,7 @@ export default function ClaimPanel() {
 
                     <div className="mt-4 min-h-[76px]">
                       <p className="text-3xl font-black text-amber-200">
-                        {Number(data.core_point_breakdown.referrals || 0).toFixed(1)}
+                        {Math.max(0, toNum(data.core_point_breakdown.referrals, 0)).toFixed(1)}
                       </p>
 
                       <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
@@ -4152,7 +4416,7 @@ export default function ClaimPanel() {
                       </p>
                     </div>
 
-                    {copiedTarget === 'referral' && (
+                    {copiedTarget === 'pvcReferral' && (
                       <p className="mt-3 text-xs font-semibold text-emerald-300">
                         ✅ Referral link copied
                       </p>
@@ -4174,7 +4438,7 @@ export default function ClaimPanel() {
 
                     <div className="mt-4 min-h-[76px]">
                       <p className="text-3xl font-black text-cyan-200">
-                        {Number(data.core_point_breakdown.shares || 0).toFixed(1)}
+                        {Math.max(0, toNum(data.core_point_breakdown.shares, 0)).toFixed(1)}
                       </p>
 
                       <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
@@ -4220,7 +4484,7 @@ export default function ClaimPanel() {
 
                     <div className="mt-4 min-h-[76px]">
                       <p className="text-3xl font-black text-violet-200">
-                        {Number(data.core_point_breakdown.deadcoins || 0).toFixed(1)}
+                        {Math.max(0, toNum(data.core_point_breakdown.deadcoins, 0)).toFixed(1)}
                       </p>
 
                       <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
@@ -4337,10 +4601,18 @@ export default function ClaimPanel() {
                       .sort((a: any, b: any) => {
                         const aDate = a?.created_at || a?.day || null;
                         const bDate = b?.created_at || b?.day || null;
-
-                        const aTime = aDate ? new Date(aDate).getTime() : 0;
-                        const bTime = bDate ? new Date(bDate).getTime() : 0;
-
+                      
+                        const rawATime = aDate
+                          ? new Date(aDate).getTime()
+                          : 0;
+                      
+                        const rawBTime = bDate
+                          ? new Date(bDate).getTime()
+                          : 0;
+                      
+                        const aTime = Number.isFinite(rawATime) ? rawATime : 0;
+                        const bTime = Number.isFinite(rawBTime) ? rawBTime : 0;
+                      
                         return bTime - aTime;
                       })
                       .map((ev: any, i: number) => {
@@ -4362,7 +4634,7 @@ export default function ClaimPanel() {
                         let detail = '';
 
                         if (ev.type === 'usd') {
-                          detail = `Capital revived · $${Number(ev.value || 0).toFixed(2)}`;
+                          detail = `Capital revived · $${Math.max(0, toNum(ev.value, 0)).toFixed(2)}`;
                         } else if (ev.type === 'usd_blacklist_reversal') {
                           detail = 'Value adjusted after blacklist';
                         } else if (ev.type === 'share') {
@@ -4388,7 +4660,7 @@ export default function ClaimPanel() {
                         }
 
                         const dateStr = ev.created_at || ev.day || null;
-                        const points = Number(ev.points || 0);
+                        const points = toNum(ev.points, 0);
 
                         const badgeClass =
                           ev.type === 'usd'
@@ -4547,6 +4819,7 @@ export default function ClaimPanel() {
               </div>
             )}
           </motion.section>
+          
           {/* 🏆 Global Leaderboard */}
           <motion.section
             initial={{ opacity: 0, y: 20 }}
@@ -4571,67 +4844,102 @@ export default function ClaimPanel() {
         {/* ✅ Fee Confirm Modal */}
         {feeConfirmOpen && pendingClaim && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
-            <div
-              className="absolute inset-0 bg-black/70"
+            <button
+              type="button"
+              aria-label="Close session fee confirmation"
+              disabled={isClaiming}
               onClick={() => {
                 if (isClaiming) return;
+
                 setFeeConfirmOpen(false);
                 setPendingClaim(null);
               }}
+              className="absolute inset-0 cursor-default bg-black/70 disabled:cursor-not-allowed"
             />
-            <div className="relative w-full max-w-lg bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl p-5">
-              <h4 className="text-white font-extrabold text-xl text-center">
+
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="claim-fee-modal-title"
+              aria-describedby="claim-fee-modal-description"
+              className="relative w-full max-w-lg rounded-2xl border border-zinc-700 bg-zinc-900 p-5 shadow-2xl"
+            >
+              <h4
+                id="claim-fee-modal-title"
+                className="text-center text-xl font-extrabold text-white"
+              >
                 Confirm Session Fee
               </h4>
 
-              <p className="text-gray-300 text-sm mt-3 text-center leading-relaxed">
-                To start a new claim session, a one-time fee of{" "}
-                <span className="text-purple-300 font-semibold">~{FEE_SOL} SOL</span>{" "}
+              <p
+                id="claim-fee-modal-description"
+                className="mt-3 text-center text-sm leading-relaxed text-gray-300"
+              >
+                To start a new claim session, a one-time fee of{' '}
+                <span className="font-semibold text-purple-300">
+                  ~{FEE_SOL} SOL
+                </span>{' '}
                 is required.
               </p>
 
-              <div className="mt-4 bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-sm text-gray-300 space-y-2">
+              <div className="mt-4 space-y-2 rounded-xl border border-zinc-700 bg-zinc-800 p-4 text-sm text-gray-300">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-gray-400">Destination</span>
-                  <span className="font-mono text-xs break-all text-white">
+                  <span className="shrink-0 text-gray-400">
+                    Destination
+                  </span>
+
+                  <span className="break-all text-right font-mono text-xs text-white">
                     {pendingClaim.destination}
                   </span>
                 </div>
+
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-gray-400">Claim amount</span>
-                  <span className="font-semibold text-white">
+                  <span className="shrink-0 text-gray-400">
+                    Claim amount
+                  </span>
+
+                  <span className="text-right font-semibold text-white">
                     {pendingClaim.claimAmountRaw} MEGY
                   </span>
                 </div>
+
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-gray-400">Scope</span>
-                  <span className="font-semibold text-white">
-                    {pendingClaim.phaseId === 0 ? 'All finalized phases' : String(selectedScopeLabel)}
+                  <span className="shrink-0 text-gray-400">
+                    Scope
+                  </span>
+
+                  <span className="text-right font-semibold text-white">
+                    {pendingClaim.phaseId === 0
+                      ? 'All finalized phases'
+                      : String(selectedScopeLabel)}
                   </span>
                 </div>
               </div>
 
-              <p className="text-xs text-gray-400 italic text-center mt-3">
+              <p className="mt-3 text-center text-xs italic text-gray-400">
                 Next claims in the same session are free.
               </p>
 
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <button
+                  type="button"
                   disabled={isClaiming}
                   onClick={() => {
                     if (isClaiming) return;
+
                     setFeeConfirmOpen(false);
                     setPendingClaim(null);
                   }}
-                  className="bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 text-white font-semibold py-3 rounded-xl disabled:opacity-50"
+                  className="rounded-xl border border-zinc-700 bg-zinc-800 py-3 font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Cancel
                 </button>
 
                 <button
+                  type="button"
                   disabled={isClaiming}
                   onClick={confirmAndPayFeeThenExecute}
-                  className="bg-gradient-to-r from-purple-600 to-pink-500 hover:scale-[1.02] transition-all text-white font-extrabold py-3 rounded-xl disabled:opacity-50"
+                  className="rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 py-3 font-extrabold text-white transition-all hover:scale-[1.02] disabled:cursor-not-allowed disabled:hover:scale-100 disabled:opacity-50"
                 >
                   {isClaiming ? 'Paying…' : 'Continue'}
                 </button>
@@ -4643,57 +4951,108 @@ export default function ClaimPanel() {
         {/* ✅ Refund Fee Confirm Modal */}
         {refundFeeConfirmOpen && pendingRefund && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
-            <div
-              className="absolute inset-0 bg-black/70"
+            <button
+              type="button"
+              aria-label="Close refund fee confirmation"
+              disabled={
+                refundingContributionId != null ||
+                refundFeeStep === 'paying' ||
+                refundFeeStep === 'confirming' ||
+                refundFeeStep === 'signing' ||
+                refundFeeStep === 'submitting' ||
+                refundFeeStep === 'submitted'
+              }
               onClick={() => {
                 if (refundingContributionId != null) return;
+
                 setRefundFeeConfirmOpen(false);
                 setPendingRefund(null);
                 setRefundFeeStep('idle');
               }}
+              className="absolute inset-0 cursor-default bg-black/70 disabled:cursor-not-allowed"
             />
-            <div className="relative w-full max-w-lg bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl p-5">
-              <h4 className="text-white font-extrabold text-xl text-center">
+
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="refund-fee-modal-title"
+              aria-describedby="refund-fee-modal-description"
+              className="relative w-full max-w-lg rounded-2xl border border-zinc-700 bg-zinc-900 p-5 shadow-2xl"
+            >
+              <h4
+                id="refund-fee-modal-title"
+                className="text-center text-xl font-extrabold text-white"
+              >
                 Confirm Refund Request Fee
               </h4>
 
-              <p className="text-gray-300 text-sm mt-3 text-center leading-relaxed">
-                Refund requests for blacklisted contributions require a small processing fee of{' '}
-                <span className="text-fuchsia-300 font-semibold">
-                  ~{pendingRefund.refundFeeSol.toFixed(6)} SOL
-                </span>.
+              <p
+                id="refund-fee-modal-description"
+                className="mt-3 text-center text-sm leading-relaxed text-gray-300"
+              >
+                Refund requests for blacklisted contributions require a small
+                processing fee of{' '}
+                <span className="font-semibold text-fuchsia-300">
+                  ~
+                  {Number.isFinite(Number(pendingRefund.refundFeeSol))
+                    ? Math.max(
+                        0,
+                        Number(pendingRefund.refundFeeSol)
+                      ).toFixed(6)
+                    : '0.000000'}{' '}
+                  SOL
+                </span>
+                .
               </p>
 
-              <div className="mt-4 bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-sm text-gray-300 space-y-2">
+              <div className="mt-4 space-y-2 rounded-xl border border-zinc-700 bg-zinc-800 p-4 text-sm text-gray-300">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-gray-400">Asset</span>
-                  <span className="font-semibold text-white">
+                  <span className="shrink-0 text-gray-400">
+                    Asset
+                  </span>
+
+                  <span className="text-right font-semibold text-white">
                     {pendingRefund.tokenSymbol || 'Token'}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-gray-400">Contribution ID</span>
-                  <span className="font-mono text-xs text-white">
+                  <span className="shrink-0 text-gray-400">
+                    Contribution ID
+                  </span>
+
+                  <span className="break-all text-right font-mono text-xs text-white">
                     {pendingRefund.contributionId}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-gray-400">Fee</span>
-                  <span className="font-semibold text-white">
-                    ~{pendingRefund.refundFeeSol.toFixed(6)} SOL
+                  <span className="shrink-0 text-gray-400">
+                    Fee
+                  </span>
+
+                  <span className="text-right font-semibold text-white">
+                    ~
+                    {Number.isFinite(Number(pendingRefund.refundFeeSol))
+                      ? Math.max(
+                          0,
+                          Number(pendingRefund.refundFeeSol)
+                        ).toFixed(6)
+                      : '0.000000'}{' '}
+                    SOL
                   </span>
                 </div>
               </div>
 
-              <p className="text-xs text-gray-400 italic text-center mt-3">
+              <p className="mt-3 text-center text-xs italic text-gray-400">
                 This fee covers the network and processing cost of the refund flow.
               </p>
 
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <button
+                  type="button"
                   disabled={
+                    refundingContributionId != null ||
                     refundFeeStep === 'paying' ||
                     refundFeeStep === 'confirming' ||
                     refundFeeStep === 'signing' ||
@@ -4702,36 +5061,42 @@ export default function ClaimPanel() {
                   }
                   onClick={() => {
                     if (refundingContributionId != null) return;
+
                     setRefundFeeConfirmOpen(false);
                     setPendingRefund(null);
                     setRefundFeeStep('idle');
                   }}
-                  className="bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 text-white font-semibold py-3 rounded-xl disabled:opacity-50"
+                  className="rounded-xl border border-zinc-700 bg-zinc-800 py-3 font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Cancel
                 </button>
 
                 <button
                   type="button"
-                  disabled={refundingContributionId != null}
-                  onClick={confirmRefundFeeThenRequest}
-                  className="bg-gradient-to-r from-fuchsia-600 to-pink-500 hover:scale-[1.02] transition-all text-white font-extrabold py-3 rounded-xl disabled:opacity-50"
-                >
-                  {
-                    refundFeeStep === 'paying'
-                      ? 'Paying...'
-                      : refundFeeStep === 'confirming'
-                        ? 'Confirming...'
-                        : refundFeeStep === 'signing'
-                          ? 'Waiting for signature...'
-                          : refundFeeStep === 'submitting'
-                            ? 'Submitting...'
-                            : refundFeeStep === 'paid'
-                              ? 'Fee Paid'
-                              : refundFeeStep === 'submitted'
-                                ? 'Submitted'
-                                : 'Continue'
+                  disabled={
+                    refundingContributionId != null ||
+                    refundFeeStep === 'paying' ||
+                    refundFeeStep === 'confirming' ||
+                    refundFeeStep === 'signing' ||
+                    refundFeeStep === 'submitting' ||
+                    refundFeeStep === 'submitted'
                   }
+                  onClick={confirmRefundFeeThenRequest}
+                  className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-pink-500 py-3 font-extrabold text-white transition-all hover:scale-[1.02] disabled:cursor-not-allowed disabled:hover:scale-100 disabled:opacity-50"
+                >
+                  {refundFeeStep === 'paying'
+                    ? 'Paying...'
+                    : refundFeeStep === 'confirming'
+                      ? 'Confirming...'
+                      : refundFeeStep === 'signing'
+                        ? 'Waiting for signature...'
+                        : refundFeeStep === 'submitting'
+                          ? 'Submitting...'
+                          : refundFeeStep === 'paid'
+                            ? 'Fee Paid'
+                            : refundFeeStep === 'submitted'
+                              ? 'Submitted'
+                              : 'Continue'}
                 </button>
               </div>
             </div>
@@ -4752,26 +5117,21 @@ function Info({
   tone?: 'emerald' | 'cyan' | 'violet' | 'amber' | 'default';
 }) {
   const toneClasses = {
-    emerald:
-      'border-emerald-400/20 bg-emerald-400/[0.05]',
-    cyan:
-      'border-cyan-400/20 bg-cyan-400/[0.05]',
-    violet:
-      'border-violet-400/20 bg-violet-400/[0.05]',
-    amber:
-      'border-amber-400/20 bg-amber-400/[0.05]',
-    default:
-      'border-zinc-700 bg-zinc-800',
-  };
+    emerald: 'border-emerald-400/20 bg-emerald-400/[0.05]',
+    cyan: 'border-cyan-400/20 bg-cyan-400/[0.05]',
+    violet: 'border-violet-400/20 bg-violet-400/[0.05]',
+    amber: 'border-amber-400/20 bg-amber-400/[0.05]',
+    default: 'border-zinc-700 bg-zinc-800',
+  } as const;
 
   return (
     <div
-      className={`rounded-lg border p-4 min-h-[100px] flex flex-col justify-between transition-all ${toneClasses[tone]}`}
+      className={`flex min-h-[100px] flex-col justify-between rounded-lg border p-4 transition-all ${toneClasses[tone]}`}
     >
-      <p className="text-gray-400 text-sm mb-1">{label}</p>
+      <p className="mb-1 text-sm text-gray-400">{label}</p>
 
-      <p className="text-white font-semibold text-lg break-words">
-        {value}
+      <p className="break-words text-lg font-semibold text-white">
+        {value || '-'}
       </p>
     </div>
   );
@@ -4781,7 +5141,7 @@ const colorMap = {
   green: 'text-green-300 border-green-500',
   blue: 'text-blue-300 border-blue-500',
   yellow: 'text-yellow-300 border-yellow-500',
-};
+} as const;
 
 function StatBox({
   label,
@@ -4790,44 +5150,67 @@ function StatBox({
 }: {
   label: string;
   value: string;
-  color: 'green' | 'blue' | 'yellow';
+  color: keyof typeof colorMap;
 }) {
-  const classNames = colorMap[color] || 'text-white border-white';
+  const classNames = colorMap[color];
+
   return (
-    <div className={`bg-zinc-800 border-l-4 ${classNames} p-4 rounded-lg`}>
+    <div
+      className={`rounded-lg border-l-4 bg-zinc-800 p-4 ${classNames}`}
+    >
       <p className="text-xs text-zinc-400">{label}</p>
-      <p className="font-semibold text-sm mt-1">{value}</p>
+
+      <p className="mt-1 text-sm font-semibold">
+        {value || '-'}
+      </p>
     </div>
   );
 }
 
-function shorten(addr: any) {
-  const s = String(addr ?? '').trim();
-  if (!s) return '-';
-  if (s.length <= 12) return s;
-  return s.slice(0, 6) + '...' + s.slice(-4);
+function shorten(addr: unknown): string {
+  const value = String(addr ?? '').trim();
+
+  if (!value) return '-';
+  if (value.length <= 12) return value;
+
+  return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }
 
-function formatDate(dateStr: string) {
+function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
-  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
+  if (!Number.isFinite(date.getTime())) {
+    return '-';
+  }
+
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
-function formatUsdValue(raw: any): string {
+function formatUsdValue(raw: unknown): string {
   const n = typeof raw === 'number' ? raw : Number(raw ?? 0);
-  if (!Number.isFinite(n)) return '$0.00';
+
+  if (!Number.isFinite(n)) {
+    return '$0.00';
+  }
 
   const abs = Math.abs(n);
 
-  // Çok küçük ama sıfır olmayan değerler için daha detaylı gösterim
+  // Çok küçük fakat sıfır olmayan değerlerde daha ayrıntılı gösterim
   if (abs > 0 && abs < 0.01) {
-    // 6 hane, sondaki gereksiz sıfırları temizle
-    const precise = abs.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+    const precise = abs
+      .toFixed(6)
+      .replace(/0+$/, '')
+      .replace(/\.$/, '');
+
     const sign = n < 0 ? '-' : '';
+
     return `${sign}$${precise}`;
   }
 
-  // Normal durum: 2 ondalık
   return `$${n.toFixed(2)}`;
 }
 
@@ -4842,19 +5225,41 @@ function ContributionCard({
   points: number;
   description: string;
 }) {
+  const safePoints = Number.isFinite(Number(points))
+    ? Number(points)
+    : 0;
+
   return (
-    <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 flex flex-col justify-between hover:bg-zinc-700 transition">
-      <div className="flex items-center space-x-3 mb-2">
-        <span className="text-2xl">{icon}</span>
-        <h4 className="text-sm font-semibold text-white">{title}</h4>
+    <div className="flex flex-col justify-between rounded-lg border border-zinc-700 bg-zinc-800 p-4 transition hover:bg-zinc-700">
+      <div className="mb-2 flex items-center space-x-3">
+        <span
+          aria-hidden="true"
+          className="text-2xl"
+        >
+          {icon}
+        </span>
+
+        <h4 className="text-sm font-semibold text-white">
+          {title}
+        </h4>
       </div>
-      <p className="text-white text-lg font-bold mb-1">{Number(points || 0).toFixed(1)} pts</p>
-      <p className="text-xs text-gray-400">{description}</p>
+
+      <p className="mb-1 text-lg font-bold text-white">
+        {safePoints.toFixed(1)} pts
+      </p>
+
+      <p className="text-xs text-gray-400">
+        {description}
+      </p>
     </div>
   );
 }
 
 function uint8ToBase64(bytes: Uint8Array): string {
+  if (bytes.length === 0) {
+    return '';
+  }
+
   let binary = '';
   const chunkSize = 0x8000;
 
@@ -4863,11 +5268,14 @@ function uint8ToBase64(bytes: Uint8Array): string {
     binary += String.fromCharCode(...chunk);
   }
 
-  return btoa(binary);
+  return globalThis.btoa(binary);
 }
 
-function userFriendlyError(msg: string) {
-  const m = String(msg || '').trim();
+function userFriendlyError(error: unknown): string {
+  const m =
+    error instanceof Error
+      ? error.message.trim()
+      : String(error ?? '').trim();
 
   // Claim / session
   if (m === 'CLAIM_NOT_LIVE') {
@@ -5002,7 +5410,7 @@ function userFriendlyError(msg: string) {
   if (m === 'REFUND_FEE_REQUIRED') {
     return 'Refund fee must be paid before submitting the request.';
   }
-  if (m === 'REFUND_FEE_PREPARE_FAILED' || m.startsWith('REFUND_FEE_PREPARE_FAILED')) {
+  if (m.startsWith('REFUND_FEE_PREPARE_FAILED')) {
     return 'Refund fee information could not be prepared.';
   }
   if (m === 'TREASURY_WALLET_MISSING') {
@@ -5035,8 +5443,8 @@ function userFriendlyError(msg: string) {
     return 'Request payload is invalid.';
   }
   if (m === 'INTERNAL_ERROR') {
-    return 'Internal server error.';
+    return 'Internal server error. Please try again shortly.';
   }
 
-  return m || 'Unexpected error. Please retry.';
+  return 'Unexpected error. Please retry.';
 }

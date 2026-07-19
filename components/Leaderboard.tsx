@@ -1,4 +1,5 @@
 // components/Leaderboard.tsx
+// components/Leaderboard.tsx
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -21,7 +22,9 @@ function SectionIcon({
   );
 }
 
-type Props = { referralCode?: string };
+type Props = {
+  referralCode?: string;
+};
 
 type LeaderboardEntry = {
   scope_key: string;
@@ -33,81 +36,163 @@ type LeaderboardEntry = {
   core_point: number;
 };
 
+const toFiniteNumber = (value: unknown, fallback = 0): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const getLinkedWalletCount = (value: unknown): number => {
+  return Math.max(1, Math.floor(toFiniteNumber(value, 1)));
+};
+
+const shorten = (value: unknown): string => {
+  const address = typeof value === 'string' ? value.trim() : '';
+
+  if (!address) return 'Unknown wallet';
+  if (address.length <= 10) return address;
+
+  return `${address.slice(0, 4)}...${address.slice(-4)}`;
+};
+
+const isAbortError = (error: unknown): boolean => {
+  return error instanceof DOMException && error.name === 'AbortError';
+};
+
 export default function Leaderboard({ referralCode }: Props) {
   const { publicKey } = useWallet();
 
   const [data, setData] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [userRank, setUserRank] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
 
   const [shareOpen, setShareOpen] = useState(false);
-  const [shareAnchor, setShareAnchor] = useState<string | undefined>(undefined);
+  const [shareAnchor, setShareAnchor] = useState<string | undefined>(
+    undefined
+  );
   const [shareTxId, setShareTxId] = useState<string | undefined>(undefined);
 
-  const shorten = (a: string) => `${a.slice(0, 4)}...${a.slice(-4)}`;
-
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchLeaderboard = async () => {
       try {
         setLoading(true);
+        setError(null);
+        setUserRank(null);
+        setShowAll(false);
 
-        const res = await fetch('/api/leaderboard', { cache: 'no-store' });
+        const res = await fetch('/api/leaderboard', {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+
         const json = await res.json().catch(() => ({}));
 
-        if (json?.success && Array.isArray(json.leaderboard)) {
-          const leaderboard = json.leaderboard as LeaderboardEntry[];
-          setData(leaderboard);
+        if (
+          !res.ok ||
+          !json?.success ||
+          !Array.isArray(json.leaderboard)
+        ) {
+          throw new Error(
+            typeof json?.error === 'string'
+              ? json.error
+              : 'Leaderboard could not be loaded.'
+          );
+        }
 
-          if (publicKey) {
-            const me = publicKey.toBase58();
+        const leaderboard = json.leaderboard as LeaderboardEntry[];
 
-            const i = leaderboard.findIndex((entry) => {
-              const wallets = Array.isArray(entry.wallet_addresses)
-                ? entry.wallet_addresses
-                : [entry.wallet_address];
+        setData(leaderboard);
 
-              return wallets.some(
-                (w) => String(w).toLowerCase() === me.toLowerCase()
-              );
-            });
+        if (!publicKey) {
+          setUserRank(null);
+          return;
+        }
 
-            if (i !== -1) {
-              setUserRank(i + 1);
-            } else {
-              const rankRes = await fetch(
-                `/api/leaderboard/rank?wallet=${encodeURIComponent(me)}`,
-                { cache: 'no-store' }
-              );
+        const me = publicKey.toBase58().toLowerCase();
 
-              const rankJson = await rankRes.json().catch(() => ({}));
+        const index = leaderboard.findIndex((entry) => {
+          const wallets =
+            Array.isArray(entry.wallet_addresses) &&
+            entry.wallet_addresses.length > 0
+              ? entry.wallet_addresses
+              : [entry.wallet_address];
 
-              if (rankJson?.success && Number.isFinite(Number(rankJson.rank))) {
-                setUserRank(Number(rankJson.rank));
-              } else {
-                setUserRank(null);
-              }
-            }
-          } else {
-            setUserRank(null);
+          return wallets.some(
+            (wallet) => String(wallet).toLowerCase() === me
+          );
+        });
+
+        if (index !== -1) {
+          setUserRank(index + 1);
+          return;
+        }
+
+        const rankRes = await fetch(
+          `/api/leaderboard/rank?wallet=${encodeURIComponent(
+            publicKey.toBase58()
+          )}`,
+          {
+            cache: 'no-store',
+            signal: controller.signal,
           }
+        );
+
+        const rankJson = await rankRes.json().catch(() => ({}));
+        const parsedRank = Number(rankJson?.rank);
+
+        if (
+          rankRes.ok &&
+          rankJson?.success &&
+          Number.isInteger(parsedRank) &&
+          parsedRank > 0
+        ) {
+          setUserRank(parsedRank);
+        } else {
+          setUserRank(null);
         }
       } catch (err) {
+        if (isAbortError(err)) {
+          return;
+        }
+
         console.error('Failed to fetch leaderboard:', err);
+
+        setData([]);
+        setUserRank(null);
+        setError('Leaderboard is temporarily unavailable.');
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
     void fetchLeaderboard();
+
+    return () => {
+      controller.abort();
+    };
   }, [publicKey]);
 
   const visible = showAll ? data : data.slice(0, 10);
 
-  const shareUrl = useMemo(
-    () => (referralCode ? `${APP_URL}?r=${encodeURIComponent(referralCode)}` : APP_URL),
-    [referralCode]
-  );
+  const shareUrl = useMemo(() => {
+    if (!referralCode) {
+      return APP_URL;
+    }
+
+    try {
+      const url = new URL(APP_URL);
+      url.searchParams.set('r', referralCode);
+
+      return url.toString();
+    } catch {
+      return APP_URL;
+    }
+  }, [referralCode]);
 
   const sharePayload = useMemo(() => {
     return buildPayload(
@@ -127,10 +212,10 @@ export default function Leaderboard({ referralCode }: Props) {
     if (!sharePayload || !publicKey) return;
 
     const wallet = publicKey.toBase58();
-    const lbKey = `lb:${wallet}`;
+    const leaderboardKey = `lb:${wallet}`;
 
-    setShareAnchor(lbKey);
-    setShareTxId(lbKey);
+    setShareAnchor(leaderboardKey);
+    setShareTxId(leaderboardKey);
     setShareOpen(true);
   };
 
@@ -149,7 +234,39 @@ export default function Leaderboard({ referralCode }: Props) {
       </p>
 
       {loading ? (
-        <p className="text-white">Loading...</p>
+        <div
+          role="status"
+          aria-live="polite"
+          className="rounded-2xl border border-white/10 bg-black/20 px-4 py-8 text-center"
+        >
+          <p className="text-sm font-semibold text-zinc-300">
+            Loading leaderboard...
+          </p>
+        </div>
+      ) : error ? (
+        <div
+          role="alert"
+          className="rounded-2xl border border-red-400/20 bg-red-400/[0.06] px-4 py-8 text-center"
+        >
+          <p className="text-sm font-semibold text-red-200">
+            {error}
+          </p>
+
+          <p className="mt-2 text-xs text-zinc-500">
+            Please try again shortly.
+          </p>
+        </div>
+      ) : data.length === 0 ? (
+        <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-8 text-center">
+          <p className="text-sm font-semibold text-zinc-300">
+            No ranked identities yet.
+          </p>
+
+          <p className="mt-2 text-xs text-zinc-500">
+            The leaderboard will appear after identities begin earning
+            CorePoints.
+          </p>
+        </div>
       ) : (
         <>
           {/* Mobile Leaderboard */}
@@ -158,14 +275,18 @@ export default function Leaderboard({ referralCode }: Props) {
               const realIndex = data.indexOf(entry);
               const myWallet = publicKey?.toBase58() ?? null;
 
-              const wallets = Array.isArray(entry.wallet_addresses)
-                ? entry.wallet_addresses
-                : [entry.wallet_address];
+              const wallets =
+                Array.isArray(entry.wallet_addresses) &&
+                entry.wallet_addresses.length > 0
+                  ? entry.wallet_addresses
+                  : [entry.wallet_address];
 
               const isUser = Boolean(
                 myWallet &&
                   wallets.some(
-                    (w) => String(w).toLowerCase() === myWallet.toLowerCase()
+                    (wallet) =>
+                      String(wallet).toLowerCase() ===
+                      myWallet.toLowerCase()
                   )
               );
 
@@ -184,9 +305,22 @@ export default function Leaderboard({ referralCode }: Props) {
                       ? '🥉'
                       : `#${realIndex + 1}`;
 
+              const linkedWalletCount = getLinkedWalletCount(
+                entry.linked_wallet_count
+              );
+
+              const corePoint = Math.max(
+                0,
+                toFiniteNumber(entry.core_point, 0)
+              );
+
               return (
                 <div
-                  key={`mobile-${entry.scope_key || entry.identity_id || entry.wallet_address}`}
+                  key={`mobile-${
+                    entry.scope_key ||
+                    entry.identity_id ||
+                    entry.wallet_address
+                  }`}
                   className={[
                     'rounded-2xl border px-3 py-3',
                     isUser
@@ -203,7 +337,9 @@ export default function Leaderboard({ referralCode }: Props) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="shrink-0 text-sm">{rankLabel}</span>
+                        <span className="shrink-0 text-sm">
+                          {rankLabel}
+                        </span>
 
                         <p className="truncate text-sm font-black text-white">
                           {label}
@@ -217,14 +353,15 @@ export default function Leaderboard({ referralCode }: Props) {
                       </div>
 
                       <p className="mt-1 text-xs font-semibold text-zinc-500">
-                        {Number(entry.linked_wallet_count || 1)} wallet
-                        {Number(entry.linked_wallet_count || 1) > 1 ? 's' : ''}
+                        {linkedWalletCount} wallet
+                        {linkedWalletCount > 1 ? 's' : ''}
                       </p>
                     </div>
 
                     <div className="shrink-0 text-right">
                       <p className="text-sm font-black text-emerald-300">
-                        {Number(entry.core_point || 0).toLocaleString(undefined, {
+                        {corePoint.toLocaleString('en-US', {
+                          minimumFractionDigits: 1,
                           maximumFractionDigits: 1,
                         })}
                       </p>
@@ -241,25 +378,30 @@ export default function Leaderboard({ referralCode }: Props) {
             {!showAll && data.length > 10 && (
               <div className="pt-2 text-center">
                 <button
+                  type="button"
                   onClick={() => setShowAll(true)}
-                  className="text-sm text-pink-400 underline transition hover:text-pink-300"
+                  className="text-sm text-pink-400 underline transition hover:text-pink-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300/60"
                 >
                   Show All
                 </button>
               </div>
             )}
 
-            {userRank && (
+            {userRank !== null && (
               <div className="pt-3 text-center">
                 <p className="text-xs leading-5 text-zinc-400">
                   Your Coincarnation Identity is ranked{' '}
-                  <span className="font-bold text-white">#{userRank}</span>.
+                  <span className="font-bold text-white">
+                    #{userRank}
+                  </span>
+                  .
                 </p>
 
                 <button
+                  type="button"
                   onClick={handleShareClick}
-                  disabled={!sharePayload}
-                  className="mt-3 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-blue-700"
+                  disabled={!publicKey || !sharePayload}
+                  className="mt-3 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/60 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Share…
                 </button>
@@ -267,6 +409,7 @@ export default function Leaderboard({ referralCode }: Props) {
             )}
           </div>
 
+          {/* Desktop Leaderboard */}
           <div className="hidden w-full overflow-x-auto md:block">
             <div className="mx-auto w-full min-w-[420px] max-w-4xl">
               <table className="w-full table-auto text-center text-sm text-white">
@@ -284,14 +427,18 @@ export default function Leaderboard({ referralCode }: Props) {
                     const realIndex = data.indexOf(entry);
                     const myWallet = publicKey?.toBase58() ?? null;
 
-                    const wallets = Array.isArray(entry.wallet_addresses)
-                      ? entry.wallet_addresses
-                      : [entry.wallet_address];
+                    const wallets =
+                      Array.isArray(entry.wallet_addresses) &&
+                      entry.wallet_addresses.length > 0
+                        ? entry.wallet_addresses
+                        : [entry.wallet_address];
 
                     const isUser = Boolean(
                       myWallet &&
                         wallets.some(
-                          (w) => String(w).toLowerCase() === myWallet.toLowerCase()
+                          (wallet) =>
+                            String(wallet).toLowerCase() ===
+                            myWallet.toLowerCase()
                         )
                     );
 
@@ -301,9 +448,22 @@ export default function Leaderboard({ referralCode }: Props) {
                         ? `Identity #${entry.identity_id.slice(0, 6)}`
                         : shorten(entry.wallet_address));
 
+                    const linkedWalletCount = getLinkedWalletCount(
+                      entry.linked_wallet_count
+                    );
+
+                    const corePoint = Math.max(
+                      0,
+                      toFiniteNumber(entry.core_point, 0)
+                    );
+
                     return (
                       <tr
-                        key={entry.scope_key || entry.identity_id || entry.wallet_address}
+                        key={
+                          entry.scope_key ||
+                          entry.identity_id ||
+                          entry.wallet_address
+                        }
                         className={`border-b border-white/5 transition duration-200 ${
                           isUser
                             ? 'bg-yellow-500/10 font-bold'
@@ -340,7 +500,12 @@ export default function Leaderboard({ referralCode }: Props) {
                         <td className="px-4 py-3 text-left">
                           <div className="font-black text-white">
                             {label}
-                            {isUser && <span className="ml-2 text-yellow-400">← You</span>}
+
+                            {isUser && (
+                              <span className="ml-2 text-yellow-400">
+                                ← You
+                              </span>
+                            )}
                           </div>
 
                           <div className="mt-1 font-mono text-[11px] text-zinc-500">
@@ -352,13 +517,16 @@ export default function Leaderboard({ referralCode }: Props) {
 
                         <td className="px-4 py-3">
                           <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-200">
-                            {Number(entry.linked_wallet_count || 1)} wallet
-                            {Number(entry.linked_wallet_count || 1) > 1 ? 's' : ''}
+                            {linkedWalletCount} wallet
+                            {linkedWalletCount > 1 ? 's' : ''}
                           </span>
                         </td>
 
                         <td className="px-4 py-3 font-black text-emerald-300">
-                          {Number(entry.core_point || 0).toFixed(3)}
+                          {corePoint.toLocaleString('en-US', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
                         </td>
                       </tr>
                     );
@@ -369,25 +537,30 @@ export default function Leaderboard({ referralCode }: Props) {
               {!showAll && data.length > 10 && (
                 <div className="mt-4 text-center">
                   <button
+                    type="button"
                     onClick={() => setShowAll(true)}
-                    className="text-sm text-pink-400 underline transition hover:text-pink-300"
+                    className="text-sm text-pink-400 underline transition hover:text-pink-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300/60"
                   >
                     Show All
                   </button>
                 </div>
               )}
 
-              {userRank && (
+              {userRank !== null && (
                 <div className="mt-6 space-y-3 text-center">
                   <p className="text-sm text-zinc-400">
                     Your Coincarnation Identity is currently ranked{' '}
-                    <span className="font-bold text-white">#{userRank}</span> in the ecosystem.
+                    <span className="font-bold text-white">
+                      #{userRank}
+                    </span>{' '}
+                    in the ecosystem.
                   </p>
 
                   <button
+                    type="button"
                     onClick={handleShareClick}
-                    disabled={!sharePayload}
-                    className="inline-block rounded-md bg-blue-600 px-3 py-1 text-sm text-white transition hover:bg-blue-700"
+                    disabled={!publicKey || !sharePayload}
+                    className="inline-block rounded-md bg-blue-600 px-3 py-1 text-sm text-white transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/60 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Share…
                   </button>
