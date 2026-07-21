@@ -196,6 +196,7 @@ type CpConfig = {
 export default function ClaimPanel() {
   const { publicKey, sendTransaction, signMessage, wallet } = useWallet();
   const { connection } = useConnection();
+  const walletBase58 = publicKey?.toBase58() ?? null;
 
   const [cpConfig, setCpConfig] = useState<CpConfig | null>(null);
   const [data, setData] = useState<any>(null);
@@ -278,6 +279,11 @@ export default function ClaimPanel() {
   const [currentPhase, setCurrentPhase] = useState<any | null>(null);
   const [phasesLoading, setPhasesLoading] = useState<boolean>(true);
   const attemptIdemKeyRef = useRef<string | null>(null);
+  const walletBase58Ref = useRef<string | null>(walletBase58);
+
+  const claimOperationIdRef = useRef(0);
+  const refundOperationIdRef = useRef(0);
+  const identityStatusOperationIdRef = useRef(0);
   const [activeEstimate, setActiveEstimate] = useState<any>(null);
   const [estimateLoading, setEstimateLoading] = useState(false);
   const [feeConfirmOpen, setFeeConfirmOpen] = useState(false);
@@ -286,13 +292,13 @@ export default function ClaimPanel() {
     destination: string;
     phaseId: number;
     claimScope: 'wallet' | 'identity';
-    claimAmountRaw: string;
+    claimAmount: string;
     idemKey: string;
   } | null>(null);
 
+  const [claimRefreshKey, setClaimRefreshKey] = useState(0);
   const FEE_SOL = 0.003;
   const FEE_LAMPORTS = Math.round(FEE_SOL * 1_000_000_000);
-  const walletBase58 = publicKey?.toBase58() ?? null;
   const activeWalletLinked = Boolean(
     walletBase58 &&
     linkedWallets.some(
@@ -302,6 +308,8 @@ export default function ClaimPanel() {
     )
   );
   const [refundDebug, setRefundDebug] = useState<any>(null);
+  const feeConfirmModalRef = useRef<HTMLDivElement | null>(null);
+  const refundFeeConfirmModalRef = useRef<HTMLDivElement | null>(null);
 
   async function fetchLinkedIdentityWallets(): Promise<LinkedIdentityWallet[]> {
     try {
@@ -324,17 +332,145 @@ export default function ClaimPanel() {
   }
 
   useEffect(() => {
-    let alive = true;
+    const modalOpen = feeConfirmOpen || refundFeeConfirmOpen;
+  
+    if (!modalOpen) {
+      return;
+    }
+  
+    const activeModal = feeConfirmOpen
+      ? feeConfirmModalRef.current
+      : refundFeeConfirmModalRef.current;
+  
+    const previouslyFocusedElement =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+  
+    const previousBodyOverflow = document.body.style.overflow;
+  
+    document.body.style.overflow = 'hidden';
+  
+    const focusableSelector = [
+      'button:not([disabled])',
+      'a[href]',
+      'input:not([disabled])',
+      'select:not([disabled])',
+      'textarea:not([disabled])',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(',');
+  
+    const focusModal = () => {
+      const firstFocusableElement =
+        activeModal?.querySelector<HTMLElement>(focusableSelector);
+  
+      if (firstFocusableElement) {
+        firstFocusableElement.focus();
+      } else {
+        activeModal?.focus();
+      }
+    };
+  
+    const focusTimer = window.setTimeout(focusModal, 0);
+  
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (feeConfirmOpen) {
+          if (isClaiming) return;
+  
+          event.preventDefault();
+          setFeeConfirmOpen(false);
+          setPendingClaim(null);
+          return;
+        }
+  
+        if (refundFeeConfirmOpen) {
+          const refundInProgress =
+            refundingContributionId != null ||
+            refundFeeStep === 'paying' ||
+            refundFeeStep === 'confirming' ||
+            refundFeeStep === 'signing' ||
+            refundFeeStep === 'submitting' ||
+            refundFeeStep === 'submitted';
+  
+          if (refundInProgress) return;
+  
+          event.preventDefault();
+          setRefundFeeConfirmOpen(false);
+          setPendingRefund(null);
+          setRefundFeeStep('idle');
+        }
+  
+        return;
+      }
+  
+      if (event.key !== 'Tab' || !activeModal) {
+        return;
+      }
+  
+      const focusableElements = Array.from(
+        activeModal.querySelectorAll<HTMLElement>(focusableSelector)
+      ).filter(
+        (element) =>
+          !element.hasAttribute('disabled') &&
+          element.getAttribute('aria-hidden') !== 'true'
+      );
+  
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        activeModal.focus();
+        return;
+      }
+  
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const currentElement = document.activeElement;
+  
+      if (event.shiftKey && currentElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+        return;
+      }
+  
+      if (!event.shiftKey && currentElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+  
+    document.addEventListener('keydown', handleKeyDown);
+  
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousBodyOverflow;
+      previouslyFocusedElement?.focus();
+    };
+  }, [
+    feeConfirmOpen,
+    refundFeeConfirmOpen,
+    isClaiming,
+    refundingContributionId,
+    refundFeeStep,
+  ]);
 
+  useEffect(() => {
+    let alive = true;
+    const operationWallet = walletBase58;
+  
     const fetchData = async () => {
-      if (!publicKey) {
+      if (!operationWallet) {
         setLoading(false);
         setData(null);
+        setDataError(null);
+        setClaimOpen(false);
+  
         setClaimScopeMeta({
           scope: 'wallet',
           claimWalletsCount: 1,
           isIdentityClaimScope: false,
         });
+  
         return;
       }
     
@@ -344,7 +480,8 @@ export default function ClaimPanel() {
         const [claimStatusRes, userRes, globalRes] = await Promise.all([
           fetch('/api/admin/config/claim_open'),
           fetch(
-            `/api/claim/${publicKey.toBase58()}${claimScope === 'identity' ? '?scope=identity' : ''
+            `/api/claim/${operationWallet}${
+              claimScope === 'identity' ? '?scope=identity' : ''
             }`
           ),
           fetch('/api/coincarnation/stats'),
@@ -379,7 +516,7 @@ export default function ClaimPanel() {
         } else {
           setData({
             id: '-',
-            wallet_address: publicKey.toBase58(),
+            wallet_address: operationWallet,
             referral_code: null,
             claimed: false,
             referral_count: 0,
@@ -427,191 +564,84 @@ export default function ClaimPanel() {
       }
     };
 
-    fetchData();
+    void fetchData();
 
     return () => {
       alive = false;
     };
-  }, [publicKey, claimScope]);
+  }, [walletBase58, claimScope, claimRefreshKey]);
 
   // CorePoint config (server-side weights → UI descriptions)
   useEffect(() => {
-    (async () => {
+    let alive = true;
+  
+    const fetchCorePointConfig = async () => {
       try {
-        const r = await fetch('/api/corepoints/config', { cache: 'no-store' });
+        const r = await fetch('/api/corepoints/config', {
+          cache: 'no-store',
+        });
+  
         if (!r.ok) return;
-
+  
         const j = await r.json().catch(() => null);
+  
+        if (!alive) return;
+  
         const cfg = j?.config;
         if (!cfg) return;
-
+  
         setCpConfig({
           usdPer1: Number(cfg.usdPer1 ?? cfg.usd_per_1 ?? 100),
-          deadcoinFirst: Number(cfg.deadFirst ?? cfg.deadcoinFirst ?? 100),
-          shareTwitter: Number(cfg.shareTw ?? cfg.shareTwitter ?? 30),
+          deadcoinFirst: Number(
+            cfg.deadFirst ?? cfg.deadcoinFirst ?? 100
+          ),
+          shareTwitter: Number(
+            cfg.shareTw ?? cfg.shareTwitter ?? 30
+          ),
           shareOther: Number(cfg.shareOther ?? 10),
           refSignup: Number(cfg.refSign ?? cfg.refSignup ?? 100),
           multShare: Number(cfg.mShare ?? cfg.multShare ?? 1),
           multUsd: Number(cfg.mUsd ?? cfg.multUsd ?? 1),
-          multDeadcoin: Number(cfg.mDead ?? cfg.multDeadcoin ?? 1),
-          multReferral: Number(cfg.mRef ?? cfg.multReferral ?? 1),
+          multDeadcoin: Number(
+            cfg.mDead ?? cfg.multDeadcoin ?? 1
+          ),
+          multReferral: Number(
+            cfg.mRef ?? cfg.multReferral ?? 1
+          ),
         });
-      } catch (e) {
-        console.warn('⚠️ cpConfig fetch failed:', e);
+      } catch (error) {
+        if (!alive) return;
+  
+        console.warn(
+          '⚠️ cpConfig fetch failed:',
+          error
+        );
       }
-    })();
+    };
+  
+    void fetchCorePointConfig();
+  
+    return () => {
+      alive = false;
+    };
   }, []);
 
   useEffect(() => {
     if (!walletBase58) {
-      setActiveEstimate(null);
-      return;
-    }
-
-    let alive = true;
-
-    const fetchEstimate = async () => {
-      if (document.visibilityState !== 'visible') return;
-
-      try {
-        setEstimateLoading(true);
-
-        const r = await fetch(
-          `/api/phases/active/estimate?wallet=${encodeURIComponent(walletBase58)}`,
-          { cache: 'no-store' }
-        );
-
-        const j = await r.json().catch(() => ({}));
-
-        if (!alive) return;
-
-        if (j?.success && j?.active) setActiveEstimate(j);
-        else setActiveEstimate(null);
-      } catch {
-        if (!alive) return;
-        setActiveEstimate(null);
-      } finally {
-        if (!alive) return;
-        setEstimateLoading(false);
-      }
-    };
-
-    fetchEstimate();
-
-    const onFocus = () => fetchEstimate();
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchEstimate();
-      }
-    };
-
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    const interval = window.setInterval(fetchEstimate, ESTIMATE_POLL_MS);
-
-    return () => {
-      alive = false;
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.clearInterval(interval);
-    };
-  }, [walletBase58]);
-
-  useEffect(() => {
-    let alive = true;
-
-    const fetchCurrentPhase = async () => {
-      if (document.visibilityState !== 'visible') return;
-
-      try {
-        setPhasesLoading(true);
-
-        const r = await fetch('/api/phases/list', { cache: 'no-store' });
-        const j = await r.json().catch(() => ({}));
-
-        if (!alive) return;
-
-        const list = Array.isArray(j?.phases) ? j.phases : [];
-        const activeId = Number(j?.current_active_phase_id ?? 0);
-        const activeNo = Number(j?.current_active_phase_no ?? 0);
-
-        const norm = (s: any) => String(s ?? '').toLowerCase().trim();
-
-        const byId =
-          Number.isFinite(activeId) && activeId > 0
-            ? list.find((p: any) => Number(p.phase_id) === activeId || Number(p.id) === activeId)
-            : null;
-
-        if (byId) {
-          setCurrentPhase(byId);
-          return;
-        }
-
-        const byNo =
-          Number.isFinite(activeNo) && activeNo > 0
-            ? list.find((p: any) => Number(p.phase_no) === activeNo)
-            : null;
-
-        if (byNo) {
-          setCurrentPhase(byNo);
-          return;
-        }
-
-        const active = list.find((p: any) => norm(p.status) === 'active' && !p.snapshot_taken_at);
-        if (active) {
-          setCurrentPhase(active);
-          return;
-        }
-
-        setCurrentPhase(null);
-      } catch (e) {
-        if (!alive) return;
-        console.warn('phases list fetch failed:', e);
-        setCurrentPhase(null);
-      } finally {
-        if (!alive) return;
-        setPhasesLoading(false);
-      }
-    };
-
-    fetchCurrentPhase();
-
-    const onFocus = () => fetchCurrentPhase();
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchCurrentPhase();
-      }
-    };
-
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    const interval = window.setInterval(fetchCurrentPhase, PHASE_POLL_MS);
-
-    return () => {
-      alive = false;
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.clearInterval(interval);
-    };
-  }, []);
-
-  useEffect(() => {
-    const w = publicKey?.toBase58() ?? null;
-  
-    if (!w) {
       setCpHistory([]);
       setLoadingHistory(false);
       return;
     }
   
     let alive = true;
+    const operationWallet = walletBase58;
   
     const loadHistory = async () => {
       setLoadingHistory(true);
   
-      const events = await fetchCorepointHistory(w);
+      const events = await fetchCorepointHistory(
+        operationWallet
+      );
   
       if (!alive) return;
   
@@ -624,93 +654,451 @@ export default function ClaimPanel() {
     return () => {
       alive = false;
     };
-  }, [publicKey]);
+  }, [walletBase58, claimRefreshKey]);
 
   useEffect(() => {
-    setSessionId(null);
-  }, [publicKey, claimScope]);
-
-  useEffect(() => {
-    setWalletHasNoLinkedIdentity(false);
+    if (!walletBase58) {
+      setActiveEstimate(null);
+      setEstimateLoading(false);
+      return;
+    }
+  
+    const operationWallet = walletBase58;
+  
+    let alive = true;
+    let requestId = 0;
+  
+    const fetchEstimate = async () => {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+  
+      const currentRequestId = ++requestId;
+  
+      try {
+        setEstimateLoading(true);
+  
+        const r = await fetch(
+          `/api/phases/active/estimate?wallet=${encodeURIComponent(
+            operationWallet
+          )}`,
+          {
+            cache: 'no-store',
+          }
+        );
+  
+        const j = await r.json().catch(() => ({}));
+  
+        if (
+          !alive ||
+          currentRequestId !== requestId
+        ) {
+          return;
+        }
+  
+        if (r.ok && j?.success && j?.active) {
+          setActiveEstimate(j);
+        } else {
+          setActiveEstimate(null);
+        }
+      } catch (error) {
+        if (
+          !alive ||
+          currentRequestId !== requestId
+        ) {
+          return;
+        }
+  
+        console.warn(
+          'active estimate fetch failed:',
+          error
+        );
+  
+        setActiveEstimate(null);
+      } finally {
+        if (
+          alive &&
+          currentRequestId === requestId
+        ) {
+          setEstimateLoading(false);
+        }
+      }
+    };
+  
+    void fetchEstimate();
+  
+    const onFocus = () => {
+      void fetchEstimate();
+    };
+  
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchEstimate();
+      }
+    };
+  
+    window.addEventListener('focus', onFocus);
+  
+    document.addEventListener(
+      'visibilitychange',
+      onVisibilityChange
+    );
+  
+    const interval = window.setInterval(() => {
+      void fetchEstimate();
+    }, ESTIMATE_POLL_MS);
+  
+    return () => {
+      alive = false;
+      requestId += 1;
+  
+      window.removeEventListener('focus', onFocus);
+  
+      document.removeEventListener(
+        'visibilitychange',
+        onVisibilityChange
+      );
+  
+      window.clearInterval(interval);
+    };
   }, [walletBase58]);
 
   useEffect(() => {
     let alive = true;
+    let requestId = 0;
+  
+    const fetchCurrentPhase = async () => {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+  
+      const currentRequestId = ++requestId;
+  
+      try {
+        setPhasesLoading(true);
+  
+        const r = await fetch('/api/phases/list', {
+          cache: 'no-store',
+        });
+  
+        const j = await r.json().catch(() => ({}));
+  
+        if (
+          !alive ||
+          currentRequestId !== requestId
+        ) {
+          return;
+        }
+  
+        const list = Array.isArray(j?.phases)
+          ? j.phases
+          : [];
+  
+        const activeId = Number(
+          j?.current_active_phase_id ?? 0
+        );
+  
+        const activeNo = Number(
+          j?.current_active_phase_no ?? 0
+        );
+  
+        const norm = (value: unknown) =>
+          String(value ?? '')
+            .toLowerCase()
+            .trim();
+  
+        const byId =
+          Number.isFinite(activeId) && activeId > 0
+            ? list.find(
+                (phase: any) =>
+                  Number(phase.phase_id) === activeId ||
+                  Number(phase.id) === activeId
+              )
+            : null;
+  
+        if (byId) {
+          setCurrentPhase(byId);
+          return;
+        }
+  
+        const byNo =
+          Number.isFinite(activeNo) && activeNo > 0
+            ? list.find(
+                (phase: any) =>
+                  Number(phase.phase_no) === activeNo
+              )
+            : null;
+  
+        if (byNo) {
+          setCurrentPhase(byNo);
+          return;
+        }
+  
+        const active = list.find(
+          (phase: any) =>
+            norm(phase.status) === 'active' &&
+            !phase.snapshot_taken_at
+        );
+  
+        setCurrentPhase(active ?? null);
+      } catch (error) {
+        if (
+          !alive ||
+          currentRequestId !== requestId
+        ) {
+          return;
+        }
+  
+        console.warn(
+          'phases list fetch failed:',
+          error
+        );
+  
+        setCurrentPhase(null);
+      } finally {
+        if (
+          alive &&
+          currentRequestId === requestId
+        ) {
+          setPhasesLoading(false);
+        }
+      }
+    };
+  
+    void fetchCurrentPhase();
+  
+    const onFocus = () => {
+      void fetchCurrentPhase();
+    };
+  
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchCurrentPhase();
+      }
+    };
+  
+    window.addEventListener('focus', onFocus);
+  
+    document.addEventListener(
+      'visibilitychange',
+      onVisibilityChange
+    );
+  
+    const interval = window.setInterval(() => {
+      void fetchCurrentPhase();
+    }, PHASE_POLL_MS);
+  
+    return () => {
+      alive = false;
+      requestId += 1;
+  
+      window.removeEventListener('focus', onFocus);
+  
+      document.removeEventListener(
+        'visibilitychange',
+        onVisibilityChange
+      );
+  
+      window.clearInterval(interval);
+    };
+  }, []);
 
+  useEffect(() => {
+    claimOperationIdRef.current += 1;
+  
+    setSessionId(null);
+    setPendingClaim(null);
+    setFeeConfirmOpen(false);
+  
+    setClaimAmount('');
+    setSelectedClaimPercent(null);
+    setUseAltAddress(false);
+    setAltAddress('');
+  
+    setIsClaiming(false);
+    attemptIdemKeyRef.current = null;
+  }, [claimScope]);
+
+  useEffect(() => {
+    walletBase58Ref.current = walletBase58;
+  }, [walletBase58]);
+
+  useEffect(() => {
+    // Invalidate all operations started by the previous wallet.
+    claimOperationIdRef.current += 1;
+    refundOperationIdRef.current += 1;
+  
+    // Reset claim attempt.
+    setSessionId(null);
+    setPendingClaim(null);
+    setFeeConfirmOpen(false);
+    setIsClaiming(false);
+  
+    setClaimAmount('');
+    setSelectedClaimPercent(null);
+    setUseAltAddress(false);
+    setAltAddress('');
+  
+    attemptIdemKeyRef.current = null;
+  
+    // Reset refund attempt.
+    setPendingRefund(null);
+    setRefundFeeConfirmOpen(false);
+    setRefundFeeStep('idle');
+    setRefundingContributionId(null);
+    setRefundErrors({});
+    setRefundDebug(null);
+  
+    // Prevent the previous wallet's identity from remaining visible
+    // while the new wallet's identity status is loading.
+    setIdentityStatus({
+      authenticated: false,
+      identity: null,
+    });
+  
+    setLinkedWallets([]);
+    setWalletHasNoLinkedIdentity(false);
+  
+    // Reset wallet-specific transient UI.
+    setMessage(null);
+    setShareOpen(false);
+    setSharePayload(null);
+    setShareTxId(undefined);
+    setShareAnchor(undefined);
+  }, [walletBase58]);
+
+  useEffect(() => {
+    const operationWallet = walletBase58;
+    const operationId =
+      ++identityStatusOperationIdRef.current;
+  
+    let alive = true;
+  
+    const isCurrentIdentityOperation = () =>
+      alive &&
+      identityStatusOperationIdRef.current === operationId &&
+      walletBase58Ref.current === operationWallet;
+  
     async function fetchIdentityStatus() {
       try {
-        if (!walletBase58) {
+        /*
+         * No wallet is connected.
+         *
+         * Logout belongs to the current no-wallet state. Before and after
+         * the request, verify that another wallet has not become active.
+         */
+        if (!operationWallet) {
+          if (!isCurrentIdentityOperation()) {
+            return;
+          }
+  
           await fetch('/api/auth/logout', {
             method: 'POST',
             credentials: 'include',
           }).catch(() => null);
-
-          if (!alive) return;
-
+  
+          if (!isCurrentIdentityOperation()) {
+            return;
+          }
+  
           setIdentityStatus({
             authenticated: false,
             identity: null,
           });
-
+  
           setLinkedWallets([]);
           return;
         }
-
+  
+        /*
+         * Attempt to recover the identity session for the wallet that
+         * started this operation.
+         */
         const recoverRes = await fetch('/api/auth/status', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+          },
           credentials: 'include',
           cache: 'no-store',
           body: JSON.stringify({
-            walletAddress: walletBase58,
+            walletAddress: operationWallet,
           }),
         });
-
-        const recoveredStatus = await recoverRes.json().catch(() => null);
-
-        if (!alive) return;
-
-        if (recoverRes.ok && recoveredStatus?.authenticated && recoveredStatus?.identity) {
+  
+        const recoveredStatus = await recoverRes
+          .json()
+          .catch(() => null);
+  
+        if (!isCurrentIdentityOperation()) {
+          return;
+        }
+  
+        if (
+          recoverRes.ok &&
+          recoveredStatus?.authenticated &&
+          recoveredStatus?.identity
+        ) {
           setIdentityStatus({
             authenticated: true,
             identity: recoveredStatus.identity,
           });
-
-          const wallets = await fetchLinkedIdentityWallets();
-
-          if (!alive) return;
-
+  
+          const wallets =
+            await fetchLinkedIdentityWallets();
+  
+          if (!isCurrentIdentityOperation()) {
+            return;
+          }
+  
           setLinkedWallets(wallets);
           return;
         }
-
+  
+        /*
+         * The recovery response belongs to the current wallet, so it is
+         * safe to clear the stale server session.
+         */
+        if (!isCurrentIdentityOperation()) {
+          return;
+        }
+  
         await fetch('/api/auth/logout', {
           method: 'POST',
           credentials: 'include',
         }).catch(() => null);
-
-        if (!alive) return;
-
+  
+        if (!isCurrentIdentityOperation()) {
+          return;
+        }
+  
         setIdentityStatus({
           authenticated: false,
           identity: null,
         });
-
+  
         setLinkedWallets([]);
-      } catch {
-        if (!alive) return;
-
+      } catch (error) {
+        if (!isCurrentIdentityOperation()) {
+          return;
+        }
+  
+        console.warn(
+          'identity status recovery failed:',
+          error
+        );
+  
         setIdentityStatus({
           authenticated: false,
           identity: null,
         });
-
+  
         setLinkedWallets([]);
       }
     }
-
+  
     void fetchIdentityStatus();
-
+  
     return () => {
       alive = false;
     };
@@ -723,35 +1111,66 @@ export default function ClaimPanel() {
   useEffect(() => {
     setClaimAmount('');
     setSelectedClaimPercent(null);
-  }, [selectedPhaseId, phaseId, claimScope]);
+  }, [selectedPhaseId]);
 
   useEffect(() => {
-    (async () => {
+    let alive = true;
+  
+    const fetchLatestFinalizedPhase = async () => {
       try {
         setPhaseLoading(true);
-
-        const r = await fetch('/api/phases/finalized/latest', {
-          cache: 'no-store',
-        });
-
+  
+        const r = await fetch(
+          '/api/phases/finalized/latest',
+          {
+            cache: 'no-store',
+          }
+        );
+  
         const j = await r.json().catch(() => ({}));
+  
+        if (!alive) {
+          return;
+        }
+  
         const pid = Number(j?.phase_id);
-
-        if (r.ok && j?.success && Number.isFinite(pid) && pid > 0) {
+  
+        if (
+          r.ok &&
+          j?.success &&
+          Number.isFinite(pid) &&
+          pid > 0
+        ) {
           setPhaseId(pid);
           setSelectedPhaseId(pid);
         } else {
           setPhaseId(null);
           setSelectedPhaseId(null);
         }
-      } catch (e) {
-        console.warn('phase fetch failed:', e);
+      } catch (error) {
+        if (!alive) {
+          return;
+        }
+  
+        console.warn(
+          'latest finalized phase fetch failed:',
+          error
+        );
+  
         setPhaseId(null);
         setSelectedPhaseId(null);
       } finally {
-        setPhaseLoading(false);
+        if (alive) {
+          setPhaseLoading(false);
+        }
       }
-    })();
+    };
+  
+    void fetchLatestFinalizedPhase();
+  
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // ⛑️ İlk kare guard’ları (render içinde setState YOK!)
@@ -906,21 +1325,37 @@ export default function ClaimPanel() {
   const claimExecutionPhaseId =
     claimScope === 'identity' ? 0 : Number(effectivePhaseId ?? 0);
 
-  async function tryStartSessionWithoutFee(wallet: string, destination: string) {
-    const r = await fetch('/api/claim/session/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        wallet_address: wallet,
-        destination,
-        phase_id: claimExecutionPhaseId,
-        claim_scope: claimScope,
-      }),
-    });
+  async function tryStartSessionWithoutFee(
+    wallet: string,
+    destination: string,
+    phaseId: number,
+    scope: 'wallet' | 'identity'
+  ) {
+    const response = await fetch(
+      '/api/claim/session/start',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          wallet_address: wallet,
+          destination,
+          phase_id: phaseId,
+          claim_scope: scope,
+        }),
+      }
+    );
 
-    const j: any = await r.json().catch(() => ({}));
-    return { r, j };
+    const result: any = await response
+      .json()
+      .catch(() => ({}));
+
+    return {
+      response,
+      result,
+    };
   }
 
   async function handleIdentityLogout() {
@@ -1347,397 +1782,702 @@ export default function ClaimPanel() {
       setMessage('❌ Please connect your wallet.');
       return;
     }
-
+  
     if (!ensureProtectedActionReady('claiming')) {
       return;
     }
-
+  
     if (!claimOpen) {
-      setMessage('⚠️ Claiming is currently closed. You will be able to claim when the window opens.');
+      setMessage(
+        '⚠️ Claiming is currently closed. You will be able to claim when the window opens.'
+      );
       return;
     }
+  
     if (phaseLoading) {
-      setMessage('⏳ Phase is still loading. Please try again in a second.');
+      setMessage(
+        '⏳ Phase is still loading. Please try again in a second.'
+      );
       return;
     }
-
+  
     if (claimScope !== 'identity' && !effectivePhaseId) {
-      setMessage('❌ No finalized phase found. Claims are not ready yet.');
+      setMessage(
+        '❌ No finalized phase found. Claims are not ready yet.'
+      );
       return;
     }
-
+  
     const raw = claimAmount.trim();
+  
     if (!raw) {
       setMessage('❌ Please enter a claim amount.');
       return;
     }
-
+  
     const amt = Number(raw);
+  
     if (!Number.isFinite(amt) || amt <= 0) {
       setMessage('❌ Please enter a valid claim amount.');
       return;
     }
-
+  
     if (amt > selectedClaimable) {
-      setMessage('❌ Claim amount exceeds selected phase balance.');
+      setMessage(
+        '❌ Claim amount exceeds selected phase balance.'
+      );
       return;
     }
-
-    const destination = useAltAddress ? altAddress.trim() : publicKey.toBase58();
+  
+    const destination = useAltAddress
+      ? altAddress.trim()
+      : publicKey.toBase58();
+  
     if (!destination) {
       setMessage('❌ Please provide a destination address.');
       return;
     }
-
+  
     try {
-      // validate destination pubkey
+      // Validate destination pubkey.
       // eslint-disable-next-line no-new
       new PublicKey(destination);
     } catch {
-      setMessage('❌ Destination address is not a valid Solana wallet.');
+      setMessage(
+        '❌ Destination address is not a valid Solana wallet.'
+      );
       return;
     }
-
+  
+    /*
+     * Freeze all claim inputs at the moment this operation begins.
+     * These values must remain unchanged throughout the async flow.
+     */
+    const operationWallet = publicKey.toBase58();
+    const operationDestination = destination;
+    const operationPhaseId = claimExecutionPhaseId;
+    const operationClaimScope = claimScope;
+    const operationClaimAmount = raw;
+  
+    const operationId =
+      ++claimOperationIdRef.current;
+  
+    const isCurrentClaimOperation = () =>
+      claimOperationIdRef.current === operationId &&
+      walletBase58Ref.current === operationWallet;
+  
     setIsClaiming(true);
     setMessage(null);
-
+  
     try {
-      const walletBase58 = publicKey.toBase58();
-
-      // 1) Ensure idempotency key (once per attempt)
+      /*
+       * Generate one idempotency key per claim attempt.
+       * The same key is preserved if the operation needs to continue
+       * through fee confirmation or an execute retry.
+       */
       if (!attemptIdemKeyRef.current) {
         attemptIdemKeyRef.current =
-          (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+          typeof crypto !== 'undefined' &&
+          'randomUUID' in crypto
             ? crypto.randomUUID()
-            : `claim_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+            : `claim_${Date.now()}_${Math.random()
+                .toString(16)
+                .slice(2)}`;
       }
+  
       const idemKey = attemptIdemKeyRef.current;
-
-      // 2) Try to start session WITHOUT fee (preflight)
-      const { r: preR, j: preJ } = await tryStartSessionWithoutFee(walletBase58, destination);
-
-      // ✅ Case A: session exists (no fee needed)
-      if (preR.ok && preJ?.success && preJ?.session_id) {
+  
+      /*
+       * First try to recover or create a session without requiring
+       * a new fee payment.
+       */
+      const {
+        response: preR,
+        result: preJ,
+      } = await tryStartSessionWithoutFee(
+        operationWallet,
+        operationDestination,
+        operationPhaseId,
+        operationClaimScope
+      );
+  
+      if (!isCurrentClaimOperation()) {
+        return;
+      }
+  
+      /*
+       * Case A:
+       * A usable claim session exists and no new fee is required.
+       */
+      if (
+        preR.ok &&
+        preJ?.success &&
+        preJ?.session_id
+      ) {
         const sid = String(preJ.session_id);
+  
         setSessionId(sid);
-
-        // Execute claim
-        const execRes = await fetch('/api/claim/execute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            session_id: sid,
-            wallet_address: walletBase58,
-            destination,
-            phase_id: claimExecutionPhaseId,
-            claim_amount: raw,
-            idempotency_key: idemKey,
-          }),
-        });
-
-        const execJson: any = await execRes.json().catch(() => ({}));
-
+  
+        const execRes = await fetch(
+          '/api/claim/execute',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              session_id: sid,
+              wallet_address: operationWallet,
+              destination: operationDestination,
+              phase_id: operationPhaseId,
+              claim_amount: operationClaimAmount,
+              idempotency_key: idemKey,
+            }),
+          }
+        );
+  
+        if (!isCurrentClaimOperation()) {
+          return;
+        }
+  
+        const execJson: any = await execRes
+          .json()
+          .catch(() => ({}));
+  
+        if (!isCurrentClaimOperation()) {
+          return;
+        }
+  
         if (!execRes.ok || !execJson?.success) {
-          const rawErr = String(execJson?.error || `CLAIM_EXECUTE_FAILED (${execRes.status})`);
-
+          const rawErr = String(
+            execJson?.error ||
+              `CLAIM_EXECUTE_FAILED (${execRes.status})`
+          );
+  
           if (rawErr === 'SESSION_NOT_FOUND') {
             setSessionId(null);
             setPendingClaim(null);
             attemptIdemKeyRef.current = null;
           }
-
-          setMessage(`❌ ${userFriendlyError(rawErr)}`);
+  
+          setMessage(
+            `❌ ${userFriendlyError(rawErr)}`
+          );
+  
           return;
         }
-
-        setClaimFeeSigForSupport(null);
-
+  
         const isDryRun =
           execJson?.dry_run === true ||
           execJson?.dryRun === true ||
-          String(execJson?.dry_run ?? '').trim().toLowerCase() === 'true';
-
-        if (execJson?.deduped && execJson?.status !== 'succeeded') {
+          String(execJson?.dry_run ?? '')
+            .trim()
+            .toLowerCase() === 'true';
+  
+        if (
+          execJson?.deduped &&
+          execJson?.status !== 'succeeded'
+        ) {
           setSessionId(null);
           setPendingClaim(null);
           attemptIdemKeyRef.current = null;
-          setMessage('⚠️ Duplicate claim attempt detected. Please try again.');
+  
+          setMessage(
+            '⚠️ Duplicate claim attempt detected. Please try again.'
+          );
+  
           return;
         }
-
+  
         if (isDryRun) {
-          setMessage(
-            `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${Array.isArray(execJson.splits)
-              ? execJson.splits
+          const splitSummary = Array.isArray(
+            execJson?.splits
+          )
+            ? execJson.splits
                 .map(
-                  (s: any) =>
-                    `${s.phase_label || s.phase_name || `Phase ${s.phase_no || s.phase_id}`}: ${s.amount}`
+                  (split: any) =>
+                    `${
+                      split.phase_label ||
+                      split.phase_name ||
+                      `Phase ${
+                        split.phase_no ||
+                        split.phase_id
+                      }`
+                    }: ${split.amount}`
                 )
                 .join(' · ')
-              : 'simulation complete'
-            }`
+            : 'simulation complete';
+  
+          setMessage(
+            `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${splitSummary}`
           );
         } else if (execJson?.tx_signature) {
-          setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
+          setMessage(
+            `✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`
+          );
         } else if (execJson?.deduped) {
-          setMessage('⚠️ Duplicate claim attempt detected. Please try again.');
+          setMessage(
+            '⚠️ Duplicate claim attempt detected. Please try again.'
+          );
         } else {
           setMessage('❌ Claim execution failed.');
         }
-
+  
+        /*
+         * Clear the completed claim form.
+         */
         setClaimAmount('');
         setSelectedClaimPercent(null);
         setUseAltAddress(false);
         setAltAddress('');
         setPendingClaim(null);
+  
         attemptIdemKeyRef.current = null;
-
-        if (execJson?.session_closed === true) setSessionId(null);
-
-        // Refresh profile
-        const refreshed = await fetch(
-          `/api/claim/${walletBase58}${claimScope === 'identity' ? '?scope=identity' : ''}`,
-          { cache: 'no-store' }
+  
+        if (execJson?.session_closed === true) {
+          setSessionId(null);
+        }
+  
+        if (!isCurrentClaimOperation()) {
+          return;
+        }
+  
+        /*
+         * Trigger the claim/profile and CorePoint history effects.
+         * No manual refreshed/refreshedJson fetch is needed here.
+         */
+        setClaimRefreshKey(
+          (value) => value + 1
         );
-        const refreshedJson: any = await refreshed.json().catch(() => ({}));
-        if (refreshed.ok && refreshedJson?.success) setData(refreshedJson.data);
-
+  
         return;
       }
-
-      // ✅ Case B: backend says fee is required -> open confirm UI
-      const err = String(preJ?.error || '');
-
-      if (err === 'MISSING_FEE_SIGNATURE') {
+  
+      /*
+       * Case B:
+       * The backend requires a fee signature before continuing.
+       */
+      const preflightError = String(
+        preJ?.error || ''
+      );
+  
+      if (
+        preflightError ===
+        'MISSING_FEE_SIGNATURE'
+      ) {
         setPendingClaim({
-          wallet: walletBase58,
-          destination,
-          phaseId: claimExecutionPhaseId,
-          claimScope,
-          claimAmountRaw: raw,
+          wallet: operationWallet,
+          destination: operationDestination,
+          phaseId: operationPhaseId,
+          claimScope: operationClaimScope,
+          claimAmount: operationClaimAmount,
           idemKey,
         });
-
+  
         setFeeConfirmOpen(true);
         setMessage(null);
+  
         return;
       }
-
-      // ✅ Other error
-      throw new Error(err || `SESSION_START_FAILED (${preR.status})`);
-    } catch (err: any) {
-      console.error('Claim request failed:', err);
-      setMessage(`❌ ${userFriendlyError(String(err?.message ?? ''))}`);
+  
+      /*
+       * Any other preflight response is an actual failure.
+       */
+      throw new Error(
+        preflightError ||
+          `SESSION_START_FAILED (${preR.status})`
+      );
+    } catch (error: unknown) {
+      console.error(
+        'Claim request failed:',
+        error
+      );
+  
+      if (!isCurrentClaimOperation()) {
+        return;
+      }
+  
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : String(error ?? '');
+  
+      setMessage(
+        `❌ ${userFriendlyError(errorMessage)}`
+      );
     } finally {
-      setIsClaiming(false);
+      if (isCurrentClaimOperation()) {
+        setIsClaiming(false);
+      }
     }
   };
 
   const handleRequestRefund = async (tx: any) => {
     const contributionId = Number(
       tx?.contribution_id ??
-      tx?.contributionId ??
-      tx?.id ??
-      0
+        tx?.contributionId ??
+        tx?.id ??
+        0
     );
-
-    if (Number.isFinite(contributionId) && contributionId > 0) {
+  
+    if (
+      Number.isFinite(contributionId) &&
+      contributionId > 0
+    ) {
       clearRefundError(contributionId);
     }
-
+  
     if (!publicKey) {
-      if (Number.isFinite(contributionId) && contributionId > 0) {
-        setRefundError(contributionId, '❌ Please connect your wallet.');
+      if (
+        Number.isFinite(contributionId) &&
+        contributionId > 0
+      ) {
+        setRefundError(
+          contributionId,
+          '❌ Please connect your wallet.'
+        );
       }
-
+  
       setMessage('❌ Please connect your wallet.');
       return;
     }
-
+  
     if (!ensureProtectedActionReady('requesting a refund')) {
-      if (Number.isFinite(contributionId) && contributionId > 0) {
+      if (
+        Number.isFinite(contributionId) &&
+        contributionId > 0
+      ) {
         setRefundError(
           contributionId,
           '❌ Please sign in with your Coincarnation Identity before requesting a refund.'
         );
       }
+  
       return;
     }
-
+  
     if (!signMessage) {
-      if (Number.isFinite(contributionId) && contributionId > 0) {
-        setRefundError(contributionId, '❌ Your wallet does not support message signing.');
+      if (
+        Number.isFinite(contributionId) &&
+        contributionId > 0
+      ) {
+        setRefundError(
+          contributionId,
+          '❌ Your wallet does not support message signing.'
+        );
       }
-
-      setMessage('❌ Your wallet does not support message signing.');
+  
+      setMessage(
+        '❌ Your wallet does not support message signing.'
+      );
+  
       return;
     }
-
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[REFUND] clicked tx:', tx);
-    }
-
+  
     const mint = String(
       tx?.token_contract ??
-      tx?.mint ??
-      tx?.token_mint ??
-      ''
+        tx?.mint ??
+        tx?.token_mint ??
+        ''
     ).trim();
-
+  
     const tokenSymbol = String(
       tx?.token_symbol ??
-      tx?.symbol ??
-      ''
+        tx?.symbol ??
+        ''
     ).trim();
-
+  
     const invalidationId =
       Number(
         tx?.invalidation_id ??
-        tx?.invalidationId ??
-        tx?.refund_id ??
-        tx?.refundId ??
-        tx?.refund_invalidation_id ??
-        0
+          tx?.invalidationId ??
+          tx?.refund_id ??
+          tx?.refundId ??
+          tx?.refund_invalidation_id ??
+          0
       ) || undefined;
-
-    if (!Number.isFinite(contributionId) || contributionId <= 0 || !mint) {
+  
+    /*
+     * Validate contribution data before invalidating any
+     * currently running refund operation.
+     */
+    if (
+      !Number.isFinite(contributionId) ||
+      contributionId <= 0 ||
+      !mint
+    ) {
       console.error('[REFUND] incomplete tx data', {
         contributionId,
         mint,
         tx,
       });
+  
       setMessage('❌ Refund request data is incomplete.');
       return;
     }
-
+  
+    /*
+     * Snapshot the connected wallet for this refund attempt.
+     */
+    const operationWallet = publicKey.toBase58();
+  
+    const operationId =
+      ++refundOperationIdRef.current;
+  
+    const isCurrentRefundOperation = () =>
+      refundOperationIdRef.current === operationId &&
+      walletBase58Ref.current === operationWallet;
+  
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[REFUND] clicked tx:', tx);
+    }
+  
     try {
       setRefundingContributionId(contributionId);
-      setMessage(`⏳ Preparing refund fee request for contribution #${contributionId}...`);
-
-      // 1) Prepare refund fee info
-      const feePrepRes = await fetch('/api/refunds/fee/prepare', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          invalidation_id: invalidationId,
-          wallet_address: publicKey.toBase58(),
-          contribution_id: contributionId,
-          mint,
-        }),
-      });
-
-      const feePrepJson: any = await feePrepRes.json().catch(() => ({}));
-
+  
+      setMessage(
+        `⏳ Preparing refund fee request for contribution #${contributionId}...`
+      );
+  
+      /*
+       * 1) Prepare refund fee information.
+       */
+      const feePrepRes = await fetch(
+        '/api/refunds/fee/prepare',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            invalidation_id: invalidationId,
+            wallet_address: operationWallet,
+            contribution_id: contributionId,
+            mint,
+          }),
+        }
+      );
+  
+      if (!isCurrentRefundOperation()) {
+        return;
+      }
+  
+      const feePrepJson: any = await feePrepRes
+        .json()
+        .catch(() => ({}));
+  
+      if (!isCurrentRefundOperation()) {
+        return;
+      }
+  
       if (process.env.NODE_ENV !== 'production') {
         console.log('[REFUND] fee prepare response:', {
           status: feePrepRes.status,
           body: feePrepJson,
         });
       }
-
+  
       if (!feePrepRes.ok || !feePrepJson?.success) {
-        throw new Error(String(feePrepJson?.error || `REFUND_FEE_PREPARE_FAILED (${feePrepRes.status})`));
+        throw new Error(
+          String(
+            feePrepJson?.error ||
+              `REFUND_FEE_PREPARE_FAILED (${feePrepRes.status})`
+          )
+        );
       }
-
-      // If fee already paid, proceed directly to signature flow
+  
+      /*
+       * The fee has already been paid for this refund.
+       * Continue directly with the signed refund request.
+       */
       if (feePrepJson?.refund_fee_paid === true) {
-        setMessage('⏳ Refund fee already paid. Preparing signature challenge...');
-
-        const prepRes = await fetch('/api/refunds/request/prepare', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            invalidation_id:
-              Number(
-                feePrepJson?.invalidation_id ??
-                invalidationId ??
-                0
-              ) || undefined,
-            wallet_address: publicKey.toBase58(),
-            contribution_id: contributionId,
-            mint,
-          }),
-        });
-
-        const prepJson: any = await prepRes.json().catch(() => ({}));
-
+        setMessage(
+          '⏳ Refund fee already paid. Preparing signature challenge...'
+        );
+  
+        /*
+         * 2) Prepare refund signature challenge.
+         */
+        const prepRes = await fetch(
+          '/api/refunds/request/prepare',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              invalidation_id:
+                Number(
+                  feePrepJson?.invalidation_id ??
+                    invalidationId ??
+                    0
+                ) || undefined,
+              wallet_address: operationWallet,
+              contribution_id: contributionId,
+              mint,
+            }),
+          }
+        );
+  
+        if (!isCurrentRefundOperation()) {
+          return;
+        }
+  
+        const prepJson: any = await prepRes
+          .json()
+          .catch(() => ({}));
+  
+        if (!isCurrentRefundOperation()) {
+          return;
+        }
+  
         if (process.env.NODE_ENV !== 'production') {
-          console.log('[REFUND] request prepare response:', {
-            status: prepRes.status,
-            body: prepJson,
-          });
+          console.log(
+            '[REFUND] request prepare response:',
+            {
+              status: prepRes.status,
+              body: prepJson,
+            }
+          );
         }
-
-        if (!prepRes.ok || !prepJson?.success || !prepJson?.message || !prepJson?.nonce) {
-          throw new Error(String(prepJson?.error || `REFUND_PREPARE_FAILED (${prepRes.status})`));
+  
+        if (
+          !prepRes.ok ||
+          !prepJson?.success ||
+          !prepJson?.message ||
+          !prepJson?.nonce
+        ) {
+          throw new Error(
+            String(
+              prepJson?.error ||
+                `REFUND_PREPARE_FAILED (${prepRes.status})`
+            )
+          );
         }
-
-        const messageBytes = new TextEncoder().encode(String(prepJson.message));
-        const signatureBytes = await signMessage(messageBytes);
-        const signatureBase64 = uint8ToBase64(signatureBytes);
-
-        const r = await fetch('/api/refunds/request', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            invalidation_id:
-              Number(
-                feePrepJson?.invalidation_id ??
-                invalidationId ??
-                0
-              ) || undefined,
-            wallet_address: publicKey.toBase58(),
-            contribution_id: contributionId,
-            mint,
-            nonce: prepJson.nonce,
-            signature_base64: signatureBase64,
-          }),
-        });
-
-        const j = await r.json().catch(() => ({}));
-
+  
+        /*
+         * 3) Sign refund challenge.
+         */
+        const messageBytes = new TextEncoder().encode(
+          String(prepJson.message)
+        );
+  
+        const signatureBytes = await signMessage(
+          messageBytes
+        );
+  
+        if (!isCurrentRefundOperation()) {
+          return;
+        }
+  
+        const signatureBase64 =
+          uint8ToBase64(signatureBytes);
+  
+        /*
+         * 4) Submit the signed refund request.
+         */
+        const requestRes = await fetch(
+          '/api/refunds/request',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              invalidation_id:
+                Number(
+                  feePrepJson?.invalidation_id ??
+                    invalidationId ??
+                    0
+                ) || undefined,
+              wallet_address: operationWallet,
+              contribution_id: contributionId,
+              mint,
+              nonce: prepJson.nonce,
+              signature_base64: signatureBase64,
+            }),
+          }
+        );
+  
+        if (!isCurrentRefundOperation()) {
+          return;
+        }
+  
+        const requestJson: any = await requestRes
+          .json()
+          .catch(() => ({}));
+  
+        if (!isCurrentRefundOperation()) {
+          return;
+        }
+  
         if (process.env.NODE_ENV !== 'production') {
-          console.log('[REFUND] request submit response:', {
-            status: r.status,
-            body: j,
-          });
+          console.log(
+            '[REFUND] request submit response:',
+            {
+              status: requestRes.status,
+              body: requestJson,
+            }
+          );
         }
-
-        if (!r.ok || !j?.success) {
-          throw new Error(String(j?.error || `REFUND_REQUEST_FAILED (${r.status})`));
+  
+        if (
+          !requestRes.ok ||
+          !requestJson?.success
+        ) {
+          throw new Error(
+            String(
+              requestJson?.error ||
+                `REFUND_REQUEST_FAILED (${requestRes.status})`
+            )
+          );
         }
-
+  
+        /*
+         * The refund request is now safely recorded.
+         * The stored fee signature is no longer needed for recovery.
+         */
         setRefundFeeSigForSupport(null);
-        setMessage('✅ Refund request signed and recorded successfully.');
-
-        const refreshed = await fetch(`/api/claim/${publicKey.toBase58()}`, {
-          cache: 'no-store',
-          credentials: 'include',
-        });
-        const refreshedJson: any = await refreshed.json().catch(() => ({}));
-        if (refreshed.ok && refreshedJson?.success) {
-          setData(refreshedJson.data);
+  
+        setMessage(
+          '✅ Refund request signed and recorded successfully.'
+        );
+  
+        if (!isCurrentRefundOperation()) {
+          return;
         }
-
+  
+        /*
+         * Refresh claim/profile data and CorePoint history
+         * through the shared effects.
+         */
+        setClaimRefreshKey(
+          (value) => value + 1
+        );
+  
         return;
       }
-
+  
+      /*
+       * The refund fee has not been paid yet.
+       * Validate the fee configuration before opening the modal.
+       */
       const refundFeeLamports = Number(
-        feePrepJson.refund_fee_lamports ?? 0
+        feePrepJson?.refund_fee_lamports ?? 0
       );
-      
+  
       const refundFeeSol = Number(
-        feePrepJson.refund_fee_sol ?? 0
+        feePrepJson?.refund_fee_sol ?? 0
       );
-      
+  
       const treasuryWallet = String(
-        feePrepJson.treasury_wallet ?? ''
+        feePrepJson?.treasury_wallet ?? ''
       ).trim();
-      
+  
       if (
         !Number.isSafeInteger(refundFeeLamports) ||
         refundFeeLamports <= 0 ||
@@ -1745,78 +2485,144 @@ export default function ClaimPanel() {
         refundFeeSol <= 0 ||
         !treasuryWallet
       ) {
-        throw new Error('INVALID_REFUND_FEE_CONFIGURATION');
+        throw new Error(
+          'INVALID_REFUND_FEE_CONFIGURATION'
+        );
       }
-      
+  
       try {
         // eslint-disable-next-line no-new
         new PublicKey(treasuryWallet);
       } catch {
-        throw new Error('INVALID_REFUND_TREASURY_WALLET');
+        throw new Error(
+          'INVALID_REFUND_TREASURY_WALLET'
+        );
       }
-      
-      // 2) Open refund fee confirmation modal
+  
+      if (!isCurrentRefundOperation()) {
+        return;
+      }
+  
+      /*
+       * 5) Open refund fee confirmation modal.
+       */
       setPendingRefund({
         invalidationId:
           Number(
-            feePrepJson.invalidation_id ??
-            invalidationId ??
-            0
+            feePrepJson?.invalidation_id ??
+              invalidationId ??
+              0
           ) || undefined,
         contributionId,
         mint,
         tokenSymbol: tokenSymbol || undefined,
-        refundFeeLamports: Number(feePrepJson.refund_fee_lamports ?? 0),
-        refundFeeSol: Number(feePrepJson.refund_fee_sol ?? 0),
-        treasuryWallet: String(feePrepJson.treasury_wallet || ''),
+        refundFeeLamports,
+        refundFeeSol,
+        treasuryWallet,
       });
-
+  
       setRefundFeeConfirmOpen(true);
       setMessage(null);
-    } catch (e: any) {
-      console.error('[REFUND] handleRequestRefund failed:', e);
-      setMessage(`❌ ${userFriendlyError(String(e?.message ?? 'REFUND_REQUEST_FAILED'))}`);
+    } catch (error: unknown) {
+      console.error(
+        '[REFUND] handleRequestRefund failed:',
+        error
+      );
+  
+      if (!isCurrentRefundOperation()) {
+        return;
+      }
+  
+      const rawError =
+        error instanceof Error
+          ? error.message
+          : String(
+              error ?? 'REFUND_REQUEST_FAILED'
+            );
+  
+      const friendlyError =
+        userFriendlyError(rawError);
+  
+      setMessage(`❌ ${friendlyError}`);
+  
       setRefundError(
         contributionId,
-        `❌ ${userFriendlyError(String(e?.message ?? 'REFUND_REQUEST_FAILED'))}`
+        `❌ ${friendlyError}`
       );
     } finally {
-      setRefundingContributionId(null);
+      /*
+       * An outdated refund operation must not clear the
+       * loading state belonging to a newer operation.
+       */
+      if (isCurrentRefundOperation()) {
+        setRefundingContributionId(null);
+      }
     }
   };
 
   const confirmRefundFeeThenRequest = async () => {
-    if (!pendingRefund || !publicKey || !signMessage || !sendTransaction || !connection) {
-      setMessage('❌ Wallet connection is not ready. Please reconnect and try again.');
+    if (
+      !pendingRefund ||
+      !publicKey ||
+      !signMessage ||
+      !sendTransaction ||
+      !connection
+    ) {
+      setMessage(
+        '❌ Wallet connection is not ready. Please reconnect and try again.'
+      );
       return;
     }
-
+  
+    /*
+     * Snapshot all operation-specific values.
+     * React state or the connected wallet may change while an async step is running.
+     */
+    const operationWallet = publicKey.toBase58();
+    const operationPublicKey = publicKey;
+    const operationRefund = pendingRefund;
+    const operationId = ++refundOperationIdRef.current;
+  
+    const isCurrentRefundOperation = () =>
+      refundOperationIdRef.current === operationId &&
+      walletBase58Ref.current === operationWallet;
+  
     try {
       setRefundDebug(null);
       setRefundFeeStep('paying');
-      setRefundingContributionId(pendingRefund.contributionId);
+      setRefundingContributionId(operationRefund.contributionId);
       setMessage(null);
-
-      const treasuryPubkey = new PublicKey(pendingRefund.treasuryWallet);
-
-      setMessage(
-        `💸 Paying refund processing fee (~${pendingRefund.refundFeeSol.toFixed(6)} SOL)... Please confirm in your wallet.`
+  
+      const treasuryPubkey = new PublicKey(
+        operationRefund.treasuryWallet
       );
-
-      // 1) Pay refund fee
+  
+      setMessage(
+        `💸 Paying refund processing fee (~${operationRefund.refundFeeSol.toFixed(
+          6
+        )} SOL)... Please confirm in your wallet.`
+      );
+  
+      // 1) Build refund fee transaction
       const feeTx = new Transaction().add(
         SystemProgram.transfer({
-          fromPubkey: publicKey,
+          fromPubkey: operationPublicKey,
           toPubkey: treasuryPubkey,
-          lamports: pendingRefund.refundFeeLamports,
+          lamports: operationRefund.refundFeeLamports,
         })
       );
-
-      feeTx.feePayer = publicKey;
-
+  
+      feeTx.feePayer = operationPublicKey;
+  
       const latest = await connection.getLatestBlockhash('confirmed');
+  
+      if (!isCurrentRefundOperation()) {
+        return;
+      }
+  
       feeTx.recentBlockhash = latest.blockhash;
-
+  
+      // 2) Send refund fee
       const feeSig = String(
         await sendTransaction(feeTx, connection, {
           skipPreflight: false,
@@ -1824,330 +2630,686 @@ export default function ClaimPanel() {
           maxRetries: 3,
         } as any)
       );
+  
+      /*
+       * Store the signature before checking whether the wallet changed.
+       * The transaction may already have been submitted on-chain, and the
+       * signature can be necessary for recovery or support.
+       */
       setRefundFeeSigForSupport(feeSig);
-
+  
+      if (!isCurrentRefundOperation()) {
+        return;
+      }
+  
       setRefundFeeStep('confirming');
       setMessage('⏳ Verifying refund fee payment...');
-
-      // 2) Confirm fee with backend
+  
+      // 3) Confirm fee with backend
       const feeConfirmRes = await fetch('/api/refunds/fee/confirm', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          invalidation_id: pendingRefund.invalidationId ?? undefined,
-          wallet_address: publicKey.toBase58(),
-          contribution_id: pendingRefund.contributionId,
-          mint: pendingRefund.mint,
+          invalidation_id:
+            operationRefund.invalidationId ?? undefined,
+          wallet_address: operationWallet,
+          contribution_id: operationRefund.contributionId,
+          mint: operationRefund.mint,
           fee_tx_signature: feeSig,
         }),
       });
-
-      const feeConfirmJson: any = await feeConfirmRes.json().catch(() => ({}));
-
+  
+      const feeConfirmJson: any = await feeConfirmRes
+        .json()
+        .catch(() => ({}));
+  
+      if (!isCurrentRefundOperation()) {
+        return;
+      }
+  
       if (process.env.NODE_ENV !== 'production') {
         console.log('[REFUND] fee confirm response:', {
           status: feeConfirmRes.status,
           body: feeConfirmJson,
         });
       }
-
+  
       setRefundDebug({
         step: 'fee_confirm',
         status: feeConfirmRes.status,
         body: feeConfirmJson,
       });
-
+  
       if (!feeConfirmRes.ok || !feeConfirmJson?.success) {
         throw new Error(
-          String(feeConfirmJson?.error || `REFUND_FEE_CONFIRM_FAILED (${feeConfirmRes.status})`)
+          String(
+            feeConfirmJson?.error ||
+              `REFUND_FEE_CONFIRM_FAILED (${feeConfirmRes.status})`
+          )
         );
       }
-
+  
       setRefundFeeStep('paid');
-      setMessage('✅ Refund fee received. Preparing your refund request...');
-
-      // 3) Prepare refund request challenge
+      setMessage(
+        '✅ Refund fee received. Preparing your refund request...'
+      );
+  
+      // 4) Prepare refund request challenge
       const prepRes = await fetch('/api/refunds/request/prepare', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          invalidation_id: pendingRefund.invalidationId ?? undefined,
-          wallet_address: publicKey.toBase58(),
-          contribution_id: pendingRefund.contributionId,
-          mint: pendingRefund.mint,
+          invalidation_id:
+            operationRefund.invalidationId ?? undefined,
+          wallet_address: operationWallet,
+          contribution_id: operationRefund.contributionId,
+          mint: operationRefund.mint,
         }),
       });
-
-      const prepJson: any = await prepRes.json().catch(() => ({}));
-
+  
+      const prepJson: any = await prepRes
+        .json()
+        .catch(() => ({}));
+  
+      if (!isCurrentRefundOperation()) {
+        return;
+      }
+  
       if (process.env.NODE_ENV !== 'production') {
         console.log('[REFUND] request prepare response:', {
           status: prepRes.status,
           body: prepJson,
         });
       }
-
+  
       setRefundDebug({
         step: 'request_prepare',
         status: prepRes.status,
         body: prepJson,
       });
-
-      if (!prepRes.ok || !prepJson?.success || !prepJson?.message || !prepJson?.nonce) {
-        throw new Error(String(prepJson?.error || `REFUND_PREPARE_FAILED (${prepRes.status})`));
+  
+      if (
+        !prepRes.ok ||
+        !prepJson?.success ||
+        !prepJson?.message ||
+        !prepJson?.nonce
+      ) {
+        throw new Error(
+          String(
+            prepJson?.error ||
+              `REFUND_PREPARE_FAILED (${prepRes.status})`
+          )
+        );
       }
-
-      // 4) Sign challenge
+  
+      // 5) Sign challenge
       setRefundFeeStep('signing');
-      setMessage('✍️ Refund fee received. Please sign the refund request message in your wallet.');
-
-      const messageBytes = new TextEncoder().encode(String(prepJson.message));
+      setMessage(
+        '✍️ Refund fee received. Please sign the refund request message in your wallet.'
+      );
+  
+      const messageBytes = new TextEncoder().encode(
+        String(prepJson.message)
+      );
+  
       const signatureBytes = await signMessage(messageBytes);
+  
+      if (!isCurrentRefundOperation()) {
+        return;
+      }
+  
       const signatureBase64 = uint8ToBase64(signatureBytes);
-
+  
       setRefundFeeStep('submitting');
       setMessage('📨 Submitting your refund request...');
-
-      // 5) Submit refund request
-      const r = await fetch('/api/refunds/request', {
+  
+      // 6) Submit refund request
+      const requestRes = await fetch('/api/refunds/request', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          invalidation_id: pendingRefund.invalidationId ?? undefined,
-          wallet_address: publicKey.toBase58(),
-          contribution_id: pendingRefund.contributionId,
-          mint: pendingRefund.mint,
+          invalidation_id:
+            operationRefund.invalidationId ?? undefined,
+          wallet_address: operationWallet,
+          contribution_id: operationRefund.contributionId,
+          mint: operationRefund.mint,
           nonce: prepJson.nonce,
           signature_base64: signatureBase64,
         }),
       });
-
-      const j = await r.json().catch(() => ({}));
-
+  
+      const requestJson: any = await requestRes
+        .json()
+        .catch(() => ({}));
+  
+      if (!isCurrentRefundOperation()) {
+        return;
+      }
+  
       if (process.env.NODE_ENV !== 'production') {
         console.log('[REFUND] request submit response:', {
-          status: r.status,
-          body: j,
+          status: requestRes.status,
+          body: requestJson,
         });
       }
-
+  
       setRefundDebug({
         step: 'request_submit',
-        status: r.status,
-        body: j,
+        status: requestRes.status,
+        body: requestJson,
       });
-
-      if (!r.ok || !j?.success) {
-        throw new Error(String(j?.error || `REFUND_REQUEST_FAILED (${r.status})`));
+  
+      if (!requestRes.ok || !requestJson?.success) {
+        throw new Error(
+          String(
+            requestJson?.error ||
+              `REFUND_REQUEST_FAILED (${requestRes.status})`
+          )
+        );
       }
-
+  
+      // The complete refund request has now been recorded successfully.
       setRefundFeeSigForSupport(null);
       setRefundFeeStep('submitted');
-      setMessage('✅ Refund request signed and recorded successfully.');
+      setMessage(
+        '✅ Refund request signed and recorded successfully.'
+      );
       setRefundFeeConfirmOpen(false);
       setPendingRefund(null);
-
-      const refreshed = await fetch(`/api/claim/${publicKey.toBase58()}`, {
-        cache: 'no-store',
-        credentials: 'include',
-      });
-
-      const refreshedJson: any = await refreshed.json().catch(() => ({}));
-      if (refreshed.ok && refreshedJson?.success) {
+  
+      // 7) Refresh profile
+      const refreshed = await fetch(
+        `/api/claim/${operationWallet}`,
+        {
+          cache: 'no-store',
+          credentials: 'include',
+        }
+      );
+  
+      const refreshedJson: any = await refreshed
+        .json()
+        .catch(() => ({}));
+  
+      if (
+        isCurrentRefundOperation() &&
+        refreshed.ok &&
+        refreshedJson?.success
+      ) {
         setData(refreshedJson.data);
       }
     } catch (e: any) {
-      const raw = String(e?.message ?? 'REFUND_REQUEST_FAILED');
-      console.error('[REFUND] confirmRefundFeeThenRequest failed:', raw, e);
-
-      setRefundDebug((prev: any) => ({
-        ...(prev || {}),
-        step: 'catch',
-        error: raw,
-      }));
-
-      setRefundFeeStep('idle');
-      setMessage(`❌ ${userFriendlyError(raw)}`);
+      const raw = String(
+        e?.message ?? 'REFUND_REQUEST_FAILED'
+      );
+  
+      console.error(
+        '[REFUND] confirmRefundFeeThenRequest failed:',
+        raw,
+        e
+      );
+  
+      if (isCurrentRefundOperation()) {
+        setRefundDebug((prev: any) => ({
+          ...(prev || {}),
+          step: 'catch',
+          error: raw,
+        }));
+  
+        setRefundFeeStep('idle');
+        setMessage(`❌ ${userFriendlyError(raw)}`);
+      }
     } finally {
-      setRefundingContributionId(null);
+      if (isCurrentRefundOperation()) {
+        setRefundingContributionId(null);
+      }
     }
   };
 
   const confirmAndPayFeeThenExecute = async () => {
-    if (!pendingClaim) return;
-
+    if (!pendingClaim) {
+      return;
+    }
+  
+    if (!publicKey) {
+      setMessage('❌ Please connect your wallet.');
+      return;
+    }
+  
+    /*
+     * Snapshot every value belonging to this claim attempt.
+     * React state and wallet values may change while async work is running.
+     */
+    const operationClaim = pendingClaim;
+    const operationWallet = publicKey.toBase58();
+    const operationPublicKey = publicKey;
+  
+    const operationId =
+      ++claimOperationIdRef.current;
+  
+    const isCurrentClaimOperation = () =>
+      claimOperationIdRef.current === operationId &&
+      walletBase58Ref.current === operationWallet;
+  
     const {
       wallet,
       destination,
       phaseId,
       claimScope: pendingClaimScope,
-      claimAmountRaw,
+      claimAmount,
       idemKey,
-    } = pendingClaim;
-
+    } = operationClaim;
+  
     try {
       setIsClaiming(true);
       setMessage(null);
-
-      // Guards
-      if (!publicKey) throw new Error('WALLET_NOT_CONNECTED');
-      if (publicKey.toBase58() !== wallet) {
-        throw new Error('WALLET_CHANGED_DURING_CLAIM');
+  
+      /*
+       * Validate that the pending claim still belongs to the
+       * currently connected wallet and current claim context.
+       */
+      if (operationWallet !== wallet) {
+        throw new Error(
+          'WALLET_CHANGED_DURING_CLAIM'
+        );
       }
-      if (!connection) throw new Error('RPC_CONNECTION_MISSING');
-      if (!sendTransaction) throw new Error('WALLET_SEND_TX_UNAVAILABLE');
-      if (!claimOpen) throw new Error('CLAIM_NOT_OPEN');
-
-      // 1) Pay fee on-chain (user wallet -> treasury)
-      setMessage(`💸 Paying the ${FEE_SOL} SOL session fee… Please confirm in your wallet.`);
-
+  
+      if (pendingClaimScope !== claimScope) {
+        throw new Error(
+          'CLAIM_SCOPE_CHANGED'
+        );
+      }
+  
+      if (phaseId !== claimExecutionPhaseId) {
+        throw new Error(
+          'CLAIM_PHASE_CHANGED'
+        );
+      }
+  
+      const currentDestination = useAltAddress
+        ? altAddress.trim()
+        : operationWallet;
+  
+      if (currentDestination !== destination) {
+        throw new Error(
+          'CLAIM_DESTINATION_CHANGED'
+        );
+      }
+  
+      if (!connection) {
+        throw new Error(
+          'RPC_CONNECTION_MISSING'
+        );
+      }
+  
+      if (!sendTransaction) {
+        throw new Error(
+          'WALLET_SEND_TX_UNAVAILABLE'
+        );
+      }
+  
+      if (!claimOpen) {
+        throw new Error('CLAIM_NOT_OPEN');
+      }
+  
+      /*
+       * 1) Build the claim fee transaction.
+       */
+      setMessage(
+        `💸 Paying the ${FEE_SOL} SOL session fee… Please confirm in your wallet.`
+      );
+  
       const feeTx = new Transaction().add(
         SystemProgram.transfer({
-          fromPubkey: publicKey,
+          fromPubkey: operationPublicKey,
           toPubkey: TREASURY_PUBKEY,
           lamports: FEE_LAMPORTS,
         })
       );
-      feeTx.feePayer = publicKey;
-
-      const latest = await connection.getLatestBlockhash('confirmed');
-      feeTx.recentBlockhash = latest.blockhash;
-
+  
+      feeTx.feePayer = operationPublicKey;
+  
+      const latest =
+        await connection.getLatestBlockhash(
+          'confirmed'
+        );
+  
+      if (!isCurrentClaimOperation()) {
+        return;
+      }
+  
+      feeTx.recentBlockhash =
+        latest.blockhash;
+  
+      /*
+       * 2) Submit the claim fee transaction.
+       */
       const feeSig = String(
-        await sendTransaction(feeTx, connection, {
-          skipPreflight: false,
-          preflightCommitment: 'confirmed',
-          maxRetries: 3,
-        } as any)
+        await sendTransaction(
+          feeTx,
+          connection,
+          {
+            skipPreflight: false,
+            preflightCommitment:
+              'confirmed',
+            maxRetries: 3,
+          } as any
+        )
       );
-
+  
+      /*
+       * Preserve the signature immediately.
+       * The transaction may already have reached the blockchain,
+       * even if the wallet changes immediately afterward.
+       */
       setClaimFeeSigForSupport(feeSig);
-      setMessage('⏳ Confirming fee payment on-chain…');
-
-      const confirmation = await connection.confirmTransaction(
-        {
-          signature: feeSig,
-          blockhash: latest.blockhash,
-          lastValidBlockHeight: latest.lastValidBlockHeight,
-        },
-        'confirmed'
+  
+      if (!isCurrentClaimOperation()) {
+        return;
+      }
+  
+      setMessage(
+        '⏳ Confirming fee payment on-chain…'
       );
-      
+  
+      /*
+       * 3) Confirm the fee transaction.
+       */
+      const confirmation =
+        await connection.confirmTransaction(
+          {
+            signature: feeSig,
+            blockhash: latest.blockhash,
+            lastValidBlockHeight:
+              latest.lastValidBlockHeight,
+          },
+          'confirmed'
+        );
+  
+      if (!isCurrentClaimOperation()) {
+        return;
+      }
+  
       if (confirmation.value.err) {
-        throw new Error('CLAIM_FEE_TRANSACTION_FAILED');
+        throw new Error(
+          'CLAIM_FEE_TRANSACTION_FAILED'
+        );
       }
-
-      // 2) Start session WITH fee signature
-      setMessage('🧩 Opening your claim session…');
-
-      const startRes = await fetch('/api/claim/session/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          wallet_address: wallet,
-          destination,
-          phase_id: phaseId,
-          claim_scope: pendingClaimScope,
-          fee_tx_signature: feeSig,
-          fee_amount: FEE_LAMPORTS,
-        }),
-      });
-
-      const startJson: any = await startRes.json().catch(() => ({}));
-      if (!startRes.ok || !startJson?.success || !startJson?.session_id) {
-        const rawErr = String(startJson?.error || `SESSION_START_FAILED (${startRes.status})`);
-        throw new Error(rawErr);
+  
+      /*
+       * 4) Open the claim session using the confirmed fee.
+       */
+      setMessage(
+        '🧩 Opening your claim session…'
+      );
+  
+      const startRes = await fetch(
+        '/api/claim/session/start',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type':
+              'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            wallet_address: wallet,
+            destination,
+            phase_id: phaseId,
+            claim_scope:
+              pendingClaimScope,
+            fee_tx_signature: feeSig,
+            fee_amount: FEE_LAMPORTS,
+          }),
+        }
+      );
+  
+      if (!isCurrentClaimOperation()) {
+        return;
       }
-
-      const sid = String(startJson.session_id);
+  
+      const startJson: any =
+        await startRes
+          .json()
+          .catch(() => ({}));
+  
+      if (!isCurrentClaimOperation()) {
+        return;
+      }
+  
+      if (
+        !startRes.ok ||
+        !startJson?.success ||
+        !startJson?.session_id
+      ) {
+        const rawError = String(
+          startJson?.error ||
+            `SESSION_START_FAILED (${startRes.status})`
+        );
+  
+        throw new Error(rawError);
+      }
+  
+      const sid = String(
+        startJson.session_id
+      );
+  
       setSessionId(sid);
-
-      // 3) Execute claim
-      setMessage('🚀 Executing your claim…');
-
-      const execRes = await fetch('/api/claim/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          session_id: sid,
-          wallet_address: wallet,
-          destination,
-          phase_id: phaseId,          // 0 => all phases
-          claim_amount: claimAmountRaw,
-          idempotency_key: idemKey,
-        }),
-      });
-
-      const execJson: any = await execRes.json().catch(() => ({}));
-
-      if (!execRes.ok || !execJson?.success) {
-        const rawErr = String(execJson?.error || `CLAIM_EXECUTE_FAILED (${execRes.status})`);
-        throw new Error(rawErr);
+  
+      /*
+       * 5) Execute the claim.
+       */
+      setMessage(
+        '🚀 Executing your claim…'
+      );
+  
+      const execRes = await fetch(
+        '/api/claim/execute',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type':
+              'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            session_id: sid,
+            wallet_address: wallet,
+            destination,
+            phase_id: phaseId,
+            claim_amount: claimAmount,
+            idempotency_key: idemKey,
+          }),
+        }
+      );
+  
+      if (!isCurrentClaimOperation()) {
+        return;
       }
-
-      setClaimFeeSigForSupport(null);
-
+  
+      const execJson: any =
+        await execRes
+          .json()
+          .catch(() => ({}));
+  
+      if (!isCurrentClaimOperation()) {
+        return;
+      }
+  
+      if (
+        !execRes.ok ||
+        !execJson?.success
+      ) {
+        const rawError = String(
+          execJson?.error ||
+            `CLAIM_EXECUTE_FAILED (${execRes.status})`
+        );
+  
+        if (
+          rawError ===
+          'SESSION_NOT_FOUND'
+        ) {
+          setSessionId(null);
+          attemptIdemKeyRef.current =
+            null;
+        }
+  
+        throw new Error(rawError);
+      }
+  
       const isDryRun =
         execJson?.dry_run === true ||
         execJson?.dryRun === true ||
-        String(execJson?.dry_run ?? '').trim().toLowerCase() === 'true';
-
-      if (execJson?.deduped && execJson?.status !== 'succeeded') {
+        String(execJson?.dry_run ?? '')
+          .trim()
+          .toLowerCase() === 'true';
+  
+      /*
+       * A deduped request is successful only when the
+       * original claim itself already succeeded.
+       */
+      if (
+        execJson?.deduped &&
+        execJson?.status !==
+          'succeeded'
+      ) {
         setSessionId(null);
         setPendingClaim(null);
-        attemptIdemKeyRef.current = null;
-        setMessage('⚠️ Duplicate claim attempt detected. Please try again.');
+        attemptIdemKeyRef.current =
+          null;
+  
+        setMessage(
+          '⚠️ Duplicate claim attempt detected. Please try again.'
+        );
+  
         return;
       }
-
+  
+      /*
+       * At this point the claim was completed or the backend
+       * confirmed that an identical claim already succeeded.
+       * The fee signature is no longer needed for recovery.
+       */
+      setClaimFeeSigForSupport(null);
+  
       if (isDryRun) {
-        setMessage(
-          `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${Array.isArray(execJson.splits)
+        const splitSummary =
+          Array.isArray(
+            execJson?.splits
+          )
             ? execJson.splits
-              .map(
-                (s: any) =>
-                  `${s.phase_label || s.phase_name || `Phase ${s.phase_no || s.phase_id}`}: ${s.amount}`
-              )
-              .join(' · ')
-            : 'simulation complete'
-          }`
+                .map(
+                  (split: any) =>
+                    `${
+                      split.phase_label ||
+                      split.phase_name ||
+                      `Phase ${
+                        split.phase_no ||
+                        split.phase_id
+                      }`
+                    }: ${split.amount}`
+                )
+                .join(' · ')
+            : 'simulation complete';
+  
+        setMessage(
+          `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${splitSummary}`
         );
-      } else if (execJson?.tx_signature) {
-        setMessage(`✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`);
-      } else if (execJson?.deduped) {
-        setMessage('⚠️ Duplicate claim attempt detected. Please try again.');
+      } else if (
+        execJson?.tx_signature
+      ) {
+        setMessage(
+          `✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`
+        );
+      } else if (
+        execJson?.deduped &&
+        execJson?.status ===
+          'succeeded'
+      ) {
+        setMessage(
+          '✅ This claim had already been completed successfully.'
+        );
       } else {
-        setMessage('❌ Claim execution failed.');
+        /*
+         * The API returned success but did not provide a recognizable
+         * successful result. Do not clear the form silently.
+         */
+        throw new Error(
+          'CLAIM_EXECUTION_RESULT_INVALID'
+        );
       }
-
+  
+      /*
+       * Reset the completed claim form only after a verified success.
+       */
       setClaimAmount('');
       setSelectedClaimPercent(null);
       setUseAltAddress(false);
       setAltAddress('');
       setPendingClaim(null);
+  
       attemptIdemKeyRef.current = null;
-
-      if (execJson?.session_closed === true) setSessionId(null);
-
-      // 4) Refresh profile
-      const refreshed = await fetch(
-        `/api/claim/${wallet}${pendingClaimScope === 'identity' ? '?scope=identity' : ''}`,
-        { cache: 'no-store' }
+  
+      if (
+        execJson?.session_closed ===
+        true
+      ) {
+        setSessionId(null);
+      }
+  
+      if (!isCurrentClaimOperation()) {
+        return;
+      }
+  
+      /*
+       * Refresh claim/profile data and CorePoint history
+       * through the shared effects.
+       */
+      setClaimRefreshKey(
+        (value) => value + 1
       );
-      const refreshedJson: any = await refreshed.json().catch(() => ({}));
-      if (refreshed.ok && refreshedJson?.success) setData(refreshedJson.data);
-    } catch (e: any) {
-      const msg = String(e?.message ?? '');
-      setMessage(`❌ ${userFriendlyError(msg)}`);
+    } catch (error: unknown) {
+      const rawError =
+        error instanceof Error
+          ? error.message
+          : String(
+              error ??
+                'CLAIM_EXECUTION_FAILED'
+            );
+  
+      console.error(
+        '[CLAIM] confirmAndPayFeeThenExecute failed:',
+        rawError,
+        error
+      );
+  
+      if (!isCurrentClaimOperation()) {
+        return;
+      }
+  
+      setMessage(
+        `❌ ${userFriendlyError(
+          rawError
+        )}`
+      );
     } finally {
-      setIsClaiming(false);
-      setFeeConfirmOpen(false);
-      setPendingClaim(null);
+      /*
+       * An outdated operation must not modify the UI state
+       * belonging to a newer claim or a different wallet.
+       */
+      if (isCurrentClaimOperation()) {
+        setIsClaiming(false);
+        setFeeConfirmOpen(false);
+        setPendingClaim(null);
+      }
     }
   };
 
@@ -4858,6 +6020,8 @@ export default function ClaimPanel() {
             />
 
             <div
+              ref={feeConfirmModalRef}
+              tabIndex={-1}
               role="dialog"
               aria-modal="true"
               aria-labelledby="claim-fee-modal-title"
@@ -4899,7 +6063,7 @@ export default function ClaimPanel() {
                   </span>
 
                   <span className="text-right font-semibold text-white">
-                    {pendingClaim.claimAmountRaw} MEGY
+                    {pendingClaim.claimAmount} MEGY
                   </span>
                 </div>
 
@@ -4973,6 +6137,8 @@ export default function ClaimPanel() {
             />
 
             <div
+              ref={refundFeeConfirmModalRef}
+              tabIndex={-1}
               role="dialog"
               aria-modal="true"
               aria-labelledby="refund-fee-modal-title"

@@ -33,10 +33,6 @@ if (!process.env.NEON_DATABASE_URL && !process.env.DATABASE_URL) {
 }
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
-const ACTIVE_DB_URL =
-  process.env.NEON_DATABASE_URL || process.env.DATABASE_URL || '';
-
-console.log('[DBDEBUG] using database url prefix:', ACTIVE_DB_URL.slice(0, 45));
 
 // RPC URL (öncelik)
 const SOLANA_RPC_URL =
