@@ -1,17 +1,33 @@
 // app/api/claim/execute/route.ts
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+import bs58 from 'bs58';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { neon } from '@neondatabase/serverless';
+import {
+  neon,
+  Pool,
+  neonConfig,
+  type PoolClient,
+} from '@neondatabase/serverless';
+import ws from 'ws';
 import { requireIdentityWalletAccess } from '@/app/api/_lib/identity-guard';
 import { createHash } from 'crypto';
-import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  Transaction,
+  type TransactionInstruction,
+} from '@solana/web3.js';
 import {
   getAssociatedTokenAddress,
   createAssociatedTokenAccountInstruction,
   createTransferInstruction,
 } from '@solana/spl-token';
+
+neonConfig.webSocketConstructor = ws;
+type DbRow = Record<string, unknown>;
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -23,17 +39,77 @@ const RPC_URL =
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
   'https://api.mainnet-beta.solana.com';
 
-function json(status: number, data: any) {
-  return NextResponse.json(data, { status });
+function createDbPool() {
+  const connectionString = process.env.DATABASE_URL;
+
+  if (!connectionString) {
+    throw new Error('DATABASE_URL_MISSING');
+  }
+
+  return new Pool({
+    connectionString,
+  });
 }
 
-function asNum(v: any, d = 0) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : d;
+function createTransactionSql(
+  client: PoolClient
+) {
+  return async (
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ): Promise<DbRow[]> => {
+    const queryText = strings.reduce(
+      (text, part, index) =>
+        text +
+        part +
+        (
+          index < values.length
+            ? `$${index + 1}`
+            : ''
+        ),
+      ''
+    );
+
+    const result = await client.query(
+      queryText,
+      values
+    );
+
+    return result.rows as DbRow[];
+  };
 }
 
-function asStr(v: any) {
-  return String(v ?? '').trim();
+function json(
+  status: number,
+  data: Record<string, unknown>
+) {
+  return NextResponse.json(data, {
+    status,
+  });
+}
+
+function asNum(
+  value: unknown,
+  defaultValue = 0
+): number {
+  const numberValue = Number(value);
+
+  return Number.isFinite(numberValue)
+    ? numberValue
+    : defaultValue;
+}
+
+function asStr(value: unknown): string {
+  return String(value ?? '').trim();
+}
+
+function asDbRow(
+  value: unknown
+): DbRow {
+  return typeof value === 'object' &&
+    value !== null
+    ? (value as DbRow)
+    : {};
 }
 
 function loadKeypair(): Keypair {
@@ -58,9 +134,17 @@ function toBaseUnits(amountLike: string | number, decimals: number): bigint {
   if (!raw) throw new Error('BAD_AMOUNT');
   if (!/^\d+(\.\d+)?$/.test(raw)) throw new Error('BAD_AMOUNT_FORMAT');
 
-  const [iPart, fPartRaw = ''] = raw.split('.');
-  const fPart = fPartRaw.slice(0, decimals);
-  const paddedFrac = fPart.padEnd(decimals, '0');
+  const [iPart, fPartRaw = ''] =
+    raw.split('.');
+
+  if (fPartRaw.length > decimals) {
+    throw new Error(
+      'TOO_MANY_DECIMALS'
+    );
+  }
+
+  const paddedFrac =
+    fPartRaw.padEnd(decimals, '0');
   const full = `${iPart}${paddedFrac}`.replace(/^0+/, '') || '0';
   return BigInt(full);
 }
@@ -81,6 +165,48 @@ function baseToDecimalString(base: bigint, decimals: number): string {
   f = f.replace(/0+$/, '');
   const out = f ? `${i}.${f}` : i;
   return (neg ? '-' : '') + out;
+}
+
+type ClaimTransactionState =
+  | 'succeeded'
+  | 'failed'
+  | 'pending'
+  | 'not_found';
+
+async function getClaimTransactionState(
+  signature: string
+): Promise<ClaimTransactionState> {
+  const connection = new Connection(
+    RPC_URL,
+    'confirmed'
+  );
+
+  const statuses =
+    await connection.getSignatureStatuses(
+      [signature],
+      {
+        searchTransactionHistory: true,
+      }
+    );
+
+  const status = statuses.value[0];
+
+  if (!status) {
+    return 'not_found';
+  }
+
+  if (status.err) {
+    return 'failed';
+  }
+
+  if (
+    status.confirmationStatus === 'confirmed' ||
+    status.confirmationStatus === 'finalized'
+  ) {
+    return 'succeeded';
+  }
+
+  return 'pending';
 }
 
 type Body = {
@@ -127,15 +253,14 @@ export async function POST(req: NextRequest) {
   if (!idemKeyRoot) return json(400, { success: false, error: 'MISSING_IDEMPOTENCY_KEY' });
 
   try {
-    // eslint-disable-next-line no-new
     new PublicKey(wallet);
-    // eslint-disable-next-line no-new
     new PublicKey(destination);
   } catch {
     return json(400, { success: false, error: 'INVALID_PUBKEY' });
   }
 
-  const identityGuard = await requireIdentityWalletAccess(wallet);
+  const identityGuard =
+    await requireIdentityWalletAccess(wallet);
 
   if (!identityGuard.ok) {
     return json(identityGuard.status, {
@@ -144,11 +269,12 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const identityId =
+    identityGuard.identityId ?? null;
+
   let scopedWallets = [wallet];
 
   if (isAllPhases) {
-    const identityId = identityGuard.identityId;
-
     if (!identityId) {
       return json(401, {
         success: false,
@@ -167,7 +293,13 @@ export async function POST(req: NextRequest) {
     scopedWallets = Array.from(
       new Set(
         (linked ?? [])
-          .map((r: any) => String(r.wallet_address || '').trim())
+          .map((row: unknown) => {
+            const record = asDbRow(row);
+    
+            return asStr(
+              record.wallet_address
+            );
+          })
           .filter(Boolean)
       )
     );
@@ -205,57 +337,324 @@ export async function POST(req: NextRequest) {
     `v3|${wallet}|${destination}|${isAllPhases ? 'ALL' : String(phaseIdRaw)}|${claimAmountRaw}`
   );
 
-  // --- Idempotency (correctly scoped) ---
+  const claimLockKey = isAllPhases
+    ? `claim|identity|${identityId}|ALL`
+    : `claim|wallet|${wallet}|phase|${phaseIdRaw}`;
+
+  // --- Idempotency and interrupted-claim recovery ---
+  let existingClaim:
+    | {
+        id: number;
+        status: string;
+        tx_signature: string | null;
+        request_hash: string | null;
+      }
+    | null = null;
+
   if (!isAllPhases) {
-    if (!Number.isFinite(phaseIdRaw) || phaseIdRaw <= 0) {
-      return json(400, { success: false, error: 'BAD_PHASE_ID' });
+    if (
+      !Number.isInteger(phaseIdRaw) ||
+      phaseIdRaw <= 0
+    ) {
+      return json(400, {
+        success: false,
+        error: 'BAD_PHASE_ID',
+      });
     }
 
     const existing = await sql`
-      SELECT id, status, tx_signature, request_hash
+      SELECT
+        id,
+        status,
+        tx_signature,
+        request_hash
       FROM claims
       WHERE wallet_address = ${wallet}
         AND phase_id = ${phaseIdRaw}
         AND idempotency_key = ${idemKeyRoot}
         AND status IN ('created', 'succeeded')
+      ORDER BY id ASC
       LIMIT 1
     `;
 
     if (existing?.length) {
-      const ex = existing[0];
-      if (String(ex.request_hash || '') && String(ex.request_hash) !== requestHashRoot) {
-        return json(409, { success: false, error: 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_REQUEST' });
+      const row = existing[0];
+
+      if (
+        String(row.request_hash || '') &&
+        String(row.request_hash) !==
+          requestHashRoot
+      ) {
+        return json(409, {
+          success: false,
+          error:
+            'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_REQUEST',
+        });
       }
-      return json(200, {
-        success: true,
-        deduped: true,
-        scope: 'phase',
-        phase_id: phaseIdRaw,
-        status: ex.status,
-        tx_signature: ex.tx_signature ?? null,
-      });
+
+      existingClaim = {
+        id: Number(row.id),
+        status: String(row.status || ''),
+        tx_signature: row.tx_signature
+          ? String(row.tx_signature)
+          : null,
+        request_hash: row.request_hash
+          ? String(row.request_hash)
+          : null,
+      };
     }
   } else {
-    // Any child row for this wallet with this root hash implies we already executed this root request.
+    /*
+    * requestHashRoot already contains the initiating wallet,
+    * destination, scope and amount. Do not additionally filter
+    * by claims.wallet_address because identity allocations may
+    * be recorded under another linked wallet.
+    */
     const existingAll = await sql`
-      SELECT id, status, tx_signature, request_hash
+      SELECT
+        id,
+        status,
+        tx_signature,
+        request_hash
       FROM claims
-      WHERE wallet_address = ${wallet}
-        AND request_hash = ${requestHashRoot}
+      WHERE request_hash = ${requestHashRoot}
         AND status IN ('created', 'succeeded')
       ORDER BY id ASC
       LIMIT 1
     `;
 
     if (existingAll?.length) {
-      const ex = existingAll[0];
+      const row = existingAll[0];
+
+      existingClaim = {
+        id: Number(row.id),
+        status: String(row.status || ''),
+        tx_signature: row.tx_signature
+          ? String(row.tx_signature)
+          : null,
+        request_hash: row.request_hash
+          ? String(row.request_hash)
+          : null,
+      };
+    }
+  }
+
+  if (existingClaim) {
+    /*
+    * A finalized claim is a safe successful deduplication.
+    */
+    if (existingClaim.status === 'succeeded') {
       return json(200, {
         success: true,
         deduped: true,
-        scope: 'all',
-        status: ex.status,
-        tx_signature: ex.tx_signature ?? null,
+        scope: isAllPhases ? 'all' : 'phase',
+        phase_id: isAllPhases
+          ? undefined
+          : phaseIdRaw,
+        status: 'succeeded',
+        tx_signature:
+          existingClaim.tx_signature,
       });
+    }
+
+    /*
+    * A created row without a transaction signature means the
+    * reservation exists, but no safely recoverable blockchain
+    * transaction has yet been recorded.
+    *
+    * Do not report it as success and do not send another
+    * transaction using the same request.
+    */
+    if (!existingClaim.tx_signature) {
+      return json(409, {
+        success: false,
+        error: 'CLAIM_ALREADY_PROCESSING',
+        status: 'created',
+      });
+    }
+
+    let transactionState: ClaimTransactionState;
+
+    try {
+      transactionState =
+        await getClaimTransactionState(
+          existingClaim.tx_signature
+        );
+    } catch (error) {
+      console.error(
+        'claim transaction recovery check failed:',
+        error
+      );
+
+      return json(503, {
+        success: false,
+        error:
+          'CLAIM_TRANSACTION_STATUS_UNAVAILABLE',
+        status: 'created',
+        tx_signature:
+          existingClaim.tx_signature,
+      });
+    }
+
+    if (transactionState === 'failed') {
+      try {
+        await sql`
+          UPDATE claims
+          SET status = 'failed',
+              error = 'CLAIM_TX_FAILED'
+          WHERE request_hash = ${requestHashRoot}
+            AND status = 'created'
+        `;
+      } catch (error) {
+        console.error(
+          'failed to mark recovered claim failed:',
+          error
+        );
+      }
+
+      return json(409, {
+        success: false,
+        error: 'CLAIM_TX_FAILED',
+        status: 'failed',
+        tx_signature:
+          existingClaim.tx_signature,
+      });
+    }
+
+    if (
+      transactionState === 'pending' ||
+      transactionState === 'not_found'
+    ) {
+      return json(409, {
+        success: false,
+        error: 'CLAIM_ALREADY_PROCESSING',
+        status: 'created',
+        tx_signature:
+          existingClaim.tx_signature,
+      });
+    }
+
+    /*
+    * The blockchain transfer succeeded but the database row
+    * was not finalized. Complete the interrupted DB transition.
+    */
+    const recoveryPool = createDbPool();
+    let recoveryClient: PoolClient | null = null;
+
+    try {
+      recoveryClient = await recoveryPool.connect();
+      const recoverySql =
+        createTransactionSql(recoveryClient);
+
+      await recoveryClient.query('BEGIN');
+
+      const recoveredRows = await recoverySql`
+        UPDATE claims
+        SET status = 'succeeded',
+            tx_signature = ${
+              existingClaim.tx_signature
+            },
+            error = NULL
+        WHERE request_hash = ${requestHashRoot}
+          AND status = 'created'
+        RETURNING
+          id,
+          session_id,
+          claim_amount_base
+      `;
+
+      let transitionedBase = 0n;
+
+      for (const row of recoveredRows) {
+        const record = asDbRow(row);
+
+        transitionedBase += BigInt(
+          String(
+            record.claim_amount_base ??
+              '0'
+          )
+        );
+      }
+
+      const recoveredSessionId =
+        String(
+          recoveredRows?.[0]?.session_id ??
+            sessionId
+        ).trim();
+
+      if (
+        transitionedBase > 0n &&
+        recoveredSessionId
+      ) {
+        const transitionedHuman =
+          baseToDecimalString(
+            transitionedBase,
+            MEGY_DECIMALS
+          );
+
+        await recoverySql`
+          UPDATE claim_sessions
+          SET total_claimed_in_session =
+            COALESCE(
+              total_claimed_in_session,
+              0
+            ) + ${transitionedHuman}
+          WHERE id = ${recoveredSessionId}
+        `;
+      }
+
+      await recoveryClient.query('COMMIT');
+
+      return json(200, {
+        success: true,
+        deduped: true,
+        recovered: true,
+        scope: isAllPhases
+          ? 'all'
+          : 'phase',
+        phase_id: isAllPhases
+          ? undefined
+          : phaseIdRaw,
+        status: 'succeeded',
+        tx_signature:
+          existingClaim.tx_signature,
+      });
+    } catch (error) {
+      if (recoveryClient) {
+        try {
+          await recoveryClient.query('ROLLBACK');
+        } catch (rollbackError) {
+          console.error(
+            'claim recovery rollback failed:',
+            rollbackError
+          );
+        }
+      }
+
+      console.error(
+        'claim finalize recovery failed:',
+        error
+      );
+
+      return json(500, {
+        success: false,
+        error:
+          'DB_FINALIZE_RECOVERY_FAILED',
+        status: 'created',
+        tx_signature:
+          existingClaim.tx_signature,
+      });
+    } finally {
+      recoveryClient?.release();
+
+      try {
+        await recoveryPool.end();
+      } catch (poolError) {
+        console.error(
+          'claim recovery pool close failed:',
+          poolError
+        );
+      }
     }
   }
 
@@ -263,10 +662,17 @@ export async function POST(req: NextRequest) {
   let claimRowIds: number[] = [];
   let splits: Split[] = [];
 
-  try {
-    await sql`BEGIN`;
+  const reservationPool = createDbPool();
+  let reservationClient: PoolClient | null = null;
 
-    const s = await sql`
+  try {
+    reservationClient = await reservationPool.connect();
+    const reservationSql =
+      createTransactionSql(reservationClient);
+
+    await reservationClient.query('BEGIN');
+
+    const s = await reservationSql`
       SELECT id, wallet_address, destination, phase_id, status, opened_at
       FROM claim_sessions
       WHERE id = ${sessionId}
@@ -275,36 +681,42 @@ export async function POST(req: NextRequest) {
       FOR UPDATE
     `;
     if (!s?.length) {
-      await sql`ROLLBACK`;
+      await reservationClient.query('ROLLBACK');
       return json(404, { success: false, error: 'SESSION_NOT_FOUND' });
     }
     if (String(s[0].wallet_address) !== wallet) {
-      await sql`ROLLBACK`;
+      await reservationClient.query('ROLLBACK');
       return json(403, { success: false, error: 'SESSION_WALLET_MISMATCH' });
     }
     if (String(s[0].status) !== 'open') {
-      await sql`ROLLBACK`;
+      await reservationClient.query('ROLLBACK');
       return json(409, { success: false, error: 'SESSION_NOT_OPEN' });
     }
 
     if (String(s[0].destination) !== destination) {
-      await sql`ROLLBACK`;
+      await reservationClient.query('ROLLBACK');
       return json(409, { success: false, error: 'SESSION_DESTINATION_MISMATCH' });
     }
 
-    if (!isAllPhases && Number(s[0].phase_id) !== Number(phaseIdRaw)) {
-      await sql`ROLLBACK`;
-      return json(409, { success: false, error: 'SESSION_PHASE_MISMATCH' });
+    if (Number(s[0].phase_id) !== phaseIdRaw) {
+      await reservationClient.query('ROLLBACK');
+    
+      return json(409, {
+        success: false,
+        error: 'SESSION_PHASE_MISMATCH',
+      });
     }
 
-    await sql`
-      SELECT pg_advisory_xact_lock(hashtext(${`claim|${wallet}|${destination}|${isAllPhases ? 'ALL' : String(phaseIdRaw)}`}))
+    await reservationSql`
+      SELECT pg_advisory_xact_lock(
+        hashtext(${claimLockKey})
+      )
     `;
 
     if (!isAllPhases) {
       const phaseId = phaseIdRaw;
 
-      const rows = await sql`
+      const rows = await reservationSql`
         WITH snap AS (
           SELECT COALESCE(SUM(megy_amount_base), 0) AS snap_base
           FROM claim_snapshots
@@ -331,7 +743,7 @@ export async function POST(req: NextRequest) {
       const claimableBase = snapBase > claimedBase ? (snapBase - claimedBase) : 0n;
 
       if (amountBaseTotal > claimableBase) {
-        await sql`ROLLBACK`;
+        await reservationClient.query('ROLLBACK');
         return json(409, { success: false, error: 'AMOUNT_EXCEEDS_PHASE_CLAIMABLE', phase_id: phaseId });
       }
 
@@ -348,7 +760,7 @@ export async function POST(req: NextRequest) {
           idem_key: idemKeyRoot,
         }];
       
-        await sql`ROLLBACK`;
+        await reservationClient.query('ROLLBACK');
         return json(200, {
           success: true,
           dry_run: true,
@@ -372,7 +784,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const ins = await sql`
+      const ins = await reservationSql`
         INSERT INTO claims (
           wallet_address,
           claim_amount,
@@ -419,7 +831,7 @@ export async function POST(req: NextRequest) {
         idem_key: idemKeyRoot,
       }];
     } else {
-      const rem = await sql`
+      const rem = await reservationSql`
         WITH scoped_wallets AS (
           SELECT unnest(${scopedWallets}::text[]) AS wallet_address
         ),
@@ -461,23 +873,52 @@ export async function POST(req: NextRequest) {
       `;
 
       const list = (rem ?? [])
-        .map((r: any) => ({
-          phase_no: r.phase_no != null ? Number(r.phase_no) : null,
-          phase_name: r.phase_name ? String(r.phase_name) : null,
-          wallet_address: String(r.wallet_address || wallet),
-          phase_id: Number(r.phase_id),
-          remaining_base: BigInt(String(r.remaining_base ?? '0')),
-        }))
-        .filter((x: any) => Number.isFinite(x.phase_id) && x.phase_id > 0 && x.remaining_base > 0n);
+        .map((row: unknown) => {
+          const record = asDbRow(row);
+
+          return {
+            phase_no:
+              record.phase_no != null
+                ? Number(record.phase_no)
+                : null,
+
+            phase_name:
+              record.phase_name
+                ? String(record.phase_name)
+                : null,
+
+            wallet_address:
+              asStr(
+                record.wallet_address
+              ) || wallet,
+
+            phase_id:
+              Number(record.phase_id),
+
+            remaining_base:
+              BigInt(
+                String(
+                  record.remaining_base ??
+                    '0'
+                )
+              ),
+          };
+        })
+        .filter(
+          (item) =>
+            Number.isInteger(item.phase_id) &&
+            item.phase_id > 0 &&
+            item.remaining_base > 0n
+        );
 
       if (list.length === 0) {
-        await sql`ROLLBACK`;
+        await reservationClient.query('ROLLBACK');
         return json(409, { success: false, error: 'NO_CLAIMABLE_BALANCE' });
       }
 
       const totalClaimable = list.reduce((acc, x) => acc + x.remaining_base, 0n);
       if (amountBaseTotal > totalClaimable) {
-        await sql`ROLLBACK`;
+        await reservationClient.query('ROLLBACK');
         return json(409, { success: false, error: 'AMOUNT_EXCEEDS_TOTAL_CLAIMABLE' });
       }
 
@@ -506,7 +947,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (left !== 0n) {
-        await sql`ROLLBACK`;
+        await reservationClient.query('ROLLBACK');
         return json(500, { success: false, error: 'ALLOCATION_MISMATCH' });
       }
 
@@ -524,7 +965,7 @@ export async function POST(req: NextRequest) {
           idem_key: `${idemKeyRoot}#${a.wallet_address}#${a.phase_id}`,
         }));
       
-        await sql`ROLLBACK`;
+        await reservationClient.query('ROLLBACK');
         return json(200, {
           success: true,
           dry_run: true,
@@ -552,7 +993,7 @@ export async function POST(req: NextRequest) {
         const childKey = `${idemKeyRoot}#${a.wallet_address}#${a.phase_id}`;
         const amountHuman = baseToDecimalString(a.amount_base, MEGY_DECIMALS);
 
-        const ins = await sql`
+        const ins = await reservationSql`
           INSERT INTO claims (
             wallet_address,
             claim_amount,
@@ -607,15 +1048,49 @@ export async function POST(req: NextRequest) {
       splits = sp;
     }
 
-    await sql`COMMIT`;
+    await reservationClient.query('COMMIT');
   } catch (e) {
-    try { await sql`ROLLBACK`; } catch {}
-    console.error('reservation failed:', e);
-    return json(500, { success: false, error: 'DB_RESERVATION_FAILED' });
+    if (reservationClient) {
+      try {
+        await reservationClient.query(
+          'ROLLBACK'
+        );
+      } catch (rollbackError) {
+        console.error(
+          'reservation rollback failed:',
+          rollbackError
+        );
+      }
+    }
+
+    console.error(
+      'reservation failed:',
+      e
+    );
+
+    return json(500, {
+      success: false,
+      error: 'DB_RESERVATION_FAILED',
+    });
+  } finally {
+    reservationClient?.release();
+
+    try {
+      await reservationPool.end();
+    } catch (poolError) {
+      console.error(
+        'reservation pool close failed:',
+        poolError
+      );
+    }
   }
-  
+
   // --- Step 2: On-chain transfer (single tx: total amount) ---
   let sig = '';
+  let expectedSignature = '';
+  let broadcastAttempted = false;
+  let definitiveChainFailure = false;
+
   try {
     const mintPk = new PublicKey(MEGY_MINT);
     const conn = new Connection(RPC_URL, 'confirmed');
@@ -627,11 +1102,12 @@ export async function POST(req: NextRequest) {
     const fromAta = await getAssociatedTokenAddress(mintPk, treasuryOwner, false);
     const toAta = await getAssociatedTokenAddress(mintPk, destPk, false);
 
-    const ix: any[] = [];
+    const instructions:
+      TransactionInstruction[] = [];
 
     const toInfo = await conn.getAccountInfo(toAta, 'confirmed');
     if (!toInfo) {
-      ix.push(
+      instructions.push(
         createAssociatedTokenAccountInstruction(
           treasuryOwner,
           toAta,
@@ -641,9 +1117,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    ix.push(createTransferInstruction(fromAta, toAta, treasuryOwner, amountBaseTotal));
+    instructions.push(
+      createTransferInstruction(
+        fromAta,
+        toAta,
+        treasuryOwner,
+        amountBaseTotal
+      )
+    );
 
-    const tx = new Transaction().add(...ix);
+    const tx =
+      new Transaction().add(
+        ...instructions
+      );
     tx.feePayer = treasuryOwner;
 
     const latest = await conn.getLatestBlockhash('confirmed');
@@ -651,96 +1137,260 @@ export async function POST(req: NextRequest) {
 
     tx.sign(treasurySigner);
 
-    sig = await conn.sendRawTransaction(tx.serialize(), {
-      skipPreflight: false,
-      maxRetries: 3,
-      preflightCommitment: 'confirmed',
-    });
+    if (!tx.signature) {
+      throw new Error(
+        'CLAIM_TX_SIGNATURE_MISSING'
+      );
+    }
+
+    /*
+    * The signature is deterministic after the transaction has
+    * been signed. Persist it before broadcasting so an API crash
+    * after submission can be recovered safely.
+    */
+    expectedSignature = bs58.encode(
+      tx.signature
+    );
+
+    await sql`
+      UPDATE claims
+      SET tx_signature = ${expectedSignature}
+      WHERE id = ANY(${claimRowIds})
+        AND status = 'created'
+    `;
+
+    broadcastAttempted = true;
+
+    sig = await conn.sendRawTransaction(
+      tx.serialize(),
+      {
+        skipPreflight: false,
+        maxRetries: 3,
+        preflightCommitment: 'confirmed',
+      }
+    );
+
+    if (sig !== expectedSignature) {
+      throw new Error(
+        'CLAIM_TX_SIGNATURE_MISMATCH'
+      );
+    }
 
     const conf = await conn.confirmTransaction(
       { signature: sig, blockhash: latest.blockhash, lastValidBlockHeight: latest.lastValidBlockHeight },
       'confirmed'
     );
 
-    if (conf?.value?.err) throw new Error('CLAIM_TX_FAILED');
-  } catch (e: any) {
-    const msg = String(e?.message || 'TRANSFER_FAILED');
-    console.error('on-chain transfer failed:', e);
-
+    if (conf?.value?.err) {
+      definitiveChainFailure = true;
+      throw new Error('CLAIM_TX_FAILED');
+    }
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'TRANSFER_FAILED';
+  
+    const msg =
+      asStr(message) ||
+      'TRANSFER_FAILED';
+  
+    console.error(
+      'on-chain transfer failed:',
+      error
+    );
+  
+    const recoverySignature =
+      sig || expectedSignature || null;
+  
     try {
       if (claimRowIds.length) {
-        await sql`
-          UPDATE claims
-          SET status = ${'failed'}, error = ${msg}
-          WHERE id = ANY(${claimRowIds})
-        `;
+        if (
+          !broadcastAttempted ||
+          definitiveChainFailure
+        ) {
+          /*
+           * Transaction zincire hiç gönderilmedi
+           * veya Solana işlemin kesin olarak
+           * başarısız olduğunu bildirdi.
+           */
+          await sql`
+            UPDATE claims
+            SET status = 'failed',
+                error = ${msg}
+            WHERE id = ANY(${claimRowIds})
+              AND status = 'created'
+          `;
+        } else {
+          /*
+           * Broadcast denendi ancak RPC sonucu
+           * kesin değil. Kaydı created bırakıyoruz;
+           * sonraki deneme recovery akışına girecek.
+           */
+          await sql`
+            UPDATE claims
+            SET error = ${`TRANSFER_STATUS_UNKNOWN:${msg}`}
+            WHERE id = ANY(${claimRowIds})
+              AND status = 'created'
+          `;
+        }
       }
-    } catch (e2) {
-      console.error('failed to mark claim failed:', e2);
+    } catch (dbError) {
+      console.error(
+        'failed to update interrupted claim:',
+        dbError
+      );
     }
-
-    return json(500, { success: false, error: msg });
+  
+    if (
+      broadcastAttempted &&
+      !definitiveChainFailure
+    ) {
+      return json(503, {
+        success: false,
+        error:
+          'CLAIM_TRANSACTION_STATUS_UNKNOWN',
+        status: 'created',
+        tx_signature: recoverySignature,
+      });
+    }
+  
+    return json(500, {
+      success: false,
+      error: msg,
+      tx_signature: recoverySignature,
+    });
   }
 
   // --- Step 3: Finalize in DB (short TX) ---
+  const finalizePool = createDbPool();
+  let finalizeClient: PoolClient | null = null;
+
   try {
-    await sql`BEGIN`;
+    finalizeClient = await finalizePool.connect();
+    const finalizeSql =
+      createTransactionSql(finalizeClient);
 
-    const up = await sql`
-      UPDATE claims
-      SET status = ${'succeeded'}, tx_signature = ${sig}, error = ${null}
-      WHERE id = ANY(${claimRowIds}) AND status = ${'created'}
-      RETURNING id
-    `;
+    await finalizeClient.query('BEGIN');
 
-    const didTransition = (up?.length ?? 0) > 0;
+    const updatedClaimRows =
+      await finalizeSql`
+        UPDATE claims
+        SET status = 'succeeded',
+            tx_signature = ${sig},
+            error = NULL
+        WHERE id = ANY(${claimRowIds})
+          AND status = 'created'
+        RETURNING
+          id,
+          session_id,
+          claim_amount_base
+      `;
 
-    if (didTransition) {
-      const totalHuman = baseToDecimalString(amountBaseTotal, MEGY_DECIMALS);
-      await sql`
+    let transitionedBase = 0n;
+
+    for (const row of updatedClaimRows) {
+      transitionedBase += BigInt(
+        String(
+          row.claim_amount_base ??
+            '0'
+        )
+      );
+    }
+
+    if (transitionedBase > 0n) {
+      const transitionedHuman =
+        baseToDecimalString(
+          transitionedBase,
+          MEGY_DECIMALS
+        );
+
+      await finalizeSql`
         UPDATE claim_sessions
-        SET total_claimed_in_session = COALESCE(total_claimed_in_session, 0) + ${totalHuman}
+        SET total_claimed_in_session =
+          COALESCE(
+            total_claimed_in_session,
+            0
+          ) + ${transitionedHuman}
         WHERE id = ${sessionId}
       `;
     }
 
     const totals = isAllPhases
-      ? await sql`
+      ? await finalizeSql`
           WITH scoped_wallets AS (
             SELECT unnest(${scopedWallets}::text[]) AS wallet_address
           ),
           snaps AS (
-            SELECT COALESCE(SUM(cs.megy_amount_base), 0) AS snap_base
+            SELECT
+              COALESCE(
+                SUM(cs.megy_amount_base),
+                0
+              ) AS snap_base
             FROM claim_snapshots cs
             JOIN scoped_wallets sw
-              ON LOWER(sw.wallet_address) = LOWER(cs.wallet_address)
+              ON LOWER(sw.wallet_address) =
+                LOWER(cs.wallet_address)
           ),
           cls AS (
-            SELECT COALESCE(SUM(c.claim_amount_base), 0) AS claimed_base
+            SELECT
+              COALESCE(
+                SUM(c.claim_amount_base),
+                0
+              ) AS claimed_base
             FROM claims c
             JOIN scoped_wallets sw
-              ON LOWER(sw.wallet_address) = LOWER(c.wallet_address)
-            WHERE c.status IN ('created','succeeded')
+              ON LOWER(sw.wallet_address) =
+                LOWER(c.wallet_address)
+            WHERE c.status IN (
+              'created',
+              'succeeded'
+            )
           )
           SELECT
-            (SELECT snap_base FROM snaps) AS snap_base,
-            (SELECT claimed_base FROM cls) AS claimed_base
+            (
+              SELECT snap_base
+              FROM snaps
+            ) AS snap_base,
+            (
+              SELECT claimed_base
+              FROM cls
+            ) AS claimed_base
         `
-      : await sql`
+      : await finalizeSql`
           WITH snaps AS (
-            SELECT COALESCE(SUM(megy_amount_base), 0) AS snap_base
+            SELECT
+              COALESCE(
+                SUM(megy_amount_base),
+                0
+              ) AS snap_base
             FROM claim_snapshots
             WHERE wallet_address = ${wallet}
+              AND phase_id = ${phaseIdRaw}
           ),
           cls AS (
-            SELECT COALESCE(SUM(claim_amount_base), 0) AS claimed_base
+            SELECT
+              COALESCE(
+                SUM(claim_amount_base),
+                0
+              ) AS claimed_base
             FROM claims
             WHERE wallet_address = ${wallet}
-              AND status IN ('created','succeeded')
+              AND phase_id = ${phaseIdRaw}
+              AND status IN (
+                'created',
+                'succeeded'
+              )
           )
           SELECT
-            (SELECT snap_base FROM snaps) AS snap_base,
-            (SELECT claimed_base FROM cls) AS claimed_base
+            (
+              SELECT snap_base
+              FROM snaps
+            ) AS snap_base,
+            (
+              SELECT claimed_base
+              FROM cls
+            ) AS claimed_base
         `;
 
     const snapBaseAll = BigInt(String(totals?.[0]?.snap_base ?? '0'));
@@ -749,7 +1399,7 @@ export async function POST(req: NextRequest) {
 
     let closed = false;
     if (totalClaimableBase <= 0n) {
-      await sql`
+      await finalizeSql`
         UPDATE claim_sessions
         SET status = 'closed', closed_at = now()
         WHERE id = ${sessionId} AND status = 'open'
@@ -759,7 +1409,7 @@ export async function POST(req: NextRequest) {
 
     const totalClaimableRemaining = baseToDecimalString(totalClaimableBase, MEGY_DECIMALS);
 
-    await sql`COMMIT`;
+    await finalizeClient.query('COMMIT');
 
     return json(200, {
       success: true,
@@ -782,14 +1432,38 @@ export async function POST(req: NextRequest) {
         amount: s.amount_human,
       })),
     });
-  } catch (e: any) {
-    try { await sql`ROLLBACK`; } catch {}
-    console.error('finalize failed after transfer:', e);
+  } catch (error: unknown) {
+    if (finalizeClient) {
+      try {
+        await finalizeClient.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error(
+          'finalize rollback failed:',
+          rollbackError
+        );
+      }
+    }
+
+    console.error(
+      'finalize failed after transfer:',
+      error
+    );
 
     return json(500, {
       success: false,
       error: 'DB_FINALIZE_FAILED_AFTER_TRANSFER',
       tx_signature: sig,
     });
+  } finally {
+    finalizeClient?.release();
+
+    try {
+      await finalizePool.end();
+    } catch (poolError) {
+      console.error(
+        'finalize pool close failed:',
+        poolError
+      );
+    }
   }
 }
