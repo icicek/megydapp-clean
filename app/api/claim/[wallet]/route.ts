@@ -6,6 +6,117 @@ import { generateReferralCode } from '@/app/api/utils/generateReferralCode';
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+interface ParticipantRow {
+  id: string;
+  wallet_address: string;
+  referral_code: string | null;
+}
+
+interface IdentityRow {
+  identity_id: string;
+  coincarnator_no: number | null;
+}
+
+interface WalletRow {
+  wallet_address: string;
+}
+
+interface InvalidationRow {
+  contribution_id: number;
+  invalidation_id: number | null;
+  invalidated_usd: number;
+  invalidated_token_amount: number;
+  refund_requested: boolean;
+  refunded: boolean;
+  refund_fee_paid: boolean;
+  requested_at: string | null;
+  refunded_at: string | null;
+}
+
+interface ReferralContributionRow {
+  id?: number | string;
+  token_contract: string | null;
+  usd_value: number | string | null;
+  invalidated_usd: number | string | null;
+}
+
+interface ContributionRow {
+  id: number | string;
+  wallet_address: string;
+  token_contract: string | null;
+  usd_value: number | string | null;
+}
+
+interface TotalCoinsRow {
+  total_coins_contributed: number | string | null;
+}
+
+interface TransactionRow {
+  id: number | string;
+  wallet_address: string;
+  token_symbol: string | null;
+  token_amount: number | string | null;
+  usd_value: number | string | null;
+  timestamp: string | Date | null;
+  transaction_signature: string | null;
+  tx_hash: string | null;
+  token_contract: string | null;
+  current_token_status: string | null;
+}
+
+interface CorePointRow {
+  cp_usd: number | string | null;
+  cp_ref: number | string | null;
+  cp_dead: number | string | null;
+  cp_share: number | string | null;
+}
+
+interface GlobalCorePointRow {
+  global_core_point: number | string | null;
+}
+
+interface ReferralCodeRow {
+  referral_code: string | null;
+}
+
+interface ClaimSnapshotRow {
+  wallet_address: string;
+  phase_id: number | string;
+  phase_no: number | string | null;
+  phase_name: string | null;
+  megy_amount: number | string | null;
+  contribution_usd: number | string | null;
+  share_ratio: number | string | null;
+  claim_status: string | null;
+  created_at: string | Date | null;
+  coincarnator_no: number | string | null;
+}
+
+interface ClaimByPhaseRow {
+  phase_id: number | string;
+  claimed: number | string | null;
+}
+
+interface ClaimPhaseSummary {
+  phase_id: number;
+  phase_no: number | null;
+  phase_name: string | null;
+  finalized_megy: number;
+  contribution_usd: number;
+  share_ratio: number;
+  claim_status: string | null;
+  created_at: string | Date | null;
+  coincarnator_no: number | null;
+  coincarnator_nos: number[];
+  wallet_count: number;
+  claimed_megy: number;
+  claimable_megy: number;
+}
+
 async function isDeadcoinForMegy(
   mint: string | null | undefined,
   usd: number,
@@ -21,8 +132,12 @@ async function isDeadcoinForMegy(
     const status = (reg?.status ?? null) as TokenStatus | null;
     cache.set(mint, status);
     return status === 'deadcoin';
-  } catch (e) {
-    console.warn('[claim] getStatusRow failed, treating as non-deadcoin:', (e as any)?.message || e);
+  } catch (error: unknown) {
+    console.warn(
+      '[claim] getStatusRow failed, treating as non-deadcoin:',
+      getErrorMessage(error)
+    );
+
     cache.set(mint, null);
     return false;
   }
@@ -48,41 +163,6 @@ function parseScope(req: NextRequest): 'wallet' | 'identity' {
   return raw === 'identity' ? 'identity' : 'wallet';
 }
 
-function emptyClaimData(wallet: string) {
-  return {
-    success: true,
-    phase_id: null,
-    data: {
-      id: '-',
-      wallet_address: wallet,
-      referral_code: null,
-      claimed: false,
-      referral_count: 0,
-      referral_usd_contributions: 0,
-      referral_deadcoin_count: 0,
-      total_usd_contributed: 0,
-      total_coins_contributed: 0,
-      deadcoins_revived: 0,
-      transactions: [],
-      core_point: 0,
-      total_core_point: 0,
-      pvc_share: 0,
-      core_point_breakdown: {
-        coincarnations: 0,
-        referrals: 0,
-        deadcoins: 0,
-        shares: 0,
-      },
-      claim: {
-        finalized_megy_total: 0,
-        claimed_megy_total: 0,
-        claimable_megy_total: 0,
-        finalized_by_phase: [],
-      },
-    },
-  };
-}
-
 export async function GET(req: NextRequest) {
   try {
     const wallet = extractWalletFromPath(req);
@@ -101,7 +181,8 @@ export async function GET(req: NextRequest) {
     SELECT * FROM participants WHERE wallet_address = ${wallet} LIMIT 1;
     `;
 
-    const participant = (participantResult[0] as any) ?? {
+    const participant =
+      (participantResult[0] as ParticipantRow | undefined) ?? {
     id: '-',
     wallet_address: wallet,
     referral_code: null,
@@ -121,7 +202,7 @@ export async function GET(req: NextRequest) {
         WHERE iw.chain = 'solana'
           AND LOWER(wallet_address) = LOWER(${wallet})
         LIMIT 1;
-      `) as any[];
+      `) as IdentityRow[];
 
       const identityId = identityRows?.[0]?.identity_id ?? null;
       activeIdentityId = identityId ? String(identityId) : null;
@@ -136,21 +217,22 @@ export async function GET(req: NextRequest) {
           FROM identity_wallets
           WHERE identity_id = ${identityId}
             AND chain = 'solana';
-        `) as any[];
+        `) as WalletRow[];
 
         const linkedWallets = linkedRows
-          .map((row: any) => String(row.wallet_address || '').trim())
+          .map((row) => String(row.wallet_address || '').trim())
           .filter(Boolean);
 
         if (linkedWallets.length > 0) {
           corePointWallets = Array.from(new Set(linkedWallets));
         }
       }
-    } catch (e) {
+    } catch (error: unknown) {
       console.warn(
         '[claim] identity wallet scope failed, falling back to active wallet:',
-        (e as any)?.message || e
+        getErrorMessage(error)
       );
+
       corePointWallets = [wallet];
     }
     const claimWallets =
@@ -175,7 +257,7 @@ export async function GET(req: NextRequest) {
       FROM contribution_invalidations
       WHERE wallet_address = ANY(${claimWallets})
       GROUP BY contribution_id
-    `) as any[];
+    `) as InvalidationRow[];
 
     const invalidationMap = new Map<number, {
       invalidation_id: number | null;
@@ -222,10 +304,10 @@ export async function GET(req: NextRequest) {
       `;
 
       referral_count = Number(referralResult?.[0]?.count || 0);
-    } catch (e) {
+    } catch (error: unknown) {
       console.warn(
         '[claim] referral identity count failed:',
-        (e as any)?.message || e
+        getErrorMessage(error)
       );
 
       referral_count = 0;
@@ -249,7 +331,7 @@ export async function GET(req: NextRequest) {
       ) inv
         ON inv.contribution_id = c.id
       WHERE c.referrer_wallet = ANY(${corePointWallets});
-    `) as any[];
+    `) as ReferralContributionRow[];
 
     const statusCacheRef = new Map<string, TokenStatus | null>();
     let referral_usd_contributions = 0;
@@ -281,7 +363,7 @@ export async function GET(req: NextRequest) {
         ON inv.contribution_id = c.id
       WHERE c.referrer_wallet = ANY(${corePointWallets})
         AND c.token_contract IS NOT NULL;
-    `) as any[];
+    `) as ReferralContributionRow[];
 
     const referralDeadcoinSet = new Set<string>();
 
@@ -303,7 +385,7 @@ export async function GET(req: NextRequest) {
       SELECT id, wallet_address, token_contract, usd_value
       FROM contributions
       WHERE wallet_address = ANY(${claimWallets});
-    `) as any[];
+    `) as ContributionRow[];
 
     const statusCacheSelf = new Map<string, TokenStatus | null>();
     let total_usd_contributed = 0;
@@ -323,7 +405,13 @@ export async function GET(req: NextRequest) {
       FROM contributions
       WHERE wallet_address = ANY(${claimWallets});
     `;
-    const total_coins_contributed = parseInt((totalCoinsResult[0] as any).total_coins_contributed || '0', 10);
+    const totalCoinsRow =
+      totalCoinsResult[0] as TotalCoinsRow | undefined;
+
+    const total_coins_contributed = Number.parseInt(
+      String(totalCoinsRow?.total_coins_contributed ?? 0),
+      10
+    );
 
     // Distinct deadcoin contracts revived (identity-aware)
     let deadcoins_revived = 0;
@@ -340,10 +428,10 @@ export async function GET(req: NextRequest) {
       `;
 
       deadcoins_revived = Number(deadcoinAwardRows?.[0]?.count || 0);
-    } catch (e) {
+    } catch (error: unknown) {
       console.warn(
         '[claim] deadcoin identity count failed:',
-        (e as any)?.message || e
+        getErrorMessage(error)
       );
 
       deadcoins_revived = 0;
@@ -369,7 +457,7 @@ export async function GET(req: NextRequest) {
     ORDER BY c.timestamp DESC;
   `;
 
-    const transactions = (transactionsRaw as any[]).map((row) => {
+    const transactions = (transactionsRaw as TransactionRow[]).map((row) => {
       const contributionId = Number(row.id);
       const inv = invalidationMap.get(contributionId);
       const currentTokenStatus = row.current_token_status ? String(row.current_token_status) : null;
@@ -457,11 +545,12 @@ export async function GET(req: NextRequest) {
       FROM corepoint_events
       WHERE wallet_address = ANY(${corePointWallets});
     `;
-    const cpRow = cpRows[0] || {};
-    const cpCoincarnations = Number((cpRow as any).cp_usd || 0);
-    const cpReferrals = Number((cpRow as any).cp_ref || 0);
-    const cpDeadcoins = Number((cpRow as any).cp_dead || 0);
-    const cpShares = Number((cpRow as any).cp_share || 0);
+    const cpRow = cpRows[0] as CorePointRow | undefined;
+
+    const cpCoincarnations = Number(cpRow?.cp_usd ?? 0);
+    const cpReferrals = Number(cpRow?.cp_ref ?? 0);
+    const cpDeadcoins = Number(cpRow?.cp_dead ?? 0);
+    const cpShares = Number(cpRow?.cp_share ?? 0);
     const core_point = cpCoincarnations + cpReferrals + cpDeadcoins + cpShares;
 
     const globalCorePointResult = await sql/* sql */`
@@ -469,8 +558,11 @@ export async function GET(req: NextRequest) {
       FROM corepoint_events;
     `;
 
+    const globalCorePointRow =
+      globalCorePointResult[0] as GlobalCorePointRow | undefined;
+
     const global_core_point = Number(
-      (globalCorePointResult[0] as any).global_core_point || 0
+      globalCorePointRow?.global_core_point ?? 0
     );
 
     // User/identity scoped CorePoint.
@@ -487,7 +579,7 @@ export async function GET(req: NextRequest) {
         FROM identity_referral_codes
         WHERE identity_id = ${activeIdentityId}
         LIMIT 1
-      `) as any[];
+      `) as ReferralCodeRow[];
 
       if (existingIdentityCode.length > 0 && existingIdentityCode[0]?.referral_code) {
         identity_referral_code = String(existingIdentityCode[0].referral_code);
@@ -511,7 +603,7 @@ export async function GET(req: NextRequest) {
           FROM identity_referral_codes
           WHERE identity_id = ${activeIdentityId}
           LIMIT 1
-        `) as any[];
+        `) as ReferralCodeRow[];
 
         identity_referral_code =
           insertedIdentityCode?.[0]?.referral_code
@@ -539,7 +631,7 @@ export async function GET(req: NextRequest) {
       JOIN phases p ON p.id = cs.phase_id
       WHERE cs.wallet_address = ANY(${claimWallets})
       ORDER BY p.phase_no DESC, cs.created_at DESC;
-    `) as any[];    
+    `) as ClaimSnapshotRow[]; 
 
     const claimsByPhase = (await sql/* sql */`
       SELECT
@@ -550,7 +642,7 @@ export async function GET(req: NextRequest) {
         AND status IN ('created', 'succeeded')
       GROUP BY phase_id
       ORDER BY phase_id DESC;
-    `) as any[];
+    `) as ClaimByPhaseRow[];
 
     const claimedMap = new Map<number, number>();
     for (const row of claimsByPhase) {
@@ -567,14 +659,13 @@ export async function GET(req: NextRequest) {
     let finalized_megy_total = 0;
     let claimed_megy_total = 0;
 
-    const phaseMap = new Map<number, any>();
+    const phaseMap = new Map<number, ClaimPhaseSummary>();
 
     for (const s of snapsFiltered) {
       const pid = Number(s.phase_id);
       if (!Number.isFinite(pid)) continue;
 
       const finalized = Number(s.megy_amount ?? 0);
-      const claimedRaw = Number(claimedMap.get(pid) ?? 0);
 
       // Important:
       // claimedMap is phase-level. When multiple wallet snapshots are merged,

@@ -13,6 +13,7 @@ import type { SharePayload } from '@/components/share/intent';
 import ShareCenter from '@/components/share/ShareCenter';
 import { buildPayload } from '@/components/share/intent';
 import { toNum, toPct01 } from '@/app/lib/num';
+import type { ComponentProps } from 'react';
 import {
   ArrowUpRight,
   Copy,
@@ -52,6 +53,280 @@ type ProtectedActionIssue = {
   action?: 'signIn' | 'verifyNew' | 'verifyBrowser' | 'linkWallet';
 };
 
+type ClaimIdentityView =
+  NonNullable<UserIdentityStatus['identity']> & {
+    claimReady?: boolean;
+    riskScore?: number | null;
+    walletVerified?: boolean;
+    fingerprintRecorded?: boolean;
+  };
+
+type CorePointHistoryEvent = {
+  id?: string | number | null;
+
+  type?: string | null;
+  event_type?: string | null;
+  source?: string | null;
+
+  amount?: number | string | null;
+  value?: number | string | null;
+  points?: number | string | null;
+  corepoints?: number | string | null;
+
+  description?: string | null;
+  detail?: string | null;
+
+  created_at?: string | number | Date | null;
+  createdAt?: string | number | Date | null;
+  day?: string | number | Date | null;
+
+  channel?: string | null;
+  ref_wallet?: string | null;
+  wallet_address?: string | null;
+
+  token_contract?: string | null;
+  token_symbol?: string | null;
+  symbol?: string | null;
+  tokenSymbol?: string | null;
+  token_name?: string | null;
+  name?: string | null;
+  mint?: string | null;
+
+  metadata?: Record<string, unknown> | null;
+
+  [key: string]: unknown;
+};
+
+type RefundableContribution = {
+  id?: number | string | null;
+
+  contribution_id?: number | string | null;
+  contributionId?: number | string | null;
+
+  token_contract?: string | null;
+  token_mint?: string | null;
+  mint?: string | null;
+
+  token_symbol?: string | null;
+  symbol?: string | null;
+
+  invalidation_id?: number | string | null;
+  invalidationId?: number | string | null;
+  refund_id?: number | string | null;
+  refundId?: number | string | null;
+  refund_invalidation_id?: number | string | null;
+
+  blacklisted?: boolean;
+  refund_status?: string | null;
+  refund_fee_paid?: boolean;
+
+  [key: string]: unknown;
+};
+
+type ClaimTransaction = RefundableContribution & {
+  timestamp?: string | null;
+
+  tx_id?: string | null;
+  txId?: string | null;
+  transaction_signature?: string | null;
+  tx_signature?: string | null;
+  tx_hash?: string | null;
+
+  token_amount?: number | string | null;
+  usd_value?: number | string | null;
+
+  current_token_status?: string | null;
+};
+
+type PhaseListItem = {
+  id?: number | string | null;
+  phase_id?: number | string | null;
+  phase_no?: number | string | null;
+  name?: string | null;
+  status?: string | null;
+  snapshot_taken_at?: string | null;
+  finalized_at?: string | null;
+  fill_pct?: number | string | null;
+  used_usd?: number | string | null;
+  target_usd?: number | string | null;
+  [key: string]: unknown;
+};
+
+type ActivePhaseEstimate = {
+  active?: {
+    id?: number | string | null;
+  } | null;
+  me?: {
+    userUsd?: number | string | null;
+    shareRatio?: number | string | null;
+    estimatedMegy?: number | string | null;
+  } | null;
+  [key: string]: unknown;
+};
+
+type ClaimSessionStartResponse = {
+  success?: boolean;
+  session_id?: string | number | null;
+  error?: string | null;
+  [key: string]: unknown;
+};
+
+type ClaimExecutionSplit = {
+  phase_label?: string | null;
+  phase_name?: string | null;
+  phase_no?: number | string | null;
+  phase_id?: number | string | null;
+  amount?: number | string | null;
+  [key: string]: unknown;
+};
+
+type ClaimExecuteResponse = {
+  success?: boolean;
+  error?: string | null;
+
+  dry_run?: boolean | string | null;
+  dryRun?: boolean | null;
+
+  deduped?: boolean;
+  status?: string | null;
+
+  splits?: ClaimExecutionSplit[];
+
+  tx_signature?: string | null;
+  session_closed?: boolean;
+
+  [key: string]: unknown;
+};
+
+type FinalizedPhase = {
+  phase_id?: number | string | null;
+  phaseId?: number | string | null;
+
+  phase_no?: number | string | null;
+  phaseNo?: number | string | null;
+
+  phase_name?: string | null;
+  phaseName?: string | null;
+
+  created_at?: string | null;
+  snapshot_taken_at?: string | null;
+  createdAt?: string | null;
+
+  claimable_megy?: number | string | null;
+  claimable?: number | string | null;
+  claimableMegy?: number | string | null;
+
+  claimed_megy?: number | string | null;
+  claimed?: number | string | null;
+  claimedMegy?: number | string | null;
+
+  finalized_megy?: number | string | null;
+  finalizedMegy?: number | string | null;
+
+  [key: string]: unknown;
+};
+
+type ClaimPhaseOption = {
+  pid: number;
+  phaseNo: number | null;
+  phaseName: string | null;
+  created: string | null;
+  claimable: number;
+  claimed: number;
+};
+
+type ClaimSummary = {
+  claimable_megy_total?: number | string | null;
+  finalized_by_phase?: FinalizedPhase[];
+
+  [key: string]: unknown;
+};
+
+type ClaimPanelData = {
+  id?: number | string | null;
+
+  wallet_address?: string | null;
+  referral_code?: string | null;
+  referral_count?: number | null;
+
+  total_usd_contributed?: number | string | null;
+
+  deadcoins_revived?: number | string | null;
+
+  core_point?: number | string | null;
+
+  pvc_share?: number | null;
+
+  claim?: ClaimSummary | null;
+
+  transactions?: ClaimTransaction[];
+
+  core_point_breakdown?: CorePointBreakdown | null;
+
+  [key: string]: unknown;
+};
+
+type CorePointBreakdown =
+  ComponentProps<typeof CorePointChart>['data'];
+
+  type RefundFeePrepareResponse = {
+  success?: boolean;
+  error?: string | null;
+
+  refund_fee_paid?: boolean;
+
+  invalidation_id?: number | string | null;
+
+  [key: string]: unknown;
+};
+
+type RefundPrepareResponse = {
+  success?: boolean;
+
+  error?: string | null;
+
+  message?: string | null;
+
+  nonce?: string | null;
+
+  [key: string]: unknown;
+};
+
+type RefundRequestResponse = {
+  success?: boolean;
+
+  error?: string | null;
+
+  refund_id?: number | string | null;
+
+  status?: string | null;
+
+  [key: string]: unknown;
+};
+
+type RefundDebugState = {
+  step?: string;
+  status?: number;
+  body?: unknown;
+  error?: string;
+
+  [key: string]: unknown;
+};
+
+type ClaimPanelRefreshResponse = {
+  success?: boolean;
+  error?: string | null;
+  data?: ClaimPanelData | null;
+
+  [key: string]: unknown;
+};
+
+type RefundFeeConfirmResponse = {
+  success?: boolean;
+  error?: string | null;
+
+  [key: string]: unknown;
+};
 const CLAIM_FEE_TREASURY_RAW =
   process.env.NEXT_PUBLIC_CLAIM_FEE_TREASURY ?? '';
 
@@ -65,7 +340,9 @@ const ESTIMATE_POLL_MS = 30_000;
 const PHASE_POLL_MS = 60_000;
 
 // 🔽 CorePoint geçmişini çeken küçük helper
-async function fetchCorepointHistory(wallet: string | null): Promise<any[]> {
+async function fetchCorepointHistory(
+  wallet: string | null
+): Promise<CorePointHistoryEvent[]> {
   if (!wallet) return [];
   try {
     const r = await fetch(`/api/corepoints/history?wallet=${wallet}`, { cache: 'no-store' });
@@ -129,7 +406,9 @@ function normalizeClaimInput(rawValue: string, max: number): string {
     : '';
 }
 
-function getRefundUiState(tx: any): {
+function getRefundUiState(
+  tx: RefundableContribution
+): {
   badge: string | null;
   showRefundButton: boolean;
   buttonLabel: string;
@@ -199,7 +478,8 @@ export default function ClaimPanel() {
   const walletBase58 = publicKey?.toBase58() ?? null;
 
   const [cpConfig, setCpConfig] = useState<CpConfig | null>(null);
-  const [data, setData] = useState<any>(null);
+  const [data, setData] =
+    useState<ClaimPanelData | null>(null);
   const [claimScope, setClaimScope] = useState<'wallet' | 'identity'>('wallet');
   const [claimScopeMeta, setClaimScopeMeta] = useState<{
     scope: 'wallet' | 'identity';
@@ -221,7 +501,6 @@ export default function ClaimPanel() {
   const [altAddress, setAltAddress] = useState('');
   const [phaseId, setPhaseId] = useState<number | null>(null);
   const [phaseLoading, setPhaseLoading] = useState<boolean>(true);
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const [claimFeeSigForSupport, setClaimFeeSigForSupport] = useState<string | null>(null);
   const [refundFeeSigForSupport, setRefundFeeSigForSupport] = useState<string | null>(null);
   const [identityStatus, setIdentityStatus] = useState<UserIdentityStatus>({
@@ -254,7 +533,8 @@ export default function ClaimPanel() {
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
   const [shareContext, setShareContext] = useState<'profile' | 'contribution' | 'leaderboard' | 'success'>('profile');
   const [shareTxId, setShareTxId] = useState<string | undefined>(undefined);
-  const [cpHistory, setCpHistory] = useState<any[]>([]);
+  const [cpHistory, setCpHistory] =
+    useState<CorePointHistoryEvent[]>([]);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
   const [ledgerFilter, setLedgerFilter] = useState<
     'all' | 'contributions' | 'referrals' | 'shares' | 'deadcoins'
@@ -276,7 +556,8 @@ export default function ClaimPanel() {
     treasuryWallet: string;
   } | null>(null);
   const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
-  const [currentPhase, setCurrentPhase] = useState<any | null>(null);
+  const [currentPhase, setCurrentPhase] =
+    useState<PhaseListItem | null>(null);
   const [phasesLoading, setPhasesLoading] = useState<boolean>(true);
   const attemptIdemKeyRef = useRef<string | null>(null);
   const walletBase58Ref = useRef<string | null>(walletBase58);
@@ -284,7 +565,8 @@ export default function ClaimPanel() {
   const claimOperationIdRef = useRef(0);
   const refundOperationIdRef = useRef(0);
   const identityStatusOperationIdRef = useRef(0);
-  const [activeEstimate, setActiveEstimate] = useState<any>(null);
+  const [activeEstimate, setActiveEstimate] =
+    useState<ActivePhaseEstimate | null>(null);
   const [estimateLoading, setEstimateLoading] = useState(false);
   const [feeConfirmOpen, setFeeConfirmOpen] = useState(false);
   const [pendingClaim, setPendingClaim] = useState<{
@@ -307,7 +589,8 @@ export default function ClaimPanel() {
         item.walletAddress === walletBase58
     )
   );
-  const [refundDebug, setRefundDebug] = useState<any>(null);
+  const [refundDebug, setRefundDebug] =
+    useState<RefundDebugState | null>(null);
   const feeConfirmModalRef = useRef<HTMLDivElement | null>(null);
   const refundFeeConfirmModalRef = useRef<HTMLDivElement | null>(null);
 
@@ -790,7 +1073,7 @@ export default function ClaimPanel() {
           return;
         }
   
-        const list = Array.isArray(j?.phases)
+        const list: PhaseListItem[] = Array.isArray(j?.phases)
           ? j.phases
           : [];
   
@@ -810,7 +1093,7 @@ export default function ClaimPanel() {
         const byId =
           Number.isFinite(activeId) && activeId > 0
             ? list.find(
-                (phase: any) =>
+                (phase) =>
                   Number(phase.phase_id) === activeId ||
                   Number(phase.id) === activeId
               )
@@ -824,18 +1107,18 @@ export default function ClaimPanel() {
         const byNo =
           Number.isFinite(activeNo) && activeNo > 0
             ? list.find(
-                (phase: any) =>
+                (phase) =>
                   Number(phase.phase_no) === activeNo
               )
             : null;
-  
+            
         if (byNo) {
           setCurrentPhase(byNo);
           return;
         }
   
         const active = list.find(
-          (phase: any) =>
+          (phase) =>
             norm(phase.status) === 'active' &&
             !phase.snapshot_taken_at
         );
@@ -904,9 +1187,9 @@ export default function ClaimPanel() {
   }, []);
 
   useEffect(() => {
+    // Invalidate any claim operation started under the previous scope.
     claimOperationIdRef.current += 1;
   
-    setSessionId(null);
     setPendingClaim(null);
     setFeeConfirmOpen(false);
   
@@ -929,7 +1212,6 @@ export default function ClaimPanel() {
     refundOperationIdRef.current += 1;
   
     // Reset claim attempt.
-    setSessionId(null);
     setPendingClaim(null);
     setFeeConfirmOpen(false);
     setIsClaiming(false);
@@ -1223,9 +1505,13 @@ export default function ClaimPanel() {
   }
 
   // ✅ Crash fix: tx listesi yoksa dizi kullan
-  const txs: any[] = Array.isArray(data.transactions) ? data.transactions : [];
+  const txs: ClaimTransaction[] =
+    Array.isArray(data.transactions)
+      ? data.transactions
+      : [];
 
-  const finalizedClaim = data?.claim ?? null;
+  const finalizedClaim: ClaimSummary | null =
+    data?.claim ?? null;
   const claimableFromFinalized = (() => {
     const n = Number(finalizedClaim?.claimable_megy_total ?? NaN);
     return Number.isFinite(n) ? Math.max(0, n) : null;
@@ -1251,16 +1537,6 @@ export default function ClaimPanel() {
       ? claimableFromFinalized
       : 0;
 
-  const finalizedTotal = Math.max(
-    0,
-    toNum(finalizedClaim?.finalized_megy_total, 0)
-  );
-
-  const claimedTotal = Math.max(
-    0,
-    toNum(finalizedClaim?.claimed_megy_total, 0)
-  );
-
   // Phase selection (Option A: phase-based claim)
   const latestFinalizedPhaseId = phaseId;
 
@@ -1271,7 +1547,7 @@ export default function ClaimPanel() {
 
   const selectedPhaseRow =
     (effectivePhaseId && Array.isArray(finalizedClaim?.finalized_by_phase))
-      ? finalizedClaim.finalized_by_phase.find((p: any) => Number(p.phase_id) === Number(effectivePhaseId))
+      ? finalizedClaim.finalized_by_phase.find((p) => Number(p.phase_id) === Number(effectivePhaseId))
       : null;
 
   const selectedClaimable =
@@ -1287,21 +1563,16 @@ export default function ClaimPanel() {
         )
       : 0;
 
-  const effectivePhaseLabel =
-    selectedPhaseRow?.phase_name ||
-    selectedPhaseRow?.phaseName ||
-    (effectivePhaseId ? 'Selected snapshot' : 'No snapshot');
-
   const selectedScopeLabel =
     selectedPhaseRow?.phase_name ||
     selectedPhaseRow?.phaseName ||
     'Selected snapshot';
 
   const selectedPhaseSnapshot = Array.isArray(finalizedClaim?.finalized_by_phase)
-    ? finalizedClaim.finalized_by_phase.find((p: any) => {
-      const pid = Number(p?.phase_id ?? p?.phaseId ?? 0);
-      return effectivePhaseId ? pid === Number(effectivePhaseId) : false;
-    })
+    ? finalizedClaim.finalized_by_phase.find((p) => {
+        const pid = Number(p.phase_id ?? p.phaseId ?? 0);
+        return effectivePhaseId ? pid === Number(effectivePhaseId) : false;
+      })
     : null;
 
   const selectedPhaseTotal = Math.max(
@@ -1330,7 +1601,10 @@ export default function ClaimPanel() {
     destination: string,
     phaseId: number,
     scope: 'wallet' | 'identity'
-  ) {
+  ): Promise<{
+    response: Response;
+    result: ClaimSessionStartResponse;
+  }> {
     const response = await fetch(
       '/api/claim/session/start',
       {
@@ -1348,9 +1622,10 @@ export default function ClaimPanel() {
       }
     );
 
-    const result: any = await response
-      .json()
-      .catch(() => ({}));
+    const result: ClaimSessionStartResponse =
+      await response
+        .json()
+        .catch(() => ({}));
 
     return {
       response,
@@ -1613,7 +1888,10 @@ export default function ClaimPanel() {
 
   const sectionTitleClass = 'text-sm font-semibold uppercase tracking-wide';
 
-  function getClaimStatusLabel(identity: any, protectedIssue: any) {
+  function getClaimStatusLabel(
+    identity: ClaimIdentityView | null,
+    protectedIssue: ProtectedActionIssue | null
+  ) {
     if (!identity) return 'Verification Required';
 
     if (identity.claimReady) return 'Claim Ready';
@@ -1710,10 +1988,18 @@ export default function ClaimPanel() {
       };
     }
 
-    if (identityStatus.identity.claimReady) return null;
+    const identity =
+      identityStatus.identity as ClaimIdentityView;
 
-    const riskScore = Number(identityStatus.identity.riskScore ?? 0);
-    const fingerprintRecorded = Boolean((identityStatus.identity as any).fingerprintRecorded);
+    if (identity.claimReady) return null;
+
+    const riskScore = Number(
+      identity.riskScore ?? 0
+    );
+
+    const fingerprintRecorded = Boolean(
+      identity.fingerprintRecorded
+    );
 
     if (riskScore >= 50) {
       return {
@@ -1839,8 +2125,6 @@ export default function ClaimPanel() {
     }
   
     try {
-      // Validate destination pubkey.
-      // eslint-disable-next-line no-new
       new PublicKey(destination);
     } catch {
       setMessage(
@@ -1915,9 +2199,7 @@ export default function ClaimPanel() {
         preJ?.session_id
       ) {
         const sid = String(preJ.session_id);
-  
-        setSessionId(sid);
-  
+
         const execRes = await fetch(
           '/api/claim/execute',
           {
@@ -1941,9 +2223,10 @@ export default function ClaimPanel() {
           return;
         }
   
-        const execJson: any = await execRes
-          .json()
-          .catch(() => ({}));
+        const execJson: ClaimExecuteResponse =
+          await execRes
+            .json()
+            .catch(() => ({}));
   
         if (!isCurrentClaimOperation()) {
           return;
@@ -1956,7 +2239,6 @@ export default function ClaimPanel() {
           );
   
           if (rawErr === 'SESSION_NOT_FOUND') {
-            setSessionId(null);
             setPendingClaim(null);
             attemptIdemKeyRef.current = null;
           }
@@ -1979,7 +2261,6 @@ export default function ClaimPanel() {
           execJson?.deduped &&
           execJson?.status !== 'succeeded'
         ) {
-          setSessionId(null);
           setPendingClaim(null);
           attemptIdemKeyRef.current = null;
   
@@ -1995,17 +2276,17 @@ export default function ClaimPanel() {
             execJson?.splits
           )
             ? execJson.splits
-                .map(
-                  (split: any) =>
-                    `${
-                      split.phase_label ||
-                      split.phase_name ||
-                      `Phase ${
-                        split.phase_no ||
-                        split.phase_id
-                      }`
-                    }: ${split.amount}`
-                )
+              .map(
+                (split) =>
+                  `${
+                    split.phase_label ||
+                    split.phase_name ||
+                    `Phase ${
+                      split.phase_no ||
+                      split.phase_id
+                    }`
+                  }: ${split.amount}`
+              )
                 .join(' · ')
             : 'simulation complete';
   
@@ -2034,10 +2315,6 @@ export default function ClaimPanel() {
         setPendingClaim(null);
   
         attemptIdemKeyRef.current = null;
-  
-        if (execJson?.session_closed === true) {
-          setSessionId(null);
-        }
   
         if (!isCurrentClaimOperation()) {
           return;
@@ -2113,7 +2390,9 @@ export default function ClaimPanel() {
     }
   };
 
-  const handleRequestRefund = async (tx: any) => {
+  const handleRequestRefund = async (
+    tx: RefundableContribution
+  ) => {
     const contributionId = Number(
       tx?.contribution_id ??
         tx?.contributionId ??
@@ -2264,7 +2543,7 @@ export default function ClaimPanel() {
         return;
       }
   
-      const feePrepJson: any = await feePrepRes
+      const feePrepJson: RefundFeePrepareResponse = await feePrepRes
         .json()
         .catch(() => ({}));
   
@@ -2326,7 +2605,7 @@ export default function ClaimPanel() {
           return;
         }
   
-        const prepJson: any = await prepRes
+        const prepJson: RefundPrepareResponse = await prepRes
           .json()
           .catch(() => ({}));
   
@@ -2407,7 +2686,7 @@ export default function ClaimPanel() {
           return;
         }
   
-        const requestJson: any = await requestRes
+        const requestJson: RefundRequestResponse = await requestRes
           .json()
           .catch(() => ({}));
   
@@ -2491,7 +2770,6 @@ export default function ClaimPanel() {
       }
   
       try {
-        // eslint-disable-next-line no-new
         new PublicKey(treasuryWallet);
       } catch {
         throw new Error(
@@ -2628,7 +2906,7 @@ export default function ClaimPanel() {
           skipPreflight: false,
           preflightCommitment: 'confirmed',
           maxRetries: 3,
-        } as any)
+        })
       );
   
       /*
@@ -2662,9 +2940,10 @@ export default function ClaimPanel() {
         }),
       });
   
-      const feeConfirmJson: any = await feeConfirmRes
-        .json()
-        .catch(() => ({}));
+      const feeConfirmJson: RefundFeeConfirmResponse =
+        await feeConfirmRes
+          .json()
+          .catch(() => ({}));
   
       if (!isCurrentRefundOperation()) {
         return;
@@ -2713,7 +2992,7 @@ export default function ClaimPanel() {
         }),
       });
   
-      const prepJson: any = await prepRes
+      const prepJson: RefundPrepareResponse = await prepRes
         .json()
         .catch(() => ({}));
   
@@ -2787,7 +3066,7 @@ export default function ClaimPanel() {
         }),
       });
   
-      const requestJson: any = await requestRes
+      const requestJson: RefundRequestResponse = await requestRes
         .json()
         .catch(() => ({}));
   
@@ -2835,21 +3114,24 @@ export default function ClaimPanel() {
         }
       );
   
-      const refreshedJson: any = await refreshed
-        .json()
-        .catch(() => ({}));
+      const refreshedJson: ClaimPanelRefreshResponse =
+        await refreshed
+          .json()
+          .catch(() => ({}));
   
       if (
         isCurrentRefundOperation() &&
         refreshed.ok &&
-        refreshedJson?.success
+        refreshedJson.success &&
+        refreshedJson.data
       ) {
         setData(refreshedJson.data);
       }
-    } catch (e: any) {
-      const raw = String(
-        e?.message ?? 'REFUND_REQUEST_FAILED'
-      );
+    } catch (e: unknown) {
+      const raw =
+        e instanceof Error
+          ? e.message
+          : 'REFUND_REQUEST_FAILED';
   
       console.error(
         '[REFUND] confirmRefundFeeThenRequest failed:',
@@ -2858,8 +3140,8 @@ export default function ClaimPanel() {
       );
   
       if (isCurrentRefundOperation()) {
-        setRefundDebug((prev: any) => ({
-          ...(prev || {}),
+        setRefundDebug((prev) => ({
+          ...(prev ?? {}),
           step: 'catch',
           error: raw,
         }));
@@ -3001,7 +3283,7 @@ export default function ClaimPanel() {
             preflightCommitment:
               'confirmed',
             maxRetries: 3,
-          } as any
+          }
         )
       );
   
@@ -3076,7 +3358,7 @@ export default function ClaimPanel() {
         return;
       }
   
-      const startJson: any =
+      const startJson: ClaimSessionStartResponse =
         await startRes
           .json()
           .catch(() => ({}));
@@ -3101,9 +3383,7 @@ export default function ClaimPanel() {
       const sid = String(
         startJson.session_id
       );
-  
-      setSessionId(sid);
-  
+      
       /*
        * 5) Execute the claim.
        */
@@ -3135,7 +3415,7 @@ export default function ClaimPanel() {
         return;
       }
   
-      const execJson: any =
+      const execJson: ClaimExecuteResponse =
         await execRes
           .json()
           .catch(() => ({}));
@@ -3152,12 +3432,11 @@ export default function ClaimPanel() {
           execJson?.error ||
             `CLAIM_EXECUTE_FAILED (${execRes.status})`
         );
-  
+        
         if (
           rawError ===
           'SESSION_NOT_FOUND'
         ) {
-          setSessionId(null);
           attemptIdemKeyRef.current =
             null;
         }
@@ -3181,7 +3460,6 @@ export default function ClaimPanel() {
         execJson?.status !==
           'succeeded'
       ) {
-        setSessionId(null);
         setPendingClaim(null);
         attemptIdemKeyRef.current =
           null;
@@ -3201,13 +3479,16 @@ export default function ClaimPanel() {
       setClaimFeeSigForSupport(null);
   
       if (isDryRun) {
-        const splitSummary =
-          Array.isArray(
-            execJson?.splits
-          )
+        const splits: ClaimExecutionSplit[] =
+          Array.isArray(execJson.splits)
             ? execJson.splits
+            : [];
+      
+        const splitSummary =
+          splits.length > 0
+            ? splits
                 .map(
-                  (split: any) =>
+                  (split) =>
                     `${
                       split.phase_label ||
                       split.phase_name ||
@@ -3219,7 +3500,7 @@ export default function ClaimPanel() {
                 )
                 .join(' · ')
             : 'simulation complete';
-  
+      
         setMessage(
           `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${splitSummary}`
         );
@@ -3257,13 +3538,6 @@ export default function ClaimPanel() {
       setPendingClaim(null);
   
       attemptIdemKeyRef.current = null;
-  
-      if (
-        execJson?.session_closed ===
-        true
-      ) {
-        setSessionId(null);
-      }
   
       if (!isCurrentClaimOperation()) {
         return;
@@ -3345,7 +3619,6 @@ export default function ClaimPanel() {
   let destinationAddressInvalid = false;
   if (useAltAddress && altAddressRaw) {
     try {
-      // eslint-disable-next-line no-new
       new PublicKey(altAddressRaw);
     } catch {
       destinationAddressInvalid = true;
@@ -3370,11 +3643,6 @@ export default function ClaimPanel() {
   })();
 
   const claimDisabled = Boolean(claimDisabledReason);
-
-  const effectivePhaseName =
-    selectedPhaseRow?.phase_name ||
-    selectedPhaseRow?.phaseName ||
-    null;
 
   const claimButtonLabel = phaseLoading
     ? '⏳ Loading phase...'
@@ -3406,13 +3674,15 @@ export default function ClaimPanel() {
       ? 'refund fee tx'
       : 'fee tx';
 
-  function getLedgerTokenLabel(ev: any): string | null {
+  function getLedgerTokenLabel(
+    ev: CorePointHistoryEvent
+  ): string | null {
     const rawSymbol =
-      ev?.token_symbol ||
-      ev?.symbol ||
-      ev?.tokenSymbol ||
-      ev?.token_name ||
-      ev?.name ||
+      ev.token_symbol ||
+      ev.symbol ||
+      ev.tokenSymbol ||
+      ev.token_name ||
+      ev.name ||
       null;
 
     const symbol = String(rawSymbol ?? '').trim();
@@ -3420,8 +3690,8 @@ export default function ClaimPanel() {
     if (symbol) return symbol;
 
     const mint = String(
-      ev?.token_contract ||
-      ev?.mint ||
+      ev.token_contract ||
+      ev.mint ||
       ''
     ).trim();
 
@@ -3430,7 +3700,7 @@ export default function ClaimPanel() {
     return null;
   }
   
-  const filteredCpHistory = [...cpHistory].filter((ev: any) => {
+  const filteredCpHistory = [...cpHistory].filter((ev) => {
     const type = String(ev?.type || '').toLowerCase();
 
     if (ledgerFilter === 'all') return true;
@@ -4547,20 +4817,56 @@ export default function ClaimPanel() {
 
               {/* 🧬 Select Phase */}
               {Array.isArray(finalizedClaim?.finalized_by_phase) && finalizedClaim.finalized_by_phase.length > 0 && (() => {
-                const phases = finalizedClaim.finalized_by_phase
-                  .slice()
-                  .map((p: any) => ({
-                    pid: Number(p?.phase_id ?? p?.phaseId ?? 0),
-                    phaseNo: Number(p?.phase_no ?? p?.phaseNo ?? 0) || null,
-                    phaseName: p?.phase_name ?? p?.phaseName ?? null,
-                    created: p?.created_at ?? p?.snapshot_taken_at ?? p?.createdAt ?? null,
-                    claimable: Math.max(0, toNum(p?.claimable_megy ?? p?.claimable ?? p?.claimableMegy, 0)),
-                    claimed: Math.max(0, toNum(p?.claimed_megy ?? p?.claimed ?? p?.claimedMegy, 0)),
-                  }))
-                  .filter((x: any) => Number.isFinite(x.pid) && x.pid > 0)
-                  .sort((a: any, b: any) => b.pid - a.pid);
+                const phases: ClaimPhaseOption[] =
+                  finalizedClaim.finalized_by_phase
+                    .slice()
+                    .map((p): ClaimPhaseOption => ({
+                      pid: Number(p.phase_id ?? p.phaseId ?? 0),
 
-                const options: number[] = Array.from(new Set(phases.map((x: any) => x.pid)));
+                      phaseNo:
+                        Number(p.phase_no ?? p.phaseNo ?? 0) || null,
+
+                      phaseName:
+                        p.phase_name ??
+                        p.phaseName ??
+                        null,
+
+                      created:
+                        p.created_at ??
+                        p.snapshot_taken_at ??
+                        p.createdAt ??
+                        null,
+
+                      claimable: Math.max(
+                        0,
+                        toNum(
+                          p.claimable_megy ??
+                            p.claimable ??
+                            p.claimableMegy,
+                          0
+                        )
+                      ),
+
+                      claimed: Math.max(
+                        0,
+                        toNum(
+                          p.claimed_megy ??
+                            p.claimed ??
+                            p.claimedMegy,
+                          0
+                        )
+                      ),
+                    }))
+                    .filter(
+                      (x) =>
+                        Number.isFinite(x.pid) &&
+                        x.pid > 0
+                    )
+                    .sort((a, b) => b.pid - a.pid);
+
+                const options: number[] = Array.from(
+                  new Set(phases.map((x) => x.pid))
+                );
 
                 const isAllLinkedWalletsMode = claimScope === 'identity';
 
@@ -4573,16 +4879,26 @@ export default function ClaimPanel() {
 
                 const ordered =
                   isAllLinkedWalletsMode
-                    ? phases.sort((a: any, b: any) => {
-                      const phaseNoDiff = Number(b.phaseNo || 0) - Number(a.phaseNo || 0);
-                      if (phaseNoDiff !== 0) return phaseNoDiff;
-                      return Number(b.pid || 0) - Number(a.pid || 0);
-                    })
+                    ? phases.slice().sort((a, b) => {
+                        const phaseNoDiff =
+                          Number(b.phaseNo ?? 0) -
+                          Number(a.phaseNo ?? 0);
+
+                        if (phaseNoDiff !== 0) {
+                          return phaseNoDiff;
+                        }
+
+                        return b.pid - a.pid;
+                      })
                     : activePid
                       ? [
-                        ...phases.filter((x: any) => x.pid === activePid),
-                        ...phases.filter((x: any) => x.pid !== activePid),
-                      ]
+                          ...phases.filter(
+                            (x) => x.pid === activePid
+                          ),
+                          ...phases.filter(
+                            (x) => x.pid !== activePid
+                          ),
+                        ]
                       : phases;
 
                 return (
@@ -4614,7 +4930,9 @@ export default function ClaimPanel() {
                         >
                           <option value="">Latest finalized snapshot</option>
                           {options.map((pid) => {
-                            const row = phases.find((x: any) => x.pid === pid);
+                            const row = phases.find(
+                              (x) => x.pid === pid
+                            );
                             const label =
                               row?.phaseName
                                 ? String(row.phaseName)
@@ -4633,7 +4951,7 @@ export default function ClaimPanel() {
                     </div>
 
                     <div className="max-h-[360px] space-y-2 overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-violet-300/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/10">
-                      {ordered.map((p: any) => {
+                      {ordered.map((p) => {
                         const isSelected = isAllLinkedWalletsMode || (activePid != null && p.pid === activePid);
 
                         return (
@@ -5125,7 +5443,7 @@ export default function ClaimPanel() {
               <div className="relative">
                 <div className="relative grid max-h-[72vh] gap-3 overflow-y-auto pr-2 sm:max-h-[620px] sm:pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-300/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/10">
                   {[...txs]
-                    .sort((a: any, b: any) => {
+                    .sort((a, b) => {
                       const rawATime = a?.timestamp
                         ? new Date(a.timestamp).getTime()
                         : 0;
@@ -5139,7 +5457,7 @@ export default function ClaimPanel() {
                     
                       return bTime - aTime;
                     })
-                    .map((tx: any, index: number) => {
+                    .map((tx, index) => {
                       const contributionId = Number(
                         tx?.contribution_id ??
                         tx?.contributionId ??
@@ -5272,8 +5590,11 @@ export default function ClaimPanel() {
                                     'contribution',
                                     {
                                       url,
-                                      token: tx.token_symbol,
-                                      amount: tx.token_amount,
+                                      token: tx.token_symbol ?? undefined,
+                                      amount:
+                                        tx.token_amount == null
+                                          ? undefined
+                                          : toNum(tx.token_amount, 0),
                                     },
                                     {
                                       ref: data.referral_code ?? undefined,
@@ -5760,24 +6081,45 @@ export default function ClaimPanel() {
                 <>
                   <div className="relative grid max-h-[620px] gap-3 overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-emerald-300/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/10">
                     {[...filteredCpHistory]
-                      .sort((a: any, b: any) => {
-                        const aDate = a?.created_at || a?.day || null;
-                        const bDate = b?.created_at || b?.day || null;
+                      .sort((a, b) => {
+                        const rawADate = a.created_at ?? a.day ?? null;
+                        const rawBDate = b.created_at ?? b.day ?? null;
                       
-                        const rawATime = aDate
-                          ? new Date(aDate).getTime()
+                        const aDate =
+                          typeof rawADate === 'string' ||
+                          typeof rawADate === 'number' ||
+                          rawADate instanceof Date
+                            ? rawADate
+                            : null;
+                      
+                        const bDate =
+                          typeof rawBDate === 'string' ||
+                          typeof rawBDate === 'number' ||
+                          rawBDate instanceof Date
+                            ? rawBDate
+                            : null;
+                      
+                        const rawATime =
+                          aDate !== null
+                            ? new Date(aDate).getTime()
+                            : 0;
+                      
+                        const rawBTime =
+                          bDate !== null
+                            ? new Date(bDate).getTime()
+                            : 0;
+                      
+                        const aTime = Number.isFinite(rawATime)
+                          ? rawATime
                           : 0;
                       
-                        const rawBTime = bDate
-                          ? new Date(bDate).getTime()
+                        const bTime = Number.isFinite(rawBTime)
+                          ? rawBTime
                           : 0;
-                      
-                        const aTime = Number.isFinite(rawATime) ? rawATime : 0;
-                        const bTime = Number.isFinite(rawBTime) ? rawBTime : 0;
                       
                         return bTime - aTime;
                       })
-                      .map((ev: any, i: number) => {
+                      .map((ev, i: number) => {
                         const typeLabel =
                           ev.type === 'usd'
                             ? 'Contribution'
@@ -5821,7 +6163,15 @@ export default function ClaimPanel() {
                           detail = ev.detail || 'Value signal recorded';
                         }
 
-                        const dateStr = ev.created_at || ev.day || null;
+                        const rawDate = ev.created_at ?? ev.day ?? null;
+
+                        const dateStr =
+                          rawDate instanceof Date
+                            ? rawDate.toISOString()
+                            : rawDate != null
+                              ? String(rawDate)
+                              : null;
+
                         const points = toNum(ev.points, 0);
 
                         const badgeClass =
@@ -6378,47 +6728,6 @@ function formatUsdValue(raw: unknown): string {
   }
 
   return `$${n.toFixed(2)}`;
-}
-
-function ContributionCard({
-  icon,
-  title,
-  points,
-  description,
-}: {
-  icon: string;
-  title: string;
-  points: number;
-  description: string;
-}) {
-  const safePoints = Number.isFinite(Number(points))
-    ? Number(points)
-    : 0;
-
-  return (
-    <div className="flex flex-col justify-between rounded-lg border border-zinc-700 bg-zinc-800 p-4 transition hover:bg-zinc-700">
-      <div className="mb-2 flex items-center space-x-3">
-        <span
-          aria-hidden="true"
-          className="text-2xl"
-        >
-          {icon}
-        </span>
-
-        <h4 className="text-sm font-semibold text-white">
-          {title}
-        </h4>
-      </div>
-
-      <p className="mb-1 text-lg font-bold text-white">
-        {safePoints.toFixed(1)} pts
-      </p>
-
-      <p className="text-xs text-gray-400">
-        {description}
-      </p>
-    </div>
-  );
 }
 
 function uint8ToBase64(bytes: Uint8Array): string {
