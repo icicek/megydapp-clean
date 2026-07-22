@@ -13,18 +13,6 @@ type DirectWalletProvider = {
     ) => Promise<Uint8Array | { signature: Uint8Array }>;
 };
 
-export type UserIdentitySession = {
-    authenticated: boolean;
-    identity?: {
-        id: string;
-        primaryWalletAddress: string | null;
-        walletAddress: string;
-        humanConfidenceScore: number;
-        riskScore: number;
-        status: string;
-    };
-};
-
 function toBase64(bytes: Uint8Array) {
     let binary = '';
 
@@ -104,24 +92,6 @@ async function signWithDirectProvider(params: {
         console.warn('[identity] Direct provider signature failed:', error);
         return null;
     }
-}
-
-export async function getUserIdentitySession(): Promise<UserIdentitySession> {
-    const res = await fetch('/api/auth/me', {
-        method: 'GET',
-        credentials: 'include',
-    });
-
-    const data = await res.json();
-
-    if (!res.ok || !data.ok || !data.authenticated) {
-        return { authenticated: false };
-    }
-
-    return {
-        authenticated: true,
-        identity: data.identity,
-    };
 }
 
 export async function signInWithWalletIdentity(params: {
@@ -213,21 +183,6 @@ export async function signInWithWalletIdentity(params: {
     console.info('[identity] Step 6: identity verified');
 
     return verifyData;
-}
-
-export async function logoutUserIdentity() {
-    const res = await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-    });
-
-    const data = await res.json();
-
-    if (!res.ok || !data.ok) {
-        throw new Error(data.error || 'Failed to logout identity session.');
-    }
-
-    return data;
 }
 
 export type UserIdentityStatus = {

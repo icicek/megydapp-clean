@@ -614,6 +614,14 @@ export default function ClaimPanel() {
     }
   }
 
+  async function refreshIdentityState() {
+    const nextStatus = await getUserIdentityStatus();
+    setIdentityStatus(nextStatus);
+  
+    const wallets = await fetchLinkedIdentityWallets();
+    setLinkedWallets(wallets);
+  }
+
   useEffect(() => {
     const modalOpen = feeConfirmOpen || refundFeeConfirmOpen;
   
@@ -1723,11 +1731,7 @@ export default function ClaimPanel() {
 
       await recordIdentityFingerprint(publicKey.toBase58());
 
-      const nextStatus = await getUserIdentityStatus();
-      setIdentityStatus(nextStatus);
-
-      const wallets = await fetchLinkedIdentityWallets();
-      setLinkedWallets(wallets);
+      await refreshIdentityState();
 
       setMessage('✅ Identity verified. You can now perform protected actions.');
     } catch (error) {
@@ -1789,11 +1793,7 @@ export default function ClaimPanel() {
         code,
       });
 
-      const nextStatus = await getUserIdentityStatus();
-      setIdentityStatus(nextStatus);
-
-      const wallets = await fetchLinkedIdentityWallets();
-      setLinkedWallets(wallets);
+      await refreshIdentityState();
 
       setIdentityLinkCodeInput('');
       setMessage('✅ Wallet linked with identity code.');
@@ -1828,11 +1828,7 @@ export default function ClaimPanel() {
         walletName: wallet?.adapter?.name,
       });
 
-      const nextStatus = await getUserIdentityStatus();
-      setIdentityStatus(nextStatus);
-
-      const wallets = await fetchLinkedIdentityWallets();
-      setLinkedWallets(wallets);
+      await refreshIdentityState();
 
       setMessage('✅ Active wallet linked to your Coincarnation Identity.');
     } catch (error) {
