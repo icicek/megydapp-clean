@@ -269,24 +269,17 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const identityId =
-    identityGuard.identityId ?? null;
+  const identityId = identityGuard.identityId;
 
   let scopedWallets = [wallet];
 
   if (isAllPhases) {
-    if (!identityId) {
-      return json(401, {
-        success: false,
-        error: 'IDENTITY_SESSION_REQUIRED',
-      });
-    }
-
     const linked = await sql`
       SELECT wallet_address
       FROM identity_wallets
       WHERE identity_id = ${identityId}
         AND chain = 'solana'
+        AND verified_at IS NOT NULL
       ORDER BY created_at ASC
     `;
 

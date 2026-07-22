@@ -1,25 +1,81 @@
-//app/api/auth/status/route.ts
-import { NextResponse } from 'next/server';
+// app/api/auth/status/route.ts
+
 import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
+import { PublicKey } from '@solana/web3.js';
+
 import { sql } from '@/app/api/_lib/db';
 import {
   USER_AUTH_COOKIE,
-  getUserCookieOptions,
-  signUserSession,
   verifyUserSession,
 } from '@/app/api/_lib/user-auth';
-import { recalculateIdentityScores } from '@/app/api/_lib/identity-score';
 
 export const dynamic = 'force-dynamic';
+
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'no-store',
+};
+
+function jsonResponse(
+  body: Record<string, unknown>,
+  status = 200
+) {
+  return NextResponse.json(body, {
+    status,
+    headers: NO_STORE_HEADERS,
+  });
+}
+
+function normalizeWalletAddress(
+  value: unknown
+): string | null {
+  const rawWalletAddress = String(value ?? '').trim();
+
+  if (!rawWalletAddress) {
+    return null;
+  }
+
+  try {
+    return new PublicKey(rawWalletAddress).toBase58();
+  } catch {
+    return null;
+  }
+}
 
 export async function GET() {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get(USER_AUTH_COOKIE)?.value;
-    const session = token ? verifyUserSession(token) : null;
+    const token =
+      cookieStore.get(USER_AUTH_COOKIE)?.value;
+
+    if (!token) {
+      return jsonResponse({
+        ok: true,
+        authenticated: false,
+        identity: null,
+      });
+    }
+
+    const session = verifyUserSession(token);
 
     if (!session) {
-      return NextResponse.json({
+      return jsonResponse({
+        ok: true,
+        authenticated: false,
+        identity: null,
+      });
+    }
+
+    const sessionWalletAddress =
+      normalizeWalletAddress(session.walletAddress);
+
+    if (!sessionWalletAddress) {
+      console.error(
+        '[auth/status] invalid wallet address in session:',
+        session.walletAddress
+      );
+
+      return jsonResponse({
         ok: true,
         authenticated: false,
         identity: null,
@@ -28,67 +84,103 @@ export async function GET() {
 
     const identityRows = await sql`
       SELECT
-        id,
-        primary_wallet_address,
-        human_confidence_score,
-        risk_score,
-        status
-      FROM identities
-      WHERE id = ${session.identityId}
+        i.id,
+        i.primary_wallet_address,
+        i.human_confidence_score,
+        i.risk_score,
+        i.status,
+
+        EXISTS (
+          SELECT 1
+          FROM identity_wallets iw
+          WHERE iw.identity_id = i.id
+            AND iw.wallet_address = ${sessionWalletAddress}
+            AND iw.chain = 'solana'
+            AND iw.verified_at IS NOT NULL
+        ) AS wallet_verified,
+
+        EXISTS (
+          SELECT 1
+          FROM identity_fingerprints identity_fingerprint
+          WHERE identity_fingerprint.identity_id = i.id
+        ) AS fingerprint_recorded,
+
+        EXISTS (
+          SELECT 1
+          FROM identity_socials identity_social
+          WHERE identity_social.identity_id = i.id
+            AND identity_social.provider = 'x'
+            AND identity_social.verified_at IS NOT NULL
+        ) AS x_linked,
+
+        (
+          SELECT COUNT(*)::int
+          FROM identity_wallets linked_wallet
+          WHERE linked_wallet.identity_id = i.id
+            AND linked_wallet.chain = 'solana'
+            AND linked_wallet.verified_at IS NOT NULL
+        ) AS linked_wallet_count
+
+      FROM identities i
+      WHERE i.id = ${session.identityId}
       LIMIT 1
     `;
 
     if (identityRows.length === 0) {
-      return NextResponse.json({
+      return jsonResponse({
         ok: true,
         authenticated: false,
         identity: null,
       });
     }
 
-    const walletRows = await sql`
-      SELECT id
-      FROM identity_wallets
-      WHERE identity_id = ${session.identityId}
-        AND LOWER(wallet_address) = LOWER(${session.walletAddress})
-        AND chain = 'solana'
-        AND verified_at IS NOT NULL
-      LIMIT 1
-    `;
-
-    const fingerprintRows = await sql`
-      SELECT id
-      FROM identity_fingerprints
-      WHERE identity_id = ${session.identityId}
-      LIMIT 1
-    `;
-
-    const socialRows = await sql`
-      SELECT id
-      FROM identity_socials
-      WHERE identity_id = ${session.identityId}
-        AND provider = 'x'
-        AND verified_at IS NOT NULL
-      LIMIT 1
-    `;
-
-    const linkedWalletCountRows = await sql`
-      SELECT COUNT(*)::int AS count
-      FROM identity_wallets
-      WHERE identity_id = ${session.identityId}
-        AND chain = 'solana'
-        AND verified_at IS NOT NULL
-    `;
-
     const identity = identityRows[0];
 
-    const walletVerified = walletRows.length > 0;
-    const fingerprintRecorded = fingerprintRows.length > 0;
-    const xLinked = socialRows.length > 0;
-    const linkedWalletCount = Number(linkedWalletCountRows[0]?.count || 0);
+    const primaryWalletAddress =
+      identity.primary_wallet_address === null
+        ? null
+        : normalizeWalletAddress(
+            identity.primary_wallet_address
+          );
 
-    const riskScore = Number(identity.risk_score || 0);
-    const humanConfidenceScore = Number(identity.human_confidence_score || 0);
+    if (
+      identity.primary_wallet_address !== null &&
+      !primaryWalletAddress
+    ) {
+      console.error(
+        '[auth/status] invalid primary wallet address for identity:',
+        session.identityId
+      );
+
+      return jsonResponse(
+        {
+          ok: false,
+          error: 'Failed to read identity status.',
+        },
+        500
+      );
+    }
+
+    const walletVerified =
+      identity.wallet_verified === true;
+
+    const fingerprintRecorded =
+      identity.fingerprint_recorded === true;
+
+    const xLinked =
+      identity.x_linked === true;
+
+    const linkedWalletCount = Number(
+      identity.linked_wallet_count ?? 0
+    );
+
+    const riskScore = Number(
+      identity.risk_score ?? 0
+    );
+
+    const humanConfidenceScore = Number(
+      identity.human_confidence_score ?? 0
+    );
 
     const claimReady =
       identity.status === 'active' &&
@@ -96,13 +188,13 @@ export async function GET() {
       fingerprintRecorded &&
       riskScore < 50;
 
-    return NextResponse.json({
+    return jsonResponse({
       ok: true,
       authenticated: true,
       identity: {
         id: identity.id,
-        primaryWalletAddress: identity.primary_wallet_address,
-        walletAddress: session.walletAddress,
+        primaryWalletAddress,
+        walletAddress: sessionWalletAddress,
         humanConfidenceScore,
         riskScore,
         status: identity.status,
@@ -116,141 +208,12 @@ export async function GET() {
   } catch (error) {
     console.error('[auth/status] error:', error);
 
-    return NextResponse.json(
-      { ok: false, error: 'Failed to read identity status.' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const body = await request.json().catch(() => null);
-    const walletAddress = String(body?.walletAddress || '').trim();
-
-    if (!walletAddress) {
-      return NextResponse.json(
-        { ok: false, error: 'Wallet address is required.' },
-        { status: 400 }
-      );
-    }
-
-    const walletRows = await sql`
-      SELECT
-        iw.identity_id,
-        iw.wallet_address,
-        i.primary_wallet_address,
-        i.human_confidence_score,
-        i.risk_score,
-        i.status
-      FROM identity_wallets iw
-      JOIN identities i ON i.id = iw.identity_id
-      WHERE LOWER(iw.wallet_address) = LOWER(${walletAddress})
-        AND iw.chain = 'solana'
-        AND iw.verified_at IS NOT NULL
-      LIMIT 1
-    `;
-
-    if (walletRows.length === 0) {
-      return NextResponse.json({
-        ok: true,
-        recovered: false,
-        authenticated: false,
-        identity: null,
-      });
-    }
-
-    const linked = walletRows[0];
-    try {
-      await recalculateIdentityScores(linked.identity_id);
-    } catch (e) {
-      console.error('[identity-score] recalculate failed:', e);
-    }
-
-    const refreshedIdentityRows = await sql`
-      SELECT
-        human_confidence_score,
-        risk_score,
-        status
-      FROM identities
-      WHERE id = ${linked.identity_id}
-      LIMIT 1
-    `;
-
-    const refreshedIdentity = refreshedIdentityRows[0] || linked;
-
-    const sessionToken = signUserSession({
-      identityId: linked.identity_id,
-      walletAddress: linked.wallet_address,
-    });
-
-    const fingerprintRows = await sql`
-      SELECT id
-      FROM identity_fingerprints
-      WHERE identity_id = ${linked.identity_id}
-      LIMIT 1
-    `;
-
-    const socialRows = await sql`
-      SELECT id
-      FROM identity_socials
-      WHERE identity_id = ${linked.identity_id}
-        AND provider = 'x'
-        AND verified_at IS NOT NULL
-      LIMIT 1
-    `;
-
-    const linkedWalletCountRows = await sql`
-      SELECT COUNT(*)::int AS count
-      FROM identity_wallets
-      WHERE identity_id = ${linked.identity_id}
-        AND chain = 'solana'
-        AND verified_at IS NOT NULL
-    `;
-
-    const riskScore = Number(refreshedIdentity.risk_score || 0);
-    const humanConfidenceScore = Number(refreshedIdentity.human_confidence_score || 0);
-    const fingerprintRecorded = fingerprintRows.length > 0;
-    const xLinked = socialRows.length > 0;
-    const linkedWalletCount = Number(linkedWalletCountRows[0]?.count || 0);
-
-    const claimReady =
-      refreshedIdentity.status === 'active' &&
-      fingerprintRecorded &&
-      riskScore < 50;
-
-    const response = NextResponse.json({
-      ok: true,
-      recovered: true,
-      authenticated: true,
-      identity: {
-        id: linked.identity_id,
-        primaryWalletAddress: linked.primary_wallet_address,
-        walletAddress: linked.wallet_address,
-        humanConfidenceScore,
-        riskScore,
-        status: refreshedIdentity.status,
-        walletVerified: true,
-        fingerprintRecorded,
-        xLinked,
-        claimReady,
-        linkedWalletCount,
+    return jsonResponse(
+      {
+        ok: false,
+        error: 'Failed to read identity status.',
       },
-    });
-
-    response.cookies.set(
-      USER_AUTH_COOKIE,
-      sessionToken,
-      getUserCookieOptions()
-    );
-
-    return response;
-  } catch (error) {
-    console.error('[auth/status/recover] error:', error);
-
-    return NextResponse.json(
-      { ok: false, error: 'Failed to recover identity session.' },
-      { status: 500 }
+      500
     );
   }
 }

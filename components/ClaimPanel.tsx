@@ -1274,8 +1274,8 @@ export default function ClaimPanel() {
         /*
          * No wallet is connected.
          *
-         * Logout belongs to the current no-wallet state. Before and after
-         * the request, verify that another wallet has not become active.
+         * Clear the browser session only if this operation still belongs
+         * to the current no-wallet state.
          */
         if (!operationWallet) {
           if (!isCurrentIdentityOperation()) {
@@ -1297,42 +1297,33 @@ export default function ClaimPanel() {
           });
   
           setLinkedWallets([]);
+          setWalletHasNoLinkedIdentity(false);
           return;
         }
   
         /*
-         * Attempt to recover the identity session for the wallet that
-         * started this operation.
+         * Read the existing authenticated session.
+         *
+         * This request never creates a session. A new session can only be
+         * created through nonce + wallet signature verification.
          */
-        const recoverRes = await fetch('/api/auth/status', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          cache: 'no-store',
-          body: JSON.stringify({
-            walletAddress: operationWallet,
-          }),
-        });
-  
-        const recoveredStatus = await recoverRes
-          .json()
-          .catch(() => null);
+        const status = await getUserIdentityStatus();
   
         if (!isCurrentIdentityOperation()) {
           return;
         }
   
+        /*
+         * Accept the session only when it belongs to the wallet that
+         * initiated this operation.
+         */
         if (
-          recoverRes.ok &&
-          recoveredStatus?.authenticated &&
-          recoveredStatus?.identity
+          status.authenticated &&
+          status.identity &&
+          status.identity.walletAddress === operationWallet
         ) {
-          setIdentityStatus({
-            authenticated: true,
-            identity: recoveredStatus.identity,
-          });
+          setIdentityStatus(status);
+          setWalletHasNoLinkedIdentity(false);
   
           const wallets =
             await fetchLinkedIdentityWallets();
@@ -1346,20 +1337,17 @@ export default function ClaimPanel() {
         }
   
         /*
-         * The recovery response belongs to the current wallet, so it is
-         * safe to clear the stale server session.
+         * A session for another wallet must not survive a wallet switch.
          */
-        if (!isCurrentIdentityOperation()) {
-          return;
-        }
+        if (status.authenticated) {
+          await fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'include',
+          }).catch(() => null);
   
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          credentials: 'include',
-        }).catch(() => null);
-  
-        if (!isCurrentIdentityOperation()) {
-          return;
+          if (!isCurrentIdentityOperation()) {
+            return;
+          }
         }
   
         setIdentityStatus({
@@ -1368,13 +1356,14 @@ export default function ClaimPanel() {
         });
   
         setLinkedWallets([]);
+        setWalletHasNoLinkedIdentity(false);
       } catch (error) {
         if (!isCurrentIdentityOperation()) {
           return;
         }
   
         console.warn(
-          'identity status recovery failed:',
+          'identity status check failed:',
           error
         );
   
@@ -1384,6 +1373,7 @@ export default function ClaimPanel() {
         });
   
         setLinkedWallets([]);
+        setWalletHasNoLinkedIdentity(false);
       }
     }
   
@@ -1673,43 +1663,65 @@ export default function ClaimPanel() {
 
   async function handleSignInWithWalletIdentity() {
     try {
-      if (!walletBase58) {
+      if (!publicKey || !walletBase58) {
         setMessage('❌ Please connect your wallet.');
         return;
       }
-
-      setMessage('⏳ Signing in with your connected wallet...');
-
-      const res = await fetch('/api/auth/status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        cache: 'no-store',
-        body: JSON.stringify({
-          walletAddress: walletBase58,
-        }),
+  
+      setMessage(
+        '⏳ Please approve the wallet signature to sign in...'
+      );
+  
+      await signInWithWalletIdentity({
+        publicKey,
+        signMessage,
+        walletName: wallet?.adapter?.name,
       });
-
-      const json = await res.json().catch(() => null);
-
-      if (!res.ok || !json?.authenticated || !json?.identity) {
-        setWalletHasNoLinkedIdentity(true);
-        setMessage('❌ No linked identity found for this wallet. You can verify it as a new identity or link it with a code.');
-        return;
+  
+      const status = await getUserIdentityStatus();
+  
+      if (
+        !status.authenticated ||
+        !status.identity ||
+        status.identity.walletAddress !== walletBase58
+      ) {
+        throw new Error(
+          'The authenticated identity does not match the connected wallet.'
+        );
       }
-
-      setIdentityStatus({
-        authenticated: true,
-        identity: json.identity,
-      });
+  
+      setIdentityStatus(status);
       setWalletHasNoLinkedIdentity(false);
-
+  
       const wallets = await fetchLinkedIdentityWallets();
       setLinkedWallets(wallets);
-
-      setMessage('✅ Signed in with your linked wallet.');
-    } catch {
-      setMessage('❌ Failed to sign in with wallet. Please try again.');
+  
+      setMessage(
+        '✅ Signed in securely with your linked wallet.'
+      );
+    } catch (error) {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : 'Failed to sign in with wallet.';
+  
+      const normalizedMessage = msg.toLowerCase();
+  
+      if (
+        normalizedMessage.includes('no identity') ||
+        normalizedMessage.includes('not linked') ||
+        normalizedMessage.includes('not found')
+      ) {
+        setWalletHasNoLinkedIdentity(true);
+  
+        setMessage(
+          '❌ No linked identity was found for this wallet. You can verify it as a new identity or link it with a code.'
+        );
+  
+        return;
+      }
+  
+      setMessage(`❌ ${msg}`);
     }
   }
 
