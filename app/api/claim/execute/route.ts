@@ -32,6 +32,10 @@ type DbRow = Record<string, unknown>;
 const sql = neon(process.env.DATABASE_URL!);
 
 const SESSION_MAX_AGE_MINUTES = Number(process.env.CLAIM_SESSION_MAX_AGE_MINUTES ?? 30);
+
+const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
+const MAX_SESSION_ID_LENGTH = 200;
+
 const CLAIM_DRY_RUN = String(process.env.CLAIM_DRY_RUN ?? '').trim().toLowerCase() === 'true';
 
 const RPC_URL =
@@ -86,17 +90,6 @@ function json(
   return NextResponse.json(data, {
     status,
   });
-}
-
-function asNum(
-  value: unknown,
-  defaultValue = 0
-): number {
-  const numberValue = Number(value);
-
-  return Number.isFinite(numberValue)
-    ? numberValue
-    : defaultValue;
 }
 
 function asStr(value: unknown): string {
@@ -238,25 +231,93 @@ export async function POST(req: NextRequest) {
   if (!body) return json(400, { success: false, error: 'BAD_JSON' });
 
   const sessionId = asStr(body.session_id);
-  const wallet = asStr(body.wallet_address);
-  const destination = asStr(body.destination);
-  const phaseIdRaw = asNum(body.phase_id);
-  const idemKeyRoot = asStr(body.idempotency_key ?? '');
-  const claimAmountRaw = (body.claim_amount ?? '').toString().trim();
 
-  if (!sessionId || !wallet || !destination || !claimAmountRaw) {
-    return json(400, { success: false, error: 'MISSING_FIELDS' });
+  const walletRaw =
+    asStr(body.wallet_address);
+
+  const destinationRaw =
+    asStr(body.destination);
+
+  const phaseIdRaw = Number(
+    body.phase_id
+  );
+
+  const idemKeyRoot =
+    asStr(body.idempotency_key ?? '');
+
+  const claimAmountRaw =
+    (body.claim_amount ?? '')
+      .toString()
+      .trim();
+
+  if (
+    !sessionId ||
+    !walletRaw ||
+    !destinationRaw ||
+    !claimAmountRaw
+  ) {
+    return json(400, {
+      success: false,
+      error: 'MISSING_FIELDS',
+    });
   }
 
-  const isAllPhases = phaseIdRaw === 0;
+  if (
+    !Number.isInteger(phaseIdRaw) ||
+    phaseIdRaw < 0
+  ) {
+    return json(400, {
+      success: false,
+      error: 'BAD_PHASE_ID',
+    });
+  }
 
-  if (!idemKeyRoot) return json(400, { success: false, error: 'MISSING_IDEMPOTENCY_KEY' });
+  const isAllPhases =
+    phaseIdRaw === 0;
+
+  if (!idemKeyRoot) {
+    return json(400, {
+      success: false,
+      error: 'MISSING_IDEMPOTENCY_KEY',
+    });
+  }
+
+  if (
+    idemKeyRoot.length >
+    MAX_IDEMPOTENCY_KEY_LENGTH
+  ) {
+    return json(400, {
+      success: false,
+      error: 'IDEMPOTENCY_KEY_TOO_LONG',
+    });
+  }
+
+  if (
+    sessionId.length >
+    MAX_SESSION_ID_LENGTH
+  ) {
+    return json(400, {
+      success: false,
+      error: 'SESSION_ID_TOO_LONG',
+    });
+  }
+
+  let wallet: string;
+  let destination: string;
 
   try {
-    new PublicKey(wallet);
-    new PublicKey(destination);
+    wallet =
+      new PublicKey(walletRaw)
+        .toBase58();
+
+    destination =
+      new PublicKey(destinationRaw)
+        .toBase58();
   } catch {
-    return json(400, { success: false, error: 'INVALID_PUBKEY' });
+    return json(400, {
+      success: false,
+      error: 'INVALID_PUBKEY',
+    });
   }
 
   const identityGuard =
@@ -398,11 +459,11 @@ export async function POST(req: NextRequest) {
     }
   } else {
     /*
-    * requestHashRoot already contains the initiating wallet,
-    * destination, scope and amount. Do not additionally filter
-    * by claims.wallet_address because identity allocations may
-    * be recorded under another linked wallet.
-    */
+     * requestHashRoot already contains the initiating wallet,
+     * destination, scope and amount. Do not additionally filter
+     * by claims.wallet_address because identity allocations may
+     * be recorded under another linked wallet.
+     */
     const existingAll = await sql`
       SELECT
         id,
@@ -415,10 +476,10 @@ export async function POST(req: NextRequest) {
       ORDER BY id ASC
       LIMIT 1
     `;
-
+  
     if (existingAll?.length) {
       const row = existingAll[0];
-
+  
       existingClaim = {
         id: Number(row.id),
         status: String(row.status || ''),

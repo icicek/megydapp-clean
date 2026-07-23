@@ -132,15 +132,6 @@ function asString(value: unknown): string {
   return String(value ?? '').trim();
 }
 
-function isBase58Pubkey(value: string): boolean {
-  try {
-    new PublicKey(value);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function isValidSolanaSignature(signature: string): boolean {
   try {
     const decoded = bs58.decode(signature);
@@ -696,14 +687,14 @@ export async function POST(
     });
   }
 
-  const wallet = asString(
+  const walletRaw = asString(
     body.wallet_address
   );
-
-  const destination = asString(
+  
+  const destinationRaw = asString(
     body.destination
   );
-
+  
   const feeSignature = asString(
     body.fee_tx_signature
   );
@@ -725,7 +716,7 @@ export async function POST(
   /* Input validation                                                         */
   /* ------------------------------------------------------------------------ */
 
-  if (!wallet || !destination) {
+  if (!walletRaw || !destinationRaw) {
     return json(400, {
       success: false,
       error: 'MISSING_FIELDS',
@@ -763,10 +754,20 @@ export async function POST(
     });
   }
 
-  if (
-    !isBase58Pubkey(wallet) ||
-    !isBase58Pubkey(destination)
-  ) {
+  let wallet: string;
+  let destination: string;
+
+  try {
+    wallet =
+      new PublicKey(
+        walletRaw
+      ).toBase58();
+
+    destination =
+      new PublicKey(
+        destinationRaw
+      ).toBase58();
+  } catch {
     return json(400, {
       success: false,
       error: 'INVALID_PUBKEY',
