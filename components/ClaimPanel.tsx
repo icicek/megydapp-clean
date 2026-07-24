@@ -4001,30 +4001,16 @@ export default function ClaimPanel() {
                         className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-white outline-none transition focus:border-violet-300"
                       />
 
-                      <div className="mb-2 text-xs text-red-400">
-                        linking: {String(identityLinkingByCode)}
-                        <br />
-                        wallet: {String(!!walletBase58)}
-                        <br />
-                        code: {String(!!identityLinkCodeInput.trim())}
-                      </div>
-
                       <button
+                        id="identity-link-code-button"
                         type="button"
-                        onPointerDown={() => {
-                          console.log('[link-code] pointer down reached button');
-                          setMessage('🟡 Link-code button received pointer down.');
-                        }}
-                        onClick={() => {
-                          console.log('[link-code] click reached button');
-                          void handleLinkWalletWithCode();
-                        }}
+                        onClick={handleLinkWalletWithCode}
                         disabled={
                           identityLinkingByCode ||
                           !walletBase58 ||
                           !identityLinkCodeInput.trim()
                         }
-                        className="relative z-[100] mt-3 cursor-pointer rounded-full bg-violet-300 px-4 py-2 text-xs font-black text-black transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="mt-3 rounded-full bg-violet-300 px-4 py-2 text-xs font-black text-black transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {identityLinkingByCode ? 'Linking...' : 'Link Wallet With Code'}
                       </button>
