@@ -4011,9 +4011,20 @@ export default function ClaimPanel() {
 
                       <button
                         type="button"
-                        onClick={handleLinkWalletWithCode}
-                        disabled={identityLinkingByCode || !walletBase58 || !identityLinkCodeInput.trim()}
-                        className="mt-3 rounded-full bg-violet-300 px-4 py-2 text-xs font-black text-black transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
+                        onPointerDown={() => {
+                          console.log('[link-code] pointer down reached button');
+                          setMessage('🟡 Link-code button received pointer down.');
+                        }}
+                        onClick={() => {
+                          console.log('[link-code] click reached button');
+                          void handleLinkWalletWithCode();
+                        }}
+                        disabled={
+                          identityLinkingByCode ||
+                          !walletBase58 ||
+                          !identityLinkCodeInput.trim()
+                        }
+                        className="relative z-[100] mt-3 cursor-pointer rounded-full bg-violet-300 px-4 py-2 text-xs font-black text-black transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {identityLinkingByCode ? 'Linking...' : 'Link Wallet With Code'}
                       </button>
