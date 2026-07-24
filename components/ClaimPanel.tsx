@@ -3997,9 +3997,17 @@ export default function ClaimPanel() {
                         type="text"
                         value={identityLinkCodeInput}
                         onChange={(e) => setIdentityLinkCodeInput(e.target.value.toUpperCase())}
-                        placeholder="MEGY-123456"
+                        placeholder="MEGY-12345678"
                         className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-white outline-none transition focus:border-violet-300"
                       />
+
+                      <div className="mb-2 text-xs text-red-400">
+                        linking: {String(identityLinkingByCode)}
+                        <br />
+                        wallet: {String(!!walletBase58)}
+                        <br />
+                        code: {String(!!identityLinkCodeInput.trim())}
+                      </div>
 
                       <button
                         type="button"
