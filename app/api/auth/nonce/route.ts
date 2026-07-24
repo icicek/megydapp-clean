@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { PublicKey } from '@solana/web3.js';
+
 import { sql } from '@/app/api/_lib/db';
 import {
   buildUserAuthMessage,
@@ -10,7 +11,23 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-function normalizeWalletAddress(walletAddress: unknown): string {
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'no-store',
+};
+
+function jsonResponse(
+  body: Record<string, unknown>,
+  status = 200
+) {
+  return NextResponse.json(body, {
+    status,
+    headers: NO_STORE_HEADERS,
+  });
+}
+
+function normalizeWalletAddress(
+  walletAddress: unknown
+): string {
   const value = String(walletAddress ?? '').trim();
 
   if (!value) {
@@ -28,20 +45,37 @@ export async function POST(req: NextRequest) {
   try {
     let body: Record<string, unknown>;
 
+    /*
+     * Accept only a JSON object.
+     *
+     * Values such as null, arrays, strings and numbers are valid JSON,
+     * but they are not valid request bodies for this endpoint.
+     */
     try {
-      body = (await req.json()) as Record<string, unknown>;
+      const parsedBody = (await req.json()) as unknown;
+
+      if (
+        typeof parsedBody !== 'object' ||
+        parsedBody === null ||
+        Array.isArray(parsedBody)
+      ) {
+        return jsonResponse(
+          {
+            ok: false,
+            error: 'Invalid request body.',
+          },
+          400
+        );
+      }
+
+      body = parsedBody as Record<string, unknown>;
     } catch {
-      return NextResponse.json(
+      return jsonResponse(
         {
           ok: false,
           error: 'Invalid request body.',
         },
-        {
-          status: 400,
-          headers: {
-            'Cache-Control': 'no-store',
-          },
-        }
+        400
       );
     }
 
@@ -52,81 +86,79 @@ export async function POST(req: NextRequest) {
         body.walletAddress
       );
     } catch {
-      return NextResponse.json(
+      return jsonResponse(
         {
           ok: false,
           error: 'Invalid wallet address.',
         },
-        {
-          status: 400,
-          headers: {
-            'Cache-Control': 'no-store',
-          },
-        }
+        400
       );
     }
 
-    /*
-     * Only one active authentication nonce should exist
-     * for a wallet at any given time.
-     */
-    await sql`
-      UPDATE user_nonces
-      SET used_at = NOW()
-      WHERE wallet_address = ${walletAddress}
-        AND purpose = 'user_auth'
-        AND used_at IS NULL
+    const candidateNonce = createUserNonce();
+
+    const nonceRows = await sql`
+      INSERT INTO user_nonces (
+        wallet_address,
+        nonce,
+        purpose,
+        expires_at,
+        used_at
+      )
+      VALUES (
+        ${walletAddress},
+        ${candidateNonce},
+        'user_auth',
+        NOW() + INTERVAL '10 minutes',
+        NULL
+      )
+      ON CONFLICT (wallet_address, purpose)
+        WHERE purpose = 'user_auth'
+          AND used_at IS NULL
+      DO UPDATE SET
+        nonce = CASE
+          WHEN user_nonces.expires_at <= NOW()
+            THEN EXCLUDED.nonce
+          ELSE user_nonces.nonce
+        END,
+        expires_at = CASE
+          WHEN user_nonces.expires_at <= NOW()
+            THEN EXCLUDED.expires_at
+          ELSE user_nonces.expires_at
+        END
+      RETURNING id, nonce
     `;
 
-    const nonce = createUserNonce();
+    const nonceRow = nonceRows[0];
+
+    if (!nonceRow?.id || !nonceRow?.nonce) {
+      throw new Error(
+        'Authentication nonce creation did not return a valid record.'
+      );
+    }
+
+    const nonce = String(nonceRow.nonce);
 
     const message = buildUserAuthMessage(
       walletAddress,
       nonce
     );
 
-    await sql`
-      INSERT INTO user_nonces (
-        wallet_address,
-        nonce,
-        purpose,
-        expires_at
-      )
-      VALUES (
-        ${walletAddress},
-        ${nonce},
-        'user_auth',
-        NOW() + INTERVAL '10 minutes'
-      )
-    `;
-
-    return NextResponse.json(
-      {
-        ok: true,
-        walletAddress,
-        nonce,
-        message,
-      },
-      {
-        headers: {
-          'Cache-Control': 'no-store',
-        },
-      }
-    );
+    return jsonResponse({
+      ok: true,
+      walletAddress,
+      nonce,
+      message,
+    });
   } catch (error) {
     console.error('[auth/nonce] error:', error);
 
-    return NextResponse.json(
+    return jsonResponse(
       {
         ok: false,
         error: 'Failed to create auth nonce.',
       },
-      {
-        status: 500,
-        headers: {
-          'Cache-Control': 'no-store',
-        },
-      }
+      500
     );
   }
 }

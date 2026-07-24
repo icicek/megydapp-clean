@@ -53,6 +53,15 @@ export async function requireIdentityWalletAccess(
 
   const cookieStore = await cookies();
   const token = cookieStore.get(USER_AUTH_COOKIE)?.value;
+
+  if (token && token.length > 4096) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'INVALID_SESSION',
+    };
+  }
+
   const session = token ? verifyUserSession(token) : null;
 
   if (!session) {
