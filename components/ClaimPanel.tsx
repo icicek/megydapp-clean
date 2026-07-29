@@ -4002,14 +4002,9 @@ export default function ClaimPanel() {
                       />
 
                       <button
-                        id="identity-link-code-button"
                         type="button"
                         onClick={handleLinkWalletWithCode}
-                        disabled={
-                          identityLinkingByCode ||
-                          !walletBase58 ||
-                          !identityLinkCodeInput.trim()
-                        }
+                        disabled={identityLinkingByCode || !walletBase58 || !identityLinkCodeInput.trim()}
                         className="mt-3 rounded-full bg-violet-300 px-4 py-2 text-xs font-black text-black transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {identityLinkingByCode ? 'Linking...' : 'Link Wallet With Code'}
