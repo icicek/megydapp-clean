@@ -340,8 +340,15 @@ export async function signInWithWalletIdentity(
   return verifyData;
 }
 
+export type UserIdentityAuthReason =
+  | 'no_session'
+  | 'invalid_session'
+  | 'identity_not_found'
+  | 'session_wallet_not_linked';
+
 export type UserIdentityStatus = {
   authenticated: boolean;
+  reason: UserIdentityAuthReason | null;
   identity: null | {
     id: string;
     primaryWalletAddress: string | null;
@@ -367,152 +374,41 @@ Promise<UserIdentityStatus> {
 
   const data = await readJsonResponse(res);
 
+  if (!res.ok || data?.ok !== true) {
+    return {
+      authenticated: false,
+      reason: null,
+      identity: null,
+    };
+  }
+
   if (
-    !res.ok ||
-    data?.ok !== true ||
     data.authenticated !== true ||
     !data.identity ||
     typeof data.identity !== 'object' ||
     Array.isArray(data.identity)
   ) {
+    const reason =
+      data.reason === 'no_session' ||
+      data.reason === 'invalid_session' ||
+      data.reason === 'identity_not_found' ||
+      data.reason === 'session_wallet_not_linked'
+        ? data.reason
+        : null;
+
     return {
       authenticated: false,
+      reason,
       identity: null,
     };
   }
 
   return {
     authenticated: true,
+    reason: null,
     identity:
       data.identity as UserIdentityStatus['identity'],
   };
-}
-
-export async function linkWalletToCurrentIdentity(
-  params: {
-    publicKey: PublicKey | null;
-    signMessage?: SignMessageFn;
-    walletName?: string;
-  }
-) {
-  const {
-    publicKey,
-    signMessage,
-    walletName,
-  } = params;
-
-  if (!publicKey) {
-    throw new Error('Wallet is not connected.');
-  }
-
-  if (!signMessage) {
-    throw new Error(
-      'This wallet does not support message signing.'
-    );
-  }
-
-  const walletAddress = publicKey.toBase58();
-
-  console.info(
-    '[identity-link] Step 1: requesting link-wallet nonce',
-    walletAddress
-  );
-
-  const nonceRes = await fetch(
-    '/api/auth/link-wallet/nonce',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      cache: 'no-store',
-      body: JSON.stringify({
-        walletAddress,
-      }),
-    }
-  );
-
-  const nonceData =
-    await readJsonResponse(nonceRes);
-
-  if (
-    !nonceRes.ok ||
-    nonceData?.ok !== true ||
-    typeof nonceData.message !== 'string' ||
-    typeof nonceData.nonce !== 'string'
-  ) {
-    throw new Error(
-      getApiError(
-        nonceData,
-        'Failed to create wallet link challenge.'
-      )
-    );
-  }
-
-  console.info(
-    '[identity-link] Step 2: link nonce received'
-  );
-
-  console.info(
-    '[identity-link] Step 3: requesting wallet signature'
-  );
-
-  const signatureBytes =
-    await signIdentityMessage({
-      message: nonceData.message,
-      walletAddress,
-      signMessage,
-      walletName,
-    });
-
-  console.info(
-    '[identity-link] Step 4: wallet signature received'
-  );
-
-  const signature = toBase64(signatureBytes);
-
-  console.info(
-    '[identity-link] Step 5: verifying wallet link on backend'
-  );
-
-  const verifyRes = await fetch(
-    '/api/auth/link-wallet/verify',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      cache: 'no-store',
-      body: JSON.stringify({
-        walletAddress,
-        nonce: nonceData.nonce,
-        signature,
-      }),
-    }
-  );
-
-  const verifyData =
-    await readJsonResponse(verifyRes);
-
-  if (
-    !verifyRes.ok ||
-    verifyData?.ok !== true
-  ) {
-    throw new Error(
-      getApiError(
-        verifyData,
-        'Failed to link wallet.'
-      )
-    );
-  }
-
-  console.info(
-    '[identity-link] Step 6: wallet linked'
-  );
-
-  return verifyData;
 }
 
 export async function createIdentityLinkCode() {
@@ -545,6 +441,7 @@ export async function createIdentityLinkCode() {
     ok: true as const,
     code: data.code,
     expiresAt: data.expiresAt,
+    reused: data.reused === true,
   };
 }
 

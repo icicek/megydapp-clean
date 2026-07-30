@@ -53,6 +53,7 @@ export async function GET() {
         ok: true,
         authenticated: false,
         identity: null,
+        reason: 'no_session',
       });
     }
 
@@ -63,6 +64,7 @@ export async function GET() {
         ok: true,
         authenticated: false,
         identity: null,
+        reason: 'invalid_session',
       });
     }
 
@@ -79,6 +81,7 @@ export async function GET() {
         ok: true,
         authenticated: false,
         identity: null,
+        reason: 'invalid_session',
       });
     }
 
@@ -131,6 +134,7 @@ export async function GET() {
         ok: true,
         authenticated: false,
         identity: null,
+        reason: 'identity_not_found',
       });
     }
 
@@ -164,6 +168,15 @@ export async function GET() {
     const walletVerified =
       identity.wallet_verified === true;
 
+    if (!walletVerified) {
+      return jsonResponse({
+        ok: true,
+        authenticated: false,
+        identity: null,
+        reason: 'session_wallet_not_linked',
+      });
+    }
+
     const fingerprintRecorded =
       identity.fingerprint_recorded === true;
 
@@ -184,7 +197,6 @@ export async function GET() {
 
     const claimReady =
       identity.status === 'active' &&
-      walletVerified &&
       fingerprintRecorded &&
       riskScore < 50;
 
@@ -198,7 +210,7 @@ export async function GET() {
         humanConfidenceScore,
         riskScore,
         status: identity.status,
-        walletVerified,
+        walletVerified: true,
         fingerprintRecorded,
         xLinked,
         claimReady,

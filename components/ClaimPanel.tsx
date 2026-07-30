@@ -30,7 +30,6 @@ import {
 import {
   createIdentityLinkCode,
   getUserIdentityStatus,
-  linkWalletToCurrentIdentity,
   linkWalletWithIdentityCode,
   signInWithWalletIdentity,
   type UserIdentityStatus,
@@ -50,7 +49,7 @@ type ProtectedActionIssue = {
   tone: 'yellow' | 'red' | 'cyan';
   title: string;
   description: string;
-  action?: 'signIn' | 'verifyNew' | 'verifyBrowser' | 'linkWallet';
+  action?: 'continue' | 'verifyBrowser';
 };
 
 type ClaimIdentityView =
@@ -503,8 +502,10 @@ export default function ClaimPanel() {
   const [phaseLoading, setPhaseLoading] = useState<boolean>(true);
   const [claimFeeSigForSupport, setClaimFeeSigForSupport] = useState<string | null>(null);
   const [refundFeeSigForSupport, setRefundFeeSigForSupport] = useState<string | null>(null);
-  const [identityStatus, setIdentityStatus] = useState<UserIdentityStatus>({
+  const [identityStatus, setIdentityStatus] =
+  useState<UserIdentityStatus>({
     authenticated: false,
+    reason: null,
     identity: null,
   });
   const [linkedWallets, setLinkedWallets] = useState<LinkedIdentityWallet[]>([]);
@@ -514,7 +515,6 @@ export default function ClaimPanel() {
   const [identityLinkCodeInput, setIdentityLinkCodeInput] = useState('');
   const [identityLinkingByCode, setIdentityLinkingByCode] = useState(false);
   const [identityCodeCreating, setIdentityCodeCreating] = useState(false);
-  const [walletHasNoLinkedIdentity, setWalletHasNoLinkedIdentity] = useState(false);
   const [identityLinkMessage, setIdentityLinkMessage] = useState<string | null>(null);
   const [identityCodeCopied, setIdentityCodeCopied] = useState(false);
   const [showIdentityTools, setShowIdentityTools] = useState(false);
@@ -581,14 +581,6 @@ export default function ClaimPanel() {
   const [claimRefreshKey, setClaimRefreshKey] = useState(0);
   const FEE_SOL = 0.003;
   const FEE_LAMPORTS = Math.round(FEE_SOL * 1_000_000_000);
-  const activeWalletLinked = Boolean(
-    walletBase58 &&
-    linkedWallets.some(
-      (item) =>
-        item.chain === 'solana' &&
-        item.walletAddress === walletBase58
-    )
-  );
   const [refundDebug, setRefundDebug] =
     useState<RefundDebugState | null>(null);
   const feeConfirmModalRef = useRef<HTMLDivElement | null>(null);
@@ -1243,11 +1235,11 @@ export default function ClaimPanel() {
     // while the new wallet's identity status is loading.
     setIdentityStatus({
       authenticated: false,
+      reason: null,
       identity: null,
     });
   
     setLinkedWallets([]);
-    setWalletHasNoLinkedIdentity(false);
   
     // Reset wallet-specific transient UI.
     setMessage(null);
@@ -1293,11 +1285,11 @@ export default function ClaimPanel() {
   
           setIdentityStatus({
             authenticated: false,
+            reason: null,
             identity: null,
           });
   
           setLinkedWallets([]);
-          setWalletHasNoLinkedIdentity(false);
           return;
         }
   
@@ -1323,7 +1315,6 @@ export default function ClaimPanel() {
           status.identity.walletAddress === operationWallet
         ) {
           setIdentityStatus(status);
-          setWalletHasNoLinkedIdentity(false);
   
           const wallets =
             await fetchLinkedIdentityWallets();
@@ -1337,26 +1328,33 @@ export default function ClaimPanel() {
         }
   
         /*
-         * A session for another wallet must not survive a wallet switch.
-         */
+        * A valid session belonging to another wallet must not
+        * survive a wallet switch.
+        */
         if (status.authenticated) {
           await fetch('/api/auth/logout', {
             method: 'POST',
             credentials: 'include',
           }).catch(() => null);
-  
+
           if (!isCurrentIdentityOperation()) {
             return;
           }
+
+          setIdentityStatus({
+            authenticated: false,
+            reason: null,
+            identity: null,
+          });
+        } else {
+          /*
+          * Preserve the unauthenticated reason returned by
+          * /api/auth/status.
+          */
+          setIdentityStatus(status);
         }
-  
-        setIdentityStatus({
-          authenticated: false,
-          identity: null,
-        });
-  
+
         setLinkedWallets([]);
-        setWalletHasNoLinkedIdentity(false);
       } catch (error) {
         if (!isCurrentIdentityOperation()) {
           return;
@@ -1369,11 +1367,11 @@ export default function ClaimPanel() {
   
         setIdentityStatus({
           authenticated: false,
+          reason: null,
           identity: null,
         });
   
         setLinkedWallets([]);
-        setWalletHasNoLinkedIdentity(false);
       }
     }
   
@@ -1646,6 +1644,7 @@ export default function ClaimPanel() {
   
       setIdentityStatus({
         authenticated: false,
+        reason: null,
         identity: null,
       });
   
@@ -1661,15 +1660,17 @@ export default function ClaimPanel() {
     }
   }
 
-  async function handleSignInWithWalletIdentity() {
+  async function handleContinueWithWallet() {
     try {
       if (!publicKey || !walletBase58) {
         setMessage('❌ Please connect your wallet.');
         return;
       }
   
+      setVerifyingIdentity(true);
+  
       setMessage(
-        '⏳ Please approve the wallet signature to sign in...'
+        '⏳ Please approve the wallet signature to continue...'
       );
   
       await signInWithWalletIdentity({
@@ -1677,6 +1678,12 @@ export default function ClaimPanel() {
         signMessage,
         walletName: wallet?.adapter?.name,
       });
+  
+      /*
+       * Record the browser fingerprint after the wallet
+       * signature has established the identity session.
+       */
+      await recordIdentityFingerprint(walletBase58);
   
       const status = await getUserIdentityStatus();
   
@@ -1691,65 +1698,21 @@ export default function ClaimPanel() {
       }
   
       setIdentityStatus(status);
-      setWalletHasNoLinkedIdentity(false);
   
-      const wallets = await fetchLinkedIdentityWallets();
+      const wallets =
+        await fetchLinkedIdentityWallets();
+  
       setLinkedWallets(wallets);
   
       setMessage(
-        '✅ Signed in securely with your linked wallet.'
+        '✅ Coincarnation Identity ready. You can now perform protected actions.'
       );
     } catch (error) {
       const msg =
         error instanceof Error
           ? error.message
-          : 'Failed to sign in with wallet.';
+          : 'Failed to continue with wallet.';
   
-      const normalizedMessage = msg.toLowerCase();
-  
-      if (
-        normalizedMessage.includes('no identity') ||
-        normalizedMessage.includes('not linked') ||
-        normalizedMessage.includes('not found')
-      ) {
-        setWalletHasNoLinkedIdentity(true);
-  
-        setMessage(
-          '❌ No linked identity was found for this wallet. You can verify it as a new identity or link it with a code.'
-        );
-  
-        return;
-      }
-  
-      setMessage(`❌ ${msg}`);
-    }
-  }
-
-  async function handleVerifyIdentityInline() {
-    try {
-      if (!publicKey) {
-        setMessage('❌ Please connect your wallet.');
-        return;
-      }
-
-      setVerifyingIdentity(true);
-      setMessage('⏳ Verifying your Coincarnation Identity...');
-
-      await signInWithWalletIdentity({
-        publicKey,
-        signMessage,
-        walletName: wallet?.adapter?.name,
-      });
-
-      await recordIdentityFingerprint(publicKey.toBase58());
-
-      await refreshIdentityState();
-
-      setMessage('✅ Identity verified. You can now perform protected actions.');
-    } catch (error) {
-      const msg =
-        error instanceof Error ? error.message : 'Identity verification failed.';
-
       setMessage(`❌ ${msg}`);
     } finally {
       setVerifyingIdentity(false);
@@ -1819,40 +1782,6 @@ export default function ClaimPanel() {
     }
   }
 
-  async function handleLinkActiveWalletToIdentity() {
-    try {
-      if (!publicKey) {
-        setMessage('❌ Please connect your wallet.');
-        return;
-      }
-
-      if (!identityStatus.authenticated || !identityStatus.identity) {
-        setMessage('❌ Please verify your Coincarnation Identity first.');
-        return;
-      }
-
-      setLoading(true);
-      setMessage('⏳ Linking active wallet to your Coincarnation Identity...');
-
-      await linkWalletToCurrentIdentity({
-        publicKey,
-        signMessage,
-        walletName: wallet?.adapter?.name,
-      });
-
-      await refreshIdentityState();
-
-      setMessage('✅ Active wallet linked to your Coincarnation Identity.');
-    } catch (error) {
-      const msg =
-        error instanceof Error ? error.message : 'Failed to link active wallet.';
-
-      setMessage(`❌ ${msg}`);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   function setRefundError(contributionId: number, error: string) {
     setRefundErrors((prev) => ({
       ...prev,
@@ -1901,17 +1830,25 @@ export default function ClaimPanel() {
     protectedIssue: ProtectedActionIssue | null
   ) {
     if (!identity) return 'Verification Required';
-
+  
     if (identity.claimReady) return 'Claim Ready';
-
-    if (Number(identity.riskScore ?? 0) >= 50) return 'Risk Review';
-
-    if (!identity.walletVerified) return 'Wallet Linking Required';
-
-    if (!identity.fingerprintRecorded) return 'Verification Required';
-
-    if (protectedIssue?.action === 'signIn') return 'Session Expired';
-
+  
+    if (Number(identity.riskScore ?? 0) >= 50) {
+      return 'Risk Review';
+    }
+  
+    if (protectedIssue?.action === 'continue') {
+      return 'Session Required';
+    }
+  
+    if (!identity.walletVerified) {
+      return 'Wallet Verification Required';
+    }
+  
+    if (!identity.fingerprintRecorded) {
+      return 'Verification Required';
+    }
+  
     return 'Verification Required';
   }
 
@@ -1975,40 +1912,30 @@ export default function ClaimPanel() {
 
   function getProtectedActionIssue(): ProtectedActionIssue | null {
     if (!walletBase58) return null;
-
+  
     if (!identityStatus.authenticated || !identityStatus.identity) {
       return {
         tone: 'yellow',
         title: 'Identity Session Required',
-        description: walletHasNoLinkedIdentity
-          ? 'No linked identity was found for this wallet. Verify it as a new Coincarnation Identity, or link it to an existing identity with a code below.'
-          : 'This wallet may already be linked to an identity. Sign in with your wallet to recover your Coincarnation Identity session.',
-        action: walletHasNoLinkedIdentity ? 'verifyNew' : 'signIn',
+        description:
+          'Continue with your wallet to open its Coincarnation Identity. If this wallet is new, a new Identity will be created. You can also join an existing Identity with a link code below.',
+        action: 'continue',
       };
     }
-
-    if (!activeWalletLinked) {
-      return {
-        tone: 'yellow',
-        title: 'Wallet Not Linked',
-        description: 'This wallet is not linked to your active Coincarnation Identity. Link it before using protected actions.',
-        action: 'linkWallet',
-      };
-    }
-
+  
     const identity =
       identityStatus.identity as ClaimIdentityView;
-
+  
     if (identity.claimReady) return null;
-
+  
     const riskScore = Number(
       identity.riskScore ?? 0
     );
-
+  
     const fingerprintRecorded = Boolean(
       identity.fingerprintRecorded
     );
-
+  
     if (riskScore >= 50) {
       return {
         tone: 'red',
@@ -2017,7 +1944,7 @@ export default function ClaimPanel() {
           'Your identity is active, but protected actions are locked because the current risk score is too high. This can happen after repeated identity tests from the same browser or shared fingerprint signals. Do not create another identity; this identity needs review or risk normalization.',
       };
     }
-
+  
     if (!fingerprintRecorded) {
       return {
         tone: 'yellow',
@@ -2027,13 +1954,12 @@ export default function ClaimPanel() {
         action: 'verifyBrowser',
       };
     }
-
+  
     return {
       tone: 'yellow',
       title: 'Identity Not Ready Yet',
       description:
-        'Your identity is active, but one or more readiness checks are still incomplete. Please refresh the identity status or verify this browser again.',
-      action: 'verifyBrowser',
+        'Your identity is active, but one or more readiness checks are still incomplete. Please refresh the identity status and try again.',
     };
   }
 
@@ -2045,29 +1971,42 @@ export default function ClaimPanel() {
       messageSetter('❌ Please connect your wallet.');
       return false;
     }
-
+  
     if (!identityStatus.authenticated || !identityStatus.identity) {
-      messageSetter(`❌ Please sign in with your Coincarnation Identity before ${actionLabel}.`);
+      messageSetter(
+        `❌ Continue with your wallet before ${actionLabel}.`
+      );
       return false;
     }
-
-    if (!activeWalletLinked) {
-      messageSetter('❌ This wallet is not linked to your active Coincarnation Identity.');
+  
+    /*
+     * Protected actions must only run for the wallet
+     * that owns the current authenticated session.
+     */
+    if (
+      identityStatus.identity.walletAddress !== walletBase58
+    ) {
+      messageSetter(
+        '❌ The connected wallet does not match the active Coincarnation Identity session. Please continue with this wallet again.'
+      );
       return false;
     }
-
+  
     if (!identityStatus.identity.claimReady) {
       const issue = getProtectedActionIssue();
-
+  
       messageSetter(
         issue?.tone === 'red'
           ? `❌ ${issue.title}: ${issue.description}`
-          : `❌ ${issue?.description ?? 'Your Coincarnation Identity is not ready for protected actions.'}`
+          : `❌ ${
+              issue?.description ??
+              'Your Coincarnation Identity is not ready for protected actions.'
+            }`
       );
-
+  
       return false;
     }
-
+  
     return true;
   }
 
@@ -2437,7 +2376,7 @@ export default function ClaimPanel() {
       ) {
         setRefundError(
           contributionId,
-          '❌ Please sign in with your Coincarnation Identity before requesting a refund.'
+          '❌ Continue with your wallet before requesting a refund.'
         );
       }
   
@@ -3786,7 +3725,7 @@ export default function ClaimPanel() {
               ) : walletBase58 ? (
                 <button
                   type="button"
-                  onClick={handleSignInWithWalletIdentity}
+                  onClick={handleContinueWithWallet}
                   className="self-start rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-bold text-cyan-200 transition hover:bg-cyan-400/15 hover:text-white sm:self-auto"
                   title="Restore your identity session if this wallet is already linked."
                 >
@@ -3795,82 +3734,71 @@ export default function ClaimPanel() {
               ) : null}
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
+            <div className="grid w-full grid-cols-2 gap-4 md:grid-cols-4">
               <Info
                 label="Claim Status"
-                value={getClaimStatusLabel(identityStatus.identity, protectedActionIssue)}
+                value={getClaimStatusLabel(
+                  identityStatus.identity,
+                  protectedActionIssue
+                )}
                 tone="emerald"
               />
 
               <Info
                 label="Linked Wallets"
-                value={String(identityStatus.identity?.linkedWalletCount ?? 0)}
+                value={String(
+                  identityStatus.identity?.linkedWalletCount ?? 0
+                )}
                 tone="cyan"
               />
 
               <Info
                 label="Human Confidence"
-                value={String(identityStatus.identity?.humanConfidenceScore ?? 0)}
+                value={String(
+                  identityStatus.identity?.humanConfidenceScore ?? 0
+                )}
                 tone="violet"
               />
 
               <Info
                 label="Risk Score"
-                value={String(identityStatus.identity?.riskScore ?? 0)}
+                value={String(
+                  identityStatus.identity?.riskScore ?? 0
+                )}
                 tone="amber"
               />
             </div>
 
             {protectedActionIssue && (
-              <div className={`mt-5 rounded-xl border p-4 ${protectedActionToneClass}`}>
+              <div
+                className={`mt-5 rounded-xl border p-4 ${protectedActionToneClass}`}
+              >
                 <p className="text-sm font-bold">
-                  🧬 {protectedActionIssue.title}
+                  {protectedActionIssue.tone === 'red'
+                    ? '⚠️'
+                    : protectedActionIssue.action === 'continue'
+                      ? '🔐'
+                      : protectedActionIssue.action === 'verifyBrowser'
+                        ? '🌐'
+                        : '🧬'}{' '}
+                  {protectedActionIssue.title}
                 </p>
 
                 <p className="mt-2 text-xs leading-5 opacity-85">
                   {protectedActionIssue.description}
                 </p>
 
-                {protectedActionIssue.action === 'signIn' && (
+                {(protectedActionIssue.action === 'continue' ||
+                  protectedActionIssue.action === 'verifyBrowser') && (
                   <button
                     type="button"
-                    onClick={handleSignInWithWalletIdentity}
-                    className="mt-3 rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-black transition hover:bg-cyan-200"
-                  >
-                    Sign in with Wallet
-                  </button>
-                )}
-
-                {protectedActionIssue.action === 'verifyNew' && (
-                  <button
-                    type="button"
-                    onClick={handleVerifyIdentityInline}
+                    onClick={handleContinueWithWallet}
                     disabled={verifyingIdentity}
                     className="mt-3 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {verifyingIdentity ? 'Verifying...' : 'Verify as New Identity'}
-                  </button>
-                )}
-
-                {protectedActionIssue.action === 'verifyBrowser' && (
-                  <button
-                    type="button"
-                    onClick={handleVerifyIdentityInline}
-                    disabled={verifyingIdentity}
-                    className="mt-3 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {verifyingIdentity ? 'Verifying...' : 'Verify This Browser'}
-                  </button>
-                )}
-
-                {protectedActionIssue.action === 'linkWallet' && (
-                  <button
-                    type="button"
-                    onClick={handleLinkActiveWalletToIdentity}
-                    disabled={loading}
-                    className="mt-3 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {loading ? 'Linking...' : 'Link Current Wallet'}
+                    {verifyingIdentity
+                      ? 'Continuing...'
+                      : 'Continue with Wallet'}
                   </button>
                 )}
               </div>
