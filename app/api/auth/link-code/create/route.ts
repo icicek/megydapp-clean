@@ -97,6 +97,44 @@ export async function POST() {
     }
 
     /*
+    * Reuse the identity's current active link-wallet code.
+    *
+    * This prevents repeated Generate Link Code actions from
+    * creating unnecessary DB records and invalidating a code
+    * that is still valid.
+    */
+    const activeCodeRows = await sql`
+      SELECT
+        code,
+        expires_at
+      FROM identity_link_codes
+      WHERE identity_id = ${session.identityId}
+        AND purpose = 'link_wallet'
+        AND used_at IS NULL
+        AND expires_at > NOW()
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+
+    const activeCode = activeCodeRows[0];
+
+    if (activeCode?.code && activeCode?.expires_at) {
+      return NextResponse.json(
+        {
+          ok: true,
+          code: activeCode.code,
+          expiresAt: activeCode.expires_at,
+          reused: true,
+        },
+        {
+          headers: {
+            'Cache-Control': 'no-store',
+          },
+        }
+      );
+    }
+
+    /*
      * Invalidate all previous unused link-wallet codes
      * belonging to this identity.
      */
