@@ -1,15 +1,16 @@
 // app/api/auth/link-code/create/route.ts
 
 import { randomInt } from 'crypto';
-import { NextResponse } from 'next/server';
+import { Client } from '@neondatabase/serverless';
 import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 
-import { sql } from '@/app/api/_lib/db';
 import {
   USER_AUTH_COOKIE,
   verifyUserSession,
 } from '@/app/api/_lib/user-auth';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 function createIdentityLinkCode(): string {
@@ -20,9 +21,207 @@ function createIdentityLinkCode(): string {
     .padStart(8, '0')}`;
 }
 
+type LinkCodeResult = {
+  code: string;
+  expiresAt: string | Date;
+  reused: boolean;
+};
+
+type PublicError = Error & {
+  statusCode?: number;
+  publicMessage?: string;
+};
+
+function createPublicError(
+  message: string,
+  statusCode: number
+): PublicError {
+  const error = new Error(message) as PublicError;
+
+  error.statusCode = statusCode;
+  error.publicMessage = message;
+
+  return error;
+}
+
+async function getOrCreateIdentityLinkCode(
+  identityId: string
+): Promise<LinkCodeResult> {
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL is not configured.');
+  }
+
+  const client = new Client(databaseUrl);
+
+  let transactionStarted = false;
+  let transactionFinished = false;
+
+  try {
+    await client.connect();
+
+    await client.query('BEGIN');
+    transactionStarted = true;
+
+    /*
+     * Only one Link Code creation flow may run for the same
+     * Identity at a time.
+     *
+     * This lock is released automatically on COMMIT or ROLLBACK.
+     */
+    await client.query(
+      `
+        SELECT pg_advisory_xact_lock(
+          hashtextextended($1, 0)
+        )
+      `,
+      [`identity-link-code:${identityId}`]
+    );
+
+    /*
+     * Recheck the Identity after acquiring the lock.
+     */
+    const identityResult = await client.query(
+      `
+        SELECT id
+        FROM identities
+        WHERE id = $1
+          AND status = 'active'
+        LIMIT 1
+      `,
+      [identityId]
+    );
+
+    if (identityResult.rowCount === 0) {
+      throw createPublicError(
+        'Active identity not found.',
+        404
+      );
+    }
+
+    /*
+     * Reuse the Identity's current active and unused code.
+     */
+    const activeCodeResult = await client.query<{
+      code: string;
+      expires_at: Date;
+    }>(
+      `
+        SELECT
+          code,
+          expires_at
+        FROM identity_link_codes
+        WHERE identity_id = $1
+          AND purpose = 'link_wallet'
+          AND used_at IS NULL
+          AND expires_at > NOW()
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [identityId]
+    );
+
+    const activeCode = activeCodeResult.rows[0];
+
+    if (activeCode) {
+      await client.query('COMMIT');
+      transactionFinished = true;
+
+      return {
+        code: activeCode.code,
+        expiresAt: activeCode.expires_at,
+        reused: true,
+      };
+    }
+
+    /*
+     * Generate a permanently unique Link Code.
+     *
+     * ON CONFLICT DO NOTHING prevents a random code collision
+     * from aborting the transaction.
+     */
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const candidateCode =
+        createIdentityLinkCode();
+
+      const insertResult = await client.query<{
+        code: string;
+        expires_at: Date;
+      }>(
+        `
+          INSERT INTO identity_link_codes (
+            identity_id,
+            code,
+            purpose,
+            expires_at
+          )
+          VALUES (
+            $1,
+            $2,
+            'link_wallet',
+            NOW() + INTERVAL '15 minutes'
+          )
+          ON CONFLICT (code) DO NOTHING
+          RETURNING
+            code,
+            expires_at
+        `,
+        [identityId, candidateCode]
+      );
+
+      const insertedCode =
+        insertResult.rows[0];
+
+      if (!insertedCode) {
+        continue;
+      }
+
+      await client.query('COMMIT');
+      transactionFinished = true;
+
+      return {
+        code: insertedCode.code,
+        expiresAt: insertedCode.expires_at,
+        reused: false,
+      };
+    }
+
+    throw new Error(
+      'Failed to create a unique link code after multiple attempts.'
+    );
+  } catch (error) {
+    if (
+      transactionStarted &&
+      !transactionFinished
+    ) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error(
+          '[auth/link-code/create] rollback error:',
+          rollbackError
+        );
+      }
+    }
+
+    throw error;
+  } finally {
+    try {
+      await client.end();
+    } catch (closeError) {
+      console.error(
+        '[auth/link-code/create] client close error:',
+        closeError
+      );
+    }
+  }
+}
+
 export async function POST() {
   try {
     const cookieStore = await cookies();
+
     const token =
       cookieStore.get(USER_AUTH_COOKIE)?.value;
 
@@ -73,143 +272,20 @@ export async function POST() {
       );
     }
 
-    const identityRows = await sql`
-      SELECT id
-      FROM identities
-      WHERE id = ${session.identityId}
-        AND status = 'active'
-      LIMIT 1
-    `;
-
-    if (identityRows.length === 0) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: 'Active identity not found.',
-        },
-        {
-          status: 404,
-          headers: {
-            'Cache-Control': 'no-store',
-          },
-        }
+    const linkCodeResult =
+      await getOrCreateIdentityLinkCode(
+        session.identityId
       );
-    }
-
-    /*
-    * Reuse the identity's current active link-wallet code.
-    *
-    * This prevents repeated Generate Link Code actions from
-    * creating unnecessary DB records and invalidating a code
-    * that is still valid.
-    */
-    const activeCodeRows = await sql`
-      SELECT
-        code,
-        expires_at
-      FROM identity_link_codes
-      WHERE identity_id = ${session.identityId}
-        AND purpose = 'link_wallet'
-        AND used_at IS NULL
-        AND expires_at > NOW()
-      ORDER BY created_at DESC
-      LIMIT 1
-    `;
-
-    const activeCode = activeCodeRows[0];
-
-    if (activeCode?.code && activeCode?.expires_at) {
-      return NextResponse.json(
-        {
-          ok: true,
-          code: activeCode.code,
-          expiresAt: activeCode.expires_at,
-          reused: true,
-        },
-        {
-          headers: {
-            'Cache-Control': 'no-store',
-          },
-        }
-      );
-    }
-
-    /*
-     * Invalidate all previous unused link-wallet codes
-     * belonging to this identity.
-     */
-    await sql`
-      UPDATE identity_link_codes
-      SET used_at = NOW()
-      WHERE identity_id = ${session.identityId}
-        AND purpose = 'link_wallet'
-        AND used_at IS NULL
-    `;
-
-    let code = createIdentityLinkCode();
-
-    for (let i = 0; i < 5; i += 1) {
-      try {
-        const rows = await sql`
-          INSERT INTO identity_link_codes (
-            identity_id,
-            code,
-            purpose,
-            expires_at
-          )
-          VALUES (
-            ${session.identityId},
-            ${code},
-            'link_wallet',
-            NOW() + INTERVAL '15 minutes'
-          )
-          RETURNING code, expires_at
-        `;
-
-        const codeRow = rows[0];
-
-        if (!codeRow?.code || !codeRow?.expires_at) {
-          throw new Error(
-            'Link code creation did not return a valid record.'
-          );
-        }
-
-        return NextResponse.json(
-          {
-            ok: true,
-            code: codeRow.code,
-            expiresAt: codeRow.expires_at,
-          },
-          {
-            headers: {
-              'Cache-Control': 'no-store',
-            },
-          }
-        );
-      } catch (error) {
-        const postgresError = error as {
-          code?: string;
-        };
-
-        /*
-         * Retry only when the generated code collides
-         * with the unique code index.
-         */
-        if (postgresError?.code !== '23505') {
-          throw error;
-        }
-
-        code = createIdentityLinkCode();
-      }
-    }
 
     return NextResponse.json(
       {
-        ok: false,
-        error: 'Failed to create a unique link code.',
+        ok: true,
+        code: linkCodeResult.code,
+        expiresAt:
+          linkCodeResult.expiresAt,
+        reused: linkCodeResult.reused,
       },
       {
-        status: 500,
         headers: {
           'Cache-Control': 'no-store',
         },
@@ -221,13 +297,19 @@ export async function POST() {
       error
     );
 
+    const handledError =
+      error as PublicError;
+
     return NextResponse.json(
       {
         ok: false,
-        error: 'Failed to create identity link code.',
+        error:
+          handledError.publicMessage ??
+          'Failed to create identity link code.',
       },
       {
-        status: 500,
+        status:
+          handledError.statusCode ?? 500,
         headers: {
           'Cache-Control': 'no-store',
         },
