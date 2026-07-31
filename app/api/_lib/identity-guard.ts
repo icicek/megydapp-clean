@@ -144,6 +144,9 @@ export function identityGuardErrorResponse(
     },
     {
       status: result.status,
+      headers: {
+        'Cache-Control': 'no-store',
+      },
     }
   );
 }

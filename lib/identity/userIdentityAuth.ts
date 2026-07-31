@@ -25,6 +25,7 @@ type DirectWalletProvider = {
 type ApiResponse = {
   ok?: boolean;
   error?: string;
+  reason?: unknown;
   [key: string]: unknown;
 };
 
