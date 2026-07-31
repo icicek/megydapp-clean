@@ -28,6 +28,23 @@ type ApiResponse = {
   [key: string]: unknown;
 };
 
+export type UserIdentityAuthReason =
+  | 'no_session'
+  | 'invalid_session'
+  | 'identity_not_found'
+  | 'session_wallet_not_linked';
+
+function parseUserIdentityAuthReason(
+  value: unknown
+): UserIdentityAuthReason | null {
+  return value === 'no_session' ||
+    value === 'invalid_session' ||
+    value === 'identity_not_found' ||
+    value === 'session_wallet_not_linked'
+    ? value
+    : null;
+}
+
 function toBase64(bytes: Uint8Array): string {
   let binary = '';
 
@@ -195,28 +212,32 @@ async function signIdentityMessage(params: {
   );
 
   try {
-    const directSignature =
-      await signWithDirectProvider({
-        message: encodedMessage,
-        walletAddress: params.walletAddress,
-        walletName: params.walletName,
-      });
-
-    if (directSignature) {
-      return directSignature;
-    }
-
+    /*
+     * Prefer the wallet-adapter method because it belongs
+     * to the wallet currently selected by the application.
+     */
     return await params.signMessage(encodedMessage);
-  } catch (error) {
+  } catch (adapterError) {
     console.warn(
-      '[identity] Wallet signMessage failed:',
-      error
-    );
-
-    throw new Error(
-      'Wallet signature request failed. Please reconnect your wallet and approve the message signature.'
+      '[identity] Wallet-adapter signMessage failed. Trying direct provider fallback:',
+      adapterError
     );
   }
+
+  const directSignature =
+    await signWithDirectProvider({
+      message: encodedMessage,
+      walletAddress: params.walletAddress,
+      walletName: params.walletName,
+    });
+
+  if (directSignature) {
+    return directSignature;
+  }
+
+  throw new Error(
+    'Wallet signature request failed. Please reconnect your wallet and approve the message signature.'
+  );
 }
 
 export async function signInWithWalletIdentity(
@@ -340,12 +361,6 @@ export async function signInWithWalletIdentity(
   return verifyData;
 }
 
-export type UserIdentityAuthReason =
-  | 'no_session'
-  | 'invalid_session'
-  | 'identity_not_found'
-  | 'session_wallet_not_linked';
-
 export type UserIdentityStatus = {
   authenticated: boolean;
   reason: UserIdentityAuthReason | null;
@@ -374,10 +389,14 @@ Promise<UserIdentityStatus> {
 
   const data = await readJsonResponse(res);
 
+  const reason = parseUserIdentityAuthReason(
+    data?.reason
+  );
+
   if (!res.ok || data?.ok !== true) {
     return {
       authenticated: false,
-      reason: null,
+      reason,
       identity: null,
     };
   }
@@ -388,14 +407,6 @@ Promise<UserIdentityStatus> {
     typeof data.identity !== 'object' ||
     Array.isArray(data.identity)
   ) {
-    const reason =
-      data.reason === 'no_session' ||
-      data.reason === 'invalid_session' ||
-      data.reason === 'identity_not_found' ||
-      data.reason === 'session_wallet_not_linked'
-        ? data.reason
-        : null;
-
     return {
       authenticated: false,
       reason,

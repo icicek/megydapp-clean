@@ -311,3 +311,11 @@ export function getUserCookieOptions() {
     priority: 'high' as const,
   };
 }
+
+export function getExpiredUserCookieOptions() {
+  return {
+    ...getUserCookieOptions(),
+    maxAge: 0,
+    expires: new Date(0),
+  };
+}

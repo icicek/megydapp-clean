@@ -1,21 +1,31 @@
-//app/api/auth/logout/route.ts
+// app/api/auth/logout/route.ts
+
 import { NextResponse } from 'next/server';
-import { USER_AUTH_COOKIE } from '@/app/api/_lib/user-auth';
+
+import {
+  USER_AUTH_COOKIE,
+  getExpiredUserCookieOptions,
+} from '@/app/api/_lib/user-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST() {
-  const res = NextResponse.json({
-    ok: true,
-  });
+  const response = NextResponse.json(
+    {
+      ok: true,
+    },
+    {
+      headers: {
+        'Cache-Control': 'no-store',
+      },
+    }
+  );
 
-  res.cookies.set(USER_AUTH_COOKIE, '', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 0,
-  });
+  response.cookies.set(
+    USER_AUTH_COOKIE,
+    '',
+    getExpiredUserCookieOptions()
+  );
 
-  return res;
+  return response;
 }

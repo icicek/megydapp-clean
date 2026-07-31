@@ -8,8 +8,10 @@ import { sql } from '@/app/api/_lib/db';
 import {
   USER_AUTH_COOKIE,
   verifyUserSession,
+  getExpiredUserCookieOptions,
 } from '@/app/api/_lib/user-auth';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const NO_STORE_HEADERS = {
@@ -24,6 +26,32 @@ function jsonResponse(
     status,
     headers: NO_STORE_HEADERS,
   });
+}
+
+function unauthenticatedResponse(
+  reason:
+    | 'no_session'
+    | 'invalid_session'
+    | 'identity_not_found'
+    | 'session_wallet_not_linked',
+  clearCookie = false
+) {
+  const response = jsonResponse({
+    ok: true,
+    authenticated: false,
+    identity: null,
+    reason,
+  });
+
+  if (clearCookie) {
+    response.cookies.set(
+      USER_AUTH_COOKIE,
+      '',
+      getExpiredUserCookieOptions()
+    );
+  }
+
+  return response;
 }
 
 function normalizeWalletAddress(
@@ -49,23 +77,16 @@ export async function GET() {
       cookieStore.get(USER_AUTH_COOKIE)?.value;
 
     if (!token) {
-      return jsonResponse({
-        ok: true,
-        authenticated: false,
-        identity: null,
-        reason: 'no_session',
-      });
+      return unauthenticatedResponse('no_session');
     }
 
     const session = verifyUserSession(token);
 
     if (!session) {
-      return jsonResponse({
-        ok: true,
-        authenticated: false,
-        identity: null,
-        reason: 'invalid_session',
-      });
+      return unauthenticatedResponse(
+        'invalid_session',
+        true
+      );
     }
 
     const sessionWalletAddress =
@@ -77,12 +98,10 @@ export async function GET() {
         session.walletAddress
       );
 
-      return jsonResponse({
-        ok: true,
-        authenticated: false,
-        identity: null,
-        reason: 'invalid_session',
-      });
+      return unauthenticatedResponse(
+        'invalid_session',
+        true
+      );
     }
 
     const identityRows = await sql`
@@ -130,12 +149,10 @@ export async function GET() {
     `;
 
     if (identityRows.length === 0) {
-      return jsonResponse({
-        ok: true,
-        authenticated: false,
-        identity: null,
-        reason: 'identity_not_found',
-      });
+      return unauthenticatedResponse(
+        'identity_not_found',
+        true
+      );
     }
 
     const identity = identityRows[0];
@@ -169,12 +186,10 @@ export async function GET() {
       identity.wallet_verified === true;
 
     if (!walletVerified) {
-      return jsonResponse({
-        ok: true,
-        authenticated: false,
-        identity: null,
-        reason: 'session_wallet_not_linked',
-      });
+      return unauthenticatedResponse(
+        'session_wallet_not_linked',
+        true
+      );
     }
 
     const fingerprintRecorded =

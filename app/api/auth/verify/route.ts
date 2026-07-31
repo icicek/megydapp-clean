@@ -2,6 +2,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { PublicKey } from '@solana/web3.js';
+import {
+  Client,
+  neonConfig,
+} from '@neondatabase/serverless';
+import ws from 'ws';
 import nacl from 'tweetnacl';
 
 import { sql } from '@/app/api/_lib/db';
@@ -14,7 +19,20 @@ import {
 import { recalculateIdentityScores } from '@/app/api/_lib/identity-score';
 import { awardReferralSignupIdentityAware } from '@/app/api/_lib/corepoints';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const DATABASE_URL =
+  process.env.NEON_DATABASE_URL ||
+  process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+  throw new Error(
+    'Missing env: NEON_DATABASE_URL or DATABASE_URL'
+  );
+}
+
+neonConfig.webSocketConstructor = ws;
 
 const NO_STORE_HEADERS = {
   'Cache-Control': 'no-store',
@@ -92,6 +110,224 @@ function decodeWalletSignature(
     return new Uint8Array(signatureBytes);
   } catch {
     return null;
+  }
+}
+
+type IdentityResolutionResult = {
+  identityId: string;
+  wasNewIdentity: boolean;
+};
+
+async function resolveOrCreateIdentity(
+  walletAddress: string
+): Promise<IdentityResolutionResult> {
+  /*
+   * Fast path:
+   * Existing wallets do not need an interactive transaction.
+   */
+  const existingWalletRows = await sql`
+    SELECT identity_id
+    FROM identity_wallets
+    WHERE wallet_address = ${walletAddress}
+      AND chain = 'solana'
+    LIMIT 1
+  `;
+
+  const existingIdentityId =
+    existingWalletRows[0]?.identity_id;
+
+  if (existingIdentityId) {
+    const identityId = String(existingIdentityId);
+
+    await sql`
+      UPDATE identity_wallets
+      SET last_seen_at = NOW(),
+          verified_at = NOW()
+      WHERE identity_id = ${identityId}
+        AND wallet_address = ${walletAddress}
+        AND chain = 'solana'
+    `;
+
+    return {
+      identityId,
+      wasNewIdentity: false,
+    };
+  }
+
+  /*
+   * Slow path:
+   * The wallet appeared to be new. Use one interactive
+   * transaction and a wallet-specific advisory lock.
+   *
+   * The lock prevents two concurrent requests for the same
+   * wallet from creating separate Identity records.
+   */
+  const client = new Client(DATABASE_URL);
+
+  await client.connect();
+
+  let transactionFinished = false;
+
+  try {
+    await client.query('BEGIN');
+
+    await client.query(
+      `
+        SELECT pg_advisory_xact_lock(
+          hashtextextended($1, 0)
+        )
+      `,
+      [`coincarnation:identity:solana:${walletAddress}`]
+    );
+
+    /*
+     * Re-check after obtaining the lock. Another request may
+     * have created the wallet-to-Identity relation while this
+     * request was waiting.
+     */
+    const lockedWalletResult =
+      await client.query<{
+        identity_id: string;
+      }>(
+        `
+          SELECT identity_id
+          FROM identity_wallets
+          WHERE wallet_address = $1
+            AND chain = 'solana'
+          LIMIT 1
+        `,
+        [walletAddress]
+      );
+
+    const lockedExistingIdentityId =
+      lockedWalletResult.rows[0]?.identity_id;
+
+    if (lockedExistingIdentityId) {
+      const identityId = String(
+        lockedExistingIdentityId
+      );
+
+      await client.query(
+        `
+          UPDATE identity_wallets
+          SET last_seen_at = NOW(),
+              verified_at = NOW()
+          WHERE identity_id = $1
+            AND wallet_address = $2
+            AND chain = 'solana'
+        `,
+        [identityId, walletAddress]
+      );
+
+      await client.query('COMMIT');
+      transactionFinished = true;
+
+      return {
+        identityId,
+        wasNewIdentity: false,
+      };
+    }
+
+    const identityResult =
+      await client.query<{
+        id: string;
+      }>(
+        `
+          INSERT INTO identities (
+            primary_wallet_address,
+            human_confidence_score,
+            risk_score,
+            status
+          )
+          VALUES ($1, 25, 0, 'active')
+          RETURNING id
+        `,
+        [walletAddress]
+      );
+
+    const createdIdentityId =
+      identityResult.rows[0]?.id;
+
+    if (!createdIdentityId) {
+      throw new Error(
+        'Identity creation did not return an ID.'
+      );
+    }
+
+    const identityId = String(createdIdentityId);
+
+    await client.query(
+      `
+        INSERT INTO identity_wallets (
+          identity_id,
+          wallet_address,
+          chain,
+          is_primary,
+          verified_at,
+          last_seen_at
+        )
+        VALUES (
+          $1,
+          $2,
+          'solana',
+          true,
+          NOW(),
+          NOW()
+        )
+      `,
+      [identityId, walletAddress]
+    );
+
+    await client.query(
+      `
+        INSERT INTO identity_risk_events (
+          identity_id,
+          wallet_address,
+          event_type,
+          severity,
+          score_delta,
+          details
+        )
+        VALUES (
+          $1,
+          $2,
+          'wallet_signature_verified',
+          'info',
+          0,
+          $3::jsonb
+        )
+      `,
+      [
+        identityId,
+        walletAddress,
+        JSON.stringify({
+          chain: 'solana',
+        }),
+      ]
+    );
+
+    await client.query('COMMIT');
+    transactionFinished = true;
+
+    return {
+      identityId,
+      wasNewIdentity: true,
+    };
+  } catch (error) {
+    if (!transactionFinished) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error(
+          '[auth/verify] identity transaction rollback failed:',
+          rollbackError
+        );
+      }
+    }
+
+    throw error;
+  } finally {
+    await client.end();
   }
 }
 
@@ -261,98 +497,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const walletRows = await sql`
-      SELECT identity_id
-      FROM identity_wallets
-      WHERE wallet_address = ${walletAddress}
-        AND chain = 'solana'
-      LIMIT 1
-    `;
-
-    let identityId: string;
-    let wasNewIdentity = false;
-
-    const existingIdentityId =
-      walletRows[0]?.identity_id;
-
-    if (existingIdentityId) {
-      identityId = String(existingIdentityId);
-
-      await sql`
-        UPDATE identity_wallets
-        SET last_seen_at = NOW(),
-            verified_at = NOW()
-        WHERE identity_id = ${identityId}
-          AND wallet_address = ${walletAddress}
-          AND chain = 'solana'
-      `;
-    } else {
-      wasNewIdentity = true;
-
-      const identityRows = await sql`
-        INSERT INTO identities (
-          primary_wallet_address,
-          human_confidence_score,
-          risk_score,
-          status
-        )
-        VALUES (
-          ${walletAddress},
-          25,
-          0,
-          'active'
-        )
-        RETURNING id
-      `;
-
-      const createdIdentityId = identityRows[0]?.id;
-
-      if (!createdIdentityId) {
-        throw new Error(
-          'Identity creation did not return an ID.'
-        );
-      }
-
-      identityId = String(createdIdentityId);
-
-      await sql`
-        INSERT INTO identity_wallets (
-          identity_id,
-          wallet_address,
-          chain,
-          is_primary,
-          verified_at
-        )
-        VALUES (
-          ${identityId},
-          ${walletAddress},
-          'solana',
-          true,
-          NOW()
-        )
-      `;
-
-      await sql`
-        INSERT INTO identity_risk_events (
-          identity_id,
-          wallet_address,
-          event_type,
-          severity,
-          score_delta,
-          details
-        )
-        VALUES (
-          ${identityId},
-          ${walletAddress},
-          'wallet_signature_verified',
-          'info',
-          0,
-          ${JSON.stringify({
-            chain: 'solana',
-          })}::jsonb
-        )
-      `;
-    }
+    const {
+      identityId,
+      wasNewIdentity,
+    } = await resolveOrCreateIdentity(
+      walletAddress
+    );
 
     /*
      * Referral reward failure must never block authentication.
