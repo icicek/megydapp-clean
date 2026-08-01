@@ -457,6 +457,73 @@ export async function createIdentityLinkCode() {
   };
 }
 
+export type IdentityLinkCodeCheckResult =
+  | {
+      available: true;
+      reason: null;
+    }
+  | {
+      available: false;
+      reason:
+        | 'invalid_code'
+        | 'expired_or_used'
+        | 'wallet_already_linked';
+    };
+
+export async function checkIdentityLinkCode(params: {
+  walletAddress: string;
+  code: string;
+}): Promise<IdentityLinkCodeCheckResult> {
+  const normalizedCode =
+    params.code.trim().toUpperCase();
+
+  const res = await fetch(
+    '/api/auth/link-code/check',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      cache: 'no-store',
+      body: JSON.stringify({
+        walletAddress: params.walletAddress,
+        code: normalizedCode,
+      }),
+    }
+  );
+
+  const data = await readJsonResponse(res);
+
+  if (!res.ok || data?.ok !== true) {
+    throw new Error(
+      getApiError(
+        data,
+        'Failed to check Identity Link Code.'
+      )
+    );
+  }
+
+  if (data.available === true) {
+    return {
+      available: true,
+      reason: null,
+    };
+  }
+
+  const reason =
+    data.reason === 'invalid_code' ||
+    data.reason === 'expired_or_used' ||
+    data.reason === 'wallet_already_linked'
+      ? data.reason
+      : 'expired_or_used';
+
+  return {
+    available: false,
+    reason,
+  };
+}
+
 export async function linkWalletWithIdentityCode(
   params: {
     publicKey: PublicKey | null;

@@ -29,6 +29,7 @@ import {
 } from '@solana/web3.js';
 import {
   createIdentityLinkCode,
+  checkIdentityLinkCode,
   getUserIdentityStatus,
   linkWalletWithIdentityCode,
   signInWithWalletIdentity,
@@ -1754,6 +1755,9 @@ export default function ClaimPanel() {
         return;
       }
   
+      const walletAddress =
+        publicKey.toBase58();
+  
       const code =
         identityLinkCodeInput.trim().toUpperCase();
   
@@ -1765,6 +1769,51 @@ export default function ClaimPanel() {
       }
   
       setIdentityLinkingByCode(true);
+      setIdentityCodeActionMessage(
+        '⏳ Checking this wallet and Identity Link Code...'
+      );
+  
+      /*
+       * UX preflight only.
+       *
+       * The backend verify endpoint must still repeat every
+       * validation after the signature is received.
+       */
+      const checkResult =
+        await checkIdentityLinkCode({
+          walletAddress,
+          code,
+        });
+  
+      if (!checkResult.available) {
+        if (
+          checkResult.reason ===
+          'wallet_already_linked'
+        ) {
+          setIdentityCodeActionMessage(
+            '❌ This wallet already belongs to another Coincarnation Identity. Wallet transfers between identities are not currently supported. Use “Continue with Wallet” to open the Identity that already owns this wallet.'
+          );
+  
+          return;
+        }
+  
+        if (
+          checkResult.reason === 'invalid_code'
+        ) {
+          setIdentityCodeActionMessage(
+            '❌ Enter a valid Identity Link Code in the format MEGY-12345678.'
+          );
+  
+          return;
+        }
+  
+        setIdentityCodeActionMessage(
+          '❌ This Identity Link Code has expired or has already been used. Generate a new code from a wallet that is already linked to the Identity.'
+        );
+  
+        return;
+      }
+  
       setIdentityCodeActionMessage(
         '⏳ Please approve the wallet signature to add this wallet...'
       );
@@ -1792,6 +1841,10 @@ export default function ClaimPanel() {
       const normalizedMessage =
         message.toLowerCase();
   
+      /*
+       * These checks remain necessary because state may change
+       * between preflight and final verification.
+       */
       if (
         normalizedMessage.includes(
           'already linked to an identity'
@@ -1819,22 +1872,12 @@ export default function ClaimPanel() {
       }
   
       if (
-        normalizedMessage.includes('invalid wallet signature')
-      ) {
-        setIdentityCodeActionMessage(
-          '❌ The wallet signature could not be verified. Please try again and approve the signature with the connected wallet.'
-        );
-  
-        return;
-      }
-  
-      if (
         normalizedMessage.includes(
-          'does not support message signing'
+          'invalid wallet signature'
         )
       ) {
         setIdentityCodeActionMessage(
-          '❌ This wallet does not support message signing. Please use a compatible wallet or reconnect it.'
+          '❌ The wallet signature could not be verified. Please try again and approve the signature with the connected wallet.'
         );
   
         return;
