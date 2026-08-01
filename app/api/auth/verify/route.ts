@@ -139,14 +139,22 @@ async function resolveOrCreateIdentity(
   if (existingIdentityId) {
     const identityId = String(existingIdentityId);
 
-    await sql`
+    const updatedWalletRows = await sql`
       UPDATE identity_wallets
-      SET last_seen_at = NOW(),
-          verified_at = NOW()
+      SET
+        last_seen_at = NOW(),
+        verified_at = NOW()
       WHERE identity_id = ${identityId}
         AND wallet_address = ${walletAddress}
         AND chain = 'solana'
+      RETURNING identity_id
     `;
+
+    if (updatedWalletRows.length === 0) {
+      throw new Error(
+        'Existing Identity wallet could not be updated.'
+      );
+    }
 
     return {
       identityId,
@@ -207,17 +215,28 @@ async function resolveOrCreateIdentity(
         lockedExistingIdentityId
       );
 
-      await client.query(
-        `
-          UPDATE identity_wallets
-          SET last_seen_at = NOW(),
+      const updatedWalletResult =
+        await client.query<{
+          identity_id: string;
+        }>(
+          `
+            UPDATE identity_wallets
+            SET
+              last_seen_at = NOW(),
               verified_at = NOW()
-          WHERE identity_id = $1
-            AND wallet_address = $2
-            AND chain = 'solana'
-        `,
-        [identityId, walletAddress]
-      );
+            WHERE identity_id = $1
+              AND wallet_address = $2
+              AND chain = 'solana'
+            RETURNING identity_id
+          `,
+          [identityId, walletAddress]
+        );
+
+      if (updatedWalletResult.rows.length === 0) {
+        throw new Error(
+          'Locked Identity wallet could not be updated.'
+        );
+      }
 
       await client.query('COMMIT');
       transactionFinished = true;
@@ -327,7 +346,14 @@ async function resolveOrCreateIdentity(
 
     throw error;
   } finally {
-    await client.end();
+    try {
+      await client.end();
+    } catch (closeError) {
+      console.error(
+        '[auth/verify] database client close failed:',
+        closeError
+      );
+    }
   }
 }
 
