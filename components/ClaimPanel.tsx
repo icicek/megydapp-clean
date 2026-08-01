@@ -1242,6 +1242,7 @@ export default function ClaimPanel() {
     setLinkedWallets([]);
   
     // Reset wallet-specific transient UI.
+    setShowIdentityTools(false);
     setMessage(null);
     setShareOpen(false);
     setSharePayload(null);
@@ -1264,21 +1265,14 @@ export default function ClaimPanel() {
     async function fetchIdentityStatus() {
       try {
         /*
-         * No wallet is connected.
+         * The wallet adapter may temporarily expose no wallet
+         * while restoring its connection after a page refresh.
          *
-         * Clear the browser session only if this operation still belongs
-         * to the current no-wallet state.
+         * Do not delete the server-side Identity session here.
+         * The session must only be cleared by an explicit sign-out
+         * or by the backend when the cookie is invalid.
          */
         if (!operationWallet) {
-          if (!isCurrentIdentityOperation()) {
-            return;
-          }
-  
-          await fetch('/api/auth/logout', {
-            method: 'POST',
-            credentials: 'include',
-          }).catch(() => null);
-  
           if (!isCurrentIdentityOperation()) {
             return;
           }
@@ -1290,14 +1284,16 @@ export default function ClaimPanel() {
           });
   
           setLinkedWallets([]);
+          setShowIdentityTools(false);
+  
           return;
         }
   
         /*
          * Read the existing authenticated session.
          *
-         * This request never creates a session. A new session can only be
-         * created through nonce + wallet signature verification.
+         * This request never creates a session. A new session can
+         * only be created through nonce + wallet signature verification.
          */
         const status = await getUserIdentityStatus();
   
@@ -1306,8 +1302,8 @@ export default function ClaimPanel() {
         }
   
         /*
-         * Accept the session only when it belongs to the wallet that
-         * initiated this operation.
+         * Accept the session only when it belongs to the wallet
+         * that initiated this operation.
          */
         if (
           status.authenticated &&
@@ -1328,19 +1324,19 @@ export default function ClaimPanel() {
         }
   
         /*
-        * A valid session belonging to another wallet must not
-        * survive a wallet switch.
-        */
+         * A valid session belonging to another wallet must not
+         * survive a wallet switch.
+         */
         if (status.authenticated) {
           await fetch('/api/auth/logout', {
             method: 'POST',
             credentials: 'include',
           }).catch(() => null);
-
+  
           if (!isCurrentIdentityOperation()) {
             return;
           }
-
+  
           setIdentityStatus({
             authenticated: false,
             reason: null,
@@ -1348,12 +1344,12 @@ export default function ClaimPanel() {
           });
         } else {
           /*
-          * Preserve the unauthenticated reason returned by
-          * /api/auth/status.
-          */
+           * Preserve the unauthenticated reason returned by
+           * /api/auth/status.
+           */
           setIdentityStatus(status);
         }
-
+  
         setLinkedWallets([]);
       } catch (error) {
         if (!isCurrentIdentityOperation()) {
