@@ -1748,36 +1748,101 @@ export default function ClaimPanel() {
   async function handleLinkWalletWithCode() {
     try {
       if (!publicKey) {
-        setMessage('❌ Please connect your wallet.');
+        setIdentityCodeActionMessage(
+          '❌ Please connect your wallet.'
+        );
         return;
       }
-
-      const code = identityLinkCodeInput.trim();
-
+  
+      const code =
+        identityLinkCodeInput.trim().toUpperCase();
+  
       if (!code) {
-        setMessage('❌ Please enter an identity link code.');
+        setIdentityCodeActionMessage(
+          '❌ Please enter an Identity Link Code.'
+        );
         return;
       }
-
+  
       setIdentityLinkingByCode(true);
-      setMessage('⏳ Linking wallet with identity code...');
-
+      setIdentityCodeActionMessage(
+        '⏳ Please approve the wallet signature to add this wallet...'
+      );
+  
       await linkWalletWithIdentityCode({
         publicKey,
         signMessage,
         walletName: wallet?.adapter?.name,
         code,
       });
-
+  
       await refreshIdentityState();
-
+  
       setIdentityLinkCodeInput('');
-      setMessage('✅ Wallet linked with identity code.');
+  
+      setIdentityCodeActionMessage(
+        '✅ This wallet was successfully added to your Coincarnation Identity.'
+      );
     } catch (error) {
-      const msg =
-        error instanceof Error ? error.message : 'Failed to link wallet with identity code.';
-
-      setMessage(`❌ ${msg}`);
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to add this wallet to the Identity.';
+  
+      const normalizedMessage =
+        message.toLowerCase();
+  
+      if (
+        normalizedMessage.includes(
+          'already linked to an identity'
+        ) ||
+        normalizedMessage.includes(
+          'already belongs to an identity'
+        )
+      ) {
+        setIdentityCodeActionMessage(
+          '❌ This wallet already belongs to another Coincarnation Identity. Wallet transfers between identities are not currently supported. Use “Continue with Wallet” to open the Identity that already owns this wallet.'
+        );
+  
+        return;
+      }
+  
+      if (
+        normalizedMessage.includes('expired') ||
+        normalizedMessage.includes('already used')
+      ) {
+        setIdentityCodeActionMessage(
+          '❌ This Identity Link Code has expired or has already been used. Generate a new code from a wallet that is already linked to the Identity.'
+        );
+  
+        return;
+      }
+  
+      if (
+        normalizedMessage.includes('invalid wallet signature')
+      ) {
+        setIdentityCodeActionMessage(
+          '❌ The wallet signature could not be verified. Please try again and approve the signature with the connected wallet.'
+        );
+  
+        return;
+      }
+  
+      if (
+        normalizedMessage.includes(
+          'does not support message signing'
+        )
+      ) {
+        setIdentityCodeActionMessage(
+          '❌ This wallet does not support message signing. Please use a compatible wallet or reconnect it.'
+        );
+  
+        return;
+      }
+  
+      setIdentityCodeActionMessage(
+        `❌ ${message}`
+      );
     } finally {
       setIdentityLinkingByCode(false);
     }
