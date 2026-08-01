@@ -520,6 +520,10 @@ export default function ClaimPanel() {
   const [showIdentityTools, setShowIdentityTools] = useState(false);
   const [showAllLinkedWallets, setShowAllLinkedWallets] = useState(false);
   const [copiedLinkedWallet, setCopiedLinkedWallet] = useState<string | null>(null);
+  const [
+    identityCodeActionMessage,
+    setIdentityCodeActionMessage,
+  ] = useState<string | null>(null);
 
   const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
   const [copiedTarget, setCopiedTarget] = useState<
@@ -1243,6 +1247,7 @@ export default function ClaimPanel() {
   
     // Reset wallet-specific transient UI.
     setShowIdentityTools(false);
+    setIdentityCodeActionMessage(null);
     setMessage(null);
     setShareOpen(false);
     setSharePayload(null);
@@ -3708,7 +3713,7 @@ export default function ClaimPanel() {
                 </h3>
               </div>
 
-              {identityStatus.authenticated ? (
+              {identityStatus.authenticated && (
                 <button
                   type="button"
                   onClick={handleIdentityLogout}
@@ -3718,16 +3723,7 @@ export default function ClaimPanel() {
                   <span className="sm:hidden">Sign out</span>
                   <span className="hidden sm:inline">Sign out Identity</span>
                 </button>
-              ) : walletBase58 ? (
-                <button
-                  type="button"
-                  onClick={handleContinueWithWallet}
-                  className="self-start rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-bold text-cyan-200 transition hover:bg-cyan-400/15 hover:text-white sm:self-auto"
-                  title="Restore your identity session if this wallet is already linked."
-                >
-                  Sign in with Wallet
-                </button>
-              ) : null}
+              )}
             </div>
 
             <div className="grid w-full grid-cols-2 gap-4 md:grid-cols-4">
@@ -3772,11 +3768,9 @@ export default function ClaimPanel() {
                 <p className="text-sm font-bold">
                   {protectedActionIssue.tone === 'red'
                     ? '⚠️'
-                    : protectedActionIssue.action === 'continue'
-                      ? '🔐'
-                      : protectedActionIssue.action === 'verifyBrowser'
-                        ? '🌐'
-                        : '🧬'}{' '}
+                    : protectedActionIssue.action === 'verifyBrowser'
+                      ? '🌐'
+                      : '🧬'}{' '}
                   {protectedActionIssue.title}
                 </p>
 
@@ -3784,8 +3778,7 @@ export default function ClaimPanel() {
                   {protectedActionIssue.description}
                 </p>
 
-                {(protectedActionIssue.action === 'continue' ||
-                  protectedActionIssue.action === 'verifyBrowser') && (
+                {protectedActionIssue.action === 'verifyBrowser' && (
                   <button
                     type="button"
                     onClick={handleContinueWithWallet}
@@ -3793,75 +3786,161 @@ export default function ClaimPanel() {
                     className="mt-3 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-black transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {verifyingIdentity
-                      ? 'Continuing...'
-                      : 'Continue with Wallet'}
+                      ? 'Verifying...'
+                      : 'Verify This Browser'}
                   </button>
                 )}
               </div>
             )}
 
-            {walletBase58 && !identityStatus.authenticated && (
-              <div className="mt-5 rounded-xl border border-amber-400/25 bg-amber-400/10 p-4">
-                <p className="text-sm font-black text-amber-200">
-                  ⚠️ Use one Coincarnation Identity
-                </p>
-
-                <p className="mt-2 text-xs leading-5 text-amber-100/80">
-                  Link all wallets you own to a single Coincarnation Identity. Creating multiple identities with wallets that belong to the same person may increase your risk score and can temporarily lock protected actions such as claiming, voting, or refund requests.
-                </p>
-              </div>
-            )}
-
-            <div className="mt-5 rounded-xl border border-violet-400/20 bg-violet-400/5 p-4">
-              <button
-                type="button"
-                onClick={() => setShowIdentityTools((v) => !v)}
-                className="flex w-full items-center justify-between gap-3 text-left"
-                aria-expanded={showIdentityTools}
-              >
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-violet-300">
-                    Advanced Identity Tools
-                  </p>
-                  <p className="mt-1 text-xs text-gray-400">
-                    Generate a link code or connect this wallet to an existing identity.
-                  </p>
-                </div>
-
-                <span className="rounded-full border border-violet-300/20 bg-violet-300/10 px-3 py-1 text-[11px] font-black text-violet-200">
-                  {showIdentityTools ? 'Hide' : 'Show'}
-                </span>
-              </button>
-
-              {showIdentityTools && (
-                <div className="flex flex-col gap-4 lg:flex-1">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-violet-300">
-                      Identity Recovery / Link Code
+            {walletBase58 &&
+              !identityStatus.authenticated &&
+              !identityStatus.identity && (
+                <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-xl border border-violet-400/30 bg-violet-400/[0.08] p-4">
+                    <p className="text-xs font-black uppercase tracking-wide text-violet-300">
+                      Already have a Coincarnation Identity?
                     </p>
 
-                    <p className="mt-1 text-sm text-gray-300">
-                      Use a temporary code to link wallets from another device, browser, or wallet app.
+                    <p className="mt-2 text-sm leading-6 text-gray-300">
+                      Add this wallet to your existing Identity using a temporary link
+                      code generated from one of its linked wallets.
                     </p>
+
+                    <label
+                      htmlFor="identity-link-code"
+                      className="mt-4 block text-[11px] font-semibold uppercase tracking-wide text-gray-400"
+                    >
+                      Identity Link Code
+                    </label>
+
+                    <input
+                      id="identity-link-code"
+                      type="text"
+                      value={identityLinkCodeInput}
+                      onChange={(event) => {
+                        setIdentityLinkCodeInput(
+                          event.target.value.toUpperCase()
+                        );
+                        setIdentityCodeActionMessage(null);
+                      }}
+                      placeholder="MEGY-12345678"
+                      autoComplete="off"
+                      spellCheck={false}
+                      className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-white outline-none transition focus:border-violet-300"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={handleLinkWalletWithCode}
+                      disabled={
+                        identityLinkingByCode ||
+                        !walletBase58 ||
+                        !identityLinkCodeInput.trim()
+                      }
+                      className="mt-3 rounded-full bg-violet-300 px-4 py-2 text-xs font-black text-black transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {identityLinkingByCode
+                        ? 'Adding Wallet...'
+                        : 'Add Wallet to Existing Identity'}
+                    </button>
+
+                    {identityCodeActionMessage && (
+                      <p
+                        className="mt-3 text-xs font-semibold leading-5 text-amber-200"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        {identityCodeActionMessage}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                  <div className="rounded-xl border border-cyan-400/25 bg-cyan-400/[0.06] p-4">
+                    <p className="text-xs font-black uppercase tracking-wide text-cyan-300">
+                      New to Coincarnation?
+                    </p>
+
+                    <p className="mt-2 text-sm leading-6 text-gray-300">
+                      Continue only if this wallet should create your first
+                      Coincarnation Identity. If you already have an Identity, use the
+                      link-code option instead.
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={handleContinueWithWallet}
+                      disabled={verifyingIdentity}
+                      className="mt-4 rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-black transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {verifyingIdentity
+                        ? 'Continuing...'
+                        : 'Continue with Wallet'}
+                    </button>
+
+                    <p className="mt-3 text-[11px] leading-5 text-cyan-100/65">
+                      One person should use one Coincarnation Identity across all wallets.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+            {identityStatus.authenticated &&
+              identityStatus.identity && (
+                <div className="mt-5 rounded-xl border border-violet-400/20 bg-violet-400/5 p-4">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowIdentityTools((value) => !value)
+                    }
+                    className="flex w-full items-center justify-between gap-3 text-left"
+                    aria-expanded={showIdentityTools}
+                  >
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-violet-300">
+                        Identity Link Code
+                      </p>
+
+                      <p className="mt-1 text-xs text-gray-400">
+                        Generate a temporary code to add another wallet to this Identity.
+                      </p>
+                    </div>
+
+                    <span className="rounded-full border border-violet-300/20 bg-violet-300/10 px-3 py-1 text-[11px] font-black text-violet-200">
+                      {showIdentityTools ? 'Hide' : 'Show'}
+                    </span>
+                  </button>
+
+                  {showIdentityTools && (
+                    <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
                       <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                        Create code from this identity
+                        Create a code from this Identity
+                      </p>
+
+                      <p className="mt-2 text-xs leading-5 text-gray-400">
+                        Use the code on another device, browser, or wallet app to add a new wallet to this same Identity.
                       </p>
 
                       <button
                         type="button"
                         onClick={handleCreateIdentityLinkCode}
-                        disabled={identityCodeCreating || !identityStatus.authenticated}
+                        disabled={
+                          identityCodeCreating ||
+                          !identityStatus.authenticated
+                        }
                         className="mt-3 rounded-full bg-violet-300 px-4 py-2 text-xs font-black text-black transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {identityCodeCreating ? 'Creating...' : 'Generate Link Code'}
+                        {identityCodeCreating
+                          ? 'Creating...'
+                          : 'Generate Link Code'}
                       </button>
 
                       {identityLinkMessage && (
-                        <p className="mt-3 text-sm font-semibold text-emerald-300">
+                        <p
+                          className="mt-3 text-sm font-semibold text-emerald-300"
+                          role="status"
+                          aria-live="polite"
+                        >
                           {identityLinkMessage}
                         </p>
                       )}
@@ -3878,7 +3957,10 @@ export default function ClaimPanel() {
 
                           {identityLinkCodeExpiresAt && (
                             <p className="mt-1 text-[11px] text-gray-400">
-                              Expires: {new Date(identityLinkCodeExpiresAt).toLocaleString()}
+                              Expires:{' '}
+                              {new Date(
+                                identityLinkCodeExpiresAt
+                              ).toLocaleString()}
                             </p>
                           )}
 
@@ -3886,58 +3968,43 @@ export default function ClaimPanel() {
                             type="button"
                             onClick={async () => {
                               if (!identityLinkCode) return;
-                            
+
                               try {
-                                await navigator.clipboard.writeText(identityLinkCode);
-                            
+                                await navigator.clipboard.writeText(
+                                  identityLinkCode
+                                );
+
                                 setIdentityCodeCopied(true);
-                            
+
                                 setTimeout(() => {
                                   setIdentityCodeCopied(false);
                                 }, 2000);
                               } catch {
-                                setIdentityLinkMessage('❌ Failed to copy link code.');
+                                setIdentityLinkMessage(
+                                  '❌ Failed to copy link code.'
+                                );
                               }
                             }}
                             className="mt-3 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-white/[0.08]"
                           >
                             Copy Code
                           </button>
+
                           {identityCodeCopied && (
-                            <p className="mt-2 text-xs font-semibold text-emerald-300">
+                            <p
+                              className="mt-2 text-xs font-semibold text-emerald-300"
+                              role="status"
+                              aria-live="polite"
+                            >
                               ✅ Code copied successfully.
                             </p>
                           )}
                         </div>
                       )}
                     </div>
-
-                    <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                        Link this wallet with a code
-                      </p>
-
-                      <input
-                        type="text"
-                        value={identityLinkCodeInput}
-                        onChange={(e) => setIdentityLinkCodeInput(e.target.value.toUpperCase())}
-                        placeholder="MEGY-12345678"
-                        className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-white outline-none transition focus:border-violet-300"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={handleLinkWalletWithCode}
-                        disabled={identityLinkingByCode || !walletBase58 || !identityLinkCodeInput.trim()}
-                        className="mt-3 rounded-full bg-violet-300 px-4 py-2 text-xs font-black text-black transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {identityLinkingByCode ? 'Linking...' : 'Link Wallet With Code'}
-                      </button>
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
-            </div>
 
             {linkedWallets.length > 0 && (() => {
               const visibleWallets = showAllLinkedWallets
