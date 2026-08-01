@@ -1,7 +1,11 @@
 // app/api/auth/link-code/create/route.ts
 
 import { randomInt } from 'crypto';
-import { Client } from '@neondatabase/serverless';
+import {
+  Client,
+  neonConfig,
+} from '@neondatabase/serverless';
+import ws from 'ws';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
@@ -12,6 +16,18 @@ import {
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const DATABASE_URL =
+  process.env.NEON_DATABASE_URL ||
+  process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+  throw new Error(
+    'Missing env: NEON_DATABASE_URL or DATABASE_URL'
+  );
+}
+
+neonConfig.webSocketConstructor = ws;
 
 function createIdentityLinkCode(): string {
   const value = randomInt(0, 100_000_000);
@@ -45,15 +61,10 @@ function createPublicError(
 }
 
 async function getOrCreateIdentityLinkCode(
-  identityId: string
+  identityId: string,
+  sessionWalletAddress: string
 ): Promise<LinkCodeResult> {
-  const databaseUrl = process.env.DATABASE_URL;
-
-  if (!databaseUrl) {
-    throw new Error('DATABASE_URL is not configured.');
-  }
-
-  const client = new Client(databaseUrl);
+  const client = new Client(DATABASE_URL);
 
   let transactionStarted = false;
   let transactionFinished = false;
@@ -84,19 +95,27 @@ async function getOrCreateIdentityLinkCode(
      */
     const identityResult = await client.query(
       `
-        SELECT id
-        FROM identities
-        WHERE id = $1
-          AND status = 'active'
+        SELECT i.id
+        FROM identities i
+        JOIN identity_wallets iw
+          ON iw.identity_id = i.id
+        WHERE i.id = $1
+          AND i.status = 'active'
+          AND iw.wallet_address = $2
+          AND iw.chain = 'solana'
+          AND iw.verified_at IS NOT NULL
         LIMIT 1
       `,
-      [identityId]
+      [
+        identityId,
+        sessionWalletAddress,
+      ]
     );
 
     if (identityResult.rowCount === 0) {
       throw createPublicError(
-        'Active identity not found.',
-        404
+        'Active Identity session not found.',
+        401
       );
     }
 
@@ -274,7 +293,8 @@ export async function POST() {
 
     const linkCodeResult =
       await getOrCreateIdentityLinkCode(
-        session.identityId
+        session.identityId,
+        session.walletAddress
       );
 
     return NextResponse.json(
