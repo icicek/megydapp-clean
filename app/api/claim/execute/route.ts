@@ -12,9 +12,11 @@ import {
 } from '@neondatabase/serverless';
 import ws from 'ws';
 import { requireIdentityWalletAccess } from '@/app/api/_lib/identity-guard';
+import {
+  getServerSolanaConnection,
+} from '@/app/api/_lib/solana/serverRpc';
 import { createHash } from 'crypto';
 import {
-  Connection,
   Keypair,
   PublicKey,
   Transaction,
@@ -37,11 +39,6 @@ const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
 const MAX_SESSION_ID_LENGTH = 200;
 
 const CLAIM_DRY_RUN = String(process.env.CLAIM_DRY_RUN ?? '').trim().toLowerCase() === 'true';
-
-const RPC_URL =
-  process.env.SOLANA_RPC_URL ||
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-  'https://api.mainnet-beta.solana.com';
 
 function createDbPool() {
   const connectionString = process.env.DATABASE_URL;
@@ -169,10 +166,8 @@ type ClaimTransactionState =
 async function getClaimTransactionState(
   signature: string
 ): Promise<ClaimTransactionState> {
-  const connection = new Connection(
-    RPC_URL,
-    'confirmed'
-  );
+  const connection =
+    getServerSolanaConnection();
 
   const statuses =
     await connection.getSignatureStatuses(
@@ -1147,7 +1142,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const mintPk = new PublicKey(MEGY_MINT);
-    const conn = new Connection(RPC_URL, 'confirmed');
+    const conn =
+      getServerSolanaConnection();
     const treasurySigner = loadKeypair();
     const treasuryOwner = treasurySigner.publicKey;
 

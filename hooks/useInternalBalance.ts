@@ -11,7 +11,6 @@ import {
   TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
 } from '@solana/spl-token';
-import { connection as fallbackConnection } from '@/lib/solanaConnection';
 
 export type InternalBalance = { amount: number; decimals: number } | null;
 
@@ -39,8 +38,7 @@ export function useInternalBalance(
   opts?: { isSOL?: boolean }
 ) {
   const { publicKey, connected } = useWallet();
-  const { connection: providerConnection } = useConnection();
-  const connection = providerConnection ?? fallbackConnection;
+  const { connection } = useConnection();
 
   const [balance, setBalance] = useState<InternalBalance>(null);
   const [loading, setLoading] = useState(false);

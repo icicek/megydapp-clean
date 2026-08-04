@@ -100,18 +100,46 @@ export async function POST(req: NextRequest) {
     const code = normalizeLinkCode(body.code);
 
     if (!code) {
-      return jsonResponse(
-        {
-          ok: true,
-          available: false,
-          reason: 'invalid_code',
-        }
-      );
+      return jsonResponse({
+        ok: true,
+        available: false,
+        reason: 'invalid_code',
+      });
     }
 
     /*
-     * A wallet already belonging to an Identity cannot be
-     * transferred to another Identity through a Link Code.
+     * First verify that the code is active and belongs to an
+     * active Identity.
+     *
+     * Unknown, expired, used and inactive-Identity codes share
+     * the same public response.
+     */
+    const codeRows = await sql`
+      SELECT link_code.id
+      FROM identity_link_codes link_code
+      JOIN identities identity
+        ON identity.id = link_code.identity_id
+      WHERE link_code.code = ${code}
+        AND link_code.purpose = 'link_wallet'
+        AND link_code.used_at IS NULL
+        AND link_code.expires_at > NOW()
+        AND identity.status = 'active'
+      LIMIT 1
+    `;
+
+    if (codeRows.length === 0) {
+      return jsonResponse({
+        ok: true,
+        available: false,
+        reason: 'expired_or_used',
+      });
+    }
+
+    /*
+     * Only after validating the Link Code do we reveal whether
+     * the requested wallet is already linked.
+     *
+     * Wallet transfers between Identities are not supported.
      */
     const existingWalletRows = await sql`
       SELECT identity_id
@@ -126,34 +154,6 @@ export async function POST(req: NextRequest) {
         ok: true,
         available: false,
         reason: 'wallet_already_linked',
-      });
-    }
-
-    const codeRows = await sql`
-      SELECT
-        used_at,
-        expires_at
-      FROM identity_link_codes
-      WHERE code = ${code}
-        AND purpose = 'link_wallet'
-      LIMIT 1
-    `;
-
-    const codeRow = codeRows[0];
-
-    /*
-     * Do not reveal whether an unknown code ever existed.
-     * Invalid, expired and used codes share one public state.
-     */
-    if (
-      !codeRow ||
-      codeRow.used_at !== null ||
-      new Date(codeRow.expires_at).getTime() <= Date.now()
-    ) {
-      return jsonResponse({
-        ok: true,
-        available: false,
-        reason: 'expired_or_used',
       });
     }
 

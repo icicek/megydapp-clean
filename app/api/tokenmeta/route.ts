@@ -1,165 +1,299 @@
 // app/api/tokenmeta/route.ts
+
 import { NextResponse } from 'next/server';
-import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
+import {
+  Connection,
+  PublicKey,
+  clusterApiUrl,
+} from '@solana/web3.js';
+
+import {
+  getServerSolanaConnection,
+} from '@/app/api/_lib/solana/serverRpc';
+import {
+  getTokenMetadata,
+  TOKEN_2022_PROGRAM_ID,
+} from '@solana/spl-token';
+
+import {
+  getMetadataAccountDataSerializer,
+} from '@metaplex-foundation/mpl-token-metadata';
 
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const METAPLEX_PROGRAM_ID = new PublicKey(
-  'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'
-);
+type SupportedCluster =
+  | 'mainnet-beta'
+  | 'devnet';
 
-const RPC_CANDIDATES = [
-  process.env.ALCHEMY_SOLANA_RPC,
-  process.env.SOLANA_RPC,
-  process.env.QUICKNODE_SOLANA_RPC,
-  process.env.NEXT_PUBLIC_SOLANA_RPC,
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL,
-].filter(Boolean) as string[];
+const METAPLEX_PROGRAM_ID =
+  new PublicKey(
+    'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'
+  );
 
-function fallbackRpc(cluster: 'mainnet-beta' | 'devnet') {
-  return clusterApiUrl(cluster);
+let cachedDevnetConnection:
+  | Connection
+  | null = null;
+
+function getMetadataConnection(
+  cluster: SupportedCluster
+): Connection {
+  if (cluster === 'mainnet-beta') {
+    return getServerSolanaConnection();
+  }
+
+  /*
+   * Devnet is an explicitly requested network, not a
+   * production-mainnet fallback.
+   */
+  if (!cachedDevnetConnection) {
+    cachedDevnetConnection =
+      new Connection(
+        clusterApiUrl('devnet'),
+        'confirmed'
+      );
+  }
+
+  return cachedDevnetConnection;
 }
 
-function getMetadataPda(mint: PublicKey): PublicKey {
+function getMetadataPda(
+  mint: PublicKey
+): PublicKey {
   const seeds = [
     Buffer.from('metadata'),
     METAPLEX_PROGRAM_ID.toBuffer(),
     mint.toBuffer(),
   ];
-  const [pda] = PublicKey.findProgramAddressSync(seeds, METAPLEX_PROGRAM_ID);
+
+  const [pda] =
+    PublicKey.findProgramAddressSync(
+      seeds,
+      METAPLEX_PROGRAM_ID
+    );
+
   return pda;
 }
 
-function tidy(x: unknown) {
-  if (!x) return null;
-  const s = String(x).replace(/\0/g, '').trim();
-  return s || null;
+function tidy(
+  value: unknown
+): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = String(value)
+    .replace(/\0/g, '')
+    .trim();
+
+  return normalized || null;
 }
 
-function sanitizeSym(s: string | null) {
-  if (!s) return null;
-  const z = s.toUpperCase().replace(/[^A-Z0-9.$_/-]/g, '').slice(0, 16);
-  return z || null;
+function sanitizeSymbol(
+  value: string | null
+): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value
+    .toUpperCase()
+    .replace(/[^A-Z0-9.$_/-]/g, '')
+    .slice(0, 16);
+
+  return normalized || null;
 }
 
-function isRateLimitedOrForbidden(err: unknown) {
-  const s = String((err as any)?.message || err || '');
-  return (
-    s.includes('429') ||
-    s.includes('403') ||
-    s.includes('-32005') ||
-    s.includes('-32052') ||
-    s.toLowerCase().includes('forbidden') ||
-    s.toLowerCase().includes('rate limit') ||
-    s.toLowerCase().includes('access forbidden')
-  );
-}
-
-async function withTimeout<T>(promise: Promise<T>, ms = 5000): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
+async function withTimeout<T>(
+  promise: Promise<T>,
+  milliseconds = 5000
+): Promise<T> {
+  let timer:
+    | ReturnType<typeof setTimeout>
+    | undefined;
 
   try {
     return await Promise.race([
       promise,
+
       new Promise<T>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`timeout:${ms}ms`)), ms);
+        timer = setTimeout(
+          () => {
+            reject(
+              new Error(
+                `timeout:${milliseconds}ms`
+              )
+            );
+          },
+          milliseconds
+        );
       }),
     ]);
   } finally {
-    if (timer) clearTimeout(timer);
+    if (timer) {
+      clearTimeout(timer);
+    }
   }
 }
 
-async function fetchMetaFromConn(conn: Connection, mint: PublicKey) {
+async function fetchMetaFromConnection(
+  connection: Connection,
+  mint: PublicKey
+) {
   let name: string | null = null;
   let symbol: string | null = null;
   let image: string | null = null;
-  let source: 'token-2022' | 'metaplex' | 'none' = 'none';
 
+  let source:
+    | 'token-2022'
+    | 'metaplex'
+    | 'none' = 'none';
+
+  /*
+   * First try Token-2022 metadata extensions.
+   */
   try {
-    const mod: any = await import('@solana/spl-token-metadata').catch(() => null);
-
-    if (mod?.getTokenMetadata) {
-      const ext = await withTimeout(
-        mod.getTokenMetadata(conn, mint).catch(() => null),
+    const metadata =
+      await withTimeout(
+        getTokenMetadata(
+          connection,
+          mint,
+          'confirmed',
+          TOKEN_2022_PROGRAM_ID
+        ).catch(() => null),
         4000
       );
-
-      if (ext && typeof ext === 'object') {
-        const extObj = ext as Record<string, unknown>;
-      
-        const extName =
-          typeof extObj.name === 'string' ? tidy(extObj.name) : null;
-      
-        const extSymbol =
-          typeof extObj.symbol === 'string'
-            ? sanitizeSym(tidy(extObj.symbol))
-            : null;
-      
-        if (extName) name = extName;
-        if (extSymbol) symbol = extSymbol;
-      
-        if (name || symbol) {
-          source = 'token-2022';
-        }
+  
+    if (metadata) {
+      const metadataName =
+        tidy(metadata.name);
+  
+      const metadataSymbol =
+        sanitizeSymbol(
+          tidy(metadata.symbol)
+        );
+  
+      if (metadataName) {
+        name = metadataName;
+      }
+  
+      if (metadataSymbol) {
+        symbol = metadataSymbol;
+      }
+  
+      if (name || symbol) {
+        source = 'token-2022';
       }
     }
-  } catch {
-    // ignore
+  } catch (error) {
+    console.warn(
+      '[tokenmeta] Token-2022 metadata lookup failed:',
+      error
+    );
   }
 
+  /*
+   * Fall back to the Metaplex metadata account.
+   */
   if (!name || !symbol || !image) {
     try {
-      const pda = getMetadataPda(mint);
-      const acc = await withTimeout(conn.getAccountInfo(pda, 'confirmed'), 4000);
+      const metadataPda =
+        getMetadataPda(mint);
 
-      if (acc?.data) {
-        const mdMod: any = await import('@metaplex-foundation/mpl-token-metadata').catch(() => null);
+      const accountInfo =
+        await withTimeout(
+          connection.getAccountInfo(
+            metadataPda,
+            'confirmed'
+          ),
+          4000
+        );
 
-        if (mdMod?.Metadata?.deserialize) {
-          const [md] = mdMod.Metadata.deserialize(acc.data);
+      if (accountInfo?.data) {
+        const metadataSerializer =
+          getMetadataAccountDataSerializer();
 
-          const n = tidy(md?.data?.name);
-          const s = sanitizeSym(tidy(md?.data?.symbol));
+        const [metadata] =
+          metadataSerializer.deserialize(
+            accountInfo.data
+          );
 
-          if (n) name = n;
-          if (s) symbol = s;
+        const metadataName =
+          tidy(metadata.name);
 
-          const uri = tidy(md?.data?.uri);
-          if (uri) {
-            try {
-              const metaRes = await withTimeout(
-                fetch(uri, { cache: 'no-store' }),
+        const metadataSymbol =
+          sanitizeSymbol(
+            tidy(metadata.symbol)
+          );
+
+        if (metadataName) {
+          name = metadataName;
+        }
+
+        if (metadataSymbol) {
+          symbol = metadataSymbol;
+        }
+
+        const metadataUri =
+          tidy(metadata.uri);
+
+        if (metadataUri) {
+          try {
+            const metadataResponse =
+              await withTimeout(
+                fetch(metadataUri, {
+                  cache: 'no-store',
+                }),
                 4000
               );
 
-              if (metaRes.ok) {
-                const metaJson = await metaRes.json();
-                image = tidy(metaJson?.image) || tidy(metaJson?.logoURI) || null;
-              }
-            } catch {
-              // ignore
-            }
-          }
+            if (metadataResponse.ok) {
+              const metadataJson =
+                (await metadataResponse.json()) as Record<
+                  string,
+                  unknown
+                >;
 
-          if (name || symbol || image) {
-            source = 'metaplex';
+              image =
+                tidy(metadataJson.image) ||
+                tidy(metadataJson.logoURI) ||
+                null;
+            }
+          } catch (error) {
+            console.warn(
+              '[tokenmeta] off-chain metadata lookup failed:',
+              error
+            );
           }
         }
+        if (name || symbol || image) {
+          source = 'metaplex';
+        }
       }
-    } catch {
-      // ignore
+    } catch (error) {
+      console.warn(
+        '[tokenmeta] Metaplex metadata lookup failed:',
+        error
+      );
     }
   }
 
   name = tidy(name);
-  symbol = sanitizeSym(tidy(symbol));
+
+  symbol =
+    sanitizeSymbol(
+      tidy(symbol)
+    );
+
   image = tidy(image);
 
   return {
-    ok: Boolean(name || symbol || image),
+    ok: Boolean(
+      name ||
+      symbol ||
+      image
+    ),
     name,
     symbol,
     image,
@@ -167,80 +301,153 @@ async function fetchMetaFromConn(conn: Connection, mint: PublicKey) {
   };
 }
 
-export async function GET(req: Request) {
+export async function GET(
+  req: Request
+) {
   try {
-    const { searchParams } = new URL(req.url);
-    const mintStr = searchParams.get('mint');
-    const cluster = (searchParams.get('cluster') || 'mainnet-beta') as
-      | 'mainnet-beta'
-      | 'devnet';
+    const url =
+      new URL(req.url);
 
-    if (!mintStr) {
+    const mintString =
+      url.searchParams
+        .get('mint')
+        ?.trim();
+
+    const clusterValue =
+      url.searchParams
+        .get('cluster')
+        ?.trim() ||
+      'mainnet-beta';
+
+    if (
+      clusterValue !==
+        'mainnet-beta' &&
+      clusterValue !== 'devnet'
+    ) {
       return NextResponse.json(
-        { ok: false, error: 'Missing ?mint=' },
-        { status: 400 }
+        {
+          ok: false,
+          error:
+            'Unsupported cluster.',
+        },
+        {
+          status: 400,
+          headers: {
+            'Cache-Control':
+              'no-store',
+          },
+        }
+      );
+    }
+
+    const cluster:
+      SupportedCluster =
+        clusterValue;
+
+    if (!mintString) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Missing ?mint=',
+        },
+        {
+          status: 400,
+          headers: {
+            'Cache-Control':
+              'no-store',
+          },
+        }
       );
     }
 
     let mint: PublicKey;
+
     try {
-      mint = new PublicKey(mintStr);
+      mint =
+        new PublicKey(
+          mintString
+        );
     } catch {
       return NextResponse.json(
-        { ok: false, error: 'Invalid mint' },
-        { status: 400 }
+        {
+          ok: false,
+          error: 'Invalid mint',
+        },
+        {
+          status: 400,
+          headers: {
+            'Cache-Control':
+              'no-store',
+          },
+        }
       );
     }
 
-    const endpoints =
-      cluster === 'devnet'
-        ? ['https://api.devnet.solana.com']
-        : [...RPC_CANDIDATES, fallbackRpc(cluster)];
+    const connection =
+      getMetadataConnection(
+        cluster
+      );
 
-    let lastErr: unknown = null;
-    let lastRpc = '';
-    let lastEmptyRpc = '';
+    const result =
+      await fetchMetaFromConnection(
+        connection,
+        mint
+      );
 
-    for (const ep of endpoints) {
-      try {
-        const conn = new Connection(ep, 'confirmed');
-        const result = await fetchMetaFromConn(conn, mint);
-
-        if (result.ok) {
-          return NextResponse.json({
-            ...result,
-            cluster,
-            mint: mintStr,
-            rpc: ep,
-          });
+    if (!result.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          name: null,
+          symbol: null,
+          image: null,
+          source: 'none',
+          cluster,
+          mint: mint.toBase58(),
+          error:
+            'Token metadata was not found.',
+        },
+        {
+          headers: {
+            'Cache-Control':
+              'no-store',
+          },
         }
-
-        lastEmptyRpc = ep;
-      } catch (e) {
-        lastErr = e;
-        lastRpc = ep;
-
-        if (isRateLimitedOrForbidden(e)) {
-          continue;
-        }
-      }
+      );
     }
 
-    return NextResponse.json({
-      ok: false,
-      name: null,
-      symbol: null,
-      image: null,
-      source: 'none',
-      cluster,
-      mint: mintStr,
-      rpc: lastEmptyRpc || lastRpc || null,
-      error: lastErr ? String(lastErr) : null,
-    });
-  } catch (e: any) {
     return NextResponse.json(
-      { ok: false, error: e?.message || String(e) },
-      { status: 500 }
+      {
+        ...result,
+        cluster,
+        mint: mint.toBase58(),
+      },
+      {
+        headers: {
+          'Cache-Control':
+            'no-store',
+        },
+      }
+    );
+  } catch (error) {
+    console.error(
+      '[tokenmeta] request failed:',
+      error
+    );
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          'Failed to read token metadata.',
+      },
+      {
+        status: 500,
+        headers: {
+          'Cache-Control':
+            'no-store',
+        },
+      }
     );
   }
 }

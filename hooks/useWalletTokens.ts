@@ -4,8 +4,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
-import { connection as fallbackConnection } from '@/lib/solanaConnection';
-// (eski kaynaklar: en sona, son çare olarak bırakıyoruz)
 
 export interface TokenInfo {
   mint: string;
@@ -175,8 +173,7 @@ function fallbackSymbolFromMint(mint: string): string {
 
 export function useWalletTokens(options?: Options) {
   const { publicKey, connected } = useWallet();
-  const { connection: providerConnection } = useConnection();
-  const connection = providerConnection ?? fallbackConnection;
+  const { connection } = useConnection();
 
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);

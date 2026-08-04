@@ -14,7 +14,7 @@ export const IDENTITY_SCORE_WEIGHTS = {
 
   risk: {
     sharedFingerprint: 15,
-    heavilySharedFingerprint: 15,
+    heavilySharedFingerprint: 35,
   },
 } as const;
 

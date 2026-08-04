@@ -18,11 +18,15 @@ import classifyToken from '@/app/api/utils/classifyToken';
 
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
-import { Connection, PublicKey } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 import {
   requireIdentityWalletAccess,
   identityGuardErrorResponse,
 } from '@/app/api/_lib/identity-guard';
+
+import {
+  getServerSolanaConnection,
+} from '@/app/api/_lib/solana/serverRpc';
 
 function buildMessage(mint: string, wallet: string, ts: number) {
   return `coincarnation:vote:deadcoin\nmint:${mint}\nwallet:${wallet}\nts:${ts}`;
@@ -39,34 +43,55 @@ function verifySig(wallet: string, message: string, signature: string) {
   }
 }
 
-function getSolanaConnection() {
-  const rpc =
-    process.env.SOLANA_RPC_URL ||
-    process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-    process.env.NEXT_PUBLIC_RPC_URL;
+async function walletHoldsMint(
+  walletAddress: string,
+  mintAddress: string
+) {
+  const connection =
+    getServerSolanaConnection();
 
-  if (!rpc) {
-    throw new Error('SOLANA_RPC_URL_MISSING');
-  }
+  const owner =
+    new PublicKey(walletAddress);
 
-  return new Connection(rpc, 'confirmed');
-}
+  const mint =
+    new PublicKey(mintAddress);
 
-async function walletHoldsMint(walletAddress: string, mintAddress: string) {
-  const connection = getSolanaConnection();
-
-  const owner = new PublicKey(walletAddress);
-  const mint = new PublicKey(mintAddress);
-
-  const accounts = await connection.getParsedTokenAccountsByOwner(owner, {
-    mint,
-  });
+  const accounts =
+    await connection.getParsedTokenAccountsByOwner(
+      owner,
+      {
+        mint,
+      },
+      'confirmed'
+    );
 
   return accounts.value.some((item) => {
-    const amount =
-      item.account.data.parsed?.info?.tokenAmount?.uiAmount ?? 0;
+    const tokenAmount =
+      item.account.data.parsed?.info
+        ?.tokenAmount;
 
-    return Number(amount) > 0;
+    const rawAmount =
+      tokenAmount?.amount;
+
+    /*
+     * Use the raw integer amount rather than uiAmount.
+     *
+     * uiAmount may be null or lose precision for very large
+     * token balances.
+     */
+    if (
+      typeof rawAmount === 'string'
+    ) {
+      try {
+        return BigInt(rawAmount) > 0n;
+      } catch {
+        return false;
+      }
+    }
+
+    return Number(
+      tokenAmount?.uiAmount ?? 0
+    ) > 0;
   });
 }
 
@@ -190,7 +215,7 @@ export async function POST(req: NextRequest) {
     // ✅ Origin allowlist (existing guard)
     const origin = req.headers.get('origin') || '';
     const allow = parseAllowedOrigins();
-    if (allow.length && !allow.some((a) => origin.startsWith(a))) {
+    if (allow.length && !allow.includes(origin)) {
       return NextResponse.json(
         { success: false, error: 'Origin not allowed' },
         { status: 403 },

@@ -22,6 +22,9 @@ import {
   awardUsdPoints,
   awardDeadcoinFirst,
 } from '@/app/api/_lib/corepoints';
+import {
+  getServerSolanaRpcUrlForJsonRpc,
+} from '@/app/api/_lib/solana/serverRpc';
 
 // ✅ Coincarnation treasury wallet must exist (server-side guard)
 const COINCARNE_TREASURY_WALLET =
@@ -33,13 +36,6 @@ if (!process.env.NEON_DATABASE_URL && !process.env.DATABASE_URL) {
 }
 
 const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
-
-// RPC URL (öncelik)
-const SOLANA_RPC_URL =
-  process.env.ALCHEMY_SOLANA_RPC ||        // 🔹 1. tercih: Alchemy
-  process.env.SOLANA_RPC_URL ||            // opsiyonel genel endpoint
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||// public fallback
-  'https://api.mainnet-beta.solana.com';   // en son Solana default
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
@@ -76,15 +72,116 @@ function normalizeTokenContractForDb(p: {
   return raw;
 }
 
-/* ---------- Basit JSON-RPC helper ---------- */
-async function rpc(method: string, params: any[]) {
-  const r = await fetch(SOLANA_RPC_URL, {
+type SignatureStatusResult = {
+  value: Array<{
+    err?: unknown;
+    confirmationStatus?: string | null;
+  } | null>;
+};
+
+type AccountInfoResult = {
+  value: {
+    owner?: string;
+  } | null;
+};
+
+type ParsedTransactionResult = {
+  meta?: {
+    err?: unknown;
+    preBalances?: Array<number | string>;
+    postBalances?: Array<number | string>;
+    preTokenBalances?: Array<{
+      mint?: string;
+      accountIndex?: number;
+      uiTokenAmount?: {
+        amount?: string;
+        decimals?: number;
+      };
+    }>;
+    postTokenBalances?: Array<{
+      mint?: string;
+      accountIndex?: number;
+      uiTokenAmount?: {
+        amount?: string;
+        decimals?: number;
+      };
+    }>;
+  } | null;
+
+  transaction?: {
+    message?: {
+      accountKeys?: Array<
+        | string
+        | {
+            pubkey?: string | {
+              toString(): string;
+            };
+            signer?: boolean;
+          }
+      >;
+    };
+  };
+};
+
+type SolanaJsonRpcResponse<T = unknown> = {
+  jsonrpc?: string;
+  id?: number | string;
+  result?: T;
+  error?: {
+    code?: number;
+    message?: string;
+    data?: unknown;
+  };
+};
+
+async function rpc<T = unknown>(
+  method: string,
+  params: unknown[]
+): Promise<SolanaJsonRpcResponse<T>> {
+  const rpcUrl =
+    getServerSolanaRpcUrlForJsonRpc();
+
+  const response = await fetch(rpcUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+    },
     cache: 'no-store',
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method,
+      params,
+    }),
   });
-  return r.json();
+
+  if (!response.ok) {
+    throw new Error(
+      `SOLANA_RPC_HTTP_${response.status}`
+    );
+  }
+
+  const payload =
+    (await response.json()) as SolanaJsonRpcResponse<T>;
+
+  if (payload.error) {
+    console.error(
+      '[COINCARNATION_RECORD] Solana RPC error:',
+      {
+        method,
+        code: payload.error.code,
+        message: payload.error.message,
+      }
+    );
+
+    throw new Error(
+      payload.error.message
+        ? `SOLANA_RPC_ERROR: ${payload.error.message}`
+        : 'SOLANA_RPC_ERROR'
+    );
+  }
+
+  return payload;
 }
 
 function toU64(ui: number, decimals: number): bigint {
@@ -97,25 +194,47 @@ function toU64(ui: number, decimals: number): bigint {
   return BigInt(joined);
 }
 
-async function getSolanaTransaction(signature: string) {
-  // jsonParsed: instruction parse etmek kolay; meta balances ile doğrulama yapacağız
-  return rpc('getTransaction', [
-    signature,
-    {
-      encoding: 'jsonParsed',
-      commitment: 'confirmed',
-      maxSupportedTransactionVersion: 0,
-    },
-  ]);
+async function getSolanaTransaction(
+  signature: string
+): Promise<
+  SolanaJsonRpcResponse<
+    ParsedTransactionResult | null
+  >
+> {
+  return rpc<ParsedTransactionResult | null>(
+    'getTransaction',
+    [
+      signature,
+      {
+        encoding: 'jsonParsed',
+        commitment: 'confirmed',
+        maxSupportedTransactionVersion: 0,
+      },
+    ]
+  );
 }
 
-async function getAccountInfoOwner(pubkey: string): Promise<string | null> {
-  const j = await rpc('getAccountInfo', [
-    pubkey,
-    { encoding: 'base64', commitment: 'confirmed' },
-  ]);
-  const v = j?.result?.value;
-  return v?.owner ? String(v.owner) : null;
+async function getAccountInfoOwner(
+  pubkey: string
+): Promise<string | null> {
+  const response =
+    await rpc<AccountInfoResult>(
+      'getAccountInfo',
+      [
+        pubkey,
+        {
+          encoding: 'base64',
+          commitment: 'confirmed',
+        },
+      ]
+    );
+
+  const accountInfo =
+    response.result?.value;
+
+  return accountInfo?.owner
+    ? String(accountInfo.owner)
+    : null;
 }
 
 async function verifySolanaTransferOrThrow(p: {
@@ -128,18 +247,31 @@ async function verifySolanaTransferOrThrow(p: {
 }) {
   const { signature, fromWallet, destWallet, kind, mint, amountUi } = p;
 
-  const txj = await getSolanaTransaction(signature);
-  const tx = txj?.result;
+  const transactionResponse =
+    await getSolanaTransaction(signature);
 
-  if (!tx) {
+  const transaction =
+    transactionResponse.result;
+
+  if (!transaction) {
     throw new Error('TX_NOT_FOUND');
   }
-  if (tx?.meta?.err) {
+
+  if (transaction.meta?.err) {
     throw new Error('TX_META_ERR');
   }
 
-  const message = tx?.transaction?.message;
-  const meta = tx?.meta;
+  const message =
+    transaction.transaction?.message;
+
+  const meta =
+    transaction.meta;
+
+  if (!message || !meta) {
+    throw new Error(
+      'TX_DATA_INCOMPLETE'
+    );
+  }
 
   const accountKeys: string[] =
     (message?.accountKeys || []).map((k: any) =>
@@ -224,16 +356,41 @@ async function verifySolanaTransferOrThrow(p: {
 }
 
 /* ---------- Tek seferlik status okuma ---------- */
-async function isSolanaTxConfirmedOnce(signature: string): Promise<boolean> {
-  const j = await rpc('getSignatureStatuses', [
-    [signature],
-    { searchTransactionHistory: true },
-  ]);
-  const status = j?.result?.value?.[0] || null;
-  if (!status) return false;
-  if (status.err !== null) return false;
-  const cs = status.confirmationStatus as string | undefined;
-  return cs === 'confirmed' || cs === 'finalized';
+async function isSolanaTxConfirmedOnce(
+  signature: string
+): Promise<boolean> {
+  const response =
+    await rpc<SignatureStatusResult>(
+      'getSignatureStatuses',
+      [
+        [signature],
+        {
+          searchTransactionHistory: true,
+        },
+      ]
+    );
+
+  const status =
+    response.result?.value?.[0] ?? null;
+
+  if (!status) {
+    return false;
+  }
+
+  if (
+    status.err !== null &&
+    status.err !== undefined
+  ) {
+    return false;
+  }
+
+  const confirmationStatus =
+    status.confirmationStatus;
+
+  return (
+    confirmationStatus === 'confirmed' ||
+    confirmationStatus === 'finalized'
+  );
 }
 
 /* ----------  Polling ile confirmation bekleme  ---------- */

@@ -7,13 +7,6 @@ jest.mock('@solana/wallet-adapter-react', () => ({
   useConnection: jest.fn(),
 }));
 
-jest.mock('@/lib/solanaConnection', () => ({
-  connection: {
-    getBalance: jest.fn(),
-    getAccountInfo: jest.fn(),
-  },
-}));
-
 jest.mock('@solana/spl-token', () => ({
   getAssociatedTokenAddress: jest.fn(),
   getMint: jest.fn(),
@@ -48,9 +41,9 @@ const mockUseWallet = require('@solana/wallet-adapter-react')
 const mockUseConnection = require('@solana/wallet-adapter-react')
   .useConnection as jest.Mock;
 
-const mockConn = require('@/lib/solanaConnection').connection as {
-  getBalance: jest.Mock;
-  getAccountInfo: jest.Mock;
+const mockConn = {
+  getBalance: jest.fn(),
+  getAccountInfo: jest.fn(),
 };
 
 const spl = require('@solana/spl-token') as {
@@ -61,12 +54,11 @@ const spl = require('@solana/spl-token') as {
 
 describe('useInternalBalance', () => {
   beforeEach(() => {
+    jest.clearAllMocks();
+  
     mockUseConnection.mockReturnValue({
       connection: mockConn,
     });
-  });
-  afterEach(() => {
-    jest.clearAllMocks();
   });
 
   it('returns null when no wallet', async () => {

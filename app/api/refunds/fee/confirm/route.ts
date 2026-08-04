@@ -1,25 +1,26 @@
-//app/api/refunds/fee/confirm/route.ts
+// app/api/refunds/fee/confirm/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Connection, PublicKey } from '@solana/web3.js';
+import {
+  PublicKey,
+  type Connection,
+} from '@solana/web3.js';
 import { neon } from '@neondatabase/serverless';
+
 import { getRefundFeeLamports } from '@/app/api/_lib/refund-config';
 import { isBlacklistRefundReason } from '@/app/api/_lib/refund-reason';
 import { requireIdentityWalletAccess } from '@/app/api/_lib/identity-guard';
+import {
+  getServerSolanaConnection,
+} from '@/app/api/_lib/solana/serverRpc';
 
-const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
+const sql = neon(
+  process.env.NEON_DATABASE_URL ||
+    process.env.DATABASE_URL!
+);
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-function getConnection() {
-  const rpc =
-    process.env.SOLANA_RPC_URL ||
-    process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-    'https://api.mainnet-beta.solana.com';
-
-  return new Connection(rpc, 'confirmed');
-}
 
 function getRefundFeeTreasuryWallet() {
   return (
@@ -148,24 +149,32 @@ export async function POST(req: NextRequest) {
       );
     }
     if (wallet && wallet !== rowWallet) {
+        console.warn('[refunds/fee/confirm] wallet mismatch', {
+          rowId,
+          rowWallet,
+          requestWallet: wallet,
+        });
+
         return NextResponse.json(
           {
             success: false,
             error: 'WALLET_MISMATCH',
-            debug_row_wallet: rowWallet,
-            debug_body_wallet: wallet,
           },
           { status: 409 }
         );
     }
       
       if (mint && mint !== rowMint) {
+        console.warn('[refunds/fee/confirm] mint mismatch', {
+          rowId,
+          rowMint,
+          requestMint: mint,
+        });
+        
         return NextResponse.json(
           {
             success: false,
             error: 'MINT_MISMATCH',
-            debug_row_mint: rowMint,
-            debug_body_mint: mint,
           },
           { status: 409 }
         );
@@ -253,33 +262,40 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const connection = getConnection();
+    const connection =
+      getServerSolanaConnection();
     const parsed = await getParsedTransactionWithRetry(connection, feeTxSignature, 10, 2000);
 
     if (!parsed) {
+        console.warn('[refunds/fee/confirm] fee transaction not found', {
+          rowId,
+          feeTxSignature,
+        });
+
         return NextResponse.json(
-            {
+          {
             success: false,
             error: 'FEE_TX_NOT_FOUND',
-            debug_row_id: rowId,
-            debug_fee_tx_signature: feeTxSignature,
-            },
-            { status: 404 }
+          },
+          { status: 404 }
         );
     }
 
     if (parsed.meta?.err) {
+        console.warn('[refunds/fee/confirm] fee transaction failed', {
+          rowId,
+          rowWallet,
+          rowMint,
+          feeTxSignature,
+          metaError: parsed.meta.err,
+        });
+
         return NextResponse.json(
-            {
+          {
             success: false,
             error: 'FEE_TX_FAILED',
-            debug_fee_tx_signature: feeTxSignature,
-            debug_meta_err: parsed.meta.err,
-            debug_row_id: rowId,
-            debug_row_wallet: rowWallet,
-            debug_row_mint: rowMint,
-            },
-            { status: 409 }
+          },
+          { status: 409 }
         );
     }
 
@@ -355,9 +371,6 @@ export async function POST(req: NextRequest) {
         refund_fee_lamports: Number(saved.refund_fee_lamports || 0),
         refund_fee_tx_signature: String(saved.refund_fee_tx_signature || ''),
         refund_status: String(saved.refund_status || ''),
-        debug_refund_status_before: refundStatus,
-        debug_row_wallet: rowWallet,
-        debug_row_mint: rowMint,
       });
     }
 

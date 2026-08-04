@@ -1,86 +1,150 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { useWalletTokens } from '../useWalletTokens';
 
-jest.mock('@solana/spl-token', () => ({
-  TOKEN_PROGRAM_ID: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-  TOKEN_2022_PROGRAM_ID: 'TokenzQdBNbLqP5VE6cJow7Ypt53UFcYkuETMZioLhX',
-}), { virtual: true });
+jest.mock(
+  '@solana/spl-token',
+  () => ({
+    TOKEN_PROGRAM_ID:
+      'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+    TOKEN_2022_PROGRAM_ID:
+      'TokenzQdBNbLqP5VE6cJow7Ypt53UFcYkuETMZioLhX',
+  }),
+  { virtual: true }
+);
 
 jest.mock('@solana/wallet-adapter-react', () => ({
   useWallet: jest.fn(),
+  useConnection: jest.fn(),
 }));
 
-jest.mock('@/lib/solanaConnection', () => ({
-  connection: {
-    getParsedTokenAccountsByOwner: jest.fn(),
-    getBalance: jest.fn(),
-  },
-}));
+const mockUseWallet =
+  require('@solana/wallet-adapter-react')
+    .useWallet as jest.Mock;
 
-jest.mock('@/lib/utils', () => ({
-  fetchSolanaTokenList: jest.fn(),
-}));
+const mockUseConnection =
+  require('@solana/wallet-adapter-react')
+    .useConnection as jest.Mock;
 
-jest.mock('@/lib/client/fetchTokenMetadataClient', () => ({
-  fetchTokenMetadataClient: jest.fn(),
-}));
-
-const mockUseWallet = require('@solana/wallet-adapter-react').useWallet as jest.Mock;
-const mockConn = require('@/lib/solanaConnection').connection as any;
-const mockTokenList = require('@/lib/utils').fetchSolanaTokenList as jest.Mock;
-const mockFetchMeta = require('@/lib/client/fetchTokenMetadataClient').fetchTokenMetadataClient as jest.Mock;
+const mockConn = {
+  getParsedTokenAccountsByOwner: jest.fn(),
+  getBalance: jest.fn(),
+};
 
 describe('useWalletTokens', () => {
-  afterEach(() => {
-    jest.clearAllMocks();
+  beforeEach(() => {
+    jest.resetAllMocks();
+
+    mockUseConnection.mockReturnValue({
+      connection: mockConn,
+    });
+
+    /*
+     * Force the hook through its client-RPC fallback path.
+     */
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: jest.fn(),
+    }) as jest.Mock;
   });
 
   it('returns empty when not connected', () => {
-    mockUseWallet.mockReturnValue({ publicKey: null, connected: false });
-    const { result } = renderHook(() => useWalletTokens());
+    mockUseWallet.mockReturnValue({
+      publicKey: null,
+      connected: false,
+    });
+
+    const { result } = renderHook(() =>
+      useWalletTokens()
+    );
+
     expect(result.current.tokens).toEqual([]);
   });
 
-  it('collects tokens from Token Program & adds SOL', async () => {
-    mockUseWallet.mockReturnValue({ publicKey: { toBase58: () => 'W' }, connected: true });
-
-    // Program 1: one SPL with balance 5
-    (mockConn.getParsedTokenAccountsByOwner as jest.Mock).mockResolvedValueOnce({
-      value: [{
-        account: {
-          data: { parsed: { info: { mint: 'MINT_A', tokenAmount: { uiAmountString: '5', decimals: 6 } } } }
-        }
-      }]
+  it('collects tokens from Token Program and adds SOL', async () => {
+    mockUseWallet.mockReturnValue({
+      publicKey: {
+        toBase58: () => 'W',
+      },
+      connected: true,
     });
-    // Program 2: zero balance token (filtered out)
-    (mockConn.getParsedTokenAccountsByOwner as jest.Mock).mockResolvedValueOnce({ value: [] });
 
-    // No SOL balance
+    mockConn.getParsedTokenAccountsByOwner
+      .mockResolvedValueOnce({
+        value: [
+          {
+            account: {
+              data: {
+                parsed: {
+                  info: {
+                    mint: 'MINT_A',
+                    tokenAmount: {
+                      uiAmountString: '5',
+                      decimals: 6,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        value: [],
+      });
+
     mockConn.getBalance.mockResolvedValueOnce(0);
 
-    // Token list metadata
-    mockTokenList.mockResolvedValueOnce([{ address: 'MINT_A', symbol: 'AAA', logoURI: 'x' }]);
-    mockFetchMeta.mockResolvedValue(null);
+    const { result } = renderHook(() =>
+      useWalletTokens()
+    );
 
-    const { result } = renderHook(() => useWalletTokens());
-    await waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() =>
+      expect(result.current.loading).toBe(false)
+    );
 
     expect(result.current.tokens).toEqual([
-      { mint: 'MINT_A', amount: 5, symbol: 'AAA', logoURI: 'x' },
+      expect.objectContaining({
+        mint: 'MINT_A',
+        amount: 5,
+        uiAmountString: '5',
+        decimals: 6,
+        symbol: 'MINT_A',
+        name: 'MINT_A',
+      }),
     ]);
   });
 
-  it('adds SOL when lamports > 0', async () => {
-    mockUseWallet.mockReturnValue({ publicKey: { toBase58: () => 'W' }, connected: true });
+  it('adds SOL when lamports are greater than zero', async () => {
+    mockUseWallet.mockReturnValue({
+      publicKey: {
+        toBase58: () => 'W',
+      },
+      connected: true,
+    });
 
-    (mockConn.getParsedTokenAccountsByOwner as jest.Mock).mockResolvedValue({ value: [] });
-    mockConn.getBalance.mockResolvedValueOnce(1.5e9); // 1.5 SOL
-    mockTokenList.mockResolvedValueOnce([]);
-    mockFetchMeta.mockResolvedValue(null);
+    mockConn.getParsedTokenAccountsByOwner.mockResolvedValue({
+      value: [],
+    });
 
-    const { result } = renderHook(() => useWalletTokens());
-    await waitFor(() => expect(result.current.loading).toBe(false));
+    mockConn.getBalance.mockResolvedValueOnce(1.5e9);
 
-    expect(result.current.tokens[0]).toEqual({ mint: 'SOL', amount: 1.5, symbol: 'SOL' });
+    const { result } = renderHook(() =>
+      useWalletTokens()
+    );
+
+    await waitFor(() =>
+      expect(result.current.loading).toBe(false)
+    );
+
+    expect(result.current.tokens[0]).toEqual(
+      expect.objectContaining({
+        mint: 'So11111111111111111111111111111111111111112',
+        amount: 1.5,
+        symbol: 'SOL',
+        name: 'Solana',
+        decimals: 9,
+      })
+    );
   });
 });

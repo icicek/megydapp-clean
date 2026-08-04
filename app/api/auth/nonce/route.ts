@@ -9,6 +9,7 @@ import {
   createUserNonce,
 } from '@/app/api/_lib/user-auth';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const NO_STORE_HEADERS = {

@@ -1,7 +1,10 @@
-//app/api/admin/refunds/finalize/route.ts
+// app/api/admin/refunds/finalize/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Connection, PublicKey } from '@solana/web3.js';
+import {
+  PublicKey,
+  type Connection,
+} from '@solana/web3.js';
 import {
   TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
@@ -9,22 +12,23 @@ import {
   getMint,
 } from '@solana/spl-token';
 import { neon } from '@neondatabase/serverless';
-import { requireAdmin, HttpError } from '@/app/api/_lib/jwt';
-import { isBlacklistRefundReason } from '@/app/api/_lib/refund-reason';
 
-const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
+import {
+  requireAdmin,
+  HttpError,
+} from '@/app/api/_lib/jwt';
+import { isBlacklistRefundReason } from '@/app/api/_lib/refund-reason';
+import {
+  getServerSolanaConnection,
+} from '@/app/api/_lib/solana/serverRpc';
+
+const sql = neon(
+  process.env.NEON_DATABASE_URL ||
+    process.env.DATABASE_URL!
+);
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-function getConnection() {
-  const rpc =
-    process.env.SOLANA_RPC_URL ||
-    process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-    'https://api.mainnet-beta.solana.com';
-
-  return new Connection(rpc, 'confirmed');
-}
 
 function getCoincarnationTreasuryWallet() {
   return (
@@ -242,7 +246,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const connection = getConnection();
+    const connection =
+      getServerSolanaConnection();
 
     const parsed = await getParsedTransactionWithRetry(
       connection,

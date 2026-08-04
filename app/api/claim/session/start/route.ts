@@ -2,23 +2,34 @@
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
 import {
-  Connection,
   PublicKey,
   type ParsedInstruction,
 } from '@solana/web3.js';
 
-import { NextRequest, NextResponse } from 'next/server';
+import {
+  NextRequest,
+  NextResponse,
+} from 'next/server';
+
 import {
   Pool,
   neonConfig,
   type PoolClient,
 } from '@neondatabase/serverless';
+
 import { randomUUID } from 'crypto';
 import bs58 from 'bs58';
 import ws from 'ws';
 
-import { requireIdentityWalletAccess } from '@/app/api/_lib/identity-guard';
+import {
+  requireIdentityWalletAccess,
+} from '@/app/api/_lib/identity-guard';
+
+import {
+  getServerSolanaConnection,
+} from '@/app/api/_lib/solana/serverRpc';
 
 neonConfig.webSocketConstructor = ws;
 
@@ -34,11 +45,6 @@ const CLAIM_DRY_RUN =
   String(process.env.CLAIM_DRY_RUN ?? '')
     .trim()
     .toLowerCase() === 'true';
-
-const RPC_URL =
-  process.env.SOLANA_RPC_URL ||
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-  'https://api.mainnet-beta.solana.com';
 
 const CLAIM_FEE_TREASURY_RAW = String(
   process.env.CLAIM_FEE_TREASURY ??
@@ -497,10 +503,8 @@ async function verifyFeeTransfer(params: {
   treasury: PublicKey;
   expectedLamports: number;
 }): Promise<FeeVerificationResult> {
-  const connection = new Connection(
-    RPC_URL,
-    'confirmed'
-  );
+  const connection =
+    getServerSolanaConnection();
 
   let transaction;
 

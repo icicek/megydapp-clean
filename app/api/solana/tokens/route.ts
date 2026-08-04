@@ -1,32 +1,43 @@
 // app/api/solana/tokens/route.ts
 import { NextResponse } from 'next/server';
-import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
+import {
+  Connection,
+  PublicKey,
+  clusterApiUrl,
+} from '@solana/web3.js';
+
+import {
+  getServerSolanaConnection,
+} from '@/app/api/_lib/solana/serverRpc';
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Multi-provider sıra (ilk başarılı olan kullanılır)
-const RPC_CANDIDATES = [
-  process.env.ALCHEMY_SOLANA_RPC,         // Alchemy
-  process.env.SOLANA_RPC,                 // Helius
-  process.env.QUICKNODE_SOLANA_RPC,       // QuickNode
-  process.env.NEXT_PUBLIC_SOLANA_RPC,
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL,
-].filter(Boolean) as string[];
-
-function fallbackRpc(cluster: 'mainnet-beta' | 'devnet') {
-  return clusterApiUrl(cluster);
-}
-
 // ✅ TTL (serverless + UX)
 const CACHE_TTL_MS = 20_000; // 20 sn
 
-type CacheEntry = { at: number; body: any; rpcUsed?: string };
+type CacheEntry = {
+  at: number;
+  body: {
+    success: true;
+    tokens: Array<{
+      mint: string;
+      raw: string;
+      decimals: number;
+      uiAmountString: string;
+      amount: number;
+    }>;
+    wsolMint: string;
+  };
+};
 const cache = new Map<string, CacheEntry>();
 
 // ✅ Aynı anda gelen istekleri tekle
-const inflight = new Map<string, Promise<{ body: any; rpcUsed: string }>>();
+const inflight = new Map<
+  string,
+  Promise<CacheEntry['body']>
+>();
 
 // ✅ CDN cache header: 15 sn canlı, 60 sn SWR
 const CDN_CACHE_HEADER = 'public, s-maxage=15, stale-while-revalidate=60';
@@ -34,17 +45,34 @@ const CDN_CACHE_HEADER = 'public, s-maxage=15, stale-while-revalidate=60';
 // ✅ Native SOL'u WSOL mint’i ile hizalıyoruz
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
-function isRateLimitedOrForbidden(err: unknown) {
-  const s = String((err as any)?.message || err || '');
-  return (
-    s.includes('429') ||
-    s.includes('403') ||
-    s.includes('-32005') ||
-    s.includes('-32052') ||
-    s.toLowerCase().includes('forbidden') ||
-    s.toLowerCase().includes('rate limit') ||
-    s.toLowerCase().includes('access forbidden')
-  );
+type SupportedCluster =
+  | 'mainnet-beta'
+  | 'devnet';
+
+let cachedDevnetConnection:
+  | Connection
+  | null = null;
+
+function getTokensConnection(
+  cluster: SupportedCluster
+): Connection {
+  if (cluster === 'mainnet-beta') {
+    return getServerSolanaConnection();
+  }
+
+  /*
+   * Devnet is available only when explicitly requested.
+   * It is never used as a mainnet fallback.
+   */
+  if (!cachedDevnetConnection) {
+    cachedDevnetConnection =
+      new Connection(
+        clusterApiUrl('devnet'),
+        'confirmed'
+      );
+  }
+
+  return cachedDevnetConnection;
 }
 
 type ParsedRow = { mint: string; raw: bigint; decimals: number };
@@ -82,59 +110,149 @@ function extractRows(accs: any[]): ParsedRow[] {
   return out;
 }
 
-async function fetchOnce(conn: Connection, owner: PublicKey) {
-  const c: 'confirmed' = 'confirmed';
+async function fetchOnce(
+  connection: Connection,
+  owner: PublicKey
+) {
+  const commitment = 'confirmed' as const;
 
-  // ✅ Sadece owner-parsed (en ucuz yol)
-  const [v1Res, v22Res] = await Promise.allSettled([
-    conn.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID }, c),
-    conn.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_2022_PROGRAM_ID }, c),
+  /*
+   * Do not silently convert RPC failures into an empty wallet.
+   *
+   * A successful response must represent a complete snapshot:
+   * legacy SPL tokens, Token-2022 tokens and native SOL.
+   */
+  const [
+    legacyTokenResult,
+    token2022Result,
+    lamports,
+  ] = await Promise.all([
+    connection.getParsedTokenAccountsByOwner(
+      owner,
+      {
+        programId: TOKEN_PROGRAM_ID,
+      },
+      commitment
+    ),
+
+    connection.getParsedTokenAccountsByOwner(
+      owner,
+      {
+        programId: TOKEN_2022_PROGRAM_ID,
+      },
+      commitment
+    ),
+
+    connection.getBalance(
+      owner,
+      commitment
+    ),
   ]);
 
-  let accs: any[] = [];
-  if (v1Res.status === 'fulfilled') accs = accs.concat(v1Res.value.value);
-  if (v22Res.status === 'fulfilled') accs = accs.concat(v22Res.value.value);
+  const accounts = [
+    ...legacyTokenResult.value,
+    ...token2022Result.value,
+  ];
 
-  // normalize & merge by mint
-  const rows = extractRows(accs);
-  const merged = new Map<string, { raw: bigint; decimals: number }>();
-  for (const r of rows) {
-    const prev = merged.get(r.mint);
-    if (!prev) merged.set(r.mint, { raw: r.raw, decimals: r.decimals });
-    else merged.set(r.mint, { raw: prev.raw + r.raw, decimals: prev.decimals });
-  }
+  const rows = extractRows(accounts);
 
-  // Native SOL (lamports) → WSOL mint
-  try {
-    const lamports = await conn.getBalance(owner, c);
-    if (lamports > 0) {
-      const prev = merged.get(WSOL_MINT);
-      const raw = BigInt(lamports);
-      if (!prev) merged.set(WSOL_MINT, { raw, decimals: 9 });
-      else merged.set(WSOL_MINT, { raw: prev.raw + raw, decimals: prev.decimals });
+  const merged = new Map<
+    string,
+    {
+      raw: bigint;
+      decimals: number;
     }
-  } catch {
-    // ignore
+  >();
+
+  for (const row of rows) {
+    const previous =
+      merged.get(row.mint);
+
+    if (!previous) {
+      merged.set(row.mint, {
+        raw: row.raw,
+        decimals: row.decimals,
+      });
+
+      continue;
+    }
+
+    merged.set(row.mint, {
+      raw: previous.raw + row.raw,
+      decimals: previous.decimals,
+    });
   }
 
-  const tokens = Array.from(merged.entries())
-    .map(([mint, { raw, decimals }]) => {
-      const rawStr = raw.toString();
-      const uiAmountString = rawToUiString(rawStr, decimals);
+  /*
+   * Represent native SOL with the canonical WSOL mint so
+   * the rest of the application can use one token shape.
+   */
+  if (lamports > 0) {
+    const previous =
+      merged.get(WSOL_MINT);
 
-      // amount: sadece sıralama için "yaklaşık" number (overflow olursa 0'a düş)
-      const approx =
-        decimals > 0
-          ? Number(uiAmountString) // ui string -> number (çok büyükse Infinity olabilir)
-          : Number(rawStr);
+    const raw =
+      BigInt(lamports);
 
-      const amount = Number.isFinite(approx) ? approx : 0;
+    if (!previous) {
+      merged.set(WSOL_MINT, {
+        raw,
+        decimals: 9,
+      });
+    } else {
+      merged.set(WSOL_MINT, {
+        raw: previous.raw + raw,
+        decimals: previous.decimals,
+      });
+    }
+  }
 
-      return { mint, raw: rawStr, decimals, uiAmountString, amount };
-    })
-    .sort((a, b) => b.amount - a.amount);
+  return Array.from(
+    merged.entries()
+  )
+    .map(
+      ([
+        mint,
+        {
+          raw,
+          decimals,
+        },
+      ]) => {
+        const rawString =
+          raw.toString();
 
-  return tokens;
+        const uiAmountString =
+          rawToUiString(
+            rawString,
+            decimals
+          );
+
+        const approximateAmount =
+          decimals > 0
+            ? Number(uiAmountString)
+            : Number(rawString);
+
+        const amount =
+          Number.isFinite(
+            approximateAmount
+          )
+            ? approximateAmount
+            : 0;
+
+        return {
+          mint,
+          raw: rawString,
+          decimals,
+          uiAmountString,
+          amount,
+        };
+      }
+    )
+    .sort(
+      (first, second) =>
+        second.amount -
+        first.amount
+    );
 }
 
 export async function GET(req: Request) {
@@ -142,9 +260,40 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const tag = url.searchParams.get('tag') || 'none';
     const owner = url.searchParams.get('owner');
-    const cluster =
-      (url.searchParams.get('cluster') as 'mainnet-beta' | 'devnet') || 'mainnet-beta';
-    const force = url.searchParams.get('force') === '1';
+    const clusterValue =
+      url.searchParams
+        .get('cluster')
+        ?.trim() ||
+      'mainnet-beta';
+
+    if (
+      clusterValue !== 'mainnet-beta' &&
+      clusterValue !== 'devnet'
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Unsupported cluster',
+        },
+        {
+          status: 400,
+          headers: {
+            'Cache-Control': 'no-store',
+          },
+        }
+      );
+    }
+
+    const cluster: SupportedCluster =
+      clusterValue;
+
+    /*
+    * Public callers must not be able to bypass cache in production.
+    * Local development may still use ?force=1 for diagnostics.
+    */
+    const force =
+      process.env.NODE_ENV !== 'production' &&
+      url.searchParams.get('force') === '1';
 
     if (!owner) {
       return NextResponse.json({ success: false, error: 'Missing owner' }, { status: 400 });
@@ -177,7 +326,6 @@ export async function GET(req: Request) {
       console.log(`[api/solana/tokens] cache=HIT src=${src} page=${page}`);
       const res = NextResponse.json(hot.body);
       res.headers.set('x-cache', 'HIT');
-      if (hot.rpcUsed) res.headers.set('x-rpc-used', hot.rpcUsed);
       res.headers.set('Cache-Control', CDN_CACHE_HEADER);
       return res;
     }
@@ -188,10 +336,9 @@ export async function GET(req: Request) {
       const p = inflight.get(cacheKey);
       if (p) {
         console.log(`[api/solana/tokens] unknown caller joined inflight`);
-        const { body, rpcUsed } = await p;
+        const body = await p;
         const res = NextResponse.json(body);
         res.headers.set('x-cache', 'INFLIGHT-UNKNOWN');
-        res.headers.set('x-rpc-used', rpcUsed);
         res.headers.set('Cache-Control', CDN_CACHE_HEADER);
         return res;
       }
@@ -211,59 +358,92 @@ export async function GET(req: Request) {
       const p = inflight.get(cacheKey);
       if (p) {
         console.log(`[api/solana/tokens] cache=INFLIGHT src=${src} page=${page}`);
-        const { body, rpcUsed } = await p;
+        const body = await p;
         const res = NextResponse.json(body);
         res.headers.set('x-cache', 'INFLIGHT');
         res.headers.set('x-inflight', '1');
-        res.headers.set('x-rpc-used', rpcUsed);
         res.headers.set('Cache-Control', CDN_CACHE_HEADER);
         return res;
       }
     }
 
-    let lastErr: any = null;
-    let lastRpc = '';
-    const endpoints = [...RPC_CANDIDATES, fallbackRpc(cluster)];
-
     const runner = (async () => {
-      for (const ep of endpoints) {
-        try {
-          const conn = new Connection(ep, 'confirmed');
-          const tokens = await fetchOnce(conn, ownerPk);
-
-          const body = { success: true, tokens, wsolMint: WSOL_MINT };
-          cache.set(cacheKey, { at: Date.now(), body, rpcUsed: ep });
-          return { body, rpcUsed: ep };
-        } catch (e) {
-          lastErr = e;
-          lastRpc = ep;
-          if (isRateLimitedOrForbidden(e)) continue;
-        }
-      }
-      throw new Error(`All RPCs failed. lastRpc=${lastRpc} detail=${String(lastErr ?? '')}`);
+      const connection =
+        getTokensConnection(cluster);
+    
+      const tokens =
+        await fetchOnce(
+          connection,
+          ownerPk
+        );
+    
+      const body: CacheEntry['body'] = {
+        success: true,
+        tokens,
+        wsolMint: WSOL_MINT,
+      };
+    
+      cache.set(cacheKey, {
+        at: Date.now(),
+        body,
+      });
+    
+      return body;
     })();
 
     if (!force) inflight.set(cacheKey, runner);
 
     try {
-      const { body, rpcUsed } = await runner;
+      const body = await runner;
+
       console.log(
-        `[api/solana/tokens] cache=${force ? 'BYPASS' : 'MISS'} src=${src} page=${page} ref=${ref} rpc=${rpcUsed}`
+        `[api/solana/tokens] cache=${
+          force ? 'BYPASS' : 'MISS'
+        } src=${src} page=${page} ref=${ref}`
       );
-      const res = NextResponse.json(body);
-      res.headers.set('x-cache', force ? 'BYPASS' : 'MISS');
-      res.headers.set('x-rpc-used', rpcUsed);
-      res.headers.set('Cache-Control', CDN_CACHE_HEADER);
-      return res;
+
+      const response =
+        NextResponse.json(body);
+
+      response.headers.set(
+        'x-cache',
+        force ? 'BYPASS' : 'MISS'
+      );
+
+      response.headers.set(
+        'Cache-Control',
+        force
+          ? 'no-store'
+          : CDN_CACHE_HEADER
+      );
+
+      return response;
     } finally {
       inflight.delete(cacheKey);
     }
-  } catch (e: any) {
-    const res = NextResponse.json(
-      { success: false, error: e?.message || 'Server error' },
-      { status: 500 }
+  } catch (error) {
+    console.error(
+      '[api/solana/tokens] request failed:',
+      error
     );
-    res.headers.set('Cache-Control', 'no-store');
-    return res;
+  
+    const response =
+      NextResponse.json(
+        {
+          success: false,
+          error:
+            'Failed to read wallet tokens.',
+        },
+        {
+          status: 503,
+        }
+      );
+  
+    response.headers.set(
+      'Cache-Control',
+      'no-store'
+    );
+  
+    return response;
   }
 }
