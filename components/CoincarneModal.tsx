@@ -16,7 +16,7 @@ import {
   getAssociatedTokenAddressSync,
   createTransferCheckedInstruction,
   createAssociatedTokenAccountIdempotentInstruction,
-  getMint,
+  unpackMint,
 } from '@solana/spl-token';
 import { PublicKey, Transaction, SystemProgram, ComputeBudgetProgram } from '@solana/web3.js';
 import { useInternalBalance, quantize } from '@/hooks/useInternalBalance';
@@ -1179,9 +1179,21 @@ export default function CoincarneModal({
         const solBal = await connection.getBalance(publicKey, 'processed');
         console.log('💰 SOL balance (lamports):', solBal);
 
-        // 2) Decimals
-        const mintInfo = await getMint(connection, mint, 'confirmed', program);
-        const decimals = mintInfo.decimals ?? 0;
+        /*
+        * Decode the mint data already fetched above.
+        *
+        * Using getMint() here would request the same mint account
+        * from RPC for a second time.
+        */
+        const mintInfo =
+        unpackMint(
+          mint,
+          mintAcc,
+          program
+        );
+
+        const decimals =
+        mintInfo.decimals ?? 0;
 
         // 3) ATA addresses
         const fromATA = getAssociatedTokenAddressSync(mint, publicKey, false, program);
