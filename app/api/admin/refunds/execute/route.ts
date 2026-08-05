@@ -11,12 +11,11 @@ const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function getCoincarnationTreasuryWallet() {
+function getCoincarnationTreasuryWallet(): string {
   return (
-    process.env.COINCARNE_TREASURY_SOL ||
-    process.env.NEXT_PUBLIC_COINCARNE_TREASURY_SOL ||
+    process.env.COINCARNE_TREASURY_SOL?.trim() ||
     ''
-  ).trim();
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -137,11 +136,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const treasuryWallet = getCoincarnationTreasuryWallet();
+    const treasuryWallet =
+      getCoincarnationTreasuryWallet();
+
     if (!treasuryWallet) {
+      console.error(
+        '[ADMIN_REFUND_EXECUTE] Missing env: COINCARNE_TREASURY_SOL'
+      );
+
       return NextResponse.json(
-        { success: false, error: 'TREASURY_WALLET_MISSING' },
-        { status: 500 }
+        {
+          success: false,
+          error: 'COINCARNE_TREASURY_SOL_MISSING',
+        },
+        {
+          status: 500,
+        }
       );
     }
 

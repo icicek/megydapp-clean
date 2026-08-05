@@ -9,7 +9,7 @@ import {
   TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
   getAssociatedTokenAddressSync,
-  getMint,
+  unpackMint,
 } from '@solana/spl-token';
 import { neon } from '@neondatabase/serverless';
 
@@ -30,12 +30,11 @@ const sql = neon(
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function getCoincarnationTreasuryWallet() {
+function getCoincarnationTreasuryWallet(): string {
   return (
-    process.env.COINCARNE_TREASURY_SOL ||
-    process.env.NEXT_PUBLIC_COINCARNE_TREASURY_SOL ||
+    process.env.COINCARNE_TREASURY_SOL?.trim() ||
     ''
-  ).trim();
+  );
 }
 
 function toRawAmount(ui: string | number, decimals: number): bigint {
@@ -105,9 +104,18 @@ export async function POST(req: NextRequest) {
 
     const coincarnationTreasury = getCoincarnationTreasuryWallet();
     if (!coincarnationTreasury) {
+      console.error(
+        '[ADMIN_REFUND_FINALIZE] Missing env: COINCARNE_TREASURY_SOL'
+      );
+    
       return NextResponse.json(
-        { success: false, error: 'TREASURY_WALLET_MISSING' },
-        { status: 500 }
+        {
+          success: false,
+          error: 'COINCARNE_TREASURY_SOL_MISSING',
+        },
+        {
+          status: 500,
+        }
       );
     }
 
@@ -309,11 +317,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const is2022 = mintAcc.owner.equals(TOKEN_2022_PROGRAM_ID);
-    const program = is2022 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
+    const is2022 =
+      mintAcc.owner.equals(
+        TOKEN_2022_PROGRAM_ID
+      );
 
-    const mintInfo = await getMint(connection, mintPk, 'confirmed', program);
-    const decimals = mintInfo.decimals ?? 0;
+    const program =
+      is2022
+        ? TOKEN_2022_PROGRAM_ID
+        : TOKEN_PROGRAM_ID;
+
+    /*
+    * Decode the mint account already fetched above.
+    *
+    * getMint() would request the same account from RPC again.
+    */
+    const mintInfo =
+      unpackMint(
+        mintPk,
+        mintAcc,
+        program
+      );
+
+    const decimals =
+      mintInfo.decimals ?? 0;
     const expectedRaw = toRawAmount(uiAmount, decimals);
 
     if (expectedRaw <= 0n) {

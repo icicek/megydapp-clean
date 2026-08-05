@@ -26,10 +26,15 @@ import {
   getServerSolanaRpcUrlForJsonRpc,
 } from '@/app/api/_lib/solana/serverRpc';
 
-// ✅ Coincarnation treasury wallet must exist (server-side guard)
+/*
+ * Server-side verification must use only the private server env.
+ *
+ * The browser uses NEXT_PUBLIC_COINCARNE_TREASURY_SOL while
+ * preparing the transaction. This route independently verifies
+ * the destination against COINCARNE_TREASURY_SOL.
+ */
 const COINCARNE_TREASURY_WALLET =
-  process.env.COINCARNE_TREASURY_SOL ||
-  process.env.NEXT_PUBLIC_COINCARNE_TREASURY_SOL ||
+  process.env.COINCARNE_TREASURY_SOL?.trim() ||
   '';
 if (!process.env.NEON_DATABASE_URL && !process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL_MISSING');
@@ -620,10 +625,22 @@ export async function POST(req: NextRequest) {
     const idemKey = (idempotency_key || idemHeader || '').trim() || null;
 
     // ✅ Guard: Solana record requires a destination wallet env
-    if (networkNorm === 'solana' && !COINCARNE_TREASURY_WALLET) {
+    if (
+      networkNorm === 'solana' &&
+      !COINCARNE_TREASURY_WALLET
+    ) {
+      console.error(
+        '[COINCARNATION_RECORD] Missing env: COINCARNE_TREASURY_SOL'
+      );
+    
       return NextResponse.json(
-        { success: false, error: 'COINCARNE_TREASURY_WALLET_MISSING' },
-        { status: 500 }
+        {
+          success: false,
+          error: 'COINCARNE_TREASURY_SOL_MISSING',
+        },
+        {
+          status: 500,
+        }
       );
     }
 
