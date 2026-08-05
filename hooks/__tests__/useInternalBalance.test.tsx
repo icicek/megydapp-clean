@@ -9,8 +9,16 @@ jest.mock('@solana/wallet-adapter-react', () => ({
 
 jest.mock('@solana/spl-token', () => ({
   getAssociatedTokenAddress: jest.fn(),
-  getMint: jest.fn(),
+  unpackMint: jest.fn(),
   getAccount: jest.fn(),
+  TOKEN_PROGRAM_ID: {
+    toBase58: () =>
+      'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+  },
+  TOKEN_2022_PROGRAM_ID: {
+    toBase58: () =>
+      'TokenzQdBNbLqP5VE6cJow7Ypt53UFcYkuETMZioLhX',
+  },
 }));
 
 jest.mock('@solana/web3.js', () => {
@@ -48,7 +56,7 @@ const mockConn = {
 
 const spl = require('@solana/spl-token') as {
   getAssociatedTokenAddress: jest.Mock;
-  getMint: jest.Mock;
+  unpackMint: jest.Mock;
   getAccount: jest.Mock;
 };
 
@@ -110,7 +118,7 @@ describe('useInternalBalance', () => {
       },
     });
 
-    spl.getMint.mockResolvedValueOnce({
+    spl.unpackMint.mockReturnValueOnce({
       decimals: 6,
     });
 
@@ -148,7 +156,7 @@ describe('useInternalBalance', () => {
       },
     });
 
-    spl.getMint.mockResolvedValueOnce({
+    spl.unpackMint.mockReturnValueOnce({
       decimals: 8,
     });
 

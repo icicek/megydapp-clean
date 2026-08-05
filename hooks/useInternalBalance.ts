@@ -7,7 +7,7 @@ import { PublicKey } from '@solana/web3.js';
 import {
   getAccount,
   getAssociatedTokenAddress,
-  getMint,
+  unpackMint,
   TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
 } from '@solana/spl-token';
@@ -80,10 +80,25 @@ export function useInternalBalance(
         ? TOKEN_2022_PROGRAM_ID
         : TOKEN_PROGRAM_ID;
 
-      const [mintInfo, ata] = await Promise.all([
-        getMint(connection, mintPk, 'confirmed', tokenProgram),
-        getAssociatedTokenAddress(mintPk, publicKey, false, tokenProgram),
-      ]);
+      /*
+      * Decode the mint account that was already fetched above.
+      *
+      * getMint() would request the same account from RPC again.
+      */
+      const mintInfo =
+      unpackMint(
+        mintPk,
+        mintAccInfo,
+        tokenProgram
+      );
+
+      const ata =
+      await getAssociatedTokenAddress(
+        mintPk,
+        publicKey,
+        false,
+        tokenProgram
+      );
 
       try {
         const acc = await getAccount(connection, ata, 'confirmed', tokenProgram);
