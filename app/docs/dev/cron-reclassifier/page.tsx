@@ -41,16 +41,15 @@ export default function CronReclassifierPage() {
         </ol>
 
         <h2>🔧 Environment</h2>
-        <pre><code>{`RECLASSIFIER_DEADCOIN_DAYS=30
-RECLASSIFIER_MIN_AGE_MINUTES=30
-RECLASSIFIER_COOLDOWN_HOURS=0.25
-RECLASSIFIER_BATCH_SIZE=50`}</code></pre>
+        <pre><code>{`RECLASSIFIER_MIN_AGE_MINUTES=30
+        RECLASSIFIER_COOLDOWN_HOURS=0.25
+        RECLASSIFIER_BATCH_SIZE=50`}</code></pre>
 
         <h2>📦 Key Files</h2>
         <ul>
           <li><code>.github/workflows/reclassify.yml</code></li>
           <li><code>app/api/admin/reclassify/route.ts</code></li>
-          <li><code>lib/admin/reclassify.ts</code></li>
+          <li><code>app/api/admin/reclassify/reclassifyAll.ts</code></li>
           <li><code>token_audit</code> & <code>cron_runs</code> tables</li>
         </ul>
 
