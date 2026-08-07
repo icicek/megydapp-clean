@@ -3,8 +3,14 @@ import { neon } from '@neondatabase/serverless';
 import { NextRequest, NextResponse } from 'next/server';
 import { getStatusRow, type TokenStatus } from '@/app/api/_lib/registry';
 import { generateReferralCode } from '@/app/api/utils/generateReferralCode';
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
 
-const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
+const sql =
+  neon(
+    getDatabaseUrl()
+  );
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

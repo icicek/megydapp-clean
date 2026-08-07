@@ -3,8 +3,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import crypto from 'crypto';
 import { requireIdentityWalletAccess } from '@/app/api/_lib/identity-guard';
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
 
-const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
+const sql =
+  neon(
+    getDatabaseUrl()
+  );
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,8 +18,6 @@ export const dynamic = 'force-dynamic';
 function randomNonce(size = 24) {
   return crypto.randomBytes(size).toString('hex');
 }
-
-
 
 export async function POST(req: NextRequest) {
   try {

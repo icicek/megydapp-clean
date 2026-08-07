@@ -12,6 +12,9 @@ import {
   unpackMint,
 } from '@solana/spl-token';
 import { neon } from '@neondatabase/serverless';
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
 
 import {
   requireAdmin,
@@ -22,10 +25,10 @@ import {
   getServerSolanaConnection,
 } from '@/app/api/_lib/solana/serverRpc';
 
-const sql = neon(
-  process.env.NEON_DATABASE_URL ||
-    process.env.DATABASE_URL!
-);
+const sql =
+  neon(
+    getDatabaseUrl()
+  );
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

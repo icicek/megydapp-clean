@@ -6,6 +6,9 @@ import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import { httpErrorFrom } from '@/app/api/_lib/http';
 import { requireCronEnabled } from '@/app/api/_lib/feature-flags';
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
 
 // Minimal SQL type compatible with neon's tagged template
 type Sql = (strings: TemplateStringsArray, ...values: any[]) => Promise<any>;
@@ -67,14 +70,10 @@ export async function POST(req: Request) {
     }
 
     // 🗄️ DB connection
-    const url = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
-    if (!url) {
-      return NextResponse.json(
-        { ok: false, error: 'server_missing_db_url' },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
-      );
-    }
-    const sql = neon(url) as unknown as Sql;
+    const sql =
+      neon(
+        getDatabaseUrl()
+      ) as unknown as Sql;
 
     // 🧠 Business logic (dynamic import keeps cold start low if unused)
     const reclassifyAll = await tryImportReclassifyAll();

@@ -13,9 +13,15 @@ import {
   getStatus as getRegistryStatus,
   setStatus as setRegistryStatus,
 } from '@/app/api/_lib/token-registry';
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
 
 // Keep a local sql ONLY for deadcoin_votes reads/writes.
-const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
+const sql =
+  neon(
+    getDatabaseUrl()
+  );
 
 export type TokenStatus = 'healthy' | 'walking_dead' | 'deadcoin' | 'redlist' | 'blacklist';
 type Source = 'engine' | 'vote' | 'manual' | 'external';

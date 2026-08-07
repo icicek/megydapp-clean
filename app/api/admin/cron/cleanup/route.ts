@@ -1,16 +1,17 @@
 //app/api/admin/cron/cleanup/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 function getSql() {
-  const url = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
-  if (!url) {
-    throw new Error('Missing database connection string');
-  }
-  return neon(url);
+  return neon(
+    getDatabaseUrl()
+  );
 }
 
 export async function POST(req: NextRequest) {

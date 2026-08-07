@@ -1,30 +1,78 @@
 // app/api/utils/fetchTokenMetadata.ts
-function sanitizeSym(s: string | null | undefined) {
-  if (!s) return null;
-  const z = s.toUpperCase().replace(/[^A-Z0-9.$_/-]/g, '').slice(0, 16);
-  return z || null;
+
+function sanitizeSym(
+  value: string | null | undefined
+) {
+  if (!value) {
+    return null;
+  }
+
+  const normalized =
+    value
+      .toUpperCase()
+      .replace(
+        /[^A-Z0-9.$_/-]/g,
+        ''
+      )
+      .slice(0, 16);
+
+  return normalized || null;
+}
+
+function getBaseUrl(): string {
+  const configuredUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.trim();
+
+  if (configuredUrl) {
+    try {
+      return new URL(
+        configuredUrl
+      ).origin;
+    } catch {
+      // Fall through to deployment/local fallback.
+    }
+  }
+
+  const vercelUrl =
+    process.env.VERCEL_URL?.trim();
+
+  if (vercelUrl) {
+    return `https://${vercelUrl}`;
+  }
+
+  return 'http://localhost:3000';
 }
 
 export async function fetchTokenMetadata(
   mintAddress: string
-): Promise<{ symbol: string; name: string; logoURI?: string | null } | null> {
-  const fallback = mintAddress.slice(0, 6).toUpperCase();
+): Promise<{
+  symbol: string;
+  name: string;
+  logoURI?: string | null;
+} | null> {
+  const fallback =
+    mintAddress
+      .slice(0, 6)
+      .toUpperCase();
 
   try {
     const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+      getBaseUrl();
 
-    const r = await fetch(
-      `${baseUrl}/api/symbol?mint=${encodeURIComponent(mintAddress)}`,
-      {
-        cache: 'no-store',
-        headers: { accept: 'application/json' },
-      }
-    );
+    const response =
+      await fetch(
+        `${baseUrl}/api/symbol?mint=${encodeURIComponent(
+          mintAddress
+        )}`,
+        {
+          cache: 'no-store',
+          headers: {
+            accept: 'application/json',
+          },
+        }
+      );
 
-    if (!r.ok) {
+    if (!response.ok) {
       return {
         symbol: fallback,
         name: fallback,
@@ -32,24 +80,34 @@ export async function fetchTokenMetadata(
       };
     }
 
-    const j = await r.json();
+    const json =
+      await response.json();
 
     const symbol =
-      typeof j?.symbol === 'string' && j.symbol.trim()
-        ? sanitizeSym(j.symbol.trim()) || fallback
+      typeof json?.symbol === 'string' &&
+      json.symbol.trim()
+        ? sanitizeSym(
+            json.symbol.trim()
+          ) || fallback
         : fallback;
 
     const name =
-      typeof j?.name === 'string' && j.name.trim()
-        ? j.name.trim()
+      typeof json?.name === 'string' &&
+      json.name.trim()
+        ? json.name.trim()
         : symbol;
 
     const logoURI =
-      typeof j?.logoURI === 'string' && j.logoURI.trim()
-        ? j.logoURI.trim()
+      typeof json?.logoURI === 'string' &&
+      json.logoURI.trim()
+        ? json.logoURI.trim()
         : null;
 
-    return { symbol, name, logoURI };
+    return {
+      symbol,
+      name,
+      logoURI,
+    };
   } catch {
     return {
       symbol: fallback,

@@ -3,8 +3,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import { requireAdmin, HttpError } from '@/app/api/_lib/jwt';
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
 
-const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
+const sql =
+  neon(
+    getDatabaseUrl()
+  );
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

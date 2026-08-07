@@ -8,6 +8,9 @@ import {
 import ws from 'ws';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
 
 import {
   USER_AUTH_COOKIE,
@@ -18,14 +21,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const DATABASE_URL =
-  process.env.NEON_DATABASE_URL ||
-  process.env.DATABASE_URL;
-
-if (!DATABASE_URL) {
-  throw new Error(
-    'Missing env: NEON_DATABASE_URL or DATABASE_URL'
-  );
-}
+  getDatabaseUrl();
 
 neonConfig.webSocketConstructor = ws;
 

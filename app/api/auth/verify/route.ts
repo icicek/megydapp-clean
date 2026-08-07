@@ -8,6 +8,9 @@ import {
 } from '@neondatabase/serverless';
 import ws from 'ws';
 import nacl from 'tweetnacl';
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
 
 import { sql } from '@/app/api/_lib/db';
 import {
@@ -23,14 +26,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const DATABASE_URL =
-  process.env.NEON_DATABASE_URL ||
-  process.env.DATABASE_URL;
-
-if (!DATABASE_URL) {
-  throw new Error(
-    'Missing env: NEON_DATABASE_URL or DATABASE_URL'
-  );
-}
+  getDatabaseUrl();
 
 neonConfig.webSocketConstructor = ws;
 

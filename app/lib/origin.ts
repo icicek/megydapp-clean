@@ -1,49 +1,90 @@
 // app/lib/origin.ts
 
 /**
- * Safely read base app URL from env or window, normalize it to an origin
- * (no trailing slash, always a valid absolute URL).
+ * Safely read the canonical public app URL and normalize it
+ * to an origin with no trailing slash.
  */
-function sanitize(u: string | undefined | null): string | null {
-  if (!u) return null;
+function sanitize(
+  value: string | undefined | null
+): string | null {
+  if (!value) {
+    return null;
+  }
+
   try {
-    const url = new URL(u);
-    // Return only the origin to avoid double-slashes when joining
+    const url = new URL(value);
+
     return url.origin;
   } catch {
     return null;
   }
 }
 
-const envUrl =
-  process.env.NEXT_PUBLIC_APP_URL ??
-  process.env.NEXT_PUBLIC_APP_ORIGIN ??
-  process.env.APP_ORIGIN ??
-  '';
+/*
+ * NEXT_PUBLIC_APP_URL is the single canonical application URL.
+ *
+ * It is intentionally public because the application's origin
+ * is not a secret and is required by both client and server code.
+ */
+const configuredAppUrl =
+  process.env.NEXT_PUBLIC_APP_URL ?? '';
 
 export const APP_URL: string =
-  sanitize(envUrl) ??
-  (typeof window !== 'undefined' ? window.location.origin : 'https://coincarnation.com');
+  sanitize(configuredAppUrl) ??
+  (
+    typeof window !== 'undefined'
+      ? window.location.origin
+      : 'https://coincarnation.com'
+  );
 
 /**
  * Join a relative path to APP_URL safely.
- * - Keeps absolute URLs as-is
- * - Avoids double slashes
+ *
+ * - Absolute HTTP(S) URLs are returned unchanged.
+ * - Relative paths are normalized to avoid duplicate slashes.
  */
-export function absoluteUrl(path: string = ''): string {
-  if (!path) return APP_URL;
-  if (/^https?:\/\//i.test(path)) return path;
+export function absoluteUrl(
+  path: string = ''
+): string {
+  if (!path) {
+    return APP_URL;
+  }
 
-  const base = APP_URL.endsWith('/') ? APP_URL.slice(0, -1) : APP_URL;
-  const rel = path.startsWith('/') ? path : `/${path}`;
-  return `${base}${rel}`;
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+
+  const base =
+    APP_URL.endsWith('/')
+      ? APP_URL.slice(0, -1)
+      : APP_URL;
+
+  const relative =
+    path.startsWith('/')
+      ? path
+      : `/${path}`;
+
+  return `${base}${relative}`;
 }
 
-export function buildReferralUrl(referralCode?: string | null): string {
-  const base = APP_URL || 'https://coincarnation.com';
-  if (!referralCode) return base;
+export function buildReferralUrl(
+  referralCode?: string | null
+): string {
+  const base =
+    APP_URL ||
+    'https://coincarnation.com';
 
-  const u = new URL(base);
-  u.searchParams.set('r', referralCode);
-  return u.toString();
+  if (!referralCode) {
+    return base;
+  }
+
+  const url =
+    new URL(base);
+
+  url.searchParams.set(
+    'r',
+    referralCode
+  );
+
+  return url.toString();
 }

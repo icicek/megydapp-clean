@@ -7,8 +7,14 @@ import bs58 from 'bs58';
 import { isBlacklistRefundReason } from '@/app/api/_lib/refund-reason';
 import { requireIdentityWalletAccess } from '@/app/api/_lib/identity-guard';
 import { recalculateIdentityScores } from '@/app/api/_lib/identity-score';
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
 
-const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
+const sql =
+  neon(
+    getDatabaseUrl()
+  );
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

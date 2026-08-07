@@ -4,6 +4,9 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
 
 type AnyRow = Record<string, any>;
 
@@ -16,7 +19,10 @@ function asNumber(v: any): number | null {
 
 export async function GET(_req: NextRequest) {
   try {
-    const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
+    const sql =
+      neon(
+        getDatabaseUrl()
+      );
 
     // 1) Phases + allocation totals (economic truth)
     const rows = await sql`

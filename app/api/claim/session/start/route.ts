@@ -14,6 +14,10 @@ import {
 } from 'next/server';
 
 import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
+
+import {
   Pool,
   neonConfig,
   type PoolClient,
@@ -46,11 +50,16 @@ const CLAIM_DRY_RUN =
     .trim()
     .toLowerCase() === 'true';
 
-const CLAIM_FEE_TREASURY_RAW = String(
-  process.env.CLAIM_FEE_TREASURY ??
-    process.env.NEXT_PUBLIC_CLAIM_FEE_TREASURY ??
-    ''
-).trim();
+/*
+ * Server-side claim fee verification must use only the
+ * private server environment variable.
+ *
+ * The browser uses NEXT_PUBLIC_CLAIM_FEE_TREASURY while
+ * preparing the fee transfer transaction.
+ */
+const CLAIM_FEE_TREASURY_RAW =
+  process.env.CLAIM_FEE_TREASURY?.trim() ||
+  '';
 
 const AMOUNT_TOLERANCE_PCT = Number(
   process.env.CLAIM_FEE_TOLERANCE_PCT ?? 0.02
@@ -216,16 +225,8 @@ function validateConfiguration():
 /* -------------------------------------------------------------------------- */
 
 function createDbPool(): Pool {
-  const connectionString =
-    process.env.DATABASE_URL ||
-    process.env.NEON_DATABASE_URL;
-
-  if (!connectionString) {
-    throw new Error('DATABASE_URL_MISSING');
-  }
-
   return new Pool({
-    connectionString,
+    connectionString: getDatabaseUrl(),
     max: 1,
   });
 }

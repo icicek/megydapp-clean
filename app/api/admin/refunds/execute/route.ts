@@ -5,8 +5,14 @@ import { neon } from '@neondatabase/serverless';
 import { PublicKey } from '@solana/web3.js';
 import { requireAdmin, HttpError } from '@/app/api/_lib/jwt';
 import { isBlacklistRefundReason } from '@/app/api/_lib/refund-reason';
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
 
-const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
+const sql =
+  neon(
+    getDatabaseUrl()
+  );
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

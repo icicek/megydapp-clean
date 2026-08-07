@@ -5,16 +5,17 @@ import {
   getStatusRow,
   type TokenStatus,
 } from '@/app/api/_lib/registry';
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
 
 export const revalidate = 30;
 export const runtime = 'nodejs';
 
 function getSql() {
-  const url = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
-  if (!url) {
-    throw new Error('Missing database connection string');
-  }
-  return neon(url);
+  return neon(
+    getDatabaseUrl()
+  );
 }
 
 async function isDeadcoinForMegy(

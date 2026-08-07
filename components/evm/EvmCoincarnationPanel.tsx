@@ -18,9 +18,6 @@ export default function EvmCoincarnationPanel() {
     (evm.account as Address) ?? null,
     { publicClient: evm.publicClient },
     {
-      covalent: process.env.NEXT_PUBLIC_COVALENT_KEY
-        ? { apiKey: process.env.NEXT_PUBLIC_COVALENT_KEY }
-        : undefined,
 
       // getUsdValue → her token için TOPLAM USD döndürmeli
       getUsdValue: async (t) => {

@@ -8,6 +8,9 @@ import { PublicKey } from '@solana/web3.js';
 import { NextRequest, NextResponse } from 'next/server';
 import nacl from 'tweetnacl';
 import ws from 'ws';
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
 
 import { recalculateIdentityScores } from '@/app/api/_lib/identity-score';
 import {
@@ -20,14 +23,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const DATABASE_URL =
-  process.env.NEON_DATABASE_URL ||
-  process.env.DATABASE_URL;
-
-if (!DATABASE_URL) {
-  throw new Error(
-    'Missing env: NEON_DATABASE_URL or DATABASE_URL'
-  );
-}
+  getDatabaseUrl();
 
 neonConfig.webSocketConstructor = ws;
 

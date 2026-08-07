@@ -14,6 +14,10 @@ import {
   type TokenStatus,
 } from '@/app/api/_lib/registry';
 
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
+
 import { requireAppEnabled } from '@/app/api/_lib/feature-flags';
 import { PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
@@ -36,11 +40,10 @@ import {
 const COINCARNE_TREASURY_WALLET =
   process.env.COINCARNE_TREASURY_SOL?.trim() ||
   '';
-if (!process.env.NEON_DATABASE_URL && !process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL_MISSING');
-}
-
-const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
+const sql =
+  neon(
+    getDatabaseUrl()
+  );
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
@@ -492,7 +495,6 @@ async function settlePhaseFlow(maxRounds = 6) {
 
 export async function POST(req: NextRequest) {
   const t0 = Date.now();
-  console.log('[DBDEBUG] env source:', process.env.NEON_DATABASE_URL ? 'NEON_DATABASE_URL' : process.env.DATABASE_URL ? 'DATABASE_URL' : 'NONE');
   console.log('✅ /api/coincarnation/record called');
   await requireAppEnabled();
 

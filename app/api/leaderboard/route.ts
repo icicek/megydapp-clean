@@ -1,8 +1,14 @@
 // app/api/leaderboard/route.ts
 import { neon } from '@neondatabase/serverless';
 import { NextResponse } from 'next/server';
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
 
-const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!);
+const sql =
+  neon(
+    getDatabaseUrl()
+  );
 
 export async function GET() {
   try {

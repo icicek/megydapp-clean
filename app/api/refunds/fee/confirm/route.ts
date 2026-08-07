@@ -6,6 +6,9 @@ import {
   type Connection,
 } from '@solana/web3.js';
 import { neon } from '@neondatabase/serverless';
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
 
 import { getRefundFeeLamports } from '@/app/api/_lib/refund-config';
 import { isBlacklistRefundReason } from '@/app/api/_lib/refund-reason';
@@ -14,20 +17,19 @@ import {
   getServerSolanaConnection,
 } from '@/app/api/_lib/solana/serverRpc';
 
-const sql = neon(
-  process.env.NEON_DATABASE_URL ||
-    process.env.DATABASE_URL!
-);
+const sql =
+  neon(
+    getDatabaseUrl()
+  );
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function getRefundFeeTreasuryWallet() {
+function getRefundFeeTreasuryWallet(): string {
   return (
-    process.env.REFUND_TREASURY_SOL ||
-    process.env.NEXT_PUBLIC_REFUND_TREASURY_SOL ||
+    process.env.REFUND_TREASURY_SOL?.trim() ||
     ''
-  ).trim();
+  );
 }
 
 function normalizePubkeyFromParsed(k: any): string {
@@ -246,19 +248,50 @@ export async function POST(req: NextRequest) {
     const treasuryWallet = getRefundFeeTreasuryWallet();
 
     if (!treasuryWallet) {
+      console.error(
+        '[REFUND_FEE_CONFIRM] Missing env: REFUND_TREASURY_SOL'
+      );
+    
       return NextResponse.json(
-        { success: false, error: 'TREASURY_WALLET_MISSING' },
-        { status: 500 }
+        {
+          success: false,
+          error: 'REFUND_TREASURY_SOL_MISSING',
+        },
+        {
+          status: 500,
+        }
       );
     }
 
     try {
       new PublicKey(treasuryWallet);
+    } catch {
+      console.error(
+        '[REFUND_FEE_CONFIRM] Invalid env: REFUND_TREASURY_SOL'
+      );
+    
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'REFUND_TREASURY_SOL_INVALID',
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+    
+    try {
       new PublicKey(rowWallet);
     } catch {
       return NextResponse.json(
-        { success: false, error: 'TREASURY_WALLET_INVALID' },
-        { status: 500 }
+        {
+          success: false,
+          error: 'INVALID_REFUND_WALLET',
+        },
+        {
+          status: 409,
+        }
       );
     }
 
