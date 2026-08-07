@@ -1,30 +1,93 @@
 // app/api/debug/health/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-export const runtime = 'nodejs';         // ENV erişimi problemsiz
 
-function tscEqual(a: string, b: string) {
-  // Constant-time compare (kısa ve pratik)
-  if (a.length !== b.length) return false;
-  let r = 0;
-  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return r === 0;
+import crypto from 'crypto';
+import { NextRequest, NextResponse } from 'next/server';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+function secretsMatch(
+  received: string,
+  expected: string
+): boolean {
+  if (!received || !expected) {
+    return false;
+  }
+
+  const receivedBuffer =
+    Buffer.from(received);
+
+  const expectedBuffer =
+    Buffer.from(expected);
+
+  if (
+    receivedBuffer.length !==
+    expectedBuffer.length
+  ) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(
+    receivedBuffer,
+    expectedBuffer
+  );
 }
 
-export async function GET(req: NextRequest) {
-  const want = process.env.DEBUG_SECRET || '';
-  if (!want) {
-    return NextResponse.json({ ok: false, error: 'server-misconfig' }, { status: 500 });
+export async function GET(
+  req: NextRequest
+) {
+  const expected =
+    process.env.DEBUG_SECRET?.trim() || '';
+
+  if (!expected) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'server-misconfig',
+      },
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      }
+    );
   }
 
-  const h = req.headers.get('x-debug-secret')?.trim() || '';
-  const q = new URL(req.url).searchParams.get('secret')?.trim() || '';
-  const got = h || q; // header öncelikli, yoksa query kabul
+  const received =
+    req.headers
+      .get('x-debug-secret')
+      ?.trim() || '';
 
-  if (!got || !tscEqual(got, want)) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (
+    !secretsMatch(
+      received,
+      expected
+    )
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'unauthorized',
+      },
+      {
+        status: 401,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      }
+    );
   }
 
-  return NextResponse.json({ ok: true, now: new Date().toISOString() }, {
-    headers: { 'Cache-Control': 'no-store' }
-  });
+  return NextResponse.json(
+    {
+      ok: true,
+      now: new Date().toISOString(),
+    },
+    {
+      headers: {
+        'Cache-Control': 'no-store',
+      },
+    }
+  );
 }
