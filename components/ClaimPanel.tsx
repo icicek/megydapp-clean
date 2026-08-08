@@ -509,8 +509,17 @@ export default function ClaimPanel() {
     reason: null,
     identity: null,
   });
+  const [browserIdentityContext, setBrowserIdentityContext] =
+    useState<UserIdentityStatus | null>(null);
   const [linkedWallets, setLinkedWallets] = useState<LinkedIdentityWallet[]>([]);
   const [verifyingIdentity, setVerifyingIdentity] = useState(false);
+  const [identityCreationConfirmOpen, setIdentityCreationConfirmOpen] =
+    useState(false);
+
+  const [identityPreflightWallet, setIdentityPreflightWallet] =
+    useState<string | null>(null);
+  const [linkingCurrentIdentity, setLinkingCurrentIdentity] =
+    useState(false);
   const [identityLinkCode, setIdentityLinkCode] = useState<string | null>(null);
   const [identityLinkCodeExpiresAt, setIdentityLinkCodeExpiresAt] = useState<string | null>(null);
   const [identityLinkCodeInput, setIdentityLinkCodeInput] = useState('');
@@ -1248,6 +1257,10 @@ export default function ClaimPanel() {
   
     // Reset wallet-specific transient UI.
     setShowIdentityTools(false);
+
+    setIdentityCreationConfirmOpen(false);
+    setIdentityPreflightWallet(null);
+
     setIdentityCodeActionMessage(null);
     setMessage(null);
     setShareOpen(false);
@@ -1282,16 +1295,17 @@ export default function ClaimPanel() {
           if (!isCurrentIdentityOperation()) {
             return;
           }
-  
+        
           setIdentityStatus({
             authenticated: false,
             reason: null,
             identity: null,
           });
-  
+        
+          setBrowserIdentityContext(null);
           setLinkedWallets([]);
           setShowIdentityTools(false);
-  
+        
           return;
         }
   
@@ -1302,15 +1316,30 @@ export default function ClaimPanel() {
          * only be created through nonce + wallet signature verification.
          */
         const status = await getUserIdentityStatus();
-  
+
         if (!isCurrentIdentityOperation()) {
           return;
         }
-  
+
         /*
-         * Accept the session only when it belongs to the wallet
-         * that initiated this operation.
-         */
+        * Preserve the authenticated browser Identity separately
+        * from the Identity currently associated with the connected wallet.
+        *
+        * This allows a newly connected, unlinked wallet to choose between:
+        * - linking to the Identity already open in this browser,
+        * - using another Identity Link Code,
+        * - creating a completely new Identity.
+        */
+        if (status.authenticated && status.identity) {
+          setBrowserIdentityContext(status);
+        } else {
+          setBrowserIdentityContext(null);
+        }
+
+        /*
+        * Accept the session only when it belongs to the wallet
+        * that initiated this operation.
+        */
         if (
           status.authenticated &&
           status.identity &&
@@ -1328,21 +1357,21 @@ export default function ClaimPanel() {
           setLinkedWallets(wallets);
           return;
         }
-  
         /*
-         * A valid session belonging to another wallet must not
-         * survive a wallet switch.
-         */
-        if (status.authenticated) {
-          await fetch('/api/auth/logout', {
-            method: 'POST',
-            credentials: 'include',
-          }).catch(() => null);
-  
-          if (!isCurrentIdentityOperation()) {
-            return;
-          }
-  
+        * A valid browser session may belong to another wallet.
+        *
+        * Do NOT sign it out automatically. The same browser/device may
+        * legitimately be shared by different people, and an unlinked wallet
+        * must be allowed to choose whether to:
+        *
+        * - link to the Identity already open in this browser,
+        * - use a Link Code from another Identity,
+        * - or create a new Identity.
+        *
+        * At the same time, never expose that browser Identity as if it
+        * belonged to the currently connected wallet.
+        */
+        if (status.authenticated && status.identity) {
           setIdentityStatus({
             authenticated: false,
             reason: null,
@@ -1350,12 +1379,12 @@ export default function ClaimPanel() {
           });
         } else {
           /*
-           * Preserve the unauthenticated reason returned by
-           * /api/auth/status.
-           */
+          * Preserve the unauthenticated reason returned by
+          * /api/auth/status.
+          */
           setIdentityStatus(status);
         }
-  
+
         setLinkedWallets([]);
       } catch (error) {
         if (!isCurrentIdentityOperation()) {
@@ -1372,7 +1401,8 @@ export default function ClaimPanel() {
           reason: null,
           identity: null,
         });
-  
+        
+        setBrowserIdentityContext(null);
         setLinkedWallets([]);
       }
     }
@@ -1662,37 +1692,50 @@ export default function ClaimPanel() {
     }
   }
 
-  async function handleContinueWithWallet() {
-    try {
-      if (!publicKey || !walletBase58) {
-        setMessage('❌ Please connect your wallet.');
-        return;
-      }
+  async function completeWalletIdentityAuth(
+    intent: 'sign_in' | 'create_identity'
+  ) {
+    if (!publicKey || !walletBase58) {
+      setMessage('❌ Please connect your wallet.');
+      return;
+    }
   
+    const operationWallet = walletBase58;
+  
+    try {
       setVerifyingIdentity(true);
   
       setMessage(
-        '⏳ Please approve the wallet signature to continue...'
+        intent === 'sign_in'
+          ? '⏳ Please approve the wallet signature to open your Identity...'
+          : '⏳ Please approve the wallet signature to create your Identity...'
       );
   
       await signInWithWalletIdentity({
         publicKey,
         signMessage,
         walletName: wallet?.adapter?.name,
+        intent,
       });
   
       /*
-       * Record the browser fingerprint after the wallet
-       * signature has established the identity session.
+       * The connected wallet may change while the user is approving
+       * the signature. Never apply the result to a different wallet.
        */
-      await recordIdentityFingerprint(walletBase58);
+      if (walletBase58Ref.current !== operationWallet) {
+        throw new Error(
+          'The connected wallet changed during Identity verification.'
+        );
+      }
+  
+      await recordIdentityFingerprint(operationWallet);
   
       const status = await getUserIdentityStatus();
   
       if (
         !status.authenticated ||
         !status.identity ||
-        status.identity.walletAddress !== walletBase58
+        status.identity.walletAddress !== operationWallet
       ) {
         throw new Error(
           'The authenticated identity does not match the connected wallet.'
@@ -1706,8 +1749,13 @@ export default function ClaimPanel() {
   
       setLinkedWallets(wallets);
   
+      setIdentityCreationConfirmOpen(false);
+      setIdentityPreflightWallet(null);
+  
       setMessage(
-        '✅ Coincarnation Identity ready. You can now perform protected actions.'
+        intent === 'create_identity'
+          ? '✅ Your Coincarnation Identity has been created and is ready.'
+          : '✅ Coincarnation Identity ready. You can now perform protected actions.'
       );
     } catch (error) {
       const msg =
@@ -1719,6 +1767,243 @@ export default function ClaimPanel() {
     } finally {
       setVerifyingIdentity(false);
     }
+  }
+  
+  async function handleContinueWithWallet() {
+    if (!publicKey || !walletBase58) {
+      setMessage('❌ Please connect your wallet.');
+      return;
+    }
+  
+    const operationWallet = walletBase58;
+  
+    try {
+      setVerifyingIdentity(true);
+  
+      setMessage(
+        '⏳ Checking whether this wallet already has an Identity...'
+      );
+  
+      const res = await fetch('/api/auth/wallet-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          walletAddress: operationWallet,
+        }),
+      });
+  
+      const result = (await res.json().catch(() => null)) as
+        | {
+            ok?: boolean;
+            linked?: boolean;
+            error?: string;
+          }
+        | null;
+  
+      if (!res.ok || !result?.ok) {
+        throw new Error(
+          result?.error ||
+            'Failed to check wallet Identity status.'
+        );
+      }
+  
+      if (walletBase58Ref.current !== operationWallet) {
+        return;
+      }
+  
+      /*
+       * Existing Identity:
+       * no warning is necessary. The signature only opens
+       * the Identity that already owns this wallet.
+       */
+      if (result.linked) {
+        setVerifyingIdentity(false);
+  
+        await completeWalletIdentityAuth('sign_in');
+  
+        return;
+      }
+  
+      /*
+       * New wallet:
+       * do not request a signature yet.
+       * The user must explicitly decide whether to create
+       * a new Identity or link this wallet to an existing one.
+       */
+      setIdentityPreflightWallet(operationWallet);
+      setIdentityCreationConfirmOpen(true);
+      setMessage(null);
+    } catch (error) {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : 'Failed to check wallet Identity status.';
+  
+      setMessage(`❌ ${msg}`);
+    } finally {
+      setVerifyingIdentity(false);
+    }
+  }
+
+  async function handleLinkToCurrentIdentity() {
+    if (!publicKey || !walletBase58) {
+      setMessage('❌ Please connect your wallet.');
+      return;
+    }
+  
+    if (
+      !browserIdentityContext?.authenticated ||
+      !browserIdentityContext.identity
+    ) {
+      setMessage(
+        '❌ There is no active Identity session in this browser.'
+      );
+      return;
+    }
+  
+    if (
+      !identityPreflightWallet ||
+      identityPreflightWallet !== walletBase58
+    ) {
+      setIdentityCreationConfirmOpen(false);
+      setIdentityPreflightWallet(null);
+  
+      setMessage(
+        '❌ The connected wallet changed. Please start again.'
+      );
+      return;
+    }
+  
+    const operationWallet = walletBase58;
+  
+    try {
+      setLinkingCurrentIdentity(true);
+  
+      setMessage(
+        '⏳ Preparing to link this wallet to the Identity already open in this browser...'
+      );
+  
+      /*
+       * Create a short-lived Link Code from the Identity represented
+       * by the existing browser session.
+       *
+       * The code never needs to be shown to the user in this flow.
+       */
+      const linkCodeResult =
+        await createIdentityLinkCode();
+  
+      if (
+        walletBase58Ref.current !== operationWallet
+      ) {
+        throw new Error(
+          'The connected wallet changed during Identity linking.'
+        );
+      }
+  
+      setMessage(
+        '⏳ Please approve the wallet signature to link this wallet...'
+      );
+  
+      await linkWalletWithIdentityCode({
+        publicKey,
+        signMessage,
+        walletName: wallet?.adapter?.name,
+        code: linkCodeResult.code,
+      });
+  
+      if (
+        walletBase58Ref.current !== operationWallet
+      ) {
+        throw new Error(
+          'The connected wallet changed during Identity linking.'
+        );
+      }
+  
+      await recordIdentityFingerprint(
+        operationWallet
+      );
+  
+      const status =
+        await getUserIdentityStatus();
+  
+      if (
+        !status.authenticated ||
+        !status.identity ||
+        status.identity.walletAddress !==
+          operationWallet
+      ) {
+        throw new Error(
+          'The linked Identity does not match the connected wallet.'
+        );
+      }
+  
+      setIdentityStatus(status);
+      setBrowserIdentityContext(status);
+  
+      const wallets =
+        await fetchLinkedIdentityWallets();
+  
+      setLinkedWallets(wallets);
+  
+      setIdentityCreationConfirmOpen(false);
+      setIdentityPreflightWallet(null);
+  
+      setMessage(
+        '✅ This wallet is now linked to your existing Coincarnation Identity.'
+      );
+    } catch (error) {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : 'Failed to link this wallet to the current Identity.';
+  
+      setMessage(`❌ ${msg}`);
+    } finally {
+      setLinkingCurrentIdentity(false);
+    }
+  }
+
+  async function handleCreateNewIdentity() {
+    if (
+      !walletBase58 ||
+      !identityPreflightWallet ||
+      identityPreflightWallet !== walletBase58
+    ) {
+      setIdentityCreationConfirmOpen(false);
+      setIdentityPreflightWallet(null);
+  
+      setMessage(
+        '❌ The connected wallet changed. Please start again.'
+      );
+  
+      return;
+    }
+  
+    await completeWalletIdentityAuth(
+      'create_identity'
+    );
+  }
+
+  function handleUseExistingIdentityLinkCode() {
+    setIdentityCreationConfirmOpen(false);
+    setIdentityPreflightWallet(null);
+    setMessage(null);
+  
+    window.requestAnimationFrame(() => {
+      const input = document.getElementById(
+        'identity-link-code'
+      ) as HTMLInputElement | null;
+  
+      input?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+  
+      input?.focus();
+    });
   }
 
   async function handleCreateIdentityLinkCode() {
@@ -2027,7 +2312,7 @@ export default function ClaimPanel() {
         tone: 'yellow',
         title: 'Identity Session Required',
         description:
-          'Continue with your wallet to open its Coincarnation Identity. If this wallet is new, a new Identity will be created. You can also join an existing Identity with a link code below.',
+          'Continue with your wallet to open its Coincarnation Identity. If this wallet is not linked yet, you can choose whether to link it to an existing Identity or create a new one.',
         action: 'continue',
       };
     }
@@ -3791,6 +4076,18 @@ export default function ClaimPanel() {
           transition={{ duration: 0.6, ease: 'easeOut' }}
           className="bg-zinc-900 text-white p-6 rounded-2xl w-full border border-zinc-700 shadow-lg space-y-10"
         >
+          <div className="mb-5 flex justify-start">
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = '/';
+              }}
+              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-[1px] hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-100"
+            >
+              ← Back to Home
+            </button>
+          </div>
+          
           <h2 className="text-center text-2xl font-bold tracking-tight text-white sm:text-3xl">
             Coincarnator Profile
           </h2>
@@ -3966,13 +4263,13 @@ export default function ClaimPanel() {
 
                   <div className="rounded-xl border border-cyan-400/25 bg-cyan-400/[0.06] p-4">
                     <p className="text-xs font-black uppercase tracking-wide text-cyan-300">
-                      New to Coincarnation?
+                      Continue with your wallet
                     </p>
 
                     <p className="mt-2 text-sm leading-6 text-gray-300">
-                      Continue only if this wallet should create your first
-                      Coincarnation Identity. If you already have an Identity, use the
-                      link-code option instead.
+                      We’ll first check whether this wallet already belongs to a
+                      Coincarnation Identity. If it does not, you’ll choose whether to
+                      link it to an existing Identity or create a new one.
                     </p>
 
                     <button
@@ -3990,6 +4287,125 @@ export default function ClaimPanel() {
                       One person should use one Coincarnation Identity across all wallets.
                     </p>
                   </div>
+                  {identityCreationConfirmOpen &&
+                    identityPreflightWallet === walletBase58 && (
+                      <div
+                        className="rounded-xl border border-amber-400/25 bg-amber-400/[0.06] p-4 sm:p-5 lg:col-span-2"
+                        role="region"
+                        aria-labelledby="identity-choice-title"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <p
+                              id="identity-choice-title"
+                              className="text-xs font-black uppercase tracking-wide text-amber-300"
+                            >
+                              This wallet isn't linked yet
+                            </p>
+
+                            <p className="mt-2 text-sm leading-6 text-gray-300">
+                              Before signing, choose what this wallet should do.
+                              Creating a new Identity is only appropriate if this wallet
+                              belongs to someone who does not already have a
+                              Coincarnation Identity.
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIdentityCreationConfirmOpen(false);
+                              setIdentityPreflightWallet(null);
+                            }}
+                            disabled={
+                              verifyingIdentity ||
+                              linkingCurrentIdentity
+                            }
+                            className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-bold text-gray-300 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label="Close Identity options"
+                          >
+                            Close
+                          </button>
+                        </div>
+
+                        <div className="mt-4 grid gap-3">
+                        {browserIdentityContext?.authenticated &&
+                          browserIdentityContext.identity && (
+                            <button
+                              type="button"
+                              onClick={handleLinkToCurrentIdentity}
+                              disabled={
+                                verifyingIdentity ||
+                                linkingCurrentIdentity
+                              }
+                              className="w-full rounded-xl border border-violet-400/25 bg-violet-400/[0.08] p-4 text-left transition hover:border-violet-300/40 hover:bg-violet-400/[0.12] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <span className="block text-sm font-black text-violet-200">
+                                {linkingCurrentIdentity
+                                  ? 'Linking to Current Identity...'
+                                  : 'Link to Current Identity'}
+                              </span>
+
+                              <span className="mt-1 block text-xs leading-5 text-gray-400">
+                                Add this wallet to the Coincarnation Identity that is
+                                already signed in on this browser.
+                              </span>
+                            </button>
+                          )}
+
+                        <button
+                          type="button"
+                          onClick={handleUseExistingIdentityLinkCode}
+                          disabled={
+                            verifyingIdentity ||
+                            linkingCurrentIdentity
+                          }
+                          className="w-full rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] p-4 text-left transition hover:border-cyan-300/35 hover:bg-cyan-400/[0.10] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <span className="block text-sm font-black text-cyan-200">
+                            Use a Link Code
+                          </span>
+
+                          <span className="mt-1 block text-xs leading-5 text-gray-400">
+                            Already have another Coincarnation Identity? Generate a
+                            Link Code from that Identity and use it to add this wallet.
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleCreateNewIdentity}
+                          disabled={
+                            verifyingIdentity ||
+                            linkingCurrentIdentity
+                          }
+                          className="w-full rounded-xl border border-amber-400/25 bg-amber-400/[0.07] p-4 text-left transition hover:border-amber-300/40 hover:bg-amber-400/[0.11] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <span className="block text-sm font-black text-amber-200">
+                            {verifyingIdentity
+                              ? 'Creating Identity...'
+                              : 'Create New Identity'}
+                          </span>
+
+                          <span className="mt-1 block text-xs leading-5 text-gray-400">
+                            Continue only if this wallet belongs to someone who does
+                            not already have a Coincarnation Identity. You will be
+                            asked to sign with this wallet before the Identity is
+                            created.
+                          </span>
+                        </button>
+                      </div>
+
+                      {browserIdentityContext?.authenticated &&
+                        browserIdentityContext.identity && (
+                          <p className="mt-4 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-[11px] leading-5 text-gray-400">
+                            An Identity session is already open in this browser.
+                            This does not prevent another person using the same device
+                            from creating a separate Identity.
+                          </p>
+                        )}
+                    </div>
+                  )}
                 </div>
               )}
 

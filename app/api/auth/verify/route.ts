@@ -16,8 +16,10 @@ import { sql } from '@/app/api/_lib/db';
 import {
   buildUserAuthMessage,
   getUserCookieOptions,
+  isIdentityAuthIntent,
   signUserSession,
   USER_AUTH_COOKIE,
+  type IdentityAuthIntent,
 } from '@/app/api/_lib/user-auth';
 import { recalculateIdentityScores } from '@/app/api/_lib/identity-score';
 import { awardReferralSignupIdentityAware } from '@/app/api/_lib/corepoints';
@@ -115,7 +117,8 @@ type IdentityResolutionResult = {
 };
 
 async function resolveOrCreateIdentity(
-  walletAddress: string
+  walletAddress: string,
+  intent: IdentityAuthIntent
 ): Promise<IdentityResolutionResult> {
   /*
    * Fast path:
@@ -241,6 +244,17 @@ async function resolveOrCreateIdentity(
         identityId,
         wasNewIdentity: false,
       };
+    }
+
+    /*
+    * A wallet signature alone must never create an Identity.
+    *
+    * New Identity creation requires an explicit create_identity
+    * intent that was cryptographically bound to the signed
+    * authentication message.
+    */
+    if (intent !== 'create_identity') {
+      throw new Error('WALLET_NOT_LINKED');
     }
 
     const identityResult =
@@ -405,6 +419,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const intent = body.intent;
+
+    if (!isIdentityAuthIntent(intent)) {
+      return jsonResponse(
+        {
+          ok: false,
+          code: 'INVALID_AUTH_INTENT',
+          error: 'Invalid identity auth intent.',
+        },
+        400
+      );
+    }
+
     const nonce = String(body.nonce ?? '').trim();
     const signatureBase64 = String(
       body.signature ?? ''
@@ -467,7 +494,8 @@ export async function POST(req: NextRequest) {
 
     const expectedMessage = buildUserAuthMessage(
       walletAddress,
-      nonce
+      nonce,
+      intent
     );
 
     const messageBytes = new TextEncoder().encode(
@@ -519,12 +547,37 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    let identityResolution: IdentityResolutionResult;
+
+    try {
+      identityResolution =
+        await resolveOrCreateIdentity(
+          walletAddress,
+          intent
+        );
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === 'WALLET_NOT_LINKED'
+      ) {
+        return jsonResponse(
+          {
+            ok: false,
+            code: 'WALLET_NOT_LINKED',
+            error:
+              'This wallet is not linked to a Coincarnation Identity.',
+          },
+          409
+        );
+      }
+
+      throw error;
+    }
+
     const {
       identityId,
       wasNewIdentity,
-    } = await resolveOrCreateIdentity(
-      walletAddress
-    );
+    } = identityResolution;
 
     /*
      * Referral reward failure must never block authentication.

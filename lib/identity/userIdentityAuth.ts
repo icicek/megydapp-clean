@@ -29,6 +29,10 @@ type ApiResponse = {
   [key: string]: unknown;
 };
 
+export type IdentityAuthIntent =
+  | 'sign_in'
+  | 'create_identity';
+
 export type UserIdentityAuthReason =
   | 'no_session'
   | 'invalid_session'
@@ -246,12 +250,14 @@ export async function signInWithWalletIdentity(
     publicKey: PublicKey | null;
     signMessage?: SignMessageFn;
     walletName?: string;
+    intent: IdentityAuthIntent;
   }
 ) {
   const {
     publicKey,
     signMessage,
     walletName,
+    intent,
   } = params;
 
   if (!publicKey) {
@@ -280,6 +286,7 @@ export async function signInWithWalletIdentity(
     cache: 'no-store',
     body: JSON.stringify({
       walletAddress,
+      intent,
     }),
   });
 
@@ -337,6 +344,7 @@ export async function signInWithWalletIdentity(
       walletAddress,
       nonce: nonceData.nonce,
       signature,
+      intent,
     }),
   });
 

@@ -120,9 +120,23 @@ function signaturesMatch(
   );
 }
 
+export type IdentityAuthIntent =
+  | 'sign_in'
+  | 'create_identity';
+
+export function isIdentityAuthIntent(
+  value: unknown
+): value is IdentityAuthIntent {
+  return (
+    value === 'sign_in' ||
+    value === 'create_identity'
+  );
+}
+
 export function buildUserAuthMessage(
   walletAddress: string,
-  nonce: string
+  nonce: string,
+  intent: IdentityAuthIntent
 ): string {
   const canonicalWalletAddress =
     normalizeWalletAddress(walletAddress);
@@ -133,11 +147,16 @@ export function buildUserAuthMessage(
     throw new Error('Invalid nonce.');
   }
 
+  if (!isIdentityAuthIntent(intent)) {
+    throw new Error('Invalid identity auth intent.');
+  }
+
   return [
     'Coincarnation Identity Verification',
     '',
     `Wallet: ${canonicalWalletAddress}`,
     `Nonce: ${normalizedNonce}`,
+    `Intent: ${intent}`,
     'Purpose: user_auth',
     '',
     'This signature does not authorize a transaction or move funds.',

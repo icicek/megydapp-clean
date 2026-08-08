@@ -34,7 +34,7 @@ export default function CronReclassifierPage() {
 
         <h2>⚙️ Workflow</h2>
         <ol>
-          <li>GitHub Actions triggers <code>POST /api/admin/reclassify</code> every 15 minutes.</li>
+          <li>GitHub Actions triggers <code>POST /api/admin/reclassify</code> every 12 hours.</li>
           <li>SQL batch updates statuses based on thresholds & cooldown.</li>
           <li>Each change is appended to <code>token_audit</code>.</li>
           <li>Advisory locks prevent overlapping runs.</li>
@@ -47,7 +47,7 @@ export default function CronReclassifierPage() {
 
         <h2>📦 Key Files</h2>
         <ul>
-          <li><code>.github/workflows/reclassify.yml</code></li>
+          <li><code>.github/workflows/reclassify-cron.yml</code></li>
           <li><code>app/api/admin/reclassify/route.ts</code></li>
           <li><code>app/api/admin/reclassify/reclassifyAll.ts</code></li>
           <li><code>token_audit</code> & <code>cron_runs</code> tables</li>

@@ -7,6 +7,7 @@ import { sql } from '@/app/api/_lib/db';
 import {
   buildUserAuthMessage,
   createUserNonce,
+  isIdentityAuthIntent,
 } from '@/app/api/_lib/user-auth';
 
 export const runtime = 'nodejs';
@@ -96,6 +97,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const intent = body.intent;
+
+    if (!isIdentityAuthIntent(intent)) {
+      return jsonResponse(
+        {
+          ok: false,
+          error: 'Invalid identity auth intent.',
+        },
+        400
+      );
+    }
+
     const candidateNonce = createUserNonce();
 
     const nonceRows = await sql`
@@ -142,13 +155,15 @@ export async function POST(req: NextRequest) {
 
     const message = buildUserAuthMessage(
       walletAddress,
-      nonce
+      nonce,
+      intent
     );
 
     return jsonResponse({
       ok: true,
       walletAddress,
       nonce,
+      intent,
       message,
     });
   } catch (error) {
