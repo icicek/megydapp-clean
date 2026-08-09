@@ -4070,13 +4070,7 @@ export default function ClaimPanel() {
 
         <AppWalletBar />
 
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: 'easeOut' }}
-          className="bg-zinc-900 text-white p-6 rounded-2xl w-full border border-zinc-700 shadow-lg space-y-10"
-        >
-          <div className="mb-5 flex justify-start">
+        <div className="mb-5 flex justify-start">
             <button
               type="button"
               onClick={() => {
@@ -4086,8 +4080,14 @@ export default function ClaimPanel() {
             >
               ← Back to Home
             </button>
-          </div>
-          
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          className="bg-zinc-900 text-white p-6 rounded-2xl w-full border border-zinc-700 shadow-lg space-y-10"
+        >
           <h2 className="text-center text-2xl font-bold tracking-tight text-white sm:text-3xl">
             Coincarnator Profile
           </h2>
