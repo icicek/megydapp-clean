@@ -3,121 +3,279 @@ import nacl from 'tweetnacl';
 
 const BASE_URL = 'https://coincarnation.com';
 
-/*
- * Generate a completely fresh local wallet.
- *
- * This private key is never printed, stored or sent anywhere.
- * The wallet does not need SOL because this test performs
- * message signing only — no blockchain transaction occurs.
- */
-const keypair = Keypair.generate();
-const walletAddress = keypair.publicKey.toBase58();
+function signMessage(message, keypair) {
+  const messageBytes = new TextEncoder().encode(message);
 
-console.log('Temporary test wallet:', walletAddress);
-
-/* --------------------------------------------------------- */
-/* 1. Request a SIGN_IN nonce                                */
-/* --------------------------------------------------------- */
-
-const nonceResponse = await fetch(
-  `${BASE_URL}/api/auth/nonce`,
-  {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      walletAddress,
-      intent: 'sign_in',
-    }),
-  }
-);
-
-const nonceData = await nonceResponse.json();
-
-console.log(
-  'Nonce response:',
-  nonceResponse.status,
-  nonceData
-);
-
-if (
-  !nonceResponse.ok ||
-  !nonceData?.ok ||
-  !nonceData?.nonce ||
-  !nonceData?.message
-) {
-  throw new Error(
-    'Failed to obtain authentication nonce.'
-  );
-}
-
-/* --------------------------------------------------------- */
-/* 2. Sign exactly the message returned by the server        */
-/* --------------------------------------------------------- */
-
-const messageBytes = new TextEncoder().encode(
-  nonceData.message
-);
-
-const signatureBytes = nacl.sign.detached(
-  messageBytes,
-  keypair.secretKey
-);
-
-const signatureBase64 =
-  Buffer.from(signatureBytes).toString('base64');
-
-/* --------------------------------------------------------- */
-/* 3. Attempt SIGN_IN with an unlinked wallet                */
-/* --------------------------------------------------------- */
-
-const verifyResponse = await fetch(
-  `${BASE_URL}/api/auth/verify`,
-  {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      walletAddress,
-      nonce: nonceData.nonce,
-      signature: signatureBase64,
-      intent: 'sign_in',
-    }),
-  }
-);
-
-const verifyData = await verifyResponse.json();
-
-console.log(
-  'Verify response:',
-  verifyResponse.status,
-  verifyData
-);
-
-/* --------------------------------------------------------- */
-/* 4. Assert the production guard                            */
-/* --------------------------------------------------------- */
-
-if (
-  verifyResponse.status !== 409 ||
-  verifyData?.code !== 'WALLET_NOT_LINKED'
-) {
-  console.error(
-    '❌ SECURITY TEST FAILED'
+  const signatureBytes = nacl.sign.detached(
+    messageBytes,
+    keypair.secretKey
   );
 
-  process.exit(1);
+  return Buffer.from(signatureBytes).toString('base64');
 }
+
+async function requestNonce(walletAddress, intent) {
+  const response = await fetch(
+    `${BASE_URL}/api/auth/nonce`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        walletAddress,
+        intent,
+      }),
+    }
+  );
+
+  const data = await response.json();
+
+  console.log(
+    `Nonce response (${intent}):`,
+    response.status,
+    data
+  );
+
+  if (
+    !response.ok ||
+    !data?.ok ||
+    !data?.nonce ||
+    !data?.message
+  ) {
+    throw new Error(
+      `Failed to obtain ${intent} authentication nonce.`
+    );
+  }
+
+  return data;
+}
+
+async function verify({
+  walletAddress,
+  nonce,
+  signature,
+  intent,
+}) {
+  const response = await fetch(
+    `${BASE_URL}/api/auth/verify`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        walletAddress,
+        nonce,
+        signature,
+        intent,
+      }),
+    }
+  );
+
+  const data = await response.json();
+
+  console.log(
+    `Verify response (${intent}):`,
+    response.status,
+    data
+  );
+
+  return {
+    response,
+    data,
+  };
+}
+
+/* ========================================================= */
+/* TEST 1                                                    */
+/* Unlinked wallet + valid sign_in signature must NOT        */
+/* create a new Identity.                                    */
+/* ========================================================= */
 
 console.log('');
 console.log(
-  '✅ SECURITY TEST PASSED'
+  '============================================================'
 );
 console.log(
-  'Unlinked wallet + sign_in was rejected with WALLET_NOT_LINKED.'
+  'TEST 1 — Unlinked wallet cannot silently create an Identity'
 );
 console.log(
-  'No Identity was silently created.'
+  '============================================================'
+);
+
+{
+  const keypair = Keypair.generate();
+  const walletAddress =
+    keypair.publicKey.toBase58();
+
+  console.log(
+    'Temporary test wallet:',
+    walletAddress
+  );
+
+  const nonceData =
+    await requestNonce(
+      walletAddress,
+      'sign_in'
+    );
+
+  const signature =
+    signMessage(
+      nonceData.message,
+      keypair
+    );
+
+  const {
+    response,
+    data,
+  } = await verify({
+    walletAddress,
+    nonce: nonceData.nonce,
+    signature,
+    intent: 'sign_in',
+  });
+
+  if (
+    response.status !== 409 ||
+    data?.code !== 'WALLET_NOT_LINKED'
+  ) {
+    console.error('');
+    console.error(
+      '❌ TEST 1 FAILED'
+    );
+    console.error(
+      'Expected 409 WALLET_NOT_LINKED.'
+    );
+
+    process.exit(1);
+  }
+
+  console.log('');
+  console.log(
+    '✅ TEST 1 PASSED'
+  );
+  console.log(
+    'Unlinked wallet + sign_in was rejected.'
+  );
+  console.log(
+    'No Identity was silently created.'
+  );
+}
+
+/* ========================================================= */
+/* TEST 2                                                    */
+/* A signature created for sign_in must NOT be reusable      */
+/* as create_identity by changing only the request body.     */
+/* ========================================================= */
+
+console.log('');
+console.log(
+  '============================================================'
+);
+console.log(
+  'TEST 2 — Signed auth intent cannot be tampered with'
+);
+console.log(
+  '============================================================'
+);
+
+{
+  const keypair = Keypair.generate();
+  const walletAddress =
+    keypair.publicKey.toBase58();
+
+  console.log(
+    'Temporary test wallet:',
+    walletAddress
+  );
+
+  /*
+   * Request a challenge specifically for sign_in.
+   */
+  const nonceData =
+    await requestNonce(
+      walletAddress,
+      'sign_in'
+    );
+
+  /*
+   * Sign the exact server message:
+   *
+   * Intent: sign_in
+   */
+  const signature =
+    signMessage(
+      nonceData.message,
+      keypair
+    );
+
+  /*
+   * Tamper with the request body.
+   *
+   * The signature belongs to:
+   *   Intent: sign_in
+   *
+   * but verification claims:
+   *   Intent: create_identity
+   *
+   * The server must reconstruct a different message and reject
+   * the signature.
+   */
+  const {
+    response,
+    data,
+  } = await verify({
+    walletAddress,
+    nonce: nonceData.nonce,
+    signature,
+    intent: 'create_identity',
+  });
+
+  if (
+    response.status !== 401 ||
+    data?.error !== 'Invalid wallet signature.'
+  ) {
+    console.error('');
+    console.error(
+      '❌ TEST 2 FAILED'
+    );
+    console.error(
+      'Expected 401 Invalid wallet signature.'
+    );
+
+    process.exit(1);
+  }
+
+  console.log('');
+  console.log(
+    '✅ TEST 2 PASSED'
+  );
+  console.log(
+    'A sign_in signature could not be reused as create_identity.'
+  );
+  console.log(
+    'The authentication intent is cryptographically bound to the signature.'
+  );
+}
+
+/* ========================================================= */
+/* FINAL                                                     */
+/* ========================================================= */
+
+console.log('');
+console.log(
+  '============================================================'
+);
+console.log(
+  '✅ ALL IDENTITY SECURITY TESTS PASSED'
+);
+console.log(
+  '============================================================'
+);
+console.log(
+  '1. No silent Identity creation from sign_in.'
+);
+console.log(
+  '2. Auth intent tampering is rejected cryptographically.'
 );
