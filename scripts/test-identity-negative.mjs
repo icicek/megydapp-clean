@@ -1,3 +1,17 @@
+//scripts/scripts/test-identity-negative.mjs
+
+/**
+ * Production Identity security regression tests.
+ *
+ * Verifies:
+ * 1. sign_in cannot silently create an Identity.
+ * 2. signed auth intent cannot be tampered with.
+ *
+ * IMPORTANT:
+ * This script never submits a correctly signed create_identity request,
+ * so it does not intentionally create test identities.
+ */
+
 import { Keypair } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 
