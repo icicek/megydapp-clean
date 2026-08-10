@@ -104,6 +104,7 @@ export async function GET(req: NextRequest) {
       agg AS (
         SELECT
           vc.token_contract AS mint,
+          MAX(NULLIF(vc.token_symbol, '')) AS contribution_symbol,
           COUNT(*)::int AS total_coincarnations,
           COUNT(DISTINCT vc.wallet_address)::int AS unique_wallets,
           COALESCE(SUM(vc.usd_value), 0)::numeric AS total_revived_usd,
@@ -128,7 +129,7 @@ export async function GET(req: NextRequest) {
       discovery_matches AS (
         SELECT
           agg.mint,
-          COALESCE(mc.symbol, NULLIF(MAX(vc.token_symbol), ''), null) AS symbol,
+          COALESCE(mc.symbol, agg.contribution_symbol, null) AS symbol,
           COALESCE(mc.name, null) AS name,
           COALESCE(mc.logo_uri, null) AS logo_uri,
 
@@ -170,7 +171,7 @@ export async function GET(req: NextRequest) {
             WHEN agg.mint ILIKE ${pattern} THEN 4
             WHEN COALESCE(mc.symbol, '') ILIKE ${pattern} THEN 5
             WHEN COALESCE(mc.name, '') ILIKE ${pattern} THEN 6
-            WHEN COALESCE(MAX(vc.token_symbol), '') ILIKE ${pattern} THEN 7
+            WHEN COALESCE(agg.contribution_symbol, '') ILIKE ${pattern} THEN 7
             ELSE 100
           END AS search_rank
         FROM agg
@@ -178,8 +179,6 @@ export async function GET(req: NextRequest) {
           ON r.mint = agg.mint
         LEFT JOIN token_metadata_cache mc
           ON mc.mint = agg.mint
-        LEFT JOIN valid_contributions vc
-          ON vc.token_contract = agg.mint
         WHERE
           (${status ?? null}::text IS NULL OR COALESCE(r.status::text, 'deadcoin') = ${status})
           AND (
@@ -187,22 +186,8 @@ export async function GET(req: NextRequest) {
             OR agg.mint ILIKE ${pattern}
             OR COALESCE(mc.symbol, '') ILIKE ${pattern}
             OR COALESCE(mc.name, '') ILIKE ${pattern}
-            OR COALESCE(vc.token_symbol, '') ILIKE ${pattern}
+            OR COALESCE(agg.contribution_symbol, '') ILIKE ${pattern}
           )
-        GROUP BY
-          agg.mint,
-          mc.symbol,
-          mc.name,
-          mc.logo_uri,
-          r.status,
-          agg.total_coincarnations,
-          agg.unique_wallets,
-          agg.total_revived_usd,
-          agg.first_seen_at,
-          agg.last_activity_at,
-          agg.recent_24h_count,
-          agg.recent_10m_count,
-          agg.activity_score
       ),
 
       pioneer_candidate AS (
