@@ -1,10 +1,7 @@
 // app/api/coincarnation/stats/route.ts
 import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
-import {
-  getStatusRow,
-  type TokenStatus,
-} from '@/app/api/_lib/registry';
+
 import {
   getDatabaseUrl,
 } from '@/app/api/_lib/database-url';
@@ -18,149 +15,189 @@ function getSql() {
   );
 }
 
-async function isDeadcoinForMegy(
-  mint: string | null | undefined,
-  usd: number,
-  cache: Map<string, TokenStatus | null>,
-): Promise<boolean> {
-  if (!Number.isFinite(usd) || usd === 0) return true;
-  if (!mint) return false;
-
-  if (cache.has(mint)) {
-    const s = cache.get(mint);
-    return s === 'deadcoin';
-  }
-
-  try {
-    const reg = await getStatusRow(mint);
-    const status = (reg?.status ?? null) as TokenStatus | null;
-    cache.set(mint, status);
-    return status === 'deadcoin';
-  } catch (e) {
-    console.warn(
-      '[stats] getStatusRow failed, treating as non-deadcoin:',
-      (e as any)?.message || e,
-    );
-    cache.set(mint, null);
-    return false;
-  }
-}
-
 export async function GET() {
   try {
     const sql = getSql();
 
-    const participantResult = await sql`
-      SELECT COUNT(DISTINCT wallet_address) AS count
-      FROM contributions;
+    /*
+     * Aggregate contribution statistics entirely inside PostgreSQL.
+     *
+     * Important semantics preserved from the previous implementation:
+     *
+     * - usd_value = 0 is excluded from totalUsd.
+     * - A contribution is excluded from totalUsd only when its
+     *   registry status is explicitly "deadcoin".
+     * - Missing registry rows remain eligible, matching the previous
+     *   getStatusRow() fallback behavior.
+     * - blacklist/redlist contributions remain eligible here because
+     *   the previous implementation excluded only "deadcoin".
+     *
+     * The LEFT JOIN removes the previous N-query status lookup pattern
+     * and prevents all contribution rows from being transferred to
+     * the application server.
+     */
+    const contributionStatsResult = await sql`
+      SELECT
+        COUNT(DISTINCT c.wallet_address)::int
+          AS total_participants,
+
+        COALESCE(
+          SUM(
+            CASE
+              WHEN
+                COALESCE(c.usd_value, 0) <> 0
+                AND r.status IS DISTINCT FROM 'deadcoin'::token_status_enum
+              THEN c.usd_value
+              ELSE 0
+            END
+          ),
+          0
+        )::numeric
+          AS total_usd,
+
+        COUNT(
+          DISTINCT c.token_contract
+        ) FILTER (
+          WHERE
+            c.token_contract IS NOT NULL
+            AND r.status = 'deadcoin'::token_status_enum
+        )::int
+          AS unique_deadcoins
+
+      FROM contributions c
+
+      LEFT JOIN token_registry r
+        ON r.mint = c.token_contract
     ` as any[];
 
+    /*
+     * Find the most frequently contributed deadcoin.
+     *
+     * Keeping this as a separate aggregate query makes the intent
+     * explicit and avoids mixing ranking/window logic into the main
+     * contribution aggregate.
+     */
+    const popularDeadcoinResult = await sql`
+      SELECT
+        c.token_symbol,
+        COUNT(*)::int AS contribution_count
+
+      FROM contributions c
+
+      JOIN token_registry r
+        ON r.mint = c.token_contract
+       AND r.status = 'deadcoin'::token_status_enum
+
+      WHERE
+        c.token_contract IS NOT NULL
+        AND c.token_symbol IS NOT NULL
+
+      GROUP BY
+        c.token_symbol,
+        c.token_contract
+
+      ORDER BY
+        contribution_count DESC,
+        c.token_contract ASC
+
+      LIMIT 1
+    ` as any[];
+
+    /*
+     * CorePoints are append-only event values, so SUM(points)
+     * remains the canonical generated total.
+     */
     const corePointResult = await sql`
-      SELECT COALESCE(SUM(points), 0)::numeric AS total
-      FROM corepoint_events;
+      SELECT
+        COALESCE(SUM(points), 0)::numeric AS total
+      FROM corepoint_events
     ` as any[];
 
+    /*
+     * MEGY generated/allocated across all phase allocations.
+     */
     const megyAllocatedResult = await sql`
-      SELECT COALESCE(SUM(megy_allocated), 0)::numeric AS total
-      FROM phase_allocations;
+      SELECT
+        COALESCE(SUM(megy_allocated), 0)::numeric AS total
+      FROM phase_allocations
     ` as any[];
 
+    /*
+     * Registry counters are calculated in one scan.
+     */
     const registryStatsResult = await sql`
       SELECT
         COUNT(*) FILTER (
-          WHERE status IN ('healthy','walking_dead','deadcoin')
+          WHERE status IN (
+            'healthy',
+            'walking_dead',
+            'deadcoin'
+          )
         )::int AS total_indexed_assets,
 
-        COUNT(*) FILTER (WHERE status = 'healthy')::int AS healthy_assets,
+        COUNT(*) FILTER (
+          WHERE status = 'healthy'
+        )::int AS healthy_assets,
 
-        COUNT(*) FILTER (WHERE status = 'walking_dead')::int AS walking_dead_assets,
+        COUNT(*) FILTER (
+          WHERE status = 'walking_dead'
+        )::int AS walking_dead_assets,
 
-        COUNT(*) FILTER (WHERE status = 'deadcoin')::int AS deadcoin_assets
-      FROM token_registry;
+        COUNT(*) FILTER (
+          WHERE status = 'deadcoin'
+        )::int AS deadcoin_assets
+
+      FROM token_registry
     ` as any[];
 
-    const contribRows = await sql`
-      SELECT token_contract, usd_value
-      FROM contributions
-    ` as any[];
+    const contributionStats =
+      contributionStatsResult[0];
 
-    const distinctMintRows = await sql`
-      SELECT DISTINCT token_contract
-      FROM contributions
-      WHERE token_contract IS NOT NULL
-    ` as any[];
+    const registryStats =
+      registryStatsResult[0];
 
-    const statusCache = new Map<string, TokenStatus | null>();
-
-    await Promise.all(
-      distinctMintRows.map(async (row) => {
-        const mint = row.token_contract as string | null;
-        if (!mint || statusCache.has(mint)) return;
-        try {
-          const reg = await getStatusRow(mint);
-          statusCache.set(mint, (reg?.status ?? null) as TokenStatus | null);
-        } catch (e) {
-          console.warn(
-            '[stats] preload getStatusRow failed:',
-            (e as any)?.message || e,
-          );
-          statusCache.set(mint, null);
-        }
-      })
+    const totalParticipants = Number(
+      contributionStats?.total_participants ?? 0
     );
 
-    let totalUsdEligible = 0;
-    for (const row of contribRows) {
-      const usd = Number(row.usd_value ?? 0);
-      const mint = row.token_contract as string | null;
-      const isDead = await isDeadcoinForMegy(mint, usd, statusCache);
-      if (!isDead) totalUsdEligible += usd;
-    }
+    const totalUsd = Number(
+      contributionStats?.total_usd ?? 0
+    );
 
-    const popularRows = await sql`
-      SELECT token_symbol, token_contract, COUNT(*) AS cnt
-      FROM contributions
-      WHERE token_contract IS NOT NULL
-      GROUP BY token_symbol, token_contract
-    ` as any[];
+    const uniqueDeadcoins = Number(
+      contributionStats?.unique_deadcoins ?? 0
+    );
 
-    const deadcoinSet = new Set<string>();
-    for (const row of distinctMintRows) {
-      const mint = row.token_contract as string | null;
-      if (!mint) continue;
-      const status = statusCache.get(mint);
-      if (status === 'deadcoin') deadcoinSet.add(mint);
-    }
+    const mostPopularDeadcoin =
+      popularDeadcoinResult[0]?.token_symbol
+        ? String(
+            popularDeadcoinResult[0].token_symbol
+          )
+        : 'No deadcoin yet';
 
-    const uniqueDeadcoins = deadcoinSet.size;
+    const corePointGenerated = Number(
+      corePointResult[0]?.total ?? 0
+    );
 
-    let mostPopularDeadcoin = 'No deadcoin yet';
-    if (deadcoinSet.size > 0) {
-      let bestSymbol = 'No deadcoin yet';
-      let bestCount = 0;
+    const megyGenerated = Number(
+      megyAllocatedResult[0]?.total ?? 0
+    );
 
-      for (const row of popularRows) {
-        const mint = row.token_contract as string | null;
-        if (!mint || !deadcoinSet.has(mint)) continue;
+    const totalIndexedAssets = Number(
+      registryStats?.total_indexed_assets ?? 0
+    );
 
-        const cnt = Number(row.cnt || 0);
-        if (cnt > bestCount && row.token_symbol) {
-          bestCount = cnt;
-          bestSymbol = String(row.token_symbol);
-        }
-      }
+    const healthyAssets = Number(
+      registryStats?.healthy_assets ?? 0
+    );
 
-      mostPopularDeadcoin = bestSymbol;
-    }
+    const walkingDeadAssets = Number(
+      registryStats?.walking_dead_assets ?? 0
+    );
 
-    const totalParticipants = Number(participantResult[0]?.count ?? 0);
-    const totalUsd = totalUsdEligible;
-    const corePointGenerated = Number(corePointResult[0]?.total ?? 0);
-    const megyGenerated = Number(megyAllocatedResult[0]?.total ?? 0);
-    const totalIndexedAssets = Number(registryStatsResult[0]?.total_indexed_assets ?? 0);
-    const healthyAssets = Number(registryStatsResult[0]?.healthy_assets ?? 0);
-    const walkingDeadAssets = Number(registryStatsResult[0]?.walking_dead_assets ?? 0);
-    const deadcoinAssets = Number(registryStatsResult[0]?.deadcoin_assets ?? 0);
+    const deadcoinAssets = Number(
+      registryStats?.deadcoin_assets ?? 0
+    );
 
     const res = NextResponse.json({
       success: true,
@@ -182,10 +219,17 @@ export async function GET() {
       totalUsdValue: totalUsd,
     });
 
-    res.headers.set('Cache-Control', 's-maxage=15, stale-while-revalidate=60');
+    res.headers.set(
+      'Cache-Control',
+      's-maxage=15, stale-while-revalidate=60'
+    );
+
     return res;
   } catch (error) {
-    console.error('[STATS API ERROR]', error);
+    console.error(
+      '[STATS API ERROR]',
+      error
+    );
 
     const res = NextResponse.json(
       {
@@ -195,7 +239,8 @@ export async function GET() {
         totalParticipants: 0,
         totalUsd: 0,
         uniqueDeadcoins: 0,
-        mostPopularDeadcoin: 'No deadcoin yet',
+        mostPopularDeadcoin:
+          'No deadcoin yet',
         corePointGenerated: 0,
         megyGenerated: 0,
         totalIndexedAssets: 0,
@@ -209,7 +254,11 @@ export async function GET() {
       { status: 200 }
     );
 
-    res.headers.set('Cache-Control', 's-maxage=15, stale-while-revalidate=60');
+    res.headers.set(
+      'Cache-Control',
+      's-maxage=15, stale-while-revalidate=60'
+    );
+
     return res;
   }
 }
