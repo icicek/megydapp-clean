@@ -27,39 +27,98 @@ export async function getCfgNumber(
 
 /* ---------------- Weight bundle ---------------- */
 export async function getCorepointWeights() {
-  const [
-    usdPer1,
-    deadFirst,
-    shareTw,
-    shareOther,
-    refSign,
-    mUsd,
-    mShare,
-    mDead,
-    mRef,
-  ] = await Promise.all([
-    getCfgNumber('cp_usd_per_1', 100),
-    getCfgNumber('cp_deadcoin_first', 100),
-    getCfgNumber('cp_share_twitter', 30),
-    getCfgNumber('cp_share_other', 10),
-    getCfgNumber('cp_referral_signup', 100),
-    getCfgNumber('cp_mult_usd', 1.0),
-    getCfgNumber('cp_mult_share', 1.0),
-    getCfgNumber('cp_mult_deadcoin', 1.0),
-    getCfgNumber('cp_mult_referral', 1.0),
-  ]);
+  const fallback = {
+    cp_usd_per_1: 100,
+    cp_deadcoin_first: 100,
+    cp_share_twitter: 30,
+    cp_share_other: 10,
+    cp_referral_signup: 100,
+    cp_mult_usd: 1.0,
+    cp_mult_share: 1.0,
+    cp_mult_deadcoin: 1.0,
+    cp_mult_referral: 1.0,
+  } as const;
 
-  return {
-    usdPer1,
-    deadFirst,
-    shareTw,
-    shareOther,
-    refSign,
-    mUsd,
-    mShare,
-    mDead,
-    mRef,
-  };
+  try {
+    const rows = (await sql/* sql */`
+      SELECT key, value
+      FROM admin_config
+      WHERE key IN (
+        'cp_usd_per_1',
+        'cp_deadcoin_first',
+        'cp_share_twitter',
+        'cp_share_other',
+        'cp_referral_signup',
+        'cp_mult_usd',
+        'cp_mult_share',
+        'cp_mult_deadcoin',
+        'cp_mult_referral'
+      )
+    `) as unknown as Array<{
+      key: string;
+      value: unknown;
+    }>;
+
+    const values = new Map<string, number>();
+
+    for (const row of rows) {
+      let raw: unknown = row.value;
+
+      if (typeof raw === 'string') {
+        try {
+          const parsed = JSON.parse(raw);
+
+          raw =
+            parsed &&
+            typeof parsed === 'object' &&
+            'value' in parsed
+              ? (parsed as { value?: unknown }).value
+              : parsed;
+        } catch {
+          // Plain numeric strings such as "100" are handled below.
+        }
+      } else if (
+        typeof raw === 'object' &&
+        raw !== null &&
+        'value' in raw
+      ) {
+        raw = (raw as { value?: unknown }).value;
+      }
+
+      const n = Number(raw);
+
+      if (Number.isFinite(n)) {
+        values.set(String(row.key), n);
+      }
+    }
+
+    const get = (key: keyof typeof fallback): number =>
+      values.get(key) ?? fallback[key];
+
+    return {
+      usdPer1: get('cp_usd_per_1'),
+      deadFirst: get('cp_deadcoin_first'),
+      shareTw: get('cp_share_twitter'),
+      shareOther: get('cp_share_other'),
+      refSign: get('cp_referral_signup'),
+      mUsd: get('cp_mult_usd'),
+      mShare: get('cp_mult_share'),
+      mDead: get('cp_mult_deadcoin'),
+      mRef: get('cp_mult_referral'),
+    };
+  } catch {
+    return {
+      usdPer1: fallback.cp_usd_per_1,
+      deadFirst: fallback.cp_deadcoin_first,
+      shareTw: fallback.cp_share_twitter,
+      shareOther: fallback.cp_share_other,
+      refSign: fallback.cp_referral_signup,
+      mUsd: fallback.cp_mult_usd,
+      mShare: fallback.cp_mult_share,
+      mDead: fallback.cp_mult_deadcoin,
+      mRef: fallback.cp_mult_referral,
+    };
+  }
 }
 
 /* ---------------- Awarders ---------------- */
@@ -73,27 +132,55 @@ export async function awardUsdPoints({
   usdValue: Num;
   txId: string;
 }) {
+  const walletAddress = String(wallet || '').trim();
+  const transactionId = String(txId || '').trim();
+
+  if (!walletAddress || !transactionId) {
+    return { awarded: 0, reason: 'missing_wallet_or_tx' };
+  }
+
   const { usdPer1, mUsd } = await getCorepointWeights();
   const usd = Number(usdValue ?? 0);
 
   const rawPts = usd * usdPer1 * mUsd;
   const pts = rawPts > 0 ? Math.max(1, Math.floor(rawPts)) : 0;
 
-  if (pts <= 0) return { awarded: 0 };
+  if (pts <= 0) {
+    return { awarded: 0, reason: 'zero_points' };
+  }
 
-  // ❗ Aynı tx_id için ikinci kez yazmamak için idempotent insert
-  await sql/* sql */ `
-    INSERT INTO corepoint_events (wallet_address, type, points, value, tx_id)
-    SELECT ${wallet}, 'usd', ${pts}, ${usd}, ${txId}
-    WHERE NOT EXISTS (
-      SELECT 1
-      FROM corepoint_events
-      WHERE wallet_address = ${wallet}
-        AND type = 'usd'
-        AND tx_id = ${txId}
+  const inserted = (await sql/* sql */`
+    INSERT INTO corepoint_events (
+      wallet_address,
+      type,
+      points,
+      value,
+      tx_id
     )
-  `;
-  return { awarded: pts };
+    VALUES (
+      ${walletAddress},
+      'usd',
+      ${pts},
+      ${usd},
+      ${transactionId}
+    )
+    ON CONFLICT (type, tx_id)
+      WHERE type = 'usd' AND tx_id IS NOT NULL
+      DO NOTHING
+    RETURNING id
+  `) as unknown as { id: number | string }[];
+
+  if (inserted.length === 0) {
+    return {
+      awarded: 0,
+      reason: 'transaction_already_awarded',
+    };
+  }
+
+  return {
+    awarded: pts,
+    reason: 'awarded',
+  };
 }
 
 // app/api/_lib/corepoints.ts (YENİ HALİ)
@@ -122,16 +209,57 @@ export async function awardDeadcoinFirst({
   }
 
   const identityScope = await getWalletIdentityScope(walletAddress);
+  const context = `deadcoin_scope:${identityScope}`;
 
-  const existing = (await sql/* sql */`
+  const inserted = (await sql/* sql */`
+    WITH reserved_id AS (
+      SELECT nextval('corepoint_events_id_seq')::bigint AS event_id
+    ),
+    award_insert AS (
+      INSERT INTO deadcoin_identity_awards (
+        identity_scope,
+        wallet_address,
+        token_contract,
+        corepoint_event_id
+      )
+      SELECT
+        ${identityScope},
+        ${walletAddress},
+        ${contract},
+        reserved_id.event_id
+      FROM reserved_id
+      ON CONFLICT (identity_scope, token_contract) DO NOTHING
+      RETURNING corepoint_event_id
+    ),
+    event_insert AS (
+      INSERT INTO corepoint_events (
+        id,
+        wallet_address,
+        type,
+        points,
+        token_contract,
+        tx_id,
+        context
+      )
+      SELECT
+        award_insert.corepoint_event_id,
+        ${walletAddress},
+        'deadcoin_first',
+        ${pts},
+        ${contract},
+        ${txId ?? null},
+        ${context}
+      FROM award_insert
+      RETURNING id
+    )
     SELECT id
-    FROM deadcoin_identity_awards
-    WHERE identity_scope = ${identityScope}
-      AND token_contract = ${contract}
-    LIMIT 1
-  `) as unknown as { id: number }[];
+    FROM event_insert
+  `) as unknown as { id: number | string }[];
 
-  if (existing.length > 0) {
+  const corepointEventId =
+    inserted.length > 0 ? Number(inserted[0].id) : null;
+
+  if (!corepointEventId) {
     return {
       awarded: 0,
       reason: 'identity_token_already_awarded',
@@ -139,44 +267,6 @@ export async function awardDeadcoinFirst({
       tokenContract: contract,
     };
   }
-
-  const eventRows = (await sql/* sql */`
-    INSERT INTO corepoint_events (
-      wallet_address,
-      type,
-      points,
-      token_contract,
-      tx_id,
-      context
-    )
-    VALUES (
-      ${walletAddress},
-      'deadcoin_first',
-      ${pts},
-      ${contract},
-      ${txId ?? null},
-      ${`deadcoin_scope:${identityScope}`}
-    )
-    RETURNING id
-  `) as unknown as { id: number }[];
-
-  const corepointEventId = eventRows?.[0]?.id ?? null;
-
-  await sql/* sql */`
-    INSERT INTO deadcoin_identity_awards (
-      identity_scope,
-      wallet_address,
-      token_contract,
-      corepoint_event_id
-    )
-    VALUES (
-      ${identityScope},
-      ${walletAddress},
-      ${contract},
-      ${corepointEventId}
-    )
-    ON CONFLICT (identity_scope, token_contract) DO NOTHING
-  `;
 
   return {
     awarded: pts,
@@ -277,51 +367,66 @@ export async function awardReferralSignupIdentityAware({
     return { awarded: 0, reason: 'same_identity' };
   }
 
-  const existing = await sql/* sql */`
+  const context = `referral_scope:${referrerScope}->${referredScope}`;
+
+  const inserted = (await sql/* sql */`
+    WITH reserved_id AS (
+      SELECT nextval('corepoint_events_id_seq')::bigint AS event_id
+    ),
+    award_insert AS (
+      INSERT INTO referral_identity_awards (
+        referrer_wallet,
+        referrer_scope,
+        referred_wallet,
+        referred_scope,
+        referral_code,
+        corepoint_event_id
+      )
+      SELECT
+        ${referrerWallet},
+        ${referrerScope},
+        ${refereeWallet},
+        ${referredScope},
+        ${referralCode ?? null},
+        reserved_id.event_id
+      FROM reserved_id
+      ON CONFLICT (referrer_scope, referred_scope) DO NOTHING
+      RETURNING corepoint_event_id
+    ),
+    event_insert AS (
+      INSERT INTO corepoint_events (
+        id,
+        wallet_address,
+        type,
+        points,
+        ref_wallet,
+        context
+      )
+      SELECT
+        award_insert.corepoint_event_id,
+        ${referrerWallet},
+        'referral_signup',
+        ${pts},
+        ${refereeWallet},
+        ${context}
+      FROM award_insert
+      RETURNING id
+    )
     SELECT id
-    FROM referral_identity_awards
-    WHERE referrer_scope = ${referrerScope}
-      AND referred_scope = ${referredScope}
-    LIMIT 1
-  ` as unknown as { id: number }[];
+    FROM event_insert
+  `) as unknown as { id: number | string }[];
 
-  if (existing.length > 0) {
-    return { awarded: 0, reason: 'identity_pair_already_awarded' };
+  const corepointEventId =
+    inserted.length > 0 ? Number(inserted[0].id) : null;
+
+  if (!corepointEventId) {
+    return {
+      awarded: 0,
+      reason: 'identity_pair_already_awarded',
+      referrerScope,
+      referredScope,
+    };
   }
-
-  const eventRows = await sql/* sql */`
-    INSERT INTO corepoint_events (wallet_address, type, points, ref_wallet, context)
-    VALUES (
-      ${referrerWallet},
-      'referral_signup',
-      ${pts},
-      ${refereeWallet},
-      ${`referral_scope:${referrerScope}->${referredScope}`}
-    )
-    RETURNING id
-  ` as unknown as { id: number }[];
-
-  const corepointEventId = eventRows?.[0]?.id ?? null;
-
-  await sql/* sql */`
-    INSERT INTO referral_identity_awards (
-      referrer_wallet,
-      referrer_scope,
-      referred_wallet,
-      referred_scope,
-      referral_code,
-      corepoint_event_id
-    )
-    VALUES (
-      ${referrerWallet},
-      ${referrerScope},
-      ${refereeWallet},
-      ${referredScope},
-      ${referralCode ?? null},
-      ${corepointEventId}
-    )
-    ON CONFLICT (referrer_scope, referred_scope) DO NOTHING
-  `;
 
   return {
     awarded: pts,
@@ -347,6 +452,7 @@ export async function awardReferralSignupIdentityAware({
  *      • copy:  cüzdan başına sadece 1 kere
  *      • diğer kanallar: (wallet, context) başına 1 kere
  */
+
 export async function awardShare({
   wallet,
   channel,
@@ -366,75 +472,159 @@ export async function awardShare({
     | 'discord'
     | 'system';
   context: string;
-  day?: string; // opsiyonel: verilmezse bugün
+  day?: string;
   txId?: string | null;
 }) {
+  const walletAddress = String(wallet || '').trim();
+  const shareContext = String(context || '').trim();
+  const transactionId = txId ? String(txId).trim() : null;
+
+  if (!walletAddress) {
+    return { awarded: 0, reason: 'missing_wallet' };
+  }
+
+  if (!shareContext) {
+    return { awarded: 0, reason: 'missing_context' };
+  }
+
   const { shareTw, shareOther, mShare } = await getCorepointWeights();
+
   const base = channel === 'twitter' ? shareTw : shareOther;
   const pts = Math.floor(base * mShare);
-  if (pts <= 0) return { awarded: 0 };
+
+  if (pts <= 0) {
+    return { awarded: 0, reason: 'zero_points' };
+  }
 
   const dayStr =
     typeof day === 'string' && day.length >= 10
       ? day.slice(0, 10)
       : new Date().toISOString().slice(0, 10);
 
-  // Kanal grubunu value alanında saklayacağız:
-  // 1 = twitter, 2 = copy, 3 = diğer
+  // Channel group:
+  // 1 = twitter
+  // 2 = copy
+  // 3 = other
   const group =
     channel === 'twitter' ? 1 : channel === 'copy' ? 2 : 3;
 
   // ---------------- TX-BASED MODE ----------------
-  if (txId) {
-    // Aynı (wallet, type='share', tx_id, value=group) zaten varsa puan verme
-    await sql/* sql */ `
-      INSERT INTO corepoint_events (wallet_address, type, points, context, day, value, tx_id)
-      SELECT ${wallet}, 'share', ${pts}, ${context}, ${dayStr}, ${group}, ${txId}
-      WHERE NOT EXISTS (
-        SELECT 1
-        FROM corepoint_events
-        WHERE wallet_address = ${wallet}
-          AND type          = 'share'
-          AND tx_id         = ${txId}
-          AND value         = ${group}
+  // Business rule:
+  // Same (wallet, tx_id, channel-group) can receive Share CP only once.
+  if (transactionId) {
+    const inserted = (await sql/* sql */`
+      INSERT INTO corepoint_events (
+        wallet_address,
+        type,
+        points,
+        context,
+        day,
+        value,
+        tx_id
       )
-    `;
-    return { awarded: pts };
+      VALUES (
+        ${walletAddress},
+        'share',
+        ${pts},
+        ${shareContext},
+        ${dayStr},
+        ${group},
+        ${transactionId}
+      )
+      ON CONFLICT DO NOTHING
+      RETURNING id
+    `) as unknown as { id: number | string }[];
+
+    if (inserted.length === 0) {
+      return {
+        awarded: 0,
+        reason: 'share_already_awarded',
+      };
+    }
+
+    return {
+      awarded: pts,
+      reason: 'awarded',
+    };
   }
 
-  // ---------------- GLOBAL MODE (txId yok) ----------------
-
+  // ---------------- GLOBAL COPY MODE ----------------
+  // Copy itself is never blocked.
+  // Only the global Copy CorePoint reward is limited to once per wallet.
   if (channel === 'copy') {
-    // copy: cüzdan başına sadece 1 kere (tx_id IS NULL, value=2)
-    await sql/* sql */ `
-      INSERT INTO corepoint_events (wallet_address, type, points, context, day, value, tx_id)
-      SELECT ${wallet}, 'share', ${pts}, ${context}, ${dayStr}, 2, NULL
-      WHERE NOT EXISTS (
-        SELECT 1
-        FROM corepoint_events
-        WHERE wallet_address = ${wallet}
-          AND type          = 'share'
-          AND tx_id IS NULL
-          AND value         = 2
+    const inserted = (await sql/* sql */`
+      INSERT INTO corepoint_events (
+        wallet_address,
+        type,
+        points,
+        context,
+        day,
+        value,
+        tx_id
       )
-    `;
-  } else {
-    // Diğer kanallar: (wallet, context) başına 1 kere (tx_id IS NULL)
-    await sql/* sql */ `
-      INSERT INTO corepoint_events (wallet_address, type, points, context, day, value, tx_id)
-      SELECT ${wallet}, 'share', ${pts}, ${context}, ${dayStr}, ${group}, NULL
-      WHERE NOT EXISTS (
-        SELECT 1
-        FROM corepoint_events
-        WHERE wallet_address = ${wallet}
-          AND type          = 'share'
-          AND tx_id IS NULL
-          AND context       = ${context}
+      VALUES (
+        ${walletAddress},
+        'share',
+        ${pts},
+        ${shareContext},
+        ${dayStr},
+        2,
+        NULL
       )
-    `;
+      ON CONFLICT DO NOTHING
+      RETURNING id
+    `) as unknown as { id: number | string }[];
+
+    if (inserted.length === 0) {
+      return {
+        awarded: 0,
+        reason: 'global_copy_already_awarded',
+      };
+    }
+
+    return {
+      awarded: pts,
+      reason: 'awarded',
+    };
   }
 
-  return { awarded: pts };
+  // ---------------- GLOBAL CONTEXT MODE ----------------
+  // Other channels:
+  // Same (wallet, context) can receive Share CP only once.
+  const inserted = (await sql/* sql */`
+    INSERT INTO corepoint_events (
+      wallet_address,
+      type,
+      points,
+      context,
+      day,
+      value,
+      tx_id
+    )
+    VALUES (
+      ${walletAddress},
+      'share',
+      ${pts},
+      ${shareContext},
+      ${dayStr},
+      ${group},
+      NULL
+    )
+    ON CONFLICT DO NOTHING
+    RETURNING id
+  `) as unknown as { id: number | string }[];
+
+  if (inserted.length === 0) {
+    return {
+      awarded: 0,
+      reason: 'share_context_already_awarded',
+    };
+  }
+
+  return {
+    awarded: pts,
+    reason: 'awarded',
+  };
 }
 
 /* ---------------- Aggregation ---------------- */
