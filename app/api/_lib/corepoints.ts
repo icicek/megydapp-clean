@@ -501,12 +501,18 @@ export async function awardShare({
       ? day.slice(0, 10)
       : new Date().toISOString().slice(0, 10);
 
-  // Channel group:
-  // 1 = twitter
-  // 2 = copy
-  // 3 = other
-  const group =
-    channel === 'twitter' ? 1 : channel === 'copy' ? 2 : 3;
+  // Coincarnation share reward groups:
+  // 1 = X / Twitter
+  // 2 = Other channels
+  //
+  // "Other" includes copy, Telegram, WhatsApp, email,
+  // Instagram, TikTok, Discord and other supported non-X channels.
+  //
+  // For a tx-based Coincarnation share:
+  // - X can earn CP once per transaction.
+  // - Other can earn CP once per transaction.
+  // Repeated shares in the same group do not earn additional CP.
+  const group = channel === 'twitter' ? 1 : 2;
 
   // ---------------- TX-BASED MODE ----------------
   // Business rule:
