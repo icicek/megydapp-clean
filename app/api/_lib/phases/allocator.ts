@@ -99,52 +99,75 @@ async function computeUsedUsd(phaseId: number) {
 
 async function hasQueue() {
   const rows = (await sql/* sql */`
-    WITH alloc AS (
-      SELECT contribution_id, COALESCE(SUM(COALESCE(usd_allocated,0)::numeric),0)::numeric AS usd_alloc
-      FROM phase_allocations
-      GROUP BY contribution_id
-    )
     SELECT 1
     FROM contributions c
-    LEFT JOIN alloc a ON a.contribution_id = c.id
-    LEFT JOIN token_registry tr ON tr.mint = c.token_contract
+
+    LEFT JOIN token_registry tr
+      ON tr.mint = c.token_contract
+
+    LEFT JOIN LATERAL (
+      SELECT
+        COALESCE(
+          SUM(COALESCE(pa.usd_allocated, 0)::numeric),
+          0
+        )::numeric AS usd_alloc
+      FROM phase_allocations pa
+      WHERE pa.contribution_id = c.id
+    ) a ON TRUE
+
     WHERE c.phase_id IS NULL
-      AND COALESCE(c.alloc_status,'unassigned') IN ('unassigned','partial','pending')
-      AND COALESCE(c.network,'solana') = 'solana'
-      AND COALESCE(c.usd_value,0)::numeric > COALESCE(a.usd_alloc,0)::numeric
-      AND COALESCE(c.usd_value,0)::numeric > 0
+      AND COALESCE(c.alloc_status, 'unassigned')
+          IN ('unassigned', 'partial', 'pending')
+      AND COALESCE(c.network, 'solana') = 'solana'
+      AND COALESCE(c.usd_value, 0)::numeric > 0
+      AND COALESCE(c.usd_value, 0)::numeric
+          > COALESCE(a.usd_alloc, 0)::numeric
       AND (
         c.token_contract = ${WSOL_MINT}
-        OR COALESCE(tr.status,'healthy') IN ('healthy','walking_dead')
+        OR COALESCE(tr.status, 'healthy')
+            IN ('healthy', 'walking_dead')
       )
+
     LIMIT 1
   `) as any[];
+
   return !!rows?.[0];
 }
 
 async function hasWork(_activePhaseId: number | null) {
-  const q = (await sql/* sql */`
-    WITH alloc AS (
-      SELECT contribution_id, COALESCE(SUM(COALESCE(usd_allocated,0)::numeric),0)::numeric AS usd_alloc
-      FROM phase_allocations
-      GROUP BY contribution_id
-    )
+  const rows = (await sql/* sql */`
     SELECT 1
     FROM contributions c
-    LEFT JOIN alloc a ON a.contribution_id = c.id
-    LEFT JOIN token_registry tr ON tr.mint = c.token_contract
-    WHERE COALESCE(c.network,'solana') = 'solana'
-      AND COALESCE(c.usd_value,0)::numeric > 0
+
+    LEFT JOIN token_registry tr
+      ON tr.mint = c.token_contract
+
+    LEFT JOIN LATERAL (
+      SELECT
+        COALESCE(
+          SUM(COALESCE(pa.usd_allocated, 0)::numeric),
+          0
+        )::numeric AS usd_alloc
+      FROM phase_allocations pa
+      WHERE pa.contribution_id = c.id
+    ) a ON TRUE
+
+    WHERE COALESCE(c.network, 'solana') = 'solana'
+      AND COALESCE(c.usd_value, 0)::numeric > 0
+      AND COALESCE(c.alloc_status, 'unassigned')
+          IN ('unassigned', 'partial', 'pending')
+      AND COALESCE(c.usd_value, 0)::numeric
+          > COALESCE(a.usd_alloc, 0)::numeric
       AND (
         c.token_contract = ${WSOL_MINT}
-        OR COALESCE(tr.status,'healthy') IN ('healthy','walking_dead')
+        OR COALESCE(tr.status, 'healthy')
+            IN ('healthy', 'walking_dead')
       )
-      AND COALESCE(c.alloc_status,'unassigned') IN ('unassigned','partial','pending')
-      AND COALESCE(c.usd_value,0)::numeric > COALESCE(a.usd_alloc,0)::numeric
+
     LIMIT 1
   `) as any[];
 
-  return !!q?.[0];
+  return !!rows?.[0];
 }
 
 async function maybeMarkReviewing(phaseId: number) {
@@ -205,28 +228,43 @@ async function allocateIntoPhaseSplitFIFO(phaseId: number, remainingPhaseUsd: nu
 
     // next eligible contribution (FIFO)
     const next = (await sql/* sql */`
-      WITH alloc AS (
-        SELECT contribution_id, COALESCE(SUM(COALESCE(usd_allocated,0)::numeric),0)::numeric AS usd_alloc
-        FROM phase_allocations
-        GROUP BY contribution_id
-      )
       SELECT
         c.id,
         c.wallet_address,
-        COALESCE(c.usd_value,0)::numeric AS usd_value,
-        COALESCE(a.usd_alloc,0)::numeric AS usd_alloc
+        COALESCE(c.usd_value, 0)::numeric AS usd_value,
+        COALESCE(a.usd_alloc, 0)::numeric AS usd_alloc
+    
       FROM contributions c
-      LEFT JOIN alloc a ON a.contribution_id = c.id
-      LEFT JOIN token_registry tr ON tr.mint = c.token_contract
-      WHERE COALESCE(c.alloc_status,'unassigned') IN ('unassigned','partial','pending')
-        AND COALESCE(c.network,'solana') = 'solana'
-        AND COALESCE(c.usd_value,0)::numeric > COALESCE(a.usd_alloc,0)::numeric
-        AND COALESCE(c.usd_value,0)::numeric > 0
+    
+      LEFT JOIN token_registry tr
+        ON tr.mint = c.token_contract
+    
+      LEFT JOIN LATERAL (
+        SELECT
+          COALESCE(
+            SUM(COALESCE(pa.usd_allocated, 0)::numeric),
+            0
+          )::numeric AS usd_alloc
+        FROM phase_allocations pa
+        WHERE pa.contribution_id = c.id
+      ) a ON TRUE
+    
+      WHERE COALESCE(c.alloc_status, 'unassigned')
+              IN ('unassigned', 'partial', 'pending')
+        AND COALESCE(c.network, 'solana') = 'solana'
+        AND COALESCE(c.usd_value, 0)::numeric
+            > COALESCE(a.usd_alloc, 0)::numeric
+        AND COALESCE(c.usd_value, 0)::numeric > 0
         AND (
           c.token_contract = ${WSOL_MINT}
-          OR COALESCE(tr.status,'healthy') IN ('healthy','walking_dead')
+          OR COALESCE(tr.status, 'healthy')
+              IN ('healthy', 'walking_dead')
         )
-      ORDER BY c."timestamp" ASC NULLS LAST, c.id ASC
+    
+      ORDER BY
+        c."timestamp" ASC NULLS LAST,
+        c.id ASC
+    
       LIMIT 1
       FOR UPDATE OF c
       SKIP LOCKED
