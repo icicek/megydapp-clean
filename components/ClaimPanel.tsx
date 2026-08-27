@@ -164,10 +164,79 @@ type ActivePhaseEstimate = {
   [key: string]: unknown;
 };
 
+type ClaimFeeQuoteResponse = {
+  success?: boolean;
+  error?: string | null;
+
+  claim_scope?: 'wallet' | 'identity';
+  phase_id?: number | null;
+  destination?: string | null;
+
+  touched_phase_ids?: number[];
+  fee_phase_ids?: number[];
+  credited_phase_ids?: number[];
+
+  protocol_fee_per_phase_lamports?: number;
+  protocol_fee_lamports?: number;
+  fee_credit_count?: number;
+
+  ata_required?: boolean;
+  ata_entitlement_available?: boolean;
+  ata_entitlement_payment_id?: number | null;
+  ata_address?: string | null;
+
+  /**
+   * Current real ATA creation cost on Solana.
+   */
+  ata_creation_lamports?: number;
+
+  /**
+   * ATA amount actually charged in THIS request.
+   * May be zero when a previous unused entitlement exists.
+   */
+  ata_charge_lamports?: number;
+
+  /**
+   * Authoritative amount the wallet must transfer now.
+   */
+  required_lamports?: number;
+
+  claim_fee_treasury?: string | null;
+
+  network_fee_sponsored?: boolean;
+
+  quoted_at?: string | null;
+  expires_at?: string | null;
+
+  [key: string]: unknown;
+};
+
 type ClaimSessionStartResponse = {
   success?: boolean;
   session_id?: string | number | null;
   error?: string | null;
+
+  reused?: boolean;
+  fee_credit_reused?: boolean;
+  fee_required?: boolean;
+
+  required_lamports?: number;
+  protocol_fee_lamports?: number;
+
+  touched_phase_ids?: number[];
+  fee_phase_ids?: number[];
+  credited_phase_ids?: number[];
+
+  ata_required?: boolean;
+  ata_creation_lamports?: number;
+  ata_charge_lamports?: number;
+
+  retry_quote?: boolean;
+
+  claim_scope?: 'wallet' | 'identity';
+  phase_id?: number | null;
+  is_all_phases?: boolean;
+
   [key: string]: unknown;
 };
 
@@ -196,6 +265,32 @@ type ClaimExecuteResponse = {
   session_closed?: boolean;
 
   [key: string]: unknown;
+};
+
+type PendingClaimState = {
+  wallet: string;
+  destination: string;
+  phaseId: number;
+  claimScope: 'wallet' | 'identity';
+  claimAmount: string;
+  idemKey: string;
+
+  claimFeeTreasury: string;
+
+  requiredLamports: number;
+  protocolFeeLamports: number;
+
+  ataRequired: boolean;
+  ataCreationLamports: number;
+  ataChargeLamports: number;
+  ataEntitlementAvailable: boolean;
+
+  touchedPhaseIds: number[];
+  feePhaseIds: number[];
+
+  quoteExpiresAt: string | null;
+
+  paidFeeSignature: string | null;
 };
 
 type FinalizedPhase = {
@@ -269,7 +364,7 @@ type ClaimPanelData = {
 type CorePointBreakdown =
   ComponentProps<typeof CorePointChart>['data'];
 
-  type RefundFeePrepareResponse = {
+type RefundFeePrepareResponse = {
   success?: boolean;
   error?: string | null;
 
@@ -327,14 +422,6 @@ type RefundFeeConfirmResponse = {
 
   [key: string]: unknown;
 };
-const CLAIM_FEE_TREASURY_RAW =
-  process.env.NEXT_PUBLIC_CLAIM_FEE_TREASURY ?? '';
-
-if (!CLAIM_FEE_TREASURY_RAW) {
-  throw new Error('NEXT_PUBLIC_CLAIM_FEE_TREASURY_MISSING');
-}
-
-const TREASURY_PUBKEY = new PublicKey(CLAIM_FEE_TREASURY_RAW);
 
 const ESTIMATE_POLL_MS = 30_000;
 const PHASE_POLL_MS = 60_000;
@@ -366,6 +453,245 @@ const asBool = (v: unknown): boolean => {
 };
 
 const MEGY_DECIMALS = 9;
+
+const CLAIM_FEE_RECOVERY_STORAGE_PREFIX =
+  'coincarnation_claim_fee_recovery_v1';
+
+function getClaimFeeRecoveryStorageKey(
+  wallet: string
+): string {
+  return `${CLAIM_FEE_RECOVERY_STORAGE_PREFIX}:${wallet}`;
+}
+
+function writeClaimFeeRecovery(
+  recovery: PendingClaimState
+): void {
+  if (
+    typeof window === 'undefined' ||
+    !recovery.wallet ||
+    !recovery.paidFeeSignature
+  ) {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(
+      getClaimFeeRecoveryStorageKey(
+        recovery.wallet
+      ),
+      JSON.stringify(recovery)
+    );
+  } catch (error) {
+    console.warn(
+      '[CLAIM] failed to persist fee recovery:',
+      error
+    );
+  }
+}
+
+function clearClaimFeeRecovery(
+  wallet: string
+): void {
+  if (
+    typeof window === 'undefined' ||
+    !wallet
+  ) {
+    return;
+  }
+
+  try {
+    window.sessionStorage.removeItem(
+      getClaimFeeRecoveryStorageKey(
+        wallet
+      )
+    );
+  } catch (error) {
+    console.warn(
+      '[CLAIM] failed to clear fee recovery:',
+      error
+    );
+  }
+}
+
+function readClaimFeeRecovery(
+  wallet: string
+): PendingClaimState | null {
+  if (
+    typeof window === 'undefined' ||
+    !wallet
+  ) {
+    return null;
+  }
+
+  try {
+    const raw =
+      window.sessionStorage.getItem(
+        getClaimFeeRecoveryStorageKey(
+          wallet
+        )
+      );
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(
+      raw
+    ) as Partial<PendingClaimState>;
+
+    const claimScope =
+      parsed.claimScope === 'identity'
+        ? 'identity'
+        : parsed.claimScope === 'wallet'
+          ? 'wallet'
+          : null;
+
+    if (
+      !claimScope ||
+      typeof parsed.wallet !== 'string' ||
+      parsed.wallet !== wallet ||
+      typeof parsed.destination !== 'string' ||
+      typeof parsed.claimAmount !== 'string' ||
+      typeof parsed.idemKey !== 'string' ||
+      typeof parsed.claimFeeTreasury !== 'string' ||
+      typeof parsed.paidFeeSignature !== 'string' ||
+      !parsed.paidFeeSignature ||
+      !Number.isSafeInteger(
+        parsed.phaseId
+      ) ||
+      !Number.isSafeInteger(
+        parsed.requiredLamports
+      ) ||
+      !Number.isSafeInteger(
+        parsed.protocolFeeLamports
+      ) ||
+      !Number.isSafeInteger(
+        parsed.ataCreationLamports
+      ) ||
+      !Number.isSafeInteger(
+        parsed.ataChargeLamports
+      ) ||
+      parsed.requiredLamports! < 0 ||
+      parsed.protocolFeeLamports! < 0 ||
+      parsed.ataCreationLamports! < 0 ||
+      parsed.ataChargeLamports! < 0
+    ) {
+      clearClaimFeeRecovery(
+        wallet
+      );
+
+      return null;
+    }
+
+    /*
+     * PublicKey validation prevents malformed local storage from
+     * creating a misleading recovery UI.
+     *
+     * Backend validation remains authoritative.
+     */
+    new PublicKey(
+      parsed.wallet
+    );
+
+    new PublicKey(
+      parsed.destination
+    );
+
+    new PublicKey(
+      parsed.claimFeeTreasury
+    );
+
+    return {
+      wallet:
+        parsed.wallet,
+
+      destination:
+        parsed.destination,
+
+      phaseId:
+        parsed.phaseId!,
+
+      claimScope,
+
+      claimAmount:
+        parsed.claimAmount,
+
+      idemKey:
+        parsed.idemKey,
+
+      claimFeeTreasury:
+        parsed.claimFeeTreasury,
+
+      requiredLamports:
+        parsed.requiredLamports!,
+
+      protocolFeeLamports:
+        parsed.protocolFeeLamports!,
+
+      ataRequired:
+        Boolean(
+          parsed.ataRequired
+        ),
+
+      ataCreationLamports:
+        parsed.ataCreationLamports!,
+
+      ataChargeLamports:
+        parsed.ataChargeLamports!,
+
+      ataEntitlementAvailable:
+        Boolean(
+          parsed.ataEntitlementAvailable
+        ),
+
+      touchedPhaseIds:
+        Array.isArray(
+          parsed.touchedPhaseIds
+        )
+          ? parsed.touchedPhaseIds
+            .map(Number)
+            .filter(
+              (value) =>
+                Number.isInteger(value) &&
+                value > 0
+            )
+          : [],
+
+      feePhaseIds:
+        Array.isArray(
+          parsed.feePhaseIds
+        )
+          ? parsed.feePhaseIds
+            .map(Number)
+            .filter(
+              (value) =>
+                Number.isInteger(value) &&
+                value > 0
+            )
+          : [],
+
+      quoteExpiresAt:
+        typeof parsed.quoteExpiresAt ===
+          'string'
+          ? parsed.quoteExpiresAt
+          : null,
+
+      paidFeeSignature:
+        parsed.paidFeeSignature,
+    };
+  } catch (error) {
+    console.warn(
+      '[CLAIM] invalid stored fee recovery:',
+      error
+    );
+
+    clearClaimFeeRecovery(
+      wallet
+    );
+
+    return null;
+  }
+}
 
 function formatMegyAmount(value: unknown, decimals = 3): string {
   const n = Number(value ?? 0);
@@ -504,11 +830,11 @@ export default function ClaimPanel() {
   const [claimFeeSigForSupport, setClaimFeeSigForSupport] = useState<string | null>(null);
   const [refundFeeSigForSupport, setRefundFeeSigForSupport] = useState<string | null>(null);
   const [identityStatus, setIdentityStatus] =
-  useState<UserIdentityStatus>({
-    authenticated: false,
-    reason: null,
-    identity: null,
-  });
+    useState<UserIdentityStatus>({
+      authenticated: false,
+      reason: null,
+      identity: null,
+    });
   const [browserIdentityContext, setBrowserIdentityContext] =
     useState<UserIdentityStatus | null>(null);
   const [linkedWallets, setLinkedWallets] = useState<LinkedIdentityWallet[]>([]);
@@ -583,18 +909,10 @@ export default function ClaimPanel() {
     useState<ActivePhaseEstimate | null>(null);
   const [estimateLoading, setEstimateLoading] = useState(false);
   const [feeConfirmOpen, setFeeConfirmOpen] = useState(false);
-  const [pendingClaim, setPendingClaim] = useState<{
-    wallet: string;
-    destination: string;
-    phaseId: number;
-    claimScope: 'wallet' | 'identity';
-    claimAmount: string;
-    idemKey: string;
-  } | null>(null);
+  const [pendingClaim, setPendingClaim] =
+    useState<PendingClaimState | null>(null);
 
   const [claimRefreshKey, setClaimRefreshKey] = useState(0);
-  const FEE_SOL = 0.003;
-  const FEE_LAMPORTS = Math.round(FEE_SOL * 1_000_000_000);
   const [refundDebug, setRefundDebug] =
     useState<RefundDebugState | null>(null);
   const feeConfirmModalRef = useRef<HTMLDivElement | null>(null);
@@ -607,13 +925,13 @@ export default function ClaimPanel() {
         credentials: 'include',
         cache: 'no-store',
       });
-  
+
       const json = await res.json().catch(() => ({}));
-  
+
       if (!res.ok || !json?.ok || !Array.isArray(json.wallets)) {
         return [];
       }
-  
+
       return json.wallets;
     } catch {
       return [];
@@ -623,31 +941,31 @@ export default function ClaimPanel() {
   async function refreshIdentityState() {
     const nextStatus = await getUserIdentityStatus();
     setIdentityStatus(nextStatus);
-  
+
     const wallets = await fetchLinkedIdentityWallets();
     setLinkedWallets(wallets);
   }
 
   useEffect(() => {
     const modalOpen = feeConfirmOpen || refundFeeConfirmOpen;
-  
+
     if (!modalOpen) {
       return;
     }
-  
+
     const activeModal = feeConfirmOpen
       ? feeConfirmModalRef.current
       : refundFeeConfirmModalRef.current;
-  
+
     const previouslyFocusedElement =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
-  
+
     const previousBodyOverflow = document.body.style.overflow;
-  
+
     document.body.style.overflow = 'hidden';
-  
+
     const focusableSelector = [
       'button:not([disabled])',
       'a[href]',
@@ -656,31 +974,37 @@ export default function ClaimPanel() {
       'textarea:not([disabled])',
       '[tabindex]:not([tabindex="-1"])',
     ].join(',');
-  
+
     const focusModal = () => {
       const firstFocusableElement =
         activeModal?.querySelector<HTMLElement>(focusableSelector);
-  
+
       if (firstFocusableElement) {
         firstFocusableElement.focus();
       } else {
         activeModal?.focus();
       }
     };
-  
+
     const focusTimer = window.setTimeout(focusModal, 0);
-  
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         if (feeConfirmOpen) {
-          if (isClaiming) return;
-  
+          if (
+            isClaiming ||
+            pendingClaim?.paidFeeSignature
+          ) {
+            return;
+          }
+
           event.preventDefault();
+
           setFeeConfirmOpen(false);
           setPendingClaim(null);
           return;
         }
-  
+
         if (refundFeeConfirmOpen) {
           const refundInProgress =
             refundingContributionId != null ||
@@ -689,22 +1013,22 @@ export default function ClaimPanel() {
             refundFeeStep === 'signing' ||
             refundFeeStep === 'submitting' ||
             refundFeeStep === 'submitted';
-  
+
           if (refundInProgress) return;
-  
+
           event.preventDefault();
           setRefundFeeConfirmOpen(false);
           setPendingRefund(null);
           setRefundFeeStep('idle');
         }
-  
+
         return;
       }
-  
+
       if (event.key !== 'Tab' || !activeModal) {
         return;
       }
-  
+
       const focusableElements = Array.from(
         activeModal.querySelectorAll<HTMLElement>(focusableSelector)
       ).filter(
@@ -712,31 +1036,31 @@ export default function ClaimPanel() {
           !element.hasAttribute('disabled') &&
           element.getAttribute('aria-hidden') !== 'true'
       );
-  
+
       if (focusableElements.length === 0) {
         event.preventDefault();
         activeModal.focus();
         return;
       }
-  
+
       const firstElement = focusableElements[0];
       const lastElement = focusableElements[focusableElements.length - 1];
       const currentElement = document.activeElement;
-  
+
       if (event.shiftKey && currentElement === firstElement) {
         event.preventDefault();
         lastElement.focus();
         return;
       }
-  
+
       if (!event.shiftKey && currentElement === lastElement) {
         event.preventDefault();
         firstElement.focus();
       }
     };
-  
+
     document.addEventListener('keydown', handleKeyDown);
-  
+
     return () => {
       window.clearTimeout(focusTimer);
       document.removeEventListener('keydown', handleKeyDown);
@@ -747,6 +1071,7 @@ export default function ClaimPanel() {
     feeConfirmOpen,
     refundFeeConfirmOpen,
     isClaiming,
+    pendingClaim?.paidFeeSignature,
     refundingContributionId,
     refundFeeStep,
   ]);
@@ -754,31 +1079,30 @@ export default function ClaimPanel() {
   useEffect(() => {
     let alive = true;
     const operationWallet = walletBase58;
-  
+
     const fetchData = async () => {
       if (!operationWallet) {
         setLoading(false);
         setData(null);
         setDataError(null);
         setClaimOpen(false);
-  
+
         setClaimScopeMeta({
           scope: 'wallet',
           claimWalletsCount: 1,
           isIdentityClaimScope: false,
         });
-  
+
         return;
       }
-    
+
       setLoading(true);
       setDataError(null);
       try {
         const [claimStatusRes, userRes, globalRes] = await Promise.all([
           fetch('/api/admin/config/claim_open'),
           fetch(
-            `/api/claim/${operationWallet}${
-              claimScope === 'identity' ? '?scope=identity' : ''
+            `/api/claim/${operationWallet}${claimScope === 'identity' ? '?scope=identity' : ''
             }`
           ),
           fetch('/api/coincarnation/stats'),
@@ -789,17 +1113,17 @@ export default function ClaimPanel() {
           userRes.json().catch(() => ({})),
           globalRes.json().catch(() => ({})),
         ]);
-        
+
         if (!alive) return;
-        
+
         if (!userRes.ok) {
           throw new Error(
             userData?.error ||
-              userData?.message ||
-              `Claim data request failed with status ${userRes.status}.`
+            userData?.message ||
+            `Claim data request failed with status ${userRes.status}.`
           );
         }
-        
+
         setClaimOpen(asBool(claimStatus?.value));
 
         if (userData?.success) {
@@ -850,7 +1174,7 @@ export default function ClaimPanel() {
 
       } catch (err) {
         if (!alive) return;
-      
+
         console.error('Claim fetch error:', err);
         setDataError(
           'Your claim data could not be loaded. Please refresh the page and try again.'
@@ -871,22 +1195,22 @@ export default function ClaimPanel() {
   // CorePoint config (server-side weights → UI descriptions)
   useEffect(() => {
     let alive = true;
-  
+
     const fetchCorePointConfig = async () => {
       try {
         const r = await fetch('/api/corepoints/config', {
           cache: 'no-store',
         });
-  
+
         if (!r.ok) return;
-  
+
         const j = await r.json().catch(() => null);
-  
+
         if (!alive) return;
-  
+
         const cfg = j?.config;
         if (!cfg) return;
-  
+
         setCpConfig({
           usdPer1: Number(cfg.usdPer1 ?? cfg.usd_per_1 ?? 100),
           deadcoinFirst: Number(
@@ -908,16 +1232,16 @@ export default function ClaimPanel() {
         });
       } catch (error) {
         if (!alive) return;
-  
+
         console.warn(
           '⚠️ cpConfig fetch failed:',
           error
         );
       }
     };
-  
+
     void fetchCorePointConfig();
-  
+
     return () => {
       alive = false;
     };
@@ -929,25 +1253,25 @@ export default function ClaimPanel() {
       setLoadingHistory(false);
       return;
     }
-  
+
     let alive = true;
     const operationWallet = walletBase58;
-  
+
     const loadHistory = async () => {
       setLoadingHistory(true);
-  
+
       const events = await fetchCorepointHistory(
         operationWallet
       );
-  
+
       if (!alive) return;
-  
+
       setCpHistory(events);
       setLoadingHistory(false);
     };
-  
+
     void loadHistory();
-  
+
     return () => {
       alive = false;
     };
@@ -959,22 +1283,22 @@ export default function ClaimPanel() {
       setEstimateLoading(false);
       return;
     }
-  
+
     const operationWallet = walletBase58;
-  
+
     let alive = true;
     let requestId = 0;
-  
+
     const fetchEstimate = async () => {
       if (document.visibilityState !== 'visible') {
         return;
       }
-  
+
       const currentRequestId = ++requestId;
-  
+
       try {
         setEstimateLoading(true);
-  
+
         const r = await fetch(
           `/api/phases/active/estimate?wallet=${encodeURIComponent(
             operationWallet
@@ -983,16 +1307,16 @@ export default function ClaimPanel() {
             cache: 'no-store',
           }
         );
-  
+
         const j = await r.json().catch(() => ({}));
-  
+
         if (
           !alive ||
           currentRequestId !== requestId
         ) {
           return;
         }
-  
+
         if (r.ok && j?.success && j?.active) {
           setActiveEstimate(j);
         } else {
@@ -1005,12 +1329,12 @@ export default function ClaimPanel() {
         ) {
           return;
         }
-  
+
         console.warn(
           'active estimate fetch failed:',
           error
         );
-  
+
         setActiveEstimate(null);
       } finally {
         if (
@@ -1021,41 +1345,41 @@ export default function ClaimPanel() {
         }
       }
     };
-  
+
     void fetchEstimate();
-  
+
     const onFocus = () => {
       void fetchEstimate();
     };
-  
+
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         void fetchEstimate();
       }
     };
-  
+
     window.addEventListener('focus', onFocus);
-  
+
     document.addEventListener(
       'visibilitychange',
       onVisibilityChange
     );
-  
+
     const interval = window.setInterval(() => {
       void fetchEstimate();
     }, ESTIMATE_POLL_MS);
-  
+
     return () => {
       alive = false;
       requestId += 1;
-  
+
       window.removeEventListener('focus', onFocus);
-  
+
       document.removeEventListener(
         'visibilitychange',
         onVisibilityChange
       );
-  
+
       window.clearInterval(interval);
     };
   }, [walletBase58]);
@@ -1063,80 +1387,80 @@ export default function ClaimPanel() {
   useEffect(() => {
     let alive = true;
     let requestId = 0;
-  
+
     const fetchCurrentPhase = async () => {
       if (document.visibilityState !== 'visible') {
         return;
       }
-  
+
       const currentRequestId = ++requestId;
-  
+
       try {
         setPhasesLoading(true);
-  
+
         const r = await fetch('/api/phases/list', {
           cache: 'no-store',
         });
-  
+
         const j = await r.json().catch(() => ({}));
-  
+
         if (
           !alive ||
           currentRequestId !== requestId
         ) {
           return;
         }
-  
+
         const list: PhaseListItem[] = Array.isArray(j?.phases)
           ? j.phases
           : [];
-  
+
         const activeId = Number(
           j?.current_active_phase_id ?? 0
         );
-  
+
         const activeNo = Number(
           j?.current_active_phase_no ?? 0
         );
-  
+
         const norm = (value: unknown) =>
           String(value ?? '')
             .toLowerCase()
             .trim();
-  
+
         const byId =
           Number.isFinite(activeId) && activeId > 0
             ? list.find(
-                (phase) =>
-                  Number(phase.phase_id) === activeId ||
-                  Number(phase.id) === activeId
-              )
+              (phase) =>
+                Number(phase.phase_id) === activeId ||
+                Number(phase.id) === activeId
+            )
             : null;
-  
+
         if (byId) {
           setCurrentPhase(byId);
           return;
         }
-  
+
         const byNo =
           Number.isFinite(activeNo) && activeNo > 0
             ? list.find(
-                (phase) =>
-                  Number(phase.phase_no) === activeNo
-              )
+              (phase) =>
+                Number(phase.phase_no) === activeNo
+            )
             : null;
-            
+
         if (byNo) {
           setCurrentPhase(byNo);
           return;
         }
-  
+
         const active = list.find(
           (phase) =>
             norm(phase.status) === 'active' &&
             !phase.snapshot_taken_at
         );
-  
+
         setCurrentPhase(active ?? null);
       } catch (error) {
         if (
@@ -1145,12 +1469,12 @@ export default function ClaimPanel() {
         ) {
           return;
         }
-  
+
         console.warn(
           'phases list fetch failed:',
           error
         );
-  
+
         setCurrentPhase(null);
       } finally {
         if (
@@ -1161,82 +1485,185 @@ export default function ClaimPanel() {
         }
       }
     };
-  
+
     void fetchCurrentPhase();
-  
+
     const onFocus = () => {
       void fetchCurrentPhase();
     };
-  
+
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         void fetchCurrentPhase();
       }
     };
-  
+
     window.addEventListener('focus', onFocus);
-  
+
     document.addEventListener(
       'visibilitychange',
       onVisibilityChange
     );
-  
+
     const interval = window.setInterval(() => {
       void fetchCurrentPhase();
     }, PHASE_POLL_MS);
-  
+
     return () => {
       alive = false;
       requestId += 1;
-  
+
       window.removeEventListener('focus', onFocus);
-  
+
       document.removeEventListener(
         'visibilitychange',
         onVisibilityChange
       );
-  
+
       window.clearInterval(interval);
     };
   }, []);
 
   useEffect(() => {
-    // Invalidate any claim operation started under the previous scope.
+    /*
+     * A normal scope change invalidates the current claim attempt.
+     *
+     * However, a paid-fee recovery may intentionally restore its
+     * original scope. Never destroy that recovery context.
+     */
+    if (
+      pendingClaim?.paidFeeSignature &&
+      pendingClaim.claimScope ===
+      claimScope
+    ) {
+      return;
+    }
+
     claimOperationIdRef.current += 1;
-  
+
     setPendingClaim(null);
     setFeeConfirmOpen(false);
-  
+
     setClaimAmount('');
     setSelectedClaimPercent(null);
     setUseAltAddress(false);
     setAltAddress('');
-  
+
     setIsClaiming(false);
     attemptIdemKeyRef.current = null;
-  }, [claimScope]);
+  }, [
+    claimScope,
+    pendingClaim?.paidFeeSignature,
+    pendingClaim?.claimScope,
+  ]);
 
   useEffect(() => {
     walletBase58Ref.current = walletBase58;
   }, [walletBase58]);
 
   useEffect(() => {
+    if (!walletBase58) {
+      return;
+    }
+
+    const storedRecovery =
+      readClaimFeeRecovery(
+        walletBase58
+      );
+
+    if (!storedRecovery) {
+      return;
+    }
+
+    /*
+     * The recovery record belongs to this exact connected wallet.
+     *
+     * Restore the original claim context so the existing on-chain
+     * payment can continue without creating a second SOL transfer.
+     */
+    attemptIdemKeyRef.current =
+      storedRecovery.idemKey;
+
+    setPendingClaim(
+      storedRecovery
+    );
+
+    setClaimFeeSigForSupport(
+      storedRecovery.paidFeeSignature
+    );
+
+    setClaimAmount(
+      storedRecovery.claimAmount
+    );
+
+    setClaimScope(
+      storedRecovery.claimScope
+    );
+
+    if (
+      storedRecovery.claimScope ===
+      'wallet' &&
+      storedRecovery.phaseId > 0
+    ) {
+      setSelectedPhaseId(
+        storedRecovery.phaseId
+      );
+    }
+
+    if (
+      storedRecovery.destination !==
+      walletBase58
+    ) {
+      setUseAltAddress(true);
+      setAltAddress(
+        storedRecovery.destination
+      );
+    } else {
+      setUseAltAddress(false);
+      setAltAddress('');
+    }
+
+    setFeeConfirmOpen(true);
+
+    setMessage(
+      '⚠️ A previous claim fee payment was found. No new payment will be sent. Use Retry Claim to continue.'
+    );
+  }, [walletBase58]);
+
+  useEffect(() => {
     // Invalidate all operations started by the previous wallet.
     claimOperationIdRef.current += 1;
     refundOperationIdRef.current += 1;
-  
-    // Reset claim attempt.
-    setPendingClaim(null);
-    setFeeConfirmOpen(false);
-    setIsClaiming(false);
-  
-    setClaimAmount('');
-    setSelectedClaimPercent(null);
-    setUseAltAddress(false);
-    setAltAddress('');
-  
-    attemptIdemKeyRef.current = null;
-  
+
+    const storedRecovery =
+      walletBase58
+        ? readClaimFeeRecovery(
+          walletBase58
+        )
+        : null;
+
+    /*
+     * Do not destroy a paid-fee recovery belonging to the wallet
+     * that has just connected.
+     *
+     * The dedicated restore effect will reopen it.
+     */
+    if (!storedRecovery) {
+      setPendingClaim(null);
+      setFeeConfirmOpen(false);
+      setIsClaiming(false);
+
+      setClaimAmount('');
+      setSelectedClaimPercent(null);
+      setUseAltAddress(false);
+      setAltAddress('');
+
+      attemptIdemKeyRef.current =
+        null;
+    } else {
+      setIsClaiming(false);
+    }
+
     // Reset refund attempt.
     setPendingRefund(null);
     setRefundFeeConfirmOpen(false);
@@ -1244,7 +1671,7 @@ export default function ClaimPanel() {
     setRefundingContributionId(null);
     setRefundErrors({});
     setRefundDebug(null);
-  
+
     // Prevent the previous wallet's identity from remaining visible
     // while the new wallet's identity status is loading.
     setIdentityStatus({
@@ -1252,9 +1679,9 @@ export default function ClaimPanel() {
       reason: null,
       identity: null,
     });
-  
+
     setLinkedWallets([]);
-  
+
     // Reset wallet-specific transient UI.
     setShowIdentityTools(false);
 
@@ -1273,14 +1700,14 @@ export default function ClaimPanel() {
     const operationWallet = walletBase58;
     const operationId =
       ++identityStatusOperationIdRef.current;
-  
+
     let alive = true;
-  
+
     const isCurrentIdentityOperation = () =>
       alive &&
       identityStatusOperationIdRef.current === operationId &&
       walletBase58Ref.current === operationWallet;
-  
+
     async function fetchIdentityStatus() {
       try {
         /*
@@ -1295,20 +1722,20 @@ export default function ClaimPanel() {
           if (!isCurrentIdentityOperation()) {
             return;
           }
-        
+
           setIdentityStatus({
             authenticated: false,
             reason: null,
             identity: null,
           });
-        
+
           setBrowserIdentityContext(null);
           setLinkedWallets([]);
           setShowIdentityTools(false);
-        
+
           return;
         }
-  
+
         /*
          * Read the existing authenticated session.
          *
@@ -1346,14 +1773,14 @@ export default function ClaimPanel() {
           status.identity.walletAddress === operationWallet
         ) {
           setIdentityStatus(status);
-  
+
           const wallets =
             await fetchLinkedIdentityWallets();
-  
+
           if (!isCurrentIdentityOperation()) {
             return;
           }
-  
+
           setLinkedWallets(wallets);
           return;
         }
@@ -1390,61 +1817,110 @@ export default function ClaimPanel() {
         if (!isCurrentIdentityOperation()) {
           return;
         }
-  
+
         console.warn(
           'identity status check failed:',
           error
         );
-  
+
         setIdentityStatus({
           authenticated: false,
           reason: null,
           identity: null,
         });
-        
+
         setBrowserIdentityContext(null);
         setLinkedWallets([]);
       }
     }
-  
+
     void fetchIdentityStatus();
-  
+
     return () => {
       alive = false;
     };
   }, [walletBase58]);
 
   useEffect(() => {
-    attemptIdemKeyRef.current = null;
-  }, [claimAmount, altAddress, useAltAddress, selectedPhaseId, claimScope]);
+    const storedRecovery =
+      walletBase58
+        ? readClaimFeeRecovery(
+          walletBase58
+        )
+        : null;
+
+    /*
+     * A paid-fee recovery owns its original idempotency key.
+     *
+     * Restoring claim amount, phase, scope or destination must never
+     * replace that key with a fresh claim attempt.
+     */
+    if (storedRecovery) {
+      attemptIdemKeyRef.current =
+        storedRecovery.idemKey;
+
+      return;
+    }
+
+    /*
+     * Normal, unpaid claim editing starts a new logical attempt.
+     */
+    attemptIdemKeyRef.current =
+      null;
+  }, [
+    claimAmount,
+    altAddress,
+    useAltAddress,
+    selectedPhaseId,
+    claimScope,
+    walletBase58,
+  ]);
 
   useEffect(() => {
+    const storedRecovery =
+      walletBase58
+        ? readClaimFeeRecovery(
+          walletBase58
+        )
+        : null;
+
+    /*
+     * During paid-fee recovery, selectedPhaseId may be restored
+     * programmatically. Never erase the original claim amount.
+     */
+    if (storedRecovery) {
+      return;
+    }
+
     setClaimAmount('');
     setSelectedClaimPercent(null);
-  }, [selectedPhaseId]);
+  }, [
+    selectedPhaseId,
+    walletBase58,
+  ]);
 
   useEffect(() => {
     let alive = true;
-  
+
     const fetchLatestFinalizedPhase = async () => {
       try {
         setPhaseLoading(true);
-  
+
         const r = await fetch(
           '/api/phases/finalized/latest',
           {
             cache: 'no-store',
           }
         );
-  
+
         const j = await r.json().catch(() => ({}));
-  
+
         if (!alive) {
           return;
         }
-  
+
         const pid = Number(j?.phase_id);
-  
+
         if (
           r.ok &&
           j?.success &&
@@ -1461,12 +1937,12 @@ export default function ClaimPanel() {
         if (!alive) {
           return;
         }
-  
+
         console.warn(
           'latest finalized phase fetch failed:',
           error
         );
-  
+
         setPhaseId(null);
         setSelectedPhaseId(null);
       } finally {
@@ -1475,9 +1951,9 @@ export default function ClaimPanel() {
         }
       }
     };
-  
+
     void fetchLatestFinalizedPhase();
-  
+
     return () => {
       alive = false;
     };
@@ -1505,7 +1981,7 @@ export default function ClaimPanel() {
       <div className="bg-zinc-950 min-h-screen py-10 px-4 sm:px-6 md:px-12 lg:px-20 text-white">
         <div className="max-w-6xl w-full mx-auto space-y-6">
           <AppWalletBar />
-  
+
           <div className="rounded-2xl border border-red-400/20 bg-zinc-900 p-6 shadow-lg">
             <p className="text-center font-medium text-red-300">
               {dataError}
@@ -1552,13 +2028,13 @@ export default function ClaimPanel() {
   );
 
   const shareRatio =
-  globalStats.totalUsd > 0
-    ? Math.max(
+    globalStats.totalUsd > 0
+      ? Math.max(
         0,
         toNum(data.total_usd_contributed, 0) /
-          globalStats.totalUsd
+        globalStats.totalUsd
       )
-    : 0;
+      : 0;
 
   const claimableMegy =
     claimableFromFinalized != null
@@ -1579,17 +2055,17 @@ export default function ClaimPanel() {
       : null;
 
   const selectedClaimable =
-  claimScope === 'identity'
-    ? Math.max(
+    claimScope === 'identity'
+      ? Math.max(
         0,
         toNum(finalizedClaim?.claimable_megy_total, 0)
       )
-    : selectedPhaseRow
-      ? Math.max(
+      : selectedPhaseRow
+        ? Math.max(
           0,
           toNum(selectedPhaseRow.claimable_megy, 0)
         )
-      : 0;
+        : 0;
 
   const selectedScopeLabel =
     selectedPhaseRow?.phase_name ||
@@ -1598,37 +2074,78 @@ export default function ClaimPanel() {
 
   const selectedPhaseSnapshot = Array.isArray(finalizedClaim?.finalized_by_phase)
     ? finalizedClaim.finalized_by_phase.find((p) => {
-        const pid = Number(p.phase_id ?? p.phaseId ?? 0);
-        return effectivePhaseId ? pid === Number(effectivePhaseId) : false;
-      })
+      const pid = Number(p.phase_id ?? p.phaseId ?? 0);
+      return effectivePhaseId ? pid === Number(effectivePhaseId) : false;
+    })
     : null;
 
   const selectedPhaseTotal = Math.max(
     0,
     toNum(
       selectedPhaseSnapshot?.finalized_megy ??
-        selectedPhaseSnapshot?.finalizedMegy,
+      selectedPhaseSnapshot?.finalizedMegy,
       toNum(
         selectedPhaseSnapshot?.claimed_megy ??
-          selectedPhaseSnapshot?.claimed,
+        selectedPhaseSnapshot?.claimed,
         0
       ) +
-        toNum(
-          selectedPhaseSnapshot?.claimable_megy ??
-            selectedPhaseSnapshot?.claimable,
-          selectedClaimable
-        )
+      toNum(
+        selectedPhaseSnapshot?.claimable_megy ??
+        selectedPhaseSnapshot?.claimable,
+        selectedClaimable
+      )
     )
   );
 
   const claimExecutionPhaseId =
     claimScope === 'identity' ? 0 : Number(effectivePhaseId ?? 0);
 
+  async function fetchClaimFeeQuote(
+    wallet: string,
+    destination: string,
+    phaseId: number,
+    scope: 'wallet' | 'identity',
+    claimAmount: string
+  ): Promise<{
+    response: Response;
+    result: ClaimFeeQuoteResponse;
+  }> {
+    const response = await fetch(
+      '/api/claim/fee/quote',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        cache: 'no-store',
+        body: JSON.stringify({
+          wallet_address: wallet,
+          destination,
+          phase_id: phaseId,
+          claim_scope: scope,
+          claim_amount: claimAmount,
+        }),
+      }
+    );
+
+    const result: ClaimFeeQuoteResponse =
+      await response
+        .json()
+        .catch(() => ({}));
+
+    return {
+      response,
+      result,
+    };
+  }
+
   async function tryStartSessionWithoutFee(
     wallet: string,
     destination: string,
     phaseId: number,
-    scope: 'wallet' | 'identity'
+    scope: 'wallet' | 'identity',
+    claimAmount: string
   ): Promise<{
     response: Response;
     result: ClaimSessionStartResponse;
@@ -1646,6 +2163,7 @@ export default function ClaimPanel() {
           destination,
           phase_id: phaseId,
           claim_scope: scope,
+          claim_amount: claimAmount,
         }),
       }
     );
@@ -1664,26 +2182,26 @@ export default function ClaimPanel() {
   async function handleIdentityLogout() {
     try {
       setMessage('⏳ Signing out identity on this browser...');
-  
+
       const res = await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });
-  
+
       if (!res.ok) {
         throw new Error('IDENTITY_LOGOUT_FAILED');
       }
-  
+
       setIdentityStatus({
         authenticated: false,
         reason: null,
         identity: null,
       });
-  
+
       setLinkedWallets([]);
       setShowAllLinkedWallets(false);
       setShowIdentityTools(false);
-  
+
       setMessage(
         '✅ Identity signed out on this browser. Your linked wallets remain safe.'
       );
@@ -1699,25 +2217,25 @@ export default function ClaimPanel() {
       setMessage('❌ Please connect your wallet.');
       return;
     }
-  
+
     const operationWallet = walletBase58;
-  
+
     try {
       setVerifyingIdentity(true);
-  
+
       setMessage(
         intent === 'sign_in'
           ? '⏳ Please approve the wallet signature to open your Identity...'
           : '⏳ Please approve the wallet signature to create your Identity...'
       );
-  
+
       await signInWithWalletIdentity({
         publicKey,
         signMessage,
         walletName: wallet?.adapter?.name,
         intent,
       });
-  
+
       /*
        * The connected wallet may change while the user is approving
        * the signature. Never apply the result to a different wallet.
@@ -1727,11 +2245,11 @@ export default function ClaimPanel() {
           'The connected wallet changed during Identity verification.'
         );
       }
-  
+
       await recordIdentityFingerprint(operationWallet);
-  
+
       const status = await getUserIdentityStatus();
-  
+
       if (
         !status.authenticated ||
         !status.identity ||
@@ -1741,17 +2259,17 @@ export default function ClaimPanel() {
           'The authenticated identity does not match the connected wallet.'
         );
       }
-  
+
       setIdentityStatus(status);
-  
+
       const wallets =
         await fetchLinkedIdentityWallets();
-  
+
       setLinkedWallets(wallets);
-  
+
       setIdentityCreationConfirmOpen(false);
       setIdentityPreflightWallet(null);
-  
+
       setMessage(
         intent === 'create_identity'
           ? '✅ Your Coincarnation Identity has been created and is ready.'
@@ -1762,28 +2280,28 @@ export default function ClaimPanel() {
         error instanceof Error
           ? error.message
           : 'Failed to continue with wallet.';
-  
+
       setMessage(`❌ ${msg}`);
     } finally {
       setVerifyingIdentity(false);
     }
   }
-  
+
   async function handleContinueWithWallet() {
     if (!publicKey || !walletBase58) {
       setMessage('❌ Please connect your wallet.');
       return;
     }
-  
+
     const operationWallet = walletBase58;
-  
+
     try {
       setVerifyingIdentity(true);
-  
+
       setMessage(
         '⏳ Checking whether this wallet already has an Identity...'
       );
-  
+
       const res = await fetch('/api/auth/wallet-status', {
         method: 'POST',
         headers: {
@@ -1794,26 +2312,26 @@ export default function ClaimPanel() {
           walletAddress: operationWallet,
         }),
       });
-  
+
       const result = (await res.json().catch(() => null)) as
         | {
-            ok?: boolean;
-            linked?: boolean;
-            error?: string;
-          }
+          ok?: boolean;
+          linked?: boolean;
+          error?: string;
+        }
         | null;
-  
+
       if (!res.ok || !result?.ok) {
         throw new Error(
           result?.error ||
-            'Failed to check wallet Identity status.'
+          'Failed to check wallet Identity status.'
         );
       }
-  
+
       if (walletBase58Ref.current !== operationWallet) {
         return;
       }
-  
+
       /*
        * Existing Identity:
        * no warning is necessary. The signature only opens
@@ -1821,12 +2339,12 @@ export default function ClaimPanel() {
        */
       if (result.linked) {
         setVerifyingIdentity(false);
-  
+
         await completeWalletIdentityAuth('sign_in');
-  
+
         return;
       }
-  
+
       /*
        * New wallet:
        * do not request a signature yet.
@@ -1841,7 +2359,7 @@ export default function ClaimPanel() {
         error instanceof Error
           ? error.message
           : 'Failed to check wallet Identity status.';
-  
+
       setMessage(`❌ ${msg}`);
     } finally {
       setVerifyingIdentity(false);
@@ -1853,7 +2371,7 @@ export default function ClaimPanel() {
       setMessage('❌ Please connect your wallet.');
       return;
     }
-  
+
     if (
       !browserIdentityContext?.authenticated ||
       !browserIdentityContext.identity
@@ -1863,29 +2381,29 @@ export default function ClaimPanel() {
       );
       return;
     }
-  
+
     if (
       !identityPreflightWallet ||
       identityPreflightWallet !== walletBase58
     ) {
       setIdentityCreationConfirmOpen(false);
       setIdentityPreflightWallet(null);
-  
+
       setMessage(
         '❌ The connected wallet changed. Please start again.'
       );
       return;
     }
-  
+
     const operationWallet = walletBase58;
-  
+
     try {
       setLinkingCurrentIdentity(true);
-  
+
       setMessage(
         '⏳ Preparing to link this wallet to the Identity already open in this browser...'
       );
-  
+
       /*
        * Create a short-lived Link Code from the Identity represented
        * by the existing browser session.
@@ -1894,7 +2412,7 @@ export default function ClaimPanel() {
        */
       const linkCodeResult =
         await createIdentityLinkCode();
-  
+
       if (
         walletBase58Ref.current !== operationWallet
       ) {
@@ -1902,18 +2420,18 @@ export default function ClaimPanel() {
           'The connected wallet changed during Identity linking.'
         );
       }
-  
+
       setMessage(
         '⏳ Please approve the wallet signature to link this wallet...'
       );
-  
+
       await linkWalletWithIdentityCode({
         publicKey,
         signMessage,
         walletName: wallet?.adapter?.name,
         code: linkCodeResult.code,
       });
-  
+
       if (
         walletBase58Ref.current !== operationWallet
       ) {
@@ -1921,36 +2439,36 @@ export default function ClaimPanel() {
           'The connected wallet changed during Identity linking.'
         );
       }
-  
+
       await recordIdentityFingerprint(
         operationWallet
       );
-  
+
       const status =
         await getUserIdentityStatus();
-  
+
       if (
         !status.authenticated ||
         !status.identity ||
         status.identity.walletAddress !==
-          operationWallet
+        operationWallet
       ) {
         throw new Error(
           'The linked Identity does not match the connected wallet.'
         );
       }
-  
+
       setIdentityStatus(status);
       setBrowserIdentityContext(status);
-  
+
       const wallets =
         await fetchLinkedIdentityWallets();
-  
+
       setLinkedWallets(wallets);
-  
+
       setIdentityCreationConfirmOpen(false);
       setIdentityPreflightWallet(null);
-  
+
       setMessage(
         '✅ This wallet is now linked to your existing Coincarnation Identity.'
       );
@@ -1959,7 +2477,7 @@ export default function ClaimPanel() {
         error instanceof Error
           ? error.message
           : 'Failed to link this wallet to the current Identity.';
-  
+
       setMessage(`❌ ${msg}`);
     } finally {
       setLinkingCurrentIdentity(false);
@@ -1974,14 +2492,14 @@ export default function ClaimPanel() {
     ) {
       setIdentityCreationConfirmOpen(false);
       setIdentityPreflightWallet(null);
-  
+
       setMessage(
         '❌ The connected wallet changed. Please start again.'
       );
-  
+
       return;
     }
-  
+
     await completeWalletIdentityAuth(
       'create_identity'
     );
@@ -1991,17 +2509,17 @@ export default function ClaimPanel() {
     setIdentityCreationConfirmOpen(false);
     setIdentityPreflightWallet(null);
     setMessage(null);
-  
+
     window.requestAnimationFrame(() => {
       const input = document.getElementById(
         'identity-link-code'
       ) as HTMLInputElement | null;
-  
+
       input?.scrollIntoView({
         behavior: 'smooth',
         block: 'center',
       });
-  
+
       input?.focus();
     });
   }
@@ -2039,25 +2557,25 @@ export default function ClaimPanel() {
         );
         return;
       }
-  
+
       const walletAddress =
         publicKey.toBase58();
-  
+
       const code =
         identityLinkCodeInput.trim().toUpperCase();
-  
+
       if (!code) {
         setIdentityCodeActionMessage(
           '❌ Please enter an Identity Link Code.'
         );
         return;
       }
-  
+
       setIdentityLinkingByCode(true);
       setIdentityCodeActionMessage(
         '⏳ Checking this wallet and Identity Link Code...'
       );
-  
+
       /*
        * UX preflight only.
        *
@@ -2069,7 +2587,7 @@ export default function ClaimPanel() {
           walletAddress,
           code,
         });
-  
+
       if (!checkResult.available) {
         if (
           checkResult.reason ===
@@ -2078,42 +2596,42 @@ export default function ClaimPanel() {
           setIdentityCodeActionMessage(
             '❌ This wallet already belongs to another Coincarnation Identity. Wallet transfers between identities are not currently supported. Use “Continue with Wallet” to open the Identity that already owns this wallet.'
           );
-  
+
           return;
         }
-  
+
         if (
           checkResult.reason === 'invalid_code'
         ) {
           setIdentityCodeActionMessage(
             '❌ Enter a valid Identity Link Code in the format MEGY-12345678.'
           );
-  
+
           return;
         }
-  
+
         setIdentityCodeActionMessage(
           '❌ This Identity Link Code has expired or has already been used. Generate a new code from a wallet that is already linked to the Identity.'
         );
-  
+
         return;
       }
-  
+
       setIdentityCodeActionMessage(
         '⏳ Please approve the wallet signature to add this wallet...'
       );
-  
+
       await linkWalletWithIdentityCode({
         publicKey,
         signMessage,
         walletName: wallet?.adapter?.name,
         code,
       });
-  
+
       await refreshIdentityState();
-  
+
       setIdentityLinkCodeInput('');
-  
+
       setIdentityCodeActionMessage(
         '✅ This wallet was successfully added to your Coincarnation Identity.'
       );
@@ -2122,10 +2640,10 @@ export default function ClaimPanel() {
         error instanceof Error
           ? error.message
           : 'Failed to add this wallet to the Identity.';
-  
+
       const normalizedMessage =
         message.toLowerCase();
-  
+
       /*
        * These checks remain necessary because state may change
        * between preflight and final verification.
@@ -2141,10 +2659,10 @@ export default function ClaimPanel() {
         setIdentityCodeActionMessage(
           '❌ This wallet already belongs to another Coincarnation Identity. Wallet transfers between identities are not currently supported. Use “Continue with Wallet” to open the Identity that already owns this wallet.'
         );
-  
+
         return;
       }
-  
+
       if (
         normalizedMessage.includes('expired') ||
         normalizedMessage.includes('already used')
@@ -2152,10 +2670,10 @@ export default function ClaimPanel() {
         setIdentityCodeActionMessage(
           '❌ This Identity Link Code has expired or has already been used. Generate a new code from a wallet that is already linked to the Identity.'
         );
-  
+
         return;
       }
-  
+
       if (
         normalizedMessage.includes(
           'invalid wallet signature'
@@ -2164,10 +2682,10 @@ export default function ClaimPanel() {
         setIdentityCodeActionMessage(
           '❌ The wallet signature could not be verified. Please try again and approve the signature with the connected wallet.'
         );
-  
+
         return;
       }
-  
+
       setIdentityCodeActionMessage(
         `❌ ${message}`
       );
@@ -2224,25 +2742,25 @@ export default function ClaimPanel() {
     protectedIssue: ProtectedActionIssue | null
   ) {
     if (!identity) return 'Verification Required';
-  
+
     if (identity.claimReady) return 'Claim Ready';
-  
+
     if (Number(identity.riskScore ?? 0) >= 50) {
       return 'Risk Review';
     }
-  
+
     if (protectedIssue?.action === 'continue') {
       return 'Session Required';
     }
-  
+
     if (!identity.walletVerified) {
       return 'Wallet Verification Required';
     }
-  
+
     if (!identity.fingerprintRecorded) {
       return 'Verification Required';
     }
-  
+
     return 'Verification Required';
   }
 
@@ -2306,7 +2824,7 @@ export default function ClaimPanel() {
 
   function getProtectedActionIssue(): ProtectedActionIssue | null {
     if (!walletBase58) return null;
-  
+
     if (!identityStatus.authenticated || !identityStatus.identity) {
       return {
         tone: 'yellow',
@@ -2316,20 +2834,20 @@ export default function ClaimPanel() {
         action: 'continue',
       };
     }
-  
+
     const identity =
       identityStatus.identity as ClaimIdentityView;
-  
+
     if (identity.claimReady) return null;
-  
+
     const riskScore = Number(
       identity.riskScore ?? 0
     );
-  
+
     const fingerprintRecorded = Boolean(
       identity.fingerprintRecorded
     );
-  
+
     if (riskScore >= 50) {
       return {
         tone: 'red',
@@ -2338,7 +2856,7 @@ export default function ClaimPanel() {
           'Your identity is active, but protected actions are locked because the current risk score is too high. This can happen after repeated identity tests from the same browser or shared fingerprint signals. Do not create another identity; this identity needs review or risk normalization.',
       };
     }
-  
+
     if (!fingerprintRecorded) {
       return {
         tone: 'yellow',
@@ -2348,7 +2866,7 @@ export default function ClaimPanel() {
         action: 'verifyBrowser',
       };
     }
-  
+
     return {
       tone: 'yellow',
       title: 'Identity Not Ready Yet',
@@ -2365,14 +2883,14 @@ export default function ClaimPanel() {
       messageSetter('❌ Please connect your wallet.');
       return false;
     }
-  
+
     if (!identityStatus.authenticated || !identityStatus.identity) {
       messageSetter(
         `❌ Continue with your wallet before ${actionLabel}.`
       );
       return false;
     }
-  
+
     /*
      * Protected actions must only run for the wallet
      * that owns the current authenticated session.
@@ -2385,22 +2903,21 @@ export default function ClaimPanel() {
       );
       return false;
     }
-  
+
     if (!identityStatus.identity.claimReady) {
       const issue = getProtectedActionIssue();
-  
+
       messageSetter(
         issue?.tone === 'red'
           ? `❌ ${issue.title}: ${issue.description}`
-          : `❌ ${
-              issue?.description ??
-              'Your Coincarnation Identity is not ready for protected actions.'
-            }`
+          : `❌ ${issue?.description ??
+          'Your Coincarnation Identity is not ready for protected actions.'
+          }`
       );
-  
+
       return false;
     }
-  
+
     return true;
   }
 
@@ -2409,62 +2926,123 @@ export default function ClaimPanel() {
       setMessage('❌ Please connect your wallet.');
       return;
     }
-  
+
+    const connectedWallet =
+      publicKey.toBase58();
+
+    const storedRecovery =
+      readClaimFeeRecovery(
+        connectedWallet
+      );
+
+    if (storedRecovery) {
+      attemptIdemKeyRef.current =
+        storedRecovery.idemKey;
+
+      setPendingClaim(
+        storedRecovery
+      );
+
+      setClaimFeeSigForSupport(
+        storedRecovery.paidFeeSignature
+      );
+
+      setClaimAmount(
+        storedRecovery.claimAmount
+      );
+
+      setClaimScope(
+        storedRecovery.claimScope
+      );
+
+      if (
+        storedRecovery.claimScope ===
+        'wallet' &&
+        storedRecovery.phaseId > 0
+      ) {
+        setSelectedPhaseId(
+          storedRecovery.phaseId
+        );
+      }
+
+      if (
+        storedRecovery.destination !==
+        connectedWallet
+      ) {
+        setUseAltAddress(true);
+
+        setAltAddress(
+          storedRecovery.destination
+        );
+      } else {
+        setUseAltAddress(false);
+        setAltAddress('');
+      }
+
+      setFeeConfirmOpen(true);
+
+      setMessage(
+        '⚠️ A previous claim fee payment is waiting to be recovered. No new payment will be sent.'
+      );
+
+      return;
+    }
+
     if (!ensureProtectedActionReady('claiming')) {
       return;
     }
-  
+
     if (!claimOpen) {
       setMessage(
         '⚠️ Claiming is currently closed. You will be able to claim when the window opens.'
       );
       return;
     }
-  
+
     if (phaseLoading) {
       setMessage(
         '⏳ Phase is still loading. Please try again in a second.'
       );
       return;
     }
-  
+
     if (claimScope !== 'identity' && !effectivePhaseId) {
       setMessage(
         '❌ No finalized phase found. Claims are not ready yet.'
       );
       return;
     }
-  
+
     const raw = claimAmount.trim();
-  
+
     if (!raw) {
       setMessage('❌ Please enter a claim amount.');
       return;
     }
-  
+
     const amt = Number(raw);
-  
+
     if (!Number.isFinite(amt) || amt <= 0) {
       setMessage('❌ Please enter a valid claim amount.');
       return;
     }
-  
+
     if (amt > selectedClaimable) {
       setMessage(
         '❌ Claim amount exceeds selected phase balance.'
       );
       return;
     }
-  
+
     const destination = useAltAddress
       ? altAddress.trim()
       : publicKey.toBase58();
-  
+
     if (!destination) {
       setMessage('❌ Please provide a destination address.');
       return;
     }
-  
+
     try {
       new PublicKey(destination);
     } catch {
@@ -2473,7 +3051,7 @@ export default function ClaimPanel() {
       );
       return;
     }
-  
+
     /*
      * Freeze all claim inputs at the moment this operation begins.
      * These values must remain unchanged throughout the async flow.
@@ -2483,17 +3061,17 @@ export default function ClaimPanel() {
     const operationPhaseId = claimExecutionPhaseId;
     const operationClaimScope = claimScope;
     const operationClaimAmount = raw;
-  
+
     const operationId =
       ++claimOperationIdRef.current;
-  
+
     const isCurrentClaimOperation = () =>
       claimOperationIdRef.current === operationId &&
       walletBase58Ref.current === operationWallet;
-  
+
     setIsClaiming(true);
     setMessage(null);
-  
+
     try {
       /*
        * Generate one idempotency key per claim attempt.
@@ -2503,19 +3081,186 @@ export default function ClaimPanel() {
       if (!attemptIdemKeyRef.current) {
         attemptIdemKeyRef.current =
           typeof crypto !== 'undefined' &&
-          'randomUUID' in crypto
+            'randomUUID' in crypto
             ? crypto.randomUUID()
             : `claim_${Date.now()}_${Math.random()
-                .toString(16)
-                .slice(2)}`;
+              .toString(16)
+              .slice(2)}`;
       }
-  
+
       const idemKey = attemptIdemKeyRef.current;
-  
       /*
-       * First try to recover or create a session without requiring
-       * a new fee payment.
-       */
+        * Ask the backend for the authoritative fee requirement for THIS exact
+        * claim amount, destination and scope.
+        *
+        * ClaimPanel never calculates protocol/ATA fees itself.
+        */
+      const {
+        response: quoteRes,
+        result: quoteJson,
+      } = await fetchClaimFeeQuote(
+        operationWallet,
+        operationDestination,
+        operationPhaseId,
+        operationClaimScope,
+        operationClaimAmount
+      );
+
+      if (!isCurrentClaimOperation()) {
+        return;
+      }
+
+      if (
+        !quoteRes.ok ||
+        !quoteJson?.success
+      ) {
+        const quoteError = String(
+          quoteJson?.error ||
+          `CLAIM_FEE_QUOTE_FAILED (${quoteRes.status})`
+        );
+
+        throw new Error(quoteError);
+      }
+
+      const requiredLamports =
+        Number(
+          quoteJson.required_lamports ?? 0
+        );
+
+      const protocolFeeLamports =
+        Number(
+          quoteJson.protocol_fee_lamports ?? 0
+        );
+
+      const ataCreationLamports =
+        Number(
+          quoteJson.ata_creation_lamports ?? 0
+        );
+
+      const ataChargeLamports =
+        Number(
+          quoteJson.ata_charge_lamports ?? 0
+        );
+
+      const claimFeeTreasuryRaw =
+        String(
+          quoteJson
+            .claim_fee_treasury ??
+          ''
+        ).trim();
+
+      let claimFeeTreasury:
+        PublicKey;
+
+      try {
+        claimFeeTreasury =
+          new PublicKey(
+            claimFeeTreasuryRaw
+          );
+      } catch {
+        throw new Error(
+          'INVALID_CLAIM_FEE_TREASURY'
+        );
+      }
+      if (
+        !Number.isSafeInteger(requiredLamports) ||
+        requiredLamports < 0 ||
+        !Number.isSafeInteger(protocolFeeLamports) ||
+        protocolFeeLamports < 0 ||
+        !Number.isSafeInteger(ataCreationLamports) ||
+        ataCreationLamports < 0 ||
+        !Number.isSafeInteger(ataChargeLamports) ||
+        ataChargeLamports < 0
+      ) {
+        throw new Error(
+          'INVALID_CLAIM_FEE_QUOTE'
+        );
+      }
+
+      /*
+      * A blockchain payment is required.
+      *
+      * Freeze the complete server quote in pendingClaim so the confirmation
+      * modal and the later payment flow use exactly the same quoted values.
+      */
+      if (requiredLamports > 0) {
+        setPendingClaim({
+          paidFeeSignature: null,
+          wallet: operationWallet,
+          destination:
+            operationDestination,
+          phaseId:
+            operationPhaseId,
+          claimScope:
+            operationClaimScope,
+          claimAmount:
+            operationClaimAmount,
+          idemKey,
+          claimFeeTreasury:
+            claimFeeTreasury.toBase58(),
+
+          requiredLamports,
+          protocolFeeLamports,
+
+          ataRequired:
+            Boolean(
+              quoteJson.ata_required
+            ),
+
+          ataCreationLamports,
+          ataChargeLamports,
+
+          ataEntitlementAvailable:
+            Boolean(
+              quoteJson
+                .ata_entitlement_available
+            ),
+
+          touchedPhaseIds:
+            Array.isArray(
+              quoteJson.touched_phase_ids
+            )
+              ? quoteJson.touched_phase_ids
+                .map(Number)
+                .filter(
+                  (value) =>
+                    Number.isInteger(value) &&
+                    value > 0
+                )
+              : [],
+
+          feePhaseIds:
+            Array.isArray(
+              quoteJson.fee_phase_ids
+            )
+              ? quoteJson.fee_phase_ids
+                .map(Number)
+                .filter(
+                  (value) =>
+                    Number.isInteger(value) &&
+                    value > 0
+                )
+              : [],
+
+          quoteExpiresAt:
+            typeof quoteJson.expires_at ===
+              'string'
+              ? quoteJson.expires_at
+              : null,
+        });
+
+        setFeeConfirmOpen(true);
+        setMessage(null);
+
+        return;
+      }
+
+      /*
+      * The quote says no blockchain payment is currently required.
+      *
+      * Ask session/start to independently revalidate that state and either
+      * reuse an existing session or open a new fee-free session.
+      */
       const {
         response: preR,
         result: preJ,
@@ -2523,13 +3268,14 @@ export default function ClaimPanel() {
         operationWallet,
         operationDestination,
         operationPhaseId,
-        operationClaimScope
+        operationClaimScope,
+        operationClaimAmount
       );
-  
+
       if (!isCurrentClaimOperation()) {
         return;
       }
-  
+
       /*
        * Case A:
        * A usable claim session exists and no new fee is required.
@@ -2559,59 +3305,59 @@ export default function ClaimPanel() {
             }),
           }
         );
-  
+
         if (!isCurrentClaimOperation()) {
           return;
         }
-  
+
         const execJson: ClaimExecuteResponse =
           await execRes
             .json()
             .catch(() => ({}));
-  
+
         if (!isCurrentClaimOperation()) {
           return;
         }
-  
+
         if (!execRes.ok || !execJson?.success) {
           const rawErr = String(
             execJson?.error ||
-              `CLAIM_EXECUTE_FAILED (${execRes.status})`
+            `CLAIM_EXECUTE_FAILED (${execRes.status})`
           );
-  
+
           if (rawErr === 'SESSION_NOT_FOUND') {
             setPendingClaim(null);
             attemptIdemKeyRef.current = null;
           }
-  
+
           setMessage(
             `❌ ${userFriendlyError(rawErr)}`
           );
-  
+
           return;
         }
-  
+
         const isDryRun =
           execJson?.dry_run === true ||
           execJson?.dryRun === true ||
           String(execJson?.dry_run ?? '')
             .trim()
             .toLowerCase() === 'true';
-  
+
         if (
           execJson?.deduped &&
           execJson?.status !== 'succeeded'
         ) {
           setPendingClaim(null);
           attemptIdemKeyRef.current = null;
-  
+
           setMessage(
             '⚠️ Duplicate claim attempt detected. Please try again.'
           );
-  
+
           return;
         }
-  
+
         if (isDryRun) {
           const splitSummary = Array.isArray(
             execJson?.splits
@@ -2619,18 +3365,16 @@ export default function ClaimPanel() {
             ? execJson.splits
               .map(
                 (split) =>
-                  `${
-                    split.phase_label ||
-                    split.phase_name ||
-                    `Phase ${
-                      split.phase_no ||
-                      split.phase_id
-                    }`
+                  `${split.phase_label ||
+                  split.phase_name ||
+                  `Phase ${split.phase_no ||
+                  split.phase_id
+                  }`
                   }: ${split.amount}`
               )
-                .join(' · ')
+              .join(' · ')
             : 'simulation complete';
-  
+
           setMessage(
             `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${splitSummary}`
           );
@@ -2645,7 +3389,7 @@ export default function ClaimPanel() {
         } else {
           setMessage('❌ Claim execution failed.');
         }
-  
+
         /*
          * Clear the completed claim form.
          */
@@ -2654,13 +3398,13 @@ export default function ClaimPanel() {
         setUseAltAddress(false);
         setAltAddress('');
         setPendingClaim(null);
-  
+
         attemptIdemKeyRef.current = null;
-  
+
         if (!isCurrentClaimOperation()) {
           return;
         }
-  
+
         /*
          * Trigger the claim/profile and CorePoint history effects.
          * No manual refreshed/refreshedJson fetch is needed here.
@@ -2668,59 +3412,50 @@ export default function ClaimPanel() {
         setClaimRefreshKey(
           (value) => value + 1
         );
-  
+
         return;
       }
-  
       /*
-       * Case B:
-       * The backend requires a fee signature before continuing.
+       * The quote reported zero payment, but session/start independently
+       * recalculates the requirement.
+       *
+       * If economic state changed between those two requests, never fall back
+       * to an old/stale amount. The user must start again with a fresh quote.
        */
       const preflightError = String(
         preJ?.error || ''
       );
-  
+
       if (
         preflightError ===
-        'MISSING_FEE_SIGNATURE'
+        'MISSING_FEE_SIGNATURE' ||
+        preflightError ===
+        'FEE_REQUIREMENT_CHANGED'
       ) {
-        setPendingClaim({
-          wallet: operationWallet,
-          destination: operationDestination,
-          phaseId: operationPhaseId,
-          claimScope: operationClaimScope,
-          claimAmount: operationClaimAmount,
-          idemKey,
-        });
-  
-        setFeeConfirmOpen(true);
-        setMessage(null);
-  
-        return;
+        throw new Error(
+          'FEE_REQUIREMENT_CHANGED'
+        );
       }
-  
-      /*
-       * Any other preflight response is an actual failure.
-       */
+
       throw new Error(
         preflightError ||
-          `SESSION_START_FAILED (${preR.status})`
+        `SESSION_START_FAILED (${preR.status})`
       );
     } catch (error: unknown) {
       console.error(
         'Claim request failed:',
         error
       );
-  
+
       if (!isCurrentClaimOperation()) {
         return;
       }
-  
+
       const errorMessage =
         error instanceof Error
           ? error.message
           : String(error ?? '');
-  
+
       setMessage(
         `❌ ${userFriendlyError(errorMessage)}`
       );
@@ -2736,18 +3471,18 @@ export default function ClaimPanel() {
   ) => {
     const contributionId = Number(
       tx?.contribution_id ??
-        tx?.contributionId ??
-        tx?.id ??
-        0
+      tx?.contributionId ??
+      tx?.id ??
+      0
     );
-  
+
     if (
       Number.isFinite(contributionId) &&
       contributionId > 0
     ) {
       clearRefundError(contributionId);
     }
-  
+
     if (!publicKey) {
       if (
         Number.isFinite(contributionId) &&
@@ -2758,11 +3493,11 @@ export default function ClaimPanel() {
           '❌ Please connect your wallet.'
         );
       }
-  
+
       setMessage('❌ Please connect your wallet.');
       return;
     }
-  
+
     if (!ensureProtectedActionReady('requesting a refund')) {
       if (
         Number.isFinite(contributionId) &&
@@ -2773,10 +3508,10 @@ export default function ClaimPanel() {
           '❌ Continue with your wallet before requesting a refund.'
         );
       }
-  
+
       return;
     }
-  
+
     if (!signMessage) {
       if (
         Number.isFinite(contributionId) &&
@@ -2787,37 +3522,37 @@ export default function ClaimPanel() {
           '❌ Your wallet does not support message signing.'
         );
       }
-  
+
       setMessage(
         '❌ Your wallet does not support message signing.'
       );
-  
+
       return;
     }
-  
+
     const mint = String(
       tx?.token_contract ??
-        tx?.mint ??
-        tx?.token_mint ??
-        ''
+      tx?.mint ??
+      tx?.token_mint ??
+      ''
     ).trim();
-  
+
     const tokenSymbol = String(
       tx?.token_symbol ??
-        tx?.symbol ??
-        ''
+      tx?.symbol ??
+      ''
     ).trim();
-  
+
     const invalidationId =
       Number(
         tx?.invalidation_id ??
-          tx?.invalidationId ??
-          tx?.refund_id ??
-          tx?.refundId ??
-          tx?.refund_invalidation_id ??
-          0
+        tx?.invalidationId ??
+        tx?.refund_id ??
+        tx?.refundId ??
+        tx?.refund_invalidation_id ??
+        0
       ) || undefined;
-  
+
     /*
      * Validate contribution data before invalidating any
      * currently running refund operation.
@@ -2832,34 +3567,34 @@ export default function ClaimPanel() {
         mint,
         tx,
       });
-  
+
       setMessage('❌ Refund request data is incomplete.');
       return;
     }
-  
+
     /*
      * Snapshot the connected wallet for this refund attempt.
      */
     const operationWallet = publicKey.toBase58();
-  
+
     const operationId =
       ++refundOperationIdRef.current;
-  
+
     const isCurrentRefundOperation = () =>
       refundOperationIdRef.current === operationId &&
       walletBase58Ref.current === operationWallet;
-  
+
     if (process.env.NODE_ENV !== 'production') {
       console.log('[REFUND] clicked tx:', tx);
     }
-  
+
     try {
       setRefundingContributionId(contributionId);
-  
+
       setMessage(
         `⏳ Preparing refund fee request for contribution #${contributionId}...`
       );
-  
+
       /*
        * 1) Prepare refund fee information.
        */
@@ -2879,35 +3614,35 @@ export default function ClaimPanel() {
           }),
         }
       );
-  
+
       if (!isCurrentRefundOperation()) {
         return;
       }
-  
+
       const feePrepJson: RefundFeePrepareResponse = await feePrepRes
         .json()
         .catch(() => ({}));
-  
+
       if (!isCurrentRefundOperation()) {
         return;
       }
-  
+
       if (process.env.NODE_ENV !== 'production') {
         console.log('[REFUND] fee prepare response:', {
           status: feePrepRes.status,
           body: feePrepJson,
         });
       }
-  
+
       if (!feePrepRes.ok || !feePrepJson?.success) {
         throw new Error(
           String(
             feePrepJson?.error ||
-              `REFUND_FEE_PREPARE_FAILED (${feePrepRes.status})`
+            `REFUND_FEE_PREPARE_FAILED (${feePrepRes.status})`
           )
         );
       }
-  
+
       /*
        * The fee has already been paid for this refund.
        * Continue directly with the signed refund request.
@@ -2916,7 +3651,7 @@ export default function ClaimPanel() {
         setMessage(
           '⏳ Refund fee already paid. Preparing signature challenge...'
         );
-  
+
         /*
          * 2) Prepare refund signature challenge.
          */
@@ -2932,8 +3667,8 @@ export default function ClaimPanel() {
               invalidation_id:
                 Number(
                   feePrepJson?.invalidation_id ??
-                    invalidationId ??
-                    0
+                  invalidationId ??
+                  0
                 ) || undefined,
               wallet_address: operationWallet,
               contribution_id: contributionId,
@@ -2941,19 +3676,19 @@ export default function ClaimPanel() {
             }),
           }
         );
-  
+
         if (!isCurrentRefundOperation()) {
           return;
         }
-  
+
         const prepJson: RefundPrepareResponse = await prepRes
           .json()
           .catch(() => ({}));
-  
+
         if (!isCurrentRefundOperation()) {
           return;
         }
-  
+
         if (process.env.NODE_ENV !== 'production') {
           console.log(
             '[REFUND] request prepare response:',
@@ -2963,7 +3698,7 @@ export default function ClaimPanel() {
             }
           );
         }
-  
+
         if (
           !prepRes.ok ||
           !prepJson?.success ||
@@ -2973,29 +3708,29 @@ export default function ClaimPanel() {
           throw new Error(
             String(
               prepJson?.error ||
-                `REFUND_PREPARE_FAILED (${prepRes.status})`
+              `REFUND_PREPARE_FAILED (${prepRes.status})`
             )
           );
         }
-  
+
         /*
          * 3) Sign refund challenge.
          */
         const messageBytes = new TextEncoder().encode(
           String(prepJson.message)
         );
-  
+
         const signatureBytes = await signMessage(
           messageBytes
         );
-  
+
         if (!isCurrentRefundOperation()) {
           return;
         }
-  
+
         const signatureBase64 =
           uint8ToBase64(signatureBytes);
-  
+
         /*
          * 4) Submit the signed refund request.
          */
@@ -3011,8 +3746,8 @@ export default function ClaimPanel() {
               invalidation_id:
                 Number(
                   feePrepJson?.invalidation_id ??
-                    invalidationId ??
-                    0
+                  invalidationId ??
+                  0
                 ) || undefined,
               wallet_address: operationWallet,
               contribution_id: contributionId,
@@ -3022,19 +3757,19 @@ export default function ClaimPanel() {
             }),
           }
         );
-  
+
         if (!isCurrentRefundOperation()) {
           return;
         }
-  
+
         const requestJson: RefundRequestResponse = await requestRes
           .json()
           .catch(() => ({}));
-  
+
         if (!isCurrentRefundOperation()) {
           return;
         }
-  
+
         if (process.env.NODE_ENV !== 'production') {
           console.log(
             '[REFUND] request submit response:',
@@ -3044,7 +3779,7 @@ export default function ClaimPanel() {
             }
           );
         }
-  
+
         if (
           !requestRes.ok ||
           !requestJson?.success
@@ -3052,25 +3787,25 @@ export default function ClaimPanel() {
           throw new Error(
             String(
               requestJson?.error ||
-                `REFUND_REQUEST_FAILED (${requestRes.status})`
+              `REFUND_REQUEST_FAILED (${requestRes.status})`
             )
           );
         }
-  
+
         /*
          * The refund request is now safely recorded.
          * The stored fee signature is no longer needed for recovery.
          */
         setRefundFeeSigForSupport(null);
-  
+
         setMessage(
           '✅ Refund request signed and recorded successfully.'
         );
-  
+
         if (!isCurrentRefundOperation()) {
           return;
         }
-  
+
         /*
          * Refresh claim/profile data and CorePoint history
          * through the shared effects.
@@ -3078,10 +3813,10 @@ export default function ClaimPanel() {
         setClaimRefreshKey(
           (value) => value + 1
         );
-  
+
         return;
       }
-  
+
       /*
        * The refund fee has not been paid yet.
        * Validate the fee configuration before opening the modal.
@@ -3089,15 +3824,15 @@ export default function ClaimPanel() {
       const refundFeeLamports = Number(
         feePrepJson?.refund_fee_lamports ?? 0
       );
-  
+
       const refundFeeSol = Number(
         feePrepJson?.refund_fee_sol ?? 0
       );
-  
+
       const treasuryWallet = String(
         feePrepJson?.treasury_wallet ?? ''
       ).trim();
-  
+
       if (
         !Number.isSafeInteger(refundFeeLamports) ||
         refundFeeLamports <= 0 ||
@@ -3109,7 +3844,7 @@ export default function ClaimPanel() {
           'INVALID_REFUND_FEE_CONFIGURATION'
         );
       }
-  
+
       try {
         new PublicKey(treasuryWallet);
       } catch {
@@ -3117,11 +3852,11 @@ export default function ClaimPanel() {
           'INVALID_REFUND_TREASURY_WALLET'
         );
       }
-  
+
       if (!isCurrentRefundOperation()) {
         return;
       }
-  
+
       /*
        * 5) Open refund fee confirmation modal.
        */
@@ -3129,8 +3864,8 @@ export default function ClaimPanel() {
         invalidationId:
           Number(
             feePrepJson?.invalidation_id ??
-              invalidationId ??
-              0
+            invalidationId ??
+            0
           ) || undefined,
         contributionId,
         mint,
@@ -3139,7 +3874,7 @@ export default function ClaimPanel() {
         refundFeeSol,
         treasuryWallet,
       });
-  
+
       setRefundFeeConfirmOpen(true);
       setMessage(null);
     } catch (error: unknown) {
@@ -3147,23 +3882,23 @@ export default function ClaimPanel() {
         '[REFUND] handleRequestRefund failed:',
         error
       );
-  
+
       if (!isCurrentRefundOperation()) {
         return;
       }
-  
+
       const rawError =
         error instanceof Error
           ? error.message
           : String(
-              error ?? 'REFUND_REQUEST_FAILED'
-            );
-  
+            error ?? 'REFUND_REQUEST_FAILED'
+          );
+
       const friendlyError =
         userFriendlyError(rawError);
-  
+
       setMessage(`❌ ${friendlyError}`);
-  
+
       setRefundError(
         contributionId,
         `❌ ${friendlyError}`
@@ -3192,7 +3927,7 @@ export default function ClaimPanel() {
       );
       return;
     }
-  
+
     /*
      * Snapshot all operation-specific values.
      * React state or the connected wallet may change while an async step is running.
@@ -3201,27 +3936,27 @@ export default function ClaimPanel() {
     const operationPublicKey = publicKey;
     const operationRefund = pendingRefund;
     const operationId = ++refundOperationIdRef.current;
-  
+
     const isCurrentRefundOperation = () =>
       refundOperationIdRef.current === operationId &&
       walletBase58Ref.current === operationWallet;
-  
+
     try {
       setRefundDebug(null);
       setRefundFeeStep('paying');
       setRefundingContributionId(operationRefund.contributionId);
       setMessage(null);
-  
+
       const treasuryPubkey = new PublicKey(
         operationRefund.treasuryWallet
       );
-  
+
       setMessage(
         `💸 Paying refund processing fee (~${operationRefund.refundFeeSol.toFixed(
           6
         )} SOL)... Please confirm in your wallet.`
       );
-  
+
       // 1) Build refund fee transaction
       const feeTx = new Transaction().add(
         SystemProgram.transfer({
@@ -3230,17 +3965,17 @@ export default function ClaimPanel() {
           lamports: operationRefund.refundFeeLamports,
         })
       );
-  
+
       feeTx.feePayer = operationPublicKey;
-  
+
       const latest = await connection.getLatestBlockhash('confirmed');
-  
+
       if (!isCurrentRefundOperation()) {
         return;
       }
-  
+
       feeTx.recentBlockhash = latest.blockhash;
-  
+
       // 2) Send refund fee
       const feeSig = String(
         await sendTransaction(feeTx, connection, {
@@ -3249,21 +3984,21 @@ export default function ClaimPanel() {
           maxRetries: 3,
         })
       );
-  
+
       /*
        * Store the signature before checking whether the wallet changed.
        * The transaction may already have been submitted on-chain, and the
        * signature can be necessary for recovery or support.
        */
       setRefundFeeSigForSupport(feeSig);
-  
+
       if (!isCurrentRefundOperation()) {
         return;
       }
-  
+
       setRefundFeeStep('confirming');
       setMessage('⏳ Verifying refund fee payment...');
-  
+
       // 3) Confirm fee with backend
       const feeConfirmRes = await fetch('/api/refunds/fee/confirm', {
         method: 'POST',
@@ -3280,43 +4015,43 @@ export default function ClaimPanel() {
           fee_tx_signature: feeSig,
         }),
       });
-  
+
       const feeConfirmJson: RefundFeeConfirmResponse =
         await feeConfirmRes
           .json()
           .catch(() => ({}));
-  
+
       if (!isCurrentRefundOperation()) {
         return;
       }
-  
+
       if (process.env.NODE_ENV !== 'production') {
         console.log('[REFUND] fee confirm response:', {
           status: feeConfirmRes.status,
           body: feeConfirmJson,
         });
       }
-  
+
       setRefundDebug({
         step: 'fee_confirm',
         status: feeConfirmRes.status,
         body: feeConfirmJson,
       });
-  
+
       if (!feeConfirmRes.ok || !feeConfirmJson?.success) {
         throw new Error(
           String(
             feeConfirmJson?.error ||
-              `REFUND_FEE_CONFIRM_FAILED (${feeConfirmRes.status})`
+            `REFUND_FEE_CONFIRM_FAILED (${feeConfirmRes.status})`
           )
         );
       }
-  
+
       setRefundFeeStep('paid');
       setMessage(
         '✅ Refund fee received. Preparing your refund request...'
       );
-  
+
       // 4) Prepare refund request challenge
       const prepRes = await fetch('/api/refunds/request/prepare', {
         method: 'POST',
@@ -3332,28 +4067,28 @@ export default function ClaimPanel() {
           mint: operationRefund.mint,
         }),
       });
-  
+
       const prepJson: RefundPrepareResponse = await prepRes
         .json()
         .catch(() => ({}));
-  
+
       if (!isCurrentRefundOperation()) {
         return;
       }
-  
+
       if (process.env.NODE_ENV !== 'production') {
         console.log('[REFUND] request prepare response:', {
           status: prepRes.status,
           body: prepJson,
         });
       }
-  
+
       setRefundDebug({
         step: 'request_prepare',
         status: prepRes.status,
         body: prepJson,
       });
-  
+
       if (
         !prepRes.ok ||
         !prepJson?.success ||
@@ -3363,32 +4098,32 @@ export default function ClaimPanel() {
         throw new Error(
           String(
             prepJson?.error ||
-              `REFUND_PREPARE_FAILED (${prepRes.status})`
+            `REFUND_PREPARE_FAILED (${prepRes.status})`
           )
         );
       }
-  
+
       // 5) Sign challenge
       setRefundFeeStep('signing');
       setMessage(
         '✍️ Refund fee received. Please sign the refund request message in your wallet.'
       );
-  
+
       const messageBytes = new TextEncoder().encode(
         String(prepJson.message)
       );
-  
+
       const signatureBytes = await signMessage(messageBytes);
-  
+
       if (!isCurrentRefundOperation()) {
         return;
       }
-  
+
       const signatureBase64 = uint8ToBase64(signatureBytes);
-  
+
       setRefundFeeStep('submitting');
       setMessage('📨 Submitting your refund request...');
-  
+
       // 6) Submit refund request
       const requestRes = await fetch('/api/refunds/request', {
         method: 'POST',
@@ -3406,37 +4141,37 @@ export default function ClaimPanel() {
           signature_base64: signatureBase64,
         }),
       });
-  
+
       const requestJson: RefundRequestResponse = await requestRes
         .json()
         .catch(() => ({}));
-  
+
       if (!isCurrentRefundOperation()) {
         return;
       }
-  
+
       if (process.env.NODE_ENV !== 'production') {
         console.log('[REFUND] request submit response:', {
           status: requestRes.status,
           body: requestJson,
         });
       }
-  
+
       setRefundDebug({
         step: 'request_submit',
         status: requestRes.status,
         body: requestJson,
       });
-  
+
       if (!requestRes.ok || !requestJson?.success) {
         throw new Error(
           String(
             requestJson?.error ||
-              `REFUND_REQUEST_FAILED (${requestRes.status})`
+            `REFUND_REQUEST_FAILED (${requestRes.status})`
           )
         );
       }
-  
+
       // The complete refund request has now been recorded successfully.
       setRefundFeeSigForSupport(null);
       setRefundFeeStep('submitted');
@@ -3445,7 +4180,7 @@ export default function ClaimPanel() {
       );
       setRefundFeeConfirmOpen(false);
       setPendingRefund(null);
-  
+
       // 7) Refresh profile
       const refreshed = await fetch(
         `/api/claim/${operationWallet}`,
@@ -3454,12 +4189,12 @@ export default function ClaimPanel() {
           credentials: 'include',
         }
       );
-  
+
       const refreshedJson: ClaimPanelRefreshResponse =
         await refreshed
           .json()
           .catch(() => ({}));
-  
+
       if (
         isCurrentRefundOperation() &&
         refreshed.ok &&
@@ -3473,20 +4208,20 @@ export default function ClaimPanel() {
         e instanceof Error
           ? e.message
           : 'REFUND_REQUEST_FAILED';
-  
+
       console.error(
         '[REFUND] confirmRefundFeeThenRequest failed:',
         raw,
         e
       );
-  
+
       if (isCurrentRefundOperation()) {
         setRefundDebug((prev) => ({
           ...(prev ?? {}),
           step: 'catch',
           error: raw,
         }));
-  
+
         setRefundFeeStep('idle');
         setMessage(`❌ ${userFriendlyError(raw)}`);
       }
@@ -3501,12 +4236,12 @@ export default function ClaimPanel() {
     if (!pendingClaim) {
       return;
     }
-  
+
     if (!publicKey) {
       setMessage('❌ Please connect your wallet.');
       return;
     }
-  
+
     /*
      * Snapshot every value belonging to this claim attempt.
      * React state and wallet values may change while async work is running.
@@ -3514,14 +4249,15 @@ export default function ClaimPanel() {
     const operationClaim = pendingClaim;
     const operationWallet = publicKey.toBase58();
     const operationPublicKey = publicKey;
-  
+
+    let preserveFeeConfirmation = false;
     const operationId =
       ++claimOperationIdRef.current;
-  
+
     const isCurrentClaimOperation = () =>
       claimOperationIdRef.current === operationId &&
       walletBase58Ref.current === operationWallet;
-  
+
     const {
       wallet,
       destination,
@@ -3529,12 +4265,13 @@ export default function ClaimPanel() {
       claimScope: pendingClaimScope,
       claimAmount,
       idemKey,
+      paidFeeSignature,
     } = operationClaim;
-  
+
     try {
       setIsClaiming(true);
       setMessage(null);
-  
+
       /*
        * Validate that the pending claim still belongs to the
        * currently connected wallet and current claim context.
@@ -3544,74 +4281,304 @@ export default function ClaimPanel() {
           'WALLET_CHANGED_DURING_CLAIM'
         );
       }
-  
+
       if (pendingClaimScope !== claimScope) {
         throw new Error(
           'CLAIM_SCOPE_CHANGED'
         );
       }
-  
+
       if (phaseId !== claimExecutionPhaseId) {
         throw new Error(
           'CLAIM_PHASE_CHANGED'
         );
       }
-  
+
       const currentDestination = useAltAddress
         ? altAddress.trim()
         : operationWallet;
-  
+
       if (currentDestination !== destination) {
         throw new Error(
           'CLAIM_DESTINATION_CHANGED'
         );
       }
-  
+
       if (!connection) {
         throw new Error(
           'RPC_CONNECTION_MISSING'
         );
       }
-  
+
       if (!sendTransaction) {
         throw new Error(
           'WALLET_SEND_TX_UNAVAILABLE'
         );
       }
-  
+
       if (!claimOpen) {
         throw new Error('CLAIM_NOT_OPEN');
       }
-  
+
+      if (paidFeeSignature) {
+        throw new Error(
+          'CLAIM_FEE_ALREADY_PAID_RETRY_REQUIRED'
+        );
+      }
+
       /*
-       * 1) Build the claim fee transaction.
-       */
+      * 1) Revalidate the authoritative server quote immediately before payment.
+      *
+      * The user may have left the confirmation modal open for a while, or claim
+      * state may have changed since the modal was first shown.
+      *
+      * Never send SOL using a stale fee quote.
+      */
       setMessage(
-        `💸 Paying the ${FEE_SOL} SOL session fee… Please confirm in your wallet.`
+        '⏳ Rechecking the claim fee before payment…'
       );
-  
-      const feeTx = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: operationPublicKey,
-          toPubkey: TREASURY_PUBKEY,
-          lamports: FEE_LAMPORTS,
-        })
+
+      const {
+        response: freshQuoteRes,
+        result: freshQuote,
+      } = await fetchClaimFeeQuote(
+        wallet,
+        destination,
+        phaseId,
+        pendingClaimScope,
+        claimAmount
       );
-  
+
+      if (!isCurrentClaimOperation()) {
+        return;
+      }
+
+      if (
+        !freshQuoteRes.ok ||
+        !freshQuote?.success
+      ) {
+        throw new Error(
+          String(
+            freshQuote?.error ||
+            `CLAIM_FEE_QUOTE_FAILED (${freshQuoteRes.status})`
+          )
+        );
+      }
+
+      const requiredLamports =
+        Number(
+          freshQuote.required_lamports ?? 0
+        );
+
+      const protocolFeeLamports =
+        Number(
+          freshQuote.protocol_fee_lamports ?? 0
+        );
+
+      const ataCreationLamports =
+        Number(
+          freshQuote.ata_creation_lamports ?? 0
+        );
+
+      const ataChargeLamports =
+        Number(
+          freshQuote.ata_charge_lamports ?? 0
+        );
+
+      const freshTreasuryRaw =
+        String(
+          freshQuote
+            .claim_fee_treasury ??
+          ''
+        ).trim();
+
+      let freshTreasury:
+        PublicKey;
+
+      try {
+        freshTreasury =
+          new PublicKey(
+            freshTreasuryRaw
+          );
+      } catch {
+        throw new Error(
+          'INVALID_CLAIM_FEE_TREASURY'
+        );
+      }
+
+      /*
+      * Validate the fresh authoritative quote before making any payment.
+      */
+      if (
+        !Number.isSafeInteger(requiredLamports) ||
+        requiredLamports < 0 ||
+        !Number.isSafeInteger(protocolFeeLamports) ||
+        protocolFeeLamports < 0 ||
+        !Number.isSafeInteger(ataCreationLamports) ||
+        ataCreationLamports < 0 ||
+        !Number.isSafeInteger(ataChargeLamports) ||
+        ataChargeLamports < 0
+      ) {
+        throw new Error(
+          'INVALID_CLAIM_FEE_QUOTE'
+        );
+      }
+
+      /*
+       * Basic economic consistency checks.
+       */
+      if (
+        protocolFeeLamports +
+        ataChargeLamports !==
+        requiredLamports ||
+        ataChargeLamports >
+        ataCreationLamports
+      ) {
+        throw new Error(
+          'INVALID_CLAIM_FEE_QUOTE'
+        );
+      }
+
+      /*
+       * The fee disappeared while the modal was open.
+       *
+       * Do not send a zero-value transaction. The user can press Claim
+       * again and session/start will independently revalidate the now
+       * fee-free path.
+       */
+      if (requiredLamports === 0) {
+        setFeeConfirmOpen(false);
+        setPendingClaim(null);
+
+        throw new Error(
+          'FEE_REQUIREMENT_CHANGED'
+        );
+      }
+
+      /*
+       * The authoritative quote changed while the modal was open.
+       *
+       * Never silently charge an amount or treasury destination different
+       * from what the user originally approved.
+       *
+       * Refresh the modal and require a new explicit confirmation.
+       */
+      if (
+        requiredLamports !==
+        operationClaim.requiredLamports ||
+        protocolFeeLamports !==
+        operationClaim.protocolFeeLamports ||
+        ataChargeLamports !==
+        operationClaim.ataChargeLamports ||
+        freshTreasury.toBase58() !==
+        operationClaim.claimFeeTreasury
+      ) {
+        preserveFeeConfirmation = true;
+
+        setPendingClaim({
+          ...operationClaim,
+
+          claimFeeTreasury:
+            freshTreasury.toBase58(),
+
+          requiredLamports,
+          protocolFeeLamports,
+
+          ataRequired:
+            Boolean(
+              freshQuote.ata_required
+            ),
+
+          ataCreationLamports,
+          ataChargeLamports,
+
+          ataEntitlementAvailable:
+            Boolean(
+              freshQuote
+                .ata_entitlement_available
+            ),
+
+          touchedPhaseIds:
+            Array.isArray(
+              freshQuote.touched_phase_ids
+            )
+              ? freshQuote.touched_phase_ids
+                .map(Number)
+                .filter(
+                  (value) =>
+                    Number.isInteger(value) &&
+                    value > 0
+                )
+              : [],
+
+          feePhaseIds:
+            Array.isArray(
+              freshQuote.fee_phase_ids
+            )
+              ? freshQuote.fee_phase_ids
+                .map(Number)
+                .filter(
+                  (value) =>
+                    Number.isInteger(value) &&
+                    value > 0
+                )
+              : [],
+
+          quoteExpiresAt:
+            typeof freshQuote.expires_at ===
+              'string'
+              ? freshQuote.expires_at
+              : null,
+        });
+
+        setMessage(
+          '⚠️ Your claim fee changed while the confirmation window was open. Please review the updated amount and confirm again.'
+        );
+
+        return;
+      }
+
+      /*
+       * 2) Build the exact claim-fee transfer returned by the backend.
+       *
+       * The wallet pays this SOL transfer and its ordinary Solana network fee.
+       */
+      const requiredSol =
+        requiredLamports /
+        1_000_000_000;
+
+      setMessage(
+        `💸 Paying ${requiredSol.toFixed(9).replace(/0+$/, '').replace(/\.$/, '')} SOL… Please confirm in your wallet.`
+      );
+
+      const feeTx =
+        new Transaction().add(
+          SystemProgram.transfer({
+            fromPubkey:
+              operationPublicKey,
+
+            toPubkey:
+              freshTreasury,
+
+            lamports:
+              requiredLamports,
+          })
+        );
+
       feeTx.feePayer = operationPublicKey;
-  
+
       const latest =
         await connection.getLatestBlockhash(
           'confirmed'
         );
-  
+
       if (!isCurrentClaimOperation()) {
         return;
       }
-  
+
       feeTx.recentBlockhash =
         latest.blockhash;
-  
+
       /*
        * 2) Submit the claim fee transaction.
        */
@@ -3627,22 +4594,58 @@ export default function ClaimPanel() {
           }
         )
       );
-  
+
       /*
        * Preserve the signature immediately.
        * The transaction may already have reached the blockchain,
        * even if the wallet changes immediately afterward.
        */
       setClaimFeeSigForSupport(feeSig);
-  
+
+      /*
+       * From this point onward a real blockchain payment transaction
+       * has been submitted.
+       *
+       * Unless Solana definitively reports failure, preserve the payment
+       * context so an uncertain RPC result can never lead to a blind
+       * second payment.
+       */
+      preserveFeeConfirmation = true;
+
+      /*
+      * Persist recovery before any further RPC or API work.
+      *
+      * Even if the page refreshes, the wallet temporarily disconnects,
+      * or the next confirmation request becomes uncertain, this fee
+      * payment context must remain recoverable.
+      */
+      writeClaimFeeRecovery({
+        ...operationClaim,
+        paidFeeSignature: feeSig,
+      });
+
+      setPendingClaim((current) => {
+        if (
+          !current ||
+          current.idemKey !== idemKey
+        ) {
+          return current;
+        }
+
+        return {
+          ...current,
+          paidFeeSignature: feeSig,
+        };
+      });
+
       if (!isCurrentClaimOperation()) {
         return;
       }
-  
+
       setMessage(
         '⏳ Confirming fee payment on-chain…'
       );
-  
+
       /*
        * 3) Confirm the fee transaction.
        */
@@ -3656,24 +4659,52 @@ export default function ClaimPanel() {
           },
           'confirmed'
         );
-  
+
       if (!isCurrentClaimOperation()) {
         return;
       }
-  
+
       if (confirmation.value.err) {
+        /*
+         * Solana definitively reported that this fee transaction failed.
+         *
+         * No claim fee was successfully paid, so the user must not be
+         * trapped in paid-fee recovery mode.
+         */
+        preserveFeeConfirmation = false;
+
+        setClaimFeeSigForSupport(null);
+
+        clearClaimFeeRecovery(
+          wallet
+        );
+
+        setPendingClaim((current) => {
+          if (
+            !current ||
+            current.idemKey !== idemKey
+          ) {
+            return current;
+          }
+
+          return {
+            ...current,
+            paidFeeSignature: null,
+          };
+        });
+
         throw new Error(
           'CLAIM_FEE_TRANSACTION_FAILED'
         );
       }
-  
+
       /*
        * 4) Open the claim session using the confirmed fee.
        */
       setMessage(
         '🧩 Opening your claim session…'
       );
-  
+
       const startRes = await fetch(
         '/api/claim/session/start',
         {
@@ -3689,25 +4720,32 @@ export default function ClaimPanel() {
             phase_id: phaseId,
             claim_scope:
               pendingClaimScope,
-            fee_tx_signature: feeSig,
-            fee_amount: FEE_LAMPORTS,
+
+            claim_amount:
+              claimAmount,
+
+            fee_tx_signature:
+              feeSig,
+
+            fee_amount:
+              requiredLamports,
           }),
         }
       );
-  
+
       if (!isCurrentClaimOperation()) {
         return;
       }
-  
+
       const startJson: ClaimSessionStartResponse =
         await startRes
           .json()
           .catch(() => ({}));
-  
+
       if (!isCurrentClaimOperation()) {
         return;
       }
-  
+
       if (
         !startRes.ok ||
         !startJson?.success ||
@@ -3715,23 +4753,56 @@ export default function ClaimPanel() {
       ) {
         const rawError = String(
           startJson?.error ||
-            `SESSION_START_FAILED (${startRes.status})`
+          `SESSION_START_FAILED (${startRes.status})`
         );
-  
-        throw new Error(rawError);
+
+        /*
+         * The SOL fee transaction has already succeeded.
+         *
+         * Never clear the payment context in a way that could make the next
+         * interaction silently send a second fee payment.
+         */
+        preserveFeeConfirmation = true;
+
+        setPendingClaim((current) => {
+          if (
+            !current ||
+            current.idemKey !== idemKey
+          ) {
+            return current;
+          }
+
+          return {
+            ...current,
+            paidFeeSignature: feeSig,
+          };
+        });
+
+        if (
+          rawError ===
+          'FEE_REQUIREMENT_CHANGED'
+        ) {
+          throw new Error(
+            'CLAIM_FEE_PAID_REQUIREMENT_CHANGED'
+          );
+        }
+
+        throw new Error(
+          `CLAIM_FEE_PAID_SESSION_FAILED:${rawError}`
+        );
       }
-  
+
       const sid = String(
         startJson.session_id
       );
-      
+
       /*
        * 5) Execute the claim.
        */
       setMessage(
         '🚀 Executing your claim…'
       );
-  
+
       const execRes = await fetch(
         '/api/claim/execute',
         {
@@ -3751,29 +4822,29 @@ export default function ClaimPanel() {
           }),
         }
       );
-  
+
       if (!isCurrentClaimOperation()) {
         return;
       }
-  
+
       const execJson: ClaimExecuteResponse =
         await execRes
           .json()
           .catch(() => ({}));
-  
+
       if (!isCurrentClaimOperation()) {
         return;
       }
-  
+
       if (
         !execRes.ok ||
         !execJson?.success
       ) {
         const rawError = String(
           execJson?.error ||
-            `CLAIM_EXECUTE_FAILED (${execRes.status})`
+          `CLAIM_EXECUTE_FAILED (${execRes.status})`
         );
-        
+
         if (
           rawError ===
           'SESSION_NOT_FOUND'
@@ -3781,17 +4852,17 @@ export default function ClaimPanel() {
           attemptIdemKeyRef.current =
             null;
         }
-  
+
         throw new Error(rawError);
       }
-  
+
       const isDryRun =
         execJson?.dry_run === true ||
         execJson?.dryRun === true ||
         String(execJson?.dry_run ?? '')
           .trim()
           .toLowerCase() === 'true';
-  
+
       /*
        * A deduped request is successful only when the
        * original claim itself already succeeded.
@@ -3799,49 +4870,51 @@ export default function ClaimPanel() {
       if (
         execJson?.deduped &&
         execJson?.status !==
-          'succeeded'
+        'succeeded'
       ) {
         setPendingClaim(null);
         attemptIdemKeyRef.current =
           null;
-  
+
         setMessage(
           '⚠️ Duplicate claim attempt detected. Please try again.'
         );
-  
+
         return;
       }
-  
+
       /*
        * At this point the claim was completed or the backend
        * confirmed that an identical claim already succeeded.
        * The fee signature is no longer needed for recovery.
        */
       setClaimFeeSigForSupport(null);
-  
+
+      clearClaimFeeRecovery(
+        wallet
+      );
+
       if (isDryRun) {
         const splits: ClaimExecutionSplit[] =
           Array.isArray(execJson.splits)
             ? execJson.splits
             : [];
-      
+
         const splitSummary =
           splits.length > 0
             ? splits
-                .map(
-                  (split) =>
-                    `${
-                      split.phase_label ||
-                      split.phase_name ||
-                      `Phase ${
-                        split.phase_no ||
-                        split.phase_id
-                      }`
-                    }: ${split.amount}`
-                )
-                .join(' · ')
+              .map(
+                (split) =>
+                  `${split.phase_label ||
+                  split.phase_name ||
+                  `Phase ${split.phase_no ||
+                  split.phase_id
+                  }`
+                  }: ${split.amount}`
+              )
+              .join(' · ')
             : 'simulation complete';
-      
+
         setMessage(
           `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${splitSummary}`
         );
@@ -3854,7 +4927,7 @@ export default function ClaimPanel() {
       } else if (
         execJson?.deduped &&
         execJson?.status ===
-          'succeeded'
+        'succeeded'
       ) {
         setMessage(
           '✅ This claim had already been completed successfully.'
@@ -3868,7 +4941,7 @@ export default function ClaimPanel() {
           'CLAIM_EXECUTION_RESULT_INVALID'
         );
       }
-  
+
       /*
        * Reset the completed claim form only after a verified success.
        */
@@ -3877,13 +4950,13 @@ export default function ClaimPanel() {
       setUseAltAddress(false);
       setAltAddress('');
       setPendingClaim(null);
-  
+
       attemptIdemKeyRef.current = null;
-  
+
       if (!isCurrentClaimOperation()) {
         return;
       }
-  
+
       /*
        * Refresh claim/profile data and CorePoint history
        * through the shared effects.
@@ -3896,20 +4969,20 @@ export default function ClaimPanel() {
         error instanceof Error
           ? error.message
           : String(
-              error ??
-                'CLAIM_EXECUTION_FAILED'
-            );
-  
+            error ??
+            'CLAIM_EXECUTION_FAILED'
+          );
+
       console.error(
         '[CLAIM] confirmAndPayFeeThenExecute failed:',
         rawError,
         error
       );
-  
+
       if (!isCurrentClaimOperation()) {
         return;
       }
-  
+
       setMessage(
         `❌ ${userFriendlyError(
           rawError
@@ -3922,8 +4995,383 @@ export default function ClaimPanel() {
        */
       if (isCurrentClaimOperation()) {
         setIsClaiming(false);
-        setFeeConfirmOpen(false);
-        setPendingClaim(null);
+
+        /*
+         * If the authoritative fee changed before payment,
+         * keep the modal open with the refreshed quote so the
+         * user can explicitly approve the new amount.
+         */
+        if (!preserveFeeConfirmation) {
+          setFeeConfirmOpen(false);
+          setPendingClaim(null);
+        }
+      }
+    }
+  };
+
+  const retryClaimWithExistingFee = async () => {
+    if (
+      !pendingClaim ||
+      !pendingClaim.paidFeeSignature
+    ) {
+      return;
+    }
+
+    if (!publicKey) {
+      setMessage(
+        '❌ Please connect your wallet.'
+      );
+      return;
+    }
+
+    const operationClaim =
+      pendingClaim;
+
+    const operationWallet =
+      publicKey.toBase58();
+
+    const operationId =
+      ++claimOperationIdRef.current;
+
+    const isCurrentClaimOperation = () =>
+      claimOperationIdRef.current ===
+      operationId &&
+      walletBase58Ref.current ===
+      operationWallet;
+
+    const {
+      wallet,
+      destination,
+      phaseId,
+      claimScope:
+      pendingClaimScope,
+      claimAmount,
+      idemKey,
+      paidFeeSignature,
+    } = operationClaim;
+
+    try {
+      setIsClaiming(true);
+
+      setMessage(
+        '⏳ Recovering your existing claim fee payment…'
+      );
+
+      if (
+        operationWallet !== wallet
+      ) {
+        throw new Error(
+          'WALLET_CHANGED_DURING_CLAIM'
+        );
+      }
+
+      /*
+       * First try WITHOUT the signature.
+       *
+       * If the previous request actually committed payment + fee credits
+       * and only its HTTP response was lost, the backend can now reuse the
+       * credit/session without touching the old signature.
+       */
+      const {
+        response: noFeeRes,
+        result: noFeeJson,
+      } =
+        await tryStartSessionWithoutFee(
+          wallet,
+          destination,
+          phaseId,
+          pendingClaimScope,
+          claimAmount
+        );
+
+      if (!isCurrentClaimOperation()) {
+        return;
+      }
+
+      let sessionId:
+        string | null = null;
+
+      if (
+        noFeeRes.ok &&
+        noFeeJson?.success &&
+        noFeeJson?.session_id
+      ) {
+        sessionId =
+          String(
+            noFeeJson.session_id
+          );
+      } else {
+        const noFeeError =
+          String(
+            noFeeJson?.error || ''
+          );
+
+        /*
+         * Payment/credits were apparently NOT committed yet.
+         * Re-submit the EXISTING blockchain signature.
+         *
+         * This does not send any new SOL.
+         */
+        if (
+          noFeeError !==
+          'MISSING_FEE_SIGNATURE' &&
+          noFeeError !==
+          'FEE_REQUIREMENT_CHANGED'
+        ) {
+          throw new Error(
+            noFeeError ||
+            `SESSION_START_FAILED (${noFeeRes.status})`
+          );
+        }
+
+        const startRes =
+          await fetch(
+            '/api/claim/session/start',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type':
+                  'application/json',
+              },
+              credentials:
+                'include',
+              body: JSON.stringify({
+                wallet_address:
+                  wallet,
+                destination,
+                phase_id:
+                  phaseId,
+                claim_scope:
+                  pendingClaimScope,
+                claim_amount:
+                  claimAmount,
+
+                /*
+                 * Existing on-chain payment.
+                 * No SystemProgram.transfer occurs here.
+                 */
+                fee_tx_signature:
+                  paidFeeSignature,
+              }),
+            }
+          );
+
+        if (
+          !isCurrentClaimOperation()
+        ) {
+          return;
+        }
+
+        const startJson:
+          ClaimSessionStartResponse =
+          await startRes
+            .json()
+            .catch(() => ({}));
+
+        if (
+          !startRes.ok ||
+          !startJson?.success ||
+          !startJson?.session_id
+        ) {
+          const rawError =
+            String(
+              startJson?.error ||
+              `SESSION_START_FAILED (${startRes.status})`
+            );
+
+          /*
+           * The existing payment is no longer sufficient for the
+           * current economic requirement.
+           *
+           * Never issue another payment automatically.
+           */
+          if (
+            rawError ===
+            'FEE_AMOUNT_TOO_LOW' ||
+            rawError ===
+            'FEE_REQUIREMENT_CHANGED'
+          ) {
+            throw new Error(
+              'CLAIM_PAID_FEE_INSUFFICIENT_AFTER_CHANGE'
+            );
+          }
+
+          /*
+           * If the signature is already recorded, the next retry's
+           * fee-free preflight should normally recover the resulting
+           * credit/session.
+           */
+          if (
+            rawError ===
+            'FEE_SIGNATURE_ALREADY_USED'
+          ) {
+            throw new Error(
+              'CLAIM_FEE_PAYMENT_RECORDED_RETRY'
+            );
+          }
+
+          throw new Error(
+            `CLAIM_FEE_RECOVERY_FAILED:${rawError}`
+          );
+        }
+
+        sessionId =
+          String(
+            startJson.session_id
+          );
+      }
+
+      if (!sessionId) {
+        throw new Error(
+          'CLAIM_FEE_RECOVERY_FAILED:NO_SESSION'
+        );
+      }
+
+      setMessage(
+        '🚀 Existing payment recovered. Executing your claim…'
+      );
+
+      const execRes =
+        await fetch(
+          '/api/claim/execute',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type':
+                'application/json',
+            },
+            credentials:
+              'include',
+            body: JSON.stringify({
+              session_id:
+                sessionId,
+              wallet_address:
+                wallet,
+              destination,
+              phase_id:
+                phaseId,
+              claim_amount:
+                claimAmount,
+              idempotency_key:
+                idemKey,
+            }),
+          }
+        );
+
+      if (
+        !isCurrentClaimOperation()
+      ) {
+        return;
+      }
+
+      const execJson:
+        ClaimExecuteResponse =
+        await execRes
+          .json()
+          .catch(() => ({}));
+
+      if (
+        !execRes.ok ||
+        !execJson?.success
+      ) {
+        throw new Error(
+          String(
+            execJson?.error ||
+            `CLAIM_EXECUTE_FAILED (${execRes.status})`
+          )
+        );
+      }
+
+      /*
+       * Recovery succeeded.
+       */
+      setClaimFeeSigForSupport(
+        null
+      );
+
+      clearClaimFeeRecovery(
+        wallet
+      );
+
+      setPendingClaim(null);
+      setFeeConfirmOpen(false);
+
+      setClaimAmount('');
+      setSelectedClaimPercent(
+        null
+      );
+      setUseAltAddress(false);
+      setAltAddress('');
+
+      attemptIdemKeyRef.current =
+        null;
+
+      if (
+        execJson?.tx_signature
+      ) {
+        setMessage(
+          `✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`
+        );
+      } else if (
+        execJson?.deduped &&
+        execJson?.status ===
+        'succeeded'
+      ) {
+        setMessage(
+          '✅ This claim had already been completed successfully.'
+        );
+      } else if (
+        execJson?.dry_run === true ||
+        execJson?.dryRun === true
+      ) {
+        setMessage(
+          '✅ Claim recovery completed successfully in dry-run mode.'
+        );
+      } else {
+        setMessage(
+          '✅ Claim recovered successfully.'
+        );
+      }
+
+      setClaimRefreshKey(
+        (value) => value + 1
+      );
+    } catch (error) {
+      const rawError =
+        error instanceof Error
+          ? error.message
+          : String(
+            error ??
+            'CLAIM_FEE_RECOVERY_FAILED'
+          );
+
+      console.error(
+        '[CLAIM] existing fee recovery failed:',
+        rawError,
+        error
+      );
+
+      if (
+        !isCurrentClaimOperation()
+      ) {
+        return;
+      }
+
+      setMessage(
+        `❌ ${userFriendlyError(
+          rawError
+        )}`
+      );
+    } finally {
+      if (
+        isCurrentClaimOperation()
+      ) {
+        setIsClaiming(false);
+
+        /*
+         * Keep paid-fee state visible after a failed recovery.
+         * Never turn the UI back into another payment button.
+         */
       }
     }
   };
@@ -3994,9 +5442,9 @@ export default function ClaimPanel() {
         : selectedClaimable <= 0
           ? '✅ Nothing to claim'
           : `🎉 Claim ${formatMegyAmount(
-              claimAmountNumber || selectedClaimable,
-              6
-            )} MEGY`;
+            claimAmountNumber || selectedClaimable,
+            6
+          )} MEGY`;
 
   const protectedActionIssue = getProtectedActionIssue();
 
@@ -4040,7 +5488,7 @@ export default function ClaimPanel() {
 
     return null;
   }
-  
+
   const filteredCpHistory = [...cpHistory].filter((ev) => {
     const type = String(ev?.type || '').toLowerCase();
 
@@ -4071,15 +5519,15 @@ export default function ClaimPanel() {
         <AppWalletBar />
 
         <div className="mb-5 flex justify-start">
-            <button
-              type="button"
-              onClick={() => {
-                window.location.href = '/';
-              }}
-              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-[1px] hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-100"
-            >
-              ← Back to Home
-            </button>
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = '/';
+            }}
+            className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-[1px] hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-100"
+          >
+            ← Back to Home
+          </button>
         </div>
 
         <motion.div
@@ -4329,83 +5777,83 @@ export default function ClaimPanel() {
                         </div>
 
                         <div className="mt-4 grid gap-3">
+                          {browserIdentityContext?.authenticated &&
+                            browserIdentityContext.identity && (
+                              <button
+                                type="button"
+                                onClick={handleLinkToCurrentIdentity}
+                                disabled={
+                                  verifyingIdentity ||
+                                  linkingCurrentIdentity
+                                }
+                                className="w-full rounded-xl border border-violet-400/25 bg-violet-400/[0.08] p-4 text-left transition hover:border-violet-300/40 hover:bg-violet-400/[0.12] disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <span className="block text-sm font-black text-violet-200">
+                                  {linkingCurrentIdentity
+                                    ? 'Linking to Current Identity...'
+                                    : 'Link to Current Identity'}
+                                </span>
+
+                                <span className="mt-1 block text-xs leading-5 text-gray-400">
+                                  Add this wallet to the Coincarnation Identity that is
+                                  already signed in on this browser.
+                                </span>
+                              </button>
+                            )}
+
+                          <button
+                            type="button"
+                            onClick={handleUseExistingIdentityLinkCode}
+                            disabled={
+                              verifyingIdentity ||
+                              linkingCurrentIdentity
+                            }
+                            className="w-full rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] p-4 text-left transition hover:border-cyan-300/35 hover:bg-cyan-400/[0.10] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <span className="block text-sm font-black text-cyan-200">
+                              Use a Link Code
+                            </span>
+
+                            <span className="mt-1 block text-xs leading-5 text-gray-400">
+                              Already have another Coincarnation Identity? Generate a
+                              Link Code from that Identity and use it to add this wallet.
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleCreateNewIdentity}
+                            disabled={
+                              verifyingIdentity ||
+                              linkingCurrentIdentity
+                            }
+                            className="w-full rounded-xl border border-amber-400/25 bg-amber-400/[0.07] p-4 text-left transition hover:border-amber-300/40 hover:bg-amber-400/[0.11] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <span className="block text-sm font-black text-amber-200">
+                              {verifyingIdentity
+                                ? 'Creating Identity...'
+                                : 'Create New Identity'}
+                            </span>
+
+                            <span className="mt-1 block text-xs leading-5 text-gray-400">
+                              Continue only if this wallet belongs to someone who does
+                              not already have a Coincarnation Identity. You will be
+                              asked to sign with this wallet before the Identity is
+                              created.
+                            </span>
+                          </button>
+                        </div>
+
                         {browserIdentityContext?.authenticated &&
                           browserIdentityContext.identity && (
-                            <button
-                              type="button"
-                              onClick={handleLinkToCurrentIdentity}
-                              disabled={
-                                verifyingIdentity ||
-                                linkingCurrentIdentity
-                              }
-                              className="w-full rounded-xl border border-violet-400/25 bg-violet-400/[0.08] p-4 text-left transition hover:border-violet-300/40 hover:bg-violet-400/[0.12] disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              <span className="block text-sm font-black text-violet-200">
-                                {linkingCurrentIdentity
-                                  ? 'Linking to Current Identity...'
-                                  : 'Link to Current Identity'}
-                              </span>
-
-                              <span className="mt-1 block text-xs leading-5 text-gray-400">
-                                Add this wallet to the Coincarnation Identity that is
-                                already signed in on this browser.
-                              </span>
-                            </button>
+                            <p className="mt-4 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-[11px] leading-5 text-gray-400">
+                              An Identity session is already open in this browser.
+                              This does not prevent another person using the same device
+                              from creating a separate Identity.
+                            </p>
                           )}
-
-                        <button
-                          type="button"
-                          onClick={handleUseExistingIdentityLinkCode}
-                          disabled={
-                            verifyingIdentity ||
-                            linkingCurrentIdentity
-                          }
-                          className="w-full rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] p-4 text-left transition hover:border-cyan-300/35 hover:bg-cyan-400/[0.10] disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <span className="block text-sm font-black text-cyan-200">
-                            Use a Link Code
-                          </span>
-
-                          <span className="mt-1 block text-xs leading-5 text-gray-400">
-                            Already have another Coincarnation Identity? Generate a
-                            Link Code from that Identity and use it to add this wallet.
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={handleCreateNewIdentity}
-                          disabled={
-                            verifyingIdentity ||
-                            linkingCurrentIdentity
-                          }
-                          className="w-full rounded-xl border border-amber-400/25 bg-amber-400/[0.07] p-4 text-left transition hover:border-amber-300/40 hover:bg-amber-400/[0.11] disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <span className="block text-sm font-black text-amber-200">
-                            {verifyingIdentity
-                              ? 'Creating Identity...'
-                              : 'Create New Identity'}
-                          </span>
-
-                          <span className="mt-1 block text-xs leading-5 text-gray-400">
-                            Continue only if this wallet belongs to someone who does
-                            not already have a Coincarnation Identity. You will be
-                            asked to sign with this wallet before the Identity is
-                            created.
-                          </span>
-                        </button>
                       </div>
-
-                      {browserIdentityContext?.authenticated &&
-                        browserIdentityContext.identity && (
-                          <p className="mt-4 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-[11px] leading-5 text-gray-400">
-                            An Identity session is already open in this browser.
-                            This does not prevent another person using the same device
-                            from creating a separate Identity.
-                          </p>
-                        )}
-                    </div>
-                  )}
+                    )}
                 </div>
               )}
 
@@ -4924,7 +6372,7 @@ export default function ClaimPanel() {
                             <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-200">
                               Active
                             </span>
-                        )}
+                          )}
 
                         {currentPhase?.snapshot_taken_at && (
                           <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-blue-200">
@@ -5003,83 +6451,83 @@ export default function ClaimPanel() {
                     activeEstimate?.me &&
                     !currentPhase.snapshot_taken_at &&
                     !currentPhase.finalized_at && (
-                    <div className="mt-4 border-t border-zinc-700 pt-4">
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <p className="text-gray-400 text-xs uppercase tracking-wide">
-                            Your live estimate
-                          </p>
+                      <div className="mt-4 border-t border-zinc-700 pt-4">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-gray-400 text-xs uppercase tracking-wide">
+                              Your live estimate
+                            </p>
 
-                          <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                            <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2 py-1 text-yellow-200">
-                              ⏳ live estimate
-                            </span>
-
-                            {estimateLoading && (
-                              <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-cyan-200">
-                                refreshing…
+                            <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                              <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2 py-1 text-yellow-200">
+                                ⏳ live estimate
                               </span>
-                            )}
 
-                            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-gray-300">
-                              changes until snapshot
-                            </span>
+                              {estimateLoading && (
+                                <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-cyan-200">
+                                  refreshing…
+                                </span>
+                              )}
+
+                              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-gray-300">
+                                changes until snapshot
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-                        <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
-                          <p className="text-xs font-bold uppercase tracking-wide text-emerald-100/60">
-                            Your Contribution
-                          </p>
+                        <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+                          <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
+                            <p className="text-xs font-bold uppercase tracking-wide text-emerald-100/60">
+                              Your Contribution
+                            </p>
 
-                          <p className="mt-2 text-2xl font-black text-white">
-                            $
-                            {Math.max(
-                              0,
-                              toNum(activeEstimate.me.userUsd, 0)
-                            ).toLocaleString(undefined, {
-                              maximumFractionDigits: 2,
-                            })}
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4">
-                          <p className="text-xs font-bold uppercase tracking-wide text-cyan-100/60">
-                            Your Share
-                          </p>
-
-                          <p className="mt-2 text-2xl font-black text-white">
-                            {(
-                              Math.max(
+                            <p className="mt-2 text-2xl font-black text-white">
+                              $
+                              {Math.max(
                                 0,
-                                toNum(activeEstimate.me.shareRatio, 0)
-                              ) * 100
-                            ).toFixed(3)}%
-                          </p>
+                                toNum(activeEstimate.me.userUsd, 0)
+                              ).toLocaleString(undefined, {
+                                maximumFractionDigits: 2,
+                              })}
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4">
+                            <p className="text-xs font-bold uppercase tracking-wide text-cyan-100/60">
+                              Your Share
+                            </p>
+
+                            <p className="mt-2 text-2xl font-black text-white">
+                              {(
+                                Math.max(
+                                  0,
+                                  toNum(activeEstimate.me.shareRatio, 0)
+                                ) * 100
+                              ).toFixed(3)}%
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl border border-yellow-400/25 bg-yellow-400/10 p-4 shadow-[0_0_30px_rgba(250,204,21,0.08)]">
+                            <p className="text-xs font-bold uppercase tracking-wide text-yellow-100/60">
+                              Estimated MEGY
+                            </p>
+
+                            <p className="mt-2 text-3xl font-black text-yellow-300">
+                              {formatMegyAmount(activeEstimate.me.estimatedMegy)}
+                            </p>
+                          </div>
                         </div>
 
-                        <div className="rounded-2xl border border-yellow-400/25 bg-yellow-400/10 p-4 shadow-[0_0_30px_rgba(250,204,21,0.08)]">
-                          <p className="text-xs font-bold uppercase tracking-wide text-yellow-100/60">
-                            Estimated MEGY
-                          </p>
-
-                          <p className="mt-2 text-3xl font-black text-yellow-300">
-                            {formatMegyAmount(activeEstimate.me.estimatedMegy)}
-                          </p>
-                        </div>
+                        <p className="mt-3 text-center text-xs italic text-gray-400">
+                          ⚠️ This is a{' '}
+                          <span className="font-medium text-yellow-300">
+                            live estimate
+                          </span>
+                          . Final MEGY amount will be locked at snapshot.
+                        </p>
                       </div>
-
-                      <p className="mt-3 text-center text-xs italic text-gray-400">
-                        ⚠️ This is a{' '}
-                        <span className="font-medium text-yellow-300">
-                          live estimate
-                        </span>
-                        . Final MEGY amount will be locked at snapshot.
-                      </p>
-                    </div>
-                  )}
+                    )}
 
                 </div> {/* relative wrapper */}
               </div> {/* current phase card */}
@@ -5364,8 +6812,8 @@ export default function ClaimPanel() {
                         0,
                         toNum(
                           p.claimable_megy ??
-                            p.claimable ??
-                            p.claimableMegy,
+                          p.claimable ??
+                          p.claimableMegy,
                           0
                         )
                       ),
@@ -5374,8 +6822,8 @@ export default function ClaimPanel() {
                         0,
                         toNum(
                           p.claimed_megy ??
-                            p.claimed ??
-                            p.claimedMegy,
+                          p.claimed ??
+                          p.claimedMegy,
                           0
                         )
                       ),
@@ -5403,25 +6851,25 @@ export default function ClaimPanel() {
                 const ordered =
                   isAllLinkedWalletsMode
                     ? phases.slice().sort((a, b) => {
-                        const phaseNoDiff =
-                          Number(b.phaseNo ?? 0) -
-                          Number(a.phaseNo ?? 0);
+                      const phaseNoDiff =
+                        Number(b.phaseNo ?? 0) -
+                        Number(a.phaseNo ?? 0);
 
-                        if (phaseNoDiff !== 0) {
-                          return phaseNoDiff;
-                        }
+                      if (phaseNoDiff !== 0) {
+                        return phaseNoDiff;
+                      }
 
-                        return b.pid - a.pid;
-                      })
+                      return b.pid - a.pid;
+                    })
                     : activePid
                       ? [
-                          ...phases.filter(
-                            (x) => x.pid === activePid
-                          ),
-                          ...phases.filter(
-                            (x) => x.pid !== activePid
-                          ),
-                        ]
+                        ...phases.filter(
+                          (x) => x.pid === activePid
+                        ),
+                        ...phases.filter(
+                          (x) => x.pid !== activePid
+                        ),
+                      ]
                       : phases;
 
                 return (
@@ -5970,14 +7418,14 @@ export default function ClaimPanel() {
                       const rawATime = a?.timestamp
                         ? new Date(a.timestamp).getTime()
                         : 0;
-                    
+
                       const rawBTime = b?.timestamp
                         ? new Date(b.timestamp).getTime()
                         : 0;
-                    
+
                       const aTime = Number.isFinite(rawATime) ? rawATime : 0;
                       const bTime = Number.isFinite(rawBTime) ? rawBTime : 0;
-                    
+
                       return bTime - aTime;
                     })
                     .map((tx, index) => {
@@ -6246,20 +7694,20 @@ export default function ClaimPanel() {
                   </p>
 
                   {Number.isFinite(data.pvc_share) && (
-                  <div className="mt-8 rounded-2xl border border-fuchsia-400/15 bg-fuchsia-400/[0.06] px-4 py-4">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-fuchsia-200/70">
-                      Your Share of Total PVC Value
-                    </p>
+                    <div className="mt-8 rounded-2xl border border-fuchsia-400/15 bg-fuchsia-400/[0.06] px-4 py-4">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-fuchsia-200/70">
+                        Your Share of Total PVC Value
+                      </p>
 
-                    <p className="mt-1 text-4xl font-black text-fuchsia-200">
-                      {(Math.min(1, Math.max(0, toNum(data.pvc_share, 0))) * 100).toFixed(2)}%
-                    </p>
+                      <p className="mt-1 text-4xl font-black text-fuchsia-200">
+                        {(Math.min(1, Math.max(0, toNum(data.pvc_share, 0))) * 100).toFixed(2)}%
+                      </p>
 
-                    <p className="mt-2 text-xs text-fuchsia-200/60">
-                      Your identity’s share of total PVC value.
-                    </p>
-                  </div>
-                )}
+                      <p className="mt-2 text-xs text-fuchsia-200/60">
+                        Your identity’s share of total PVC value.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -6334,14 +7782,14 @@ export default function ClaimPanel() {
                           aria-label="Copy referral link"
                           onClick={async () => {
                             if (!data.referral_code) return;
-                          
+
                             const url = buildReferralUrl(data.referral_code);
-                          
+
                             try {
                               await navigator.clipboard.writeText(url);
-                          
+
                               setCopiedTarget('pvcReferral');
-                          
+
                               setTimeout(() => {
                                 setCopiedTarget(null);
                               }, 2000);
@@ -6607,39 +8055,39 @@ export default function ClaimPanel() {
                       .sort((a, b) => {
                         const rawADate = a.created_at ?? a.day ?? null;
                         const rawBDate = b.created_at ?? b.day ?? null;
-                      
+
                         const aDate =
                           typeof rawADate === 'string' ||
-                          typeof rawADate === 'number' ||
-                          rawADate instanceof Date
+                            typeof rawADate === 'number' ||
+                            rawADate instanceof Date
                             ? rawADate
                             : null;
-                      
+
                         const bDate =
                           typeof rawBDate === 'string' ||
-                          typeof rawBDate === 'number' ||
-                          rawBDate instanceof Date
+                            typeof rawBDate === 'number' ||
+                            rawBDate instanceof Date
                             ? rawBDate
                             : null;
-                      
+
                         const rawATime =
                           aDate !== null
                             ? new Date(aDate).getTime()
                             : 0;
-                      
+
                         const rawBTime =
                           bDate !== null
                             ? new Date(bDate).getTime()
                             : 0;
-                      
+
                         const aTime = Number.isFinite(rawATime)
                           ? rawATime
                           : 0;
-                      
+
                         const bTime = Number.isFinite(rawBTime)
                           ? rawBTime
                           : 0;
-                      
+
                         return bTime - aTime;
                       })
                       .map((ev, i: number) => {
@@ -6854,7 +8302,7 @@ export default function ClaimPanel() {
               </div>
             )}
           </motion.section>
-          
+
           {/* 🏆 Global Leaderboard */}
           <motion.section
             initial={{ opacity: 0, y: 20 }}
@@ -6881,10 +8329,20 @@ export default function ClaimPanel() {
           <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
             <button
               type="button"
-              aria-label="Close session fee confirmation"
-              disabled={isClaiming}
+              aria-label="Close claim fee confirmation"
+              disabled={
+                isClaiming ||
+                Boolean(
+                  pendingClaim.paidFeeSignature
+                )
+              }
               onClick={() => {
-                if (isClaiming) return;
+                if (
+                  isClaiming ||
+                  pendingClaim.paidFeeSignature
+                ) {
+                  return;
+                }
 
                 setFeeConfirmOpen(false);
                 setPendingClaim(null);
@@ -6905,18 +8363,25 @@ export default function ClaimPanel() {
                 id="claim-fee-modal-title"
                 className="text-center text-xl font-extrabold text-white"
               >
-                Confirm Session Fee
+                Confirm Claim Fee
               </h4>
 
               <p
                 id="claim-fee-modal-description"
                 className="mt-3 text-center text-sm leading-relaxed text-gray-300"
               >
-                To start a new claim session, a one-time fee of{' '}
+                This claim requires a fee of{' '}
                 <span className="font-semibold text-purple-300">
-                  ~{FEE_SOL} SOL
-                </span>{' '}
-                is required.
+                  {(
+                    pendingClaim.requiredLamports /
+                    1_000_000_000
+                  )
+                    .toFixed(9)
+                    .replace(/0+$/, '')
+                    .replace(/\.$/, '')}{' '}
+                  SOL
+                </span>
+                .
               </p>
 
               <div className="mt-4 space-y-2 rounded-xl border border-zinc-700 bg-zinc-800 p-4 text-sm text-gray-300">
@@ -6951,34 +8416,151 @@ export default function ClaimPanel() {
                       : String(selectedScopeLabel)}
                   </span>
                 </div>
+
+                <div className="my-3 border-t border-zinc-700" />
+
+                <div className="flex items-center justify-between gap-3">
+                  <span className="shrink-0 text-gray-400">
+                    Protocol fee
+                  </span>
+
+                  <span className="text-right font-semibold text-white">
+                    {(
+                      pendingClaim.protocolFeeLamports /
+                      1_000_000_000
+                    )
+                      .toFixed(9)
+                      .replace(/0+$/, '')
+                      .replace(/\.$/, '')}{' '}
+                    SOL
+                  </span>
+                </div>
+
+                <div className="flex items-start justify-between gap-3">
+                  <span className="shrink-0 text-gray-400">
+                    MEGY account
+                  </span>
+
+                  <div className="text-right">
+                    {!pendingClaim.ataRequired ? (
+                      <span className="font-semibold text-emerald-300">
+                        Already exists
+                      </span>
+                    ) : pendingClaim.ataEntitlementAvailable ? (
+                      <>
+                        <p className="font-semibold text-emerald-300">
+                          Already covered
+                        </p>
+
+                        <p className="mt-0.5 text-[11px] text-gray-500">
+                          No additional account creation charge
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-semibold text-white">
+                          {(
+                            pendingClaim.ataChargeLamports /
+                            1_000_000_000
+                          )
+                            .toFixed(9)
+                            .replace(/0+$/, '')
+                            .replace(/\.$/, '')}{' '}
+                          SOL
+                        </p>
+
+                        <p className="mt-0.5 text-[11px] text-gray-500">
+                          One-time MEGY token account creation
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="my-3 border-t border-zinc-700" />
+
+                <div className="flex items-center justify-between gap-3">
+                  <span className="shrink-0 font-semibold text-gray-300">
+                    Total
+                  </span>
+
+                  <span className="text-right text-base font-extrabold text-purple-300">
+                    {(
+                      pendingClaim.requiredLamports /
+                      1_000_000_000
+                    )
+                      .toFixed(9)
+                      .replace(/0+$/, '')
+                      .replace(/\.$/, '')}{' '}
+                    SOL
+                  </span>
+                </div>
               </div>
 
-              <p className="mt-3 text-center text-xs italic text-gray-400">
-                Next claims in the same session are free.
+              {pendingClaim.paidFeeSignature && (
+                <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2.5 text-center">
+                  <p className="text-xs font-semibold text-amber-200">
+                    Your claim fee has already been paid.
+                  </p>
+
+                  <p className="mt-1 text-[11px] leading-relaxed text-amber-100/70">
+                    Do not send another payment. Use Retry Claim to continue with your
+                    existing fee transaction.
+                  </p>
+                </div>
+              )}
+
+              <p className="mt-3 text-center text-xs leading-relaxed text-gray-400">
+                Protocol fees already covered for the same phase and destination
+                are not charged again.
+              </p>
+
+              <p className="mt-1 text-center text-[11px] leading-relaxed text-gray-500">
+                Coincarnation sponsors the network fee for your MEGY claim transaction.
               </p>
 
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  disabled={isClaiming}
+                  disabled={
+                    isClaiming ||
+                    Boolean(
+                      pendingClaim.paidFeeSignature
+                    )
+                  }
                   onClick={() => {
-                    if (isClaiming) return;
+                    if (
+                      isClaiming ||
+                      pendingClaim.paidFeeSignature
+                    ) {
+                      return;
+                    }
 
                     setFeeConfirmOpen(false);
                     setPendingClaim(null);
                   }}
                   className="rounded-xl border border-zinc-700 bg-zinc-800 py-3 font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Cancel
+                  {pendingClaim.paidFeeSignature
+                    ? 'Payment Preserved'
+                    : 'Cancel'}
                 </button>
 
                 <button
                   type="button"
                   disabled={isClaiming}
-                  onClick={confirmAndPayFeeThenExecute}
+                  onClick={
+                    pendingClaim.paidFeeSignature
+                      ? retryClaimWithExistingFee
+                      : confirmAndPayFeeThenExecute
+                  }
                   className="rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 py-3 font-extrabold text-white transition-all hover:scale-[1.02] disabled:cursor-not-allowed disabled:hover:scale-100 disabled:opacity-50"
                 >
-                  {isClaiming ? 'Paying…' : 'Continue'}
+                  {isClaiming
+                    ? 'Processing…'
+                    : pendingClaim.paidFeeSignature
+                      ? 'Retry Claim'
+                      : 'Confirm & Pay'}
                 </button>
               </div>
             </div>
@@ -7035,9 +8617,9 @@ export default function ClaimPanel() {
                   ~
                   {Number.isFinite(Number(pendingRefund.refundFeeSol))
                     ? Math.max(
-                        0,
-                        Number(pendingRefund.refundFeeSol)
-                      ).toFixed(6)
+                      0,
+                      Number(pendingRefund.refundFeeSol)
+                    ).toFixed(6)
                     : '0.000000'}{' '}
                   SOL
                 </span>
@@ -7074,9 +8656,9 @@ export default function ClaimPanel() {
                     ~
                     {Number.isFinite(Number(pendingRefund.refundFeeSol))
                       ? Math.max(
-                          0,
-                          Number(pendingRefund.refundFeeSol)
-                        ).toFixed(6)
+                        0,
+                        Number(pendingRefund.refundFeeSol)
+                      ).toFixed(6)
                       : '0.000000'}{' '}
                     SOL
                   </span>
@@ -7302,6 +8884,70 @@ function userFriendlyError(error: unknown): string {
   }
   if (m === 'SESSION_ALREADY_OPEN') {
     return 'A claim session is already open. Please refresh and try again.';
+  }
+  if (m === 'FEE_REQUIREMENT_CHANGED') {
+    return 'Your claim fee requirement changed while the claim was being prepared. Please press Claim again to get a fresh quote.';
+  }
+
+  if (m === 'INVALID_CLAIM_FEE_QUOTE') {
+    return 'Claim fee information could not be validated. Please try again.';
+  }
+
+  if (
+    m ===
+    'INVALID_CLAIM_FEE_TREASURY'
+  ) {
+    return 'Claim fee destination could not be verified. No payment was sent. Please try again.';
+  }
+
+  if (
+    m.startsWith(
+      'CLAIM_FEE_QUOTE_FAILED'
+    )
+  ) {
+    return 'Claim fee could not be calculated. Please try again shortly.';
+  }
+  if (
+    m ===
+    'CLAIM_FEE_PAID_REQUIREMENT_CHANGED'
+  ) {
+    return 'Your fee payment succeeded, but the claim requirement changed before the session could open. Do not pay again. Your payment transaction has been preserved.';
+  }
+
+  if (
+    m.startsWith(
+      'CLAIM_FEE_PAID_SESSION_FAILED:'
+    )
+  ) {
+    return 'Your fee payment succeeded, but the claim session could not be opened. Do not pay again. Your payment transaction has been preserved.';
+  }
+
+  if (
+    m ===
+    'CLAIM_FEE_ALREADY_PAID_RETRY_REQUIRED'
+  ) {
+    return 'A fee payment already exists for this claim attempt. Do not submit another payment.';
+  }
+  if (
+    m ===
+    'CLAIM_PAID_FEE_INSUFFICIENT_AFTER_CHANGE'
+  ) {
+    return 'Your previous fee payment was preserved, but the claim requirement has increased. No second payment was sent automatically. Please contact support if this does not resolve after retrying later.';
+  }
+
+  if (
+    m ===
+    'CLAIM_FEE_PAYMENT_RECORDED_RETRY'
+  ) {
+    return 'Your fee payment appears to have been recorded successfully. Please press Retry Claim once more to continue without paying again.';
+  }
+
+  if (
+    m.startsWith(
+      'CLAIM_FEE_RECOVERY_FAILED'
+    )
+  ) {
+    return 'Your existing fee payment could not be recovered yet. Do not pay again. Please retry shortly.';
   }
 
   // Wallet / RPC / transaction

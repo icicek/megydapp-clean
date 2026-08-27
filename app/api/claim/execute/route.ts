@@ -15,6 +15,9 @@ import { requireIdentityWalletAccess } from '@/app/api/_lib/identity-guard';
 import {
   getServerSolanaConnection,
 } from '@/app/api/_lib/solana/serverRpc';
+import {
+  allocateClaimAmountOrThrow,
+} from '@/app/api/_lib/claim/allocation';
 import { createHash } from 'crypto';
 import {
   Keypair,
@@ -344,7 +347,7 @@ export async function POST(req: NextRequest) {
         (linked ?? [])
           .map((row: unknown) => {
             const record = asDbRow(row);
-    
+
             return asStr(
               record.wallet_address
             );
@@ -367,9 +370,19 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const MEGY_DECIMALS = Number(process.env.MEGY_DECIMALS ?? 9);
-  if (!Number.isFinite(MEGY_DECIMALS) || MEGY_DECIMALS < 0 || MEGY_DECIMALS > 18) {
-    return json(500, { success: false, error: 'BAD_MEGY_DECIMALS' });
+  const MEGY_DECIMALS = Number(
+    process.env.MEGY_DECIMALS ?? 9
+  );
+
+  if (
+    !Number.isInteger(MEGY_DECIMALS) ||
+    MEGY_DECIMALS < 0 ||
+    MEGY_DECIMALS > 18
+  ) {
+    return json(500, {
+      success: false,
+      error: 'BAD_MEGY_DECIMALS',
+    });
   }
 
   let amountBaseTotal: bigint;
@@ -393,11 +406,11 @@ export async function POST(req: NextRequest) {
   // --- Idempotency and interrupted-claim recovery ---
   let existingClaim:
     | {
-        id: number;
-        status: string;
-        tx_signature: string | null;
-        request_hash: string | null;
-      }
+      id: number;
+      status: string;
+      tx_signature: string | null;
+      request_hash: string | null;
+    }
     | null = null;
 
   if (!isAllPhases) {
@@ -432,7 +445,7 @@ export async function POST(req: NextRequest) {
       if (
         String(row.request_hash || '') &&
         String(row.request_hash) !==
-          requestHashRoot
+        requestHashRoot
       ) {
         return json(409, {
           success: false,
@@ -471,10 +484,10 @@ export async function POST(req: NextRequest) {
       ORDER BY id ASC
       LIMIT 1
     `;
-  
+
     if (existingAll?.length) {
       const row = existingAll[0];
-  
+
       existingClaim = {
         id: Number(row.id),
         status: String(row.status || ''),
@@ -554,6 +567,25 @@ export async function POST(req: NextRequest) {
           WHERE request_hash = ${requestHashRoot}
             AND status = 'created'
         `;
+
+        /*
+         * This transaction was previously broadcast with an uncertain result,
+         * so an ATA reimbursement may still be reserved by its signature.
+         *
+         * Now Solana has confirmed that the transaction FAILED.
+         * Release that reservation so the unused ATA entitlement can be reused.
+         */
+        await sql`
+          UPDATE claim_fee_payments p
+          SET
+            ata_consumed_tx_signature = NULL
+          FROM claim_sessions s
+          WHERE s.id = ${sessionId}
+            AND s.payment_id = p.id
+            AND p.ata_consumed_at IS NULL
+            AND p.ata_consumed_tx_signature =
+              ${existingClaim.tx_signature}
+        `;
       } catch (error) {
         console.error(
           'failed to mark recovered claim failed:',
@@ -600,9 +632,8 @@ export async function POST(req: NextRequest) {
       const recoveredRows = await recoverySql`
         UPDATE claims
         SET status = 'succeeded',
-            tx_signature = ${
-              existingClaim.tx_signature
-            },
+            tx_signature = ${existingClaim.tx_signature
+        },
             error = NULL
         WHERE request_hash = ${requestHashRoot}
           AND status = 'created'
@@ -620,7 +651,7 @@ export async function POST(req: NextRequest) {
         transitionedBase += BigInt(
           String(
             record.claim_amount_base ??
-              '0'
+            '0'
           )
         );
       }
@@ -628,8 +659,28 @@ export async function POST(req: NextRequest) {
       const recoveredSessionId =
         String(
           recoveredRows?.[0]?.session_id ??
-            sessionId
+          sessionId
         ).trim();
+
+      if (recoveredSessionId) {
+        await recoverySql`
+            UPDATE claim_fee_payments p
+            SET
+              ata_consumed_at =
+                COALESCE(
+                  p.ata_consumed_at,
+                  now()
+                )
+            FROM claim_sessions s
+            WHERE s.id =
+              ${recoveredSessionId}
+              AND s.payment_id = p.id
+              AND p.ata_creation_lamports > 0
+              AND p.ata_consumed_at IS NULL
+              AND p.ata_consumed_tx_signature =
+                ${existingClaim.tx_signature}
+          `;
+      }
 
       if (
         transitionedBase > 0n &&
@@ -710,6 +761,8 @@ export async function POST(req: NextRequest) {
   // --- Step 1: DB reservation (short TX) ---
   let claimRowIds: number[] = [];
   let splits: Split[] = [];
+  let sessionPaymentId:
+    number | null = null;
 
   const reservationPool = createDbPool();
   let reservationClient: PoolClient | null = null;
@@ -722,10 +775,18 @@ export async function POST(req: NextRequest) {
     await reservationClient.query('BEGIN');
 
     const s = await reservationSql`
-      SELECT id, wallet_address, destination, phase_id, status, opened_at
+      SELECT
+        id,
+        wallet_address,
+        destination,
+        phase_id,
+        status,
+        opened_at,
+        payment_id
       FROM claim_sessions
       WHERE id = ${sessionId}
-        AND opened_at > now() - (${SESSION_MAX_AGE_MINUTES} || ' minutes')::interval
+        AND opened_at >
+          now() - (${SESSION_MAX_AGE_MINUTES} || ' minutes')::interval
       LIMIT 1
       FOR UPDATE
     `;
@@ -749,10 +810,38 @@ export async function POST(req: NextRequest) {
 
     if (Number(s[0].phase_id) !== phaseIdRaw) {
       await reservationClient.query('ROLLBACK');
-    
+
       return json(409, {
         success: false,
         error: 'SESSION_PHASE_MISMATCH',
+      });
+    }
+
+    const sessionPaymentIdRaw =
+      s[0].payment_id;
+
+    sessionPaymentId =
+      sessionPaymentIdRaw == null
+        ? null
+        : Number(sessionPaymentIdRaw);
+
+    if (
+      sessionPaymentId !== null &&
+      (
+        !Number.isSafeInteger(
+          sessionPaymentId
+        ) ||
+        sessionPaymentId <= 0
+      )
+    ) {
+      await reservationClient.query(
+        'ROLLBACK'
+      );
+
+      return json(500, {
+        success: false,
+        error:
+          'SESSION_PAYMENT_ID_INVALID',
       });
     }
 
@@ -808,7 +897,7 @@ export async function POST(req: NextRequest) {
           amount_human: amountHuman,
           idem_key: idemKeyRoot,
         }];
-      
+
         await reservationClient.query('ROLLBACK');
         return json(200, {
           success: true,
@@ -948,7 +1037,7 @@ export async function POST(req: NextRequest) {
               BigInt(
                 String(
                   record.remaining_base ??
-                    '0'
+                  '0'
                 )
               ),
           };
@@ -965,40 +1054,89 @@ export async function POST(req: NextRequest) {
         return json(409, { success: false, error: 'NO_CLAIMABLE_BALANCE' });
       }
 
-      const totalClaimable = list.reduce((acc, x) => acc + x.remaining_base, 0n);
+      const totalClaimable = list.reduce(
+        (acc, item) =>
+          acc + item.remaining_base,
+        0n
+      );
+
       if (amountBaseTotal > totalClaimable) {
-        await reservationClient.query('ROLLBACK');
-        return json(409, { success: false, error: 'AMOUNT_EXCEEDS_TOTAL_CLAIMABLE' });
+        await reservationClient.query(
+          'ROLLBACK'
+        );
+
+        return json(409, {
+          success: false,
+          error:
+            'AMOUNT_EXCEEDS_TOTAL_CLAIMABLE',
+        });
       }
 
-      let left = amountBaseTotal;
-      const alloc: {
-        wallet_address: string;
-        phase_id: number;
-        phase_no?: number | null;
-        phase_name?: string | null;
-        amount_base: bigint;
-      }[] = [];
+      let allocationResult;
 
-      for (const p of list) {
-        if (left <= 0n) break;
-        const take = left <= p.remaining_base ? left : p.remaining_base;
-        if (take > 0n) {
-          alloc.push({
-            phase_no: p.phase_no,
-            phase_name: p.phase_name,
-            wallet_address: p.wallet_address,
-            phase_id: p.phase_id,
-            amount_base: take,
+      try {
+        allocationResult =
+          allocateClaimAmountOrThrow(
+            list.map((item) => ({
+              walletAddress:
+                item.wallet_address,
+              phaseId:
+                item.phase_id,
+              phaseNo:
+                item.phase_no ?? null,
+              phaseName:
+                item.phase_name ?? null,
+              claimableBase:
+                item.remaining_base,
+            })),
+            amountBaseTotal
+          );
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'CLAIM_ALLOCATION_FAILED';
+
+        console.error(
+          'all-phases claim allocation failed:',
+          error
+        );
+
+        await reservationClient.query(
+          'ROLLBACK'
+        );
+
+        if (
+          message ===
+          'CLAIM_AMOUNT_EXCEEDS_AVAILABLE'
+        ) {
+          return json(409, {
+            success: false,
+            error:
+              'AMOUNT_EXCEEDS_TOTAL_CLAIMABLE',
           });
-          left -= take;
         }
+
+        return json(500, {
+          success: false,
+          error: 'ALLOCATION_MISMATCH',
+        });
       }
 
-      if (left !== 0n) {
-        await reservationClient.query('ROLLBACK');
-        return json(500, { success: false, error: 'ALLOCATION_MISMATCH' });
-      }
+      const alloc = allocationResult.allocations.map(
+        (allocation) => ({
+          wallet_address:
+            allocation.walletAddress,
+          phase_id:
+            allocation.phaseId,
+          phase_no:
+            allocation.phaseNo ?? null,
+          phase_name:
+            allocation.phaseName ?? null,
+          amount_base:
+            allocation.amountBase,
+        })
+      );
 
       const ids: number[] = [];
       const sp: Split[] = [];
@@ -1013,7 +1151,7 @@ export async function POST(req: NextRequest) {
           amount_human: baseToDecimalString(a.amount_base, MEGY_DECIMALS),
           idem_key: `${idemKeyRoot}#${a.wallet_address}#${a.phase_id}`,
         }));
-      
+
         await reservationClient.query('ROLLBACK');
         return json(200, {
           success: true,
@@ -1139,6 +1277,8 @@ export async function POST(req: NextRequest) {
   let expectedSignature = '';
   let broadcastAttempted = false;
   let definitiveChainFailure = false;
+  let ataCreatedByThisTransaction =
+    false;
 
   try {
     const mintPk = new PublicKey(MEGY_MINT);
@@ -1155,8 +1295,15 @@ export async function POST(req: NextRequest) {
     const instructions:
       TransactionInstruction[] = [];
 
-    const toInfo = await conn.getAccountInfo(toAta, 'confirmed');
+    const toInfo =
+      await conn.getAccountInfo(
+        toAta,
+        'confirmed'
+      );
+
     if (!toInfo) {
+      ataCreatedByThisTransaction = true;
+
       instructions.push(
         createAssociatedTokenAccountInstruction(
           treasuryOwner,
@@ -1209,6 +1356,33 @@ export async function POST(req: NextRequest) {
         AND status = 'created'
     `;
 
+    if (
+      ataCreatedByThisTransaction &&
+      sessionPaymentId !== null
+    ) {
+      const reservedAtaPayment =
+        await sql`
+          UPDATE claim_fee_payments
+          SET
+            ata_consumed_tx_signature =
+              ${expectedSignature}
+          WHERE id =
+            ${sessionPaymentId}
+            AND ata_creation_lamports > 0
+            AND ata_consumed_at IS NULL
+            AND ata_consumed_tx_signature IS NULL
+          RETURNING id
+        `;
+
+      if (
+        !reservedAtaPayment?.length
+      ) {
+        throw new Error(
+          'ATA_ENTITLEMENT_RESERVATION_FAILED'
+        );
+      }
+    }
+
     broadcastAttempted = true;
 
     sig = await conn.sendRawTransaction(
@@ -1240,19 +1414,19 @@ export async function POST(req: NextRequest) {
       error instanceof Error
         ? error.message
         : 'TRANSFER_FAILED';
-  
+
     const msg =
       asStr(message) ||
       'TRANSFER_FAILED';
-  
+
     console.error(
       'on-chain transfer failed:',
       error
     );
-  
+
     const recoverySignature =
       sig || expectedSignature || null;
-  
+
     try {
       if (claimRowIds.length) {
         if (
@@ -1271,6 +1445,23 @@ export async function POST(req: NextRequest) {
             WHERE id = ANY(${claimRowIds})
               AND status = 'created'
           `;
+          if (
+            ataCreatedByThisTransaction &&
+            sessionPaymentId !== null &&
+            expectedSignature
+          ) {
+            await sql`
+              UPDATE claim_fee_payments
+              SET
+                ata_consumed_tx_signature =
+                  NULL
+              WHERE id =
+                ${sessionPaymentId}
+                AND ata_consumed_at IS NULL
+                AND ata_consumed_tx_signature =
+                  ${expectedSignature}
+            `;
+          }
         } else {
           /*
            * Broadcast denendi ancak RPC sonucu
@@ -1291,7 +1482,7 @@ export async function POST(req: NextRequest) {
         dbError
       );
     }
-  
+
     if (
       broadcastAttempted &&
       !definitiveChainFailure
@@ -1304,7 +1495,7 @@ export async function POST(req: NextRequest) {
         tx_signature: recoverySignature,
       });
     }
-  
+
     return json(500, {
       success: false,
       error: msg,
@@ -1343,7 +1534,7 @@ export async function POST(req: NextRequest) {
       transitionedBase += BigInt(
         String(
           row.claim_amount_base ??
-            '0'
+          '0'
         )
       );
     }
@@ -1363,6 +1554,25 @@ export async function POST(req: NextRequest) {
             0
           ) + ${transitionedHuman}
         WHERE id = ${sessionId}
+      `;
+    }
+
+    if (
+      ataCreatedByThisTransaction &&
+      sessionPaymentId !== null
+    ) {
+      await finalizeSql`
+        UPDATE claim_fee_payments
+        SET
+          ata_consumed_at = now(),
+          ata_consumed_tx_signature =
+            ${sig}
+        WHERE id =
+          ${sessionPaymentId}
+          AND ata_creation_lamports > 0
+          AND ata_consumed_at IS NULL
+          AND ata_consumed_tx_signature =
+            ${sig}
       `;
     }
 
