@@ -1526,35 +1526,46 @@ export default function ClaimPanel() {
 
   useEffect(() => {
     /*
-     * A normal scope change invalidates the current claim attempt.
+     * A normal user-initiated scope change starts a new logical
+     * claim attempt.
      *
-     * However, a paid-fee recovery may intentionally restore its
-     * original scope. Never destroy that recovery context.
+     * A paid-fee recovery may restore its original scope
+     * programmatically. In that case the stored recovery owns the
+     * original claim context and must never be destroyed here.
      */
+    const storedRecovery =
+      walletBase58
+        ? readClaimFeeRecovery(
+            walletBase58
+          )
+        : null;
+  
     if (
-      pendingClaim?.paidFeeSignature &&
-      pendingClaim.claimScope ===
-      claimScope
+      storedRecovery &&
+      storedRecovery.claimScope ===
+        claimScope
     ) {
+      attemptIdemKeyRef.current =
+        storedRecovery.idemKey;
+  
       return;
     }
-
+  
     claimOperationIdRef.current += 1;
-
+  
     setPendingClaim(null);
     setFeeConfirmOpen(false);
-
+  
     setClaimAmount('');
     setSelectedClaimPercent(null);
     setUseAltAddress(false);
     setAltAddress('');
-
+  
     setIsClaiming(false);
     attemptIdemKeyRef.current = null;
   }, [
     claimScope,
-    pendingClaim?.paidFeeSignature,
-    pendingClaim?.claimScope,
+    walletBase58,
   ]);
 
   useEffect(() => {
