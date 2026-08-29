@@ -318,6 +318,14 @@ type FinalizedPhase = {
   finalized_megy?: number | string | null;
   finalizedMegy?: number | string | null;
 
+  finalized_megy_base?: string | null;
+  claimed_megy_base?: string | null;
+  claimable_megy_base?: string | null;
+
+  finalized_megy_exact?: string | null;
+  claimed_megy_exact?: string | null;
+  claimable_megy_exact?: string | null;
+
   [key: string]: unknown;
 };
 
@@ -332,6 +340,8 @@ type ClaimPhaseOption = {
 
 type ClaimSummary = {
   claimable_megy_total?: number | string | null;
+  claimable_megy_base_total?: string | null;
+  claimable_megy_total_exact?: string | null;
   finalized_by_phase?: FinalizedPhase[];
 
   [key: string]: unknown;
@@ -453,6 +463,37 @@ const asBool = (v: unknown): boolean => {
 };
 
 const MEGY_DECIMALS = 9;
+
+function decimalMegyToBaseUnits(
+  value: string,
+  decimals = MEGY_DECIMALS
+): bigint | null {
+  const normalized = value.trim();
+
+  if (!/^\d+(?:\.\d*)?$/.test(normalized)) {
+    return null;
+  }
+
+  const [wholePart = '0', fractionPart = ''] =
+    normalized.split('.');
+
+  if (fractionPart.length > decimals) {
+    return null;
+  }
+
+  const fraction =
+    fractionPart.padEnd(decimals, '0');
+
+  try {
+    return (
+      BigInt(wholePart) *
+      10n ** BigInt(decimals) +
+      BigInt(fraction || '0')
+    );
+  } catch {
+    return null;
+  }
+}
 
 const CLAIM_FEE_RECOVERY_STORAGE_PREFIX =
   'coincarnation_claim_fee_recovery_v1';
@@ -1536,31 +1577,31 @@ export default function ClaimPanel() {
     const storedRecovery =
       walletBase58
         ? readClaimFeeRecovery(
-            walletBase58
-          )
+          walletBase58
+        )
         : null;
-  
+
     if (
       storedRecovery &&
       storedRecovery.claimScope ===
-        claimScope
+      claimScope
     ) {
       attemptIdemKeyRef.current =
         storedRecovery.idemKey;
-  
+
       return;
     }
-  
+
     claimOperationIdRef.current += 1;
-  
+
     setPendingClaim(null);
     setFeeConfirmOpen(false);
-  
+
     setClaimAmount('');
     setSelectedClaimPercent(null);
     setUseAltAddress(false);
     setAltAddress('');
-  
+
     setIsClaiming(false);
     attemptIdemKeyRef.current = null;
   }, [
@@ -2064,6 +2105,26 @@ export default function ClaimPanel() {
     (effectivePhaseId && Array.isArray(finalizedClaim?.finalized_by_phase))
       ? finalizedClaim.finalized_by_phase.find((p) => Number(p.phase_id) === Number(effectivePhaseId))
       : null;
+
+  const selectedClaimableExact =
+    claimScope === 'identity'
+      ? String(
+        finalizedClaim?.claimable_megy_total_exact ??
+        finalizedClaim?.claimable_megy_total ??
+        '0'
+      )
+      : selectedPhaseRow
+        ? String(
+          selectedPhaseRow.claimable_megy_exact ??
+          selectedPhaseRow.claimable_megy ??
+          '0'
+        )
+        : '0';
+
+  const selectedClaimableExactBase =
+    decimalMegyToBaseUnits(
+      selectedClaimableExact
+    ) ?? 0n;
 
   const selectedClaimable =
     claimScope === 'identity'
@@ -3032,15 +3093,27 @@ export default function ClaimPanel() {
     }
 
     const amt = Number(raw);
+    const amountBase =
+      decimalMegyToBaseUnits(raw);
 
-    if (!Number.isFinite(amt) || amt <= 0) {
+    if (
+      !Number.isFinite(amt) ||
+      amt <= 0 ||
+      amountBase === null ||
+      amountBase <= 0n
+    ) {
       setMessage('❌ Please enter a valid claim amount.');
       return;
     }
 
-    if (amt > selectedClaimable) {
+    if (
+      amountBase >
+      selectedClaimableExactBase
+    ) {
       setMessage(
-        '❌ Claim amount exceeds selected phase balance.'
+        claimScope === 'identity'
+          ? '❌ Claim amount exceeds your total claimable balance.'
+          : '❌ Claim amount exceeds selected phase balance.'
       );
       return;
     }
@@ -5411,8 +5484,15 @@ export default function ClaimPanel() {
       ? amtNum
       : 0;
 
+  const claimAmountBase =
+    decimalMegyToBaseUnits(
+      claimAmountRaw
+    );
+
   const claimAmountExceeds =
-    Number.isFinite(amtNum) && amtNum > selectedClaimable;
+    claimAmountBase !== null &&
+    claimAmountBase >
+    selectedClaimableExactBase;
 
   const altAddressRaw = altAddress.trim();
 
@@ -7187,10 +7267,7 @@ export default function ClaimPanel() {
                           onClick={() => {
                             setSelectedClaimPercent(100);
                             setClaimAmount(
-                              normalizeClaimInput(
-                                String(selectedClaimable),
-                                selectedClaimable
-                              )
+                              selectedClaimableExact
                             );
                           }}
                         >

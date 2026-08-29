@@ -16,6 +16,53 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+const MEGY_DECIMALS = 9;
+
+function baseToDecimalString(
+  base: bigint,
+  decimals = MEGY_DECIMALS
+): string {
+  const negative =
+    base < 0n;
+
+  const absolute =
+    negative
+      ? -base
+      : base;
+
+  if (decimals === 0) {
+    return `${negative ? '-' : ''}${absolute.toString()}`;
+  }
+
+  const raw =
+    absolute
+      .toString()
+      .padStart(
+        decimals + 1,
+        '0'
+      );
+
+  const whole =
+    raw.slice(
+      0,
+      -decimals
+    );
+
+  const fraction =
+    raw
+      .slice(-decimals)
+      .replace(/0+$/, '');
+
+  const result =
+    fraction
+      ? `${whole}.${fraction}`
+      : whole;
+
+  return negative
+    ? `-${result}`
+    : result;
+}
+
 interface ParticipantRow {
   id: string;
   wallet_address: string;
@@ -95,6 +142,7 @@ interface ClaimSnapshotRow {
   phase_no: number | string | null;
   phase_name: string | null;
   megy_amount: number | string | null;
+  megy_amount_base: number | string | null;
   contribution_usd: number | string | null;
   share_ratio: number | string | null;
   claim_status: string | null;
@@ -105,6 +153,7 @@ interface ClaimSnapshotRow {
 interface ClaimByPhaseRow {
   phase_id: number | string;
   claimed: number | string | null;
+  claimed_base: number | string | null;
 }
 
 interface ClaimPhaseSummary {
@@ -189,10 +238,10 @@ export async function GET(req: NextRequest) {
 
     const participant =
       (participantResult[0] as ParticipantRow | undefined) ?? {
-    id: '-',
-    wallet_address: wallet,
-    referral_code: null,
-    };
+        id: '-',
+        wallet_address: wallet,
+        referral_code: null,
+      };
     // Identity-aware wallet scope for Personal Value Currency / CorePoint
     // Claim/refund/transaction data remains active-wallet based.
     let activeIdentityId: string | null = null;
@@ -628,6 +677,7 @@ export async function GET(req: NextRequest) {
         p.phase_no,
         p.name AS phase_name,
         cs.megy_amount,
+        cs.megy_amount_base,
         cs.contribution_usd,
         cs.share_ratio,
         cs.claim_status,
@@ -637,12 +687,13 @@ export async function GET(req: NextRequest) {
       JOIN phases p ON p.id = cs.phase_id
       WHERE cs.wallet_address = ANY(${claimWallets})
       ORDER BY p.phase_no DESC, cs.created_at DESC;
-    `) as ClaimSnapshotRow[]; 
+    `) as ClaimSnapshotRow[];
 
     const claimsByPhase = (await sql/* sql */`
       SELECT
         phase_id,
-        COALESCE(SUM(claim_amount),0)::float AS claimed
+        COALESCE(SUM(claim_amount), 0)::float AS claimed,
+        COALESCE(SUM(claim_amount_base), 0) AS claimed_base
       FROM claims
       WHERE wallet_address = ANY(${claimWallets})
         AND status IN ('created', 'succeeded')
@@ -650,11 +701,139 @@ export async function GET(req: NextRequest) {
       ORDER BY phase_id DESC;
     `) as ClaimByPhaseRow[];
 
-    const claimedMap = new Map<number, number>();
+    /*
+    * Authoritative exact claimable total.
+    *
+    * Claim execution, fee quote and session validation use MEGY base units.
+    * Keep the ClaimPanel MAX value on the same integer accounting model so
+    * floating-point aggregation can never make MAX exceed the real balance.
+    */
+    const exactClaimTotals = requestedPhaseId
+      ? await sql/* sql */`
+          WITH snaps AS (
+            SELECT
+              COALESCE(
+                SUM(megy_amount_base),
+                0
+              ) AS snap_base
+            FROM claim_snapshots
+            WHERE wallet_address =
+              ANY(${claimWallets})
+              AND phase_id =
+                ${requestedPhaseId}
+          ),
+          cls AS (
+            SELECT
+              COALESCE(
+                SUM(claim_amount_base),
+                0
+              ) AS claimed_base
+            FROM claims
+            WHERE wallet_address =
+              ANY(${claimWallets})
+              AND phase_id =
+                ${requestedPhaseId}
+              AND status IN (
+                'created',
+                'succeeded'
+              )
+          )
+          SELECT
+            (SELECT snap_base FROM snaps)
+              AS snap_base,
+            (SELECT claimed_base FROM cls)
+              AS claimed_base;
+        `
+      : await sql/* sql */`
+          WITH snaps AS (
+            SELECT
+              COALESCE(
+                SUM(megy_amount_base),
+                0
+              ) AS snap_base
+            FROM claim_snapshots
+            WHERE wallet_address =
+              ANY(${claimWallets})
+          ),
+          cls AS (
+            SELECT
+              COALESCE(
+                SUM(claim_amount_base),
+                0
+              ) AS claimed_base
+            FROM claims
+            WHERE wallet_address =
+              ANY(${claimWallets})
+              AND status IN (
+                'created',
+                'succeeded'
+              )
+          )
+          SELECT
+            (SELECT snap_base FROM snaps)
+              AS snap_base,
+            (SELECT claimed_base FROM cls)
+              AS claimed_base;
+        `;
+
+    const exactSnapshotBase =
+      BigInt(
+        String(
+          exactClaimTotals?.[0]
+            ?.snap_base ?? '0'
+        )
+      );
+
+    const exactClaimedBase =
+      BigInt(
+        String(
+          exactClaimTotals?.[0]
+            ?.claimed_base ?? '0'
+        )
+      );
+
+    const exactClaimableBase =
+      exactSnapshotBase >
+        exactClaimedBase
+        ? exactSnapshotBase -
+        exactClaimedBase
+        : 0n;
+
+    const exactClaimableMegyTotal =
+      baseToDecimalString(
+        exactClaimableBase
+      );
+
+    const claimedMap =
+      new Map<number, number>();
+
+    const claimedBaseMap =
+      new Map<number, bigint>();
+
     for (const row of claimsByPhase) {
-      const pid = Number(row.phase_id);
-      const c = Number(row.claimed ?? 0);
-      if (Number.isFinite(pid)) claimedMap.set(pid, c);
+      const pid =
+        Number(row.phase_id);
+
+      const c =
+        Number(row.claimed ?? 0);
+
+      if (!Number.isFinite(pid)) {
+        continue;
+      }
+
+      claimedMap.set(
+        pid,
+        c
+      );
+
+      claimedBaseMap.set(
+        pid,
+        BigInt(
+          String(
+            row.claimed_base ?? '0'
+          )
+        )
+      );
     }
 
     // phase filter
@@ -667,11 +846,32 @@ export async function GET(req: NextRequest) {
 
     const phaseMap = new Map<number, ClaimPhaseSummary>();
 
-    for (const s of snapsFiltered) {
-      const pid = Number(s.phase_id);
-      if (!Number.isFinite(pid)) continue;
+    const finalizedBaseMap =
+      new Map<number, bigint>();
 
-      const finalized = Number(s.megy_amount ?? 0);
+    for (const s of snapsFiltered) {
+      const pid =
+        Number(s.phase_id);
+
+      if (!Number.isFinite(pid)) {
+        continue;
+      }
+
+      const finalized =
+        Number(s.megy_amount ?? 0);
+
+      const finalizedBase =
+        BigInt(
+          String(
+            s.megy_amount_base ?? '0'
+          )
+        );
+
+      finalizedBaseMap.set(
+        pid,
+        (finalizedBaseMap.get(pid) ?? 0n) +
+        finalizedBase
+      );
 
       // Important:
       // claimedMap is phase-level. When multiple wallet snapshots are merged,
@@ -713,28 +913,121 @@ export async function GET(req: NextRequest) {
       phaseMap.set(pid, existing);
     }
 
-    const finalized_by_phase = Array.from(phaseMap.values())
-      .map((phase) => {
-        const claimedRaw = Number(claimedMap.get(Number(phase.phase_id)) ?? 0);
-        const claimed = Math.min(Math.max(claimedRaw, 0), Number(phase.finalized_megy || 0));
-        const claimable = Math.max(Number(phase.finalized_megy || 0) - claimed, 0);
+    const finalized_by_phase =
+      Array.from(phaseMap.values())
+        .map((phase) => {
+          const phaseId =
+            Number(phase.phase_id);
 
-        finalized_megy_total += Number(phase.finalized_megy || 0);
-        claimed_megy_total += claimed;
+          /*
+           * Legacy human-readable values.
+           * Kept for display/backward compatibility.
+           */
+          const claimedRaw =
+            Number(
+              claimedMap.get(phaseId) ?? 0
+            );
 
-        return {
-          ...phase,
-          coincarnator_no: phase.coincarnator_nos.length === 1 ? phase.coincarnator_nos[0] : null,
-          claimed_megy: claimed,
-          claimable_megy: claimable,
-          claim_status: claimable <= 0 && Number(phase.finalized_megy || 0) > 0,
-        };
-      })
-      .sort((a, b) => {
-        const phaseNoDiff = Number(b.phase_no || 0) - Number(a.phase_no || 0);
-        if (phaseNoDiff !== 0) return phaseNoDiff;
-        return Number(b.phase_id || 0) - Number(a.phase_id || 0);
-      });
+          const claimed =
+            Math.min(
+              Math.max(claimedRaw, 0),
+              Number(
+                phase.finalized_megy || 0
+              )
+            );
+
+          const claimable =
+            Math.max(
+              Number(
+                phase.finalized_megy || 0
+              ) - claimed,
+              0
+            );
+
+          finalized_megy_total +=
+            Number(
+              phase.finalized_megy || 0
+            );
+
+          claimed_megy_total +=
+            claimed;
+
+          /*
+           * Authoritative exact values.
+           * These mirror the integer accounting used by
+           * quote/session/execute.
+           */
+          const finalizedBase =
+            finalizedBaseMap.get(
+              phaseId
+            ) ?? 0n;
+
+          const claimedBaseRaw =
+            claimedBaseMap.get(
+              phaseId
+            ) ?? 0n;
+
+          const claimedBase =
+            claimedBaseRaw >
+              finalizedBase
+              ? finalizedBase
+              : claimedBaseRaw;
+
+          const claimableBase =
+            finalizedBase >
+              claimedBase
+              ? finalizedBase -
+              claimedBase
+              : 0n;
+
+          return {
+            ...phase,
+
+            coincarnator_no:
+              phase.coincarnator_nos.length === 1
+                ? phase.coincarnator_nos[0]
+                : null,
+
+            claimed_megy:
+              claimed,
+
+            claimable_megy:
+              claimable,
+
+            finalized_megy_base:
+              finalizedBase.toString(),
+
+            claimed_megy_base:
+              claimedBase.toString(),
+
+            claimable_megy_base:
+              claimableBase.toString(),
+
+            finalized_megy_exact:
+              baseToDecimalString(
+                finalizedBase
+              ),
+
+            claimed_megy_exact:
+              baseToDecimalString(
+                claimedBase
+              ),
+
+            claimable_megy_exact:
+              baseToDecimalString(
+                claimableBase
+              ),
+
+            claim_status:
+              claimableBase <= 0n &&
+              finalizedBase > 0n,
+          };
+        })
+        .sort((a, b) => {
+          const phaseNoDiff = Number(b.phase_no || 0) - Number(a.phase_no || 0);
+          if (phaseNoDiff !== 0) return phaseNoDiff;
+          return Number(b.phase_id || 0) - Number(a.phase_id || 0);
+        });
 
     const claimable_megy_total = Math.max(finalized_megy_total - claimed_megy_total, 0);
     const claimed_bool = claimed_megy_total > 0;
@@ -781,6 +1074,19 @@ export async function GET(req: NextRequest) {
           finalized_megy_total,
           claimed_megy_total,
           claimable_megy_total,
+
+          /*
+           * Exact integer-backed claimable amount.
+           *
+           * New clients should use these fields for economic actions such as MAX.
+           * Legacy human-readable totals remain above for backward compatibility.
+           */
+          claimable_megy_base_total:
+            exactClaimableBase.toString(),
+
+          claimable_megy_total_exact:
+            exactClaimableMegyTotal,
+
           finalized_by_phase,
         },
       },
