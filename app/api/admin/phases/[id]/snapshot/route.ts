@@ -119,16 +119,47 @@ export async function POST(req: NextRequest, ctx: any) {
 
       await sql/* sql */`
         INSERT INTO claim_snapshots
-          (phase_id, wallet_address, megy_amount, claim_status, coincarnator_no, contribution_usd, share_ratio, created_at)
+          (
+            phase_id,
+            wallet_address,
+            megy_amount,
+            megy_amount_base,
+            claim_status,
+            coincarnator_no,
+            contribution_usd,
+            share_ratio,
+            created_at
+          )
         SELECT
           ${phaseId}::bigint AS phase_id,
           pa.wallet_address::text AS wallet_address,
-          SUM(pa.megy_allocated)::numeric AS megy_amount,
-          FALSE AS claim_status,
-          COALESCE(MAX(p.id), 0)::int AS coincarnator_no,
-          SUM(pa.usd_allocated)::numeric AS contribution_usd,
-          (SUM(pa.megy_allocated)::float / ${megySum})::numeric AS share_ratio,
-          NOW() AS created_at
+
+          SUM(pa.megy_allocated)::numeric
+            AS megy_amount,
+
+          ROUND(
+            SUM(pa.megy_allocated)::numeric
+            * 1000000000
+          )::bigint
+            AS megy_amount_base,
+
+          FALSE
+            AS claim_status,
+
+          COALESCE(MAX(p.id), 0)::int
+            AS coincarnator_no,
+
+          SUM(pa.usd_allocated)::numeric
+            AS contribution_usd,
+
+          (
+            SUM(pa.megy_allocated)::float
+            / ${megySum}
+          )::numeric
+            AS share_ratio,
+
+          NOW()
+            AS created_at
         FROM phase_allocations pa
           LEFT JOIN participants p
             ON p.wallet_address = pa.wallet_address
@@ -168,7 +199,7 @@ export async function POST(req: NextRequest, ctx: any) {
         `/api/admin/phases/${phaseId}/snapshot`
       );
     } catch (e) {
-      try { await sql`ROLLBACK`; } catch {}
+      try { await sql`ROLLBACK`; } catch { }
       throw e;
     } finally {
       await sql`SELECT pg_advisory_unlock(${lockKey}::bigint)`;
@@ -179,6 +210,6 @@ export async function POST(req: NextRequest, ctx: any) {
       NextResponse.json(body, { status }),
       `/api/admin/phases/${ctx?.params?.id ?? 'unknown'}/snapshot`
     );
-    
+
   }
 }
