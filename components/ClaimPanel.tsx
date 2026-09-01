@@ -5366,8 +5366,34 @@ export default function ClaimPanel() {
         );
       }
 
+      const isDryRunSuccess =
+        execJson?.dry_run === true ||
+        execJson?.dryRun === true;
+
       /*
-       * Recovery succeeded.
+       * A dry-run validates the claim path but does NOT complete the
+       * on-chain MEGY transfer.
+       *
+       * Therefore the paid-fee recovery state must remain available.
+       * This prevents a test-only success response from being treated
+       * as a completed production claim.
+       */
+      if (isDryRunSuccess) {
+        setMessage(
+          '✅ Claim recovery validated successfully in dry-run mode. No MEGY transfer was sent.'
+        );
+
+        setClaimRefreshKey(
+          (value) => value + 1
+        );
+
+        return;
+      }
+
+      /*
+       * From this point onward the backend has reported a real,
+       * completed claim outcome. The local paid-fee recovery state
+       * can now be safely removed.
        */
       setClaimFeeSigForSupport(
         null
@@ -5403,13 +5429,6 @@ export default function ClaimPanel() {
       ) {
         setMessage(
           '✅ This claim had already been completed successfully.'
-        );
-      } else if (
-        execJson?.dry_run === true ||
-        execJson?.dryRun === true
-      ) {
-        setMessage(
-          '✅ Claim recovery completed successfully in dry-run mode.'
         );
       } else {
         setMessage(
