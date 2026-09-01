@@ -516,7 +516,7 @@ function writeClaimFeeRecovery(
   }
 
   try {
-    window.sessionStorage.setItem(
+    window.localStorage.setItem(
       getClaimFeeRecoveryStorageKey(
         recovery.wallet
       ),
@@ -541,7 +541,7 @@ function clearClaimFeeRecovery(
   }
 
   try {
-    window.sessionStorage.removeItem(
+    window.localStorage.removeItem(
       getClaimFeeRecoveryStorageKey(
         wallet
       )
@@ -566,7 +566,7 @@ function readClaimFeeRecovery(
 
   try {
     const raw =
-      window.sessionStorage.getItem(
+      window.localStorage.getItem(
         getClaimFeeRecoveryStorageKey(
           wallet
         )
@@ -1032,17 +1032,18 @@ export default function ClaimPanel() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         if (feeConfirmOpen) {
-          if (
-            isClaiming ||
-            pendingClaim?.paidFeeSignature
-          ) {
+          if (isClaiming) {
             return;
           }
 
           event.preventDefault();
 
           setFeeConfirmOpen(false);
-          setPendingClaim(null);
+
+          if (!pendingClaim?.paidFeeSignature) {
+            setPendingClaim(null);
+          }
+
           return;
         }
 
@@ -4967,17 +4968,6 @@ export default function ClaimPanel() {
         return;
       }
 
-      /*
-       * At this point the claim was completed or the backend
-       * confirmed that an identical claim already succeeded.
-       * The fee signature is no longer needed for recovery.
-       */
-      setClaimFeeSigForSupport(null);
-
-      clearClaimFeeRecovery(
-        wallet
-      );
-
       if (isDryRun) {
         const splits: ClaimExecutionSplit[] =
           Array.isArray(execJson.splits)
@@ -4992,59 +4982,82 @@ export default function ClaimPanel() {
                   `${split.phase_label ||
                   split.phase_name ||
                   `Phase ${split.phase_no ||
-                  split.phase_id
-                  }`
-                  }: ${split.amount}`
+                  split.phase_id}`}: ${split.amount}`
               )
               .join(' · ')
             : 'simulation complete';
 
+        /*
+         * Dry-run validates the complete claim path but does not
+         * complete the real MEGY transfer.
+         *
+         * Keep the paid-fee recovery context intact, but close the
+         * modal so the test result remains visible.
+         */
+        setFeeConfirmOpen(false);
+
         setMessage(
           `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${splitSummary}`
         );
-      } else if (
-        execJson?.tx_signature
-      ) {
-        setMessage(
-          `✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`
+
+        setClaimRefreshKey(
+          (value) => value + 1
         );
-      } else if (
-        execJson?.deduped &&
+
+        return;
+      }
+
+      const hasRealTxSuccess =
+        typeof execJson?.tx_signature ===
+        'string' &&
+        execJson.tx_signature.trim().length > 0;
+
+      const hasDedupedSuccess =
+        execJson?.deduped === true &&
         execJson?.status ===
-        'succeeded'
+        'succeeded';
+
+      if (
+        !hasRealTxSuccess &&
+        !hasDedupedSuccess
       ) {
-        setMessage(
-          '✅ This claim had already been completed successfully.'
-        );
-      } else {
-        /*
-         * The API returned success but did not provide a recognizable
-         * successful result. Do not clear the form silently.
-         */
         throw new Error(
           'CLAIM_EXECUTION_RESULT_INVALID'
         );
       }
 
       /*
-       * Reset the completed claim form only after a verified success.
+       * Only a verified real completion may remove recovery.
        */
+      setClaimFeeSigForSupport(null);
+
+      clearClaimFeeRecovery(
+        wallet
+      );
+
+      setPendingClaim(null);
+      setFeeConfirmOpen(false);
+
       setClaimAmount('');
-      setSelectedClaimPercent(null);
+      setSelectedClaimPercent(
+        null
+      );
       setUseAltAddress(false);
       setAltAddress('');
-      setPendingClaim(null);
 
-      attemptIdemKeyRef.current = null;
+      attemptIdemKeyRef.current =
+        null;
 
-      if (!isCurrentClaimOperation()) {
-        return;
+      if (hasRealTxSuccess) {
+        setMessage(
+          `✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`
+        );
+      } else {
+        setMessage(
+          '✅ This claim had already been completed successfully.'
+        );
       }
 
-      /*
-       * Refresh claim/profile data and CorePoint history
-       * through the shared effects.
-       */
       setClaimRefreshKey(
         (value) => value + 1
       );
@@ -5368,7 +5381,10 @@ export default function ClaimPanel() {
 
       const isDryRunSuccess =
         execJson?.dry_run === true ||
-        execJson?.dryRun === true;
+        execJson?.dryRun === true ||
+        String(execJson?.dry_run ?? '')
+          .trim()
+          .toLowerCase() === 'true';
 
       /*
        * A dry-run validates the claim path but does NOT complete the
@@ -5379,6 +5395,13 @@ export default function ClaimPanel() {
        * as a completed production claim.
        */
       if (isDryRunSuccess) {
+        /*
+         * Dry-run does not complete the real MEGY transfer, so the paid-fee
+         * recovery data must remain available. The modal itself, however,
+         * should close so the user can see the claim result.
+         */
+        setFeeConfirmOpen(false);
+
         setMessage(
           '✅ Claim recovery validated successfully in dry-run mode. No MEGY transfer was sent.'
         );
@@ -5390,14 +5413,29 @@ export default function ClaimPanel() {
         return;
       }
 
+      const hasRealTxSuccess =
+        typeof execJson?.tx_signature ===
+        'string' &&
+        execJson.tx_signature.trim().length > 0;
+
+      const hasDedupedSuccess =
+        execJson?.deduped === true &&
+        execJson?.status ===
+        'succeeded';
+
+      if (
+        !hasRealTxSuccess &&
+        !hasDedupedSuccess
+      ) {
+        throw new Error(
+          'CLAIM_EXECUTION_RESULT_INVALID'
+        );
+      }
+
       /*
-       * From this point onward the backend has reported a real,
-       * completed claim outcome. The local paid-fee recovery state
-       * can now be safely removed.
+       * Only a verified real completion may remove recovery.
        */
-      setClaimFeeSigForSupport(
-        null
-      );
+      setClaimFeeSigForSupport(null);
 
       clearClaimFeeRecovery(
         wallet
@@ -5416,23 +5454,13 @@ export default function ClaimPanel() {
       attemptIdemKeyRef.current =
         null;
 
-      if (
-        execJson?.tx_signature
-      ) {
+      if (hasRealTxSuccess) {
         setMessage(
           `✅ Claim sent! View tx: https://solscan.io/tx/${execJson.tx_signature}`
         );
-      } else if (
-        execJson?.deduped &&
-        execJson?.status ===
-        'succeeded'
-      ) {
-        setMessage(
-          '✅ This claim had already been completed successfully.'
-        );
       } else {
         setMessage(
-          '✅ Claim recovered successfully.'
+          '✅ This claim had already been completed successfully.'
         );
       }
 
@@ -8437,22 +8465,17 @@ export default function ClaimPanel() {
             <button
               type="button"
               aria-label="Close claim fee confirmation"
-              disabled={
-                isClaiming ||
-                Boolean(
-                  pendingClaim.paidFeeSignature
-                )
-              }
+              disabled={isClaiming}
               onClick={() => {
-                if (
-                  isClaiming ||
-                  pendingClaim.paidFeeSignature
-                ) {
+                if (isClaiming) {
                   return;
                 }
 
                 setFeeConfirmOpen(false);
-                setPendingClaim(null);
+
+                if (!pendingClaim.paidFeeSignature) {
+                  setPendingClaim(null);
+                }
               }}
               className="absolute inset-0 cursor-default bg-black/70 disabled:cursor-not-allowed"
             />
@@ -8629,27 +8652,22 @@ export default function ClaimPanel() {
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  disabled={
-                    isClaiming ||
-                    Boolean(
-                      pendingClaim.paidFeeSignature
-                    )
-                  }
+                  disabled={isClaiming}
                   onClick={() => {
-                    if (
-                      isClaiming ||
-                      pendingClaim.paidFeeSignature
-                    ) {
+                    if (isClaiming) {
                       return;
                     }
 
                     setFeeConfirmOpen(false);
-                    setPendingClaim(null);
+
+                    if (!pendingClaim.paidFeeSignature) {
+                      setPendingClaim(null);
+                    }
                   }}
                   className="rounded-xl border border-zinc-700 bg-zinc-800 py-3 font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {pendingClaim.paidFeeSignature
-                    ? 'Payment Preserved'
+                    ? 'Close'
                     : 'Cancel'}
                 </button>
 

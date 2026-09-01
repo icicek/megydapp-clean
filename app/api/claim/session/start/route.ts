@@ -65,11 +65,12 @@ const CLAIM_DRY_RUN =
     .toLowerCase() === 'true';
 
 /*
- * Server-side claim fee verification must use only the
- * private server environment variable.
+ * Server-side claim fee verification uses only the private
+ * CLAIM_FEE_TREASURY environment variable.
  *
- * The browser uses NEXT_PUBLIC_CLAIM_FEE_TREASURY while
- * preparing the fee transfer transaction.
+ * The browser receives the authoritative treasury address
+ * from the server-side claim fee quote. It must not rely on
+ * a public treasury environment variable.
  */
 const CLAIM_FEE_TREASURY_RAW =
   process.env.CLAIM_FEE_TREASURY?.trim() ||
@@ -1596,40 +1597,95 @@ async function verifyFeeTransfer(params: {
   const connection =
     getServerSolanaConnection();
 
+  /*
+   * A transaction may already be confirmed from the wallet/frontend RPC
+   * while the server RPC has not indexed it yet.
+   *
+   * Retry the SAME signature for a short bounded period before declaring
+   * it missing. This never submits another transaction and never changes
+   * the economic requirement.
+   */
+  const MAX_LOOKUP_ATTEMPTS = 6;
+  const LOOKUP_RETRY_DELAY_MS = 1000;
+
   let transaction;
 
-  try {
-    transaction = await connection.getParsedTransaction(
-      params.signature,
-      {
-        maxSupportedTransactionVersion: 0,
-        commitment: 'confirmed',
-      }
-    );
-  } catch (error) {
-    console.error(
-      '[CLAIM_SESSION_START] fee transaction RPC lookup failed:',
-      error
-    );
+  for (
+    let attempt = 1;
+    attempt <= MAX_LOOKUP_ATTEMPTS;
+    attempt += 1
+  ) {
+    try {
+      transaction =
+        await connection.getParsedTransaction(
+          params.signature,
+          {
+            maxSupportedTransactionVersion: 0,
+            commitment: 'confirmed',
+          }
+        );
+    } catch (error) {
+      console.error(
+        `[CLAIM_SESSION_START] fee transaction RPC lookup failed (attempt ${attempt}/${MAX_LOOKUP_ATTEMPTS}):`,
+        error
+      );
 
-    throw new Error('FEE_RPC_UNAVAILABLE');
+      /*
+       * A transient RPC error can disappear on the next attempt.
+       * Only fail after the bounded retry window is exhausted.
+       */
+      if (
+        attempt ===
+        MAX_LOOKUP_ATTEMPTS
+      ) {
+        throw new Error(
+          'FEE_RPC_UNAVAILABLE'
+        );
+      }
+    }
+
+    if (transaction) {
+      break;
+    }
+
+    if (
+      attempt <
+      MAX_LOOKUP_ATTEMPTS
+    ) {
+      await new Promise<void>(
+        (resolve) => {
+          setTimeout(
+            resolve,
+            LOOKUP_RETRY_DELAY_MS
+          );
+        }
+      );
+    }
   }
 
   if (!transaction) {
-    throw new Error('FEE_TX_NOT_FOUND');
+    throw new Error(
+      'FEE_TX_NOT_FOUND'
+    );
   }
 
   if (transaction.meta?.err) {
-    throw new Error('FEE_TX_FAILED');
+    throw new Error(
+      'FEE_TX_FAILED'
+    );
   }
 
-  let blockTime = transaction.blockTime;
+  let blockTime =
+    transaction.blockTime;
 
-  if (typeof blockTime !== 'number') {
+  if (
+    typeof blockTime !== 'number'
+  ) {
     try {
-      blockTime = await connection.getBlockTime(
-        transaction.slot
-      );
+      blockTime =
+        await connection.getBlockTime(
+          transaction.slot
+        );
     } catch (error) {
       console.error(
         '[CLAIM_SESSION_START] fee transaction block-time lookup failed:',
@@ -1638,35 +1694,58 @@ async function verifyFeeTransfer(params: {
     }
   }
 
-  if (typeof blockTime !== 'number') {
-    throw new Error('FEE_TX_TIME_UNAVAILABLE');
+  if (
+    typeof blockTime !== 'number'
+  ) {
+    throw new Error(
+      'FEE_TX_TIME_UNAVAILABLE'
+    );
   }
 
-  const ageMs = Date.now() - blockTime * 1000;
+  const ageMs =
+    Date.now() -
+    blockTime * 1000;
 
   // Protect against clearly invalid future timestamps.
-  if (ageMs < -2 * 60 * 1000) {
-    throw new Error('FEE_TX_TIME_INVALID');
+  if (
+    ageMs <
+    -2 * 60 * 1000
+  ) {
+    throw new Error(
+      'FEE_TX_TIME_INVALID'
+    );
   }
 
   if (
     ageMs >
-    MAX_TX_AGE_MINUTES * 60 * 1000
+    MAX_TX_AGE_MINUTES *
+    60 *
+    1000
   ) {
-    throw new Error('FEE_TX_TOO_OLD');
+    throw new Error(
+      'FEE_TX_TOO_OLD'
+    );
   }
 
-  const expectedPayer = params.payer;
+  const expectedPayer =
+    params.payer;
+
   const expectedTreasury =
     params.treasury.toBase58();
 
   let paidLamports = 0;
 
   const instructions =
-    transaction.transaction.message.instructions;
+    transaction.transaction.message
+      .instructions;
 
-  for (const instruction of instructions) {
-    if (!('parsed' in instruction)) {
+  for (
+    const instruction
+    of instructions
+  ) {
+    if (
+      !('parsed' in instruction)
+    ) {
       continue;
     }
 
@@ -1691,31 +1770,43 @@ async function verifyFeeTransfer(params: {
     }
 
     const info =
-      parsed.info as Record<string, unknown>;
+      parsed.info as Record<
+        string,
+        unknown
+      >;
 
-    const source = asString(
-      info.source
-    );
+    const source =
+      asString(
+        info.source
+      );
 
-    const destination = asString(
-      info.destination
-    );
+    const destination =
+      asString(
+        info.destination
+      );
 
-    const lamports = Number(
-      info.lamports ?? 0
-    );
+    const lamports =
+      Number(
+        info.lamports ?? 0
+      );
 
     if (
       source === expectedPayer &&
-      destination === expectedTreasury &&
-      Number.isSafeInteger(lamports) &&
+      destination ===
+      expectedTreasury &&
+      Number.isSafeInteger(
+        lamports
+      ) &&
       lamports > 0
     ) {
-      paidLamports += lamports;
+      paidLamports +=
+        lamports;
     }
   }
 
-  if (paidLamports <= 0) {
+  if (
+    paidLamports <= 0
+  ) {
     throw new Error(
       'FEE_TRANSFER_NOT_DETECTED'
     );
@@ -1809,10 +1900,21 @@ export async function POST(
     body.phase_id ?? 0
   );
 
+  const claimScopeRaw =
+    asString(body.claim_scope);
+
+  if (
+    claimScopeRaw !== 'wallet' &&
+    claimScopeRaw !== 'identity'
+  ) {
+    return json(400, {
+      success: false,
+      error: 'BAD_CLAIM_SCOPE',
+    });
+  }
+
   const claimScope: ClaimScope =
-    body.claim_scope === 'identity'
-      ? 'identity'
-      : 'wallet';
+    claimScopeRaw;
 
   const isAllPhases =
     claimScope === 'identity' &&
