@@ -79,6 +79,10 @@ const MAX_TX_AGE_MINUTES = Number(
   process.env.CLAIM_FEE_MAX_TX_AGE_MINUTES ?? 30
 );
 
+const FEE_RECOVERY_SIGNATURE =
+  process.env.CLAIM_FEE_RECOVERY_SIGNATURE?.trim() ||
+  '';
+
 const SESSION_MAX_AGE_MINUTES = Number(
   process.env.CLAIM_SESSION_MAX_AGE_MINUTES ?? 30
 );
@@ -1649,9 +1653,14 @@ async function verifyFeeTransfer(params: {
     throw new Error('FEE_TX_TIME_INVALID');
   }
 
+  const isExplicitRecoveryTransaction =
+    FEE_RECOVERY_SIGNATURE.length > 0 &&
+    params.signature === FEE_RECOVERY_SIGNATURE;
+
   if (
     ageMs >
-    MAX_TX_AGE_MINUTES * 60 * 1000
+    MAX_TX_AGE_MINUTES * 60 * 1000 &&
+    !isExplicitRecoveryTransaction
   ) {
     throw new Error('FEE_TX_TOO_OLD');
   }
