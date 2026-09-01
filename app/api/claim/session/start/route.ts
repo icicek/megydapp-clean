@@ -2038,40 +2038,36 @@ export async function POST(
             );
 
           /*
-          * Dry-run must not require a real protocol fee.
+          * Fee accounting remains authoritative even in claim dry-run mode.
           *
-          * Treat all touched phases as already credited so downstream
-          * fee calculation naturally resolves to zero protocol fee.
+          * CLAIM_DRY_RUN only suppresses the final MEGY blockchain transfer.
+          * Protocol fee credits must always come from persisted DB truth.
           */
           const creditedPhaseIds =
-            CLAIM_DRY_RUN
-              ? feeScope.touchedPhaseIds
-              : await getCreditedPhaseIds(
-                client,
-                {
-                  identityId:
-                    String(identityId),
-                  destination,
-                  phaseIds:
-                    feeScope.touchedPhaseIds,
-                }
-              );
+            await getCreditedPhaseIds(
+              client,
+              {
+                identityId:
+                  String(identityId),
+                destination,
+                phaseIds:
+                  feeScope.touchedPhaseIds,
+              }
+            );
 
           /*
           * ATA reimbursement belongs to Identity + Destination,
           * not to an individual phase.
           */
           const ataEntitlement =
-            CLAIM_DRY_RUN
-              ? null
-              : await getUnusedAtaEntitlement(
-                client,
-                {
-                  identityId:
-                    String(identityId),
-                  destination,
-                }
-              );
+            await getUnusedAtaEntitlement(
+              client,
+              {
+                identityId:
+                  String(identityId),
+                destination,
+              }
+            );
 
           /*
           * An existing open session is only a candidate for reuse.
@@ -2125,8 +2121,7 @@ export async function POST(
           destination,
           existingEntitlement:
             preflight.ataEntitlement,
-          dryRun:
-            CLAIM_DRY_RUN,
+          dryRun: false,
         });
     } catch (error) {
       const errorCode =
