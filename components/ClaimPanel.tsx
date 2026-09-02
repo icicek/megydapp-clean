@@ -4727,60 +4727,21 @@ export default function ClaimPanel() {
         return;
       }
 
-      setMessage(
-        '⏳ Confirming fee payment on-chain…'
-      );
-
       /*
-       * 3) Confirm the fee transaction.
-       */
-      const confirmation =
-        await connection.confirmTransaction(
-          {
-            signature: feeSig,
-            blockhash: latest.blockhash,
-            lastValidBlockHeight:
-              latest.lastValidBlockHeight,
-          },
-          'confirmed'
-        );
+      * The wallet has returned a fee transaction signature and the
+      * recovery context has already been persisted.
+      *
+      * Do not block the claim flow on the browser RPC confirmation.
+      * The backend is the authoritative verifier and independently
+      * validates the transaction on Solana before recording any fee
+      * payment or opening a claim session.
+      */
+      setMessage(
+        '⏳ Verifying your fee payment…'
+      );
 
       if (!isCurrentClaimOperation()) {
         return;
-      }
-
-      if (confirmation.value.err) {
-        /*
-         * Solana definitively reported that this fee transaction failed.
-         *
-         * No claim fee was successfully paid, so the user must not be
-         * trapped in paid-fee recovery mode.
-         */
-        preserveFeeConfirmation = false;
-
-        setClaimFeeSigForSupport(null);
-
-        clearClaimFeeRecovery(
-          wallet
-        );
-
-        setPendingClaim((current) => {
-          if (
-            !current ||
-            current.idemKey !== idemKey
-          ) {
-            return current;
-          }
-
-          return {
-            ...current,
-            paidFeeSignature: null,
-          };
-        });
-
-        throw new Error(
-          'CLAIM_FEE_TRANSACTION_FAILED'
-        );
       }
 
       /*
@@ -4840,6 +4801,45 @@ export default function ClaimPanel() {
           startJson?.error ||
           `SESSION_START_FAILED (${startRes.status})`
         );
+
+        /*
+        * The backend is now the authoritative Solana verifier.
+        *
+        * If it definitively confirms that the blockchain transaction
+        * itself failed, there is no successful fee payment to recover.
+        * Restore the UI to a fresh-payment state exactly as the old
+        * browser-side confirmation branch did.
+        */
+        if (
+          rawError ===
+          'FEE_TX_FAILED'
+        ) {
+          preserveFeeConfirmation = false;
+
+          setClaimFeeSigForSupport(null);
+
+          clearClaimFeeRecovery(
+            wallet
+          );
+
+          setPendingClaim((current) => {
+            if (
+              !current ||
+              current.idemKey !== idemKey
+            ) {
+              return current;
+            }
+
+            return {
+              ...current,
+              paidFeeSignature: null,
+            };
+          });
+
+          throw new Error(
+            'CLAIM_FEE_TRANSACTION_FAILED'
+          );
+        }
 
         /*
          * The SOL fee transaction has already succeeded.
