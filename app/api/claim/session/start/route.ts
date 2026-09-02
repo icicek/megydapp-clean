@@ -1624,6 +1624,14 @@ async function verifyFeeTransfer(params: {
             commitment: 'confirmed',
           }
         );
+      console.log(
+        '[CLAIM_SESSION_START] fee lookup result:',
+        {
+          attempt,
+          found: Boolean(transaction),
+          signature: params.signature,
+        }
+      );
     } catch (error) {
       console.error(
         `[CLAIM_SESSION_START] fee transaction RPC lookup failed (attempt ${attempt}/${MAX_LOOKUP_ATTEMPTS}):`,
@@ -2454,6 +2462,21 @@ export async function POST(
     /* ---------------------------------------------------------------------- */
 
     let verification: FeeVerificationResult;
+
+    console.log(
+      '[CLAIM_SESSION_START] fee verification begin:',
+      {
+        wallet,
+        destination,
+        phaseId,
+        claimScope,
+        signature: feeSignature,
+        requiredLamports:
+          feeRequirement.requiredLamports,
+        feePhaseIds:
+          feeRequirement.feePhaseIds,
+      }
+    );
 
     try {
       verification =
