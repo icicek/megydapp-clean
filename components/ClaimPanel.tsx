@@ -4988,13 +4988,34 @@ export default function ClaimPanel() {
             : 'simulation complete';
 
         /*
-         * Dry-run validates the complete claim path but does not
-         * complete the real MEGY transfer.
+         * session/start has already persisted the verified fee payment,
+         * phase credit(s), and claim session before execute reaches this
+         * successful dry-run result.
          *
-         * Keep the paid-fee recovery context intact, but close the
-         * modal so the test result remains visible.
+         * Therefore the browser-level emergency recovery record has
+         * completed its job. Keeping it would incorrectly hijack future
+         * claims from this wallet.
+         *
+         * Dry-run suppresses only the real MEGY blockchain transfer.
          */
+        preserveFeeConfirmation = false;
+
+        setClaimFeeSigForSupport(null);
+
+        clearClaimFeeRecovery(
+          wallet
+        );
+
+        setPendingClaim(null);
         setFeeConfirmOpen(false);
+
+        setClaimAmount('');
+        setSelectedClaimPercent(null);
+        setUseAltAddress(false);
+        setAltAddress('');
+
+        attemptIdemKeyRef.current =
+          null;
 
         setMessage(
           `✅ Dry-run successful. No MEGY transfer was sent. Splits: ${splitSummary}`
@@ -5396,11 +5417,29 @@ export default function ClaimPanel() {
        */
       if (isDryRunSuccess) {
         /*
-         * Dry-run does not complete the real MEGY transfer, so the paid-fee
-         * recovery data must remain available. The modal itself, however,
-         * should close so the user can see the claim result.
+         * By this point session/start has successfully recovered and persisted
+         * the paid fee / fee credit on the backend.
+         *
+         * Dry-run suppresses only the real MEGY transfer. The browser-level
+         * emergency recovery record is no longer needed and must not hijack
+         * unrelated future claims for this wallet.
          */
+        setClaimFeeSigForSupport(null);
+
+        clearClaimFeeRecovery(
+          wallet
+        );
+
+        setPendingClaim(null);
         setFeeConfirmOpen(false);
+
+        setClaimAmount('');
+        setSelectedClaimPercent(null);
+        setUseAltAddress(false);
+        setAltAddress('');
+
+        attemptIdemKeyRef.current =
+          null;
 
         setMessage(
           '✅ Claim recovery validated successfully in dry-run mode. No MEGY transfer was sent.'
