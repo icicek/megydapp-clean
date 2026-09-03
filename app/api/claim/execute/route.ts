@@ -18,7 +18,7 @@ import {
 import {
   allocateClaimAmountOrThrow,
 } from '@/app/api/_lib/claim/allocation';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import {
   Keypair,
   PublicKey,
@@ -41,7 +41,19 @@ const SESSION_MAX_AGE_MINUTES = Number(process.env.CLAIM_SESSION_MAX_AGE_MINUTES
 const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
 const MAX_SESSION_ID_LENGTH = 200;
 
-const CLAIM_DRY_RUN = String(process.env.CLAIM_DRY_RUN ?? '').trim().toLowerCase() === 'true';
+/*
+ * A claim reservation owns execution only for a short period before
+ * its Solana transaction signature is persisted.
+ *
+ * If the process dies before that point, a later request may safely
+ * recover the stale reservation after this lease expires.
+ */
+const CLAIM_EXECUTION_LEASE_SECONDS = 120;
+
+const CLAIM_DRY_RUN =
+  String(process.env.CLAIM_DRY_RUN ?? '')
+    .trim()
+    .toLowerCase() === 'true';
 
 function createDbPool() {
   const connectionString = process.env.DATABASE_URL;
@@ -290,6 +302,13 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  if (idemKeyRoot.includes('#')) {
+    return json(400, {
+      success: false,
+      error: 'INVALID_IDEMPOTENCY_KEY',
+    });
+  }
+
   if (
     sessionId.length >
     MAX_SESSION_ID_LENGTH
@@ -356,7 +375,7 @@ export async function POST(req: NextRequest) {
       )
     );
 
-    if (!scopedWallets.some((w) => w.toLowerCase() === wallet.toLowerCase())) {
+    if (!scopedWallets.some((w) => w === wallet)) {
       scopedWallets.push(wallet);
     }
   }
@@ -399,9 +418,28 @@ export async function POST(req: NextRequest) {
     `v3|${wallet}|${destination}|${isAllPhases ? 'ALL' : String(phaseIdRaw)}|${claimAmountRaw}`
   );
 
-  const claimLockKey = isAllPhases
-    ? `claim|identity|${identityId}|ALL`
-    : `claim|wallet|${wallet}|phase|${phaseIdRaw}`;
+  /*
+   * All-phases claims create child idempotency keys in this form:
+   *
+   *   <root>#<wallet>#<phase>
+   *
+   * Recovery/deduplication must therefore be tied to the root
+   * idempotency key, not merely to request_hash.
+   */
+  const identityIdempotencyPrefix =
+    `${idemKeyRoot}#`;
+
+  /*
+  * Every claim belonging to the same identity must serialize through
+  * the same advisory lock.
+  *
+  * This prevents an ALL-phases claim and a single-phase claim from
+  * calculating/reserving the same underlying balance concurrently.
+  */
+  const claimLockKey =
+    `claim|identity|${identityId}`;
+
+  const executionToken = randomUUID();
 
   // --- Idempotency and interrupted-claim recovery ---
   let existingClaim:
@@ -410,6 +448,10 @@ export async function POST(req: NextRequest) {
       status: string;
       tx_signature: string | null;
       request_hash: string | null;
+      session_id: string | null;
+      execution_token: string | null;
+      execution_lease_expires_at: Date | null;
+      tx_last_valid_block_height: number | null;
     }
     | null = null;
 
@@ -429,7 +471,11 @@ export async function POST(req: NextRequest) {
         id,
         status,
         tx_signature,
-        request_hash
+        request_hash,
+        session_id,
+        execution_token,
+        execution_lease_expires_at,
+        tx_last_valid_block_height
       FROM claims
       WHERE wallet_address = ${wallet}
         AND phase_id = ${phaseIdRaw}
@@ -460,9 +506,25 @@ export async function POST(req: NextRequest) {
         tx_signature: row.tx_signature
           ? String(row.tx_signature)
           : null,
+        tx_last_valid_block_height:
+          row.tx_last_valid_block_height != null
+            ? Number(row.tx_last_valid_block_height)
+            : null,
         request_hash: row.request_hash
           ? String(row.request_hash)
           : null,
+        session_id: row.session_id
+          ? String(row.session_id)
+          : null,
+        execution_token: row.execution_token
+          ? String(row.execution_token)
+          : null,
+        execution_lease_expires_at:
+          row.execution_lease_expires_at
+            ? new Date(
+              row.execution_lease_expires_at
+            )
+            : null,
       };
     }
   } else {
@@ -477,9 +539,18 @@ export async function POST(req: NextRequest) {
         id,
         status,
         tx_signature,
-        request_hash
+        request_hash,
+        session_id,
+        execution_token,
+        execution_lease_expires_at,
+        tx_last_valid_block_height
       FROM claims
-      WHERE request_hash = ${requestHashRoot}
+      WHERE LEFT(
+              idempotency_key,
+              LENGTH(${identityIdempotencyPrefix})
+            ) = ${identityIdempotencyPrefix}
+          AND wallet_address =
+            ANY(${scopedWallets}::text[])
         AND status IN ('created', 'succeeded')
       ORDER BY id ASC
       LIMIT 1
@@ -488,15 +559,43 @@ export async function POST(req: NextRequest) {
     if (existingAll?.length) {
       const row = existingAll[0];
 
+      if (
+        String(row.request_hash || '') &&
+        String(row.request_hash) !==
+        requestHashRoot
+      ) {
+        return json(409, {
+          success: false,
+          error:
+            'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_REQUEST',
+        });
+      }
+
       existingClaim = {
         id: Number(row.id),
         status: String(row.status || ''),
         tx_signature: row.tx_signature
           ? String(row.tx_signature)
           : null,
+        tx_last_valid_block_height:
+          row.tx_last_valid_block_height != null
+            ? Number(row.tx_last_valid_block_height)
+            : null,
         request_hash: row.request_hash
           ? String(row.request_hash)
           : null,
+        session_id: row.session_id
+          ? String(row.session_id)
+          : null,
+        execution_token: row.execution_token
+          ? String(row.execution_token)
+          : null,
+        execution_lease_expires_at:
+          row.execution_lease_expires_at
+            ? new Date(
+              row.execution_lease_expires_at
+            )
+            : null,
       };
     }
   }
@@ -528,10 +627,92 @@ export async function POST(req: NextRequest) {
     * transaction using the same request.
     */
     if (!existingClaim.tx_signature) {
+      const leaseExpired =
+        !existingClaim.execution_lease_expires_at ||
+        existingClaim.execution_lease_expires_at.getTime() <=
+        Date.now();
+
+      /*
+       * Another executor still owns this reservation.
+       */
+      if (!leaseExpired) {
+        return json(409, {
+          success: false,
+          error: 'CLAIM_ALREADY_PROCESSING',
+          status: 'created',
+        });
+      }
+
+      /*
+       * No transaction signature was persisted before the execution
+       * lease expired.
+       *
+       * Because every live executor is fenced by execution_token +
+       * execution_lease_expires_at before broadcast, this stale
+       * reservation can now be safely retired.
+       */
+      const retired = isAllPhases
+        ? await sql`
+      UPDATE claims
+      SET
+        status = 'failed',
+        error = 'CLAIM_EXECUTION_LEASE_EXPIRED',
+        execution_token = NULL,
+        execution_lease_expires_at = NULL
+      WHERE LEFT(
+              idempotency_key,
+              LENGTH(${identityIdempotencyPrefix})
+            ) = ${identityIdempotencyPrefix}
+          AND wallet_address =
+            ANY(${scopedWallets}::text[])
+        AND status = 'created'
+        AND tx_signature IS NULL
+        AND (
+          execution_lease_expires_at IS NULL
+          OR execution_lease_expires_at <= now()
+        )
+      RETURNING id
+    `
+        : await sql`
+      UPDATE claims
+      SET
+        status = 'failed',
+        error = 'CLAIM_EXECUTION_LEASE_EXPIRED',
+        execution_token = NULL,
+        execution_lease_expires_at = NULL
+      WHERE id = ${existingClaim.id}
+        AND status = 'created'
+        AND tx_signature IS NULL
+        AND (
+          execution_lease_expires_at IS NULL
+          OR execution_lease_expires_at <= now()
+        )
+      RETURNING id
+    `;
+
+      /*
+       * Another request may have recovered or advanced the claim
+       * between our SELECT and UPDATE.
+       */
+      if (!retired.length) {
+        return json(409, {
+          success: false,
+          error: 'CLAIM_ALREADY_PROCESSING',
+          status: 'created',
+        });
+      }
+
+      /*
+       * The stale reservation has been safely retired.
+       * Ask the caller to retry; the next execution can create a fresh
+       * reservation using the same idempotency key because failed rows
+       * are not part of the active idempotency constraint.
+       */
       return json(409, {
         success: false,
-        error: 'CLAIM_ALREADY_PROCESSING',
-        status: 'created',
+        error: 'CLAIM_STALE_RESERVATION_RECOVERED',
+        status: 'failed',
+        retryable: true,
       });
     }
 
@@ -559,38 +740,160 @@ export async function POST(req: NextRequest) {
     }
 
     if (transactionState === 'failed') {
+      /*
+       * Solana has definitively reported that the previously persisted
+       * transaction failed.
+       *
+       * Retiring the claim reservation and releasing any ATA reimbursement
+       * reservation must happen atomically. Otherwise a DB/network failure
+       * between the two operations could leave the ATA entitlement stuck
+       * behind a transaction that can never succeed.
+       */
+      const failedRecoveryPool = createDbPool();
+      let failedRecoveryClient:
+        PoolClient | null = null;
+
       try {
-        await sql`
-          UPDATE claims
-          SET status = 'failed',
-              error = 'CLAIM_TX_FAILED'
-          WHERE request_hash = ${requestHashRoot}
-            AND status = 'created'
-        `;
+        failedRecoveryClient =
+          await failedRecoveryPool.connect();
+
+        const failedRecoverySql =
+          createTransactionSql(
+            failedRecoveryClient
+          );
+
+        await failedRecoveryClient.query(
+          'BEGIN'
+        );
+
+        const failedRows = isAllPhases
+          ? await failedRecoverySql`
+              UPDATE claims
+              SET
+                status = 'failed',
+                error = 'CLAIM_TX_FAILED',
+                execution_token = NULL,
+                execution_lease_expires_at = NULL
+              WHERE LEFT(
+                      idempotency_key,
+                      LENGTH(${identityIdempotencyPrefix})
+                    ) = ${identityIdempotencyPrefix}
+                AND wallet_address =
+                  ANY(${scopedWallets}::text[])
+                AND status = 'created'
+                AND tx_signature =
+                  ${existingClaim.tx_signature}
+              RETURNING
+                id,
+                session_id
+            `
+          : await failedRecoverySql`
+              UPDATE claims
+              SET
+                status = 'failed',
+                error = 'CLAIM_TX_FAILED',
+                execution_token = NULL,
+                execution_lease_expires_at = NULL
+              WHERE wallet_address = ${wallet}
+                AND phase_id = ${phaseIdRaw}
+                AND idempotency_key =
+                  ${idemKeyRoot}
+                AND status = 'created'
+                AND tx_signature =
+                  ${existingClaim.tx_signature}
+              RETURNING
+                id,
+                session_id
+            `;
 
         /*
-         * This transaction was previously broadcast with an uncertain result,
-         * so an ATA reimbursement may still be reserved by its signature.
-         *
-         * Now Solana has confirmed that the transaction FAILED.
-         * Release that reservation so the unused ATA entitlement can be reused.
+         * Prefer session ownership returned by the rows we actually retired.
+         * If another recovery request already retired them, fall back to the
+         * persisted session_id loaded with existingClaim.
          */
-        await sql`
-          UPDATE claim_fee_payments p
-          SET
-            ata_consumed_tx_signature = NULL
-          FROM claim_sessions s
-          WHERE s.id = ${sessionId}
-            AND s.payment_id = p.id
-            AND p.ata_consumed_at IS NULL
-            AND p.ata_consumed_tx_signature =
-              ${existingClaim.tx_signature}
-        `;
+        const failedSessionIds =
+          Array.from(
+            new Set(
+              failedRows
+                .map((row) =>
+                  asStr(
+                    asDbRow(row).session_id
+                  )
+                )
+                .filter(Boolean)
+            )
+          );
+
+        if (failedSessionIds.length > 1) {
+          throw new Error(
+            'CLAIM_FAILED_RECOVERY_SESSION_MISMATCH'
+          );
+        }
+
+        const failedSessionId =
+          failedSessionIds[0] ||
+          asStr(existingClaim.session_id);
+
+        /*
+         * The blockchain transaction definitely failed, so any ATA
+         * reimbursement reserved by this exact signature is unused and
+         * may safely become available again.
+         */
+        if (failedSessionId) {
+          await failedRecoverySql`
+            UPDATE claim_fee_payments p
+            SET
+              ata_consumed_tx_signature = NULL
+            FROM claim_sessions s
+            WHERE s.id = ${failedSessionId}
+              AND s.payment_id = p.id
+              AND p.ata_consumed_at IS NULL
+              AND p.ata_consumed_tx_signature =
+                ${existingClaim.tx_signature}
+          `;
+        }
+
+        await failedRecoveryClient.query(
+          'COMMIT'
+        );
       } catch (error) {
+        if (failedRecoveryClient) {
+          try {
+            await failedRecoveryClient.query(
+              'ROLLBACK'
+            );
+          } catch (rollbackError) {
+            console.error(
+              'failed claim recovery rollback failed:',
+              rollbackError
+            );
+          }
+        }
+
         console.error(
-          'failed to mark recovered claim failed:',
+          'failed to atomically retire recovered claim:',
           error
         );
+
+        return json(500, {
+          success: false,
+          error:
+            'CLAIM_FAILED_RECOVERY_DB_FAILED',
+          status: 'created',
+          tx_signature:
+            existingClaim.tx_signature,
+        });
+      } finally {
+        failedRecoveryClient?.release();
+
+        try {
+          await failedRecoveryPool.end();
+        } catch (poolError) {
+          console.error(
+            'failed claim recovery pool close failed:',
+            poolError
+          );
+        }
       }
 
       return json(409, {
@@ -602,14 +905,266 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (
-      transactionState === 'pending' ||
-      transactionState === 'not_found'
-    ) {
+    /*
+    * A pending transaction is already known to Solana.
+    * Never retire or replace it.
+    */
+    if (transactionState === 'pending') {
       return json(409, {
         success: false,
         error: 'CLAIM_ALREADY_PROCESSING',
         status: 'created',
+        tx_signature:
+          existingClaim.tx_signature,
+      });
+    }
+
+    /*
+     * "not_found" needs special handling.
+     *
+     * The signature is persisted before broadcast. Therefore a process
+     * crash may leave a signed claim in the DB even though the transaction
+     * was never submitted to Solana.
+     *
+     * While the transaction's blockhash is still valid, we must wait:
+     * the original signed transaction could still potentially be submitted.
+     *
+     * Once lastValidBlockHeight has passed, that exact transaction can no
+     * longer become a valid new Solana transaction. If it is still not
+     * found, the reservation may be safely retired.
+     */
+    if (transactionState === 'not_found') {
+      const lastValidBlockHeight =
+        existingClaim.tx_last_valid_block_height;
+
+      /*
+       * Legacy or incomplete rows without expiry metadata cannot be
+       * automatically retired safely.
+       */
+      if (
+        lastValidBlockHeight === null ||
+        !Number.isSafeInteger(lastValidBlockHeight) ||
+        lastValidBlockHeight <= 0
+      ) {
+        return json(409, {
+          success: false,
+          error: 'CLAIM_ALREADY_PROCESSING',
+          status: 'created',
+          tx_signature:
+            existingClaim.tx_signature,
+        });
+      }
+
+      let currentBlockHeight: number;
+
+      try {
+        const connection =
+          getServerSolanaConnection();
+
+        currentBlockHeight =
+          await connection.getBlockHeight(
+            'confirmed'
+          );
+      } catch (error) {
+        console.error(
+          'claim expiry block-height check failed:',
+          error
+        );
+
+        return json(503, {
+          success: false,
+          error:
+            'CLAIM_TRANSACTION_STATUS_UNAVAILABLE',
+          status: 'created',
+          tx_signature:
+            existingClaim.tx_signature,
+        });
+      }
+
+      /*
+       * The signed transaction is still within its validity window.
+       * Do not release the claim reservation yet.
+       */
+      if (
+        currentBlockHeight <=
+        lastValidBlockHeight
+      ) {
+        return json(409, {
+          success: false,
+          error: 'CLAIM_ALREADY_PROCESSING',
+          status: 'created',
+          tx_signature:
+            existingClaim.tx_signature,
+        });
+      }
+
+      /*
+       * Solana still cannot find the transaction and its blockhash has
+       * expired. The exact signed transaction can no longer be newly
+       * accepted, so retire the DB reservation.
+       */
+      const expiredRecoveryPool =
+        createDbPool();
+
+      let expiredRecoveryClient:
+        PoolClient | null = null;
+
+      try {
+        expiredRecoveryClient =
+          await expiredRecoveryPool.connect();
+
+        const expiredRecoverySql =
+          createTransactionSql(
+            expiredRecoveryClient
+          );
+
+        await expiredRecoveryClient.query(
+          'BEGIN'
+        );
+
+        const expiredRows = isAllPhases
+          ? await expiredRecoverySql`
+            UPDATE claims
+            SET
+              status = 'failed',
+              error =
+                'CLAIM_TX_EXPIRED_NOT_FOUND',
+              execution_token = NULL,
+              execution_lease_expires_at = NULL
+            WHERE LEFT(
+                    idempotency_key,
+                    LENGTH(${identityIdempotencyPrefix})
+                  ) = ${identityIdempotencyPrefix}
+              AND wallet_address =
+                ANY(${scopedWallets}::text[])
+              AND status = 'created'
+              AND tx_signature =
+                ${existingClaim.tx_signature}
+            RETURNING
+              id,
+              session_id
+          `
+          : await expiredRecoverySql`
+            UPDATE claims
+            SET
+              status = 'failed',
+              error =
+                'CLAIM_TX_EXPIRED_NOT_FOUND',
+              execution_token = NULL,
+              execution_lease_expires_at = NULL
+            WHERE wallet_address = ${wallet}
+              AND phase_id = ${phaseIdRaw}
+              AND idempotency_key =
+                ${idemKeyRoot}
+              AND status = 'created'
+              AND tx_signature =
+                ${existingClaim.tx_signature}
+            RETURNING
+              id,
+              session_id
+          `;
+
+        /*
+         * Every row retired for the same signed transaction should
+         * belong to one persisted claim session.
+         */
+        const expiredSessionIds =
+          Array.from(
+            new Set(
+              expiredRows
+                .map((row) =>
+                  asStr(
+                    asDbRow(row).session_id
+                  )
+                )
+                .filter(Boolean)
+            )
+          );
+
+        if (expiredSessionIds.length > 1) {
+          throw new Error(
+            'CLAIM_EXPIRED_RECOVERY_SESSION_MISMATCH'
+          );
+        }
+
+        /*
+         * If another recovery request already retired the rows,
+         * expiredRows may be empty. In that case use the persisted
+         * session ownership from existingClaim.
+         */
+        const expiredSessionId =
+          expiredSessionIds[0] ||
+          asStr(existingClaim.session_id);
+
+        /*
+         * The exact signed transaction is now expired and still
+         * absent from Solana. It can no longer create the ATA, so any
+         * ATA reimbursement reservation held by this signature is
+         * safe to release.
+         */
+        if (expiredSessionId) {
+          await expiredRecoverySql`
+          UPDATE claim_fee_payments p
+          SET
+            ata_consumed_tx_signature = NULL
+          FROM claim_sessions s
+          WHERE s.id = ${expiredSessionId}
+            AND s.payment_id = p.id
+            AND p.ata_consumed_at IS NULL
+            AND p.ata_consumed_tx_signature =
+              ${existingClaim.tx_signature}
+        `;
+        }
+
+        await expiredRecoveryClient.query(
+          'COMMIT'
+        );
+      } catch (error) {
+        if (expiredRecoveryClient) {
+          try {
+            await expiredRecoveryClient.query(
+              'ROLLBACK'
+            );
+          } catch (rollbackError) {
+            console.error(
+              'expired claim recovery rollback failed:',
+              rollbackError
+            );
+          }
+        }
+
+        console.error(
+          'failed to atomically retire expired claim:',
+          error
+        );
+
+        return json(500, {
+          success: false,
+          error:
+            'CLAIM_EXPIRED_RECOVERY_DB_FAILED',
+          status: 'created',
+          tx_signature:
+            existingClaim.tx_signature,
+        });
+      } finally {
+        expiredRecoveryClient?.release();
+
+        try {
+          await expiredRecoveryPool.end();
+        } catch (poolError) {
+          console.error(
+            'expired claim recovery pool close failed:',
+            poolError
+          );
+        }
+      }
+
+      return json(409, {
+        success: false,
+        error:
+          'CLAIM_TX_EXPIRED_NOT_FOUND',
+        status: 'failed',
+        retryable: true,
         tx_signature:
           existingClaim.tx_signature,
       });
@@ -629,19 +1184,46 @@ export async function POST(req: NextRequest) {
 
       await recoveryClient.query('BEGIN');
 
-      const recoveredRows = await recoverySql`
-        UPDATE claims
-        SET status = 'succeeded',
-            tx_signature = ${existingClaim.tx_signature
-        },
-            error = NULL
-        WHERE request_hash = ${requestHashRoot}
-          AND status = 'created'
-        RETURNING
-          id,
-          session_id,
-          claim_amount_base
-      `;
+      const recoveredRows = isAllPhases
+        ? await recoverySql`
+            UPDATE claims
+            SET
+              status = 'succeeded',
+              tx_signature = ${existingClaim.tx_signature},
+              error = NULL,
+              execution_token = NULL,
+              execution_lease_expires_at = NULL
+            WHERE LEFT(
+                    idempotency_key,
+                    LENGTH(${identityIdempotencyPrefix})
+                  ) = ${identityIdempotencyPrefix}
+              AND wallet_address =
+                ANY(${scopedWallets}::text[])
+              AND status = 'created'
+              AND tx_signature = ${existingClaim.tx_signature}
+            RETURNING
+              id,
+              session_id,
+              claim_amount_base
+          `
+        : await recoverySql`
+            UPDATE claims
+            SET
+              status = 'succeeded',
+              tx_signature = ${existingClaim.tx_signature},
+              error = NULL,
+              execution_token = NULL,
+              execution_lease_expires_at = NULL
+            WHERE wallet_address = ${wallet}
+              AND phase_id = ${phaseIdRaw}
+              AND idempotency_key = ${idemKeyRoot}
+              AND status = 'created'
+              AND tx_signature = ${existingClaim.tx_signature}
+            RETURNING
+              id,
+              session_id,
+              claim_amount_base
+          `;
 
       let transitionedBase = 0n;
 
@@ -656,51 +1238,224 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const recoveredSessionId =
-        String(
-          recoveredRows?.[0]?.session_id ??
-          sessionId
-        ).trim();
-
-      if (recoveredSessionId) {
-        await recoverySql`
-            UPDATE claim_fee_payments p
-            SET
-              ata_consumed_at =
-                COALESCE(
-                  p.ata_consumed_at,
-                  now()
-                )
-            FROM claim_sessions s
-            WHERE s.id =
-              ${recoveredSessionId}
-              AND s.payment_id = p.id
-              AND p.ata_creation_lamports > 0
-              AND p.ata_consumed_at IS NULL
-              AND p.ata_consumed_tx_signature =
-                ${existingClaim.tx_signature}
-          `;
-      }
+      /*
+ * Every claim row recovered as part of the same blockchain
+ * transaction must belong to exactly one persisted claim session.
+ *
+ * Recovery must use persisted DB ownership rather than trusting
+ * the session_id supplied by the retrying request.
+ */
+      const recoveredSessionIds = Array.from(
+        new Set(
+          recoveredRows
+            .map((row) =>
+              asStr(
+                asDbRow(row).session_id
+              )
+            )
+            .filter(Boolean)
+        )
+      );
 
       if (
         transitionedBase > 0n &&
-        recoveredSessionId
+        recoveredSessionIds.length !== 1
       ) {
+        throw new Error(
+          'CLAIM_RECOVERY_SESSION_MISMATCH'
+        );
+      }
+
+      const recoveredSessionId =
+        recoveredSessionIds[0] ?? '';
+
+      /*
+       * If this transaction created the destination ATA, finalize the
+       * previously reserved ATA reimbursement entitlement.
+       */
+      if (recoveredSessionId) {
+        await recoverySql`
+                UPDATE claim_fee_payments p
+                SET
+                  ata_consumed_at =
+                    COALESCE(
+                      p.ata_consumed_at,
+                      now()
+                    )
+                FROM claim_sessions s
+                WHERE s.id =
+                  ${recoveredSessionId}
+                  AND s.payment_id = p.id
+                  AND p.ata_creation_lamports > 0
+                  AND p.ata_consumed_at IS NULL
+                  AND p.ata_consumed_tx_signature =
+                    ${existingClaim.tx_signature}
+              `;
+      }
+
+      /*
+       * Recovery must perform the same economic session transition as
+       * the normal finalize path.
+       */
+      if (transitionedBase > 0n) {
         const transitionedHuman =
           baseToDecimalString(
             transitionedBase,
             MEGY_DECIMALS
           );
 
-        await recoverySql`
-          UPDATE claim_sessions
-          SET total_claimed_in_session =
-            COALESCE(
-              total_claimed_in_session,
-              0
-            ) + ${transitionedHuman}
-          WHERE id = ${recoveredSessionId}
-        `;
+        const updatedSessionRows =
+          await recoverySql`
+                  UPDATE claim_sessions
+                  SET total_claimed_in_session =
+                    COALESCE(
+                      total_claimed_in_session,
+                      0
+                    ) + ${transitionedHuman}
+                  WHERE id = ${recoveredSessionId}
+                  RETURNING id
+                `;
+
+        if (updatedSessionRows.length !== 1) {
+          throw new Error(
+            'CLAIM_RECOVERY_SESSION_FINALIZE_MISMATCH'
+          );
+        }
+
+        /*
+         * Recalculate the authoritative remaining balance after the
+         * recovered claim rows have transitioned to succeeded.
+         *
+         * Solana wallet addresses are case-sensitive, so all identity
+         * scope comparisons remain exact.
+         */
+        const recoveryTotals = isAllPhases
+          ? await recoverySql`
+                    WITH scoped_wallets AS (
+                      SELECT unnest(
+                        ${scopedWallets}::text[]
+                      ) AS wallet_address
+                    ),
+                    snaps AS (
+                      SELECT
+                        COALESCE(
+                          SUM(cs.megy_amount_base),
+                          0
+                        ) AS snap_base
+                      FROM claim_snapshots cs
+                      JOIN scoped_wallets sw
+                        ON sw.wallet_address =
+                          cs.wallet_address
+                    ),
+                    cls AS (
+                      SELECT
+                        COALESCE(
+                          SUM(c.claim_amount_base),
+                          0
+                        ) AS claimed_base
+                      FROM claims c
+                      JOIN scoped_wallets sw
+                        ON sw.wallet_address =
+                          c.wallet_address
+                      WHERE c.status IN (
+                        'created',
+                        'succeeded'
+                      )
+                    )
+                    SELECT
+                      (
+                        SELECT snap_base
+                        FROM snaps
+                      ) AS snap_base,
+                      (
+                        SELECT claimed_base
+                        FROM cls
+                      ) AS claimed_base
+                  `
+          : await recoverySql`
+                    WITH snaps AS (
+                      SELECT
+                        COALESCE(
+                          SUM(megy_amount_base),
+                          0
+                        ) AS snap_base
+                      FROM claim_snapshots
+                      WHERE wallet_address = ${wallet}
+                        AND phase_id = ${phaseIdRaw}
+                    ),
+                    cls AS (
+                      SELECT
+                        COALESCE(
+                          SUM(claim_amount_base),
+                          0
+                        ) AS claimed_base
+                      FROM claims
+                      WHERE wallet_address = ${wallet}
+                        AND phase_id = ${phaseIdRaw}
+                        AND status IN (
+                          'created',
+                          'succeeded'
+                        )
+                    )
+                    SELECT
+                      (
+                        SELECT snap_base
+                        FROM snaps
+                      ) AS snap_base,
+                      (
+                        SELECT claimed_base
+                        FROM cls
+                      ) AS claimed_base
+                  `;
+
+        const recoverySnapBase =
+          BigInt(
+            String(
+              recoveryTotals?.[0]?.snap_base ??
+              '0'
+            )
+          );
+
+        const recoveryClaimedBase =
+          BigInt(
+            String(
+              recoveryTotals?.[0]?.claimed_base ??
+              '0'
+            )
+          );
+
+        const recoveryRemainingBase =
+          recoverySnapBase >
+            recoveryClaimedBase
+            ? recoverySnapBase -
+            recoveryClaimedBase
+            : 0n;
+
+        /*
+         * Match the normal finalize path: when nothing remains
+         * claimable, close the recovered session as well.
+         */
+        if (recoveryRemainingBase <= 0n) {
+          const closedSessionRows =
+            await recoverySql`
+                    UPDATE claim_sessions
+                    SET
+                      status = 'closed',
+                      closed_at = COALESCE(
+                        closed_at,
+                        now()
+                      )
+                    WHERE id = ${recoveredSessionId}
+                      AND status = 'open'
+                    RETURNING id
+                  `;
+
+          if (closedSessionRows.length > 1) {
+            throw new Error(
+              'CLAIM_RECOVERY_SESSION_CLOSE_MISMATCH'
+            );
+          }
+        }
       }
 
       await recoveryClient.query('COMMIT');
@@ -851,6 +1606,131 @@ export async function POST(req: NextRequest) {
       )
     `;
 
+    /*
+    * Authoritative idempotency recheck.
+    *
+    * The initial idempotency lookup happens before this transaction
+    * acquires the advisory lock. Another request may therefore create
+    * the reservation while this request is waiting for the lock.
+    *
+    * Recheck after acquiring the lock and before calculating claimable
+    * balances or inserting any new claim rows.
+    */
+    let lockedExistingRows;
+
+    if (!isAllPhases) {
+      lockedExistingRows = await reservationSql`
+        SELECT
+          id,
+          status,
+          tx_signature,
+          request_hash
+        FROM claims
+        WHERE wallet_address = ${wallet}
+          AND phase_id = ${phaseIdRaw}
+          AND idempotency_key = ${idemKeyRoot}
+          AND status IN ('created', 'succeeded')
+        ORDER BY id ASC
+        LIMIT 1
+      `;
+    } else {
+      lockedExistingRows = await reservationSql`
+        SELECT
+          id,
+          status,
+          tx_signature,
+          request_hash
+        FROM claims
+        WHERE LEFT(
+                idempotency_key,
+                LENGTH(${identityIdempotencyPrefix})
+              ) = ${identityIdempotencyPrefix}
+          AND wallet_address =
+            ANY(${scopedWallets}::text[])
+          AND status IN ('created', 'succeeded')
+        ORDER BY id ASC
+        LIMIT 1
+      `;
+    }
+
+    if (lockedExistingRows?.length) {
+      const lockedExisting =
+        lockedExistingRows[0];
+
+      const lockedRequestHash =
+        lockedExisting.request_hash
+          ? String(lockedExisting.request_hash)
+          : null;
+
+      /*
+      * The same idempotency key must never represent two
+      * economically different claim requests.
+      */
+      if (
+        lockedRequestHash &&
+        lockedRequestHash !== requestHashRoot
+      ) {
+        await reservationClient.query(
+          'ROLLBACK'
+        );
+
+        return json(409, {
+          success: false,
+          error:
+            'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_REQUEST',
+        });
+      }
+
+      const lockedStatus = String(
+        lockedExisting.status || ''
+      );
+
+      const lockedTxSignature =
+        lockedExisting.tx_signature
+          ? String(lockedExisting.tx_signature)
+          : null;
+
+      /*
+      * Nothing in this request has been reserved yet, so it is safe
+      * to roll back our short transaction before returning.
+      * ROLLBACK also releases the advisory transaction lock.
+      */
+      await reservationClient.query(
+        'ROLLBACK'
+      );
+
+      if (lockedStatus === 'succeeded') {
+        return json(200, {
+          success: true,
+          deduped: true,
+          scope: isAllPhases
+            ? 'all'
+            : 'phase',
+          phase_id: isAllPhases
+            ? undefined
+            : phaseIdRaw,
+          status: 'succeeded',
+          tx_signature:
+            lockedTxSignature,
+        });
+      }
+
+      /*
+      * Another executor already owns an active reservation.
+      *
+      * Do not perform blockchain recovery here while holding the
+      * reservation path. The normal preflight recovery path will
+      * inspect its signature/lease on a subsequent retry.
+      */
+      return json(409, {
+        success: false,
+        error: 'CLAIM_ALREADY_PROCESSING',
+        status: 'created',
+        tx_signature:
+          lockedTxSignature,
+      });
+    }
+
     if (!isAllPhases) {
       const phaseId = phaseIdRaw;
 
@@ -937,7 +1817,9 @@ export async function POST(req: NextRequest) {
           status,
           idempotency_key,
           request_hash,
-          error
+          error,
+          execution_token,
+          execution_lease_expires_at
         )
         VALUES (
           ${wallet},
@@ -953,7 +1835,9 @@ export async function POST(req: NextRequest) {
           ${'created'},
           ${idemKeyRoot},
           ${requestHashRoot},
-          ${null}
+          ${null},
+          ${executionToken},
+          now() + (${CLAIM_EXECUTION_LEASE_SECONDS} || ' seconds')::interval
         )
         RETURNING id
       `;
@@ -980,7 +1864,7 @@ export async function POST(req: NextRequest) {
             COALESCE(SUM(cs.megy_amount_base), 0) AS snap_base
           FROM claim_snapshots cs
           JOIN scoped_wallets sw
-            ON LOWER(sw.wallet_address) = LOWER(cs.wallet_address)
+            ON sw.wallet_address = cs.wallet_address
           GROUP BY cs.wallet_address, cs.phase_id
         ),
         cls AS (
@@ -990,7 +1874,7 @@ export async function POST(req: NextRequest) {
             COALESCE(SUM(c.claim_amount_base), 0) AS claimed_base
           FROM claims c
           JOIN scoped_wallets sw
-            ON LOWER(sw.wallet_address) = LOWER(c.wallet_address)
+            ON sw.wallet_address = c.wallet_address
           WHERE c.status IN ('created','succeeded')
           GROUP BY c.wallet_address, c.phase_id
         )
@@ -1002,7 +1886,7 @@ export async function POST(req: NextRequest) {
           (s.snap_base - COALESCE(c.claimed_base, 0)) AS remaining_base
         FROM snaps s
         LEFT JOIN cls c
-          ON LOWER(c.wallet_address) = LOWER(s.wallet_address)
+          ON c.wallet_address = s.wallet_address
         AND c.phase_id = s.phase_id
         JOIN phases p
           ON p.id = s.phase_id
@@ -1195,7 +2079,9 @@ export async function POST(req: NextRequest) {
             status,
             idempotency_key,
             request_hash,
-            error
+            error,
+            execution_token,
+            execution_lease_expires_at
           )
           VALUES (
             ${a.wallet_address},
@@ -1211,7 +2097,9 @@ export async function POST(req: NextRequest) {
             ${'created'},
             ${childKey},
             ${requestHashRoot},
-            ${null}
+            ${null},
+            ${executionToken},
+            now() + (${CLAIM_EXECUTION_LEASE_SECONDS} || ' seconds')::interval
           )
           RETURNING id
         `;
@@ -1349,17 +2237,45 @@ export async function POST(req: NextRequest) {
       tx.signature
     );
 
-    await sql`
+    const signaturePersistedRows = await sql`
       UPDATE claims
-      SET tx_signature = ${expectedSignature}
+      SET
+        tx_signature = ${expectedSignature},
+        tx_last_valid_block_height =
+          ${latest.lastValidBlockHeight},
+        execution_token = NULL,
+        execution_lease_expires_at = NULL
       WHERE id = ANY(${claimRowIds})
         AND status = 'created'
+        AND execution_token = ${executionToken}
+        AND execution_lease_expires_at > now()
+      RETURNING id
     `;
 
     if (
-      ataCreatedByThisTransaction &&
-      sessionPaymentId !== null
+      signaturePersistedRows.length !==
+      claimRowIds.length
     ) {
+      throw new Error(
+        'CLAIM_EXECUTION_LEASE_LOST'
+      );
+    }
+
+    if (ataCreatedByThisTransaction) {
+      /*
+       * Treasury must never fund a newly created destination ATA
+       * unless this session carries a valid, unused ATA reimbursement
+       * entitlement.
+       *
+       * The ATA may have existed when session/start ran and been
+       * closed before execute, so execute must fail closed here.
+       */
+      if (sessionPaymentId === null) {
+        throw new Error(
+          'ATA_REIMBURSEMENT_REQUIRED'
+        );
+      }
+
       const reservedAtaPayment =
         await sql`
           UPDATE claim_fee_payments
@@ -1374,9 +2290,7 @@ export async function POST(req: NextRequest) {
           RETURNING id
         `;
 
-      if (
-        !reservedAtaPayment?.length
-      ) {
+      if (!reservedAtaPayment?.length) {
         throw new Error(
           'ATA_ENTITLEMENT_RESERVATION_FAILED'
         );
@@ -1427,60 +2341,136 @@ export async function POST(req: NextRequest) {
     const recoverySignature =
       sig || expectedSignature || null;
 
-    try {
-      if (claimRowIds.length) {
-        if (
-          !broadcastAttempted ||
-          definitiveChainFailure
-        ) {
+    /*
+    * Cleanup after an on-chain execution error.
+    *
+    * A definite failure must retire the claim rows and release any ATA
+    * reimbursement reservation atomically. An uncertain broadcast must
+    * remain in "created" state so the normal recovery path can determine
+    * the blockchain outcome safely.
+    */
+    if (claimRowIds.length) {
+      if (
+        !broadcastAttempted ||
+        definitiveChainFailure
+      ) {
+        const failureCleanupPool =
+          createDbPool();
+
+        let failureCleanupClient:
+          PoolClient | null = null;
+
+        try {
+          failureCleanupClient =
+            await failureCleanupPool.connect();
+
+          const failureCleanupSql =
+            createTransactionSql(
+              failureCleanupClient
+            );
+
+          await failureCleanupClient.query(
+            'BEGIN'
+          );
+
           /*
-           * Transaction zincire hiç gönderilmedi
-           * veya Solana işlemin kesin olarak
-           * başarısız olduğunu bildirdi.
+           * The transaction was either never broadcast or Solana
+           * definitively reported failure. The reserved claim rows
+           * can therefore be retired safely.
            */
-          await sql`
-            UPDATE claims
-            SET status = 'failed',
-                error = ${msg}
-            WHERE id = ANY(${claimRowIds})
-              AND status = 'created'
-          `;
+          await failureCleanupSql`
+                UPDATE claims
+                SET
+                  status = 'failed',
+                  error = ${msg},
+                  execution_token = NULL,
+                  execution_lease_expires_at = NULL
+                WHERE id = ANY(${claimRowIds})
+                  AND status = 'created'
+              `;
+
+          /*
+           * If this execution reserved an ATA reimbursement entitlement,
+           * release that reservation in the same DB transaction.
+           *
+           * The exact transaction signature fence prevents this cleanup
+           * from releasing an entitlement owned by another execution.
+           */
           if (
             ataCreatedByThisTransaction &&
             sessionPaymentId !== null &&
             expectedSignature
           ) {
-            await sql`
-              UPDATE claim_fee_payments
-              SET
-                ata_consumed_tx_signature =
-                  NULL
-              WHERE id =
-                ${sessionPaymentId}
-                AND ata_consumed_at IS NULL
-                AND ata_consumed_tx_signature =
-                  ${expectedSignature}
-            `;
+            await failureCleanupSql`
+                  UPDATE claim_fee_payments
+                  SET
+                    ata_consumed_tx_signature =
+                      NULL
+                  WHERE id =
+                    ${sessionPaymentId}
+                    AND ata_consumed_at IS NULL
+                    AND ata_consumed_tx_signature =
+                      ${expectedSignature}
+                `;
           }
-        } else {
-          /*
-           * Broadcast denendi ancak RPC sonucu
-           * kesin değil. Kaydı created bırakıyoruz;
-           * sonraki deneme recovery akışına girecek.
-           */
+
+          await failureCleanupClient.query(
+            'COMMIT'
+          );
+        } catch (dbError) {
+          if (failureCleanupClient) {
+            try {
+              await failureCleanupClient.query(
+                'ROLLBACK'
+              );
+            } catch (rollbackError) {
+              console.error(
+                'claim failure cleanup rollback failed:',
+                rollbackError
+              );
+            }
+          }
+
+          console.error(
+            'failed to atomically clean up interrupted claim:',
+            dbError
+          );
+        } finally {
+          failureCleanupClient?.release();
+
+          try {
+            await failureCleanupPool.end();
+          } catch (poolError) {
+            console.error(
+              'claim failure cleanup pool close failed:',
+              poolError
+            );
+          }
+        }
+      } else {
+        /*
+         * Broadcast was attempted but its outcome is uncertain.
+         *
+         * Never mark the claim failed here and never release its ATA
+         * reservation. The persisted signature + last valid block height
+         * allow the normal recovery path to resolve the transaction later.
+         */
+        try {
           await sql`
-            UPDATE claims
-            SET error = ${`TRANSFER_STATUS_UNKNOWN:${msg}`}
-            WHERE id = ANY(${claimRowIds})
-              AND status = 'created'
-          `;
+                UPDATE claims
+                SET
+                  error =
+                    ${`TRANSFER_STATUS_UNKNOWN:${msg}`}
+                WHERE id = ANY(${claimRowIds})
+                  AND status = 'created'
+              `;
+        } catch (dbError) {
+          console.error(
+            'failed to record uncertain claim status:',
+            dbError
+          );
         }
       }
-    } catch (dbError) {
-      console.error(
-        'failed to update interrupted claim:',
-        dbError
-      );
     }
 
     if (
@@ -1522,6 +2512,7 @@ export async function POST(req: NextRequest) {
             error = NULL
         WHERE id = ANY(${claimRowIds})
           AND status = 'created'
+          AND tx_signature = ${sig}
         RETURNING
           id,
           session_id,
@@ -1546,15 +2537,23 @@ export async function POST(req: NextRequest) {
           MEGY_DECIMALS
         );
 
-      await finalizeSql`
-        UPDATE claim_sessions
-        SET total_claimed_in_session =
-          COALESCE(
-            total_claimed_in_session,
-            0
-          ) + ${transitionedHuman}
-        WHERE id = ${sessionId}
-      `;
+      const updatedSessionRows =
+        await finalizeSql`
+          UPDATE claim_sessions
+          SET total_claimed_in_session =
+            COALESCE(
+              total_claimed_in_session,
+              0
+            ) + ${transitionedHuman}
+          WHERE id = ${sessionId}
+          RETURNING id
+        `;
+
+      if (updatedSessionRows.length !== 1) {
+        throw new Error(
+          'CLAIM_SESSION_FINALIZE_MISMATCH'
+        );
+      }
     }
 
     if (
@@ -1589,8 +2588,8 @@ export async function POST(req: NextRequest) {
               ) AS snap_base
             FROM claim_snapshots cs
             JOIN scoped_wallets sw
-              ON LOWER(sw.wallet_address) =
-                LOWER(cs.wallet_address)
+              ON sw.wallet_address =
+                cs.wallet_address
           ),
           cls AS (
             SELECT
@@ -1600,8 +2599,8 @@ export async function POST(req: NextRequest) {
               ) AS claimed_base
             FROM claims c
             JOIN scoped_wallets sw
-              ON LOWER(sw.wallet_address) =
-                LOWER(c.wallet_address)
+              ON sw.wallet_address =
+                c.wallet_address
             WHERE c.status IN (
               'created',
               'succeeded'
