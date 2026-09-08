@@ -22,7 +22,10 @@ function toId(params: any): number {
   return Number.isFinite(id) ? id : 0;
 }
 
-async function settlePhaseFlowAfterOpen(maxRounds = 6) {
+async function settlePhaseFlowAfterOpen(
+  isTest: boolean,
+  maxRounds = 6
+) {
   const rounds: Array<{
     round: number;
     allocator: any;
@@ -43,7 +46,10 @@ async function settlePhaseFlowAfterOpen(maxRounds = 6) {
     let advanceErr: string | null = null;
 
     try {
-      allocatorRes = await allocateQueueFIFO({ maxSteps: 20 });
+      allocatorRes = await allocateQueueFIFO({
+        maxSteps: 20,
+        isTest,
+      });
       lastAllocator = allocatorRes;
       lastAllocatorError = null;
     } catch (e: any) {
@@ -53,7 +59,9 @@ async function settlePhaseFlowAfterOpen(maxRounds = 6) {
     }
 
     try {
-      advanceRes = await advancePhases();
+      advanceRes = await advancePhases({
+        isTest,
+      });
       lastAdvance = advanceRes;
       lastAdvanceError = null;
     } catch (e: any) {
@@ -103,26 +111,14 @@ export async function POST(req: NextRequest, ctx: any) {
 
     await sql`BEGIN`;
 
-    const activeRows = (await sql`
-      SELECT id
-      FROM phases
-      WHERE status='active'
-      LIMIT 1
-      FOR UPDATE
-    `) as any[];
-
-    if (activeRows?.length) {
-      await sql`ROLLBACK`;
-      return NextResponse.json(
-        { success: false, error: 'ACTIVE_PHASE_EXISTS' },
-        { status: 409 }
-      );
-    }
-
     const targetRows = (await sql`
-      SELECT id, status, phase_no
+      SELECT
+        id,
+        status,
+        phase_no,
+        is_test
       FROM phases
-      WHERE id=${phaseId}
+      WHERE id = ${phaseId}
       LIMIT 1
       FOR UPDATE
     `) as any[];
@@ -134,6 +130,26 @@ export async function POST(req: NextRequest, ctx: any) {
       return NextResponse.json(
         { success: false, error: 'PHASE_NOT_FOUND' },
         { status: 404 }
+      );
+    }
+
+    const isTest =
+      Boolean(target.is_test);
+
+    const activeRows = (await sql`
+        SELECT id
+        FROM phases
+        WHERE status = 'active'
+          AND is_test = ${isTest}
+        LIMIT 1
+        FOR UPDATE
+      `) as any[];
+
+    if (activeRows?.length) {
+      await sql`ROLLBACK`;
+      return NextResponse.json(
+        { success: false, error: 'ACTIVE_PHASE_EXISTS' },
+        { status: 409 }
       );
     }
 
@@ -150,8 +166,9 @@ export async function POST(req: NextRequest, ctx: any) {
     const nextRows = (await sql`
       SELECT id, phase_no
       FROM phases
-      WHERE (status IS NULL OR status='planned')
+      WHERE (status IS NULL OR status = 'planned')
         AND snapshot_taken_at IS NULL
+        AND is_test = ${isTest}
       ORDER BY phase_no ASC
       LIMIT 1
       FOR UPDATE
@@ -197,7 +214,11 @@ export async function POST(req: NextRequest, ctx: any) {
     let phaseFlowRounds: any[] = [];
 
     try {
-      const flow = await settlePhaseFlowAfterOpen(6);
+      const flow =
+        await settlePhaseFlowAfterOpen(
+          isTest,
+          6
+        );
       allocator = flow.allocator;
       allocatorError = flow.allocatorError;
       phaseAdvance = flow.phaseAdvance;
@@ -223,7 +244,7 @@ export async function POST(req: NextRequest, ctx: any) {
   } catch (err: unknown) {
     try {
       await sql`ROLLBACK`;
-    } catch {}
+    } catch { }
 
     const { status, body } = httpErrorFrom(err, 500);
     return NextResponse.json(body, { status });

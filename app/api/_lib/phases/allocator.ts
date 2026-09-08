@@ -47,7 +47,9 @@ async function releaseAllocatorLock(key: string) {
   await sql`SELECT pg_advisory_unlock(${key}::bigint)`;
 }
 
-async function getActivePhaseForUpdate() {
+async function getActivePhaseForUpdate(
+  isTest: boolean
+) {
   // IMPORTANT:
   // Only 'active' phases can receive new allocations.
   // Reviewing/completed phases are intentionally excluded.
@@ -56,7 +58,9 @@ async function getActivePhaseForUpdate() {
   const rows = (await sql/* sql */`
     SELECT id, phase_no, status, COALESCE(target_usd, 0)::numeric AS target_usd
     FROM phases
-    WHERE status = 'active' AND snapshot_taken_at IS NULL
+    WHERE status = 'active'
+      AND snapshot_taken_at IS NULL
+      AND is_test = ${isTest}
     ORDER BY phase_no ASC
     LIMIT 1
     FOR UPDATE
@@ -65,7 +69,10 @@ async function getActivePhaseForUpdate() {
   return rows?.[0] ?? null;
 }
 
-async function openNextPlannedPhase(cursorPhaseNo: number | null) {
+async function openNextPlannedPhase(
+  cursorPhaseNo: number | null,
+  isTest: boolean
+) {
   const rows = (await sql/* sql */`
     UPDATE phases
     SET
@@ -77,6 +84,7 @@ async function openNextPlannedPhase(cursorPhaseNo: number | null) {
       FROM phases
       WHERE (status IS NULL OR status = 'planned')
         AND snapshot_taken_at IS NULL
+        AND is_test = ${isTest}
         ${cursorPhaseNo == null ? sql`` : sql`AND phase_no > ${cursorPhaseNo}`}
       ORDER BY phase_no ASC
       LIMIT 1
@@ -97,7 +105,9 @@ async function computeUsedUsd(phaseId: number) {
   return num(rows?.[0]?.used_usd, 0);
 }
 
-async function hasQueue() {
+async function hasQueue(
+  isTest: boolean
+) {
   const rows = (await sql/* sql */`
     SELECT 1
     FROM contributions c
@@ -116,7 +126,8 @@ async function hasQueue() {
     ) a ON TRUE
 
     WHERE c.phase_id IS NULL
-      AND COALESCE(c.alloc_status, 'unassigned')
+    AND c.is_test = ${isTest}  
+    AND COALESCE(c.alloc_status, 'unassigned')
           IN ('unassigned', 'partial', 'pending')
       AND COALESCE(c.network, 'solana') = 'solana'
       AND COALESCE(c.usd_value, 0)::numeric > 0
@@ -134,7 +145,10 @@ async function hasQueue() {
   return !!rows?.[0];
 }
 
-async function hasWork(_activePhaseId: number | null) {
+async function hasWork(
+  _activePhaseId: number | null,
+  isTest: boolean
+) {
   const rows = (await sql/* sql */`
     SELECT 1
     FROM contributions c
@@ -154,6 +168,7 @@ async function hasWork(_activePhaseId: number | null) {
 
     WHERE COALESCE(c.network, 'solana') = 'solana'
       AND COALESCE(c.usd_value, 0)::numeric > 0
+      AND c.is_test = ${isTest}
       AND COALESCE(c.alloc_status, 'unassigned')
           IN ('unassigned', 'partial', 'pending')
       AND COALESCE(c.usd_value, 0)::numeric
@@ -202,7 +217,11 @@ async function maybeMarkReviewing(phaseId: number) {
   return true;
 }
 
-async function allocateIntoPhaseSplitFIFO(phaseId: number, remainingPhaseUsd: number | null) {
+async function allocateIntoPhaseSplitFIFO(
+  phaseId: number,
+  remainingPhaseUsd: number | null,
+  isTest: boolean
+) {
   // remainingPhaseUsd: null => unlimited
   const eps = 1e-9;
 
@@ -251,7 +270,8 @@ async function allocateIntoPhaseSplitFIFO(phaseId: number, remainingPhaseUsd: nu
     
       WHERE COALESCE(c.alloc_status, 'unassigned')
               IN ('unassigned', 'partial', 'pending')
-        AND COALESCE(c.network, 'solana') = 'solana'
+        AND c.is_test = ${isTest}
+              AND COALESCE(c.network, 'solana') = 'solana'
         AND COALESCE(c.usd_value, 0)::numeric
             > COALESCE(a.usd_alloc, 0)::numeric
         AND COALESCE(c.usd_value, 0)::numeric > 0
@@ -341,7 +361,13 @@ async function allocateIntoPhaseSplitFIFO(phaseId: number, remainingPhaseUsd: nu
   return movedAllocRows;
 }
 
-export async function allocateQueueFIFO(opts?: { maxSteps?: number }): Promise<AllocateResult> {
+export async function allocateQueueFIFO(
+  opts: {
+    maxSteps?: number;
+    isTest: boolean;
+  }
+): Promise<AllocateResult> {
+  const isTest = opts.isTest;
   const maxSteps = Math.max(1, Math.min(50, Number(opts?.maxSteps ?? 20)));
 
   const lockKey = await acquireAllocatorLock();
@@ -352,10 +378,17 @@ export async function allocateQueueFIFO(opts?: { maxSteps?: number }): Promise<A
     await sql`BEGIN`;
 
     // We may have "stuck" unassigned rows already inside the active phase even if queue is empty.
-    let preActive = await getActivePhaseForUpdate();
+    let preActive =
+      await getActivePhaseForUpdate(
+        isTest
+      );
     const preActiveId = preActive?.id ? Number(preActive.id) : null;
 
-    const work = await hasWork(preActiveId);
+    const work =
+      await hasWork(
+        preActiveId,
+        isTest
+      );
     if (!work) {
       await sql`COMMIT`;
       return {
@@ -371,10 +404,17 @@ export async function allocateQueueFIFO(opts?: { maxSteps?: number }): Promise<A
     // Allocation loop only moves work forward into active phases.
     // It never backfills reviewing/completed phases, even if they later show spare capacity.
     for (let step = 0; step < maxSteps; step++) {
-      let active = await getActivePhaseForUpdate();
+      let active =
+        await getActivePhaseForUpdate(
+          isTest
+        );
 
       if (!active) {
-        const opened = await openNextPlannedPhase(cursorPhaseNo);
+        const opened =
+          await openNextPlannedPhase(
+            cursorPhaseNo,
+            isTest
+          );
         if (!opened?.id) {
           phases_touched.push({ phase_id: 0, phase_no: 0, status: '-', moved: 0, reason: 'NO_PLANNED' });
           break;
@@ -402,7 +442,12 @@ export async function allocateQueueFIFO(opts?: { maxSteps?: number }): Promise<A
         continue;
       }
 
-      const movedStep = await allocateIntoPhaseSplitFIFO(phaseId, remaining);
+      const movedStep =
+        await allocateIntoPhaseSplitFIFO(
+          phaseId,
+          remaining,
+          isTest
+        );
       moved_total += movedStep;
 
       // After moving, if it becomes full, mark reviewing
@@ -420,7 +465,10 @@ export async function allocateQueueFIFO(opts?: { maxSteps?: number }): Promise<A
 
       cursorPhaseNo = phaseNo;
 
-      const stillQueue = await hasQueue();
+      const stillQueue =
+        await hasQueue(
+          isTest
+        );
       if (!stillQueue) break;
     }
 
@@ -428,9 +476,9 @@ export async function allocateQueueFIFO(opts?: { maxSteps?: number }): Promise<A
 
     return { success: true, moved_total, phases_touched, version: ALLOCATOR_VERSION };
   } catch (e) {
-    try { await sql`ROLLBACK`; } catch {}
+    try { await sql`ROLLBACK`; } catch { }
     throw e;
   } finally {
-    try { await releaseAllocatorLock(lockKey); } catch {}
+    try { await releaseAllocatorLock(lockKey); } catch { }
   }
 }

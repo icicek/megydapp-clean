@@ -29,6 +29,8 @@ import {
   getAssociatedTokenAddress,
   createAssociatedTokenAccountInstruction,
   createTransferInstruction,
+  getMint,
+  getAccount,
 } from '@solana/spl-token';
 
 neonConfig.webSocketConstructor = ws;
@@ -40,6 +42,15 @@ const SESSION_MAX_AGE_MINUTES = Number(process.env.CLAIM_SESSION_MAX_AGE_MINUTES
 
 const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
 const MAX_SESSION_ID_LENGTH = 200;
+
+/*
+ * Solana mainnet-beta genesis hash.
+ *
+ * Live MEGY claims must never execute against devnet,
+ * testnet, or an accidentally misconfigured RPC endpoint.
+ */
+const SOLANA_MAINNET_GENESIS_HASH =
+  '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
 
 /*
  * A claim reservation owns execution only for a short period before
@@ -117,17 +128,33 @@ function asDbRow(
     : {};
 }
 
-function loadKeypair(): Keypair {
-  const raw = String(process.env.MEGY_TREASURY_SECRET_KEY || '').trim();
-  if (!raw) throw new Error('MISSING_TREASURY_SECRET');
+function loadClaimDistributionKeypair(): Keypair {
+  const raw = String(
+    process.env.MEGY_CLAIM_DISTRIBUTION_SECRET_KEY || ''
+  ).trim();
+
+  if (!raw) {
+    throw new Error(
+      'MISSING_MEGY_CLAIM_DISTRIBUTION_SECRET'
+    );
+  }
 
   if (raw.startsWith('[')) {
     const arr = JSON.parse(raw);
-    return Keypair.fromSecretKey(Uint8Array.from(arr));
+
+    return Keypair.fromSecretKey(
+      Uint8Array.from(arr)
+    );
   }
 
-  const buf = Buffer.from(raw, 'base64');
-  return Keypair.fromSecretKey(new Uint8Array(buf));
+  const buf = Buffer.from(
+    raw,
+    'base64'
+  );
+
+  return Keypair.fromSecretKey(
+    new Uint8Array(buf)
+  );
 }
 
 function sha256Hex(s: string): string {
@@ -2172,13 +2199,307 @@ export async function POST(req: NextRequest) {
     const mintPk = new PublicKey(MEGY_MINT);
     const conn =
       getServerSolanaConnection();
-    const treasurySigner = loadKeypair();
-    const treasuryOwner = treasurySigner.publicKey;
+
+    /*
+    * Launch-readiness guard:
+    * Live MEGY distribution is mainnet-only.
+    *
+    * Verify the cluster cryptographically via its genesis hash
+    * instead of trusting an RPC URL or provider name.
+    */
+    let solanaGenesisHash: string;
+
+    try {
+      solanaGenesisHash =
+        await conn.getGenesisHash();
+    } catch (networkError) {
+      console.error(
+        'Solana cluster validation failed:',
+        networkError
+      );
+
+      throw new Error(
+        'SOLANA_CLUSTER_VALIDATION_FAILED'
+      );
+    }
+
+    if (
+      solanaGenesisHash !==
+      SOLANA_MAINNET_GENESIS_HASH
+    ) {
+      console.error(
+        'Solana cluster mismatch:',
+        {
+          expected:
+            SOLANA_MAINNET_GENESIS_HASH,
+          actual:
+            solanaGenesisHash,
+        }
+      );
+
+      throw new Error(
+        'SOLANA_MAINNET_REQUIRED'
+      );
+    }
+
+    /*
+     * Launch-readiness guard:
+     * Never trust MEGY_MINT configuration alone in live mode.
+     * The configured address must resolve on-chain to a real SPL mint,
+     * and its decimals must exactly match Coincarnation's configured
+     * MEGY decimals before any treasury transaction is prepared.
+     */
+    let megyMintInfo;
+
+    try {
+      megyMintInfo = await getMint(
+        conn,
+        mintPk,
+        'confirmed'
+      );
+    } catch (mintError) {
+      console.error(
+        'MEGY mint validation failed:',
+        mintError
+      );
+
+      throw new Error(
+        'MEGY_MINT_ONCHAIN_VALIDATION_FAILED'
+      );
+    }
+
+    if (megyMintInfo.decimals !== MEGY_DECIMALS) {
+      console.error(
+        'MEGY mint decimals mismatch:',
+        {
+          configured: MEGY_DECIMALS,
+          onChain: megyMintInfo.decimals,
+          mint: mintPk.toBase58(),
+        }
+      );
+
+      throw new Error(
+        'MEGY_MINT_DECIMALS_MISMATCH'
+      );
+    }
+
+    const distributionSigner =
+      loadClaimDistributionKeypair();
+
+    const distributionOwner =
+      distributionSigner.publicKey;
+
+    const expectedDistributionRaw = String(
+      process.env.MEGY_CLAIM_DISTRIBUTION_ADDRESS || ''
+    ).trim();
+
+    if (!expectedDistributionRaw) {
+      throw new Error(
+        'MISSING_MEGY_CLAIM_DISTRIBUTION_ADDRESS'
+      );
+    }
+
+    let expectedDistribution: PublicKey;
+
+    try {
+      expectedDistribution =
+        new PublicKey(
+          expectedDistributionRaw
+        );
+    } catch {
+      throw new Error(
+        'INVALID_MEGY_CLAIM_DISTRIBUTION_ADDRESS'
+      );
+    }
+
+    if (
+      !distributionOwner.equals(
+        expectedDistribution
+      )
+    ) {
+      console.error(
+        'MEGY claim distribution signer mismatch:',
+        {
+          expected:
+            expectedDistribution.toBase58(),
+          derived:
+            distributionOwner.toBase58(),
+        }
+      );
+
+      throw new Error(
+        'MEGY_CLAIM_DISTRIBUTION_SIGNER_MISMATCH'
+      );
+    }
 
     const destPk = new PublicKey(destination);
 
-    const fromAta = await getAssociatedTokenAddress(mintPk, treasuryOwner, false);
-    const toAta = await getAssociatedTokenAddress(mintPk, destPk, false);
+    const fromAta = await getAssociatedTokenAddress(
+      mintPk,
+      distributionOwner,
+      false
+    );
+
+    const toAta = await getAssociatedTokenAddress(
+      mintPk,
+      destPk,
+      false
+    );
+
+    /*
+    * Source-account integrity guard:
+    * The derived Claim Distribution Treasury ATA must be
+    * an actual SPL token account owned by the configured
+    * Claim Distribution Treasury and tied to MEGY_MINT.
+    */
+    let claimDistributionTokenAccount;
+
+    try {
+      claimDistributionTokenAccount =
+        await getAccount(
+          conn,
+          fromAta,
+          'confirmed'
+        );
+    } catch (accountError) {
+      console.error(
+        'MEGY claim distribution token account integrity check failed:',
+        {
+          distribution: distributionOwner.toBase58(),
+          ata: fromAta.toBase58(),
+          error: accountError,
+        }
+      );
+
+      throw new Error(
+        'MEGY_CLAIM_DISTRIBUTION_TOKEN_ACCOUNT_INVALID'
+      );
+    }
+
+    if (
+      !claimDistributionTokenAccount.owner.equals(
+        distributionOwner
+      )
+    ) {
+      console.error(
+        'MEGY claim distribution token account owner mismatch:',
+        {
+          expectedOwner:
+            distributionOwner.toBase58(),
+          actualOwner:
+            claimDistributionTokenAccount.owner.toBase58(),
+          ata: fromAta.toBase58(),
+        }
+      );
+
+      throw new Error(
+        'MEGY_CLAIM_DISTRIBUTION_TOKEN_OWNER_MISMATCH'
+      );
+    }
+
+    if (
+      !claimDistributionTokenAccount.mint.equals(
+        mintPk
+      )
+    ) {
+      console.error(
+        'MEGY claim distribution token account mint mismatch:',
+        {
+          expectedMint:
+            mintPk.toBase58(),
+          actualMint:
+            claimDistributionTokenAccount.mint.toBase58(),
+          ata: fromAta.toBase58(),
+        }
+      );
+
+      throw new Error(
+        'MEGY_CLAIM_DISTRIBUTION_TOKEN_MINT_MISMATCH'
+      );
+    }
+
+    /*
+     * Launch-readiness guard:
+     * The hot Claim Distribution Treasury must already have
+     * a valid MEGY token account and enough MEGY to satisfy
+     * the requested claim before a transaction is prepared.
+     *
+     * Coincarnation must never fall back to the Reserve Treasury.
+     */
+    let claimDistributionTokenBalance;
+
+    try {
+      claimDistributionTokenBalance =
+        await conn.getTokenAccountBalance(
+          fromAta,
+          'confirmed'
+        );
+    } catch (balanceError) {
+      console.error(
+        'MEGY claim distribution token account validation failed:',
+        {
+          distribution: distributionOwner.toBase58(),
+          ata: fromAta.toBase58(),
+          error: balanceError,
+        }
+      );
+
+      throw new Error(
+        'MEGY_CLAIM_DISTRIBUTION_ATA_NOT_READY'
+      );
+    }
+
+    const distributionAmountRaw =
+      claimDistributionTokenBalance.value.amount;
+
+    let distributionAmountBase: bigint;
+
+    try {
+      distributionAmountBase =
+        BigInt(distributionAmountRaw);
+    } catch {
+      throw new Error(
+        'MEGY_CLAIM_DISTRIBUTION_BALANCE_INVALID'
+      );
+    }
+
+    if (
+      claimDistributionTokenBalance.value.decimals !==
+      MEGY_DECIMALS
+    ) {
+      console.error(
+        'MEGY claim distribution token decimals mismatch:',
+        {
+          configured: MEGY_DECIMALS,
+          tokenAccount:
+            claimDistributionTokenBalance.value.decimals,
+          distribution: distributionOwner.toBase58(),
+          ata: fromAta.toBase58(),
+        }
+      );
+
+      throw new Error(
+        'MEGY_CLAIM_DISTRIBUTION_TOKEN_DECIMALS_MISMATCH'
+      );
+    }
+
+    if (distributionAmountBase < amountBaseTotal) {
+      console.error(
+        'MEGY claim distribution balance insufficient:',
+        {
+          distribution: distributionOwner.toBase58(),
+          ata: fromAta.toBase58(),
+          availableBase:
+            distributionAmountBase.toString(),
+          requiredBase:
+            amountBaseTotal.toString(),
+        }
+      );
+
+      throw new Error(
+        'MEGY_CLAIM_DISTRIBUTION_INSUFFICIENT_BALANCE'
+      );
+    }
 
     const instructions:
       TransactionInstruction[] = [];
@@ -2194,7 +2515,7 @@ export async function POST(req: NextRequest) {
 
       instructions.push(
         createAssociatedTokenAccountInstruction(
-          treasuryOwner,
+          distributionOwner,
           toAta,
           destPk,
           mintPk
@@ -2206,7 +2527,7 @@ export async function POST(req: NextRequest) {
       createTransferInstruction(
         fromAta,
         toAta,
-        treasuryOwner,
+        distributionOwner,
         amountBaseTotal
       )
     );
@@ -2215,12 +2536,99 @@ export async function POST(req: NextRequest) {
       new Transaction().add(
         ...instructions
       );
-    tx.feePayer = treasuryOwner;
+    tx.feePayer = distributionOwner;
 
     const latest = await conn.getLatestBlockhash('confirmed');
     tx.recentBlockhash = latest.blockhash;
 
-    tx.sign(treasurySigner);
+    /*
+    * Launch-readiness guard:
+    * The Claim Distribution Treasury must have enough SOL
+    * to pay the network fee for this exact transaction.
+    *
+    * When the destination ATA does not exist, the transaction
+    * also contains ATA creation. Account rent is funded by the
+    * treasury as part of that instruction, so include the
+    * required token-account rent in the readiness check.
+    */
+    const distributionSolBalance =
+      await conn.getBalance(
+        distributionOwner,
+        'confirmed'
+      );
+
+    const feeForMessage =
+      await conn.getFeeForMessage(
+        tx.compileMessage(),
+        'confirmed'
+      );
+
+    if (
+      feeForMessage.value === null ||
+      !Number.isSafeInteger(
+        feeForMessage.value
+      ) ||
+      feeForMessage.value < 0
+    ) {
+      throw new Error(
+        'MEGY_CLAIM_DISTRIBUTION_NETWORK_FEE_UNAVAILABLE'
+      );
+    }
+
+    let requiredDistributionLamports =
+      feeForMessage.value;
+
+    if (ataCreatedByThisTransaction) {
+      const ataRentLamports =
+        await conn.getMinimumBalanceForRentExemption(
+          165,
+          'confirmed'
+        );
+
+      if (
+        !Number.isSafeInteger(
+          ataRentLamports
+        ) ||
+        ataRentLamports <= 0
+      ) {
+        throw new Error(
+          'MEGY_CLAIM_DISTRIBUTION_ATA_RENT_UNAVAILABLE'
+        );
+      }
+
+      requiredDistributionLamports +=
+        ataRentLamports;
+    }
+
+    if (
+      !Number.isSafeInteger(
+        distributionSolBalance
+      ) ||
+      distributionSolBalance <
+      requiredDistributionLamports
+    ) {
+      console.error(
+        'MEGY claim distribution SOL balance insufficient:',
+        {
+          distribution:
+            distributionOwner.toBase58(),
+          availableLamports:
+            distributionSolBalance,
+          requiredLamports:
+            requiredDistributionLamports,
+          networkFeeLamports:
+            feeForMessage.value,
+          ataCreationRequired:
+            ataCreatedByThisTransaction,
+        }
+      );
+
+      throw new Error(
+        'MEGY_CLAIM_DISTRIBUTION_INSUFFICIENT_SOL'
+      );
+    }
+
+    tx.sign(distributionSigner);
 
     if (!tx.signature) {
       throw new Error(

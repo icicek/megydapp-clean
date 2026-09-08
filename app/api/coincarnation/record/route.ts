@@ -47,6 +47,13 @@ const sql =
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
+const PUBLIC_COINCARNATION_IS_TEST =
+  String(
+    process.env.COINCARNATION_PUBLIC_MODE ?? 'test'
+  )
+    .trim()
+    .toLowerCase() !== 'production';
+
 const IS_PROD =
   process.env.VERCEL_ENV === 'production' ||
   process.env.NODE_ENV === 'production';
@@ -121,11 +128,11 @@ type ParsedTransactionResult = {
       accountKeys?: Array<
         | string
         | {
-            pubkey?: string | {
-              toString(): string;
-            };
-            signer?: boolean;
-          }
+          pubkey?: string | {
+            toString(): string;
+          };
+          signer?: boolean;
+        }
       >;
     };
   };
@@ -292,7 +299,7 @@ async function verifySolanaTransferOrThrow(p: {
     const signer = typeof k === 'string' ? false : !!k?.signer;
     return signer && pk === fromWallet;
   });
-  
+
   if (!signerHit) {
     throw new Error('FROM_WALLET_NOT_SIGNER');
   }
@@ -423,7 +430,10 @@ async function waitForSolanaConfirm(
   return false;
 }
 
-async function settlePhaseFlow(maxRounds = 6) {
+async function settlePhaseFlow(
+  maxRounds: number,
+  isTest: boolean
+) {
   const rounds: Array<{
     round: number;
     allocator: any;
@@ -437,30 +447,59 @@ async function settlePhaseFlow(maxRounds = 6) {
   let lastAdvance: any = null;
   let lastAdvanceError: string | null = null;
 
-  for (let round = 1; round <= maxRounds; round++) {
+  for (
+    let round = 1;
+    round <= maxRounds;
+    round++
+  ) {
     let allocatorRes: any = null;
     let allocatorErr: string | null = null;
     let advanceRes: any = null;
     let advanceErr: string | null = null;
 
     try {
-      allocatorRes = await allocateQueueFIFO({ maxSteps: 20 });
+      allocatorRes =
+        await allocateQueueFIFO({
+          maxSteps: 20,
+          isTest,
+        });
+
       lastAllocator = allocatorRes;
       lastAllocatorError = null;
     } catch (e: any) {
-      allocatorErr = String(e?.message || e);
-      lastAllocatorError = allocatorErr;
-      console.error(`❌ allocator failed in settlePhaseFlow round ${round}:`, allocatorErr, e);
+      allocatorErr =
+        String(e?.message || e);
+
+      lastAllocatorError =
+        allocatorErr;
+
+      console.error(
+        `❌ allocator failed in settlePhaseFlow round ${round}:`,
+        allocatorErr,
+        e
+      );
     }
 
     try {
-      advanceRes = await advancePhases();
+      advanceRes =
+        await advancePhases({
+          isTest,
+        });
+
       lastAdvance = advanceRes;
       lastAdvanceError = null;
     } catch (e: any) {
-      advanceErr = String(e?.message || e);
-      lastAdvanceError = advanceErr;
-      console.warn(`⚠️ advance failed in settlePhaseFlow round ${round}:`, advanceErr, e);
+      advanceErr =
+        String(e?.message || e);
+
+      lastAdvanceError =
+        advanceErr;
+
+      console.warn(
+        `⚠️ advance failed in settlePhaseFlow round ${round}:`,
+        advanceErr,
+        e
+      );
     }
 
     rounds.push({
@@ -471,15 +510,30 @@ async function settlePhaseFlow(maxRounds = 6) {
       phaseAdvanceError: advanceErr,
     });
 
-    const movedTotal = Number(allocatorRes?.moved_total ?? 0);
-    const changed = !!advanceRes?.changed;
-    const opened = Array.isArray(advanceRes?.openedPhaseIds) ? advanceRes.openedPhaseIds.length : 0;
+    const movedTotal =
+      Number(
+        allocatorRes?.moved_total ?? 0
+      );
+
+    const changed =
+      !!advanceRes?.changed;
+
+    const opened =
+      Array.isArray(
+        advanceRes?.openedPhaseIds
+      )
+        ? advanceRes.openedPhaseIds.length
+        : 0;
 
     // Stop when the system is stable:
     // - allocator moved nothing
     // - lifecycle did not change
     // - no new phase was opened
-    if (movedTotal <= 0 && !changed && opened <= 0) {
+    if (
+      movedTotal <= 0 &&
+      !changed &&
+      opened <= 0
+    ) {
       break;
     }
   }
@@ -487,9 +541,11 @@ async function settlePhaseFlow(maxRounds = 6) {
   return {
     rounds,
     allocator: lastAllocator,
-    allocatorError: lastAllocatorError,
+    allocatorError:
+      lastAllocatorError,
     phaseAdvance: lastAdvance,
-    phaseAdvanceError: lastAdvanceError,
+    phaseAdvanceError:
+      lastAdvanceError,
   };
 }
 
@@ -634,7 +690,7 @@ export async function POST(req: NextRequest) {
       console.error(
         '[COINCARNATION_RECORD] Missing env: COINCARNE_TREASURY_SOL'
       );
-    
+
       return NextResponse.json(
         {
           success: false,
@@ -709,7 +765,7 @@ export async function POST(req: NextRequest) {
         amount: tokenAmountNum,
         dest: COINCARNE_TREASURY_WALLET,
       });
-      
+
       try {
         await verifySolanaTransferOrThrow({
           signature: String(transaction_signature).trim(),
@@ -854,7 +910,7 @@ export async function POST(req: NextRequest) {
           if (
             identityReferralRows.length > 0 &&
             String(identityReferralRows[0].wallet_address).toLowerCase() !==
-              String(wallet_address).toLowerCase()
+            String(wallet_address).toLowerCase()
           ) {
             referrerWallet = String(identityReferralRows[0].wallet_address);
           } else {
@@ -869,7 +925,7 @@ export async function POST(req: NextRequest) {
             if (
               legacyReferralRows.length > 0 &&
               String(legacyReferralRows[0].wallet_address).toLowerCase() !==
-                String(wallet_address).toLowerCase()
+              String(wallet_address).toLowerCase()
             ) {
               referrerWallet = String(legacyReferralRows[0].wallet_address);
             }
@@ -966,7 +1022,7 @@ export async function POST(req: NextRequest) {
       sig,
       hash,
       networkNorm,
-    });        
+    });
 
     // ——— CONTRIBUTIONS: INSERT (deterministic + safe) ———
     let insertedId: number | null = null;
@@ -981,7 +1037,7 @@ export async function POST(req: NextRequest) {
       console.log(
         '⚙️ conflict mode:',
         hash ? 'hash (network, tx_hash)' : 'sig (network, transaction_signature)'
-      );      
+      );
 
       if (hash) {
         insertResult = await sql`
@@ -991,14 +1047,14 @@ export async function POST(req: NextRequest) {
             transaction_signature, tx_hash, tx_block,
             idempotency_key, user_agent, "timestamp",
             referral_code, referrer_wallet, asset_kind,
-            phase_id, alloc_phase_no, alloc_status, alloc_updated_at
+            phase_id, alloc_phase_no, alloc_status, alloc_updated_at, is_test
           ) VALUES (
             ${wallet_address}, ${token_symbol}, ${tokenContractFinal}, ${networkNorm},
             ${tokenAmountNum}, ${usdValueNum},
             ${sig}, ${hash}, ${tx_block ?? null},
             ${idemKey}, ${user_agent || ''}, NOW(),
             ${contribReferralCode}, ${contribReferrerWallet}, ${assetKindFinal},
-            ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW()
+            ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW(), ${PUBLIC_COINCARNATION_IS_TEST}
           )
           ON CONFLICT ON CONSTRAINT contributions_network_txhash_key DO NOTHING
           RETURNING id;
@@ -1011,14 +1067,14 @@ export async function POST(req: NextRequest) {
             transaction_signature, tx_hash, tx_block,
             idempotency_key, user_agent, "timestamp",
             referral_code, referrer_wallet, asset_kind,
-            phase_id, alloc_phase_no, alloc_status, alloc_updated_at
+            phase_id, alloc_phase_no, alloc_status, alloc_updated_at, is_test
           ) VALUES (
             ${wallet_address}, ${token_symbol}, ${tokenContractFinal}, ${networkNorm},
             ${tokenAmountNum}, ${usdValueNum},
             ${sig}, NULL, ${tx_block ?? null},
             ${idemKey}, ${user_agent || ''}, NOW(),
             ${contribReferralCode}, ${contribReferrerWallet}, ${assetKindFinal},
-            ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW()
+            ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW(), ${PUBLIC_COINCARNATION_IS_TEST}
           )
           ON CONFLICT ON CONSTRAINT contributions_network_signature_key DO NOTHING
           RETURNING id;
@@ -1035,24 +1091,46 @@ export async function POST(req: NextRequest) {
       // If DO NOTHING happened, fetch existing id and treat as duplicate success
       if (!insertedId) {
         const exists = await sql`
-          SELECT id
+          SELECT
+            id,
+            is_test
           FROM contributions
           WHERE network = ${networkNorm}
             AND (
               (${hash} IS NOT NULL AND tx_hash = ${hash})
               OR
-              (${sig}  IS NOT NULL AND transaction_signature = ${sig})
+              (${sig} IS NOT NULL AND transaction_signature = ${sig})
             )
           LIMIT 1
         `;
 
         if (exists?.length) {
-          const existingId = Number(exists[0].id);
+          const existingId =
+            Number(exists[0].id);
+
+          const existingIsTest =
+            Boolean(exists[0].is_test);
+
+          if (
+            existingIsTest !==
+            PUBLIC_COINCARNATION_IS_TEST
+          ) {
+            return NextResponse.json(
+              {
+                success: false,
+                error:
+                  'CONTRIBUTION_SCOPE_MISMATCH',
+              },
+              { status: 409 }
+            );
+          }
+
           return NextResponse.json({
             success: true,
             duplicate: true,
             id: existingId,
-            transaction_signature: txHashOrSig,
+            transaction_signature:
+              txHashOrSig,
             tx_id: String(existingId),
             txId: String(existingId),
           });
@@ -1088,7 +1166,10 @@ export async function POST(req: NextRequest) {
     let phaseFlowRounds: any[] = [];
 
     try {
-      const flow = await settlePhaseFlow(6);
+      const flow = await settlePhaseFlow(
+        6,
+        PUBLIC_COINCARNATION_IS_TEST
+      );
 
       allocator = flow.allocator;
       allocatorError = flow.allocatorError;
@@ -1208,7 +1289,7 @@ export async function POST(req: NextRequest) {
           AND network = ${networkNorm}
       `;
       number = result[0]?.id ?? 0;
-    } catch {}
+    } catch { }
 
     console.log('[RECORDTIMING] total:success', {
       elapsed: `${Date.now() - t0}ms`,
@@ -1221,11 +1302,11 @@ export async function POST(req: NextRequest) {
       id: insertedId,
       number,
       referral_code: userReferralCode,
-    
+
       transaction_signature: txHashOrSig,
       tx_id: stableTxId,
       txId: stableTxId,
-    
+
       message: '✅ Coincarnation recorded',
       allocator,
       allocator2,
@@ -1235,7 +1316,7 @@ export async function POST(req: NextRequest) {
       recompute: null,
       phaseAdvance: adv ?? null,
 
-    });    
+    });
   } catch (error: any) {
     console.error('❌ Record API Error:', error?.message || error);
     console.log('[RECORDTIMING] total:error', {

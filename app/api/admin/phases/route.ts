@@ -36,6 +36,11 @@ export async function POST(req: NextRequest) {
     const pool_megy = asNum(body?.pool_megy);
     const rate_usd_per_megy = asNum(body?.rate_usd_per_megy);
 
+    const is_test =
+      body?.is_test === false
+        ? false
+        : true;
+
     if (!name) {
       return NextResponse.json(
         { success: false, error: 'NAME_REQUIRED' },
@@ -69,8 +74,13 @@ export async function POST(req: NextRequest) {
         id,
         phase_no,
         name,
-        COALESCE(rate_usd_per_megy, rate, 0)::numeric AS prev_rate
+        COALESCE(
+          rate_usd_per_megy,
+          rate,
+          0
+        )::numeric AS prev_rate
       FROM phases
+      WHERE is_test = ${is_test}
       ORDER BY phase_no DESC, id DESC
       LIMIT 1
       FOR UPDATE
@@ -121,6 +131,7 @@ export async function POST(req: NextRequest) {
         status,
         pool_megy,
         rate_usd_per_megy,
+        is_test,
         created_at,
         updated_at
       )
@@ -130,6 +141,7 @@ export async function POST(req: NextRequest) {
         'planned',
         ${pool_megy},
         ${rate_usd_per_megy},
+        ${is_test},
         NOW(),
         NOW()
       )
@@ -141,12 +153,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       phase: rows?.[0] ?? null,
-      message: 'Phase created successfully.',
+      scope: is_test
+        ? 'test'
+        : 'production',
+      message: is_test
+        ? 'Test phase created successfully.'
+        : 'Production phase created successfully.',
     });
   } catch (err: unknown) {
     try {
       await sql`ROLLBACK`;
-    } catch {}
+    } catch { }
 
     const { status, body } = httpErrorFrom(err, 500);
     return NextResponse.json(body, { status });
@@ -154,7 +171,7 @@ export async function POST(req: NextRequest) {
     if (lockKey) {
       try {
         await sql`SELECT pg_advisory_unlock(${lockKey}::bigint)`;
-      } catch {}
+      } catch { }
     }
   }
 }

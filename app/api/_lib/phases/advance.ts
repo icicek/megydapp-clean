@@ -31,7 +31,9 @@ const EPS = 1e-9;
 
 // ---- helpers ----
 
-async function findOneActiveForUpdate() {
+async function findOneActiveForUpdate(
+  isTest: boolean
+) {
   const a = (await sql/* sql */`
     SELECT
       id,
@@ -46,20 +48,25 @@ async function findOneActiveForUpdate() {
     FROM phases
     WHERE status = 'active'
       AND snapshot_taken_at IS NULL
+      AND is_test = ${isTest}
     ORDER BY phase_no ASC, id ASC
     LIMIT 1
     FOR UPDATE
   `) as any[];
+
   return a?.[0] ?? null;
 }
 
-async function openFirstPlannedForUpdate() {
+async function openFirstPlannedForUpdate(
+  isTest: boolean
+) {
   const r = (await sql/* sql */`
     WITH candidate AS (
       SELECT id
       FROM phases
       WHERE snapshot_taken_at IS NULL
         AND (status IS NULL OR status = 'planned')
+        AND is_test = ${isTest}
       ORDER BY phase_no ASC, id ASC
       LIMIT 1
       FOR UPDATE
@@ -82,10 +89,14 @@ async function openFirstPlannedForUpdate() {
         0
       )::numeric AS target_usd
   `) as any[];
+
   return r?.[0] ?? null;
 }
 
-async function openNextPlannedAfterForUpdate(activePhaseNo: number) {
+async function openNextPlannedAfterForUpdate(
+  activePhaseNo: number,
+  isTest: boolean
+) {
   const r = (await sql/* sql */`
     WITH candidate AS (
       SELECT id
@@ -93,6 +104,7 @@ async function openNextPlannedAfterForUpdate(activePhaseNo: number) {
       WHERE snapshot_taken_at IS NULL
         AND (status IS NULL OR status = 'planned')
         AND phase_no > ${activePhaseNo}
+        AND is_test = ${isTest}
       ORDER BY phase_no ASC, id ASC
       LIMIT 1
       FOR UPDATE
@@ -149,14 +161,23 @@ async function computeUsedUsdFromAllocations(phaseId: number): Promise<number> {
 }
 
 /**
- * Safety: multiple actives -> keep smallest phase_no, demote others to reviewing.
+ * Safety:
+ * Within one scope, if multiple active phases somehow exist,
+ * keep the smallest phase_no active and demote the others
+ * back to planned.
  */
-async function fixMultipleActivesKeepFirst(): Promise<{ changed: boolean; note?: string }> {
+async function fixMultipleActivesKeepFirst(
+  isTest: boolean
+): Promise<{
+  changed: boolean;
+  note?: string;
+}> {
   const actives = (await sql/* sql */`
     SELECT id, phase_no
     FROM phases
     WHERE status = 'active'
       AND snapshot_taken_at IS NULL
+      AND is_test = ${isTest}
     ORDER BY phase_no ASC, id ASC
     FOR UPDATE
   `) as any[];
@@ -178,6 +199,7 @@ async function fixMultipleActivesKeepFirst(): Promise<{ changed: boolean; note?:
         updated_at = NOW()
       WHERE id = ANY(${dropIds}::bigint[])
         AND snapshot_taken_at IS NULL
+        AND is_test = ${isTest}
     `;
   }
 
@@ -189,83 +211,174 @@ async function fixMultipleActivesKeepFirst(): Promise<{ changed: boolean; note?:
 
 // ---- main ----
 
-export async function advancePhases(): Promise<AdvanceResult> {
-  // global lock
-  const lockKey = (BigInt(942003) * BigInt(1_000_000_000)).toString();
+// ---- main ----
 
-  await sql`SELECT pg_advisory_lock(${lockKey}::bigint)`;
+export async function advancePhases(
+  opts: {
+    isTest: boolean;
+  }
+): Promise<AdvanceResult> {
+  const isTest = opts.isTest;
+
+  // Global lock intentionally remains shared between scopes.
+  const lockKey = (
+    BigInt(942003) *
+    BigInt(1_000_000_000)
+  ).toString();
+
+  await sql`
+    SELECT pg_advisory_lock(
+      ${lockKey}::bigint
+    )
+  `;
+
   try {
     await sql`BEGIN`;
 
     let changed = false;
+
     const openedPhaseIds: number[] = [];
 
-    // 1) safety: multiple actives fix
-    const fix = await fixMultipleActivesKeepFirst();
-    if (fix.changed) changed = true;
+    // 1) Safety:
+    // Keep at most one active phase inside this scope.
+    const fix =
+      await fixMultipleActivesKeepFirst(
+        isTest
+      );
 
-    // 2) ensure there is an active phase if planned exists
-    let active = await findOneActiveForUpdate();
+    if (fix.changed) {
+      changed = true;
+    }
+
+    // 2) Ensure this scope has an active phase
+    // if a planned phase exists.
+    let active =
+      await findOneActiveForUpdate(
+        isTest
+      );
+
     if (!active) {
-      const opened = await openFirstPlannedForUpdate();
+      const opened =
+        await openFirstPlannedForUpdate(
+          isTest
+        );
+
       if (opened?.id) {
-        openedPhaseIds.push(Number(opened.id));
+        openedPhaseIds.push(
+          Number(opened.id)
+        );
+
         changed = true;
         active = opened;
       }
     }
 
-    // 3) if active is full -> move to reviewing and open next planned (chain)
-    // Note:
-    // reviewing phases are not reopened later, even if blacklist/invalidation
-    // causes their effective allocated usd to drop below target.
-    for (let guard = 0; guard < 25; guard++) {
-      active = await findOneActiveForUpdate();
-      if (!active?.id) break;
+    // 3) If the active phase is full:
+    // move it to reviewing and open the
+    // next planned phase in the SAME scope.
+    //
+    // Reviewing phases are never reopened,
+    // even if later blacklist/invalidation
+    // reduces their effective allocated USD.
+    for (
+      let guard = 0;
+      guard < 25;
+      guard++
+    ) {
+      active =
+        await findOneActiveForUpdate(
+          isTest
+        );
 
-      const activeId = Number(active.id);
-      const activeNo = Number(active.phase_no);
-      const targetUsd = n(active.target_usd, 0);
+      if (!active?.id) {
+        break;
+      }
 
-      // target 0 => never “full”
-      if (targetUsd <= 0) break;
+      const activeId =
+        Number(active.id);
 
-      const usedUsd = await computeUsedUsdFromAllocations(activeId);
+      const activeNo =
+        Number(active.phase_no);
 
-      if (usedUsd + EPS < targetUsd) break;
+      const targetUsd =
+        n(active.target_usd, 0);
 
-      // active is full => reviewing
-      await markReviewing(activeId);
+      // target 0 => never considered full
+      if (targetUsd <= 0) {
+        break;
+      }
+
+      const usedUsd =
+        await computeUsedUsdFromAllocations(
+          activeId
+        );
+
+      if (
+        usedUsd + EPS <
+        targetUsd
+      ) {
+        break;
+      }
+
+      // Active phase is full.
+      await markReviewing(
+        activeId
+      );
+
       changed = true;
 
-      const next = await openNextPlannedAfterForUpdate(activeNo);
-      if (!next?.id) break;
+      const next =
+        await openNextPlannedAfterForUpdate(
+          activeNo,
+          isTest
+        );
 
-      openedPhaseIds.push(Number(next.id));
+      if (!next?.id) {
+        break;
+      }
+
+      openedPhaseIds.push(
+        Number(next.id)
+      );
+
       changed = true;
 
-      // loop continues in case next already full (rare)
+      // Loop continues in case the next
+      // phase is already full (rare).
     }
 
-    // final active
-    const finalActive = (await sql/* sql */`
-      SELECT id, phase_no
-      FROM phases
-      WHERE status = 'active'
-        AND snapshot_taken_at IS NULL
-      ORDER BY phase_no ASC, id ASC
-      LIMIT 1
-    `) as any[];
+    // Final active phase in this scope.
+    const finalActive =
+      (await sql/* sql */`
+        SELECT
+          id,
+          phase_no
+        FROM phases
+        WHERE status = 'active'
+          AND snapshot_taken_at IS NULL
+          AND is_test = ${isTest}
+        ORDER BY
+          phase_no ASC,
+          id ASC
+        LIMIT 1
+      `) as any[];
 
-    const fa = finalActive?.[0] ?? null;
+    const fa =
+      finalActive?.[0] ?? null;
 
     await sql`COMMIT`;
 
     return {
       success: true,
       changed,
-      activePhaseId: fa?.id ? Number(fa.id) : null,
-      activePhaseNo: fa?.phase_no ? Number(fa.phase_no) : null,
+      activePhaseId:
+        fa?.id
+          ? Number(fa.id)
+          : null,
+      activePhaseNo:
+        fa?.phase_no
+          ? Number(fa.phase_no)
+          : null,
       openedPhaseIds,
       movedUnassigned: 0,
       note: fix.note,
@@ -273,9 +386,14 @@ export async function advancePhases(): Promise<AdvanceResult> {
   } catch (e) {
     try {
       await sql`ROLLBACK`;
-    } catch {}
+    } catch { }
+
     throw e;
   } finally {
-    await sql`SELECT pg_advisory_unlock(${lockKey}::bigint)`;
+    await sql`
+      SELECT pg_advisory_unlock(
+        ${lockKey}::bigint
+      )
+    `;
   }
 }

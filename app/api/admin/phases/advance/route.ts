@@ -25,12 +25,30 @@ export async function POST(req: NextRequest) {
   try {
     await requireAdmin(req as any);
 
-    const adv = await advancePhases();
+    const body =
+      await req.json().catch(() => ({}));
+
+    if (typeof body?.is_test !== 'boolean') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'PHASE_SCOPE_REQUIRED',
+        },
+        { status: 400 }
+      );
+    }
+    
+    const adv = await advancePhases({
+      isTest: body.is_test,
+    });
 
     return NextResponse.json({
       success: true,
       phaseAdvance: adv,
       recompute: null,
+      scope: body.is_test
+        ? 'test'
+        : 'production',
       message:
         'Phase lifecycle advanced successfully. Allocation recompute is not triggered automatically in the modern phase architecture.',
     });
