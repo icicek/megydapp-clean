@@ -243,6 +243,7 @@ export default function AdminPhasesPage() {
 
   const [busyId, setBusyId] = useState<number | null>(null);
   const [advancing, setAdvancing] = useState(false);
+  const [isTestScope, setIsTestScope] = useState(true);
 
   const actives = useMemo(() => rows.filter((r) => r.status === 'active'), [rows]);
   const active = actives[0] ?? null;
@@ -276,12 +277,18 @@ export default function AdminPhasesPage() {
     setLoading(true);
     setMsg(null);
     try {
-      const j1 = await getJSON<{ success: boolean; phases: PhaseRow[]; queue?: any }>('/api/phases/list');
+      const j1 = await getJSON<{
+        success: boolean;
+        phases: PhaseRow[];
+        queue?: any;
+      }>(
+        `/api/admin/phases?is_test=${isTestScope ? 'true' : 'false'}`
+      );
 
       if (!j1?.success) {
         throw new Error('PHASES_LIST_FAILED');
       }
-      
+
       const phases = Array.isArray(j1?.phases) ? j1.phases : [];
       const normalized = phases.map((p) => ({
         ...p,
@@ -306,19 +313,19 @@ export default function AdminPhasesPage() {
       setMsg('⏳ Checking admin wallet...');
       return false;
     }
-  
+
     if (!canRunCriticalAdminAction) {
       setMsg(`⚠️ ${guardMessage || 'Admin wallet verification failed.'}`);
       return false;
     }
-  
+
     return true;
   }
 
   useEffect(() => {
     if (adminGuardLoading) return;
     void refresh();
-  }, [adminGuardLoading]);
+  }, [adminGuardLoading, isTestScope]);
 
   async function createPhase() {
     if (!ensureCriticalAdminAccess()) return;
@@ -330,6 +337,7 @@ export default function AdminPhasesPage() {
         name: normalizeName(name),
         pool_megy: Number(pool),
         rate_usd_per_megy: Number(rate),
+        is_test: isTestScope,
       };
 
       const j = await sendJSON<CreatePhaseResponse>('/api/admin/phases', 'POST', body);
@@ -468,7 +476,7 @@ export default function AdminPhasesPage() {
         scrollToPhase(id);
         setMsg(
           j?.message ||
-            `✅ Snapshot complete — Phase #${j?.phaseNo ?? id} is now completed.`
+          `✅ Snapshot complete — Phase #${j?.phaseNo ?? id} is now completed.`
         );
       } else {
         setMsg(`❌ ${j?.error || 'SNAPSHOT_FAILED'}`);
@@ -497,7 +505,9 @@ export default function AdminPhasesPage() {
 
     try {
       const ok = confirmAction(
-        'Finalize this completed phase?\n\nThis will approve the snapshot after consistency checks.'
+        isTestScope
+          ? 'Finalize this TEST phase?\n\nThis will approve the snapshot after consistency checks. No production MEGY issuance authorization will be created.'
+          : 'FINALIZE PRODUCTION PHASE?\n\nThis will approve the snapshot after consistency checks and authorize MEGY issuance for this production phase.\n\nContinue only if the phase data has been fully reviewed.'
       );
       if (!ok) return;
 
@@ -564,7 +574,11 @@ export default function AdminPhasesPage() {
     setAdvancing(true);
 
     try {
-      const j = await sendJSON<AdvanceResponse>(`/api/admin/phases/advance`, 'POST');
+      const j = await sendJSON<AdvanceResponse>(
+        `/api/admin/phases/advance`,
+        'POST',
+        { is_test: isTestScope }
+      );
 
       await refresh();
 
@@ -602,6 +616,33 @@ export default function AdminPhasesPage() {
             <p className="text-xs text-white/60 mt-1">
               Manage planned, active, reviewing, completed, and finalized phases.
             </p>
+            <div className="mt-3 inline-flex rounded-xl border border-white/10 bg-white/5 p-1">
+              <button
+                type="button"
+                onClick={() => setIsTestScope(true)}
+                className={[
+                  'px-3 py-1.5 rounded-lg text-xs font-semibold transition',
+                  isTestScope
+                    ? 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-200'
+                    : 'text-white/60 hover:text-white',
+                ].join(' ')}
+              >
+                Test
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsTestScope(false)}
+                className={[
+                  'px-3 py-1.5 rounded-lg text-xs font-semibold transition',
+                  !isTestScope
+                    ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-200'
+                    : 'text-white/60 hover:text-white',
+                ].join(' ')}
+              >
+                Production
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -618,7 +659,7 @@ export default function AdminPhasesPage() {
               disabled={saving || advancing}
               className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm disabled:opacity-50"
             >
-              + Add Phase
+              {isTestScope ? '+ Add Test Phase' : '+ Add Production Phase'}
             </button>
           </div>
         </div>
@@ -636,6 +677,18 @@ export default function AdminPhasesPage() {
           </div>
         )}
 
+        {!isTestScope && (
+          <div className={`${CARD} border-emerald-500/20 bg-emerald-500/10`}>
+            <div className="text-sm font-semibold text-emerald-100">
+              Production phase scope
+            </div>
+
+            <div className="mt-1 text-xs text-emerald-200/80">
+              You are managing real production phases. Finalizing a completed
+              production phase can authorize MEGY issuance.
+            </div>
+          </div>
+        )}
         {msg && <div className={`${CARD} text-sm`}>{msg}</div>}
         {loading && <div className={`${CARD} text-sm text-white/70`}>Loading…</div>}
 
@@ -812,8 +865,8 @@ export default function AdminPhasesPage() {
                                 <div className="mt-1 text-[10px] text-white/40">
                                   {wUsed.toLocaleString(undefined, { maximumFractionDigits: 4 })} /{' '}
                                   {target.toLocaleString()} •{' '}
-                                  {Number((p as any).used_wallets ?? 0).toLocaleString()} wallets •{' '}
-                                  {Number((p as any).used_rows ?? 0).toLocaleString()} rows
+                                  {Number((p as any).alloc_wallets ?? 0).toLocaleString()} wallets •{' '}
+                                  {Number((p as any).alloc_rows ?? 0).toLocaleString()} rows
                                 </div>
                               </div>
 
@@ -845,15 +898,15 @@ export default function AdminPhasesPage() {
 
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
-                        {(isReviewing || isCompleted || isActive) && (
-                          <Link
-                            href={`/admin/phase-review?phaseId=${p.phase_id}`}
-                            className="px-3 py-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/15 text-xs text-violet-100"
-                            title="Review tokens coincarned in this phase"
-                          >
-                            Review Tokens
-                          </Link>
-                        )}
+                          {(isReviewing || isCompleted || isActive) && (
+                            <Link
+                              href={`/admin/phase-review?phaseId=${p.phase_id}`}
+                              className="px-3 py-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/15 text-xs text-violet-100"
+                              title="Review tokens coincarned in this phase"
+                            >
+                              Review Tokens
+                            </Link>
+                          )}
                           {isPlanned && !isCompleted && (
                             <>
                               <button
@@ -1049,11 +1102,11 @@ export default function AdminPhasesPage() {
                 </div>
 
                 <div className="text-[11px] text-white/55">
-                {!isValidPhaseName(name) && name.trim() !== '' && (
-                  <div className="text-[11px] text-yellow-300">
-                    Phase name must be between 1 and 80 characters.
-                  </div>
-                )}
+                  {!isValidPhaseName(name) && name.trim() !== '' && (
+                    <div className="text-[11px] text-yellow-300">
+                      Phase name must be between 1 and 80 characters.
+                    </div>
+                  )}
                   Rule: new planned phase rate cannot be lower than the previous phase rate.
                 </div>
 
