@@ -51,6 +51,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         id,
         phase_no,
         status,
+        is_test,
         snapshot_taken_at,
         finalized_at,
         COALESCE(
@@ -81,6 +82,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       phaseId: Number(phase.id),
       phaseNo: Number(phase.phase_no ?? 0),
       status: String(phase.status ?? ''),
+      scope: Boolean(phase.is_test)
+        ? 'test'
+        : 'production',
       targetUsd: Number(phase.target_usd ?? 0),
       snapshotTakenAt: phase.snapshot_taken_at ?? null,
       finalizedAt: phase.finalized_at ?? null,

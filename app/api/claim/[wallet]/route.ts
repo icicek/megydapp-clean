@@ -684,21 +684,39 @@ export async function GET(req: NextRequest) {
         cs.created_at,
         cs.coincarnator_no
       FROM claim_snapshots cs
-      JOIN phases p ON p.id = cs.phase_id
+      JOIN phases p
+        ON p.id = cs.phase_id
       WHERE cs.wallet_address = ANY(${claimWallets})
+        AND p.is_test = FALSE
+        AND p.snapshot_taken_at IS NOT NULL
+        AND p.finalized_at IS NOT NULL
       ORDER BY p.phase_no DESC, cs.created_at DESC;
     `) as ClaimSnapshotRow[];
 
     const claimsByPhase = (await sql/* sql */`
       SELECT
-        phase_id,
-        COALESCE(SUM(claim_amount), 0)::float AS claimed,
-        COALESCE(SUM(claim_amount_base), 0) AS claimed_base
-      FROM claims
-      WHERE wallet_address = ANY(${claimWallets})
-        AND status IN ('created', 'succeeded')
-      GROUP BY phase_id
-      ORDER BY phase_id DESC;
+        c.phase_id,
+        COALESCE(
+          SUM(c.claim_amount),
+          0
+        )::float AS claimed,
+        COALESCE(
+          SUM(c.claim_amount_base),
+          0
+        ) AS claimed_base
+      FROM claims c
+      JOIN phases p
+        ON p.id = c.phase_id
+      WHERE c.wallet_address = ANY(${claimWallets})
+        AND p.is_test = FALSE
+        AND p.snapshot_taken_at IS NOT NULL
+        AND p.finalized_at IS NOT NULL
+        AND c.status IN (
+          'created',
+          'succeeded'
+        )
+      GROUP BY c.phase_id
+      ORDER BY c.phase_id DESC;
     `) as ClaimByPhaseRow[];
 
     /*
@@ -713,68 +731,96 @@ export async function GET(req: NextRequest) {
           WITH snaps AS (
             SELECT
               COALESCE(
-                SUM(megy_amount_base),
+                SUM(cs.megy_amount_base),
                 0
               ) AS snap_base
-            FROM claim_snapshots
-            WHERE wallet_address =
+            FROM claim_snapshots cs
+            JOIN phases p
+              ON p.id = cs.phase_id
+            WHERE cs.wallet_address =
               ANY(${claimWallets})
-              AND phase_id =
+              AND cs.phase_id =
                 ${requestedPhaseId}
+              AND p.is_test = FALSE
+              AND p.snapshot_taken_at IS NOT NULL
+              AND p.finalized_at IS NOT NULL
           ),
           cls AS (
             SELECT
               COALESCE(
-                SUM(claim_amount_base),
+                SUM(c.claim_amount_base),
                 0
               ) AS claimed_base
-            FROM claims
-            WHERE wallet_address =
+            FROM claims c
+            JOIN phases p
+              ON p.id = c.phase_id
+            WHERE c.wallet_address =
               ANY(${claimWallets})
-              AND phase_id =
+              AND c.phase_id =
                 ${requestedPhaseId}
-              AND status IN (
+              AND p.is_test = FALSE
+              AND p.snapshot_taken_at IS NOT NULL
+              AND p.finalized_at IS NOT NULL
+              AND c.status IN (
                 'created',
                 'succeeded'
               )
           )
           SELECT
-            (SELECT snap_base FROM snaps)
-              AS snap_base,
-            (SELECT claimed_base FROM cls)
-              AS claimed_base;
-        `
+            (
+              SELECT snap_base
+              FROM snaps
+            ) AS snap_base,
+            (
+              SELECT claimed_base
+              FROM cls
+            ) AS claimed_base;
+      `
       : await sql/* sql */`
           WITH snaps AS (
             SELECT
               COALESCE(
-                SUM(megy_amount_base),
+                SUM(cs.megy_amount_base),
                 0
               ) AS snap_base
-            FROM claim_snapshots
-            WHERE wallet_address =
+            FROM claim_snapshots cs
+            JOIN phases p
+              ON p.id = cs.phase_id
+            WHERE cs.wallet_address =
               ANY(${claimWallets})
+              AND p.is_test = FALSE
+              AND p.snapshot_taken_at IS NOT NULL
+              AND p.finalized_at IS NOT NULL
           ),
           cls AS (
             SELECT
               COALESCE(
-                SUM(claim_amount_base),
+                SUM(c.claim_amount_base),
                 0
               ) AS claimed_base
-            FROM claims
-            WHERE wallet_address =
+            FROM claims c
+            JOIN phases p
+              ON p.id = c.phase_id
+            WHERE c.wallet_address =
               ANY(${claimWallets})
-              AND status IN (
+              AND p.is_test = FALSE
+              AND p.snapshot_taken_at IS NOT NULL
+              AND p.finalized_at IS NOT NULL
+              AND c.status IN (
                 'created',
                 'succeeded'
               )
           )
           SELECT
-            (SELECT snap_base FROM snaps)
-              AS snap_base,
-            (SELECT claimed_base FROM cls)
-              AS claimed_base;
-        `;
+            (
+              SELECT snap_base
+              FROM snaps
+            ) AS snap_base,
+            (
+              SELECT claimed_base
+              FROM cls
+            ) AS claimed_base;
+      `;
 
     const exactSnapshotBase =
       BigInt(

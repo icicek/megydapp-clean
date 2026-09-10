@@ -38,6 +38,7 @@ export async function GET(_req: NextRequest) {
           )::numeric AS target_usd_num
         FROM phases p
         WHERE p.snapshot_taken_at IS NULL
+          AND p.is_test = FALSE
       ),
       phase_alloc_totals AS (
         SELECT
@@ -70,6 +71,7 @@ export async function GET(_req: NextRequest) {
       FROM contributions c
       LEFT JOIN token_registry tr ON tr.mint = c.token_contract
       WHERE c.phase_id IS NULL
+        AND c.is_test = FALSE  
         AND COALESCE(c.alloc_status,'unassigned') = 'unassigned'
         AND COALESCE(c.network,'solana') = 'solana'
         AND COALESCE(c.usd_value,0)::numeric > 0
@@ -90,6 +92,7 @@ export async function GET(_req: NextRequest) {
       FROM contributions c
       LEFT JOIN token_registry tr ON tr.mint = c.token_contract
       WHERE COALESCE(c.network,'solana') = 'solana'
+        AND c.is_test = FALSE  
         AND COALESCE(c.usd_value,0)::numeric > 0
         AND COALESCE(c.alloc_status,'unassigned') <> 'snapshotted'
         AND (
@@ -105,6 +108,7 @@ export async function GET(_req: NextRequest) {
       FROM phases
       WHERE status = 'active'
         AND snapshot_taken_at IS NULL
+        AND is_test = FALSE
       ORDER BY phase_no ASC, id ASC
       LIMIT 1;
     `;
@@ -157,7 +161,7 @@ export async function GET(_req: NextRequest) {
           created_at: r.created_at ?? null,
           updated_at: r.updated_at ?? null,
         };
-    });
+      });
 
     return NextResponse.json({
       success: true,

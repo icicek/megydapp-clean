@@ -34,9 +34,13 @@ export async function POST(req: NextRequest, ctx: any) {
 
     // current planned phase
     const curRows = (await sql`
-      SELECT id, phase_no
+      SELECT
+        id,
+        phase_no,
+        is_test
       FROM phases
-      WHERE id=${id} AND (status IS NULL OR status='planned')
+      WHERE id=${id}
+        AND (status IS NULL OR status='planned')
       FOR UPDATE;
     `) as any[];
 
@@ -52,13 +56,19 @@ export async function POST(req: NextRequest, ctx: any) {
       return NextResponse.json({ success: false, error: 'PHASE_NO_INVALID' }, { status: 409 });
     }
 
+    const isTest =
+      Boolean(cur.is_test);
+
     // neighbor planned phase
     let neighRows: any[] = [];
     if (dir === 'up') {
       neighRows = (await sql`
-        SELECT id, phase_no
+        SELECT
+          id,
+          phase_no
         FROM phases
         WHERE (status IS NULL OR status='planned')
+          AND is_test = ${isTest}
           AND phase_no < ${curNo}
         ORDER BY phase_no DESC
         LIMIT 1
@@ -66,9 +76,12 @@ export async function POST(req: NextRequest, ctx: any) {
       `) as any[];
     } else {
       neighRows = (await sql`
-        SELECT id, phase_no
+        SELECT
+          id,
+          phase_no
         FROM phases
         WHERE (status IS NULL OR status='planned')
+          AND is_test = ${isTest}
           AND phase_no > ${curNo}
         ORDER BY phase_no ASC
         LIMIT 1
@@ -92,12 +105,16 @@ export async function POST(req: NextRequest, ctx: any) {
     const dupCur = (await sql`
       SELECT COUNT(*)::int AS n
       FROM phases
-      WHERE phase_no=${curNo} AND id <> ${cur.id};
+      WHERE phase_no=${curNo}
+        AND is_test = ${isTest}
+        AND id <> ${cur.id};
     `) as any[];
     const dupNeigh = (await sql`
       SELECT COUNT(*)::int AS n
       FROM phases
-      WHERE phase_no=${neighNo} AND id <> ${neigh.id};
+      WHERE phase_no=${neighNo}
+        AND is_test = ${isTest}
+        AND id <> ${neigh.id};
     `) as any[];
 
     if ((dupCur?.[0]?.n ?? 0) > 0 || (dupNeigh?.[0]?.n ?? 0) > 0) {
@@ -142,7 +159,7 @@ export async function POST(req: NextRequest, ctx: any) {
   } catch (err: unknown) {
     try {
       await sql`ROLLBACK`;
-    } catch {}
+    } catch { }
     const { status, body } = httpErrorFrom(err, 500);
     return NextResponse.json(body, { status });
   }

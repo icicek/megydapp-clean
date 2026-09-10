@@ -37,6 +37,7 @@ export async function POST(req: NextRequest, ctx: any) {
           phase_no,
           status,
           snapshot_taken_at,
+          is_test,
           COALESCE(target_usd,0)::numeric AS target_usd
         FROM phases
         WHERE id = ${phaseId}
@@ -63,6 +64,49 @@ export async function POST(req: NextRequest, ctx: any) {
       }
 
       const phaseNo = Number(ph.phase_no);
+      const isTest =
+        Boolean(ph.is_test);
+
+      // Scope integrity:
+      // Every allocation finalized by this snapshot must originate
+      // from a contribution in the same test/production scope.
+      const scopeIntegrityRows =
+        (await sql/* sql */`
+          SELECT
+            COUNT(*)::int AS invalid_count
+          FROM phase_allocations pa
+          LEFT JOIN contributions c
+            ON c.id = pa.contribution_id
+          WHERE pa.phase_id = ${phaseId}
+            AND (
+              c.id IS NULL
+              OR c.is_test IS DISTINCT FROM ${isTest}
+            )
+        `) as any[];
+
+      const invalidScopeCount =
+        Number(
+          scopeIntegrityRows?.[0]?.invalid_count ?? 0
+        );
+
+      if (invalidScopeCount > 0) {
+        await sql`ROLLBACK`;
+
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'PHASE_SCOPE_INTEGRITY_FAILED',
+            phaseId,
+            scope: isTest
+              ? 'test'
+              : 'production',
+            invalidAllocations:
+              invalidScopeCount,
+          },
+          { status: 409 }
+        );
+      }
 
       // allocations totals
       const tot = (await sql/* sql */`
@@ -190,16 +234,27 @@ export async function POST(req: NextRequest, ctx: any) {
       return withDebugHeaders(
         NextResponse.json({
           success: true,
-          message: '✅ Snapshot complete (reviewing phase finalized with current allocation truth).',
+          message:
+            '✅ Snapshot complete (reviewing phase finalized with current allocation truth).',
           phaseId,
           phaseNo,
+          scope: isTest
+            ? 'test'
+            : 'production',
           snapshot_taken_at: snapshotAt,
-          totals: { usdSum, targetUsd, megySum, allocations: nAlloc },
+          totals: {
+            usdSum,
+            targetUsd,
+            megySum,
+            allocations: nAlloc,
+          },
         }),
         `/api/admin/phases/${phaseId}/snapshot`
       );
     } catch (e) {
-      try { await sql`ROLLBACK`; } catch { }
+      try {
+        await sql`ROLLBACK`;
+      } catch {}
       throw e;
     } finally {
       await sql`SELECT pg_advisory_unlock(${lockKey}::bigint)`;

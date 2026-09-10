@@ -126,7 +126,12 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
     try {
       // 1) start phase
       const start = (await sql/* sql */`
-        SELECT id, phase_no, status, snapshot_taken_at
+        SELECT
+          id,
+          phase_no,
+          status,
+          snapshot_taken_at,
+          is_test
         FROM phases
         WHERE id = ${phaseId}
         LIMIT 1
@@ -148,6 +153,8 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
       }
 
       const startNo = Number(startRow.phase_no);
+      const isTest =
+        Boolean(startRow.is_test);
 
       // 2) phases to recompute
       const phases = (await sql/* sql */`
@@ -164,7 +171,15 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
           snapshot_taken_at
         FROM phases
         WHERE phase_no >= ${startNo}
-          AND (status IS NULL OR status IN ('planned','active','reviewing'))
+          AND is_test = ${isTest}
+          AND (
+            status IS NULL
+            OR status IN (
+              'planned',
+              'active',
+              'reviewing'
+            )
+          )
           AND snapshot_taken_at IS NULL
         ORDER BY phase_no ASC, id ASC
       `) as any as Phase[];
@@ -221,8 +236,10 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
       const baselineRes = (await sql/* sql */`
         SELECT COALESCE(SUM(pa.usd_allocated), 0)::float AS usd_used
         FROM phase_allocations pa
-        JOIN phases p ON p.id = pa.phase_id
+        JOIN phases p
+          ON p.id = pa.phase_id
         WHERE p.snapshot_taken_at IS NOT NULL
+          AND p.is_test = ${isTest}
       `) as any[];
 
       const baselineUsedUsd = num(baselineRes?.[0]?.usd_used, 0);
@@ -248,6 +265,7 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
         LEFT JOIN token_registry tr ON tr.mint = c.token_contract
         WHERE
           COALESCE(c.network,'solana') = 'solana'
+          AND c.is_test = ${isTest}
           AND COALESCE(c.usd_value,0)::numeric > 0
           AND COALESCE(c.alloc_status,'unassigned') IN ('unassigned','partial','pending')
           AND (COALESCE(c.usd_value,0)::numeric > COALESCE(a.usd_alloc,0)::numeric)
@@ -351,9 +369,21 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
           WITH alloc AS (
             SELECT
               pa.contribution_id AS id,
-              COALESCE(SUM(COALESCE(pa.usd_allocated,0)::numeric),0)::numeric AS usd_alloc
+              COALESCE(
+                SUM(
+                  COALESCE(
+                    pa.usd_allocated,
+                    0
+                  )::numeric
+                ),
+                0
+              )::numeric AS usd_alloc
             FROM phase_allocations pa
-            WHERE pa.contribution_id = ANY(${touchedIds}::bigint[])
+            JOIN phases p
+              ON p.id = pa.phase_id
+            WHERE pa.contribution_id =
+              ANY(${touchedIds}::bigint[])
+              AND p.is_test = ${isTest}
             GROUP BY pa.contribution_id
           ),
           last_phase AS (
@@ -362,8 +392,11 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
               pa.phase_id,
               p.phase_no
             FROM phase_allocations pa
-            JOIN phases p ON p.id = pa.phase_id
-            WHERE pa.contribution_id = ANY(${touchedIds}::bigint[])
+            JOIN phases p
+              ON p.id = pa.phase_id
+            WHERE pa.contribution_id =
+              ANY(${touchedIds}::bigint[])
+              AND p.is_test = ${isTest}
             ORDER BY pa.contribution_id, p.phase_no DESC, pa.phase_id DESC
           )
           SELECT
@@ -512,7 +545,7 @@ export async function recomputeFromPhaseId(phaseId: number): Promise<RecomputeRe
     } catch (e) {
       try {
         await sql`ROLLBACK`;
-      } catch {}
+      } catch { }
       throw e;
     }
   } finally {

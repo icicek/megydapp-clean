@@ -508,6 +508,9 @@ async function resolveClaimFeeScope(
             p.name AS phase_name
           FROM phases p
           WHERE p.id = $2
+            AND p.is_test = FALSE
+            AND p.snapshot_taken_at IS NOT NULL
+            AND p.finalized_at IS NOT NULL
           LIMIT 1
         `,
         [
@@ -698,13 +701,16 @@ async function resolveClaimFeeScope(
           JOIN phases p
             ON p.id =
               s.phase_id
-          WHERE (
-            s.snap_base -
-            COALESCE(
-              c.claimed_base,
-              0
-            )
-          ) > 0
+          WHERE p.is_test = FALSE
+            AND p.snapshot_taken_at IS NOT NULL
+            AND p.finalized_at IS NOT NULL
+            AND (
+              s.snap_base -
+              COALESCE(
+                c.claimed_base,
+                0
+              )
+            ) > 0
           ORDER BY
             s.phase_id ASC,
             s.wallet_address ASC

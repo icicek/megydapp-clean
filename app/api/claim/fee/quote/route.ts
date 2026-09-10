@@ -668,7 +668,10 @@ export async function POST(
           p.name AS phase_name
         FROM phases p
         WHERE p.id =
-          ${phaseId}
+            ${phaseId}
+            AND p.is_test = FALSE
+            AND p.snapshot_taken_at IS NOT NULL
+            AND p.finalized_at IS NOT NULL
         LIMIT 1
       `;
 
@@ -841,14 +844,17 @@ export async function POST(
           AND c.phase_id =
             s.phase_id
         JOIN phases p
-          ON p.id =
+        ON p.id =
             s.phase_id
-        WHERE (
-          s.snap_base -
-          COALESCE(
+        WHERE p.is_test = FALSE
+        AND p.snapshot_taken_at IS NOT NULL
+        AND p.finalized_at IS NOT NULL
+        AND (
+            s.snap_base -
+            COALESCE(
             c.claimed_base,
             0
-          )
+            )
         ) > 0
         ORDER BY
           s.phase_id ASC,

@@ -6,10 +6,16 @@ export async function getLatestFinalizedPhaseId(): Promise<number | null> {
     SELECT id
     FROM phases
     WHERE snapshot_taken_at IS NOT NULL
+      AND finalized_at IS NOT NULL
+      AND is_test = FALSE
       AND LOWER(COALESCE(status_v2, '')) = 'finalized'
-    ORDER BY snapshot_taken_at DESC
+    ORDER BY finalized_at DESC, id DESC
     LIMIT 1
   `;
+
   const phase = (rows as any[])[0];
-  return phase?.id ? Number(phase.id) : null;
+
+  return phase?.id
+    ? Number(phase.id)
+    : null;
 }

@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
       FROM phases
       WHERE status = 'active'
         AND snapshot_taken_at IS NULL
+        AND is_test = FALSE
       ORDER BY phase_no ASC, id ASC
       LIMIT 1
     `) as any[];

@@ -1373,6 +1373,11 @@ export async function POST(req: NextRequest) {
                       JOIN scoped_wallets sw
                         ON sw.wallet_address =
                           cs.wallet_address
+                      JOIN phases p
+                        ON p.id = cs.phase_id
+                      WHERE p.is_test = FALSE
+                        AND p.snapshot_taken_at IS NOT NULL
+                        AND p.finalized_at IS NOT NULL
                     ),
                     cls AS (
                       SELECT
@@ -1384,42 +1389,12 @@ export async function POST(req: NextRequest) {
                       JOIN scoped_wallets sw
                         ON sw.wallet_address =
                           c.wallet_address
-                      WHERE c.status IN (
-                        'created',
-                        'succeeded'
-                      )
-                    )
-                    SELECT
-                      (
-                        SELECT snap_base
-                        FROM snaps
-                      ) AS snap_base,
-                      (
-                        SELECT claimed_base
-                        FROM cls
-                      ) AS claimed_base
-                  `
-          : await recoverySql`
-                    WITH snaps AS (
-                      SELECT
-                        COALESCE(
-                          SUM(megy_amount_base),
-                          0
-                        ) AS snap_base
-                      FROM claim_snapshots
-                      WHERE wallet_address = ${wallet}
-                        AND phase_id = ${phaseIdRaw}
-                    ),
-                    cls AS (
-                      SELECT
-                        COALESCE(
-                          SUM(claim_amount_base),
-                          0
-                        ) AS claimed_base
-                      FROM claims
-                      WHERE wallet_address = ${wallet}
-                        AND phase_id = ${phaseIdRaw}
-                        AND status IN (
+                      JOIN phases p
+                        ON p.id = c.phase_id
+                      WHERE p.is_test = FALSE
+                        AND p.snapshot_taken_at IS NOT NULL
+                        AND p.finalized_at IS NOT NULL
+                        AND c.status IN (
                           'created',
                           'succeeded'
                         )
@@ -1433,7 +1408,52 @@ export async function POST(req: NextRequest) {
                         SELECT claimed_base
                         FROM cls
                       ) AS claimed_base
-                  `;
+                  `
+          : await recoverySql`
+            WITH snaps AS (
+              SELECT
+                COALESCE(
+                  SUM(cs.megy_amount_base),
+                  0
+                ) AS snap_base
+              FROM claim_snapshots cs
+              JOIN phases p
+                ON p.id = cs.phase_id
+              WHERE cs.wallet_address = ${wallet}
+                AND cs.phase_id = ${phaseIdRaw}
+                AND p.is_test = FALSE
+                AND p.snapshot_taken_at IS NOT NULL
+                AND p.finalized_at IS NOT NULL
+            ),
+            cls AS (
+              SELECT
+                COALESCE(
+                  SUM(c.claim_amount_base),
+                  0
+                ) AS claimed_base
+              FROM claims c
+              JOIN phases p
+                ON p.id = c.phase_id
+              WHERE c.wallet_address = ${wallet}
+                AND c.phase_id = ${phaseIdRaw}
+                AND p.is_test = FALSE
+                AND p.snapshot_taken_at IS NOT NULL
+                AND p.finalized_at IS NOT NULL
+                AND c.status IN (
+                  'created',
+                  'succeeded'
+                )
+            )
+            SELECT
+              (
+                SELECT snap_base
+                FROM snaps
+              ) AS snap_base,
+              (
+                SELECT claimed_base
+                FROM cls
+              ) AS claimed_base
+          `;
 
         const recoverySnapBase =
           BigInt(
@@ -1780,6 +1800,9 @@ export async function POST(req: NextRequest) {
           p.name AS phase_name
         FROM phases p
         WHERE p.id = ${phaseId}
+          AND p.is_test = FALSE
+          AND p.snapshot_taken_at IS NOT NULL
+          AND p.finalized_at IS NOT NULL
         LIMIT 1
       `;
 
@@ -1917,7 +1940,13 @@ export async function POST(req: NextRequest) {
         AND c.phase_id = s.phase_id
         JOIN phases p
           ON p.id = s.phase_id
-        WHERE (s.snap_base - COALESCE(c.claimed_base, 0)) > 0
+        WHERE p.is_test = FALSE
+          AND p.snapshot_taken_at IS NOT NULL
+          AND p.finalized_at IS NOT NULL
+          AND (
+            s.snap_base -
+            COALESCE(c.claimed_base, 0)
+          ) > 0
         ORDER BY s.phase_id ASC, s.wallet_address ASC
       `;
 
@@ -2986,7 +3015,10 @@ export async function POST(req: NextRequest) {
     const totals = isAllPhases
       ? await finalizeSql`
           WITH scoped_wallets AS (
-            SELECT unnest(${scopedWallets}::text[]) AS wallet_address
+            SELECT
+              unnest(
+                ${scopedWallets}::text[]
+              ) AS wallet_address
           ),
           snaps AS (
             SELECT
@@ -2998,6 +3030,11 @@ export async function POST(req: NextRequest) {
             JOIN scoped_wallets sw
               ON sw.wallet_address =
                 cs.wallet_address
+            JOIN phases p
+              ON p.id = cs.phase_id
+            WHERE p.is_test = FALSE
+              AND p.snapshot_taken_at IS NOT NULL
+              AND p.finalized_at IS NOT NULL
           ),
           cls AS (
             SELECT
@@ -3009,10 +3046,15 @@ export async function POST(req: NextRequest) {
             JOIN scoped_wallets sw
               ON sw.wallet_address =
                 c.wallet_address
-            WHERE c.status IN (
-              'created',
-              'succeeded'
-            )
+            JOIN phases p
+              ON p.id = c.phase_id
+            WHERE p.is_test = FALSE
+              AND p.snapshot_taken_at IS NOT NULL
+              AND p.finalized_at IS NOT NULL
+              AND c.status IN (
+                'created',
+                'succeeded'
+              )
           )
           SELECT
             (
@@ -3024,27 +3066,37 @@ export async function POST(req: NextRequest) {
               FROM cls
             ) AS claimed_base
         `
-      : await finalizeSql`
+        : await finalizeSql`
           WITH snaps AS (
             SELECT
               COALESCE(
-                SUM(megy_amount_base),
+                SUM(cs.megy_amount_base),
                 0
               ) AS snap_base
-            FROM claim_snapshots
-            WHERE wallet_address = ${wallet}
-              AND phase_id = ${phaseIdRaw}
+            FROM claim_snapshots cs
+            JOIN phases p
+              ON p.id = cs.phase_id
+            WHERE cs.wallet_address = ${wallet}
+              AND cs.phase_id = ${phaseIdRaw}
+              AND p.is_test = FALSE
+              AND p.snapshot_taken_at IS NOT NULL
+              AND p.finalized_at IS NOT NULL
           ),
           cls AS (
             SELECT
               COALESCE(
-                SUM(claim_amount_base),
+                SUM(c.claim_amount_base),
                 0
               ) AS claimed_base
-            FROM claims
-            WHERE wallet_address = ${wallet}
-              AND phase_id = ${phaseIdRaw}
-              AND status IN (
+            FROM claims c
+            JOIN phases p
+              ON p.id = c.phase_id
+            WHERE c.wallet_address = ${wallet}
+              AND c.phase_id = ${phaseIdRaw}
+              AND p.is_test = FALSE
+              AND p.snapshot_taken_at IS NOT NULL
+              AND p.finalized_at IS NOT NULL
+              AND c.status IN (
                 'created',
                 'succeeded'
               )

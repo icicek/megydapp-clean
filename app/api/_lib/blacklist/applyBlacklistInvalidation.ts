@@ -73,6 +73,7 @@ export async function applyBlacklistInvalidation(
         ON c.id = pa.contribution_id
       JOIN phases p
         ON p.id = pa.phase_id
+      AND p.is_test = c.is_test
       WHERE c.token_contract = ${mint}
         AND COALESCE(c.network, 'solana') = 'solana'
         AND p.snapshot_taken_at IS NULL
@@ -89,8 +90,26 @@ export async function applyBlacklistInvalidation(
         SELECT
           contribution_id,
           COALESCE(SUM(COALESCE(usd_allocated,0)::numeric),0)::numeric AS usd_alloc
-        FROM phase_allocations
-        GROUP BY contribution_id
+        WITH alloc AS (
+          SELECT
+            pa.contribution_id,
+            COALESCE(
+              SUM(
+                COALESCE(
+                  pa.usd_allocated,
+                  0
+                )::numeric
+              ),
+              0
+            )::numeric AS usd_alloc
+          FROM phase_allocations pa
+          JOIN contributions c_scope
+            ON c_scope.id = pa.contribution_id
+          JOIN phases p
+            ON p.id = pa.phase_id
+          AND p.is_test = c_scope.is_test
+          GROUP BY pa.contribution_id
+        )
       )
       SELECT
         c.id AS contribution_id,
@@ -279,10 +298,16 @@ export async function applyBlacklistInvalidation(
      */
     const del = (await sql/* sql */`
       DELETE FROM phase_allocations pa
-      USING phases p
+      USING phases p, contributions c
       WHERE pa.phase_id = p.id
-        AND pa.contribution_id = ANY(${touchedContributionIds}::bigint[])
+        AND c.id = pa.contribution_id
+        AND p.is_test = c.is_test
+        AND pa.contribution_id =
+          ANY(${touchedContributionIds}::bigint[])
         AND p.snapshot_taken_at IS NULL
+      RETURNING
+        pa.contribution_id,
+        pa.phase_id
       RETURNING pa.contribution_id, pa.phase_id
     `) as any[];
 
@@ -298,9 +323,23 @@ export async function applyBlacklistInvalidation(
       remaining AS (
         SELECT
           pa.contribution_id,
-          COALESCE(SUM(COALESCE(pa.usd_allocated,0)::numeric),0)::numeric AS usd_alloc
+          COALESCE(
+            SUM(
+              COALESCE(
+                pa.usd_allocated,
+                0
+              )::numeric
+            ),
+            0
+          )::numeric AS usd_alloc
         FROM phase_allocations pa
-        WHERE pa.contribution_id = ANY(${touchedContributionIds}::bigint[])
+        JOIN contributions c_scope
+          ON c_scope.id = pa.contribution_id
+        JOIN phases p
+          ON p.id = pa.phase_id
+        AND p.is_test = c_scope.is_test
+        WHERE pa.contribution_id =
+          ANY(${touchedContributionIds}::bigint[])
         GROUP BY pa.contribution_id
       ),
       last_phase AS (

@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
         WITH target AS (
           SELECT
             c.id,
+            c.is_test,
             COALESCE(c.usd_value, 0)::numeric AS usd_value
           FROM contributions c
           ${whereSql}
@@ -60,9 +61,21 @@ export async function POST(req: NextRequest) {
         alloc AS (
           SELECT
             pa.contribution_id,
-            COALESCE(SUM(COALESCE(pa.usd_allocated,0)::numeric),0)::numeric AS usd_alloc_total
+            COALESCE(
+              SUM(
+                COALESCE(
+                  pa.usd_allocated,
+                  0
+                )::numeric
+              ),
+              0
+            )::numeric AS usd_alloc_total
           FROM phase_allocations pa
-          JOIN target t ON t.id = pa.contribution_id
+          JOIN target t
+            ON t.id = pa.contribution_id
+          JOIN phases p
+            ON p.id = pa.phase_id
+          AND p.is_test = t.is_test
           GROUP BY pa.contribution_id
         ),
         invalid AS (
@@ -74,21 +87,32 @@ export async function POST(req: NextRequest) {
           GROUP BY ci.contribution_id
         ),
         last_alloc AS (
-          SELECT DISTINCT ON (pa.contribution_id)
+          SELECT DISTINCT ON (
+            pa.contribution_id
+          )
             pa.contribution_id,
             pa.phase_id,
             p.phase_no
           FROM phase_allocations pa
-          JOIN phases p ON p.id = pa.phase_id
-          JOIN target t ON t.id = pa.contribution_id
-          ORDER BY pa.contribution_id, p.phase_no DESC, pa.created_at DESC
+          JOIN target t
+            ON t.id = pa.contribution_id
+          JOIN phases p
+            ON p.id = pa.phase_id
+          AND p.is_test = t.is_test
+          ORDER BY
+            pa.contribution_id,
+            p.phase_no DESC,
+            pa.created_at DESC
         ),
         has_snapshot AS (
           SELECT DISTINCT
             pa.contribution_id
           FROM phase_allocations pa
-          JOIN phases p ON p.id = pa.phase_id
-          JOIN target t ON t.id = pa.contribution_id
+          JOIN target t
+            ON t.id = pa.contribution_id
+          JOIN phases p
+            ON p.id = pa.phase_id
+          AND p.is_test = t.is_test
           WHERE p.snapshot_taken_at IS NOT NULL
         )
         UPDATE contributions c
