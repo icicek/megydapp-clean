@@ -1,5 +1,6 @@
 // app/api/_lib/jwt.ts
 import jwt, { JwtPayload } from 'jsonwebtoken';
+import { isAdminAllowed } from '@/app/api/_lib/admins';
 
 /** HTTP status + machine-readable code taşıyan hata türü */
 export class HttpError extends Error {
@@ -32,11 +33,17 @@ export function signAdmin(wallet: string, ttlSec = 3600) {
 function verifyAdminTokenOrThrow(token: string): string {
   const secret = ensureSecret();
   try {
-    const payload = jwt.verify(token, secret) as JwtPayload & { sub?: string };
+    const payload = jwt.verify(token, secret) as JwtPayload & {
+      sub?: string;
+      role?: string;
+    };
+
     const sub = payload?.sub;
-    if (!sub) {
+
+    if (!sub || payload?.role !== 'admin') {
       throw new HttpError(401, 'Invalid token payload', 'auth_invalid');
     }
+
     return String(sub);
   } catch (err: any) {
     // jsonwebtoken hataları isimle gelir
@@ -90,12 +97,11 @@ export async function requireAdmin(req: Request): Promise<string> {
 
   const wallet = verifyAdminTokenOrThrow(token);
 
-  // İsteğe bağlı allowlist
-  const allowed = (process.env.ADMIN_WALLETS || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (allowed.length && !allowed.includes(wallet)) {
+  // JWT geçerli olsa bile admin yetkisini her istekte yeniden doğrula.
+  // Böylece DB ∪ ENV allowlist politikası login ve API tarafında bire bir aynıdır.
+  // Ayrıca sonradan admin listesinden çıkarılan bir wallet'ın mevcut JWT'si
+  // süresi dolmadan yetkili kalamaz.
+  if (!(await isAdminAllowed(wallet))) {
     throw new HttpError(403, 'Not allowed', 'auth_forbidden');
   }
 

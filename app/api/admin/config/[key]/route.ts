@@ -2,6 +2,7 @@
 import { NextRequest } from 'next/server';
 import { sql } from '@/app/api/_lib/db';
 import { requireAdmin } from '@/app/api/_lib/jwt';
+import { verifyCsrf } from '@/app/api/_lib/csrf';
 
 // ✅ NEW: classification cache invalidation helpers
 import { invalidateClassificationCaches } from '@/app/api/_lib/classification-cache';
@@ -94,7 +95,10 @@ async function saveConfig(req: NextRequest, context: any) {
     return jsonError('Config key not allowed', 404);
   }
 
-  // admin doğrulaması
+  // Cookie tabanlı admin mutation'larını CSRF'e karşı koru.
+  verifyCsrf(req as any);
+
+  // Admin doğrulaması + güncel DB/ENV allowlist kontrolü.
   const adminWallet = await requireAdmin(req as any).catch(() => null);
   if (!adminWallet) {
     return jsonError('Admin auth required', 401);

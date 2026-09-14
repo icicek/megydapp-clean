@@ -11,30 +11,40 @@ function isPublicAdminPageRoute(pathname: string): boolean {
   return pathname === '/admin/login';
 }
 
-function isPublicAdminApiRoute(pathname: string): boolean {
-  return (
+function isPublicAdminApiRoute(pathname: string, method: string): boolean {
+  // Public login/bootstrap routes
+  if (
     pathname === '/api/admin/is-allowed' ||
     pathname === '/api/admin/whoami' ||
     pathname === '/api/admin/auth/nonce' ||
-    pathname === '/api/admin/auth/verify' ||
-    pathname === '/api/admin/config/claim_open' ||
-    pathname === '/api/admin/config/app_enabled' ||
-    pathname === '/api/admin/config/cron_enabled' ||
+    pathname === '/api/admin/auth/verify'
+  ) {
+    return true;
+  }
+
+  // These config values must be readable by the public app,
+  // but mutations still go through normal admin middleware/auth.
+  if (
+    method === 'GET' &&
+    (
+      pathname === '/api/admin/config/claim_open' ||
+      pathname === '/api/admin/config/app_enabled' ||
+      pathname === '/api/admin/config/cron_enabled'
+    )
+  ) {
+    return true;
+  }
+
+  // Machine-to-machine cron endpoints authenticate themselves
+  // with CRON_SECRET and therefore cannot require an admin cookie.
+  if (
     pathname === '/api/admin/cron/cleanup' ||
     pathname === '/api/admin/reclassify'
-  );
-}
+  ) {
+    return true;
+  }
 
-function isEnvAdmin(wallet: string): boolean {
-  const listRaw = process.env.ADMIN_WALLETS || '';
-
-  const allowed = listRaw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  if (allowed.length === 0) return false;
-  return allowed.includes(wallet);
+  return false;
 }
 
 function isProtectedPath(pathname: string): boolean {
@@ -78,7 +88,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // Public admin API routes (login/bootstrap/visibility)
-  if (isApiPath(pathname) && isPublicAdminApiRoute(pathname)) {
+  if (isApiPath(pathname) && isPublicAdminApiRoute(pathname, req.method)) {
     return NextResponse.next();
   }
 
@@ -106,14 +116,6 @@ export async function middleware(req: NextRequest) {
     if (role !== 'admin' || !wallet) {
       if (isApiPath(pathname)) {
         return buildApiAuthError('auth_invalid', 401);
-      }
-      return buildAdminLoginRedirect(req, 'not-allowed');
-    }
-
-    // Admin allowlist check for all protected admin/docs paths
-    if (!isEnvAdmin(wallet)) {
-      if (isApiPath(pathname)) {
-        return buildApiAuthError('auth_forbidden', 403);
       }
       return buildAdminLoginRedirect(req, 'not-allowed');
     }
