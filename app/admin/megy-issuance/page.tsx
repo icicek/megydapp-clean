@@ -685,6 +685,112 @@ export default function MegyIssuancePage() {
                             </div>
                         </section>
 
+                        <section
+                            className={[
+                                CARD,
+                                ledgers.length > 0
+                                    ? 'border-emerald-500/25 bg-emerald-500/5'
+                                    : 'border-sky-500/20 bg-sky-500/5',
+                            ].join(' ')}
+                        >
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <div className="text-sm font-semibold text-white">
+                                            Issuance Controls
+                                        </div>
+
+                                        {ledgers.length > 0 ? (
+                                            <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
+                                                Production Authorization Available
+                                            </span>
+                                        ) : (
+                                            <span className="rounded-full border border-sky-400/20 bg-sky-400/10 px-2.5 py-1 text-[11px] font-semibold text-sky-200">
+                                                Locked
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {ledgers.length === 0 ? (
+                                        <>
+                                            <div className="mt-3 text-sm font-medium text-white/80">
+                                                No production issuance authorization exists.
+                                            </div>
+
+                                            <p className="mt-1 max-w-2xl text-xs leading-5 text-white/50">
+                                                Issuance controls remain unavailable until a
+                                                production phase is finalized and creates an
+                                                authorized MEGY issuance ledger.
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="mt-3 text-sm font-medium text-emerald-200">
+                                                Production issuance capacity is available.
+                                            </div>
+
+                                            <p className="mt-1 max-w-2xl text-xs leading-5 text-white/50">
+                                                Minting may proceed only within the remaining
+                                                authorized capacity of an issuance ledger and
+                                                requires the MEGY Mint Authority signer.
+                                            </p>
+                                        </>
+                                    )}
+                                </div>
+
+                                <div className="shrink-0">
+                                    <div
+                                        className={[
+                                            'rounded-xl border px-4 py-3 text-xs font-semibold',
+                                            signerReady && ledgers.length > 0
+                                                ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-300'
+                                                : 'border-white/10 bg-white/5 text-white/45',
+                                        ].join(' ')}
+                                    >
+                                        {ledgers.length === 0
+                                            ? 'Awaiting Production Ledger'
+                                            : signerReady
+                                                ? 'Ready for Issuance'
+                                                : 'Mint Authority Required'}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-1 gap-2 border-t border-white/10 pt-4 text-xs sm:grid-cols-3">
+                                <div
+                                    className={
+                                        signerReady
+                                            ? 'text-emerald-300'
+                                            : 'text-white/40'
+                                    }
+                                >
+                                    {signerReady ? '✓' : '○'} Mint Authority Signer
+                                </div>
+
+                                <div
+                                    className={
+                                        ledgers.length > 0
+                                            ? 'text-emerald-300'
+                                            : 'text-white/40'
+                                    }
+                                >
+                                    {ledgers.length > 0 ? '✓' : '○'} Production
+                                    Authorization
+                                </div>
+
+                                <div
+                                    className={
+                                        signerReady && ledgers.length > 0
+                                            ? 'text-emerald-300'
+                                            : 'text-white/40'
+                                    }
+                                >
+                                    {signerReady && ledgers.length > 0 ? '✓' : '○'}{' '}
+                                    Issuance Controls
+                                </div>
+                            </div>
+                        </section>
+
                         <section>
                             <div className="mb-3">
                                 <h2 className="text-lg font-semibold">
