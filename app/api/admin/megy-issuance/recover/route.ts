@@ -393,10 +393,78 @@ export async function POST(
     }
 
     /*
-     * Already terminal states are safe idempotent responses.
-     */
+    * Terminal states are idempotent.
+    *
+    * completed is special: it is only valid if the
+    * append-only mint event exists for this intent.
+    */
+    if (intent.status === 'completed') {
+      const completedTxSignature =
+        String(
+          intent.tx_signature ?? ''
+        ).trim();
+
+      if (!completedTxSignature) {
+        throw new ApiError(
+          500,
+          'completed_intent_missing_signature'
+        );
+      }
+
+      const completedEventResult =
+        await pool.query(
+          `
+            SELECT
+              id,
+              tx_signature
+            FROM public.megy_mint_events
+            WHERE tx_signature = $1
+            LIMIT 1
+          `,
+          [completedTxSignature]
+        );
+
+      const completedEvent =
+        completedEventResult.rows[0];
+
+      if (!completedEvent) {
+        throw new ApiError(
+          500,
+          'completed_intent_missing_mint_event'
+        );
+      }
+
+      if (
+        String(
+          completedEvent.tx_signature ?? ''
+        ) !== completedTxSignature
+      ) {
+        throw new ApiError(
+          500,
+          'completed_intent_mint_event_signature_mismatch'
+        );
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          recovered: false,
+          alreadyTerminal: true,
+          intentId,
+          status: 'completed',
+          txSignature:
+            intent.tx_signature ?? null,
+        },
+        {
+          headers: {
+            'Cache-Control':
+              'no-store',
+          },
+        }
+      );
+    }
+
     if (
-      intent.status === 'completed' ||
       intent.status === 'failed' ||
       intent.status === 'expired' ||
       intent.status === 'cancelled'
@@ -406,10 +474,8 @@ export async function POST(
           success: true,
           recovered: false,
           alreadyTerminal: true,
-
           intentId,
           status: intent.status,
-
           txSignature:
             intent.tx_signature ?? null,
         },
