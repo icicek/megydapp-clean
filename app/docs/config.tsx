@@ -1474,7 +1474,7 @@ export const DOC_SECTIONS: DocSection[] = [
                 </thead>
                 <tbody>
                   {[
-                    ["MEGY", "Economic asset distributed under active rules", "Ecosystem economy"],
+                    ["MEGY", "Economic asset issued from finalized production economics", "Ecosystem economy"],
                     ["CorePoints", "Accounting unit for recognized contribution", "Proof of Value"],
                     ["PVC", "Accumulated recognized contribution", "Economic identity"],
                     ["Treasury Assets", "Capital base for future allocation", "Fair Future Fund"],
@@ -1490,31 +1490,60 @@ export const DOC_SECTIONS: DocSection[] = [
             </div>
           </div>
 
-          {/* Phase-based distribution */}
+          {/* Phase-based economic formation */}
           <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
-              Phase-based distribution
+              Phase-based economic formation
             </p>
+
             <h3 className="mt-1 text-lg font-semibold">
-              MEGY is released through participation, not a fixed calendar.
+              Production phases determine when new MEGY can become economically authorized.
             </h3>
+
+            <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/65">
+              MEGY does not enter the economy according to a fixed release calendar
+              or through direct conversion of recognized contribution. Production
+              activity is organized into phases, and each completed phase must pass
+              through snapshot, reconciliation, and finalization before bounded
+              issuance authorization can exist.
+            </p>
 
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {[
-                ["Phase 1", "Initial allocation", "First live participation data"],
-                ["Phase 2", "Adjusted allocation", "Conversion rate evolves"],
-                ["Future phases", "Dynamic allocation", "Participation-driven sustainability"],
+                [
+                  "Production phase",
+                  "Economic activity",
+                  "Eligible activity accumulates inside a defined production boundary.",
+                ],
+                [
+                  "Economic finalization",
+                  "Verified state",
+                  "The completed phase is snapshotted, reconciled, and finalized.",
+                ],
+                [
+                  "Issuance authorization",
+                  "Bounded outcome",
+                  "Finalized economics determine what new MEGY may be issued.",
+                ],
               ].map(([phase, allocation, note]) => (
-                <div key={phase} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <div
+                  key={phase}
+                  className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
+                >
                   <div className="text-sm font-bold">{phase}</div>
-                  <div className="mt-2 text-xs font-semibold text-cyan-100/80">{allocation}</div>
-                  <p className="mt-3 text-xs leading-relaxed text-white/60">{note}</p>
+                  <div className="mt-2 text-xs font-semibold text-cyan-100/80">
+                    {allocation}
+                  </div>
+                  <p className="mt-3 text-xs leading-relaxed text-white/60">
+                    {note}
+                  </p>
                 </div>
               ))}
             </div>
 
             <blockquote className="mt-5 rounded-2xl border-l-4 border-cyan-300 bg-white/[0.04] p-5 text-lg font-semibold">
-              MEGY is not released according to a fixed schedule. It is released according to recognized participation.
+              Participation creates economic activity. Finalized economic activity
+              creates issuance authorization.
             </blockquote>
           </div>
 
@@ -2576,7 +2605,7 @@ export const DOC_SECTIONS: DocSection[] = [
   {
     slug: "proof-of-value",
     title: "Proof of Value Framework",
-    updatedAt: "2026-06-16",
+    updatedAt: "2026-09-17",
     words: 650,
     summary:
       "A framework for recognizing measurable forms of contribution.",
@@ -2711,6 +2740,119 @@ export const DOC_SECTIONS: DocSection[] = [
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Economic bridge */}
+
+          <div className="relative overflow-hidden rounded-3xl border border-amber-400/20 bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-amber-500/10 p-6">
+
+            <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-amber-400/10 blur-3xl" />
+
+            <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
+
+            <div className="relative">
+
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-100/70">
+
+                From recognition to economic formation
+
+              </p>
+
+              <h3 className="mt-2 max-w-3xl text-xl font-bold leading-tight">
+
+                Proof of Value recognizes contribution. It does not automatically create MEGY.
+
+              </h3>
+
+              <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/65">
+
+                Proof of Value and MEGY issuance operate at different but complementary
+                layers of Coincarnation. Proof of Value determines how measurable
+                contribution is recognized at the participant level, while production
+                phases determine when verified economic activity has occurred at the
+                protocol level.
+
+              </p>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+
+                <div className="rounded-2xl border border-cyan-300/20 bg-black/25 p-5">
+
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/70">
+
+                    Recognition layer
+
+                  </p>
+
+                  <div className="mt-3 text-base font-bold">
+
+                    Contribution → Proof Ledger → CorePoints → PVC
+
+                  </div>
+
+                  <p className="mt-3 text-sm leading-relaxed text-white/60">
+
+                    Verified participant actions become durable records of recognized
+                    contribution. This layer preserves contribution history without
+                    treating contribution scores as money or as a measure of human worth.
+
+                  </p>
+
+                </div>
+
+                <div className="rounded-2xl border border-amber-300/20 bg-black/25 p-5">
+
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/70">
+
+                    Economic layer
+
+                  </p>
+
+                  <div className="mt-3 text-base font-bold">
+
+                    Economic Activity → Phase Finalization → Issuance Authorization
+
+                  </div>
+
+                  <p className="mt-3 text-sm leading-relaxed text-white/60">
+
+                    Verified protocol activity accumulates within production phases.
+                    Finalization may establish a bounded authorization for MEGY issuance
+                    under the protocol&apos;s tokenomics rules. Authorization and minting
+                    remain separate steps.
+
+                  </p>
+
+                </div>
+
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-purple-300/20 bg-purple-300/5 p-5">
+
+                <p className="text-sm leading-relaxed text-white/70">
+
+                  Together, these layers allow Coincarnation to preserve the history of
+                  contribution without turning recognition into money, while allowing
+                  the economic system to expand only when verified protocol activity
+                  creates a reason for that expansion.
+
+                </p>
+
+              </div>
+
+              <div className="mt-5">
+
+                <InsightQuote>
+
+                  Recognition does not automatically mint MEGY. MEGY issuance does not
+                  determine the human or personal value of a participant.
+
+                </InsightQuote>
+
+              </div>
+
+            </div>
+
           </div>
 
           {/* Evolution */}
@@ -3251,7 +3393,7 @@ export const DOC_SECTIONS: DocSection[] = [
   {
     slug: "megy",
     title: "MEGY",
-    updatedAt: "2026-06-16",
+    updatedAt: "2026-09-17",
     words: 500,
     summary:
       "MEGY as the common economic medium of the Levershare ecosystem.",
@@ -3331,40 +3473,163 @@ export const DOC_SECTIONS: DocSection[] = [
             </div>
           </div>
 
-          {/* Flow */}
+          {/* Economic architecture */}
+
           <div className="rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-purple-500/10 p-6">
+
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
-              Economic flow
+
+              Economic architecture
+
             </p>
 
             <h3 className="mt-1 text-lg font-semibold">
-              From contribution to ecosystem activity
+
+              Recognition and MEGY issuance are complementary, not convertible.
+
             </h3>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {[
-                ["Contribution", "A participant creates measurable value"],
-                ["Proof of Value", "The contribution is recognized"],
-                ["PVC", "Recognized value accumulates"],
-                ["Economic Participation", "Future access may emerge"],
-                ["MEGY Economy", "Economic activity is enabled"],
-              ].map(([title, subtitle]) => (
-                <div
-                  key={title}
-                  className="rounded-2xl border border-white/10 bg-black/20 p-4"
-                >
-                  <div className="text-sm font-bold">{title}</div>
-                  <div className="mt-2 text-xs leading-relaxed text-white/55">
-                    {subtitle}
-                  </div>
+            <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/65">
+
+              Coincarnation does not convert PVC, CorePoints, or Proof of Value
+              recognition directly into MEGY. Recognition and economic issuance
+              operate through separate mechanisms with different purposes.
+
+            </p>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+
+              <div className="rounded-2xl border border-cyan-300/20 bg-black/20 p-5">
+
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/70">
+
+                  Recognition path
+
+                </p>
+
+                <div className="mt-3 text-sm font-bold">
+
+                  Contribution → Proof of Value → PVC
+
                 </div>
-              ))}
+
+                <p className="mt-3 text-xs leading-relaxed text-white/60">
+
+                  Verified participant contribution becomes recognized history.
+                  This path determines recognition, not token issuance.
+
+                </p>
+
+              </div>
+
+              <div className="rounded-2xl border border-purple-300/20 bg-black/20 p-5">
+
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-purple-200/70">
+
+                  Economic path
+
+                </p>
+
+                <div className="mt-3 text-sm font-bold">
+
+                  Production Activity → Finalization → Issuance Authorization
+
+                </div>
+
+                <p className="mt-3 text-xs leading-relaxed text-white/60">
+
+                  Verified economic activity accumulates within production phases.
+                  Finalization can establish bounded MEGY issuance authorization
+                  under the protocol&apos;s tokenomics rules.
+
+                </p>
+
+              </div>
+
             </div>
 
             <blockquote className="mt-5 rounded-2xl border-l-4 border-cyan-300 bg-white/[0.04] p-5 text-lg font-semibold">
-              PVC determines where recognized contribution exists. MEGY enables what
-              can happen around it.
+
+              PVC remembers recognized contribution. MEGY enables economic activity.
+              Neither is a direct conversion of the other.
+
             </blockquote>
+
+          </div>
+
+          {/* Economic formation */}
+
+          <div className="relative overflow-hidden rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 via-purple-500/10 to-cyan-500/10 p-6">
+
+            <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-amber-400/10 blur-3xl" />
+
+            <div className="relative">
+
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-100/70">
+
+                Economic formation
+
+              </p>
+
+              <h3 className="mt-2 max-w-3xl text-xl font-bold leading-tight">
+
+                MEGY is economically formed before it is technically minted.
+
+              </h3>
+
+              <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/65">
+
+                MEGY issuance follows economic formation rather than arbitrary
+                emission. During a production phase, real protocol activity
+                accumulates under predefined economic rules. When that phase reaches
+                completion, its underlying records can be snapshotted, reconciled,
+                and finalized. Only then can the protocol establish a bounded
+                authorization for MEGY issuance.
+
+              </p>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+
+                {[
+                  ["Activity", "Real production activity occurs"],
+                  ["Verification", "Phase records are reconciled"],
+                  ["Authorization", "Finalization establishes an issuance boundary"],
+                  ["Execution", "Authorized MEGY may then be minted on-chain"],
+                ].map(([title, desc]) => (
+
+                  <div
+                    key={title}
+                    className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                  >
+
+                    <div className="text-sm font-bold">{title}</div>
+
+                    <p className="mt-2 text-xs leading-relaxed text-white/55">
+
+                      {desc}
+
+                    </p>
+
+                  </div>
+
+                ))}
+
+              </div>
+
+              <div className="mt-5">
+
+                <InsightQuote>
+
+                  Minting does not determine how much MEGY should exist. It executes
+                  an economic authorization already established by verified protocol
+                  activity.
+
+                </InsightQuote>
+
+              </div>
+
+            </div>
+
           </div>
 
           {/* What MEGY is / is not */}
@@ -3377,8 +3642,13 @@ export const DOC_SECTIONS: DocSection[] = [
               <div className="mt-4 space-y-2">
                 {[
                   "The ecosystem asset of Coincarnation",
+
                   "A medium for economic activity and incentives",
+
                   "A liquidity and participation layer",
+
+                  "An asset whose issuance follows verified economic activity",
+
                   "A long-term coordination tool for the ecosystem",
                 ].map((x) => (
                   <div
@@ -3399,8 +3669,13 @@ export const DOC_SECTIONS: DocSection[] = [
               <div className="mt-4 space-y-2">
                 {[
                   "Not a fundraising token",
+
                   "Not a speculative promise",
+
+                  "Not arbitrarily emitted before economic activity",
+
                   "Not a shortcut to PVC",
+
                   "Not the entire Coincarnation ecosystem",
                 ].map((x) => (
                   <div
@@ -3524,10 +3799,10 @@ export const DOC_SECTIONS: DocSection[] = [
   {
     slug: "tokenomics",
     title: "Tokenomics",
-    updatedAt: "2026-06-16",
+    updatedAt: "2026-09-17",
     words: 500,
     summary:
-      "MEGY supply, allocation philosophy, and Proof-of-Value-based release.",
+      "MEGY economic formation, issuance, allocation, and execution.",
     Content: () => (
       <>
         <section className="space-y-8">
@@ -3541,20 +3816,30 @@ export const DOC_SECTIONS: DocSection[] = [
                 Tokenomics
               </p>
 
-              <h3 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
-                MEGY tokenomics is designed around participation, sustainability, and long-term ecosystem growth.
+              <h3 className="mt-3 max-w-3xl text-2xl font-bold leading-tight md:text-3xl">
+
+                Economic activity first. Issuance second.
+
               </h3>
 
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
-                Tokenomics defines how MEGY enters circulation, supports incentives,
-                enables liquidity, aligns participants, and protects the long-term
-                economic health of Coincarnation.
+
+                Coincarnation does not begin by creating MEGY and then searching for
+                economic activity to justify it. The sequence is reversed: verified
+                production activity comes first, and bounded MEGY issuance follows
+                according to predefined protocol rules.
+
               </p>
 
               <div className="mt-5">
+
                 <InsightQuote>
-                  Tokenomics is not only about supply. It is about economic behavior.
+
+                  MEGY is not created first and then given a reason to have value.
+                  Economic activity creates the reason for issuance.
+
                 </InsightQuote>
+
               </div>
             </div>
           </div>
@@ -3566,7 +3851,9 @@ export const DOC_SECTIONS: DocSection[] = [
             </p>
 
             <h3 className="mt-1 text-lg font-semibold">
-              MEGY moves through a participation-driven system
+
+              Economic formation drives the MEGY economy
+
             </h3>
 
             <div className="mt-6 grid gap-5 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
@@ -3604,20 +3891,20 @@ export const DOC_SECTIONS: DocSection[] = [
               <div className="grid gap-3 sm:grid-cols-2">
                 {[
                   [
-                    "Participation",
-                    "MEGY enters the ecosystem through contribution, activity, and protocol-defined participation mechanisms.",
+                    "Economic Activity",
+                    "MEGY begins with verified production activity, not predetermined emission.",
+                  ],
+                  [
+                    "Economic Formation",
+                    "Protocol activity accumulates through production phases and creates measurable economic formation.",
+                  ],
+                  [
+                    "Issuance",
+                    "Finalized economic activity can establish bounded authorization for new MEGY issuance.",
                   ],
                   [
                     "Circulation",
-                    "MEGY supports economic movement across incentives, liquidity, access, and future utility areas.",
-                  ],
-                  [
-                    "Alignment",
-                    "The model should reward long-term ecosystem contribution rather than short-term extraction.",
-                  ],
-                  [
-                    "Sustainability",
-                    "Emission, incentives, and allocation should evolve with ecosystem health and governance.",
+                    "Issued MEGY can support incentives, liquidity, access, coordination, and future utility.",
                   ],
                 ].map(([title, desc]) => (
                   <div
@@ -3634,23 +3921,25 @@ export const DOC_SECTIONS: DocSection[] = [
             </div>
           </div>
 
-          {/* Total supply distribution */}
+          {/* Issuance distribution */}
           <div className="relative overflow-hidden rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 via-black/30 to-purple-500/10 p-6">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-amber-400/10 blur-3xl" />
             <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-purple-500/10 blur-3xl" />
 
             <div className="relative">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-100/70">
-                Total supply distribution
+                Issuance distribution
               </p>
 
               <h3 className="mt-2 max-w-3xl text-2xl font-black leading-tight">
-                The majority of MEGY supply is reserved for participants.
+                Every authorized issuance follows the same economic allocation.
               </h3>
 
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/65">
-                MEGY is designed for long-term sustainable growth, where the largest
-                allocation belongs to the community that creates value through Coincarnation.
+                MEGY allocation is not based on pre-created token pools. When verified
+                production activity results in new issuance authorization, the
+                authorized amount is distributed according to a consistent economic
+                structure designed to keep participants at the center of the ecosystem.
               </p>
 
               <div className="mt-7 grid gap-7 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
@@ -3669,9 +3958,11 @@ export const DOC_SECTIONS: DocSection[] = [
                     <div className="flex h-28 w-28 items-center justify-center rounded-full border border-amber-300/20 bg-zinc-950 text-center shadow-[inset_0_0_30px_rgba(0,0,0,0.7)] sm:h-32 sm:w-32 lg:h-36 lg:w-36">
                       <div>
                         <div className="text-3xl font-black text-white sm:text-4xl">
-                          8B
+                          100%
                         </div>
                         <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                          Authorized
+                          <br />
                           MEGY
                         </div>
                       </div>
@@ -3681,18 +3972,43 @@ export const DOC_SECTIONS: DocSection[] = [
                   <div className="mt-5 rounded-2xl border border-amber-300/25 bg-black/30 px-5 py-4 text-center">
                     <div className="text-2xl font-black text-amber-100">75%</div>
                     <p className="mt-1 text-xs leading-relaxed text-white/60">
-                      Reserved for Coincarnation Rewards
+                      Allocated to Coincarnation Rewards
                     </p>
                   </div>
                 </div>
 
                 <div className="grid gap-3">
                   {[
-                    ["Coincarnation Rewards", "75%", "Participant rewards and recognized ecosystem participation.", "#fbbf24"],
-                    ["Partnerships & Ecosystem Growth", "10%", "Integrations, adoption initiatives, and ecosystem expansion.", "#a855f7"],
-                    ["Fair Future Fund Reserve", "5%", "Long-term resilience and future opportunity design.", "#22d3ee"],
-                    ["Liquidity", "5%", "Market depth, circulation, and smoother economic movement.", "#2dd4bf"],
-                    ["Team & Contributors", "5%", "Long-term builders and contributors under alignment logic.", "#fb923c"],
+                    [
+                      "Coincarnation Rewards",
+                      "75%",
+                      "Participant rewards generated through Coincarnation economic activity.",
+                      "#fbbf24",
+                    ],
+                    [
+                      "Partnerships & Ecosystem Growth",
+                      "10%",
+                      "Ecosystem expansion, integrations, adoption initiatives, and strategic growth.",
+                      "#a855f7",
+                    ],
+                    [
+                      "Fair Future Fund Reserve",
+                      "5%",
+                      "A recurring allocation for long-term opportunity creation and the Fair Future Fund.",
+                      "#22d3ee",
+                    ],
+                    [
+                      "Liquidity",
+                      "5%",
+                      "Market depth, circulation, and the economic infrastructure required for MEGY to move.",
+                      "#2dd4bf",
+                    ],
+                    [
+                      "Team & Contributors",
+                      "5%",
+                      "Long-term builders and contributors aligned with the development of the ecosystem.",
+                      "#fb923c",
+                    ],
                   ].map(([title, percent, desc, color]) => (
                     <div
                       key={title}
@@ -3729,97 +4045,187 @@ export const DOC_SECTIONS: DocSection[] = [
 
               <div className="mt-7">
                 <InsightQuote>
-                  Most token economies reserve the majority of supply for insiders.
-                  Coincarnation reserves the majority of supply for participants.
+                  Coincarnation does not divide a pre-created supply among participants.
+                  It applies a participant-first allocation whenever verified economic
+                  activity authorizes new MEGY issuance.
                 </InsightQuote>
               </div>
             </div>
           </div>
 
-          {/* Supply logic */}
+          {/* Issuance logic */}
           <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-100/70">
-              Supply logic
+              Issuance logic
             </p>
 
             <h3 className="mt-1 text-lg font-semibold">
-              MEGY supply should support ecosystem maturity, not short-term hype.
+              MEGY issuance begins with economic activity, not an emission schedule.
             </h3>
 
-            <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/65">
+              Production phases provide the economic boundary within which new MEGY
+              can be formed. Activity must occur, phase records must become complete,
+              and the resulting economic state must be verified before any new
+              issuance can become authorized.
+            </p>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               {[
                 [
-                  "Participant-first allocation",
-                  "Coincarnation Rewards should never fall below 75% of total supply.",
+                  "Production Activity",
+                  "Eligible economic activity accumulates within a live production phase.",
                 ],
                 [
-                  "Active circulation",
-                  "MEGY moves through incentives, liquidity, campaigns, access, and participation.",
+                  "Phase Completion",
+                  "The phase reaches its defined economic completion condition.",
                 ],
                 [
-                  "Governance control",
-                  "Future changes should be transparent, rule-based, and subject to ecosystem governance.",
+                  "Snapshot",
+                  "The completed phase is frozen into a stable economic record.",
+                ],
+                [
+                  "Reconciliation",
+                  "Allocations, claims, scope, and economic totals are checked for consistency.",
+                ],
+                [
+                  "Finalization",
+                  "A valid finalized state establishes bounded MEGY issuance authorization.",
+                ],
+              ].map(([title, desc], index) => (
+                <div
+                  key={title}
+                  className="relative rounded-2xl border border-white/10 bg-black/20 p-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-purple-300/20 bg-purple-300/10 text-[10px] font-black text-purple-100">
+                      {index + 1}
+                    </span>
+
+                    <div className="text-sm font-bold">{title}</div>
+                  </div>
+
+                  <p className="mt-3 text-xs leading-relaxed text-white/55">
+                    {desc}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {[
+                [
+                  "Phase-bound",
+                  "Issuance is derived from finalized production economics rather than a predetermined emission calendar.",
+                ],
+                [
+                  "Evidence-first",
+                  "Economic records are established and checked before issuance authorization can exist.",
+                ],
+                [
+                  "Bounded",
+                  "Finalization authorizes only the MEGY justified by the economic state of that phase.",
                 ],
               ].map(([title, desc]) => (
                 <div
                   key={title}
-                  className="rounded-2xl border border-white/10 bg-black/20 p-5"
+                  className="rounded-2xl border border-cyan-300/15 bg-white/[0.03] p-4"
                 >
                   <div className="text-sm font-bold text-cyan-100">{title}</div>
-                  <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
+
+                  <p className="mt-2 text-xs leading-relaxed text-white/60">
+                    {desc}
+                  </p>
                 </div>
               ))}
             </div>
 
             <div className="mt-5">
               <InsightQuote>
-                A healthy token economy does not only ask how tokens are distributed.
-                It asks why they should circulate.
+                Evidence comes before authorization. Finalization determines what may
+                be issued; it does not itself mint MEGY.
               </InsightQuote>
             </div>
           </div>
 
-          {/* Release model */}
+          {/* Issuance execution */}
           <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
-              Release model
+              Issuance execution
             </p>
 
             <h3 className="mt-1 text-lg font-semibold">
-              MEGY should be released through ecosystem logic, not arbitrary pressure.
+              Economic authorization and technical minting are separate stages.
             </h3>
+
+            <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/65">
+              Once a production phase has been finalized, its issuance authorization
+              can move into a separate execution process. This separation prevents the
+              act of minting from determining the economic amount that should exist.
+            </p>
 
             <div className="mt-5 grid gap-3 md:grid-cols-4">
               {[
-                ["Phase", "Distribution rules evolve through defined ecosystem phases."],
-                ["Participation", "Activity and contribution influence how MEGY enters use."],
-                ["Liquidity", "Circulation should be supported without destabilizing the system."],
-                ["Governance", "Future adjustments should remain transparent and accountable."],
-              ].map(([title, desc]) => (
+                [
+                  "Authorization",
+                  "Finalized phase economics define the bounded amount eligible for issuance.",
+                ],
+                [
+                  "Signed Execution",
+                  "The authorized issuance is prepared for execution and requires the designated mint authority.",
+                ],
+                [
+                  "On-chain Confirmation",
+                  "The signed issuance is broadcast and must be confirmed by the network before completion.",
+                ],
+                [
+                  "Issuance Evidence",
+                  "Completed issuance is preserved as auditable evidence linking economic authorization to on-chain execution.",
+                ],
+              ].map(([title, desc], index) => (
                 <div
                   key={title}
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
+                  className="relative rounded-2xl border border-white/10 bg-white/[0.04] p-4"
                 >
-                  <div className="text-sm font-bold">{title}</div>
-                  <p className="mt-3 text-xs leading-relaxed text-white/60">{desc}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-300/10 text-[10px] font-black text-cyan-100">
+                      {index + 1}
+                    </span>
+
+                    <div className="text-sm font-bold">{title}</div>
+                  </div>
+
+                  <p className="mt-3 text-xs leading-relaxed text-white/60">
+                    {desc}
+                  </p>
                 </div>
               ))}
             </div>
+
+            <div className="mt-5 rounded-2xl border border-amber-300/15 bg-amber-300/[0.04] p-4">
+              <p className="text-sm leading-relaxed text-white/70">
+                The mint authority is an execution authority, not an economic
+                supply authority. It can execute valid issuance authorization,
+                but it does not independently determine how much MEGY the economy
+                has justified.
+              </p>
+            </div>
           </div>
 
-          {/* Tokenomics should create / avoid */}
+          {/* Economic safeguards */}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
-                Tokenomics should create
+                Tokenomics should enforce
               </p>
 
               <div className="mt-4 space-y-2">
                 {[
-                  "Useful circulation",
-                  "Long-term alignment",
-                  "Sustainable incentives",
-                  "Transparent economic rules",
+                  "Economic activity before issuance",
+                  "Evidence before authorization",
+                  "Participant-first allocation",
+                  "Separation of authorization and minting",
+                  "Auditable issuance history",
                 ].map((x) => (
                   <div
                     key={x}
@@ -3833,15 +4239,16 @@ export const DOC_SECTIONS: DocSection[] = [
 
             <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-200/70">
-                Tokenomics should avoid
+                Tokenomics should prevent
               </p>
 
               <div className="mt-4 space-y-2">
                 {[
-                  "Unsustainable emissions",
-                  "Short-term extraction",
-                  "Opaque allocation logic",
-                  "Incentives that reward manipulation",
+                  "Arbitrary or schedule-driven emission",
+                  "Pre-created supply seeking later justification",
+                  "Mint-authority discretion over economic supply",
+                  "Issuance without finalized economic evidence",
+                  "Opaque or duplicate issuance",
                 ].map((x) => (
                   <div
                     key={x}
@@ -3854,7 +4261,72 @@ export const DOC_SECTIONS: DocSection[] = [
             </div>
           </div>
 
+          {/* Global milestone */}
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-black/30 to-purple-500/10 p-6">
+            <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
+            <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-purple-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/70">
+                Global milestone
+              </p>
+
+              <div className="mt-5 grid gap-6 md:grid-cols-[0.75fr_1.25fr] md:items-center">
+                <div className="flex justify-center">
+                  <div className="flex h-44 w-44 flex-col items-center justify-center rounded-full border border-cyan-300/20 bg-black/30 text-center shadow-[0_0_60px_rgba(34,211,238,0.12)]">
+                    <div className="text-4xl font-black text-white">
+                      1 : 1
+                    </div>
+
+                    <div className="mt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-100/60">
+                      MEGY
+                      <br />
+                      Humanity
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-bold leading-tight">
+                    One MEGY per human scale is a milestone, not a supply rule.
+                  </h3>
+
+                  <p className="mt-4 text-sm leading-relaxed text-white/65">
+                    If cumulative MEGY issuance reaches approximately the scale of
+                    the global human population, Coincarnation will regard that
+                    moment as a symbolic measure of how far its economic formation
+                    has progressed. At today&apos;s population scale, this corresponds
+                    roughly to eight billion MEGY.
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {[
+                      "Not a supply cap",
+                      "Not an issuance target",
+                      "Not an emission schedule",
+                    ].map((x) => (
+                      <span
+                        key={x}
+                        className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white/60"
+                      >
+                        {x}
+                      </span>
+                    ))}
+                  </div>
+
+                  <p className="mt-4 text-sm leading-relaxed text-white/55">
+                    Reaching this scale does not automatically stop, accelerate, or
+                    otherwise alter issuance. MEGY continues to follow the same
+                    underlying principle: verified economic activity must come before
+                    issuance.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Final */}
+
           <div className="rounded-3xl border border-amber-400/20 bg-black/30 p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-100/70">
               Tokenomics principle
@@ -3867,8 +4339,16 @@ export const DOC_SECTIONS: DocSection[] = [
             <p className="mt-4 text-sm leading-relaxed text-white/65">
               The long-term purpose of MEGY tokenomics is to support an economy where
               incentives, liquidity, access, and governance reinforce the broader
-              Coincarnation mission.
+              Coincarnation mission. MEGY issuance therefore follows economic formation
+              rather than preceding it: activity creates evidence, evidence creates
+              authorization, and authorization defines what may be issued.
             </p>
+
+            <div className="mt-5">
+              <InsightQuote>
+                Economic activity first. Issuance second.
+              </InsightQuote>
+            </div>
           </div>
         </section>
       </>
@@ -3945,6 +4425,72 @@ export const DOC_SECTIONS: DocSection[] = [
                 <p className="mt-3 text-sm leading-relaxed text-white/65">{desc}</p>
               </div>
             ))}
+          </div>
+
+          {/* Two economic inflows */}
+          <div className="relative overflow-hidden rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 via-black/30 to-cyan-500/10 p-6">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-emerald-400/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100/70">
+                Two economic inflows
+              </p>
+
+              <h3 className="mt-2 text-xl font-bold">
+                Capital formation and MEGY allocation are related, but they are not the same thing.
+              </h3>
+
+              <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/65">
+                Fair Future Fund may participate in two distinct economic flows within
+                Coincarnation. Treasury assets represent capital formed through protocol
+                activity. Separately, each authorized MEGY issuance assigns 5% of the
+                issuance to the Fair Future Fund Reserve. These flows serve different
+                purposes and should not be treated as interchangeable.
+              </p>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-cyan-300/20 bg-black/25 p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/70">
+                    Capital formation
+                  </p>
+
+                  <h4 className="mt-2 text-base font-bold">
+                    Treasury assets
+                  </h4>
+
+                  <p className="mt-3 text-sm leading-relaxed text-white/60">
+                    Economic activity may create treasury assets that form part of the
+                    ecosystem&apos;s long-term capital base. These assets may later be
+                    preserved, governed, or deployed through Fair Future Fund strategies.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-emerald-300/20 bg-black/25 p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200/70">
+                    MEGY allocation
+                  </p>
+
+                  <h4 className="mt-2 text-base font-bold">
+                    5% Fair Future Fund Reserve
+                  </h4>
+
+                  <p className="mt-3 text-sm leading-relaxed text-white/60">
+                    When verified production economics authorize new MEGY issuance,
+                    5% of that issuance is allocated to the Fair Future Fund Reserve.
+                    This is an issuance allocation, not a claim that 5% of the Fund&apos;s
+                    capital base must consist of MEGY.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  Capital formation builds the Fund&apos;s economic capacity. MEGY allocation
+                  aligns the Fund with the economy that created it.
+                </InsightQuote>
+              </div>
+            </div>
           </div>
 
           {/* Capital stewardship flow */}
@@ -4456,7 +5002,7 @@ export const DOC_SECTIONS: DocSection[] = [
               ],
               [
                 "Economic Risk",
-                "Liquidity, incentives, emissions, and treasury decisions may create instability if poorly managed.",
+                "Liquidity, incentives, issuance, and treasury decisions may create instability if poorly managed.",
               ],
               [
                 "Governance Risk",
@@ -4756,25 +5302,28 @@ export const DOC_SECTIONS: DocSection[] = [
                   status: "● Active",
                   statusType: "active",
                   title: "Foundation Epoch",
-                  subtitle: "Coincarnation moves from concept to reality.",
+                  subtitle: "Coincarnation moves from concept to production-ready protocol.",
                   desc:
-                    "The infrastructure epoch. Coincarnation’s core systems are designed, built, connected, and validated through the first real Coincarnation Phase.",
+                    "The infrastructure epoch. Coincarnation’s core systems are designed, built, integrated, hardened, and validated in preparation for live production.",
                   mission:
-                    "Build the infrastructure required for real participation, contribution recognition, and future economic activation.",
+                    "Build and validate the infrastructure required for secure participation, contribution recognition, economic formation, and production activation.",
                   achievements: [
                     "Identity Layer",
                     "Proof Ledger",
                     "Proof of Value",
                     "PVC Framework",
                     "Asset Classification",
+                    "Community Classification",
                     "Governance Framework",
-                    "MEGY Design",
+                    "MEGY Economic Architecture",
+                    "Phase & Snapshot Architecture",
+                    "MEGY Issuance Architecture",
                     "Fair Future Fund Design",
                     "Risk & Security Architecture",
-                    "First Coincarnation Phase",
+                    "Production Hardening",
                   ],
                   completion:
-                    "The first Coincarnation Phase is successfully completed with real user participation.",
+                    "Coincarnation’s core protocol is production-ready and the system is prepared to begin its first live production phase.",
                 },
                 {
                   no: "II",
@@ -4783,21 +5332,23 @@ export const DOC_SECTIONS: DocSection[] = [
                   title: "Economic Activation Epoch",
                   subtitle: "Recognition becomes an operating economy.",
                   desc:
-                    "The economic layer begins. The second Coincarnation Phase opens, MEGY is minted, initial claims are tested, and MEGY becomes publicly accessible.",
+                    "Coincarnation enters live production. Real economic activity begins, the first production phase is completed and finalized, MEGY issuance is authorized from verified phase economics, and the first complete issuance and claim cycle is validated.",
                   mission:
-                    "Transform contribution recognition into a functioning economic system.",
+                    "Transform the production-ready protocol into a functioning economic system governed by verified activity and auditable issuance.",
                   achievements: [
-                    "Second Coincarnation Phase",
-                    "MEGY Mint",
-                    "Initial Claim Operations",
+                    "First Production Phase",
+                    "Live Economic Activity",
+                    "Production Phase Finalization",
+                    "First MEGY Issuance Authorization",
+                    "First MEGY Issuance Execution",
+                    "Initial Production Claims",
                     "Full User Journey Validation",
-                    "Reward Distribution Tests",
                     "Liquidity Preparation",
                     "Economic Stress Testing",
                     "DEX Listing",
                   ],
                   completion:
-                    "MEGY becomes publicly accessible and the first complete economic cycle is validated.",
+                    "The first production economic cycle is completed from real activity through finalized issuance, claims, and public MEGY accessibility.",
                 },
                 {
                   no: "III",
@@ -4880,14 +5431,14 @@ export const DOC_SECTIONS: DocSection[] = [
                   title: "Open Value Epoch",
                   subtitle: "Proof of Value expands beyond Coincarnation.",
                   desc:
-                    "Proof of Value becomes an open recognition framework where new verified contribution sources may generate PVC under governed rules.",
+                    "Proof of Value becomes an open recognition framework where new verified contribution sources may enter the recognition system and contribute to PVC under governed rules.",
                   mission:
                     "Expand Proof of Value beyond Coincarnation itself.",
                   achievements: [
                     "External Proof Sources",
                     "Open Recognition Framework",
                     "Third-Party PoV Integrations",
-                    "External PVC Generation",
+                    "External Contribution Recognition",
                     "Independent Ecosystem Adoption",
                     "Global Recognition Network",
                   ],
