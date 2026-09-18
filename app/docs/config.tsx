@@ -1325,8 +1325,8 @@ export const DOC_SECTIONS: DocSection[] = [
   {
     slug: "coincarnation-protocol",
     title: "Coincarnation Protocol",
-    updatedAt: "2026-06-16",
-    words: 500,
+    updatedAt: "2026-09-17",
+    words: 400,
     summary:
       "The lifecycle from asset discovery to classification, contribution, recognition, and distribution.",
     Content: () => (
@@ -2606,7 +2606,7 @@ export const DOC_SECTIONS: DocSection[] = [
     slug: "proof-of-value",
     title: "Proof of Value Framework",
     updatedAt: "2026-09-17",
-    words: 650,
+    words: 550,
     summary:
       "A framework for recognizing measurable forms of contribution.",
     Content: () => (
@@ -3394,7 +3394,7 @@ export const DOC_SECTIONS: DocSection[] = [
     slug: "megy",
     title: "MEGY",
     updatedAt: "2026-09-17",
-    words: 500,
+    words: 550,
     summary:
       "MEGY as the common economic medium of the Levershare ecosystem.",
     Content: () => (
@@ -3800,7 +3800,7 @@ export const DOC_SECTIONS: DocSection[] = [
     slug: "tokenomics",
     title: "Tokenomics",
     updatedAt: "2026-09-17",
-    words: 500,
+    words: 850,
     summary:
       "MEGY economic formation, issuance, allocation, and execution.",
     Content: () => (
@@ -4362,8 +4362,8 @@ export const DOC_SECTIONS: DocSection[] = [
   {
     slug: "fair-future-fund",
     title: "Fair Future Fund",
-    updatedAt: "2026-06-16",
-    words: 700,
+    updatedAt: "2026-09-17",
+    words: 600,
     summary:
       "A global opportunity fund designed to manage and grow collectively accumulated capital.",
     Content: () => (
@@ -4663,9 +4663,12 @@ export const DOC_SECTIONS: DocSection[] = [
             </blockquote>
 
             <p className="mt-4 text-sm leading-relaxed text-white/65">
-              Fair Future Fund is the long-term capital layer that connects today’s
-              participation with tomorrow’s opportunity. Its purpose is to make the
-              capital formed by Coincarnation durable, accountable, and useful over time.
+              Fair Future Fund is the long-term capital stewardship layer that connects
+              today’s participation with tomorrow’s opportunity. Its purpose is to make
+              the capital formed by Coincarnation durable, accountable, and useful over
+              time. Alongside this capital role, the Fair Future Fund Reserve may
+              accumulate its protocol-defined share of MEGY as verified production
+              activity generates new issuance.
             </p>
           </div>
         </section>
@@ -4680,8 +4683,8 @@ export const DOC_SECTIONS: DocSection[] = [
   {
     slug: "governance",
     title: "Governance",
-    updatedAt: "2026-06-16",
-    words: 450,
+    updatedAt: "2026-09-17",
+    words: 550,
     summary:
       "PVC-weighted participation, fund decisions, distribution policy, and ecosystem governance.",
     Content: () => (
@@ -4783,8 +4786,8 @@ export const DOC_SECTIONS: DocSection[] = [
                     ],
                     [
                       "MEGY Economics",
-                      "Release logic, incentives, utility areas, and long-term alignment",
-                      "MEGY powers economic activity and must avoid extraction incentives.",
+                      "Future issuance parameters, allocation rules, incentives, utility areas, and long-term alignment",
+                      "MEGY powers economic activity while issuance must remain bounded by transparent economic rules.",
                     ],
                     [
                       "Fair Future Fund",
@@ -4800,6 +4803,83 @@ export const DOC_SECTIONS: DocSection[] = [
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* Economic finality */}
+          <div className="relative overflow-hidden rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 via-black/30 to-purple-500/10 p-6">
+            <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-amber-400/10 blur-3xl" />
+            <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-purple-400/10 blur-3xl" />
+
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-100/70">
+                Economic finality
+              </p>
+
+              <h3 className="mt-2 text-xl font-bold">
+                Governance may change future rules, but it should not rewrite finalized economic history.
+              </h3>
+
+              <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/65">
+                Coincarnation distinguishes protocol evolution from historical
+                revision. Governance may modify future parameters, allocation rules,
+                recognition policies, or issuance logic through authorized processes.
+                Those changes apply prospectively. Once production economics have
+                passed their required finalization process, their resulting economic
+                record should remain historically authoritative.
+              </p>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-cyan-300/20 bg-black/25 p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/70">
+                    Governance may evolve
+                  </p>
+
+                  <div className="mt-4 space-y-2">
+                    {[
+                      "Future issuance parameters",
+                      "Future allocation rules",
+                      "Future recognition policies",
+                      "Future economic safeguards",
+                    ].map((x) => (
+                      <div
+                        key={x}
+                        className="rounded-xl border border-cyan-300/15 bg-white/[0.03] px-4 py-3 text-sm text-white/75"
+                      >
+                        {x}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-red-300/20 bg-black/25 p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-200/70">
+                    Governance should not rewrite
+                  </p>
+
+                  <div className="mt-4 space-y-2">
+                    {[
+                      "Finalized production economics",
+                      "Completed issuance records",
+                      "Confirmed mint history",
+                      "Historical economic evidence",
+                    ].map((x) => (
+                      <div
+                        key={x}
+                        className="rounded-xl border border-red-300/15 bg-white/[0.03] px-4 py-3 text-sm text-white/75"
+                      >
+                        {x}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5">
+                <InsightQuote>
+                  Governance governs what comes next. Finality protects what already happened.
+                </InsightQuote>
+              </div>
             </div>
           </div>
 
@@ -4957,7 +5037,7 @@ export const DOC_SECTIONS: DocSection[] = [
   {
     slug: "risk-management",
     title: "Risk Management & Safeguards",
-    updatedAt: "2026-06-16",
+    updatedAt: "2026-09-17",
     words: 500,
     summary:
       "Classification safeguards, redlist/blacklist controls, transparency, and abuse prevention.",
@@ -5032,13 +5112,14 @@ export const DOC_SECTIONS: DocSection[] = [
               Every recognition layer needs a protection layer.
             </h3>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 ["Identity Layer", "Limits duplicate abuse"],
                 ["Proof Ledger", "Creates auditability"],
                 ["Classification", "Controls asset eligibility"],
-                ["Governance", "Reviews rule changes"],
-                ["Risk Controls", "Protects capital and trust"],
+                ["Economic Finality", "Protects finalized production economics"],
+                ["Issuance Controls", "Binds MEGY issuance to authorized outcomes"],
+                ["Governance", "Reviews future rule changes"],
               ].map(([title, subtitle]) => (
                 <div
                   key={title}
@@ -5105,6 +5186,11 @@ export const DOC_SECTIONS: DocSection[] = [
                       "Progressive decentralization, thresholds, review periods, and safeguards.",
                     ],
                     [
+                      "Issuance integrity",
+                      "MEGY could be issued from incomplete, inconsistent, or unauthorized economic state.",
+                      "Production scope checks, snapshot reconciliation, economic finality, bounded issuance authorization, confirmation, and auditable issuance records.",
+                    ],
+                    [
                       "Treasury risk",
                       "Capital may be exposed to poor allocation or unmanaged volatility.",
                       "Fair Future Fund risk limits, transparency, and governance oversight.",
@@ -5166,7 +5252,7 @@ export const DOC_SECTIONS: DocSection[] = [
                 {[
                   "Credibility of Proof of Value",
                   "Integrity of PVC history",
-                  "Fairness of MEGY distribution",
+                  "Integrity of MEGY issuance and allocation",
                   "Capital stewardship of Fair Future Fund",
                 ].map((x) => (
                   <div
@@ -5231,8 +5317,8 @@ export const DOC_SECTIONS: DocSection[] = [
   {
     slug: "roadmap",
     title: "Roadmap",
-    updatedAt: "2026-06-16",
-    words: 450,
+    updatedAt: "2026-09-17",
+    words: 900,
     summary:
       "Near-term launch phases and long-term capability-based development.",
     Content: () => (
