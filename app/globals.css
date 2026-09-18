@@ -24,15 +24,180 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
-/* Hide UI chrome in print, optimize page breaks */
+
+/* ============================================================
+   WHITEPAPER — LIGHT PUBLICATION VIEW
+   Scoped exclusively to /docs/print
+   ============================================================ */
+
+.whitepaper-print {
+  background: #ffffff;
+  color: #111827;
+}
+
+/* Neutral text translated from the dark whitepaper theme */
+.whitepaper-print [class*="text-white"] {
+  color: #4b5563 !important;
+}
+
+/* Strong text without an explicit Tailwind text color */
+.whitepaper-print h1,
+.whitepaper-print h2,
+.whitepaper-print h3,
+.whitepaper-print h4,
+.whitepaper-print h5,
+.whitepaper-print h6 {
+  color: #111827;
+}
+
+/* Accent text needs darker publication-safe equivalents */
+.whitepaper-print [class*="text-cyan"] {
+  color: #0e7490 !important;
+}
+
+.whitepaper-print [class*="text-purple"],
+.whitepaper-print [class*="text-indigo"] {
+  color: #6d28d9 !important;
+}
+
+.whitepaper-print [class*="text-amber"],
+.whitepaper-print [class*="text-orange"] {
+  color: #b45309 !important;
+}
+
+.whitepaper-print [class*="text-emerald"],
+.whitepaper-print [class*="text-teal"] {
+  color: #047857 !important;
+}
+
+.whitepaper-print [class*="text-red"] {
+  color: #b91c1c !important;
+}
+
+/* Dark cards become clean publication surfaces */
+.whitepaper-print [class*="bg-black"] {
+  background-color: #f3f4f6 !important;
+}
+
+.whitepaper-print [class*="bg-white/"] {
+  background-color: #f8fafc !important;
+}
+
+/* Borders become visible on paper/light backgrounds */
+.whitepaper-print [class*="border-white"] {
+  border-color: #d1d5db !important;
+}
+
+.whitepaper-print [class*="border-cyan"] {
+  border-color: #a5f3fc !important;
+}
+
+.whitepaper-print [class*="border-purple"],
+.whitepaper-print [class*="border-indigo"] {
+  border-color: #ddd6fe !important;
+}
+
+.whitepaper-print [class*="border-amber"],
+.whitepaper-print [class*="border-orange"] {
+  border-color: #fde68a !important;
+}
+
+.whitepaper-print [class*="border-emerald"],
+.whitepaper-print [class*="border-teal"] {
+  border-color: #a7f3d0 !important;
+}
+
+.whitepaper-print [class*="border-red"] {
+  border-color: #fecaca !important;
+}
+
+/* Preserve hierarchy inside tables */
+.whitepaper-print table {
+  color: #374151;
+}
+
+.whitepaper-print thead {
+  color: #111827;
+}
+
+.whitepaper-print tbody tr {
+  border-color: #e5e7eb !important;
+}
+
+/* Quotes should read as publication callouts */
+.whitepaper-print blockquote {
+  color: #1f2937;
+}
+
+/* ============================================================
+   WHITEPAPER — PRINT / PDF
+   ============================================================ */
+
+@page {
+  size: A4;
+  margin: 16mm 14mm 18mm;
+}
+
 @media print {
-  .no-print { display: none !important; }
-  a { color: black !important; text-decoration: none !important; }
-  /* Denemeye bağlı olarak başlıklardan sonra sayfa kırmaları: */
-  h1 { break-after: avoid; }
-  h2 { break-before: auto; break-after: avoid; }
-  article { break-inside: avoid; }
-  /* Kenar boşlukları – tarayıcıdan “More settings → Margins: Default/None” ile oynayabilirsin */
+  .no-print {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    break-after: avoid-page;
+    page-break-after: avoid;
+  }
+
+  p,
+  blockquote {
+    orphans: 3;
+    widows: 3;
+  }
+
+  .whitepaper-print-section {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .whitepaper-print-section+.whitepaper-print-section {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .whitepaper-print table,
+  .whitepaper-print blockquote {
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
+  .whitepaper-print tr {
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
+  .whitepaper-print img,
+  .whitepaper-print svg {
+    max-width: 100% !important;
+  }
+
+  .whitepaper-print {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }
 
 @keyframes assetDrawerIn {

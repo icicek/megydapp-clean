@@ -11,7 +11,7 @@ export const metadata = {
 
 export default function DocsPrintPage() {
   return (
-    <div className="min-h-screen bg-white text-black">
+    <div className="whitepaper-print min-h-screen bg-white text-black">
       <div className="mx-auto max-w-3xl px-6 py-8">
         <PrintToolbar />
 
@@ -28,7 +28,7 @@ export default function DocsPrintPage() {
         {DOC_SECTIONS.map((s, i) => {
           const Content = s.Content;
           return (
-            <article key={s.slug} className="mb-10 break-inside-avoid">
+            <article key={s.slug} className="whitepaper-print-section mb-12">
               <h2 className="text-2xl font-semibold mb-2">
                 {i + 1}. {s.title}
               </h2>
