@@ -178,20 +178,22 @@ body {
     page-break-before: always;
   }
 
-  /* Let large visual containers flow naturally across pages */
-  .whitepaper-print .grid {
-    break-inside: auto;
-    page-break-inside: auto;
-  }
-
-  /* Keep individual cards together when they fit on one page */
-  .whitepaper-print .grid>div {
+  .whitepaper-print blockquote {
     break-inside: avoid-page;
     page-break-inside: avoid;
   }
 
-  .whitepaper-print table,
-  .whitepaper-print blockquote {
+  /*
+   * Tables may span multiple pages, but their own header should stay
+   * attached to the table instead of being orphaned on the previous page.
+   */
+  .whitepaper-print table {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .whitepaper-print thead {
+    display: table-header-group;
     break-inside: avoid-page;
     page-break-inside: avoid;
   }
@@ -199,6 +201,21 @@ body {
   .whitepaper-print tr {
     break-inside: avoid-page;
     page-break-inside: avoid;
+  }
+
+  .whitepaper-print tr {
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
+  /*
+  * Keep publication-card headings attached to the content that follows.
+  * Prevents labels such as "Concept boundaries" or "Economic framing"
+  * from being stranded at the bottom of a page.
+  */
+  .whitepaper-print .border-b {
+    break-after: avoid-page;
+    page-break-after: avoid;
   }
 
   .whitepaper-print img,
