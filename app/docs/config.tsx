@@ -3763,11 +3763,6 @@ export const DOC_SECTIONS: DocSection[] = [
             </p>
 
             <div className="mt-4 flex items-start gap-4">
-              <img
-                src="/megy-symbol.png"
-                alt="MEGY"
-                className="mt-1 h-10 w-10 shrink-0 opacity-80"
-              />
 
               <blockquote className="text-2xl font-black leading-tight">
                 MEGY creates the economic field.
