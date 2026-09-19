@@ -3406,11 +3406,6 @@ export const DOC_SECTIONS: DocSection[] = [
             <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
 
             <div className="relative">
-              <img
-                src="/megy-symbol.png"
-                alt="MEGY"
-                className="absolute right-0 top-0 h-20 w-20 opacity-20 md:h-24 md:w-24"
-              />
 
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-200/80">
                 MEGY
