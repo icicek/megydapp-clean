@@ -178,6 +178,18 @@ body {
     page-break-before: always;
   }
 
+  /* Let large visual containers flow naturally across pages */
+  .whitepaper-print .grid {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  /* Keep individual cards together when they fit on one page */
+  .whitepaper-print .grid>div {
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
   .whitepaper-print table,
   .whitepaper-print blockquote {
     break-inside: avoid-page;
