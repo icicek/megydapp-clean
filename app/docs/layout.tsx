@@ -57,7 +57,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
 
       <div className="mx-auto max-w-6xl px-4 md:px-6 py-6 md:py-10 grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6">
         {/* Sidebar (desktop static) */}
-        <aside className="hidden md:block md:sticky md:top-6 h-max rounded-2xl border border-white/10 bg-[#0b0f18] p-4">
+        <aside className="hidden md:block md:sticky md:top-6 md:max-h-[calc(100vh-3rem)] md:overflow-y-auto md:overscroll-contain rounded-2xl border border-white/10 bg-[#0b0f18] p-4">
           <h2 className="text-sm font-semibold text-white/80 mb-3">
             Whitepaper – Contents
           </h2>
@@ -89,7 +89,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
               className="group inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 hover:bg-white/5 transition"
             >
               <span className="text-base leading-none">🖨️</span>
-              <span>Print / PDF view</span>
+              <span>PDF / Publication View</span>
             </Link>
 
             {/* separator */}
@@ -175,7 +175,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
             >
               <span className="inline-flex items-center gap-1.5">
                 <span className="text-base leading-none">🖨️</span>
-                <span>Print / PDF view</span>
+                <span>PDF / Publication View</span>
               </span>
               <span className="opacity-60 group-hover:opacity-100">↗</span>
             </Link>

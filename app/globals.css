@@ -203,11 +203,6 @@ body {
     page-break-inside: avoid;
   }
 
-  .whitepaper-print tr {
-    break-inside: avoid-page;
-    page-break-inside: avoid;
-  }
-
   /*
   * Keep publication-card headings attached to the content that follows.
   * Prevents labels such as "Concept boundaries" or "Economic framing"
