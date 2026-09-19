@@ -224,6 +224,16 @@ body {
   }
 }
 
+/* Whitepaper desktop sidebar — keep scrolling, hide scrollbar */
+.whitepaper-sidebar-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.whitepaper-sidebar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 @keyframes assetDrawerIn {
   from {
     opacity: 0;
