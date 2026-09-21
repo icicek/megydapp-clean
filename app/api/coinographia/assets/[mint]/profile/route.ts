@@ -68,17 +68,21 @@ export async function GET(
 
             sql`
                 SELECT
-                    h.mint,
-                    h.old_status::text AS old_status,
-                    h.new_status::text AS new_status,
-                    h.reason,
-                    h.source::text AS source,
-                    h.changed_at,
-                    h.meta
-                FROM token_status_history h
-                WHERE h.mint = ${mint}
-                  AND h.old_status IS DISTINCT FROM h.new_status
-                ORDER BY h.changed_at DESC
+                    a.mint,
+                    a.old_status::text AS old_status,
+                    a.new_status::text AS new_status,
+                    a.reason,
+                    COALESCE(
+                        NULLIF(a.meta->>'source', ''),
+                        a.updated_by,
+                        'unknown'
+                    ) AS source,
+                    a.changed_at,
+                    a.meta
+                FROM token_audit a
+                WHERE a.mint = ${mint}
+                    AND a.old_status IS DISTINCT FROM a.new_status
+                ORDER BY a.changed_at DESC
                 LIMIT 100
             `,
 

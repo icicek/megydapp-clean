@@ -3,8 +3,6 @@
 // LEGACY: kept for potential LV/list experiments.
 // IMPORTANT: Single source of truth is token_registry.
 // This file now PROXIES status read/write to token_registry,
-// which also keeps token_status in sync via compat upsert.
-//
 // deadcoin_votes table stays as-is.
 
 import { neon } from '@neondatabase/serverless';
@@ -68,7 +66,9 @@ export async function getStatus(
  * Default: if a stronger status already exists, it won't downgrade (unless force=true).
  *
  * NOTE: This now writes to token_registry.
- * token_status will be synced via compat upsert in token-registry.setStatus.
+ * Token status changes are persisted through token-registry.setStatus,
+  * with token_registry as the canonical current-state store and
+  * token_audit as the status-change audit trail.
  */
 export async function setStatus(
   mint: string,

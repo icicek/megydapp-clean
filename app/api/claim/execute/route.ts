@@ -1297,27 +1297,71 @@ export async function POST(req: NextRequest) {
         recoveredSessionIds[0] ?? '';
 
       /*
-       * If this transaction created the destination ATA, finalize the
-       * previously reserved ATA reimbursement entitlement.
-       */
+      * If this transaction reserved an ATA reimbursement entitlement
+      * before broadcast, recovery must finalize that exact entitlement.
+      *
+      * ata_consumed_tx_signature is the authoritative persisted fence:
+      *
+      * - no matching row => this transaction did not reserve ATA funding
+      * - exactly one matching row => finalize that entitlement
+      * - more than one matching row => persisted fee accounting is corrupt
+      *
+      * Do not infer ATA creation from the retry request. Recovery relies
+      * only on persisted DB ownership tied to the confirmed signature.
+      */
       if (recoveredSessionId) {
-        await recoverySql`
-                UPDATE claim_fee_payments p
-                SET
-                  ata_consumed_at =
-                    COALESCE(
-                      p.ata_consumed_at,
-                      now()
-                    )
-                FROM claim_sessions s
-                WHERE s.id =
-                  ${recoveredSessionId}
-                  AND s.payment_id = p.id
-                  AND p.ata_creation_lamports > 0
-                  AND p.ata_consumed_at IS NULL
-                  AND p.ata_consumed_tx_signature =
+        const reservedAtaRows =
+          await recoverySql`
+            SELECT
+              p.id,
+              p.ata_consumed_at
+            FROM claim_fee_payments p
+            JOIN claim_sessions s
+              ON s.payment_id = p.id
+            WHERE s.id =
+              ${recoveredSessionId}
+              AND p.ata_creation_lamports > 0
+              AND p.ata_consumed_tx_signature =
+                ${existingClaim.tx_signature}
+            FOR UPDATE
+          `;
+
+        if (reservedAtaRows.length > 1) {
+          throw new Error(
+            'ATA_ENTITLEMENT_RECOVERY_RESERVATION_MISMATCH'
+          );
+        }
+
+        if (reservedAtaRows.length === 1) {
+          const reservedAtaRow =
+            asDbRow(reservedAtaRows[0]);
+
+          /*
+          * If ata_consumed_at is already populated, this entitlement was
+          * finalized previously. Recovery is idempotent, so no second
+          * transition is necessary.
+          */
+          if (!reservedAtaRow.ata_consumed_at) {
+            const consumedAtaRows =
+              await recoverySql`
+                UPDATE claim_fee_payments
+                SET ata_consumed_at = now()
+                WHERE id =
+                  ${Number(reservedAtaRow.id)}
+                  AND ata_creation_lamports > 0
+                  AND ata_consumed_at IS NULL
+                  AND ata_consumed_tx_signature =
                     ${existingClaim.tx_signature}
+                RETURNING id
               `;
+
+            if (consumedAtaRows.length !== 1) {
+              throw new Error(
+                'ATA_ENTITLEMENT_RECOVERY_FINALIZE_MISMATCH'
+              );
+            }
+          }
+        }
       }
 
       /*
@@ -2956,6 +3000,26 @@ export async function POST(req: NextRequest) {
           claim_amount_base
       `;
 
+    /*
+    * The on-chain transfer already sent the full reserved amount.
+    *
+    * Every claim row belonging to this execution must therefore
+    * transition from created -> succeeded together. A partial DB
+    * finalization would make persisted accounting diverge from the
+    * confirmed blockchain transfer.
+    *
+    * Fail the DB transaction closed and let the existing transaction
+    * recovery path reconcile the known on-chain signature.
+    */
+    if (
+      updatedClaimRows.length !==
+      claimRowIds.length
+    ) {
+      throw new Error(
+        'CLAIM_FINALIZE_ROW_MISMATCH'
+      );
+    }
+
     let transitionedBase = 0n;
 
     for (const row of updatedClaimRows) {
@@ -2997,19 +3061,38 @@ export async function POST(req: NextRequest) {
       ataCreatedByThisTransaction &&
       sessionPaymentId !== null
     ) {
-      await finalizeSql`
-        UPDATE claim_fee_payments
-        SET
-          ata_consumed_at = now(),
-          ata_consumed_tx_signature =
-            ${sig}
-        WHERE id =
-          ${sessionPaymentId}
-          AND ata_creation_lamports > 0
-          AND ata_consumed_at IS NULL
-          AND ata_consumed_tx_signature =
-            ${sig}
-      `;
+      const consumedAtaRows =
+        await finalizeSql`
+          UPDATE claim_fee_payments
+          SET
+            ata_consumed_at = now(),
+            ata_consumed_tx_signature =
+              ${sig}
+          WHERE id =
+            ${sessionPaymentId}
+            AND ata_creation_lamports > 0
+            AND ata_consumed_at IS NULL
+            AND ata_consumed_tx_signature =
+              ${sig}
+          RETURNING id
+        `;
+
+      /*
+       * This transaction created the destination ATA on-chain.
+       *
+       * The exact reimbursement entitlement reserved by this
+       * transaction signature must therefore transition to consumed
+       * exactly once. A zero-row or multi-row result means persisted
+       * fee accounting no longer matches the confirmed transaction.
+       *
+       * Roll back finalization and let transaction recovery reconcile
+       * the known signature instead of silently accepting the mismatch.
+       */
+      if (consumedAtaRows.length !== 1) {
+        throw new Error(
+          'ATA_ENTITLEMENT_FINALIZE_MISMATCH'
+        );
+      }
     }
 
     const totals = isAllPhases
@@ -3066,7 +3149,7 @@ export async function POST(req: NextRequest) {
               FROM cls
             ) AS claimed_base
         `
-        : await finalizeSql`
+      : await finalizeSql`
           WITH snaps AS (
             SELECT
               COALESCE(
