@@ -7,21 +7,23 @@ import { APP_URL } from '@/app/lib/origin';
 import type { SharePayload } from '@/components/share/intent';
 import { buildPayload } from '@/components/share/intent';
 import ShareCenter from '@/components/share/ShareCenter';
+import DeadcoinVoteButton from '@/components/community/DeadcoinVoteButton';
 
 type Props = {
   tokenFrom: string;
+  tokenMint: string;
   number: number;
   txId: string;
   referral?: string;
   voteEligible?: boolean;
   tokenStatus?:
-    | 'healthy'
-    | 'walking_dead'
-    | 'deadcoin'
-    | 'redlist'
-    | 'blacklist'
-    | 'unknown'
-    | null;
+  | 'healthy'
+  | 'walking_dead'
+  | 'deadcoin'
+  | 'redlist'
+  | 'blacklist'
+  | 'unknown'
+  | null;
 
   amount?: number;
   usdValue?: number;
@@ -33,6 +35,7 @@ type Props = {
 
 export default function CoincarnationResult({
   tokenFrom,
+  tokenMint,
   number,
   txId,
   referral,
@@ -53,7 +56,7 @@ export default function CoincarnationResult({
   const handleShareOnX = async () => {
     if (shareBusy) return;
     setShareBusy(true);
-  
+
     try {
       const payload = buildPayload(
         'success',
@@ -66,7 +69,7 @@ export default function CoincarnationResult({
           src: 'app',
         }
       );
-  
+
       setSharePayload(payload);
       setShareOpen(true);
     } finally {
@@ -80,29 +83,29 @@ export default function CoincarnationResult({
         <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-cyan-200">
           Coincarnation Complete
         </div>
-  
+
         <h2 className="text-[24px] font-black leading-tight tracking-tight text-white drop-shadow-[0_0_16px_rgba(168,85,247,0.35)] sm:text-[28px]">
           Coincarnator #{number}
         </h2>
-  
+
         <p className="mt-2 text-xs leading-5 text-gray-300 sm:text-sm">
           You successfully Coincarnated{' '}
           <span className="font-bold text-fuchsia-300">${tokenFrom}</span>
           {' '}into the Fair Future Fund.
         </p>
-  
+
         {referral && (
           <div className="mt-3 inline-flex max-w-full items-center gap-2 rounded-full border border-fuchsia-400/20 bg-fuchsia-500/[0.07] px-3 py-1 text-[10px] text-fuchsia-200">
             <span>Referral:</span>
             <span className="truncate font-mono font-semibold">{referral}</span>
           </div>
         )}
-  
+
         <div className="mt-4 rounded-[22px] border border-white/10 bg-white/[0.03] px-4 py-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
           <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200">
             Transaction Intelligence
           </div>
-  
+
           <div className="space-y-2 text-xs text-zinc-300 sm:text-sm">
             {typeof amount === 'number' && (
               <div>
@@ -112,7 +115,7 @@ export default function CoincarnationResult({
                 </span>
               </div>
             )}
-  
+
             {typeof usdValue === 'number' && usdValue > 0 && (
               <div>
                 Estimated Value:{' '}
@@ -121,12 +124,12 @@ export default function CoincarnationResult({
                 </span>
               </div>
             )}
-  
+
             <div>
               Coincarnator:{' '}
               <span className="font-semibold text-white">#{number}</span>
             </div>
-  
+
             <div className="min-w-0">
               Tx ID:{' '}
               <button
@@ -147,7 +150,7 @@ export default function CoincarnationResult({
                       document.execCommand('copy');
                       document.body.removeChild(ta);
                     }
-  
+
                     setCopied(true);
                     window.setTimeout(() => setCopied(false), 1400);
                   } catch (e) {
@@ -163,7 +166,7 @@ export default function CoincarnationResult({
               )}
             </div>
           </div>
-  
+
           {explorerUrl && (
             <a
               href={explorerUrl}
@@ -175,31 +178,32 @@ export default function CoincarnationResult({
             </a>
           )}
         </div>
-  
-        {voteEligible && tokenStatus === 'walking_dead' && (
-          <div className="mt-4 rounded-[22px] border border-amber-400/20 bg-amber-500/[0.07] px-4 py-3 text-left text-xs text-amber-100">
-            <div className="mb-1 font-semibold">
-              This token is under community review.
+
+        {voteEligible && tokenStatus === 'walking_dead' && tokenMint && (
+          <div className="mt-4 rounded-[22px] border border-amber-400/20 bg-amber-500/[0.07] px-4 py-4 text-left text-amber-100">
+            <div className="mb-1 text-sm font-bold">
+              🗳️ Community Deadcoin Review
             </div>
-  
-            <p className="mb-3 opacity-85">
-              You can help decide whether ${tokenFrom} should officially become a Deadcoin.
+
+            <p className="text-xs leading-5 opacity-90">
+              This asset has entered the Community Review Zone.
             </p>
-  
-            <button
-              type="button"
-              onClick={() => {
-                if (typeof window !== 'undefined') {
-                  window.open('/vote', '_blank', 'noopener,noreferrer');
-                }
-              }}
-              className="inline-flex items-center rounded-xl border border-amber-400/25 bg-amber-400/[0.05] px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/[0.10]"
-            >
-              🗳️ Go to Deadcoin Vote
-            </button>
+
+            <p className="mt-1 text-xs leading-5 opacity-80">
+              The community can determine whether ${tokenFrom} should officially be
+              recognized as a Deadcoin.
+            </p>
+
+            <div className="mt-4">
+              <DeadcoinVoteButton
+                mint={tokenMint}
+                label="Vote Deadcoin"
+                className="w-full justify-center"
+              />
+            </div>
           </div>
         )}
-  
+
         <button
           type="button"
           onClick={handleShareOnX}
@@ -208,7 +212,7 @@ export default function CoincarnationResult({
         >
           {shareBusy ? 'Preparing Share...' : '🚀 Share Coincarnation'}
         </button>
-  
+
         <div className="mt-3 grid grid-cols-2 gap-3">
           <button
             type="button"
@@ -217,7 +221,7 @@ export default function CoincarnationResult({
           >
             ♻️ Recoincarnate
           </button>
-  
+
           <button
             type="button"
             onClick={onGoToProfile}
@@ -226,12 +230,12 @@ export default function CoincarnationResult({
             👤 Go Profile
           </button>
         </div>
-  
+
         <div className="mt-4 rounded-[22px] border border-emerald-400/15 bg-emerald-500/[0.05] px-4 py-4 text-left text-xs text-emerald-100">
           <div className="mb-2 text-sm font-semibold text-emerald-200">
             What happens now?
           </div>
-  
+
           <ul className="space-y-1 leading-5 opacity-90">
             <li>• Your contribution is recorded inside the Fair Future Fund.</li>
             <li>• Your $MEGY allocation finalizes at snapshot.</li>
@@ -240,7 +244,7 @@ export default function CoincarnationResult({
           </ul>
         </div>
       </div>
-  
+
       <ShareCenter
         open={shareOpen}
         onOpenChange={setShareOpen}
