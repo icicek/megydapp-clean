@@ -365,7 +365,7 @@ export default function ConfirmModal({
         onEscapeKeyDown={(e) => {
           if (busy) e.preventDefault();
         }}
-        className="w-[92vw] max-w-md rounded-[26px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.07),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.08),transparent_22%),linear-gradient(135deg,#09090b,#121218_58%,#0a0a0d)] p-6 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_24px_70px_rgba(0,0,0,0.62),0_0_50px_rgba(34,211,238,0.05)] backdrop-blur-xl z-50"
+        className="z-50 w-[92vw] max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-[26px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.07),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.08),transparent_22%),linear-gradient(135deg,#09090b,#121218_58%,#0a0a0d)] p-6 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_24px_70px_rgba(0,0,0,0.62),0_0_50px_rgba(34,211,238,0.05)] backdrop-blur-xl"
       >
         <div className="mb-4 text-center">
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-200">
