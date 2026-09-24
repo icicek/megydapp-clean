@@ -947,7 +947,7 @@ export default function HomePage() {
   useEffect(() => {
     const id = window.setInterval(() => {
       setHeroPrefix((prev) => (prev === 'Re' ? 'Co' : 'Re'));
-    }, 2200);
+    }, 4200);
 
     return () => window.clearInterval(id);
   }, []);
@@ -1194,11 +1194,47 @@ export default function HomePage() {
             This is not a swap. This is{' '}
           </span>
 
-          <span className="inline-flex items-baseline bg-gradient-to-r from-cyan-300 via-violet-300 to-pink-300 bg-clip-text text-transparent drop-shadow-[0_0_14px_rgba(168,85,247,0.18)]">
-            <span className="inline-block min-w-[1.35em] transition-opacity duration-500">
-              {heroPrefix}
+          <span className="inline-flex items-baseline">
+            <span
+              className="relative inline-block w-[1.45em] h-[1.2em] align-baseline"
+              aria-hidden="true"
+            >
+              <span
+                className={[
+                  'absolute inset-0 flex items-baseline justify-start',
+                  'bg-gradient-to-r from-cyan-300 via-violet-300 to-pink-300',
+                  'bg-clip-text text-transparent',
+                  'transition-all duration-700 ease-out',
+                  heroPrefix === 'Re'
+                    ? 'translate-y-0 scale-100 opacity-100 blur-0'
+                    : '-translate-y-1 scale-95 opacity-0 blur-[5px]',
+                ].join(' ')}
+              >
+                Re
+              </span>
+
+              <span
+                className={[
+                  'absolute inset-0 flex items-baseline justify-start',
+                  'bg-gradient-to-r from-cyan-200 via-violet-300 to-pink-300',
+                  'bg-clip-text text-transparent',
+                  'transition-all duration-700 ease-out',
+                  heroPrefix === 'Co'
+                    ? 'translate-y-0 scale-100 opacity-100 blur-0 drop-shadow-[0_0_12px_rgba(34,211,238,0.65)]'
+                    : 'translate-y-1 scale-95 opacity-0 blur-[5px]',
+                ].join(' ')}
+              >
+                Co
+              </span>
             </span>
-            <span>incarnation.</span>
+
+            <span className="bg-gradient-to-r from-violet-300 to-pink-300 bg-clip-text text-transparent drop-shadow-[0_0_14px_rgba(168,85,247,0.18)]">
+              incarnation.
+            </span>
+
+            <span className="sr-only">
+              {heroPrefix}incarnation.
+            </span>
           </span>
         </p>
 
