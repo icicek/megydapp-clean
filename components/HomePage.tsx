@@ -108,7 +108,7 @@ export default function HomePage() {
 
   function formatNumberCompact(value: number | null) {
     if (value === null || !Number.isFinite(value)) return '0';
-  
+
     return new Intl.NumberFormat('en-US', {
       notation: 'compact',
       maximumFractionDigits: 1,
@@ -327,7 +327,7 @@ export default function HomePage() {
   function canCoincarnateStatus(status?: string | null) {
     return status !== 'redlist' && status !== 'blacklist';
   }
-  
+
   function getCoincarnateDisabledClass() {
     return [
       'flex items-center justify-center rounded-xl border border-white/10',
@@ -341,7 +341,7 @@ export default function HomePage() {
     if (typeof window === 'undefined') return false;
     return !!safeReadPendingCoincarnateMint();
   }
-  
+
   function getShareButtonDisabledClass() {
     return [
       'flex items-center justify-center rounded-xl border border-white/10',
@@ -507,7 +507,7 @@ export default function HomePage() {
   function pickShareLine(arr: string[]) {
     return arr[Math.floor(Math.random() * arr.length)];
   }
-  
+
   function getStatusShareOpeners(symbol: string, status: string) {
     if (status === 'healthy') {
       return [
@@ -516,7 +516,7 @@ export default function HomePage() {
         `🔥 ${symbol} on Coincarnation? This is getting serious.`,
       ];
     }
-  
+
     if (status === 'walking_dead') {
       return [
         `🧟 ${symbol} is officially a walking deadcoin on Coincarnation.`,
@@ -524,7 +524,7 @@ export default function HomePage() {
         `🪦 ${symbol} was already halfway gone anyway.`,
       ];
     }
-  
+
     if (status === 'deadcoin') {
       return [
         `☠️ ${symbol} is now a deadcoin on Coincarnation.`,
@@ -532,58 +532,58 @@ export default function HomePage() {
         `⚰️ ${symbol} finally found its Coincarnation route.`,
       ];
     }
-  
+
     return [
       `👀 ${symbol} is showing up on Coincarnation.`,
       `⚠️ ${symbol} is drawing Coincarnation attention.`,
     ];
   }
-  
+
   function getStatusSharePsychology(status: any) {
     if (status === 'healthy') {
-        return [
-            `People are coincarnating even solid bags now.`,
-            `This thing is spreading way beyond deadcoins.`,
-            `Healthy coins entering this is not a small signal.`,
-        ];
+      return [
+        `People are coincarnating even solid bags now.`,
+        `This thing is spreading way beyond deadcoins.`,
+        `Healthy coins entering this is not a small signal.`,
+      ];
     }
 
     if (status === 'walking_dead') {
-        return [
-            `Too many of us know this feeling.`,
-            `Almost every wallet has one of these.`,
-            `This is painfully relatable.`,
-        ];
+      return [
+        `Too many of us know this feeling.`,
+        `Almost every wallet has one of these.`,
+        `This is painfully relatable.`,
+      ];
     }
 
     if (status === 'deadcoin') {
-        return [
-            `Every wallet has a graveyard.`,
-            `Finally a use for dead bags.`,
-            `This actually makes dead losses useful.`,
-        ];
+      return [
+        `Every wallet has a graveyard.`,
+        `Finally a use for dead bags.`,
+        `This actually makes dead losses useful.`,
+      ];
     }
 
     return [
-        `Crypto has been needing this.`,
-        `Hard not to notice this anymore.`,
+      `Crypto has been needing this.`,
+      `Hard not to notice this anymore.`,
     ];
   }
-  
+
   function getShareCloserLine() {
     return pickShareLine([
-        `What are you sending in? #Coincarnation`,
-        `This might get crowded fast. #Coincarnation`,
-        `Feels early... maybe too early. #Coincarnation`,
-        `Hard not to think about joining. #Coincarnation`,
-        `This is getting harder to ignore. #Coincarnation`,
+      `What are you sending in? #Coincarnation`,
+      `This might get crowded fast. #Coincarnation`,
+      `Feels early... maybe too early. #Coincarnation`,
+      `Hard not to think about joining. #Coincarnation`,
+      `This is getting harder to ignore. #Coincarnation`,
     ]);
   }
 
   function buildDynamicTweet(item: LiveActivityCluster) {
     const symbol = item.tokenSymbol ? `$${item.tokenSymbol}` : item.shortMint;
     const status = item.status || 'unknown';
-  
+
     const tweetLines = [
       pickShareLine(getStatusShareOpeners(symbol, status)),
       '',
@@ -591,7 +591,7 @@ export default function HomePage() {
       '',
       getShareCloserLine(),
     ];
-  
+
     return tweetLines.join('\n');
   }
 
@@ -689,9 +689,9 @@ export default function HomePage() {
   async function shareClusterOnX(item: LiveActivityCluster) {
     if (typeof window === 'undefined') return;
     if (!canShareStatus(item.status)) return;
-  
+
     const text = buildDynamicTweet(item);
-  
+
     await openXIntent(text, (message) => {
       setLiveActivityError(message);
       window.setTimeout(() => setLiveActivityError(null), 3600);
@@ -703,28 +703,28 @@ export default function HomePage() {
     if (hasPendingCoincarnateScan()) return;
 
     const mint = e.target.value;
-  
+
     const token = tokens.find((t) => t.mint === mint) || null;
-  
+
     if (!token) {
       setSelectedToken(null);
       setShowSolModal(false);
       return;
     }
-  
+
     const numericAmount =
       typeof token.amount === 'number' && Number.isFinite(token.amount)
         ? token.amount
         : Number(token.uiAmountString || 0);
-  
+
     const hasValidAmount = Number.isFinite(numericAmount) && numericAmount > 0;
-  
+
     if (!hasValidAmount) {
       setSelectedToken(null);
       setShowSolModal(false);
       return;
     }
-  
+
     setSelectedToken(token);
     setShowSolModal(true);
   };
@@ -738,6 +738,7 @@ export default function HomePage() {
   const [globalStats, setGlobalStats] = useState({
     totalUsd: 0,
     totalParticipants: 0,
+    totalCoincarnators: 0,
     uniqueDeadcoins: 0,
     mostPopularDeadcoin: '',
     corePointGenerated: 0,
@@ -943,7 +944,7 @@ export default function HomePage() {
     const id = window.setInterval(() => {
       setHeroPrefix((prev) => (prev === 'Re' ? 'Co' : 'Re'));
     }, 2200);
-  
+
     return () => window.clearInterval(id);
   }, []);
 
@@ -953,7 +954,7 @@ export default function HomePage() {
         clearTimeout(coinFlowOverlayTimerRef.current);
         coinFlowOverlayTimerRef.current = null;
       }
-  
+
       if (pendingModalOpenTimerRef.current) {
         clearTimeout(pendingModalOpenTimerRef.current);
         pendingModalOpenTimerRef.current = null;
@@ -963,17 +964,17 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!emptyTokenNotice) return;
-  
+
     function handleOutsideClick(e: PointerEvent) {
       if (!tokenSelectorWrapRef.current) return;
-  
+
       if (!tokenSelectorWrapRef.current.contains(e.target as Node)) {
         setEmptyTokenNotice(false);
       }
     }
-  
+
     document.addEventListener('pointerdown', handleOutsideClick);
-  
+
     return () => {
       document.removeEventListener('pointerdown', handleOutsideClick);
     };
@@ -1023,7 +1024,7 @@ export default function HomePage() {
 
     if (pendingWalletSyncOverlayShownRef.current !== pendingKey) {
       pendingWalletSyncOverlayShownRef.current = pendingKey;
-    
+
       showCoinFlowOverlay(
         'Wallet Syncing',
         'Scanning wallet assets for pending Coincarnation target...',
@@ -1105,7 +1106,7 @@ export default function HomePage() {
     if (pendingModalOpenTimerRef.current) {
       clearTimeout(pendingModalOpenTimerRef.current);
     }
-    
+
     pendingModalOpenTimerRef.current = window.setTimeout(() => {
       setShowSolModal(true);
       pendingModalOpenTimerRef.current = null;
@@ -1327,15 +1328,15 @@ export default function HomePage() {
 
       <div className="relative w-full max-w-5xl overflow-hidden rounded-[30px] border border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.13),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.13),transparent_32%),linear-gradient(180deg,rgba(20,26,40,0.96),rgba(13,17,28,0.98))] p-5 sm:p-7 shadow-[0_24px_80px_rgba(0,0,0,0.34),0_0_42px_rgba(34,211,238,0.08),0_0_54px_rgba(168,85,247,0.08)] before:pointer-events-none before:absolute before:inset-0 before:rounded-[30px] before:bg-[linear-gradient(135deg,rgba(34,211,238,0.22),transparent_28%,rgba(168,85,247,0.18)_62%,transparent_82%)] before:opacity-60">
         <div className="relative z-[1]">
-        <h2 className="text-lg mb-1 text-left">
-          {connected ? 'You Coincarnate' : 'Start Your Coincarnation'}
-        </h2>
+          <h2 className="text-lg mb-1 text-left">
+            {connected ? 'You Coincarnate' : 'Start Your Coincarnation'}
+          </h2>
 
-        <p className="text-xs text-gray-400 text-left mb-2">
-          {connected
-            ? 'Select an abandoned, inactive, or unsupported asset from your wallet.'
-            : 'Connect your wallet to discover which assets can begin a second economic life.'}
-        </p>
+          <p className="text-xs text-gray-400 text-left mb-2">
+            {connected
+              ? 'Select an abandoned, inactive, or unsupported asset from your wallet.'
+              : 'Connect your wallet to discover which assets can begin a second economic life.'}
+          </p>
 
           {/* -------- SADECE SOLANA -------- */}
           {publicKey ? (
@@ -1421,7 +1422,7 @@ export default function HomePage() {
                         ▾
                       </div>
                     </div>
-                    
+
                     {emptyTokenNotice && !tokensLoading && !refreshing && tokens.length === 0 && (
                       <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl border border-amber-300/20 bg-[#111827]/98 px-4 py-3 text-left shadow-[0_18px_45px_rgba(0,0,0,0.45),0_0_22px_rgba(245,158,11,0.10)] backdrop-blur-xl">
                         <button
@@ -1574,17 +1575,17 @@ export default function HomePage() {
                 'group relative w-full overflow-hidden rounded-2xl border px-4 py-3 text-left transition-all duration-300',
                 connected && pubkeyBase58
                   ? [
-                      'border-violet-300/22',
-                      'bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.10),transparent_32%),linear-gradient(180deg,rgba(20,18,42,0.72),rgba(9,14,28,0.78))]',
-                      'shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_12px_32px_rgba(0,0,0,0.22),0_0_26px_rgba(139,92,246,0.10)]',
-                      'hover:border-violet-200/36 hover:shadow-[0_16px_38px_rgba(0,0,0,0.28),0_0_34px_rgba(139,92,246,0.16)]',
-                    ].join(' ')
+                    'border-violet-300/22',
+                    'bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.10),transparent_32%),linear-gradient(180deg,rgba(20,18,42,0.72),rgba(9,14,28,0.78))]',
+                    'shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_12px_32px_rgba(0,0,0,0.22),0_0_26px_rgba(139,92,246,0.10)]',
+                    'hover:border-violet-200/36 hover:shadow-[0_16px_38px_rgba(0,0,0,0.28),0_0_34px_rgba(139,92,246,0.16)]',
+                  ].join(' ')
                   : [
-                      'border-white/10',
-                      'bg-white/[0.035]',
-                      'shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.18)]',
-                      'hover:border-violet-300/22 hover:bg-white/[0.05]',
-                    ].join(' '),
+                    'border-white/10',
+                    'bg-white/[0.035]',
+                    'shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.18)]',
+                    'hover:border-violet-300/22 hover:bg-white/[0.05]',
+                  ].join(' '),
               ].join(' ')}
             >
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),transparent_28%,rgba(139,92,246,0.08)_58%,transparent_82%)] opacity-70" />
@@ -2107,23 +2108,26 @@ export default function HomePage() {
                   Coincarnators
                 </p>
                 <p className="mt-2 text-2xl font-black text-white">
-                  <CountUp end={globalStats.totalParticipants} duration={2} />
+                  <CountUp
+                    end={globalStats.totalCoincarnators}
+                    duration={2}
+                  />
                 </p>
                 <p className="mt-1 text-[11px] leading-4 text-gray-400">
-                  unique contributors
+                  unique identities
                 </p>
               </div>
 
               <div className="rounded-2xl border border-amber-300/15 bg-amber-400/[0.045] flex min-h-[150px] flex-col justify-center p-4 text-center md:text-left">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-200">
-                MEGY Generated
-              </p>
-              <p className="mt-2 text-2xl font-black text-white">
-                <CountUp end={globalStats.megyGenerated} duration={2} separator="," />
-              </p>
-              <p className="mt-1 text-[11px] leading-4 text-gray-400">
-                allocated revival currency
-              </p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-200">
+                  MEGY Generated
+                </p>
+                <p className="mt-2 text-2xl font-black text-white">
+                  <CountUp end={globalStats.megyGenerated} duration={2} separator="," />
+                </p>
+                <p className="mt-1 text-[11px] leading-4 text-gray-400">
+                  allocated revival currency
+                </p>
               </div>
             </div>
 

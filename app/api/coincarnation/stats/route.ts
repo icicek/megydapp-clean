@@ -40,7 +40,8 @@ export async function GET() {
       SELECT
         COUNT(DISTINCT c.wallet_address)::int
           AS total_participants,
-
+        COUNT(DISTINCT iw.identity_id)::int
+          AS total_coincarnators,
         COALESCE(
           SUM(
             CASE
@@ -65,9 +66,11 @@ export async function GET() {
           AS unique_deadcoins
 
       FROM contributions c
-
       LEFT JOIN token_registry r
         ON r.mint = c.token_contract
+      LEFT JOIN identity_wallets iw
+        ON iw.wallet_address = c.wallet_address
+      AND iw.chain = 'solana'
     ` as any[];
 
     /*
@@ -160,6 +163,10 @@ export async function GET() {
       contributionStats?.total_participants ?? 0
     );
 
+    const totalCoincarnators = Number(
+      contributionStats?.total_coincarnators ?? 0
+    );
+
     const totalUsd = Number(
       contributionStats?.total_usd ?? 0
     );
@@ -171,8 +178,8 @@ export async function GET() {
     const mostPopularDeadcoin =
       popularDeadcoinResult[0]?.token_symbol
         ? String(
-            popularDeadcoinResult[0].token_symbol
-          )
+          popularDeadcoinResult[0].token_symbol
+        )
         : 'No deadcoin yet';
 
     const corePointGenerated = Number(
@@ -204,6 +211,7 @@ export async function GET() {
 
       // canonical fields
       totalParticipants,
+      totalCoincarnators,
       totalUsd,
       uniqueDeadcoins,
       mostPopularDeadcoin,
@@ -237,6 +245,7 @@ export async function GET() {
         degraded: true,
 
         totalParticipants: 0,
+        totalCoincarnators: 0,
         totalUsd: 0,
         uniqueDeadcoins: 0,
         mostPopularDeadcoin:
