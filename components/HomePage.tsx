@@ -9,6 +9,7 @@ import AppWalletBar from '@/components/AppWalletBar';
 
 import CoincarneModal from '@/components/CoincarneModal';
 import Skeleton from '@/components/ui/Skeleton';
+import { CirclePercent } from 'lucide-react';
 
 import { useWalletTokens, TokenInfo } from '@/hooks/useWalletTokens';
 import { useChain } from '@/app/providers/ChainProvider';
@@ -1532,21 +1533,31 @@ export default function HomePage() {
 
           <div className="mt-3">
             <div
-              className="w-full bg-gray-800 rounded-full h-6 overflow-hidden relative border border-gray-600"
+              className="relative h-4 w-full overflow-hidden rounded-full border border-white/10 bg-white/[0.05] shadow-inner"
+              role="progressbar"
               aria-label="Your share of the Fair Future Fund"
+              aria-valuenow={Number(sharePercentage)}
+              aria-valuemin={0}
+              aria-valuemax={100}
             >
               <div
-                className="h-6 bg-gradient-to-r from-yellow-800 via-green-500 to-yellow-300"
+                className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-cyan-400 via-violet-500 to-fuchsia-500 shadow-[0_0_18px_rgba(139,92,246,0.28)] transition-[width] duration-700 ease-out"
                 style={{ width: `${sharePercentage}%` }}
               />
-              <span className="absolute inset-0 flex items-center justify-center text-xs text-yellow-200 font-bold">
+
+              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tracking-wide text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
                 {sharePercentage}%
               </span>
             </div>
 
-            <p className="text-sm text-gray-300 mt-2 text-left">
-              🌍 Your personal contribution to the Fair Future Fund (% of total)
-            </p>
+            <div className="mt-2 flex items-center gap-2 text-left text-sm text-gray-300">
+              <CirclePercent
+                className="h-4 w-4 shrink-0 text-cyan-300/80"
+                strokeWidth={1.8}
+                aria-hidden="true"
+              />
+              <span>Your share of the Fair Future Fund</span>
+            </div>
           </div>
           <div className="w-full max-w-5xl mt-6">
             <button
