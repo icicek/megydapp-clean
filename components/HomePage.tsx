@@ -892,7 +892,10 @@ export default function HomePage() {
       try {
         const [globalRes, userRes] = await Promise.all([
           fetch('/api/coincarnation/stats', { cache: 'no-store', signal: ac.signal }),
-          fetch(`/api/claim/${pubkeyBase58}`, { cache: 'no-store', signal: ac.signal }),
+          fetch(`/api/claim/${pubkeyBase58}?scope=identity`, {
+            cache: 'no-store',
+            signal: ac.signal,
+          }),
         ]);
         const globalData = await globalRes.json().catch(() => ({}));
         const userData = await userRes.json().catch(() => ({}));
