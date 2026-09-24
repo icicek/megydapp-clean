@@ -1194,35 +1194,21 @@ export default function HomePage() {
             This is not a swap. This is{' '}
           </span>
 
-          <span className="inline-flex items-baseline bg-gradient-to-r from-cyan-300 via-violet-300 to-pink-300 bg-clip-text text-transparent drop-shadow-[0_0_14px_rgba(168,85,247,0.18)]">
-            <span className="relative inline-block w-[1.35em]">
-              <span
-                aria-hidden={heroPrefix !== 'Re'}
-                className={`absolute inset-x-0 bottom-0 transition-all duration-500 ease-out ${heroPrefix === 'Re'
-                    ? 'opacity-100 blur-0 scale-100'
-                    : 'opacity-0 blur-[5px] scale-75'
-                  }`}
-              >
-                Re
-              </span>
-
-              <span
-                aria-hidden={heroPrefix !== 'Co'}
-                className={`absolute inset-x-0 bottom-0 transition-all duration-500 ease-out ${heroPrefix === 'Co'
-                    ? 'opacity-100 blur-0 scale-100 [text-shadow:0_0_18px_rgba(103,232,249,0.45)]'
-                    : 'opacity-0 blur-[5px] scale-125'
-                  }`}
-              >
-                Co
-              </span>
-
-              <span className="invisible" aria-hidden="true">
-                Re
-              </span>
+          <p className="mt-4 text-xl font-bold md:text-2xl">
+            <span className="bg-gradient-to-r from-cyan-300 via-violet-300 to-pink-300 bg-clip-text text-transparent drop-shadow-[0_0_14px_rgba(168,85,247,0.18)]">
+              This is not a swap. This is{' '}
             </span>
 
-            <span>incarnation.</span>
-          </span>
+            <span className="inline-flex items-baseline bg-gradient-to-r from-cyan-300 via-violet-300 to-pink-300 bg-clip-text text-transparent drop-shadow-[0_0_14px_rgba(168,85,247,0.18)]">
+              <span
+                key={heroPrefix}
+                className="inline-block min-w-[1.35em] animate-[heroPrefixPulse_650ms_cubic-bezier(0.16,1,0.3,1)]"
+              >
+                {heroPrefix}
+              </span>
+              <span>incarnation.</span>
+            </span>
+          </p>
         </p>
 
         <div className="mx-auto mt-4 max-w-3xl">
