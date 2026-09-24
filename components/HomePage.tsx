@@ -1196,12 +1196,12 @@ export default function HomePage() {
 
           <span className="inline-flex items-baseline">
             <span
-              className="relative inline-block w-[1.45em] h-[1.2em] align-baseline"
+              className="relative inline-block w-[1.45em] h-[1em] align-[-0.08em]"
               aria-hidden="true"
             >
               <span
                 className={[
-                  'absolute inset-0 flex items-baseline justify-start',
+                  'absolute inset-0 flex items-end justify-start',
                   'bg-gradient-to-r from-cyan-300 via-violet-300 to-pink-300',
                   'bg-clip-text text-transparent',
                   'transition-all duration-700 ease-out',
@@ -1215,7 +1215,7 @@ export default function HomePage() {
 
               <span
                 className={[
-                  'absolute inset-0 flex items-baseline justify-start',
+                  'absolute inset-0 flex items-end justify-start',
                   'bg-gradient-to-r from-cyan-200 via-violet-300 to-pink-300',
                   'bg-clip-text text-transparent',
                   'transition-all duration-700 ease-out',
