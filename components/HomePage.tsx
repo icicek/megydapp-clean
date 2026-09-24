@@ -72,7 +72,6 @@ export default function HomePage() {
   const [liveActivityError, setLiveActivityError] = useState<string | null>(null);
   const [coinFlowNotice, setCoinFlowNotice] = useState<string | null>(null);
   const [heroPrefix, setHeroPrefix] = useState<'Re' | 'Co'>('Re');
-  const [heroPrefixTransitioning, setHeroPrefixTransitioning] = useState(false);
   const [coinFlowOverlay, setCoinFlowOverlay] = useState<{
     title: string;
     message: string;
@@ -946,32 +945,11 @@ export default function HomePage() {
   }, [tokens, selectedToken]);
 
   useEffect(() => {
-    let swapTimer: number | null = null;
-    let settleTimer: number | null = null;
-
     const id = window.setInterval(() => {
-      setHeroPrefixTransitioning(true);
+      setHeroPrefix((prev) => (prev === 'Re' ? 'Co' : 'Re'));
+    }, 3200);
 
-      swapTimer = window.setTimeout(() => {
-        setHeroPrefix((prev) => (prev === 'Re' ? 'Co' : 'Re'));
-
-        settleTimer = window.setTimeout(() => {
-          setHeroPrefixTransitioning(false);
-        }, 80);
-      }, 220);
-    }, 2800);
-
-    return () => {
-      window.clearInterval(id);
-
-      if (swapTimer !== null) {
-        window.clearTimeout(swapTimer);
-      }
-
-      if (settleTimer !== null) {
-        window.clearTimeout(settleTimer);
-      }
-    };
+    return () => window.clearInterval(id);
   }, []);
 
   useEffect(() => {
@@ -1217,14 +1195,32 @@ export default function HomePage() {
           </span>
 
           <span className="inline-flex items-baseline bg-gradient-to-r from-cyan-300 via-violet-300 to-pink-300 bg-clip-text text-transparent drop-shadow-[0_0_14px_rgba(168,85,247,0.18)]">
-            <span
-              className={`inline-block min-w-[1.35em] transition-[opacity,filter,text-shadow] duration-[220ms] ease-out ${heroPrefixTransitioning
-                  ? 'opacity-20 blur-[3px]'
-                  : 'opacity-100 blur-0 [text-shadow:0_0_16px_rgba(103,232,249,0.22)]'
-                }`}
-            >
-              {heroPrefix}
+            <span className="relative inline-block w-[1.35em]">
+              <span
+                aria-hidden={heroPrefix !== 'Re'}
+                className={`absolute inset-x-0 bottom-0 transition-all duration-500 ease-out ${heroPrefix === 'Re'
+                    ? 'opacity-100 blur-0 scale-100'
+                    : 'opacity-0 blur-[5px] scale-75'
+                  }`}
+              >
+                Re
+              </span>
+
+              <span
+                aria-hidden={heroPrefix !== 'Co'}
+                className={`absolute inset-x-0 bottom-0 transition-all duration-500 ease-out ${heroPrefix === 'Co'
+                    ? 'opacity-100 blur-0 scale-100 [text-shadow:0_0_18px_rgba(103,232,249,0.45)]'
+                    : 'opacity-0 blur-[5px] scale-125'
+                  }`}
+              >
+                Co
+              </span>
+
+              <span className="invisible" aria-hidden="true">
+                Re
+              </span>
             </span>
+
             <span>incarnation.</span>
           </span>
         </p>
