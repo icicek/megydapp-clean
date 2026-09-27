@@ -1243,18 +1243,12 @@ export default function HomePage() {
             This is not a swap. This is{' '}
           </span>
 
-          <p className="mt-4 text-xl font-bold md:text-2xl">
-            <span className="bg-gradient-to-r from-cyan-300 via-violet-300 to-pink-300 bg-clip-text text-transparent drop-shadow-[0_0_14px_rgba(168,85,247,0.18)]">
-              This is not a swap. This is{' '}
+          <span className="inline-flex items-baseline bg-gradient-to-r from-cyan-300 via-violet-300 to-pink-300 bg-clip-text text-transparent drop-shadow-[0_0_14px_rgba(168,85,247,0.18)]">
+            <span className="inline-block min-w-[1.35em] tabular-nums">
+              {heroPrefix}
             </span>
-
-            <span className="inline-flex items-baseline bg-gradient-to-r from-cyan-300 via-violet-300 to-pink-300 bg-clip-text text-transparent drop-shadow-[0_0_14px_rgba(168,85,247,0.18)]">
-              <span className="inline-block min-w-[1.35em] tabular-nums">
-                {heroPrefix}
-              </span>
-              <span>incarnation.</span>
-            </span>
-          </p>
+            <span>incarnation.</span>
+          </span>
         </p>
 
         <div className="mx-auto mt-4 max-w-3xl">
