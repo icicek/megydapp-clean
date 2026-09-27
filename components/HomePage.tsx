@@ -71,7 +71,9 @@ export default function HomePage() {
   const [liveActivityLoading, setLiveActivityLoading] = useState(false);
   const [liveActivityError, setLiveActivityError] = useState<string | null>(null);
   const [coinFlowNotice, setCoinFlowNotice] = useState<string | null>(null);
-  const [heroPrefix, setHeroPrefix] = useState<'Re' | 'Co'>('Re');
+  const [heroPrefix, setHeroPrefix] = useState('Re');
+  const [heroTarget, setHeroTarget] = useState<'Re' | 'Co'>('Re');
+  const heroScrambleTimerRef = useRef<number | null>(null);
   const [coinFlowOverlay, setCoinFlowOverlay] = useState<{
     title: string;
     message: string;
@@ -945,11 +947,58 @@ export default function HomePage() {
   }, [tokens, selectedToken]);
 
   useEffect(() => {
-    const id = window.setInterval(() => {
-      setHeroPrefix((prev) => (prev === 'Re' ? 'Co' : 'Re'));
-    }, 3200);
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
-    return () => window.clearInterval(id);
+    const randomChar = () =>
+      chars[Math.floor(Math.random() * chars.length)];
+
+    const runScramble = (target: 'Re' | 'Co') => {
+      const first = target[0];
+      const second = target[1];
+
+      let step = 0;
+
+      const frames = [
+        () => `${randomChar()}${randomChar()}`,
+        () => `${randomChar()}${randomChar()}`,
+        () => `${randomChar()}${randomChar()}`,
+        () => `${first}${randomChar()}`,
+        () => `${first}${randomChar()}`,
+        () => target,
+      ];
+
+      heroScrambleTimerRef.current = window.setInterval(() => {
+        setHeroPrefix(frames[step]());
+
+        step += 1;
+
+        if (step >= frames.length) {
+          if (heroScrambleTimerRef.current !== null) {
+            window.clearInterval(heroScrambleTimerRef.current);
+            heroScrambleTimerRef.current = null;
+          }
+
+          setHeroPrefix(target);
+        }
+      }, 85);
+    };
+
+    const cycleId = window.setInterval(() => {
+      setHeroTarget((current) => {
+        const next = current === 'Re' ? 'Co' : 'Re';
+        runScramble(next);
+        return next;
+      });
+    }, 3600);
+
+    return () => {
+      window.clearInterval(cycleId);
+
+      if (heroScrambleTimerRef.current !== null) {
+        window.clearInterval(heroScrambleTimerRef.current);
+        heroScrambleTimerRef.current = null;
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -1200,10 +1249,7 @@ export default function HomePage() {
             </span>
 
             <span className="inline-flex items-baseline bg-gradient-to-r from-cyan-300 via-violet-300 to-pink-300 bg-clip-text text-transparent drop-shadow-[0_0_14px_rgba(168,85,247,0.18)]">
-              <span
-                key={heroPrefix}
-                className="inline-block min-w-[1.35em] animate-[heroPrefixPulse_650ms_cubic-bezier(0.16,1,0.3,1)]"
-              >
+              <span className="inline-block min-w-[1.35em] tabular-nums">
                 {heroPrefix}
               </span>
               <span>incarnation.</span>
