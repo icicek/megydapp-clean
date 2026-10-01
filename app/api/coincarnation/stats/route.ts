@@ -20,22 +20,22 @@ export async function GET() {
     const sql = getSql();
 
     /*
-     * Aggregate contribution statistics entirely inside PostgreSQL.
-     *
-     * Important semantics preserved from the previous implementation:
-     *
-     * - usd_value = 0 is excluded from totalUsd.
-     * - A contribution is excluded from totalUsd only when its
-     *   registry status is explicitly "deadcoin".
-     * - Missing registry rows remain eligible, matching the previous
-     *   getStatusRow() fallback behavior.
-     * - blacklist/redlist contributions remain eligible here because
-     *   the previous implementation excluded only "deadcoin".
-     *
-     * The LEFT JOIN removes the previous N-query status lookup pattern
-     * and prevents all contribution rows from being transferred to
-     * the application server.
-     */
+    * Aggregate contribution statistics entirely inside PostgreSQL.
+    *
+    * Revived Value represents the historical USD value of all
+    * Coincarnation contributions that entered the protocol.
+    *
+    * Important semantics:
+    *
+    * - usd_value = 0 does not contribute to totalUsd.
+    * - Deadcoin contributions remain part of Revived Value.
+    * - A token's current registry status must not rewrite the
+    *   historical USD value of an earlier Coincarnation.
+    * - MEGY eligibility is accounted for separately through
+    *   phase_allocations.
+    *
+    * The LEFT JOIN is still used for deadcoin statistics below.
+    */
     const contributionStatsResult = await sql`
       SELECT
         COUNT(DISTINCT c.wallet_address)::int
@@ -45,9 +45,7 @@ export async function GET() {
         COALESCE(
           SUM(
             CASE
-              WHEN
-                COALESCE(c.usd_value, 0) <> 0
-                AND r.status IS DISTINCT FROM 'deadcoin'::token_status_enum
+              WHEN COALESCE(c.usd_value, 0) <> 0
               THEN c.usd_value
               ELSE 0
             END
