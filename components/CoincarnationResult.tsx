@@ -12,7 +12,6 @@ import DeadcoinVoteButton from '@/components/community/DeadcoinVoteButton';
 type Props = {
   tokenFrom: string;
   tokenMint: string;
-  number: number;
   txId: string;
   referral?: string;
   voteEligible?: boolean;
@@ -36,7 +35,6 @@ type Props = {
 export default function CoincarnationResult({
   tokenFrom,
   tokenMint,
-  number,
   txId,
   referral,
   voteEligible,
@@ -85,7 +83,7 @@ export default function CoincarnationResult({
         </div>
 
         <h2 className="text-[24px] font-black leading-tight tracking-tight text-white drop-shadow-[0_0_16px_rgba(168,85,247,0.35)] sm:text-[28px]">
-          Coincarnator #{number}
+          Welcome to the Fair Future.
         </h2>
 
         <p className="mt-2 text-xs leading-5 text-gray-300 sm:text-sm">
@@ -124,11 +122,6 @@ export default function CoincarnationResult({
                 </span>
               </div>
             )}
-
-            <div>
-              Coincarnator:{' '}
-              <span className="font-semibold text-white">#{number}</span>
-            </div>
 
             <div className="min-w-0">
               Tx ID:{' '}

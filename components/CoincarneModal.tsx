@@ -34,7 +34,6 @@ type TokenStatusApi =
 type CoincarnationResultProps = {
   tokenFrom: string;
   tokenMint: string;
-  number: number;
   txId: string;
   referral?: string;
   voteEligible?: boolean;
@@ -1616,7 +1615,6 @@ export default function CoincarneModal({
             <CoincarnationResult
               tokenFrom={resultData.tokenFrom}
               tokenMint={isSOLToken ? WSOL_MINT : token.mint}
-              number={resultData.number}
               txId={resultData.txId}
               referral={resultData.referralCode ?? undefined}
               voteEligible={resultData.voteEligible}
