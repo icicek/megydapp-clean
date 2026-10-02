@@ -25,7 +25,7 @@ if (process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID) {
           name: 'Coincarnation',
           description: 'Revive your deadcoins. Coincarnate them for $MEGY.',
           url: 'https://coincarnation.com',
-          icons: ['https://coincarnation.com/icon.png'],
+          icons: ['https://coincarnation.com/coincarnation-icon.png'],
         },
       },
     })

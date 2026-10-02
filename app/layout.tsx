@@ -35,7 +35,6 @@ export const metadata: Metadata = {
     description: 'Unite deadcoins, rescue value, and join the Fair Future Fund.',
     images: [absoluteUrl('/og-image.png')],
   },
-  icons: { icon: '/favicon.ico' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
