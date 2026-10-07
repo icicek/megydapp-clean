@@ -72,9 +72,9 @@ jobs:
 
           echo "should_run=true" >> "$GITHUB_OUTPUT"
 
-        - name: POST (trigger endpoint)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.cron_precheck.outputs.should_run == 'true' }}
-        env:
+      - name: POST (trigger endpoint)
+       if: ${{ github.event_name == 'workflow_dispatch' || steps.cron_precheck.outputs.should_run == 'true' }}
+       env:
           CRON_URL: ${{ steps.prep.outputs.cron_url }}
           CRON_SECRET_S: ${{ secrets.CRON_SECRET }}
           CRON_SECRET_V: ${{ vars.CRON_SECRET }}
