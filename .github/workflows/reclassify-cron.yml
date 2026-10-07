@@ -55,7 +55,7 @@ jobs:
           BODY=$(curl -sS -L --retry 3 --retry-delay 3 "$CRON_ENABLED_URL?v=$(date +%s)")
           echo "cron_enabled response: $BODY"
 
-          ENABLED=$(echo "$BODY" | jq -r '.value // empty')
+          ENABLED=$(echo "$BODY" | jq -r 'if has("value") and (.value != null) then (.value | tostring) else empty end')
 
           if [ -z "$ENABLED" ]; then
             echo "❌ cron_enabled invalid response"
