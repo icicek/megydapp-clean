@@ -44,7 +44,7 @@ jobs:
           echo "cron_url=$CRON_URL" >> "$GITHUB_OUTPUT"
           echo "cron_enabled_url=$CRON_ENABLED_URL" >> "$GITHUB_OUTPUT"
 
-            - name: Precheck cron_enabled
+      - name: Precheck cron_enabled
         id: cron_precheck
         if: ${{ github.event_name == 'schedule' }}
         env:
