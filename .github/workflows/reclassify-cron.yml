@@ -45,6 +45,7 @@ jobs:
           echo "cron_enabled_url=$CRON_ENABLED_URL" >> "$GITHUB_OUTPUT"
 
       - name: Precheck cron_enabled
+        id: cron_precheck
         if: ${{ github.event_name == 'schedule' }}
         env:
           CRON_ENABLED_URL: ${{ steps.prep.outputs.cron_enabled_url }}
@@ -64,11 +65,15 @@ jobs:
           ENABLED=$(echo "$ENABLED" | tr '[:upper:]' '[:lower:]')
 
           if [ "$ENABLED" != "true" ] && [ "$ENABLED" != "1" ] && [ "$ENABLED" != "yes" ] && [ "$ENABLED" != "on" ]; then
-            echo "Cron disabled — skipping"
+            echo "Cron disabled — skipping reclassification"
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          
+          echo "should_run=true" >> "$GITHUB_OUTPUT"
 
-      - name: POST (trigger endpoint)
+        - name: POST (trigger endpoint)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.cron_precheck.outputs.should_run == 'true' }}
         env:
           CRON_URL: ${{ steps.prep.outputs.cron_url }}
           CRON_SECRET_S: ${{ secrets.CRON_SECRET }}
