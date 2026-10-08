@@ -32,41 +32,46 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const u = new URL(req.url);
-    const force =
-      req.headers.get('x-cron-force') === '1' || u.searchParams.get('force') === '1';
-
-    // 🚦 Global cron guard
-    // Scheduled jobs are blocked when cron_enabled=false.
-    // Manual force=1 can bypass this intentionally.
-    if (!force) {
-      await requireCronEnabled();
-    }
-
-    // 🔐 Auth with X-CRON-SECRET
+    // 🔐 Authenticate BEFORE performing any DB-backed guard or operation.
     const header =
       req.headers.get('x-cron-secret') ||
       req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
       '';
 
     const expected = process.env.CRON_SECRET ?? '';
+
     if (!expected) {
       return NextResponse.json(
         { ok: false, error: 'server_missing_cron_secret' },
         { status: 500, headers: { 'Cache-Control': 'no-store' } }
       );
     }
+
     if (!header) {
       return NextResponse.json(
         { ok: false, error: 'missing_header' },
         { status: 401, headers: { 'Cache-Control': 'no-store' } }
       );
     }
+
     if (header !== expected) {
       return NextResponse.json(
         { ok: false, error: 'bad_secret' },
         { status: 401, headers: { 'Cache-Control': 'no-store' } }
       );
+    }
+
+    // Only an authenticated cron caller may select force mode.
+    const u = new URL(req.url);
+    const force =
+      req.headers.get('x-cron-force') === '1' ||
+      u.searchParams.get('force') === '1';
+
+    // 🚦 Global cron guard
+    // Scheduled jobs are blocked when cron_enabled=false.
+    // Authenticated manual force=1 may bypass this intentionally.
+    if (!force) {
+      await requireCronEnabled();
     }
 
     // 🗄️ DB connection

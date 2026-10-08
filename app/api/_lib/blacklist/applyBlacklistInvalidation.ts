@@ -67,7 +67,16 @@ export async function applyBlacklistInvalidation(
         COALESCE(c.token_amount, 0)::numeric AS token_amount,
         COALESCE(c.usd_value, 0)::numeric AS total_usd,
         COALESCE(pa.usd_allocated, 0)::numeric AS invalidated_usd,
-        COALESCE(pa.megy_allocated, 0)::numeric AS invalidated_megy
+        COALESCE(pa.megy_allocated, 0)::numeric AS invalidated_megy,
+        CASE
+          WHEN COALESCE(c.usd_value, 0)::numeric > 0
+          THEN (
+            COALESCE(c.token_amount, 0)::numeric
+            * COALESCE(pa.usd_allocated, 0)::numeric
+            / COALESCE(c.usd_value, 0)::numeric
+          )
+          ELSE 0::numeric
+        END AS invalidated_token_amount
       FROM phase_allocations pa
       JOIN contributions c
         ON c.id = pa.contribution_id
@@ -88,28 +97,23 @@ export async function applyBlacklistInvalidation(
     const pendingRows = (await sql/* sql */`
       WITH alloc AS (
         SELECT
-          contribution_id,
-          COALESCE(SUM(COALESCE(usd_allocated,0)::numeric),0)::numeric AS usd_alloc
-        WITH alloc AS (
-          SELECT
-            pa.contribution_id,
-            COALESCE(
-              SUM(
-                COALESCE(
-                  pa.usd_allocated,
-                  0
-                )::numeric
-              ),
-              0
-            )::numeric AS usd_alloc
-          FROM phase_allocations pa
-          JOIN contributions c_scope
-            ON c_scope.id = pa.contribution_id
-          JOIN phases p
-            ON p.id = pa.phase_id
-          AND p.is_test = c_scope.is_test
-          GROUP BY pa.contribution_id
-        )
+          pa.contribution_id,
+          COALESCE(
+            SUM(
+              COALESCE(
+                pa.usd_allocated,
+                0
+              )::numeric
+            ),
+            0
+          )::numeric AS usd_alloc
+        FROM phase_allocations pa
+        JOIN contributions c_scope
+          ON c_scope.id = pa.contribution_id
+        JOIN phases p
+          ON p.id = pa.phase_id
+        AND p.is_test = c_scope.is_test
+        GROUP BY pa.contribution_id
       )
       SELECT
         c.id AS contribution_id,
@@ -123,7 +127,20 @@ export async function applyBlacklistInvalidation(
           COALESCE(c.usd_value, 0)::numeric - COALESCE(a.usd_alloc, 0)::numeric,
           0
         )::numeric AS invalidated_usd,
-        0::numeric AS invalidated_megy
+        0::numeric AS invalidated_megy,
+        CASE
+          WHEN COALESCE(c.usd_value, 0)::numeric > 0
+          THEN (
+            COALESCE(c.token_amount, 0)::numeric
+            * GREATEST(
+                COALESCE(c.usd_value, 0)::numeric
+                - COALESCE(a.usd_alloc, 0)::numeric,
+                0
+              )::numeric
+            / COALESCE(c.usd_value, 0)::numeric
+          )
+          ELSE 0::numeric
+        END AS invalidated_token_amount
       FROM contributions c
       LEFT JOIN alloc a
         ON a.contribution_id = c.id
@@ -168,65 +185,217 @@ export async function applyBlacklistInvalidation(
     );
 
     /**
-     * 3) Aggregate invalidation into ONE row per contribution_id
+     * 3) Aggregate invalidation into ONE row per contribution_id.
+     *
+     * IMPORTANT:
+     * Keep economic amounts as PostgreSQL numeric values for the aggregation
+     * instead of converting token amounts to JavaScript Number. This avoids
+     * precision loss in the refund path.
      */
+    const aggregateRows = (await sql/* sql */`
+      SELECT
+        c.id AS contribution_id,
+        c.wallet_address,
+        c.transaction_signature,
+        c.tx_hash,
+
+        COALESCE(
+          SUM(
+            CASE
+              WHEN p.snapshot_taken_at IS NULL
+              THEN COALESCE(pa.usd_allocated, 0)::numeric
+              ELSE 0::numeric
+            END
+          ),
+          0
+        )::numeric AS open_invalidated_usd,
+
+        COALESCE(
+          SUM(
+            CASE
+              WHEN p.snapshot_taken_at IS NULL
+              THEN COALESCE(pa.megy_allocated, 0)::numeric
+              ELSE 0::numeric
+            END
+          ),
+          0
+        )::numeric AS open_invalidated_megy,
+
+        COALESCE(c.usd_value, 0)::numeric AS total_usd,
+        COALESCE(c.token_amount, 0)::numeric AS token_amount
+
+      FROM contributions c
+
+      LEFT JOIN phase_allocations pa
+        ON pa.contribution_id = c.id
+
+      LEFT JOIN phases p
+        ON p.id = pa.phase_id
+      AND p.is_test = c.is_test
+
+      WHERE c.id =
+        ANY(${touchedContributionIds}::bigint[])
+
+      GROUP BY
+        c.id,
+        c.wallet_address,
+        c.transaction_signature,
+        c.tx_hash,
+        c.usd_value,
+        c.token_amount
+
+      ORDER BY c.id ASC
+    `) as any[];
+
     const aggregated = new Map<
       number,
       {
         contributionId: number;
         walletAddress: string;
         txId: string;
-        invalidatedUsd: number;
-        invalidatedMegy: number;
-        invalidatedTokenAmount: number;
+        invalidatedUsd: string;
+        invalidatedMegy: string;
+        invalidatedTokenAmount: string;
       }
     >();
 
-    const addAggregate = (row: any) => {
-      const contributionId = Number(row.contribution_id);
-      if (!Number.isFinite(contributionId) || contributionId <= 0) return;
+    for (const row of aggregateRows) {
+      const contributionId =
+        Number(row.contribution_id);
 
-      const totalUsd = num(row.total_usd, 0);
-      const invalidatedUsd = num(row.invalidated_usd, 0);
-      const invalidatedMegy = num(row.invalidated_megy, 0);
-      const tokenAmount = num(row.token_amount, 0);
+      if (
+        !Number.isSafeInteger(contributionId) ||
+        contributionId <= 0
+      ) {
+        continue;
+      }
 
-      const invalidatedTokenAmount =
-        totalUsd > EPS ? (tokenAmount * invalidatedUsd) / totalUsd : 0;
+      const totalUsd =
+        String(row.total_usd ?? '0');
+
+      const tokenAmount =
+        String(row.token_amount ?? '0');
+
+      const openInvalidatedUsd =
+        String(row.open_invalidated_usd ?? '0');
+
+      const openInvalidatedMegy =
+        String(row.open_invalidated_megy ?? '0');
+
+      /*
+       * Pending/unassigned remainder is the part of the contribution
+       * that has not been allocated to any phase.
+       */
+      const exactRows = (await sql/* sql */`
+    SELECT
+      (
+        ${openInvalidatedUsd}::numeric +
+        GREATEST(
+          ${totalUsd}::numeric -
+          COALESCE(
+            (
+              SELECT SUM(
+                COALESCE(pa2.usd_allocated, 0)::numeric
+              )
+              FROM phase_allocations pa2
+              JOIN phases p2
+                ON p2.id = pa2.phase_id
+              JOIN contributions c2
+                ON c2.id = pa2.contribution_id
+               AND p2.is_test = c2.is_test
+              WHERE pa2.contribution_id =
+                ${contributionId}::bigint
+            ),
+            0
+          )::numeric,
+          0::numeric
+        )
+      )::numeric AS invalidated_usd,
+
+      ${openInvalidatedMegy}::numeric
+        AS invalidated_megy,
+
+      CASE
+        WHEN ${totalUsd}::numeric > 0
+        THEN (
+          ${tokenAmount}::numeric *
+          (
+            ${openInvalidatedUsd}::numeric +
+            GREATEST(
+              ${totalUsd}::numeric -
+              COALESCE(
+                (
+                  SELECT SUM(
+                    COALESCE(pa3.usd_allocated, 0)::numeric
+                  )
+                  FROM phase_allocations pa3
+                  JOIN phases p3
+                    ON p3.id = pa3.phase_id
+                  JOIN contributions c3
+                    ON c3.id = pa3.contribution_id
+                   AND p3.is_test = c3.is_test
+                  WHERE pa3.contribution_id =
+                    ${contributionId}::bigint
+                ),
+                0
+              )::numeric,
+              0::numeric
+            )
+          ) /
+          ${totalUsd}::numeric
+        )::numeric
+        ELSE 0::numeric
+      END AS invalidated_token_amount
+  `) as any[];
+
+      const exact =
+        exactRows?.[0];
+
+      if (!exact) {
+        throw new Error(
+          'BLACKLIST_INVALIDATION_AGGREGATION_FAILED'
+        );
+      }
 
       const txId =
-        String(row.transaction_signature || '').trim() ||
-        String(row.tx_hash || '').trim() ||
+        String(
+          row.transaction_signature || ''
+        ).trim() ||
+        String(
+          row.tx_hash || ''
+        ).trim() ||
         String(contributionId);
 
-      const prev = aggregated.get(contributionId);
-
-      if (!prev) {
-        aggregated.set(contributionId, {
+      aggregated.set(
+        contributionId,
+        {
           contributionId,
-          walletAddress: String(row.wallet_address || '').trim(),
+
+          walletAddress:
+            String(
+              row.wallet_address || ''
+            ).trim(),
+
           txId,
-          invalidatedUsd,
-          invalidatedMegy,
-          invalidatedTokenAmount,
-        });
-        return;
-      }
 
-      prev.invalidatedUsd += invalidatedUsd;
-      prev.invalidatedMegy += invalidatedMegy;
-      prev.invalidatedTokenAmount += invalidatedTokenAmount;
+          invalidatedUsd:
+            String(
+              exact.invalidated_usd ?? '0'
+            ),
 
-      if (!prev.walletAddress && row.wallet_address) {
-        prev.walletAddress = String(row.wallet_address || '').trim();
-      }
-      if (!prev.txId && txId) {
-        prev.txId = txId;
-      }
-    };
+          invalidatedMegy:
+            String(
+              exact.invalidated_megy ?? '0'
+            ),
 
-    for (const row of openAllocRows) addAggregate(row);
-    for (const row of pendingRows) addAggregate(row);
+          invalidatedTokenAmount:
+            String(
+              exact.invalidated_token_amount ??
+              '0'
+            ),
+        }
+      );
+    }
 
     let invalidationRowsUpserted = 0;
 
@@ -308,7 +477,6 @@ export async function applyBlacklistInvalidation(
       RETURNING
         pa.contribution_id,
         pa.phase_id
-      RETURNING pa.contribution_id, pa.phase_id
     `) as any[];
 
     /**
@@ -402,7 +570,7 @@ export async function applyBlacklistInvalidation(
   } catch (e) {
     try {
       await sql`ROLLBACK`;
-    } catch {}
+    } catch { }
     throw e;
   } finally {
     await sql`SELECT pg_advisory_unlock(${lockKey}::bigint)`;

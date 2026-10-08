@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import { generateReferralCode } from '@/app/api/utils/generateReferralCode';
 import { advancePhases } from '@/app/api/_lib/phases/advance';
+import getUsdValue from '@/app/api/utils/getUsdValue';
 
 import {
   getStatusRow,
@@ -134,6 +135,28 @@ type ParsedTransactionResult = {
           signer?: boolean;
         }
       >;
+
+      instructions?: Array<{
+        program?: string;
+        programId?: string | {
+          toString(): string;
+        };
+        parsed?: {
+          type?: string;
+          info?: {
+            source?: string;
+            destination?: string;
+            authority?: string;
+            mint?: string;
+            lamports?: number | string;
+            amount?: number | string;
+            tokenAmount?: {
+              amount?: string;
+              decimals?: number;
+            };
+          };
+        };
+      }>;
     };
   };
 };
@@ -257,10 +280,17 @@ async function verifySolanaTransferOrThrow(p: {
   fromWallet: string;
   destWallet: string;
   kind: 'sol' | 'spl';
-  mint: string; // SPL mint; SOL için WSOL_MINT gelebilir
+  mint: string;
   amountUi: number;
 }) {
-  const { signature, fromWallet, destWallet, kind, mint, amountUi } = p;
+  const {
+    signature,
+    fromWallet,
+    destWallet,
+    kind,
+    mint,
+    amountUi,
+  } = p;
 
   const transactionResponse =
     await getSolanaTransaction(signature);
@@ -283,91 +313,364 @@ async function verifySolanaTransferOrThrow(p: {
     transaction.meta;
 
   if (!message || !meta) {
-    throw new Error(
-      'TX_DATA_INCOMPLETE'
-    );
+    throw new Error('TX_DATA_INCOMPLETE');
   }
 
+  const messageAccountKeys =
+    message.accountKeys || [];
+
   const accountKeys: string[] =
-    (message?.accountKeys || []).map((k: any) =>
-      typeof k === 'string' ? k : String(k?.pubkey)
+    messageAccountKeys.map((k: any) =>
+      typeof k === 'string'
+        ? k
+        : String(k?.pubkey)
     );
 
-  // fromWallet gerçekten signer mı?
-  const signerHit = (message?.accountKeys || []).some((k: any) => {
-    const pk = typeof k === 'string' ? k : String(k?.pubkey);
-    const signer = typeof k === 'string' ? false : !!k?.signer;
-    return signer && pk === fromWallet;
-  });
+  const instructions =
+    Array.isArray(message.instructions)
+      ? message.instructions
+      : [];
+
+  // The wallet submitted to this endpoint must itself
+  // be a signer of the verified transaction.
+  const signerHit =
+    messageAccountKeys.some((k: any) => {
+      const pk =
+        typeof k === 'string'
+          ? k
+          : String(k?.pubkey);
+
+      const signer =
+        typeof k === 'string'
+          ? false
+          : !!k?.signer;
+
+      return signer && pk === fromWallet;
+    });
 
   if (!signerHit) {
     throw new Error('FROM_WALLET_NOT_SIGNER');
   }
 
-  // Dest wallet tx’de geçiyor mu? (çoğu durumda geçer; SOL transferde kesin geçer)
-  const destIndex = accountKeys.findIndex((a) => a === destWallet);
-
   if (kind === 'sol') {
-    if (destIndex < 0) throw new Error('DEST_WALLET_NOT_IN_TX');
+    const destIndex =
+      accountKeys.findIndex(
+        (a) => a === destWallet
+      );
 
-    const pre = BigInt(meta?.preBalances?.[destIndex] ?? 0);
-    const post = BigInt(meta?.postBalances?.[destIndex] ?? 0);
-    const delta = post - pre;
+    if (destIndex < 0) {
+      throw new Error('DEST_WALLET_NOT_IN_TX');
+    }
 
-    const expectedLamports = BigInt(Math.floor(Number(amountUi) * 1e9));
+    const expectedLamports =
+      BigInt(
+        Math.floor(
+          Number(amountUi) * 1e9
+        )
+      );
+
+    if (expectedLamports <= 0n) {
+      throw new Error('INVALID_SOL_AMOUNT');
+    }
+
+    /*
+     * SECURITY:
+     * Do not accept a transaction merely because:
+     *   - fromWallet signed it, and
+     *   - the treasury balance increased.
+     *
+     * Require an actual parsed System Program transfer:
+     *
+     *   fromWallet -> destWallet
+     *
+     * for at least the expected amount.
+     */
+    let directTransferLamports = 0n;
+
+    for (const ix of instructions) {
+      if (ix?.program !== 'system') {
+        continue;
+      }
+
+      if (ix?.parsed?.type !== 'transfer') {
+        continue;
+      }
+
+      const info = ix?.parsed?.info;
+
+      if (
+        String(info?.source || '') !== fromWallet ||
+        String(info?.destination || '') !== destWallet
+      ) {
+        continue;
+      }
+
+      try {
+        const lamports =
+          BigInt(
+            String(info?.lamports ?? '0')
+          );
+
+        if (lamports > 0n) {
+          directTransferLamports += lamports;
+        }
+      } catch {
+        // Malformed parsed instruction:
+        // simply do not count it.
+      }
+    }
+
+    if (
+      directTransferLamports <
+      expectedLamports
+    ) {
+      throw new Error(
+        'SOL_DIRECT_TRANSFER_NOT_VERIFIED'
+      );
+    }
+
+    /*
+     * Keep the existing balance-delta verification as
+     * an independent second layer.
+     */
+    const pre =
+      BigInt(
+        meta?.preBalances?.[destIndex] ?? 0
+      );
+
+    const post =
+      BigInt(
+        meta?.postBalances?.[destIndex] ?? 0
+      );
+
+    const delta =
+      post - pre;
 
     if (delta < expectedLamports) {
-      throw new Error('SOL_DEST_DELTA_TOO_SMALL');
+      throw new Error(
+        'SOL_DEST_DELTA_TOO_SMALL'
+      );
     }
-    return; // ✅ SOL verified
+
+    return;
   }
 
-  // SPL doğrulaması: dest ATA bulunacak ve token delta kontrol edilecek
-  const mintOwner = await getAccountInfoOwner(mint);
-  if (!mintOwner) throw new Error('MINT_ACCOUNT_NOT_FOUND');
+  /*
+   * SPL / Token-2022
+   */
+  const mintOwner =
+    await getAccountInfoOwner(mint);
+
+  if (!mintOwner) {
+    throw new Error(
+      'MINT_ACCOUNT_NOT_FOUND'
+    );
+  }
 
   const programId =
-    mintOwner === String(TOKEN_2022_PROGRAM_ID)
+    mintOwner ===
+      String(TOKEN_2022_PROGRAM_ID)
       ? TOKEN_2022_PROGRAM_ID
       : TOKEN_PROGRAM_ID;
 
-  const destAta = getAssociatedTokenAddressSync(
-    new PublicKey(mint),
-    new PublicKey(destWallet),
-    false,
-    programId
-  ).toBase58();
+  const mintPk =
+    new PublicKey(mint);
 
-  const destAtaIndex = accountKeys.findIndex((a) => a === destAta);
-  if (destAtaIndex < 0) throw new Error('DEST_ATA_NOT_IN_TX');
+  const fromWalletPk =
+    new PublicKey(fromWallet);
 
-  // getTransaction meta token balances accountIndex ile gelir
-  const preTB = Array.isArray(meta?.preTokenBalances) ? meta.preTokenBalances : [];
-  const postTB = Array.isArray(meta?.postTokenBalances) ? meta.postTokenBalances : [];
+  const destWalletPk =
+    new PublicKey(destWallet);
 
-  const preRow =
-    preTB.find((x: any) => x?.mint === mint && x?.accountIndex === destAtaIndex) || null;
-  const postRow =
-    postTB.find((x: any) => x?.mint === mint && x?.accountIndex === destAtaIndex) || null;
+  const sourceAta =
+    getAssociatedTokenAddressSync(
+      mintPk,
+      fromWalletPk,
+      false,
+      programId
+    ).toBase58();
 
-  // TokenBalances bazen sadece post’ta görünür (ilk defa ATA açıldıysa)
-  const decimals =
-    Number(postRow?.uiTokenAmount?.decimals ?? preRow?.uiTokenAmount?.decimals ?? 0);
+  const destAta =
+    getAssociatedTokenAddressSync(
+      mintPk,
+      destWalletPk,
+      false,
+      programId
+    ).toBase58();
 
-  const preAmount = BigInt(preRow?.uiTokenAmount?.amount ?? '0');
-  const postAmount = BigInt(postRow?.uiTokenAmount?.amount ?? '0');
-  const delta = postAmount - preAmount;
+  const destAtaIndex =
+    accountKeys.findIndex(
+      (a) => a === destAta
+    );
 
-  const expected = toU64(Number(amountUi), decimals);
-
-  // tolerans: 1 base unit (rounding vs float)
-  const tolerance = 1n;
-
-  if (delta + tolerance < expected) {
-    throw new Error('SPL_DEST_DELTA_TOO_SMALL');
+  if (destAtaIndex < 0) {
+    throw new Error(
+      'DEST_ATA_NOT_IN_TX'
+    );
   }
 
-  return; // ✅ SPL verified
+  const preTB =
+    Array.isArray(meta?.preTokenBalances)
+      ? meta.preTokenBalances
+      : [];
+
+  const postTB =
+    Array.isArray(meta?.postTokenBalances)
+      ? meta.postTokenBalances
+      : [];
+
+  const preRow =
+    preTB.find(
+      (x: any) =>
+        x?.mint === mint &&
+        x?.accountIndex === destAtaIndex
+    ) || null;
+
+  const postRow =
+    postTB.find(
+      (x: any) =>
+        x?.mint === mint &&
+        x?.accountIndex === destAtaIndex
+    ) || null;
+
+  const decimals =
+    Number(
+      postRow?.uiTokenAmount?.decimals ??
+      preRow?.uiTokenAmount?.decimals ??
+      0
+    );
+
+  const preAmount =
+    BigInt(
+      preRow?.uiTokenAmount?.amount ??
+      '0'
+    );
+
+  const postAmount =
+    BigInt(
+      postRow?.uiTokenAmount?.amount ??
+      '0'
+    );
+
+  const delta =
+    postAmount - preAmount;
+
+  const expected =
+    toU64(
+      Number(amountUi),
+      decimals
+    );
+
+  if (expected <= 0n) {
+    throw new Error(
+      'INVALID_SPL_AMOUNT'
+    );
+  }
+
+  /*
+   * SECURITY:
+   * Require an actual SPL transfer instruction binding:
+   *
+   *   user's ATA
+   *       ->
+   *   treasury ATA
+   *
+   * with fromWallet as authority.
+   */
+  let directTransferRaw = 0n;
+
+  for (const ix of instructions) {
+    const ixProgramId =
+      typeof ix?.programId === 'string'
+        ? ix.programId
+        : ix?.programId?.toString?.() || '';
+
+    const isExpectedTokenProgram =
+      ixProgramId === programId.toBase58();
+
+    if (!isExpectedTokenProgram) {
+      continue;
+    }
+
+    const ixType =
+      String(
+        ix?.parsed?.type || ''
+      ).toLowerCase();
+
+    if (
+      ixType !== 'transfer' &&
+      ixType !== 'transferchecked'
+    ) {
+      continue;
+    }
+
+    const info =
+      ix?.parsed?.info;
+
+    if (
+      String(info?.source || '') !== sourceAta ||
+      String(info?.destination || '') !== destAta ||
+      String(info?.authority || '') !== fromWallet
+    ) {
+      continue;
+    }
+
+    /*
+     * transferChecked exposes the mint directly.
+     * If present, it must match the expected mint.
+     */
+    if (
+      info?.mint &&
+      String(info.mint) !== mint
+    ) {
+      continue;
+    }
+
+    const rawAmount =
+      info?.tokenAmount?.amount ??
+      info?.amount ??
+      '0';
+
+    try {
+      const raw =
+        BigInt(
+          String(rawAmount)
+        );
+
+      if (raw > 0n) {
+        directTransferRaw += raw;
+      }
+    } catch {
+      // Malformed parsed amount:
+      // do not count this instruction.
+    }
+  }
+
+  if (directTransferRaw < expected) {
+    throw new Error(
+      'SPL_DIRECT_TRANSFER_NOT_VERIFIED'
+    );
+  }
+
+  /*
+   * Preserve the existing destination balance-delta
+   * verification as a second independent layer.
+   *
+   * One base unit tolerance is retained for the existing
+   * request amount conversion behavior.
+   */
+  const tolerance = 1n;
+
+  if (
+    delta + tolerance <
+    expected
+  ) {
+    throw new Error(
+      'SPL_DEST_DELTA_TOO_SMALL'
+    );
+  }
+
+  return;
 }
 
 /* ---------- Tek seferlik status okuma ---------- */
@@ -679,7 +982,15 @@ export async function POST(req: NextRequest) {
     }
 
     const tokenAmountNum = toNum(token_amount, 0);
-    const usdValueNum = toNum(usd_value, 0);
+
+    // SECURITY:
+    // usd_value from the client is display/debug data only.
+    // It must never be authoritative for contribution accounting,
+    // phase allocation, CorePoints, or referral economics.
+    const clientUsdValueNum = toNum(usd_value, 0);
+
+    let usdValueNum = 0;
+
     const idemKey = (idempotency_key || idemHeader || '').trim() || null;
 
     // ✅ Guard: Solana record requires a destination wallet env
@@ -718,8 +1029,10 @@ export async function POST(req: NextRequest) {
     const derivedKind: 'sol' | 'spl' =
       isSolSymbol && tokenContractFinal === WSOL_MINT ? 'sol' : 'spl';
 
-    const assetKindFinal: 'sol' | 'spl' =
-      asset_kind === 'sol' || asset_kind === 'spl' ? asset_kind : derivedKind;
+    // SECURITY:
+    // Asset kind is derived exclusively by the server.
+    // Never allow the client to choose which on-chain verification path runs.
+    const assetKindFinal: 'sol' | 'spl' = derivedKind;
 
     // ——— On-chain confirm (polling ile ZORUNLU) ———
     if (
@@ -788,6 +1101,71 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // ✅ SECURITY: authoritative server-side USD valuation
+    // Never trust usd_value supplied by the client for economic accounting.
+    if (networkNorm === 'solana') {
+      try {
+        const priceResult = await getUsdValue({
+          mint: tokenContractFinal,
+          amount: tokenAmountNum,
+          symbol: assetKindFinal === 'sol' ? 'SOL' : String(token_symbol || ''),
+        });
+
+        if (priceResult.status === 'error') {
+          console.error('[COINCARNATION_RECORD] Server pricing error:', {
+            mint: tokenContractFinal,
+            amount: tokenAmountNum,
+            error: priceResult.error,
+          });
+
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'PRICE_VERIFICATION_FAILED',
+            },
+            { status: 503 },
+          );
+        }
+
+        // "not_found" is intentionally allowed:
+        // price-less assets may continue through the deadcoin/status flow with USD = 0.
+        usdValueNum =
+          priceResult.status === 'found' &&
+            Number.isFinite(priceResult.usdValue) &&
+            priceResult.usdValue > 0
+            ? priceResult.usdValue
+            : 0;
+
+        const delta =
+          clientUsdValueNum > 0 || usdValueNum > 0
+            ? Math.abs(clientUsdValueNum - usdValueNum)
+            : 0;
+
+        console.log('[COINCARNATION_RECORD] USD valuation:', {
+          mint: tokenContractFinal,
+          amount: tokenAmountNum,
+          clientUsdValue: clientUsdValueNum,
+          serverUsdValue: usdValueNum,
+          delta,
+          pricingStatus: priceResult.status,
+          pricingSources: priceResult.sources,
+        });
+      } catch (e: any) {
+        console.error(
+          '[COINCARNATION_RECORD] Server pricing exception:',
+          e?.message || e,
+        );
+
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'PRICE_VERIFICATION_FAILED',
+          },
+          { status: 503 },
+        );
+      }
+    }
+
     // ✅ SOL için registry yok: SOL'u DB'de WSOL_MINT ile temsil ediyoruz
     const hasMint = assetKindFinal === 'spl';
 
@@ -816,7 +1194,18 @@ export async function POST(req: NextRequest) {
           isDeadcoinByStatus = true;
         }
       } catch (e) {
-        console.warn('⚠️ registry check failed, continuing:', (e as any)?.message || e);
+        console.error(
+          '❌ registry check failed; Coincarnation blocked:',
+          (e as any)?.message || e
+        );
+
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'TOKEN_REGISTRY_CHECK_FAILED',
+          },
+          { status: 503 }
+        );
       }
     }
 
@@ -1198,13 +1587,14 @@ export async function POST(req: NextRequest) {
 
     const isDeadcoin = isDeadcoinByPrice || isDeadcoinByStatus;
 
-    // 🧠 Varsayılan reward bayrakları (fallback):
-    // - usdValue > 0 ise CP verilebilir
-    // - deadcoin ise deadcoin bonus verilebilir
+    // SECURITY:
+    // Reward decisions fail closed.
+    // For SPL assets, rewards are enabled only after /api/status
+    // explicitly authorizes them.
     let rewardCorePoints: 'none' | 'standard' =
-      usdValueNum > 0 ? 'standard' : 'none';
-    let rewardDeadcoinBonus: 'none' | 'standard' =
-      isDeadcoin ? 'standard' : 'none';
+      hasMint ? 'none' : (usdValueNum > 0 ? 'standard' : 'none');
+
+    let rewardDeadcoinBonus: 'none' | 'standard' = 'none';
 
     // Eğer mint varsa, gerçek decision.reward bilgisini /api/status'tan çekelim.
     if (hasMint) {
