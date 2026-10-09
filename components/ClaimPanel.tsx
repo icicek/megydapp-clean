@@ -902,7 +902,11 @@ export default function ClaimPanel() {
     setIdentityCodeActionMessage,
   ] = useState<string | null>(null);
 
-  const [globalStats, setGlobalStats] = useState({ totalUsd: 0, totalParticipants: 0 });
+  const [globalStats, setGlobalStats] = useState({
+    totalUsd: 0,
+    totalParticipants: 0,
+    totalCoincarnators: 0,
+  });
   const [copiedTarget, setCopiedTarget] = useState<
     | 'profileWallet'
     | 'claimDestination'
@@ -1144,8 +1148,10 @@ export default function ClaimPanel() {
         const [claimStatusRes, userRes, globalRes] = await Promise.all([
           fetch('/api/admin/config/claim_open'),
           fetch(
-            `/api/claim/${operationWallet}${claimScope === 'identity' ? '?scope=identity' : ''
-            }`
+            `/api/claim/${operationWallet}${claimScope === 'identity' ? '?scope=identity' : ''}`,
+            {
+              cache: 'no-store',
+            }
           ),
           fetch('/api/coincarnation/stats'),
         ]);
@@ -1211,6 +1217,7 @@ export default function ClaimPanel() {
           setGlobalStats({
             totalUsd: toNum(globalData.totalUsd, 0),
             totalParticipants: toNum(globalData.totalParticipants, 0),
+            totalCoincarnators: toNum(globalData.totalCoincarnators, 0),
           });
         }
 
@@ -2340,6 +2347,9 @@ export default function ClaimPanel() {
 
       setLinkedWallets(wallets);
 
+      // Refresh profile data after successful Identity authentication.
+      setClaimRefreshKey((prev) => prev + 1);
+
       setIdentityCreationConfirmOpen(false);
       setIdentityPreflightWallet(null);
 
@@ -2539,6 +2549,9 @@ export default function ClaimPanel() {
 
       setLinkedWallets(wallets);
 
+      // Refresh profile data after successful wallet linking.
+      setClaimRefreshKey((prev) => prev + 1);
+
       setIdentityCreationConfirmOpen(false);
       setIdentityPreflightWallet(null);
 
@@ -2702,6 +2715,10 @@ export default function ClaimPanel() {
       });
 
       await refreshIdentityState();
+
+      // Refresh profile, CorePoints, PVC and global statistics
+      // after the wallet has been successfully linked.
+      setClaimRefreshKey((prev) => prev + 1);
 
       setIdentityLinkCodeInput('');
 
@@ -6486,7 +6503,7 @@ export default function ClaimPanel() {
               />
               <StatBox
                 label="Coincarnators"
-                value={`${globalStats.totalParticipants}`}
+                value={`${globalStats.totalCoincarnators}`}
                 color="blue"
               />
               <StatBox
