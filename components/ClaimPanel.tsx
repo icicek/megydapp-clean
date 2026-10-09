@@ -6439,7 +6439,7 @@ export default function ClaimPanel() {
                   ).toFixed(2)}
                 </p>
                 <p className="mt-auto line-clamp-2 text-xs leading-5 text-yellow-100/60">
-                  Your personal revival contribution.
+                  Total eligible USD revived across your linked wallets.
                 </p>
               </div>
 

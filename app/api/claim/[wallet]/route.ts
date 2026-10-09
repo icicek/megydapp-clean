@@ -102,6 +102,7 @@ interface ContributionRow {
   wallet_address: string;
   token_contract: string | null;
   usd_value: number | string | null;
+  invalidated_usd: number | string | null;
 }
 
 interface TotalCoinsRow {
@@ -435,24 +436,47 @@ export async function GET(req: NextRequest) {
 
     const referral_deadcoin_count = referralDeadcoinSet.size;
 
-    // Self contributions eligible USD (exclude deadcoin)
+    // Identity-wide eligible USD for profile statistics.
+    // Claim execution scope remains unchanged.
+    // Exclude invalidated USD and deadcoin contributions.
     const contribRows = (await sql/* sql */`
-      SELECT id, wallet_address, token_contract, usd_value
-      FROM contributions
-      WHERE wallet_address = ANY(${claimWallets});
+      SELECT
+        c.id,
+        c.wallet_address,
+        c.token_contract,
+        c.usd_value,
+        COALESCE(inv.invalidated_usd, 0)::float AS invalidated_usd
+      FROM contributions c
+      LEFT JOIN (
+        SELECT
+          contribution_id,
+          COALESCE(SUM(invalidated_usd), 0)::float AS invalidated_usd
+        FROM contribution_invalidations
+        GROUP BY contribution_id
+      ) inv
+        ON inv.contribution_id = c.id
+      WHERE c.wallet_address = ANY(${corePointWallets});
     `) as ContributionRow[];
 
     const statusCacheSelf = new Map<string, TokenStatus | null>();
     let total_usd_contributed = 0;
+
     for (const row of contribRows) {
-      const contributionId = Number(row.id);
-      const inv = invalidationMap.get(contributionId);
       const rawUsd = Number(row.usd_value ?? 0);
-      const effectiveUsd = Math.max(rawUsd - Number(inv?.invalidated_usd ?? 0), 0);
+      const invalidatedUsd = Number(row.invalidated_usd ?? 0);
+
+      const effectiveUsd = Math.max(rawUsd - invalidatedUsd, 0);
 
       const mint = row.token_contract as string | null;
-      const isDead = await isDeadcoinForMegy(mint, effectiveUsd, statusCacheSelf);
-      if (!isDead) total_usd_contributed += effectiveUsd;
+      const isDead = await isDeadcoinForMegy(
+        mint,
+        effectiveUsd,
+        statusCacheSelf
+      );
+
+      if (!isDead) {
+        total_usd_contributed += effectiveUsd;
+      }
     }
 
     const totalCoinsResult = await sql/* sql */`
