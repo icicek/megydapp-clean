@@ -70,6 +70,12 @@ interface ConfirmModalProps {
   /** Optional: external busy & label control */
   confirmBusy?: boolean;
   confirmLabel?: string;
+  showReferralField?: boolean;
+  referralCode?: string;
+  sessionReferralCode?: string;
+  onReferralCodeChange?: (code: string) => void;
+  referralWarning?: string | null;
+  onContinueWithoutReferral?: () => void;
 }
 
 type ListStatus = 'healthy' | 'walking_dead' | 'deadcoin' | 'redlist' | 'blacklist';
@@ -92,6 +98,12 @@ export default function ConfirmModal({
   confirmBusy = false,
   confirmLabel,
   errorMessage = null,
+  showReferralField = false,
+  referralCode = '',
+  sessionReferralCode = '',
+  onReferralCodeChange,
+  referralWarning = null,
+  onContinueWithoutReferral,
 }: ConfirmModalProps) {
   const [voteMessage, setVoteMessage] = useState('');
   const [listStatus, setListStatus] = useState<ListStatus | null>(null);
@@ -109,6 +121,30 @@ export default function ConfirmModal({
 
   const busy = confirmBusy || internalBusy;
 
+  function normalizeReferralInput(raw: string): string {
+    const value = raw.trim();
+
+    if (!/^https?:\/\//i.test(value)) {
+      return value;
+    }
+
+    try {
+      const url = new URL(value);
+      const host = url.hostname.toLowerCase();
+
+      if (
+        host !== 'coincarnation.com' &&
+        host !== 'www.coincarnation.com'
+      ) {
+        return value;
+      }
+
+      return url.searchParams.get('r')?.trim() || value;
+    } catch {
+      return value;
+    }
+  }
+
   // ✅ Safe USD derivation (unit price * amount)
   const firstUnit = useMemo(() => {
     const p =
@@ -123,8 +159,8 @@ export default function ConfirmModal({
       usdValue > 0
         ? usdValue
         : firstUnit > 0
-        ? firstUnit * Math.max(1, amount)
-        : 0;
+          ? firstUnit * Math.max(1, amount)
+          : 0;
     return Number.isFinite(total) ? total : 0;
   }, [usdValue, firstUnit, amount]);
 
@@ -155,10 +191,10 @@ export default function ConfirmModal({
   // 🔎 Token list status & decision
   useEffect(() => {
     let abort = false;
-  
+
     async function load() {
       if (!isOpen) return;
-  
+
       // Modal açıldığında önce eski state temizlensin
       setStatusCheckedOnce(false);
       setStatusLoading(Boolean(tokenMint));
@@ -170,43 +206,43 @@ export default function ConfirmModal({
       setHighLiq(false);
       setVoteEligible(false);
       setVoteMessage('');
-  
+
       // Mint yoksa status fetch yapamayız; ama block da etmeyelim
       if (!tokenMint) {
         setStatusLoading(false);
         setStatusCheckedOnce(true);
         return;
       }
-  
+
       try {
         const url = `/api/status?mint=${encodeURIComponent(
           tokenMint
         )}&includeMetrics=1&_ts=${Date.now()}`;
-  
+
         const res = await fetch(url, {
           cache: 'no-store',
         });
-        
+
         const parsed = await readJsonSafe(res);
-        
+
         if (!parsed.ok || !parsed.data) {
           throw new Error(
             `STATUS_NON_JSON_OR_HTTP_${parsed.status}: ${parsed.raw.slice(0, 120)}`
           );
         }
-        
+
         const data = parsed.data;
         if (abort) return;
-  
+
         const registryStatus = (data?.registry?.status ?? null) as ListStatus | null;
         const effStatus = (data?.status ?? null) as ListStatus | null;
-  
+
         setListStatus(registryStatus ?? effStatus);
         setStatusAt(data?.statusAt ?? null);
-  
+
         setVotesYes(typeof data?.votesYes === 'number' ? data.votesYes : null);
         setVoteThreshold(typeof data?.threshold === 'number' ? data.threshold : null);
-  
+
         setZone(data?.decision?.zone ?? null);
         setHighLiq(Boolean(data?.decision?.highLiq));
         setVoteEligible(Boolean(data?.decision?.voteEligible));
@@ -229,9 +265,9 @@ export default function ConfirmModal({
         }
       }
     }
-  
+
     load();
-  
+
     return () => {
       abort = true;
     };
@@ -340,9 +376,8 @@ export default function ConfirmModal({
     (busy
       ? 'Processing…'
       : isDeadcoin
-      ? 'Confirm Deadcoin Coincarnation'
-      : `Confirm Coincarnation${
-          amount ? ` (${amount} ${tokenSymbol})` : ''
+        ? 'Confirm Deadcoin Coincarnation'
+        : `Confirm Coincarnation${amount ? ` (${amount} ${tokenSymbol})` : ''
         }`);
 
   const titleText =
@@ -465,7 +500,7 @@ export default function ConfirmModal({
               🔄 Checking latest token status...
             </div>
           )}
-          
+
           {renderListBanner()}
 
           {/* 🔄 Fiyat yükleniyor */}
@@ -564,9 +599,8 @@ export default function ConfirmModal({
                   setVoteMessage(
                     res?.applied
                       ? '✅ Threshold reached – marked as Deadcoin.'
-                      : `👍 Vote recorded (${res?.votesYes ?? 1}/${
-                          res?.threshold ?? 3
-                        })`
+                      : `👍 Vote recorded (${res?.votesYes ?? 1}/${res?.threshold ?? 3
+                      })`
                   );
                 }}
                 label="Vote deadcoin (YES)"
@@ -580,6 +614,123 @@ export default function ConfirmModal({
             </div>
           )}
         </div>
+
+        {/* Optional Referral Code */}
+        {showReferralField && (
+          <>
+            <div className="mt-5 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.035] p-4">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <label
+                  htmlFor="coincarnation-referral"
+                  className="text-sm font-semibold text-white"
+                >
+                  Referral Code
+                </label>
+
+                <span className="text-[11px] text-zinc-400">
+                  Optional
+                </span>
+              </div>
+
+              <p className="mb-3 text-xs leading-relaxed text-zinc-400">
+                Have a referral code? Enter it here or paste a complete
+                Coincarnation referral link.
+              </p>
+
+              <input
+                id="coincarnation-referral"
+                type="text"
+                value={referralCode}
+                onChange={(e) => {
+                  const normalized = normalizeReferralInput(e.target.value);
+                  onReferralCodeChange?.(normalized);
+                }}
+                disabled={busy}
+                placeholder="Referral code or link"
+                autoComplete="off"
+                spellCheck={false}
+                maxLength={512}
+                className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-white outline-none transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/10 disabled:opacity-50"
+              />
+
+              {sessionReferralCode && (
+                <div className="mt-3 text-xs leading-relaxed text-zinc-400">
+                  <span className="text-zinc-500">
+                    Referral from link:
+                  </span>{' '}
+                  <span className="font-semibold text-cyan-200">
+                    {sessionReferralCode}
+                  </span>
+                </div>
+              )}
+
+              {referralCode && sessionReferralCode &&
+                referralCode.toLowerCase() !== sessionReferralCode.toLowerCase() && (
+                  <p className="mt-2 text-xs text-amber-200">
+                    Your manually entered referral code will take priority
+                    over the referral from your link.
+                  </p>
+                )}
+            </div>
+
+            {referralWarning && (
+              <div
+                role="alert"
+                className="mt-3 rounded-xl border border-amber-400/25 bg-amber-400/[0.06] p-4"
+              >
+                <div className="flex items-start gap-3">
+                  <span aria-hidden="true" className="text-amber-300">
+                    ⚠
+                  </span>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-amber-200">
+                      {referralWarning?.includes('temporarily unavailable')
+                        ? 'Referral Verification Unavailable'
+                        : 'Invalid Referral Code'}
+                    </p>
+
+                    <p className="mt-1 text-xs leading-relaxed text-zinc-300">
+                      {referralWarning}
+                    </p>
+
+                    <p className="mt-2 text-xs leading-relaxed text-zinc-400">
+                      You can still complete your Coincarnation without a referral.
+                      Your contribution will not be affected.
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const input = document.getElementById(
+                            'coincarnation-referral'
+                          ) as HTMLInputElement | null;
+
+                          input?.focus();
+                          input?.select();
+                        }}
+                        disabled={busy}
+                        className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-zinc-200 transition hover:bg-white/5 disabled:opacity-50"
+                      >
+                        Edit Code
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={onContinueWithoutReferral}
+                        disabled={busy}
+                        className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20 disabled:opacity-50"
+                      >
+                        Continue without referral
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
         <div className="flex justify-end gap-2 mt-6">
           <button

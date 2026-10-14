@@ -22,7 +22,7 @@ import {
   type IdentityAuthIntent,
 } from '@/app/api/_lib/user-auth';
 import { recalculateIdentityScores } from '@/app/api/_lib/identity-score';
-import { awardReferralSignupIdentityAware } from '@/app/api/_lib/corepoints';
+import { processReferralEntitlementWithTransaction } from '@/app/api/_lib/referral-entitlements';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -335,6 +335,51 @@ async function resolveOrCreateIdentity(
       ]
     );
 
+    /*
+    * Persist referral entitlement atomically with new Identity creation.
+    *
+    * Only the earliest real Coincarnation contribution can establish
+    * referral eligibility. Later contributions cannot introduce a referrer.
+    */
+    const firstContributionResult = await client.query<{
+      referrer_wallet: string | null;
+      referral_code: string | null;
+    }>(
+      `
+        SELECT referrer_wallet, referral_code
+        FROM contributions
+        WHERE wallet_address = $1
+          AND is_test = false
+        ORDER BY "timestamp" ASC, id ASC
+        LIMIT 1
+      `,
+      [walletAddress]
+    );
+
+    const firstContribution = firstContributionResult.rows[0];
+
+    if (firstContribution?.referrer_wallet) {
+      await client.query(
+        `
+          INSERT INTO referral_entitlements (
+            identity_id,
+            referee_wallet,
+            referrer_wallet,
+            referral_code,
+            status
+          )
+          VALUES ($1, $2, $3, $4, 'pending')
+          ON CONFLICT (identity_id) DO NOTHING
+        `,
+        [
+          identityId,
+          walletAddress,
+          firstContribution.referrer_wallet,
+          firstContribution.referral_code,
+        ]
+      );
+    }
+
     await client.query('COMMIT');
     transactionFinished = true;
 
@@ -574,57 +619,30 @@ export async function POST(req: NextRequest) {
       throw error;
     }
 
-    const {
-      identityId,
-      wasNewIdentity,
-    } = identityResolution;
+    const { identityId } = identityResolution;
 
     /*
-     * Referral reward failure must never block authentication.
-     * This preserves the existing product behavior.
+     * Process persisted referral entitlements after Identity
+     * resolution. This runs for both newly created and existing
+     * Identities, allowing pending rewards to be retried.
+     *
+     * Referral failures must not block authentication.
      */
-    if (wasNewIdentity) {
-      try {
-        const pendingReferralRows = await sql`
-          SELECT
-            referrer_wallet,
-            referral_code
-          FROM contributions
-          WHERE wallet_address = ${walletAddress}
-            AND referrer_wallet IS NOT NULL
-          ORDER BY "timestamp" ASC
-          LIMIT 1
-        `;
+    try {
+      const referralResult =
+        await processReferralEntitlementWithTransaction(identityId);
 
-        const pendingReferral =
-          pendingReferralRows[0];
-
-        if (pendingReferral?.referrer_wallet) {
-          const referralResult =
-            await awardReferralSignupIdentityAware({
-              referrer: String(
-                pendingReferral.referrer_wallet
-              ),
-              referee: walletAddress,
-              referralCode:
-                pendingReferral.referral_code
-                  ? String(
-                      pendingReferral.referral_code
-                    )
-                  : null,
-            });
-
-          console.log(
-            '[auth/verify] referral identity award result:',
-            referralResult
-          );
-        }
-      } catch (error) {
-        console.warn(
-          '[auth/verify] referral identity award failed:',
-          getErrorMessage(error)
+      if (referralResult.status !== 'not_found') {
+        console.log(
+          '[auth/verify] referral entitlement result:',
+          referralResult
         );
       }
+    } catch (error) {
+      console.error(
+        '[auth/verify] referral entitlement processing failed:',
+        getErrorMessage(error)
+      );
     }
 
     /*

@@ -68,6 +68,12 @@ type ConfirmModalProps = {
   networkLabel?: string;
   confirmBusy?: boolean;
   confirmLabel?: string;
+  showReferralField?: boolean;
+  referralCode?: string;
+  sessionReferralCode?: string;
+  onReferralCodeChange?: (code: string) => void;
+  referralWarning?: string | null;
+  onContinueWithoutReferral?: () => void;
 };
 
 function getReferralFromUrl(): string | null {
@@ -343,6 +349,126 @@ export default function CoincarneModal({
   const amountInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [manualReferralCode, setManualReferralCode] = useState('');
+  const [sessionReferralCode, setSessionReferralCode] = useState('');
+  const [referralEdited, setReferralEdited] = useState(false);
+
+  const [referralEligibility, setReferralEligibility] = useState<{
+    wallet: string;
+    eligible: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!confirmModalOpen || !publicKey) {
+      setReferralEligibility(null);
+      return;
+    }
+
+    const walletAddress = publicKey.toBase58();
+    let cancelled = false;
+
+    setReferralEligibility(null);
+
+    async function checkReferralEligibility() {
+      try {
+        const response = await fetch('/api/auth/wallet-status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            walletAddress,
+          }),
+          cache: 'no-store',
+        });
+
+        if (!response.ok) {
+          throw new Error('Referral eligibility check failed');
+        }
+
+        const data = await response.json();
+
+        if (cancelled) return;
+
+        setReferralEligibility({
+          wallet: walletAddress,
+          eligible: data.referralEligible === true,
+        });
+      } catch (error) {
+        if (cancelled) return;
+
+        console.warn('Referral eligibility unavailable:', error);
+
+        setReferralEligibility({
+          wallet: walletAddress,
+          eligible: false,
+        });
+      }
+    }
+
+    void checkReferralEligibility();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [confirmModalOpen, publicKey]);
+
+  useEffect(() => {
+    if (!confirmModalOpen) return;
+
+    let storedCode = '';
+
+    try {
+      const raw = localStorage.getItem(
+        'coincarnation:referral:persistent'
+      );
+
+      if (raw) {
+        const parsed = JSON.parse(raw);
+
+        const savedAt = parsed?.savedAt;
+        const code = parsed?.code;
+
+        const age = Date.now() - savedAt;
+
+        if (
+          typeof code === 'string' &&
+          /^[a-zA-Z0-9_-]{1,64}$/.test(code) &&
+          typeof savedAt === 'number' &&
+          Number.isFinite(savedAt) &&
+          age >= 0 &&
+          age < 30 * 24 * 60 * 60 * 1000
+        ) {
+          storedCode = code;
+        }
+      }
+    } catch {
+      storedCode = '';
+    }
+
+    setSessionReferralCode(storedCode);
+
+    // Kullanıcı bu modal açılışında henüz değişiklik yapmadıysa
+    // 30 günlük referral kodunu giriş alanına otomatik getir.
+    if (!referralEdited) {
+      setManualReferralCode(storedCode);
+    }
+  }, [confirmModalOpen, referralEdited]);
+
+  const currentWalletAddress = publicKey?.toBase58() ?? null;
+
+  const isReferralEligible =
+    currentWalletAddress !== null &&
+    referralEligibility?.wallet === currentWalletAddress &&
+    referralEligibility.eligible === true;
+
+  const activeReferralCode = isReferralEligible
+    ? manualReferralCode.trim() || null
+    : null;
+  const [confirmedWithoutReferralCode, setConfirmedWithoutReferralCode] =
+    useState<string | null>(null);
+
+  const [referralWarning, setReferralWarning] = useState<string | null>(null);
   const [priceView, setPriceView] = useState<PriceView>({
     fetchStatus: 'loading',
     usdValue: 0,
@@ -867,6 +993,12 @@ export default function CoincarneModal({
     if (isTxInFlight) return;
 
     setConfirmModalOpen(false);
+    setReferralEdited(false);
+    setManualReferralCode('');
+    setSessionReferralCode('');
+    setReferralWarning(null);
+    setConfirmedWithoutReferralCode(null);
+
     setTxStage('idle');
     setTxError(null);
     setUiNotice(null);
@@ -1062,6 +1194,82 @@ export default function CoincarneModal({
 
     try {
       await assertCoincarnationAppEnabled();
+
+      const referralCodeForAttempt = activeReferralCode?.trim() || null;
+
+      const referralCodeForRecord =
+        referralCodeForAttempt &&
+          confirmedWithoutReferralCode !== referralCodeForAttempt
+          ? referralCodeForAttempt
+          : null;
+
+      if (
+        referralCodeForAttempt &&
+        confirmedWithoutReferralCode !== referralCodeForAttempt
+      ) {
+        let referralResponse: Response;
+
+        try {
+          referralResponse = await fetch('/api/referral/validate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              code: referralCodeForAttempt,
+              wallet_address: publicKey.toBase58(),
+            }),
+            cache: 'no-store',
+          });
+        } catch {
+          setReferralWarning(
+            'Referral verification is temporarily unavailable. ' +
+            'Your referral code could not be verified. ' +
+            'You can continue without a referral.'
+          );
+          setTxStage('idle');
+          return;
+        }
+
+        if (!referralResponse.ok) {
+          setReferralWarning(
+            'Referral verification is temporarily unavailable. ' +
+            'Your referral code could not be verified. ' +
+            'You can continue without a referral.'
+          );
+          setTxStage('idle');
+          return;
+        }
+
+        let referralResult: { valid?: boolean; error?: string };
+
+        try {
+          referralResult = await referralResponse.json();
+
+          if (typeof referralResult?.valid !== 'boolean') {
+            throw new Error('INVALID_REFERRAL_RESPONSE');
+          }
+        } catch {
+          setReferralWarning(
+            'Referral verification is temporarily unavailable. ' +
+            'Your referral code could not be verified. ' +
+            'You can continue without a referral.'
+          );
+          setTxStage('idle');
+          return;
+        }
+
+        if (referralResult.valid !== true) {
+          setReferralWarning(
+            referralResult.error ||
+            'Invalid referral code. You can continue without a referral.'
+          );
+          setTxStage('idle');
+          return;
+        }
+      }
+
+      setReferralWarning(null);
 
       setTxStage('awaiting_wallet');
       const mintForStatus = isSOLToken ? WSOL_MINT : token.mint;
@@ -1319,8 +1527,6 @@ export default function CoincarneModal({
         throw new Error(`[tx-confirm] ${String(e?.message || e)}`);
       }
 
-      const referralFromUrl = getReferralFromUrl();
-
       const finalTokenCategory: TokenCategory =
         latestStatus === 'deadcoin'
           ? 'deadcoin'
@@ -1346,8 +1552,8 @@ export default function CoincarneModal({
           transaction_signature: signature,
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
           token_category: finalTokenCategory,
-          referral_code: referralFromUrl,
-          ref: referralFromUrl,
+          referral_code: referralCodeForRecord,
+          ref: referralCodeForRecord,
         }),
       });
 
@@ -1553,6 +1759,7 @@ export default function CoincarneModal({
       {confirmModalOpen && (
         <ConfirmModal
           isOpen={confirmModalOpen}
+          showReferralField={isReferralEligible}
           onCancel={closeConfirmModal}
           onConfirm={handleSend}
           usdValue={priceView.usdValue}
@@ -1567,6 +1774,47 @@ export default function CoincarneModal({
           confirmBusy={isTxInFlight}
           errorMessage={txError}
           confirmLabel={getTxStageLabel(txStage) || 'Confirm Coincarnation'}
+          referralCode={manualReferralCode}
+          sessionReferralCode={sessionReferralCode}
+          onReferralCodeChange={(code) => {
+            setReferralEdited(true);
+            setManualReferralCode(code);
+            setReferralWarning(null);
+            setConfirmedWithoutReferralCode(null);
+
+            if (code.trim() === '') {
+              try {
+                const dismissedCode =
+                  manualReferralCode.trim() || sessionReferralCode.trim();
+
+                if (dismissedCode) {
+                  sessionStorage.setItem(
+                    'coincarnation:referral:dismissed',
+                    dismissedCode
+                  );
+                }
+
+                localStorage.removeItem('coincarnation:referral:persistent');
+                sessionStorage.removeItem('coincarnation:referral');
+              } catch (error) {
+                console.warn('Unable to clear stored referral:', error);
+              }
+
+              setSessionReferralCode('');
+            }
+          }}
+          referralWarning={referralWarning}
+          onContinueWithoutReferral={() => {
+            if (!activeReferralCode) return;
+
+            setConfirmedWithoutReferralCode(activeReferralCode);
+            setReferralWarning(null);
+            setUiNotice({
+              type: 'warning',
+              message:
+                'Referral skipped. You can now confirm your Coincarnation without a referral.',
+            });
+          }}
         />
       )}
 

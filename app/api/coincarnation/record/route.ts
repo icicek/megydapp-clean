@@ -5,7 +5,10 @@ export const runtime = 'nodejs';
 import { allocateQueueFIFO } from '@/app/api/_lib/phases/allocator';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { neon } from '@neondatabase/serverless';
+import { Client, neon, neonConfig } from '@neondatabase/serverless';
+import ws from 'ws';
+
+neonConfig.webSocketConstructor = ws;
 import { generateReferralCode } from '@/app/api/utils/generateReferralCode';
 import { advancePhases } from '@/app/api/_lib/phases/advance';
 import getUsdValue from '@/app/api/utils/getUsdValue';
@@ -898,7 +901,12 @@ export async function POST(req: NextRequest) {
       if (r2) inboundReferral = r2;
     }
 
-    if (!inboundReferral) {
+    const hasExplicitReferralFields =
+      body != null &&
+      typeof body === 'object' &&
+      ('referral_code' in body || 'ref' in body);
+
+    if (!inboundReferral && !hasExplicitReferralFields) {
       const refererHeader = req.headers.get('referer');
       if (refererHeader) {
         try {
@@ -1213,13 +1221,33 @@ export async function POST(req: NextRequest) {
     try {
       if (txHashOrSig) {
         const dup = await sql`
-          SELECT id FROM contributions
-          WHERE network = ${networkNorm}
-            AND (tx_hash = ${txHashOrSig} OR transaction_signature = ${txHashOrSig})
-          LIMIT 1
-        `;
+              SELECT id, is_test, wallet_address
+              FROM contributions
+              WHERE network = ${networkNorm}
+                AND (
+                  tx_hash = ${txHashOrSig}
+                  OR transaction_signature = ${txHashOrSig}
+                )
+              LIMIT 1
+            `;
+
         if (dup.length > 0) {
-          const existingId = dup[0].id as number;
+          const existingId = Number(dup[0].id);
+          const existingIsTest = dup[0].is_test === true;
+          if (String(dup[0].wallet_address) !== String(wallet_address)) {
+            return NextResponse.json({ success: false, error: 'CONTRIBUTION_WALLET_MISMATCH' }, { status: 409 });
+          }
+
+          if (existingIsTest !== PUBLIC_COINCARNATION_IS_TEST) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: 'CONTRIBUTION_SCOPE_MISMATCH',
+              },
+              { status: 409 }
+            );
+          }
+
           const stableTxId = String(existingId);
 
           return NextResponse.json({
@@ -1236,13 +1264,30 @@ export async function POST(req: NextRequest) {
 
       if (idemKey) {
         const dup2 = await sql`
-          SELECT id FROM contributions
-          WHERE network = ${networkNorm}
-            AND idempotency_key = ${idemKey}
-          LIMIT 1
-        `;
+              SELECT id, is_test, wallet_address
+              FROM contributions
+              WHERE network = ${networkNorm}
+                AND idempotency_key = ${idemKey}
+              LIMIT 1
+            `;
+
         if (dup2.length > 0) {
-          const existingId = dup2[0].id as number;
+          const existingId = Number(dup2[0].id);
+          const existingIsTest = dup2[0].is_test === true;
+          if (String(dup2[0].wallet_address) !== String(wallet_address)) {
+            return NextResponse.json({ success: false, error: 'CONTRIBUTION_WALLET_MISMATCH' }, { status: 409 });
+          }
+
+          if (existingIsTest !== PUBLIC_COINCARNATION_IS_TEST) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: 'CONTRIBUTION_SCOPE_MISMATCH',
+              },
+              { status: 409 }
+            );
+          }
+
           const stableTxId = String(existingId);
 
           return NextResponse.json({
@@ -1263,13 +1308,48 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ——— Participants ———
+    // SECURITY: Participant and contribution records must be committed
+    // atomically. Use the same wallet-specific advisory lock as the
+    // Identity verification endpoint to serialize first-time activity.
+    // The Identity/referral eligibility checks must be repeated after
+    // acquiring this lock.
+    //
+    // IMPORTANT: Keep Solana RPC, pricing, phase allocation and
+    // CorePoints operations outside the database transaction.
+
+    const recordClient = new Client(getDatabaseUrl());
+    let recordConnected = false;
+    let recordCommitted = false;
+
+    // A tagged-query adapter: every query in this block uses the SAME
+    // interactive transaction connection, never the Neon HTTP pool.
+    const tx = async (parts: TemplateStringsArray, ...values: unknown[]) => {
+      let statement = parts[0];
+      for (let i = 0; i < values.length; i++) {
+        statement += `$${i + 1}` + parts[i + 1];
+      }
+      const result = await recordClient.query(statement, values);
+      return result.rows;
+    };
+
     let userReferralCode = '';
     let referrerWallet: string | null = null;
     let isNewParticipant = false;
+    let insertedId: number | null = null;
 
     try {
-      const existing = await sql`
+      await recordClient.connect();
+      recordConnected = true;
+      await recordClient.query('BEGIN');
+      await recordClient.query(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+        [`coincarnation:identity:solana:${String(wallet_address).trim()}`]
+      );
+
+    // ——— Participants ———
+
+    try {
+      const existing = await tx`
         SELECT referral_code, referrer_wallet
         FROM participants
         WHERE wallet_address = ${wallet_address}
@@ -1280,10 +1360,56 @@ export async function POST(req: NextRequest) {
       if (existing.length === 0) {
         isNewParticipant = true;
 
+        // Referral eligibility applies only to a wallet's first
+        // Coincarnation in the current environment.
+        // Existing Identities cannot establish a new referral relationship.
+        if (inboundReferral) {
+          const previousContributionRows = await tx`
+            SELECT id
+            FROM contributions
+            WHERE wallet_address = ${wallet_address}
+              AND is_test = false
+            LIMIT 1
+          `;
+
+          const existingIdentityRows = await tx`
+            SELECT identity_id
+            FROM identity_wallets
+            WHERE chain = 'solana'
+              AND LOWER(wallet_address) = LOWER(${wallet_address})
+            LIMIT 1
+          `;
+
+          if (
+            previousContributionRows.length > 0 ||
+            existingIdentityRows.length > 0
+          ) {
+            inboundReferral = null;
+          }
+        }
+
+        // Resolve the contributor's existing Solana Identity.
+        // A referral must never point back to the same Identity.
+        let contributorIdentityId: string | null = null;
+
+        if (inboundReferral) {
+          const contributorIdentityRows = await tx`
+            SELECT identity_id
+            FROM identity_wallets
+            WHERE chain = 'solana'
+              AND LOWER(wallet_address) = LOWER(${wallet_address})
+            LIMIT 1
+          `;
+
+          contributorIdentityId = contributorIdentityRows[0]?.identity_id
+            ? String(contributorIdentityRows[0].identity_id)
+            : null;
+        }
+
         // inboundReferral varsa referrer wallet'ı identity-first çöz
         if (inboundReferral) {
           // 1) Identity referral codes — new system
-          const identityReferralRows = await sql/* sql */`
+          const identityReferralRows = await tx`
             SELECT
               irc.identity_id,
               iw.wallet_address
@@ -1296,27 +1422,56 @@ export async function POST(req: NextRequest) {
             LIMIT 1
           `;
 
-          if (
-            identityReferralRows.length > 0 &&
-            String(identityReferralRows[0].wallet_address).toLowerCase() !==
-            String(wallet_address).toLowerCase()
-          ) {
-            referrerWallet = String(identityReferralRows[0].wallet_address);
+          if (identityReferralRows.length > 0) {
+            const matchedIdentityId = String(identityReferralRows[0].identity_id);
+            const matchedWallet = String(identityReferralRows[0].wallet_address);
+
+            const isOwnWallet =
+              matchedWallet.toLowerCase() ===
+              String(wallet_address).toLowerCase();
+
+            const isOwnIdentity =
+              contributorIdentityId !== null &&
+              matchedIdentityId === contributorIdentityId;
+
+            if (!isOwnWallet && !isOwnIdentity) {
+              referrerWallet = matchedWallet;
+            }
           } else {
             // 2) Legacy participant referral codes — fallback
-            const legacyReferralRows = await sql/* sql */`
+            const legacyReferralRows = await tx`
               SELECT wallet_address
               FROM participants
               WHERE LOWER(referral_code) = LOWER(${inboundReferral})
               LIMIT 1
             `;
 
-            if (
-              legacyReferralRows.length > 0 &&
-              String(legacyReferralRows[0].wallet_address).toLowerCase() !==
-              String(wallet_address).toLowerCase()
-            ) {
-              referrerWallet = String(legacyReferralRows[0].wallet_address);
+            if (legacyReferralRows.length > 0) {
+              const legacyWallet = String(legacyReferralRows[0].wallet_address);
+
+              const isOwnWallet =
+                legacyWallet.toLowerCase() ===
+                String(wallet_address).toLowerCase();
+
+              let isOwnIdentity = false;
+
+              if (!isOwnWallet && contributorIdentityId) {
+                const legacyIdentityRows = await tx`
+                  SELECT identity_id
+                  FROM identity_wallets
+                  WHERE chain = 'solana'
+                    AND LOWER(wallet_address) = LOWER(${legacyWallet})
+                  LIMIT 1
+                `;
+
+                isOwnIdentity =
+                  legacyIdentityRows.length > 0 &&
+                  String(legacyIdentityRows[0].identity_id) === contributorIdentityId;
+              }
+
+              if (!isOwnWallet && !isOwnIdentity) {
+                referrerWallet = legacyWallet;
+              }
             }
           }
         }
@@ -1324,7 +1479,7 @@ export async function POST(req: NextRequest) {
         // Yeni kullanıcının kendi referral kodu
         userReferralCode = generateReferralCode();
 
-        await sql`
+        await tx`
           INSERT INTO participants (
             wallet_address,
             network,
@@ -1346,7 +1501,7 @@ export async function POST(req: NextRequest) {
 
         // Eski kayıtta referral_code yoksa doldur
         if (!existing[0].referral_code) {
-          await sql`
+          await tx`
             UPDATE participants
                SET referral_code = ${userReferralCode}
              WHERE wallet_address = ${wallet_address}
@@ -1358,7 +1513,7 @@ export async function POST(req: NextRequest) {
       // Emniyet: her durumda boş kalmasın
       if (!userReferralCode) {
         userReferralCode = generateReferralCode();
-        await sql`
+        await tx`
           UPDATE participants
              SET referral_code = ${userReferralCode}
            WHERE wallet_address = ${wallet_address}
@@ -1387,8 +1542,34 @@ export async function POST(req: NextRequest) {
     }
 
     // ——— Contributions için referral metadata ———
+    // Always use the participant's persisted referral relationship.
+    // An ON CONFLICT DO NOTHING may have skipped our attempted insert.
+    const persistedParticipant = await tx`
+        SELECT referral_code, referrer_wallet
+        FROM participants
+        WHERE wallet_address = ${wallet_address}
+          AND network = ${networkNorm}
+        LIMIT 1
+      `;
+
+    if (persistedParticipant.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'PARTICIPANT_NOT_FOUND' },
+        { status: 500 }
+      );
+    }
+
+    userReferralCode =
+      String(persistedParticipant[0].referral_code || '');
+
+    referrerWallet =
+      persistedParticipant[0].referrer_wallet
+        ? String(persistedParticipant[0].referrer_wallet)
+        : null;
+
     const contribReferralCode: string | null =
       userReferralCode || null;
+
     const contribReferrerWallet: string | null =
       referrerWallet;
 
@@ -1414,7 +1595,6 @@ export async function POST(req: NextRequest) {
     });
 
     // ——— CONTRIBUTIONS: INSERT (deterministic + safe) ———
-    let insertedId: number | null = null;
 
     try {
       // IMPORTANT: conflict target must match a REAL unique index
@@ -1429,7 +1609,7 @@ export async function POST(req: NextRequest) {
       );
 
       if (hash) {
-        insertResult = await sql`
+        insertResult = await tx`
           INSERT INTO contributions (
             wallet_address, token_symbol, token_contract, network,
             token_amount, usd_value,
@@ -1449,7 +1629,7 @@ export async function POST(req: NextRequest) {
           RETURNING id;
         `;
       } else if (sig) {
-        insertResult = await sql`
+        insertResult = await tx`
           INSERT INTO contributions (
             wallet_address, token_symbol, token_contract, network,
             token_amount, usd_value,
@@ -1479,10 +1659,11 @@ export async function POST(req: NextRequest) {
 
       // If DO NOTHING happened, fetch existing id and treat as duplicate success
       if (!insertedId) {
-        const exists = await sql`
+        const exists = await tx`
           SELECT
             id,
-            is_test
+            is_test,
+            wallet_address
           FROM contributions
           WHERE network = ${networkNorm}
             AND (
@@ -1499,6 +1680,9 @@ export async function POST(req: NextRequest) {
 
           const existingIsTest =
             Boolean(exists[0].is_test);
+          if (String(exists[0].wallet_address) !== String(wallet_address)) {
+            return NextResponse.json({ success: false, error: 'CONTRIBUTION_WALLET_MISMATCH' }, { status: 409 });
+          }
 
           if (
             existingIsTest !==
@@ -1546,6 +1730,25 @@ export async function POST(req: NextRequest) {
         },
         { status: 500 },
       );
+    }
+
+      await recordClient.query('COMMIT');
+      recordCommitted = true;
+    } finally {
+      if (recordConnected) {
+        if (!recordCommitted) {
+          try {
+            await recordClient.query('ROLLBACK');
+          } catch (rollbackError) {
+            console.error('❌ record transaction rollback failed:', rollbackError);
+          }
+        }
+      }
+      try {
+        await recordClient.end();
+      } catch (closeError) {
+        console.error('❌ record transaction connection close failed:', closeError);
+      }
     }
 
     let allocator: any = null;

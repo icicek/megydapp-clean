@@ -324,10 +324,12 @@ export async function getWalletIdentityScope(wallet: string): Promise<string> {
       return `identity:${identityId}`;
     }
   } catch (e) {
-    console.warn(
-      '[corepoints] getWalletIdentityScope failed, using wallet scope:',
-      (e as any)?.message || e
+    console.error(
+      '[corepoints] getWalletIdentityScope failed:',
+      e
     );
+
+    throw e;
   }
 
   return `wallet:${w.toLowerCase()}`;
@@ -390,7 +392,7 @@ export async function awardReferralSignupIdentityAware({
         ${referralCode ?? null},
         reserved_id.event_id
       FROM reserved_id
-      ON CONFLICT (referrer_scope, referred_scope) DO NOTHING
+      ON CONFLICT DO NOTHING
       RETURNING corepoint_event_id
     ),
     event_insert AS (

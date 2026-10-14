@@ -6,6 +6,8 @@ import type { Metadata } from 'next';
 import Providers from './providers';
 import { APP_URL, absoluteUrl } from '@/app/lib/origin';
 import SiteFooter from '@/components/SiteFooter';
+import { Suspense } from 'react';
+import ReferralSessionCapture from '@/components/ReferralSessionCapture';
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -42,6 +44,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
         <Providers>
+          <Suspense fallback={null}>
+            <ReferralSessionCapture />
+          </Suspense>
+
           {children}
 
           <div className="flex w-full justify-center bg-black px-6">
