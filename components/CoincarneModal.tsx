@@ -1805,10 +1805,28 @@ export default function CoincarneModal({
           }}
           referralWarning={referralWarning}
           onContinueWithoutReferral={() => {
-            if (!activeReferralCode) return;
+            const skippedCode = activeReferralCode?.trim() || '';
 
-            setConfirmedWithoutReferralCode(activeReferralCode);
+            if (skippedCode) {
+              try {
+                sessionStorage.setItem(
+                  'coincarnation:referral:dismissed',
+                  skippedCode
+                );
+
+                localStorage.removeItem('coincarnation:referral:persistent');
+                sessionStorage.removeItem('coincarnation:referral');
+              } catch (error) {
+                console.warn('Unable to clear stored referral:', error);
+              }
+            }
+
+            setReferralEdited(true);
+            setManualReferralCode('');
+            setSessionReferralCode('');
+            setConfirmedWithoutReferralCode(null);
             setReferralWarning(null);
+
             setUiNotice({
               type: 'warning',
               message:
