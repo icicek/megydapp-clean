@@ -24,7 +24,7 @@ export default function ResetSmartConnectOnReturn() {
       if (u.searchParams.has('ac') || u.searchParams.has('brand')) {
         u.searchParams.delete('ac');
         u.searchParams.delete('brand');
-        history.replaceState(null, '', u.pathname + u.hash);
+        history.replaceState(null, '', u.pathname + u.search + u.hash);
       }
 
       // Uçuş ve geçici anahtarlar

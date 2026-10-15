@@ -65,7 +65,18 @@ function getProviderLinks(provider: DirectProvider) {
   const origin =
     typeof window !== 'undefined' ? window.location.origin : 'https://coincarnation.com';
 
-  const appUrl = encodeURIComponent(origin);
+  const referralCode =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('r')?.trim()
+      : null;
+
+  const targetUrl = new URL(origin);
+
+  if (referralCode) {
+    targetUrl.searchParams.set('r', referralCode);
+  }
+
+  const appUrl = encodeURIComponent(targetUrl.toString());
   const ref = encodeURIComponent(origin);
 
   switch (provider) {
@@ -237,7 +248,7 @@ export default function AppWalletBar({
       setMobileOpen(false);
       return;
     }
-  
+
     setShowMobileWalletPicker(false);
     setDirectConnectError(null);
     setDirectConnectBusy(null);
@@ -305,34 +316,34 @@ export default function AppWalletBar({
 
   function normalizeWalletError(err: any) {
     const msg = String(err?.message || err || '').toLowerCase();
-  
+
     if (msg.includes('rejected') || msg.includes('cancelled') || msg.includes('canceled')) {
       return 'Connection request was canceled.';
     }
-  
+
     if (msg.includes('not found') || msg.includes('not installed') || msg.includes('unavailable')) {
       return 'This wallet is not available on this device.';
     }
-  
+
     if (msg.includes('timeout') || msg.includes('open wallet')) {
       return 'Could not open the wallet app.';
     }
-  
+
     return 'Could not start the wallet connection.';
   }
 
   function handleConnectClick() {
     if (connectUiBusy || directConnectBusy) return;
-  
+
     setConnectUiBusy(true);
     setDirectConnectError(null);
-  
+
     try {
       if (env.isMobile && !env.isWalletBrowser) {
         setShowMobileWalletPicker(true);
         return;
       }
-  
+
       setVisible(true);
     } finally {
       setTimeout(() => {
@@ -345,23 +356,23 @@ export default function AppWalletBar({
     try {
       setDirectConnectError(null);
       setDirectConnectBusy(provider);
-  
+
       const { browseUrl, installUrl } = getProviderLinks(provider);
-  
+
       // If already inside a wallet browser, use the standard wallet modal.
       if (env.isWalletBrowser) {
         setShowMobileWalletPicker(false);
         setVisible(true);
         return;
       }
-  
+
       const shouldTryBrowse = env.isMobile;
-  
+
       if (!shouldTryBrowse) {
         openUrl(installUrl, true);
         return;
       }
-  
+
       openUrl(browseUrl, true);
     } catch (e: any) {
       setDirectConnectError(normalizeWalletError(e));
@@ -392,8 +403,8 @@ export default function AppWalletBar({
   const mobileHelpText = env.isIOS
     ? 'On iPhone, opening Coincarnation inside your wallet app browser gives the smoothest experience.'
     : env.isAndroid
-    ? 'On Android, opening Coincarnation inside your wallet app browser is usually the most reliable option.'
-    : 'For the most reliable mobile experience, continue in your wallet app browser.';
+      ? 'On Android, opening Coincarnation inside your wallet app browser is usually the most reliable option.'
+      : 'For the most reliable mobile experience, continue in your wallet app browser.';
 
   return (
     <div className={`w-full ${className}`}>
@@ -402,16 +413,15 @@ export default function AppWalletBar({
         <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md px-3 py-2.5">
           <div className="min-w-0 flex items-center gap-2">
             <span
-              className={`h-2.5 w-2.5 rounded-full shrink-0 ${
-                connected ? 'bg-emerald-400' : 'bg-white/30'
-              }`}
+              className={`h-2.5 w-2.5 rounded-full shrink-0 ${connected ? 'bg-emerald-400' : 'bg-white/30'
+                }`}
             />
             <div className="min-w-0">
               {connected && walletAddress ? (
                 <div className="truncate text-sm font-medium text-white">
                   <div className="flex items-center gap-2">
                     <span className="truncate">
-                        {walletLabel} · {shortenAddress(walletAddress)}
+                      {walletLabel} · {shortenAddress(walletAddress)}
                     </span>
 
                     <button
@@ -477,12 +487,12 @@ export default function AppWalletBar({
                   <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-white/12" />
                   <div className="flex items-start justify-between gap-3">
                     <div className="pr-2">
-                    <div className="text-[22px] font-semibold tracking-[-0.02em] text-white">
-                      Connect Wallet
-                    </div>
-                    <div className="text-[13px] text-white/50 mt-1 leading-relaxed">
-                      Choose how you want to continue.
-                    </div>
+                      <div className="text-[22px] font-semibold tracking-[-0.02em] text-white">
+                        Connect Wallet
+                      </div>
+                      <div className="text-[13px] text-white/50 mt-1 leading-relaxed">
+                        Choose how you want to continue.
+                      </div>
                     </div>
 
                     <button
@@ -507,65 +517,65 @@ export default function AppWalletBar({
                 </div>
 
                 <div className="flex-1 min-h-0 overflow-y-auto p-4 pt-3 space-y-3">
-                {(['phantom', 'backpack', 'solflare'] as DirectProvider[]).map((provider) => {
-                  const meta = walletCardMeta(provider);
-                  const busy = directConnectBusy === provider;
+                  {(['phantom', 'backpack', 'solflare'] as DirectProvider[]).map((provider) => {
+                    const meta = walletCardMeta(provider);
+                    const busy = directConnectBusy === provider;
 
-                  return (
-                    <button
-                      key={provider}
-                      type="button"
-                      onClick={() => handleDirectConnect(provider)}
-                      disabled={!!directConnectBusy}
-                      className={[
-                        'group relative w-full overflow-hidden rounded-[24px] border px-4 py-3 text-left transition-all duration-200',
-                        'bg-white/[0.03] border-white/10 hover:border-white/20',
-                        'hover:bg-white/[0.06] active:scale-[0.985]',
-                        'disabled:opacity-60 disabled:cursor-not-allowed',
-                        'shadow-[0_0_0_1px_rgba(255,255,255,0.02)]',
-                      ].join(' ')}
-                    >
-                      <div className={`absolute inset-0 opacity-100 bg-gradient-to-r ${meta.accent}`} />
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_35%)]" />
+                    return (
+                      <button
+                        key={provider}
+                        type="button"
+                        onClick={() => handleDirectConnect(provider)}
+                        disabled={!!directConnectBusy}
+                        className={[
+                          'group relative w-full overflow-hidden rounded-[24px] border px-4 py-3 text-left transition-all duration-200',
+                          'bg-white/[0.03] border-white/10 hover:border-white/20',
+                          'hover:bg-white/[0.06] active:scale-[0.985]',
+                          'disabled:opacity-60 disabled:cursor-not-allowed',
+                          'shadow-[0_0_0_1px_rgba(255,255,255,0.02)]',
+                        ].join(' ')}
+                      >
+                        <div className={`absolute inset-0 opacity-100 bg-gradient-to-r ${meta.accent}`} />
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_35%)]" />
 
-                      <span className="absolute right-3 top-3 inline-flex max-w-[92px] shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/30 px-2 py-[3px] text-[10px] leading-none text-white/75 whitespace-nowrap">
-                        {meta.badge}
-                      </span>
+                        <span className="absolute right-3 top-3 inline-flex max-w-[92px] shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/30 px-2 py-[3px] text-[10px] leading-none text-white/75 whitespace-nowrap">
+                          {meta.badge}
+                        </span>
 
-                      <div className="relative flex items-center gap-3 pr-[92px]">
-                        <div
-                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl overflow-hidden"
-                        >
-                          {meta.icon ? (
-                            <img
-                              src={meta.icon}
-                              alt={`${meta.title} logo`}
-                              className="h-full w-full object-cover scale-[1.05]"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                              }}
-                            />
-                          ) : (
-                            <span className="text-base">👛</span>
-                          )}
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="block overflow-hidden text-ellipsis whitespace-nowrap text-[15px] font-semibold text-white">
-                            {busy ? `Opening ${meta.title}…` : `Open in ${meta.title}`}
+                        <div className="relative flex items-center gap-3 pr-[92px]">
+                          <div
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl overflow-hidden"
+                          >
+                            {meta.icon ? (
+                              <img
+                                src={meta.icon}
+                                alt={`${meta.title} logo`}
+                                className="h-full w-full object-cover scale-[1.05]"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <span className="text-base">👛</span>
+                            )}
                           </div>
 
-                          <div className="mt-1 text-[13px] leading-[1.2] text-white/60 overflow-hidden whitespace-nowrap text-ellipsis">
-                            {meta.subtitle}
+                          <div className="min-w-0 flex-1">
+                            <div className="block overflow-hidden text-ellipsis whitespace-nowrap text-[15px] font-semibold text-white">
+                              {busy ? `Opening ${meta.title}…` : `Open in ${meta.title}`}
+                            </div>
+
+                            <div className="mt-1 text-[13px] leading-[1.2] text-white/60 overflow-hidden whitespace-nowrap text-ellipsis">
+                              {meta.subtitle}
+                            </div>
+                          </div>
+
+                          <div className="absolute right-3 bottom-0 text-white/35 transition group-hover:text-white/70 text-[20px] leading-none">                          ↗
                           </div>
                         </div>
-
-                        <div className="absolute right-3 bottom-0 text-white/35 transition group-hover:text-white/70 text-[20px] leading-none">                          ↗
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  })}
 
                   <div className="pt-3 mt-1 border-t border-white/10">
                     <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-white/35">
