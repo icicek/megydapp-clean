@@ -9,6 +9,30 @@ import {
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+const STATS_CACHE_TTL_MS = 15_000;
+
+type StatsPayload = {
+  success: boolean;
+  totalParticipants: number;
+  totalCoincarnators: number;
+  totalUsd: number;
+  uniqueDeadcoins: number;
+  mostPopularDeadcoin: string;
+  corePointGenerated: number;
+  megyGenerated: number;
+  totalIndexedAssets: number;
+  healthyAssets: number;
+  walkingDeadAssets: number;
+  deadcoinAssets: number;
+  participantCount: number;
+  totalUsdValue: number;
+};
+
+let statsCache: {
+  data: StatsPayload;
+  expiresAt: number;
+} | null = null;
+
 function getSql() {
   return neon(
     getDatabaseUrl()
@@ -17,6 +41,20 @@ function getSql() {
 
 export async function GET() {
   try {
+    if (
+      statsCache &&
+      Date.now() < statsCache.expiresAt
+    ) {
+      return NextResponse.json(
+        statsCache.data,
+        {
+          headers: {
+            'Cache-Control': 'no-store, max-age=0',
+          },
+        }
+      );
+    }
+
     const sql = getSql();
 
     /*
@@ -224,6 +262,26 @@ export async function GET() {
       participantCount: totalParticipants,
       totalUsdValue: totalUsd,
     });
+
+    statsCache = {
+      data: {
+        success: true,
+        totalParticipants,
+        totalCoincarnators,
+        totalUsd,
+        uniqueDeadcoins,
+        mostPopularDeadcoin,
+        corePointGenerated,
+        megyGenerated,
+        totalIndexedAssets,
+        healthyAssets,
+        walkingDeadAssets,
+        deadcoinAssets,
+        participantCount: totalParticipants,
+        totalUsdValue: totalUsd,
+      },
+      expiresAt: Date.now() + STATS_CACHE_TTL_MS,
+    };
 
     res.headers.set(
       'Cache-Control',
