@@ -33,28 +33,16 @@ let statsCache: {
   expiresAt: number;
 } | null = null;
 
+let statsInFlight: Promise<StatsPayload> | null = null;
+
 function getSql() {
   return neon(
     getDatabaseUrl()
   );
 }
 
-export async function GET() {
+async function calculateStats(): Promise<StatsPayload> {
   try {
-    if (
-      statsCache &&
-      Date.now() < statsCache.expiresAt
-    ) {
-      return NextResponse.json(
-        statsCache.data,
-        {
-          headers: {
-            'Cache-Control': 'no-store, max-age=0',
-          },
-        }
-      );
-    }
-
     const sql = getSql();
 
     /*
@@ -242,7 +230,7 @@ export async function GET() {
       registryStats?.deadcoin_assets ?? 0
     );
 
-    const res = NextResponse.json({
+    const data: StatsPayload = {
       success: true,
 
       // canonical fields
@@ -261,69 +249,45 @@ export async function GET() {
       // backward-compatible aliases
       participantCount: totalParticipants,
       totalUsdValue: totalUsd,
-    });
+    };
 
     statsCache = {
-      data: {
-        success: true,
-        totalParticipants,
-        totalCoincarnators,
-        totalUsd,
-        uniqueDeadcoins,
-        mostPopularDeadcoin,
-        corePointGenerated,
-        megyGenerated,
-        totalIndexedAssets,
-        healthyAssets,
-        walkingDeadAssets,
-        deadcoinAssets,
-        participantCount: totalParticipants,
-        totalUsdValue: totalUsd,
-      },
+      data,
       expiresAt: Date.now() + STATS_CACHE_TTL_MS,
     };
 
-    res.headers.set(
-      'Cache-Control',
-      'no-store, max-age=0'
-    );
-
-    return res;
+    return data;
   } catch (error) {
-    console.error(
-      '[STATS API ERROR]',
-      error
-    );
+    console.error('[STATS API ERROR]', error);
+    throw error;
+  }
+}
 
-    const res = NextResponse.json(
+export async function GET() {
+  const headers = {
+    'Cache-Control': 'no-store, max-age=0',
+  };
+
+  if (statsCache && Date.now() < statsCache.expiresAt) {
+    return NextResponse.json(statsCache.data, { headers });
+  }
+
+  if (!statsInFlight) {
+    statsInFlight = calculateStats().finally(() => {
+      statsInFlight = null;
+    });
+  }
+
+  try {
+    const data = await statsInFlight;
+    return NextResponse.json(data, { headers });
+  } catch {
+    return NextResponse.json(
       {
-        success: true,
-        degraded: true,
-
-        totalParticipants: 0,
-        totalCoincarnators: 0,
-        totalUsd: 0,
-        uniqueDeadcoins: 0,
-        mostPopularDeadcoin:
-          'No deadcoin yet',
-        corePointGenerated: 0,
-        megyGenerated: 0,
-        totalIndexedAssets: 0,
-        healthyAssets: 0,
-        walkingDeadAssets: 0,
-        deadcoinAssets: 0,
-
-        participantCount: 0,
-        totalUsdValue: 0,
+        success: false,
+        error: 'STATS_UNAVAILABLE',
       },
-      { status: 200 }
+      { status: 503, headers }
     );
-
-    res.headers.set(
-      'Cache-Control',
-      'no-store, max-age=0'
-    );
-
-    return res;
   }
 }
