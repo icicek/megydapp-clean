@@ -751,6 +751,7 @@ export default function HomePage() {
     walkingDeadAssets: 0,
     deadcoinAssets: 0,
   });
+  const [globalStatsLoaded, setGlobalStatsLoaded] = useState(false);
   const [userContribution, setUserContribution] = useState(0);
 
   const [activityNow, setActivityNow] = useState(() => Date.now());
@@ -882,7 +883,10 @@ export default function HomePage() {
       try {
         const res = await fetch('/api/coincarnation/stats', { cache: 'no-store', signal: ac.signal });
         const data = await res.json();
-        if ((data as any)?.success) setGlobalStats(data);
+        if ((data as any)?.success) {
+          setGlobalStats(data);
+          setGlobalStatsLoaded(true);
+        }
       } catch { }
     })();
     return () => ac.abort();
@@ -902,7 +906,10 @@ export default function HomePage() {
         ]);
         const globalData = await globalRes.json().catch(() => ({}));
         const userData = await userRes.json().catch(() => ({}));
-        if ((globalData as any)?.success) setGlobalStats(globalData);
+        if ((globalData as any)?.success) {
+          setGlobalStats(globalData);
+          setGlobalStatsLoaded(true);
+        }
         if ((userData as any)?.success) {
           setUserContribution(Number((userData as any)?.data?.total_usd_contributed || 0));
         }
@@ -1264,19 +1271,23 @@ export default function HomePage() {
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-400/[0.06] px-3 py-1.5 text-[11px] font-semibold text-cyan-100 shadow-[0_0_14px_rgba(34,211,238,0.08)]">
             <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 animate-pulse" />
-            <span>{globalStats.totalParticipants}</span>
+            <span>{globalStatsLoaded ? globalStats.totalParticipants : '—'}</span>
             <span className="text-gray-400">active wallets</span>
           </div>
 
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-400/[0.06] px-3 py-1.5 text-[11px] font-semibold text-emerald-100 shadow-[0_0_14px_rgba(16,185,129,0.08)]">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
-            <span>${Number(globalStats.totalUsd || 0).toFixed(2)}</span>
+            <span>
+              {globalStatsLoaded
+                ? `$${Number(globalStats.totalUsd || 0).toFixed(2)}`
+                : '—'}
+            </span>
             <span className="text-gray-400">revived</span>
           </div>
 
           <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/15 bg-amber-400/[0.06] px-3 py-1.5 text-[11px] font-semibold text-amber-100 shadow-[0_0_14px_rgba(245,158,11,0.08)]">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-300 animate-pulse" />
-            <span>{globalStats.uniqueDeadcoins}</span>
+            <span>{globalStatsLoaded ? globalStats.uniqueDeadcoins : '—'}</span>
             <span className="text-gray-400">deadcoins processed</span>
           </div>
         </div>
@@ -2204,7 +2215,15 @@ export default function HomePage() {
                 </p>
 
                 <p className="mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl">
-                  $<CountUp end={globalStats.totalUsd} decimals={2} duration={2} />
+                  {globalStatsLoaded ? (
+                    <>
+                      $<CountUp end={globalStats.totalUsd} decimals={2} duration={2} />
+                    </>
+                  ) : (
+                    <span className="text-3xl text-emerald-100/70 sm:text-4xl">
+                      —
+                    </span>
+                  )}
                 </p>
 
                 <p className="mx-auto mt-3 max-w-[240px] text-[12px] leading-5 text-emerald-100/80">
