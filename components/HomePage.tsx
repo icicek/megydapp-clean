@@ -74,6 +74,7 @@ export default function HomePage() {
   const [heroPrefix, setHeroPrefix] = useState('Re');
   const [heroTarget, setHeroTarget] = useState<'Re' | 'Co'>('Re');
   const heroScrambleTimerRef = useRef<number | null>(null);
+  const liveActivityRequestRef = useRef(false);
   const [coinFlowOverlay, setCoinFlowOverlay] = useState<{
     title: string;
     message: string;
@@ -757,6 +758,10 @@ export default function HomePage() {
   const [activityNow, setActivityNow] = useState(() => Date.now());
 
   async function loadLiveActivity(signal?: AbortSignal) {
+    if (liveActivityRequestRef.current || signal?.aborted) return;
+  
+    liveActivityRequestRef.current = true;
+  
     try {
       setLiveActivityLoading(true);
       setLiveActivityError(null);
@@ -835,7 +840,10 @@ export default function HomePage() {
       if (e?.name === 'AbortError') return;
       setLiveActivityError(e?.message || 'Could not load live activity.');
     } finally {
-      setLiveActivityLoading(false);
+      liveActivityRequestRef.current = false;
+      if (!signal?.aborted) {
+        setLiveActivityLoading(false);
+      }
     }
   }
 
