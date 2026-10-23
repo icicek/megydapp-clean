@@ -6,7 +6,7 @@ import {
   getDatabaseUrl,
 } from '@/app/api/_lib/database-url';
 
-export const revalidate = 30;
+export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 function getSql() {
@@ -227,7 +227,7 @@ export async function GET() {
 
     res.headers.set(
       'Cache-Control',
-      's-maxage=15, stale-while-revalidate=60'
+      'no-store, max-age=0'
     );
 
     return res;
@@ -263,7 +263,7 @@ export async function GET() {
 
     res.headers.set(
       'Cache-Control',
-      's-maxage=15, stale-while-revalidate=60'
+      'no-store, max-age=0'
     );
 
     return res;

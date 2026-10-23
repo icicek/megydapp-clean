@@ -1,0 +1,1832 @@
+// app/api/coincarnation/record/route.ts
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+import { allocateQueueFIFO } from '@/app/api/_lib/phases/allocator';
+
+import { NextRequest, NextResponse } from 'next/server';
+import { neon } from '@neondatabase/serverless';
+import { generateReferralCode } from '@/app/api/utils/generateReferralCode';
+import { advancePhases } from '@/app/api/_lib/phases/advance';
+import getUsdValue from '@/app/api/utils/getUsdValue';
+
+import {
+  getStatusRow,
+  type TokenStatus,
+} from '@/app/api/_lib/registry';
+
+import {
+  getDatabaseUrl,
+} from '@/app/api/_lib/database-url';
+
+import { requireAppEnabled } from '@/app/api/_lib/feature-flags';
+import { PublicKey } from '@solana/web3.js';
+import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
+
+import {
+  awardUsdPoints,
+  awardDeadcoinFirst,
+} from '@/app/api/_lib/corepoints';
+import {
+  getServerSolanaRpcUrlForJsonRpc,
+} from '@/app/api/_lib/solana/serverRpc';
+
+/*
+ * Server-side verification must use only the private server env.
+ *
+ * The browser uses NEXT_PUBLIC_COINCARNE_TREASURY_SOL while
+ * preparing the transaction. This route independently verifies
+ * the destination against COINCARNE_TREASURY_SOL.
+ */
+const COINCARNE_TREASURY_WALLET =
+  process.env.COINCARNE_TREASURY_SOL?.trim() ||
+  '';
+const sql =
+  neon(
+    getDatabaseUrl()
+  );
+
+const WSOL_MINT = 'So11111111111111111111111111111111111111112';
+
+const PUBLIC_COINCARNATION_IS_TEST =
+  String(
+    process.env.COINCARNATION_PUBLIC_MODE ?? 'test'
+  )
+    .trim()
+    .toLowerCase() !== 'production';
+
+const IS_PROD =
+  process.env.VERCEL_ENV === 'production' ||
+  process.env.NODE_ENV === 'production';
+
+// Prod’da confirm kapatılamaz (DISABLE_CONFIRM sadece dev/local’da işe yarar)
+const DISABLE_CONFIRM =
+  !IS_PROD &&
+  String(process.env.DISABLE_CONFIRM || '').toLowerCase() === 'true';
+
+function toNum(v: any, d = 0): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : d;
+}
+
+function normalizeTokenContractForDb(p: {
+  token_symbol: unknown;
+  token_contract: unknown;
+}): string | null {
+  const sym = String(p.token_symbol || '').trim().toUpperCase();
+  const raw = String(p.token_contract || '').trim();
+
+  // SOL: DB'de NULL yok -> WSOL mint ile temsil ediyoruz
+  if (sym === 'SOL') return WSOL_MINT;
+
+  // SPL: mint zorunlu
+  if (!raw) return null;
+
+  // geçmişte yanlışlıkla "SOL" string'i yazıldıysa düzelt
+  if (raw.toUpperCase() === 'SOL') return WSOL_MINT;
+
+  return raw;
+}
+
+type SignatureStatusResult = {
+  value: Array<{
+    err?: unknown;
+    confirmationStatus?: string | null;
+  } | null>;
+};
+
+type AccountInfoResult = {
+  value: {
+    owner?: string;
+  } | null;
+};
+
+type ParsedTransactionResult = {
+  meta?: {
+    err?: unknown;
+    preBalances?: Array<number | string>;
+    postBalances?: Array<number | string>;
+    preTokenBalances?: Array<{
+      mint?: string;
+      accountIndex?: number;
+      uiTokenAmount?: {
+        amount?: string;
+        decimals?: number;
+      };
+    }>;
+    postTokenBalances?: Array<{
+      mint?: string;
+      accountIndex?: number;
+      uiTokenAmount?: {
+        amount?: string;
+        decimals?: number;
+      };
+    }>;
+  } | null;
+
+  transaction?: {
+    message?: {
+      accountKeys?: Array<
+        | string
+        | {
+          pubkey?: string | {
+            toString(): string;
+          };
+          signer?: boolean;
+        }
+      >;
+
+      instructions?: Array<{
+        program?: string;
+        programId?: string | {
+          toString(): string;
+        };
+        parsed?: {
+          type?: string;
+          info?: {
+            source?: string;
+            destination?: string;
+            authority?: string;
+            mint?: string;
+            lamports?: number | string;
+            amount?: number | string;
+            tokenAmount?: {
+              amount?: string;
+              decimals?: number;
+            };
+          };
+        };
+      }>;
+    };
+  };
+};
+
+type SolanaJsonRpcResponse<T = unknown> = {
+  jsonrpc?: string;
+  id?: number | string;
+  result?: T;
+  error?: {
+    code?: number;
+    message?: string;
+    data?: unknown;
+  };
+};
+
+async function rpc<T = unknown>(
+  method: string,
+  params: unknown[]
+): Promise<SolanaJsonRpcResponse<T>> {
+  const rpcUrl =
+    getServerSolanaRpcUrlForJsonRpc();
+
+  const response = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    cache: 'no-store',
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method,
+      params,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `SOLANA_RPC_HTTP_${response.status}`
+    );
+  }
+
+  const payload =
+    (await response.json()) as SolanaJsonRpcResponse<T>;
+
+  if (payload.error) {
+    console.error(
+      '[COINCARNATION_RECORD] Solana RPC error:',
+      {
+        method,
+        code: payload.error.code,
+        message: payload.error.message,
+      }
+    );
+
+    throw new Error(
+      payload.error.message
+        ? `SOLANA_RPC_ERROR: ${payload.error.message}`
+        : 'SOLANA_RPC_ERROR'
+    );
+  }
+
+  return payload;
+}
+
+function toU64(ui: number, decimals: number): bigint {
+  if (!Number.isFinite(ui) || ui <= 0) return 0n;
+  // float riskini azaltmak için string tabanlı çevrim
+  const s = String(ui);
+  const [i = '0', f = ''] = s.split('.');
+  const frac = (f + '0'.repeat(decimals)).slice(0, decimals);
+  const joined = (i + frac).replace(/^0+/, '') || '0';
+  return BigInt(joined);
+}
+
+async function getSolanaTransaction(
+  signature: string
+): Promise<
+  SolanaJsonRpcResponse<
+    ParsedTransactionResult | null
+  >
+> {
+  return rpc<ParsedTransactionResult | null>(
+    'getTransaction',
+    [
+      signature,
+      {
+        encoding: 'jsonParsed',
+        commitment: 'confirmed',
+        maxSupportedTransactionVersion: 0,
+      },
+    ]
+  );
+}
+
+async function getAccountInfoOwner(
+  pubkey: string
+): Promise<string | null> {
+  const response =
+    await rpc<AccountInfoResult>(
+      'getAccountInfo',
+      [
+        pubkey,
+        {
+          encoding: 'base64',
+          commitment: 'confirmed',
+        },
+      ]
+    );
+
+  const accountInfo =
+    response.result?.value;
+
+  return accountInfo?.owner
+    ? String(accountInfo.owner)
+    : null;
+}
+
+async function verifySolanaTransferOrThrow(p: {
+  signature: string;
+  fromWallet: string;
+  destWallet: string;
+  kind: 'sol' | 'spl';
+  mint: string;
+  amountUi: number;
+}) {
+  const {
+    signature,
+    fromWallet,
+    destWallet,
+    kind,
+    mint,
+    amountUi,
+  } = p;
+
+  const transactionResponse =
+    await getSolanaTransaction(signature);
+
+  const transaction =
+    transactionResponse.result;
+
+  if (!transaction) {
+    throw new Error('TX_NOT_FOUND');
+  }
+
+  if (transaction.meta?.err) {
+    throw new Error('TX_META_ERR');
+  }
+
+  const message =
+    transaction.transaction?.message;
+
+  const meta =
+    transaction.meta;
+
+  if (!message || !meta) {
+    throw new Error('TX_DATA_INCOMPLETE');
+  }
+
+  const messageAccountKeys =
+    message.accountKeys || [];
+
+  const accountKeys: string[] =
+    messageAccountKeys.map((k: any) =>
+      typeof k === 'string'
+        ? k
+        : String(k?.pubkey)
+    );
+
+  const instructions =
+    Array.isArray(message.instructions)
+      ? message.instructions
+      : [];
+
+  // The wallet submitted to this endpoint must itself
+  // be a signer of the verified transaction.
+  const signerHit =
+    messageAccountKeys.some((k: any) => {
+      const pk =
+        typeof k === 'string'
+          ? k
+          : String(k?.pubkey);
+
+      const signer =
+        typeof k === 'string'
+          ? false
+          : !!k?.signer;
+
+      return signer && pk === fromWallet;
+    });
+
+  if (!signerHit) {
+    throw new Error('FROM_WALLET_NOT_SIGNER');
+  }
+
+  if (kind === 'sol') {
+    const destIndex =
+      accountKeys.findIndex(
+        (a) => a === destWallet
+      );
+
+    if (destIndex < 0) {
+      throw new Error('DEST_WALLET_NOT_IN_TX');
+    }
+
+    const expectedLamports =
+      BigInt(
+        Math.floor(
+          Number(amountUi) * 1e9
+        )
+      );
+
+    if (expectedLamports <= 0n) {
+      throw new Error('INVALID_SOL_AMOUNT');
+    }
+
+    /*
+     * SECURITY:
+     * Do not accept a transaction merely because:
+     *   - fromWallet signed it, and
+     *   - the treasury balance increased.
+     *
+     * Require an actual parsed System Program transfer:
+     *
+     *   fromWallet -> destWallet
+     *
+     * for at least the expected amount.
+     */
+    let directTransferLamports = 0n;
+
+    for (const ix of instructions) {
+      if (ix?.program !== 'system') {
+        continue;
+      }
+
+      if (ix?.parsed?.type !== 'transfer') {
+        continue;
+      }
+
+      const info = ix?.parsed?.info;
+
+      if (
+        String(info?.source || '') !== fromWallet ||
+        String(info?.destination || '') !== destWallet
+      ) {
+        continue;
+      }
+
+      try {
+        const lamports =
+          BigInt(
+            String(info?.lamports ?? '0')
+          );
+
+        if (lamports > 0n) {
+          directTransferLamports += lamports;
+        }
+      } catch {
+        // Malformed parsed instruction:
+        // simply do not count it.
+      }
+    }
+
+    if (
+      directTransferLamports <
+      expectedLamports
+    ) {
+      throw new Error(
+        'SOL_DIRECT_TRANSFER_NOT_VERIFIED'
+      );
+    }
+
+    /*
+     * Keep the existing balance-delta verification as
+     * an independent second layer.
+     */
+    const pre =
+      BigInt(
+        meta?.preBalances?.[destIndex] ?? 0
+      );
+
+    const post =
+      BigInt(
+        meta?.postBalances?.[destIndex] ?? 0
+      );
+
+    const delta =
+      post - pre;
+
+    if (delta < expectedLamports) {
+      throw new Error(
+        'SOL_DEST_DELTA_TOO_SMALL'
+      );
+    }
+
+    return;
+  }
+
+  /*
+   * SPL / Token-2022
+   */
+  const mintOwner =
+    await getAccountInfoOwner(mint);
+
+  if (!mintOwner) {
+    throw new Error(
+      'MINT_ACCOUNT_NOT_FOUND'
+    );
+  }
+
+  const programId =
+    mintOwner ===
+      String(TOKEN_2022_PROGRAM_ID)
+      ? TOKEN_2022_PROGRAM_ID
+      : TOKEN_PROGRAM_ID;
+
+  const mintPk =
+    new PublicKey(mint);
+
+  const fromWalletPk =
+    new PublicKey(fromWallet);
+
+  const destWalletPk =
+    new PublicKey(destWallet);
+
+  const sourceAta =
+    getAssociatedTokenAddressSync(
+      mintPk,
+      fromWalletPk,
+      false,
+      programId
+    ).toBase58();
+
+  const destAta =
+    getAssociatedTokenAddressSync(
+      mintPk,
+      destWalletPk,
+      false,
+      programId
+    ).toBase58();
+
+  const destAtaIndex =
+    accountKeys.findIndex(
+      (a) => a === destAta
+    );
+
+  if (destAtaIndex < 0) {
+    throw new Error(
+      'DEST_ATA_NOT_IN_TX'
+    );
+  }
+
+  const preTB =
+    Array.isArray(meta?.preTokenBalances)
+      ? meta.preTokenBalances
+      : [];
+
+  const postTB =
+    Array.isArray(meta?.postTokenBalances)
+      ? meta.postTokenBalances
+      : [];
+
+  const preRow =
+    preTB.find(
+      (x: any) =>
+        x?.mint === mint &&
+        x?.accountIndex === destAtaIndex
+    ) || null;
+
+  const postRow =
+    postTB.find(
+      (x: any) =>
+        x?.mint === mint &&
+        x?.accountIndex === destAtaIndex
+    ) || null;
+
+  const decimals =
+    Number(
+      postRow?.uiTokenAmount?.decimals ??
+      preRow?.uiTokenAmount?.decimals ??
+      0
+    );
+
+  const preAmount =
+    BigInt(
+      preRow?.uiTokenAmount?.amount ??
+      '0'
+    );
+
+  const postAmount =
+    BigInt(
+      postRow?.uiTokenAmount?.amount ??
+      '0'
+    );
+
+  const delta =
+    postAmount - preAmount;
+
+  const expected =
+    toU64(
+      Number(amountUi),
+      decimals
+    );
+
+  if (expected <= 0n) {
+    throw new Error(
+      'INVALID_SPL_AMOUNT'
+    );
+  }
+
+  /*
+   * SECURITY:
+   * Require an actual SPL transfer instruction binding:
+   *
+   *   user's ATA
+   *       ->
+   *   treasury ATA
+   *
+   * with fromWallet as authority.
+   */
+  let directTransferRaw = 0n;
+
+  for (const ix of instructions) {
+    const ixProgramId =
+      typeof ix?.programId === 'string'
+        ? ix.programId
+        : ix?.programId?.toString?.() || '';
+
+    const isExpectedTokenProgram =
+      ixProgramId === programId.toBase58();
+
+    if (!isExpectedTokenProgram) {
+      continue;
+    }
+
+    const ixType =
+      String(
+        ix?.parsed?.type || ''
+      ).toLowerCase();
+
+    if (
+      ixType !== 'transfer' &&
+      ixType !== 'transferchecked'
+    ) {
+      continue;
+    }
+
+    const info =
+      ix?.parsed?.info;
+
+    if (
+      String(info?.source || '') !== sourceAta ||
+      String(info?.destination || '') !== destAta ||
+      String(info?.authority || '') !== fromWallet
+    ) {
+      continue;
+    }
+
+    /*
+     * transferChecked exposes the mint directly.
+     * If present, it must match the expected mint.
+     */
+    if (
+      info?.mint &&
+      String(info.mint) !== mint
+    ) {
+      continue;
+    }
+
+    const rawAmount =
+      info?.tokenAmount?.amount ??
+      info?.amount ??
+      '0';
+
+    try {
+      const raw =
+        BigInt(
+          String(rawAmount)
+        );
+
+      if (raw > 0n) {
+        directTransferRaw += raw;
+      }
+    } catch {
+      // Malformed parsed amount:
+      // do not count this instruction.
+    }
+  }
+
+  if (directTransferRaw < expected) {
+    throw new Error(
+      'SPL_DIRECT_TRANSFER_NOT_VERIFIED'
+    );
+  }
+
+  /*
+   * Preserve the existing destination balance-delta
+   * verification as a second independent layer.
+   *
+   * One base unit tolerance is retained for the existing
+   * request amount conversion behavior.
+   */
+  const tolerance = 1n;
+
+  if (
+    delta + tolerance <
+    expected
+  ) {
+    throw new Error(
+      'SPL_DEST_DELTA_TOO_SMALL'
+    );
+  }
+
+  return;
+}
+
+/* ---------- Tek seferlik status okuma ---------- */
+async function isSolanaTxConfirmedOnce(
+  signature: string
+): Promise<boolean> {
+  const response =
+    await rpc<SignatureStatusResult>(
+      'getSignatureStatuses',
+      [
+        [signature],
+        {
+          searchTransactionHistory: true,
+        },
+      ]
+    );
+
+  const status =
+    response.result?.value?.[0] ?? null;
+
+  if (!status) {
+    return false;
+  }
+
+  if (
+    status.err !== null &&
+    status.err !== undefined
+  ) {
+    return false;
+  }
+
+  const confirmationStatus =
+    status.confirmationStatus;
+
+  return (
+    confirmationStatus === 'confirmed' ||
+    confirmationStatus === 'finalized'
+  );
+}
+
+/* ----------  Polling ile confirmation bekleme  ---------- */
+async function waitForSolanaConfirm(
+  signature: string,
+  maxMs = 25000,
+  intervalMs = 1000,
+): Promise<boolean> {
+  const started = Date.now();
+  while (Date.now() - started < maxMs) {
+    try {
+      const ok = await isSolanaTxConfirmedOnce(signature);
+      if (ok) return true;
+    } catch (e) {
+      console.warn(
+        '⚠️ getSignatureStatuses polling failed:',
+        (e as any)?.message || e,
+      );
+    }
+    await new Promise((res) => setTimeout(res, intervalMs));
+  }
+  return false;
+}
+
+async function settlePhaseFlow(
+  maxRounds: number,
+  isTest: boolean
+) {
+  const rounds: Array<{
+    round: number;
+    allocator: any;
+    allocatorError: string | null;
+    phaseAdvance: any;
+    phaseAdvanceError: string | null;
+  }> = [];
+
+  let lastAllocator: any = null;
+  let lastAllocatorError: string | null = null;
+  let lastAdvance: any = null;
+  let lastAdvanceError: string | null = null;
+
+  for (
+    let round = 1;
+    round <= maxRounds;
+    round++
+  ) {
+    let allocatorRes: any = null;
+    let allocatorErr: string | null = null;
+    let advanceRes: any = null;
+    let advanceErr: string | null = null;
+
+    try {
+      allocatorRes =
+        await allocateQueueFIFO({
+          maxSteps: 20,
+          isTest,
+        });
+
+      lastAllocator = allocatorRes;
+      lastAllocatorError = null;
+    } catch (e: any) {
+      allocatorErr =
+        String(e?.message || e);
+
+      lastAllocatorError =
+        allocatorErr;
+
+      console.error(
+        `❌ allocator failed in settlePhaseFlow round ${round}:`,
+        allocatorErr,
+        e
+      );
+    }
+
+    try {
+      advanceRes =
+        await advancePhases({
+          isTest,
+        });
+
+      lastAdvance = advanceRes;
+      lastAdvanceError = null;
+    } catch (e: any) {
+      advanceErr =
+        String(e?.message || e);
+
+      lastAdvanceError =
+        advanceErr;
+
+      console.warn(
+        `⚠️ advance failed in settlePhaseFlow round ${round}:`,
+        advanceErr,
+        e
+      );
+    }
+
+    rounds.push({
+      round,
+      allocator: allocatorRes,
+      allocatorError: allocatorErr,
+      phaseAdvance: advanceRes,
+      phaseAdvanceError: advanceErr,
+    });
+
+    const movedTotal =
+      Number(
+        allocatorRes?.moved_total ?? 0
+      );
+
+    const changed =
+      !!advanceRes?.changed;
+
+    const opened =
+      Array.isArray(
+        advanceRes?.openedPhaseIds
+      )
+        ? advanceRes.openedPhaseIds.length
+        : 0;
+
+    // Stop when the system is stable:
+    // - allocator moved nothing
+    // - lifecycle did not change
+    // - no new phase was opened
+    if (
+      movedTotal <= 0 &&
+      !changed &&
+      opened <= 0
+    ) {
+      break;
+    }
+  }
+
+  return {
+    rounds,
+    allocator: lastAllocator,
+    allocatorError:
+      lastAllocatorError,
+    phaseAdvance: lastAdvance,
+    phaseAdvanceError:
+      lastAdvanceError,
+  };
+}
+
+export async function POST(req: NextRequest) {
+  const t0 = Date.now();
+  console.log('✅ /api/coincarnation/record called');
+  await requireAppEnabled();
+
+  let adv: Awaited<ReturnType<typeof advancePhases>> | null = null;
+
+  try {
+    const idemHeader = req.headers.get('Idempotency-Key') || null;
+    const body = await req.json();
+    console.log('📥 incoming body:', JSON.stringify(body));
+
+    // body'den gelen ham alanlar
+    const {
+      wallet_address,
+      token_symbol,
+      token_contract,
+      token_amount,
+      usd_value,
+
+      transaction_signature,
+      tx_hash,
+      tx_block,
+
+      idempotency_key,
+      network,
+      user_agent,
+      referral_code: referralFromBody, // alias
+
+      asset_kind, // opsiyonel: 'sol' | 'spl'
+    } = body ?? {};
+
+    // 🔹 Referral kodunu daha akıllı topla:
+    // 1) body.referral_code
+    // 2) body.ref
+    // 3) Referer header içindeki ?r=
+    let inboundReferral: string | null =
+      typeof referralFromBody === 'string' && referralFromBody.trim()
+        ? referralFromBody.trim()
+        : null;
+
+    if (!inboundReferral && typeof (body as any)?.ref === 'string') {
+      const r2 = (body as any).ref.trim();
+      if (r2) inboundReferral = r2;
+    }
+
+    const hasExplicitReferralFields =
+      body != null &&
+      typeof body === 'object' &&
+      ('referral_code' in body || 'ref' in body);
+
+    if (!inboundReferral && !hasExplicitReferralFields) {
+      const refererHeader = req.headers.get('referer');
+      if (refererHeader) {
+        try {
+          const u = new URL(refererHeader);
+          const rParam = u.searchParams.get('r');
+          if (rParam && rParam.trim()) {
+            inboundReferral = rParam.trim();
+          }
+        } catch {
+          // parse edemezsek sessiz geç
+        }
+      }
+    }
+
+    // ——— Temel alanlar ———
+    if (!wallet_address || !token_symbol) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'wallet_address and token_symbol are required',
+        },
+        { status: 400 },
+      );
+    }
+
+    const networkNorm = String(network || 'solana').toLowerCase().trim();
+
+    // ✅ SOLANA: transaction_signature zorunlu
+    if (networkNorm === 'solana') {
+      const sig = (transaction_signature && String(transaction_signature).trim()) || '';
+
+      if (!sig) {
+        return NextResponse.json(
+          { success: false, error: 'MISSING_TRANSACTION_SIGNATURE' },
+          { status: 400 }
+        );
+      }
+
+      // ✅ Solana’da tx_hash kabul etmeyelim (yanlış data gelirse DB’ye girmesin)
+      if (tx_hash && String(tx_hash).trim()) {
+        return NextResponse.json(
+          { success: false, error: 'TX_HASH_NOT_ALLOWED_ON_SOLANA' },
+          { status: 400 }
+        );
+      }
+
+      // (opsiyonel) Signature format sanity check (çok sıkı değil)
+      if (sig.length < 60) {
+        return NextResponse.json(
+          { success: false, error: 'INVALID_TRANSACTION_SIGNATURE' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // ✅ EVM (şimdilik yok ama ileride): tx_hash zorunlu
+    if (networkNorm !== 'solana') {
+      const hash = (tx_hash && String(tx_hash).trim()) || '';
+      if (!hash) {
+        return NextResponse.json(
+          { success: false, error: 'MISSING_TX_HASH' },
+          { status: 400 }
+        );
+      }
+    }
+
+    const txHashOrSig =
+      networkNorm === 'solana'
+        ? String(transaction_signature).trim()
+        : (tx_hash && String(tx_hash).trim()) || null;
+
+    if (!txHashOrSig) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'transaction_signature (Solana) or tx_hash (EVM) is required',
+        },
+        { status: 400 },
+      );
+    }
+
+    const tokenAmountNum = toNum(token_amount, 0);
+
+    // SECURITY:
+    // usd_value from the client is display/debug data only.
+    // It must never be authoritative for contribution accounting,
+    // phase allocation, CorePoints, or referral economics.
+    const clientUsdValueNum = toNum(usd_value, 0);
+
+    let usdValueNum = 0;
+
+    const idemKey = (idempotency_key || idemHeader || '').trim() || null;
+
+    // ✅ Guard: Solana record requires a destination wallet env
+    if (
+      networkNorm === 'solana' &&
+      !COINCARNE_TREASURY_WALLET
+    ) {
+      console.error(
+        '[COINCARNATION_RECORD] Missing env: COINCARNE_TREASURY_SOL'
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'COINCARNE_TREASURY_SOL_MISSING',
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    // ✅ token_contract'ı DB için kesinleştir
+    const tokenContractFinal = normalizeTokenContractForDb({ token_symbol, token_contract });
+
+    // SPL için mint zorunlu (SOL zaten WSOL ile normalize olur)
+    if (!tokenContractFinal) {
+      return NextResponse.json(
+        { success: false, error: 'token_contract (mint) is required for SPL tokens' },
+        { status: 400 }
+      );
+    }
+
+    // ——— Varlık türünü türet ———
+    const isSolSymbol = String(token_symbol).toUpperCase() === 'SOL';
+    const derivedKind: 'sol' | 'spl' =
+      isSolSymbol && tokenContractFinal === WSOL_MINT ? 'sol' : 'spl';
+
+    // SECURITY:
+    // Asset kind is derived exclusively by the server.
+    // Never allow the client to choose which on-chain verification path runs.
+    const assetKindFinal: 'sol' | 'spl' = derivedKind;
+
+    // ——— On-chain confirm (polling ile ZORUNLU) ———
+    if (
+      !DISABLE_CONFIRM &&
+      networkNorm === 'solana' &&
+      transaction_signature
+    ) {
+      console.log(
+        '⏳ waiting for on-chain confirmation of',
+        transaction_signature,
+      );
+      const ok = await waitForSolanaConfirm(transaction_signature);
+      if (!ok) {
+        console.warn(
+          '❌ Tx NOT confirmed on-chain within timeout, aborting record:',
+          transaction_signature,
+        );
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'Transaction is not confirmed on Solana yet. Record aborted.',
+          },
+          { status: 409 },
+        );
+      }
+      console.log('✅ Tx confirmed on-chain:', transaction_signature);
+      console.log('[RECORDTIMING] confirm:done', {
+        elapsed: `${Date.now() - t0}ms`,
+        signature: transaction_signature,
+      });
+    }
+
+    // ✅ On-chain transfer verification (dest’e gerçekten gitti mi?)
+    if (networkNorm === 'solana') {
+      const fromWallet = String(wallet_address).trim();
+      const destWallet = String(COINCARNE_TREASURY_WALLET).trim();
+
+      console.log('🔎 verifying transfer:', {
+        sig: String(transaction_signature).trim(),
+        kind: assetKindFinal,
+        mint: tokenContractFinal,
+        amount: tokenAmountNum,
+        dest: COINCARNE_TREASURY_WALLET,
+      });
+
+      try {
+        await verifySolanaTransferOrThrow({
+          signature: String(transaction_signature).trim(),
+          fromWallet,
+          destWallet,
+          kind: assetKindFinal,
+          mint: tokenContractFinal,
+          amountUi: tokenAmountNum,
+        });
+      } catch (e: any) {
+        console.warn('❌ TRANSFER_NOT_VERIFIED:', e?.message || e);
+        return NextResponse.json(
+          { success: false, error: 'TRANSFER_NOT_VERIFIED', detail: String(e?.message || e) },
+          { status: 409 },
+        );
+      }
+      console.log('[RECORDTIMING] verify:done', {
+        elapsed: `${Date.now() - t0}ms`,
+        signature: transaction_signature,
+      });
+    }
+
+    // ✅ SECURITY: authoritative server-side USD valuation
+    // Never trust usd_value supplied by the client for economic accounting.
+    if (networkNorm === 'solana') {
+      try {
+        const priceResult = await getUsdValue({
+          mint: tokenContractFinal,
+          amount: tokenAmountNum,
+          symbol: assetKindFinal === 'sol' ? 'SOL' : String(token_symbol || ''),
+        });
+
+        if (priceResult.status === 'error') {
+          console.error('[COINCARNATION_RECORD] Server pricing error:', {
+            mint: tokenContractFinal,
+            amount: tokenAmountNum,
+            error: priceResult.error,
+          });
+
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'PRICE_VERIFICATION_FAILED',
+            },
+            { status: 503 },
+          );
+        }
+
+        // "not_found" is intentionally allowed:
+        // price-less assets may continue through the deadcoin/status flow with USD = 0.
+        usdValueNum =
+          priceResult.status === 'found' &&
+            Number.isFinite(priceResult.usdValue) &&
+            priceResult.usdValue > 0
+            ? priceResult.usdValue
+            : 0;
+
+        const delta =
+          clientUsdValueNum > 0 || usdValueNum > 0
+            ? Math.abs(clientUsdValueNum - usdValueNum)
+            : 0;
+
+        console.log('[COINCARNATION_RECORD] USD valuation:', {
+          mint: tokenContractFinal,
+          amount: tokenAmountNum,
+          clientUsdValue: clientUsdValueNum,
+          serverUsdValue: usdValueNum,
+          delta,
+          pricingStatus: priceResult.status,
+          pricingSources: priceResult.sources,
+        });
+      } catch (e: any) {
+        console.error(
+          '[COINCARNATION_RECORD] Server pricing exception:',
+          e?.message || e,
+        );
+
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'PRICE_VERIFICATION_FAILED',
+          },
+          { status: 503 },
+        );
+      }
+    }
+
+    // ✅ SOL için registry yok: SOL'u DB'de WSOL_MINT ile temsil ediyoruz
+    const hasMint = assetKindFinal === 'spl';
+
+    let tokenStatus: TokenStatus | null = null;
+    let isDeadcoinByStatus = false;
+
+    if (hasMint) {
+      try {
+        const reg = await getStatusRow(tokenContractFinal);
+        tokenStatus = (reg?.status ?? null) as TokenStatus | null;
+
+        if (tokenStatus === 'blacklist') {
+          return NextResponse.json(
+            { success: false, error: 'This token is blacklisted.' },
+            { status: 403 },
+          );
+        }
+        if (tokenStatus === 'redlist') {
+          return NextResponse.json(
+            { success: false, error: 'This token is redlisted.' },
+            { status: 403 },
+          );
+        }
+
+        if (tokenStatus === 'deadcoin') {
+          isDeadcoinByStatus = true;
+        }
+      } catch (e) {
+        console.error(
+          '❌ registry check failed; Coincarnation blocked:',
+          (e as any)?.message || e
+        );
+
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'TOKEN_REGISTRY_CHECK_FAILED',
+          },
+          { status: 503 }
+        );
+      }
+    }
+
+    // ——— Idempotency ———
+    try {
+      if (txHashOrSig) {
+        const dup = await sql`
+          SELECT id FROM contributions
+          WHERE network = ${networkNorm}
+            AND (tx_hash = ${txHashOrSig} OR transaction_signature = ${txHashOrSig})
+          LIMIT 1
+        `;
+        if (dup.length > 0) {
+          const existingId = dup[0].id as number;
+          const stableTxId = String(existingId);
+
+          return NextResponse.json({
+            success: true,
+            duplicate: true,
+            id: existingId,
+            via: 'tx_hash/transaction_signature',
+            transaction_signature: txHashOrSig,
+            tx_id: stableTxId,
+            txId: stableTxId,
+          });
+        }
+      }
+
+      if (idemKey) {
+        const dup2 = await sql`
+          SELECT id FROM contributions
+          WHERE network = ${networkNorm}
+            AND idempotency_key = ${idemKey}
+          LIMIT 1
+        `;
+        if (dup2.length > 0) {
+          const existingId = dup2[0].id as number;
+          const stableTxId = String(existingId);
+
+          return NextResponse.json({
+            success: true,
+            duplicate: true,
+            id: existingId,
+            via: 'idempotency_key',
+            transaction_signature: txHashOrSig,
+            tx_id: stableTxId,
+            txId: stableTxId,
+          });
+        }
+      }
+    } catch (e) {
+      console.warn(
+        '⚠️ idempotency check failed, continuing:',
+        (e as any)?.message || e,
+      );
+    }
+
+    // ——— Participants ———
+    let userReferralCode = '';
+    let referrerWallet: string | null = null;
+    let isNewParticipant = false;
+
+    try {
+      const existing = await sql`
+        SELECT referral_code, referrer_wallet
+        FROM participants
+        WHERE wallet_address = ${wallet_address}
+          AND network        = ${networkNorm}
+        LIMIT 1
+      `;
+
+      if (existing.length === 0) {
+        isNewParticipant = true;
+
+        // Referral eligibility applies only to a wallet's first
+        // Coincarnation in the current environment.
+        // Existing Identities cannot establish a new referral relationship.
+        if (inboundReferral) {
+          const previousContributionRows = await sql`
+            SELECT id
+            FROM contributions
+            WHERE wallet_address = ${wallet_address}
+              AND network = ${networkNorm}
+              AND is_test = ${PUBLIC_COINCARNATION_IS_TEST}
+            LIMIT 1
+          `;
+
+          const existingIdentityRows = await sql`
+            SELECT identity_id
+            FROM identity_wallets
+            WHERE chain = 'solana'
+              AND LOWER(wallet_address) = LOWER(${wallet_address})
+            LIMIT 1
+          `;
+
+          if (
+            previousContributionRows.length > 0 ||
+            existingIdentityRows.length > 0
+          ) {
+            inboundReferral = null;
+          }
+        }
+
+        // Resolve the contributor's existing Solana Identity.
+        // A referral must never point back to the same Identity.
+        let contributorIdentityId: string | null = null;
+
+        if (inboundReferral) {
+          const contributorIdentityRows = await sql`
+            SELECT identity_id
+            FROM identity_wallets
+            WHERE chain = 'solana'
+              AND LOWER(wallet_address) = LOWER(${wallet_address})
+            LIMIT 1
+          `;
+
+          contributorIdentityId = contributorIdentityRows[0]?.identity_id
+            ? String(contributorIdentityRows[0].identity_id)
+            : null;
+        }
+
+        // inboundReferral varsa referrer wallet'ı identity-first çöz
+        if (inboundReferral) {
+          // 1) Identity referral codes — new system
+          const identityReferralRows = await sql/* sql */`
+            SELECT
+              irc.identity_id,
+              iw.wallet_address
+            FROM identity_referral_codes irc
+            JOIN identity_wallets iw
+              ON iw.identity_id = irc.identity_id
+            AND iw.is_primary = true
+            AND iw.chain = 'solana'
+            WHERE LOWER(irc.referral_code) = LOWER(${inboundReferral})
+            LIMIT 1
+          `;
+
+          if (identityReferralRows.length > 0) {
+            const matchedIdentityId = String(identityReferralRows[0].identity_id);
+            const matchedWallet = String(identityReferralRows[0].wallet_address);
+
+            const isOwnWallet =
+              matchedWallet.toLowerCase() ===
+              String(wallet_address).toLowerCase();
+
+            const isOwnIdentity =
+              contributorIdentityId !== null &&
+              matchedIdentityId === contributorIdentityId;
+
+            if (!isOwnWallet && !isOwnIdentity) {
+              referrerWallet = matchedWallet;
+            }
+          } else {
+            // 2) Legacy participant referral codes — fallback
+            const legacyReferralRows = await sql/* sql */`
+              SELECT wallet_address
+              FROM participants
+              WHERE LOWER(referral_code) = LOWER(${inboundReferral})
+              LIMIT 1
+            `;
+
+            if (legacyReferralRows.length > 0) {
+              const legacyWallet = String(legacyReferralRows[0].wallet_address);
+
+              const isOwnWallet =
+                legacyWallet.toLowerCase() ===
+                String(wallet_address).toLowerCase();
+
+              let isOwnIdentity = false;
+
+              if (!isOwnWallet && contributorIdentityId) {
+                const legacyIdentityRows = await sql`
+                  SELECT identity_id
+                  FROM identity_wallets
+                  WHERE chain = 'solana'
+                    AND LOWER(wallet_address) = LOWER(${legacyWallet})
+                  LIMIT 1
+                `;
+
+                isOwnIdentity =
+                  legacyIdentityRows.length > 0 &&
+                  String(legacyIdentityRows[0].identity_id) === contributorIdentityId;
+              }
+
+              if (!isOwnWallet && !isOwnIdentity) {
+                referrerWallet = legacyWallet;
+              }
+            }
+          }
+        }
+
+        // Yeni kullanıcının kendi referral kodu
+        userReferralCode = generateReferralCode();
+
+        await sql`
+          INSERT INTO participants (
+            wallet_address,
+            network,
+            referral_code,
+            referrer_wallet
+          )
+          VALUES (
+            ${wallet_address},
+            ${networkNorm},
+            ${userReferralCode},
+            ${referrerWallet}
+          )
+          ON CONFLICT (wallet_address, network) DO NOTHING
+        `;
+      } else {
+        userReferralCode =
+          existing[0].referral_code || generateReferralCode();
+        referrerWallet = existing[0].referrer_wallet;
+
+        // Eski kayıtta referral_code yoksa doldur
+        if (!existing[0].referral_code) {
+          await sql`
+            UPDATE participants
+               SET referral_code = ${userReferralCode}
+             WHERE wallet_address = ${wallet_address}
+               AND network        = ${networkNorm}
+          `;
+        }
+      }
+
+      // Emniyet: her durumda boş kalmasın
+      if (!userReferralCode) {
+        userReferralCode = generateReferralCode();
+        await sql`
+          UPDATE participants
+             SET referral_code = ${userReferralCode}
+           WHERE wallet_address = ${wallet_address}
+             AND network        = ${networkNorm}
+        `;
+      }
+    } catch (e) {
+      console.error(
+        '❌ participants upsert failed:',
+        (e as any)?.message || e,
+      );
+      return NextResponse.json(
+        { success: false, error: 'participants upsert failed' },
+        { status: 500 },
+      );
+    }
+
+    // Referral CP is awarded only after the referred wallet creates a NEW identity.
+    // Transaction recording only stores referral metadata on participants/contributions.
+    if (isNewParticipant && referrerWallet) {
+      console.log('🧭 referral metadata stored; identity reward pending:', {
+        referrerWallet,
+        refereeWallet: wallet_address,
+        referralCode: inboundReferral,
+      });
+    }
+
+    // ——— Contributions için referral metadata ———
+    // Always use the participant's persisted referral relationship.
+    // An ON CONFLICT DO NOTHING may have skipped our attempted insert.
+    const persistedParticipant = await sql`
+        SELECT referral_code, referrer_wallet
+        FROM participants
+        WHERE wallet_address = ${wallet_address}
+          AND network = ${networkNorm}
+        LIMIT 1
+      `;
+
+    if (persistedParticipant.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'PARTICIPANT_NOT_FOUND' },
+        { status: 500 }
+      );
+    }
+
+    userReferralCode =
+      String(persistedParticipant[0].referral_code || '');
+
+    referrerWallet =
+      persistedParticipant[0].referrer_wallet
+        ? String(persistedParticipant[0].referrer_wallet)
+        : null;
+
+    const contribReferralCode: string | null =
+      userReferralCode || null;
+
+    const contribReferrerWallet: string | null =
+      referrerWallet;
+
+    // ——— Phase allocation: ALWAYS queue, allocator will place FIFO ———
+    const phaseIdForContribution: number | null = null;
+    const allocPhaseNoForContribution: number | null = null;
+    const allocStatusForContribution: string | null = 'unassigned';
+
+    const sig =
+      transaction_signature && String(transaction_signature).trim()
+        ? String(transaction_signature).trim()
+        : null;
+
+    const hash =
+      tx_hash && String(tx_hash).trim()
+        ? String(tx_hash).trim()
+        : null;
+
+    console.log('🧾 tx ids resolved:', {
+      sig,
+      hash,
+      networkNorm,
+    });
+
+    // ——— CONTRIBUTIONS: INSERT (deterministic + safe) ———
+    let insertedId: number | null = null;
+
+    try {
+      // IMPORTANT: conflict target must match a REAL unique index
+      // - if hash exists => ON CONFLICT (network, tx_hash)
+      // - else          => ON CONFLICT (network, transaction_signature)
+
+      let insertResult: any;
+
+      console.log(
+        '⚙️ conflict mode:',
+        hash ? 'hash (network, tx_hash)' : 'sig (network, transaction_signature)'
+      );
+
+      if (hash) {
+        insertResult = await sql`
+          INSERT INTO contributions (
+            wallet_address, token_symbol, token_contract, network,
+            token_amount, usd_value,
+            transaction_signature, tx_hash, tx_block,
+            idempotency_key, user_agent, "timestamp",
+            referral_code, referrer_wallet, asset_kind,
+            phase_id, alloc_phase_no, alloc_status, alloc_updated_at, is_test
+          ) VALUES (
+            ${wallet_address}, ${token_symbol}, ${tokenContractFinal}, ${networkNorm},
+            ${tokenAmountNum}, ${usdValueNum},
+            ${sig}, ${hash}, ${tx_block ?? null},
+            ${idemKey}, ${user_agent || ''}, NOW(),
+            ${contribReferralCode}, ${contribReferrerWallet}, ${assetKindFinal},
+            ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW(), ${PUBLIC_COINCARNATION_IS_TEST}
+          )
+          ON CONFLICT ON CONSTRAINT contributions_network_txhash_key DO NOTHING
+          RETURNING id;
+        `;
+      } else if (sig) {
+        insertResult = await sql`
+          INSERT INTO contributions (
+            wallet_address, token_symbol, token_contract, network,
+            token_amount, usd_value,
+            transaction_signature, tx_hash, tx_block,
+            idempotency_key, user_agent, "timestamp",
+            referral_code, referrer_wallet, asset_kind,
+            phase_id, alloc_phase_no, alloc_status, alloc_updated_at, is_test
+          ) VALUES (
+            ${wallet_address}, ${token_symbol}, ${tokenContractFinal}, ${networkNorm},
+            ${tokenAmountNum}, ${usdValueNum},
+            ${sig}, NULL, ${tx_block ?? null},
+            ${idemKey}, ${user_agent || ''}, NOW(),
+            ${contribReferralCode}, ${contribReferrerWallet}, ${assetKindFinal},
+            ${phaseIdForContribution}, ${allocPhaseNoForContribution}, ${allocStatusForContribution}, NOW(), ${PUBLIC_COINCARNATION_IS_TEST}
+          )
+          ON CONFLICT ON CONSTRAINT contributions_network_signature_key DO NOTHING
+          RETURNING id;
+        `;
+      } else {
+        return NextResponse.json(
+          { success: false, error: 'MISSING_TX_ID' },
+          { status: 400 }
+        );
+      }
+
+      insertedId = insertResult?.[0]?.id != null ? Number(insertResult[0].id) : null;
+
+      // If DO NOTHING happened, fetch existing id and treat as duplicate success
+      if (!insertedId) {
+        const exists = await sql`
+          SELECT
+            id,
+            is_test
+          FROM contributions
+          WHERE network = ${networkNorm}
+            AND (
+              (${hash} IS NOT NULL AND tx_hash = ${hash})
+              OR
+              (${sig} IS NOT NULL AND transaction_signature = ${sig})
+            )
+          LIMIT 1
+        `;
+
+        if (exists?.length) {
+          const existingId =
+            Number(exists[0].id);
+
+          const existingIsTest =
+            Boolean(exists[0].is_test);
+
+          if (
+            existingIsTest !==
+            PUBLIC_COINCARNATION_IS_TEST
+          ) {
+            return NextResponse.json(
+              {
+                success: false,
+                error:
+                  'CONTRIBUTION_SCOPE_MISMATCH',
+              },
+              { status: 409 }
+            );
+          }
+
+          return NextResponse.json({
+            success: true,
+            duplicate: true,
+            id: existingId,
+            transaction_signature:
+              txHashOrSig,
+            tx_id: String(existingId),
+            txId: String(existingId),
+          });
+        }
+
+        return NextResponse.json(
+          { success: false, error: 'DB_INSERT_FAILED_NO_ROW' },
+          { status: 500 }
+        );
+      }
+
+      console.log('📝 contribution inserted id:', insertedId);
+      console.log('[RECORDTIMING] insert:done', {
+        elapsed: `${Date.now() - t0}ms`,
+        insertedId,
+      });
+    } catch (e: any) {
+      console.error('❌ contribution insert failed:', e?.message || e);
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'contribution insert failed',
+          detail: String(e?.message || e),
+        },
+        { status: 500 },
+      );
+    }
+
+    let allocator: any = null;
+    let allocatorError: string | null = null;
+    let allocator2: any = null;
+    let allocator2Error: string | null = null;
+    let phaseFlowRounds: any[] = [];
+
+    try {
+      const flow = await settlePhaseFlow(
+        6,
+        PUBLIC_COINCARNATION_IS_TEST
+      );
+
+      allocator = flow.allocator;
+      allocatorError = flow.allocatorError;
+
+      adv = flow.phaseAdvance;
+      allocator2 = null;
+      allocator2Error = flow.phaseAdvanceError;
+
+      phaseFlowRounds = Array.isArray(flow.rounds) ? flow.rounds : [];
+      console.log('[RECORDTIMING] settlePhaseFlow:done', {
+        elapsed: `${Date.now() - t0}ms`,
+        rounds: Array.isArray(phaseFlowRounds) ? phaseFlowRounds.length : 0,
+      });
+    } catch (e: any) {
+      console.warn('⚠️ settlePhaseFlow failed:', e?.message || e);
+    }
+
+    // ——— CorePoint: USD + Deadcoin (corepoint_events tablosu) ———
+    const stableTxId = txHashOrSig ? String(txHashOrSig) : null;
+
+    // 🔍 Deadcoin tespiti (local):
+    //  - fiyat tabanlı: usd_value === 0 && mint varsa
+    //  - statü tabanlı: token_registry.status === 'deadcoin'
+    // sadece SPL için price=0 → deadcoin adayı; SOL'u burada deadcoin sayma
+    const isDeadcoinByPrice = usdValueNum === 0 && tokenContractFinal !== WSOL_MINT;
+
+    const isDeadcoin = isDeadcoinByPrice || isDeadcoinByStatus;
+
+    // SECURITY:
+    // Reward decisions fail closed.
+    // For SPL assets, rewards are enabled only after /api/status
+    // explicitly authorizes them.
+    let rewardCorePoints: 'none' | 'standard' =
+      hasMint ? 'none' : (usdValueNum > 0 ? 'standard' : 'none');
+
+    let rewardDeadcoinBonus: 'none' | 'standard' = 'none';
+
+    // Eğer mint varsa, gerçek decision.reward bilgisini /api/status'tan çekelim.
+    if (hasMint) {
+      try {
+        const statusUrl = new URL(
+          `/api/status?mint=${encodeURIComponent(tokenContractFinal)}`,
+          req.url,
+        );
+        const r = await fetch(statusUrl.toString(), { cache: 'no-store' });
+
+        if (r.ok) {
+          const js: any = await r.json();
+          const rw = js?.decision?.reward;
+          if (rw) {
+            // computeEffectiveDecision içindeki reward haritasını kullan
+            rewardCorePoints =
+              rw.corePoints === 'standard' ? 'standard' : 'none';
+            rewardDeadcoinBonus =
+              rw.deadcoinBonus === 'standard' ? 'standard' : 'none';
+          }
+        } else {
+          console.warn(
+            '⚠️ /api/status responded non-OK for reward decision:',
+            r.status,
+          );
+        }
+      } catch (e) {
+        console.warn(
+          '⚠️ failed to fetch /api/status for reward decision:',
+          (e as any)?.message || e,
+        );
+      }
+    }
+
+    try {
+      // 💵 USD katkısı:
+      //  - decision.reward.corePoints === 'standard' OLMALI
+      //  - bu işleme ait usdValue > 0 OLMALI
+      //  - txId olmalı (idempotent insert için)
+      if (
+        rewardCorePoints === 'standard' &&
+        usdValueNum > 0 &&
+        stableTxId
+      ) {
+        await awardUsdPoints({
+          wallet: wallet_address,
+          usdValue: usdValueNum,
+          txId: stableTxId,
+        });
+      }
+
+      // 💀 Deadcoin bonusu:
+      //  - decision.reward.deadcoinBonus === 'standard' olmalı
+      //  - token bu kayıt bağlamında deadcoin sayılıyor olmalı (isDeadcoin)
+      //  - token_contract olmalı
+      if (
+        rewardDeadcoinBonus === 'standard' &&
+        isDeadcoin &&
+        hasMint
+      ) {
+        await awardDeadcoinFirst({
+          wallet: wallet_address,
+          tokenContract: tokenContractFinal,
+          txId: stableTxId,
+        });
+      }
+    } catch (e) {
+      console.warn(
+        '⚠️ CorePoint award (usd/deadcoin) failed:',
+        (e as any)?.message || e,
+      );
+    }
+
+
+    // ——— Kullanıcı numarası ———
+    let number = 0;
+    try {
+      const result = await sql`
+        SELECT id
+        FROM participants
+        WHERE wallet_address = ${wallet_address}
+          AND network = ${networkNorm}
+      `;
+      number = result[0]?.id ?? 0;
+    } catch { }
+
+    console.log('[RECORDTIMING] total:success', {
+      elapsed: `${Date.now() - t0}ms`,
+      insertedId,
+      tx: txHashOrSig,
+    });
+
+    return NextResponse.json({
+      success: true,
+      id: insertedId,
+      number,
+      referral_code: userReferralCode,
+
+      transaction_signature: txHashOrSig,
+      tx_id: stableTxId,
+      txId: stableTxId,
+
+      message: '✅ Coincarnation recorded',
+      allocator,
+      allocator2,
+      allocatorError,
+      allocator2Error,
+      phaseFlowRounds,
+      recompute: null,
+      phaseAdvance: adv ?? null,
+
+    });
+  } catch (error: any) {
+    console.error('❌ Record API Error:', error?.message || error);
+    console.log('[RECORDTIMING] total:error', {
+      elapsed: `${Date.now() - t0}ms`,
+      error: String(error?.message || error),
+    });
+    const status = Number(error?.status) || 500;
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message || 'Unknown server error',
+      },
+      { status },
+    );
+  }
+}
