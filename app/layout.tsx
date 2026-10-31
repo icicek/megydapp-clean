@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     description: 'Unite deadcoins, rescue value, and join the Fair Future Fund.',
     images: [
       {
-        url: absoluteUrl('/og-image.png'),
+        url: absoluteUrl('/coincarnation-social-v2.png'),
         width: 1200,
         height: 630,
         alt: 'Coincarnation — Unite Deadcoins. Fund the Future.',
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Coincarnation — Unite Deadcoins. Fund the Future.',
     description: 'Unite deadcoins, rescue value, and join the Fair Future Fund.',
-    images: [absoluteUrl('/og-image.png')],
+    images: [absoluteUrl('/coincarnation-social-v2.png')],
   },
 };
 
